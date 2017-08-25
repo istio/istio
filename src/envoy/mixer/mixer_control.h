@@ -82,8 +82,9 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
       Upstream::HostDescriptionConstSharedPtr upstreamHost) const;
 
   // Make remote check call.
-  void SendCheck(HttpRequestDataPtr request_data, const HeaderMap* headers,
-                 ::istio::mixer_client::DoneFunc on_done);
+  istio::mixer_client::CancelFunc SendCheck(
+      HttpRequestDataPtr request_data, const HeaderMap* headers,
+      ::istio::mixer_client::DoneFunc on_done);
 
   // Make remote report call.
   void SendReport(HttpRequestDataPtr request_data);

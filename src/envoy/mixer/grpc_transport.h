@@ -35,9 +35,9 @@ template <class RequestType, class ResponseType>
 class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
                       public Logger::Loggable<Logger::Id::http> {
  public:
-  using Func =
-      std::function<void(const RequestType& request, ResponseType* response,
-                         istio::mixer_client::DoneFunc on_done)>;
+  using Func = std::function<istio::mixer_client::CancelFunc(
+      const RequestType& request, ResponseType* response,
+      istio::mixer_client::DoneFunc on_done)>;
 
   using AsyncClient = Grpc::AsyncClient<RequestType, ResponseType>;
 

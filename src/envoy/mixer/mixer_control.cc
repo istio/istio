@@ -223,16 +223,17 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
   mixer_config_.ExtractQuotaAttributes(&quota_attributes_);
 }
 
-void MixerControl::SendCheck(HttpRequestDataPtr request_data,
-                             const HeaderMap* headers, DoneFunc on_done) {
+istio::mixer_client::CancelFunc MixerControl::SendCheck(
+    HttpRequestDataPtr request_data, const HeaderMap* headers,
+    DoneFunc on_done) {
   if (!mixer_client_) {
     on_done(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
-    return;
+    return nullptr;
   }
   log().debug("Send Check: {}", request_data->attributes.DebugString());
-  mixer_client_->Check(request_data->attributes,
-                       CheckTransport::GetFunc(cm_, headers), on_done);
+  return mixer_client_->Check(request_data->attributes,
+                              CheckTransport::GetFunc(cm_, headers), on_done);
 }
 
 void MixerControl::SendReport(HttpRequestDataPtr request_data) {

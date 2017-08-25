@@ -105,12 +105,14 @@ typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm,
                                                   const HeaderMap* headers) {
   return [&cm, headers](const RequestType& request, ResponseType* response,
-                        istio::mixer_client::DoneFunc on_done) {
-    new GrpcTransport<RequestType, ResponseType>(
+                        istio::mixer_client::DoneFunc
+                            on_done) -> istio::mixer_client::CancelFunc {
+    auto transport = new GrpcTransport<RequestType, ResponseType>(
         typename GrpcTransport<RequestType, ResponseType>::AsyncClientPtr(
             new Grpc::AsyncClientImpl<RequestType, ResponseType>(
                 cm, kMixerServerClusterName)),
         request, headers, response, on_done);
+    return [transport]() { transport->request_->cancel(); };
   };
 }
 

@@ -58,12 +58,11 @@ typedef std::shared_ptr<TcpConfig> TcpConfigPtr;
 
 class TcpInstance : public Network::Filter,
                     public Network::ConnectionCallbacks,
-                    public Logger::Loggable<Logger::Id::filter>,
-                    public std::enable_shared_from_this<TcpInstance> {
+                    public Logger::Loggable<Logger::Id::filter> {
  private:
   enum class State { NotStarted, Calling, Completed, Closed };
 
-  TcpConfigPtr config_;
+  istio::mixer_client::CancelFunc cancel_check_;
   MixerControl& mixer_control_;
   std::shared_ptr<HttpRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
@@ -75,14 +74,21 @@ class TcpInstance : public Network::Filter,
   std::chrono::time_point<std::chrono::system_clock> start_time_;
 
  public:
-  TcpInstance(TcpConfigPtr config)
-      : config_(config), mixer_control_(config->mixer_control()) {
+  TcpInstance(TcpConfigPtr config) : mixer_control_(config->mixer_control()) {
     log().debug("Called TcpInstance: {}", __func__);
   }
-  ~TcpInstance() { log().debug("Called TcpInstance : {}", __func__); }
 
-  // Returns a shared pointer of this object.
-  std::shared_ptr<TcpInstance> GetPtr() { return shared_from_this(); }
+  ~TcpInstance() {
+    if (state_ != State::Calling) {
+      cancel_check_ = nullptr;
+    }
+    state_ = State::Closed;
+    if (cancel_check_) {
+      log().debug("Cancelling check call");
+      cancel_check_();
+    }
+    log().debug("Called TcpInstance : {}", __func__);
+  }
 
   void initializeReadFilterCallbacks(
       Network::ReadFilterCallbacks& callbacks) override {
@@ -125,14 +131,12 @@ class TcpInstance : public Network::Filter,
       }
 
       filter_callbacks_->connection().readDisable(true);
-      auto instance = GetPtr();
       calling_check_ = true;
       mixer_control_.BuildTcpCheck(
           request_data_, filter_callbacks_->connection(), origin_user);
-      mixer_control_.SendCheck(request_data_, nullptr,
-                               [instance](const Status& status) {
-                                 instance->completeCheck(status);
-                               });
+      cancel_check_ = mixer_control_.SendCheck(
+          request_data_, nullptr,
+          [this](const Status& status) { completeCheck(status); });
       calling_check_ = false;
     }
     return state_ == State::Calling ? Network::FilterStatus::StopIteration

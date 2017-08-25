@@ -125,12 +125,11 @@ class Config : public Logger::Loggable<Logger::Id::http> {
 typedef std::shared_ptr<Config> ConfigPtr;
 
 class Instance : public Http::StreamDecoderFilter,
-                 public Http::AccessLog::Instance,
-                 public std::enable_shared_from_this<Instance> {
+                 public Http::AccessLog::Instance {
  private:
   MixerControl& mixer_control_;
-  ConfigPtr config_;
   std::shared_ptr<HttpRequestData> request_data_;
+  istio::mixer_client::CancelFunc cancel_check_;
 
   enum State { NotStarted, Calling, Complete, Responded };
   State state_;
@@ -196,15 +195,11 @@ class Instance : public Http::StreamDecoderFilter,
  public:
   Instance(ConfigPtr config)
       : mixer_control_(config->mixer_control()),
-        config_(config),
         state_(NotStarted),
         initiating_call_(false),
         check_status_code_(HttpCode(StatusCode::UNKNOWN)) {
     Log().debug("Called Mixer::Instance : {}", __func__);
   }
-
-  // Returns a shared pointer of this object.
-  std::shared_ptr<Instance> GetPtr() { return shared_from_this(); }
 
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     Log().debug("Called Mixer::Instance : {}", __func__);
@@ -248,10 +243,9 @@ class Instance : public Http::StreamDecoderFilter,
           headers, GetRouteStringMap(kPrefixForwardAttributes));
     }
 
-    auto instance = GetPtr();
-    mixer_control_.SendCheck(
+    cancel_check_ = mixer_control_.SendCheck(
         request_data_, &headers,
-        [instance](const Status& status) { instance->completeCheck(status); });
+        [this](const Status& status) { completeCheck(status); });
     initiating_call_ = false;
 
     if (state_ == Complete) {
@@ -314,7 +308,18 @@ class Instance : public Http::StreamDecoderFilter,
     }
   }
 
-  void onDestroy() override { state_ = Responded; }
+  void onDestroy() override {
+    Log().debug("Called Mixer::Instance : {} state: {}", __func__, state_);
+    if (state_ != Calling) {
+      cancel_check_ = nullptr;
+    }
+    state_ = Responded;
+    if (cancel_check_) {
+      Log().debug("Cancelling check call");
+      cancel_check_();
+      cancel_check_ = nullptr;
+    }
+  }
 
   virtual void log(const HeaderMap*, const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
