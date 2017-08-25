@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "config.go",
         "gcp.go",
         "nafactory.go",
         "nodeagent.go",
@@ -25,7 +26,10 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["gcp_test.go"],
+    srcs = [
+      "gcp_test.go",
+      "nodeagent_test.go",
+    ],
     library = ":go_default_library",
     deps = ["@org_golang_google_grpc//:go_default_library"],
 )
