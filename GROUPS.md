@@ -6,6 +6,8 @@ Working Groups follow the [contributing](CONTRIBUTING.md) guidelines although ea
 
 When the need arises, a new working group can be created, please contact the [istio-core](https://groups.google.com/forum/#!forum/istio-core) working group if you think a new group is necessary.
 
+The working groups generate design docs which are kept in a [shared drive](https://drive.google.com/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA) and are available for anyone to read. You have to request access to the drive, something we're stuck with sadly, but once you do you'll have access to all the docs and won't need to request access for each of them individually.
+
 ## Master Working Group List
 
 | Name | Leads | Mailing List | Example Topics |
