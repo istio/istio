@@ -22,7 +22,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/googleapis/gax-go"
+	gax "github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
 	gapiopts "google.golang.org/api/option"
 	labelpb "google.golang.org/genproto/googleapis/api/label"

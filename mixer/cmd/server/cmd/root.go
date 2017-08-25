@@ -22,11 +22,12 @@ import (
 	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/template"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, tmplRepo template.Repository, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",
@@ -50,7 +51,8 @@ func GetRootCmd(args []string, tmplRepo template.Repository, printf, fatalf shar
 	flag.CommandLine = fs
 
 	rootCmd.AddCommand(adapterCmd(printf))
-	rootCmd.AddCommand(serverCmd(tmplRepo, printf, fatalf))
+	rootCmd.AddCommand(serverCmd(template.NewRepository(info), adapters, printf, fatalf))
+	rootCmd.AddCommand(crdCmd(info, adapters, printf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd

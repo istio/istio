@@ -55,7 +55,7 @@ func GetRootCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 func work(printf, fatalf shared.FormatFn, outputDir string) {
 	roots := []*cobra.Command{
 		mixc.GetRootCmd(nil, nil, nil),
-		mixs.GetRootCmd(nil, nil, nil, nil),
+		mixs.GetRootCmd(nil, nil, nil, nil, nil),
 	}
 
 	printf("Outputting Mixer CLI collateral files to %s", outputDir)

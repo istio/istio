@@ -11,8 +11,10 @@ go_binary(
     linkstamp = "istio.io/mixer/pkg/version",
     visibility = ["//visibility:public"],
     deps = [
+        "//adapter:go_default_library",
         "//cmd/server/cmd:go_default_library",
         "//cmd/shared:go_default_library",
+        "//pkg/adapter:go_default_library",
         "//pkg/template:go_default_library",
         "//template:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
