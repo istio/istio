@@ -17,7 +17,9 @@ package crd
 import (
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -61,6 +63,15 @@ func (b *dynamicListerWatcherBuilder) build(res metav1.APIResource) cache.Lister
 func NewStore(u *url.URL) (store.Store2Backend, error) {
 	kubeconfig := u.Path
 	namespaces := u.Query().Get("ns")
+	retryTimeout := crdRetryTimeout
+	retryTimeoutParam := u.Query().Get("retry-timeout")
+	if retryTimeoutParam != "" {
+		if timeout, err := time.ParseDuration(retryTimeoutParam); err == nil {
+			retryTimeout = timeout
+		} else {
+			glog.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
+		}
+	}
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
@@ -69,6 +80,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 	conf.GroupVersion = &schema.GroupVersion{Group: apiGroup, Version: apiVersion}
 	s := &Store{
 		conf:                 conf,
+		retryTimeout:         retryTimeout,
 		discoveryBuilder:     defaultDiscoveryBuilder,
 		listerWatcherBuilder: newDynamicListenerWatcherBuilder,
 	}

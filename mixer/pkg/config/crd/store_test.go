@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,9 @@ import (
 
 	"istio.io/mixer/pkg/config/store"
 )
+
+// The "retryTimeout" used by the test.
+const testingRetryTimeout = 10 * time.Millisecond
 
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
@@ -127,6 +131,7 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	}
 	client := &Store{
 		conf:             &rest.Config{},
+		retryTimeout:     testingRetryTimeout,
 		discoveryBuilder: createFakeDiscovery,
 		listerWatcherBuilder: func(*rest.Config) (listerWatcherBuilderInterface, error) {
 			return lw, nil
@@ -221,17 +226,69 @@ func TestStoreFailToInit(t *testing.T) {
 	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy" {
 		t.Errorf("Got %v, Want dummy error", err)
 	}
-	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
-		return &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}, nil
-	}
-	if err := s.Init(ctx, []string{"Handler", "Action"}); err == nil {
-		t.Errorf("Got nil, want error")
-	}
 	s.discoveryBuilder = createFakeDiscovery
 	s.listerWatcherBuilder = func(*rest.Config) (listerWatcherBuilderInterface, error) {
 		return nil, errors.New("dummy2")
 	}
 	if err := s.Init(ctx, []string{"Handler", "Action"}); err.Error() != "dummy2" {
 		t.Errorf("Got %v, Want dummy2 error", err)
+	}
+}
+
+func TestCrdsAreNotReady(t *testing.T) {
+	emptyDiscovery := &fake.FakeDiscovery{Fake: &k8stesting.Fake{}}
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return emptyDiscovery, nil
+	}
+	start := time.Now()
+	err := s.Init(context.Background(), []string{"Handler", "Action"})
+	d := time.Since(start)
+	if err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if d < testingRetryTimeout {
+		t.Errorf("Duration for Init %v is too short, maybe not retrying", d)
+	}
+}
+
+func TestCrdsRetryMakeSucceed(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{GroupVersion: apiGroupVersion},
+			},
+		},
+	}
+	callCount := 0
+	// Gradually increase the number of API resources.
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		callCount++
+		if callCount == 2 {
+			fakeDiscovery.Resources[0].APIResources = append(
+				fakeDiscovery.Resources[0].APIResources,
+				metav1.APIResource{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
+			)
+		} else if callCount == 3 {
+			fakeDiscovery.Resources[0].APIResources = append(
+				fakeDiscovery.Resources[0].APIResources,
+				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+			)
+		}
+		return true, nil, nil
+	})
+
+	s, _, _ := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	// Should set a longer timeout to avoid early quitting retry loop due to lack of computational power.
+	s.retryTimeout = 2 * time.Second
+	err := s.Init(context.Background(), []string{"Handler", "Action"})
+	if err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
+	if callCount != 3 {
+		t.Errorf("Got %d, Want 3", callCount)
 	}
 }
