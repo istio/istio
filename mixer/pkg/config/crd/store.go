@@ -45,24 +45,52 @@ const (
 	// TODO: allow customization.
 	defaultResyncPeriod = time.Minute
 
-	// initializationPeriod is the duration to wait for getting
-	// initial data. Mixer doesn't want to get added events for
-	// initial data since it may arrive in any order, and it
-	// would result in temporary invalid status.
-	initializationPeriod = time.Second * 2
+	// initWaiterInterval is the interval to check if the initial data is ready
+	// in the cache.
+	initWaiterInterval = time.Millisecond
+
+	// crdRetryTimeout is the default timeout duration to retry initialization
+	// of the caches when some CRDs are missing. The timeout can be customized
+	// through "retry-timeout" query parameter in the config URL,
+	// like k8s://?retry-timeout=1m
+	crdRetryTimeout = time.Second * 30
 )
 
 type listerWatcherBuilderInterface interface {
 	build(res metav1.APIResource) cache.ListerWatcher
 }
 
+func waitForSynced(ctx context.Context, informers map[string]cache.SharedInformer) <-chan struct{} {
+	out := make(chan struct{})
+	go func() {
+		tick := time.NewTicker(initWaiterInterval)
+	loop:
+		for len(informers) > 0 {
+			select {
+			case <-ctx.Done():
+				break loop
+			case <-tick.C:
+				for k, i := range informers {
+					if i.HasSynced() {
+						delete(informers, k)
+					}
+				}
+			}
+		}
+		tick.Stop()
+		close(out)
+	}()
+	return out
+}
+
 // Store offers store.Store2Backend interface through kubernetes custom resource definitions.
 type Store struct {
-	conf     *rest.Config
-	ns       map[string]bool
-	caches   map[string]cache.Store
-	watchCtx context.Context
-	watchCh  chan store.BackendEvent
+	conf         *rest.Config
+	ns           map[string]bool
+	caches       map[string]cache.Store
+	watchCtx     context.Context
+	watchCh      chan store.BackendEvent
+	retryTimeout time.Duration
 
 	// They are used to inject testing interfaces.
 	discoveryBuilder     func(conf *rest.Config) (discovery.DiscoveryInterface, error)
@@ -91,25 +119,46 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 	if err != nil {
 		return err
 	}
-	resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
-	if err != nil {
-		return err
-	}
 	lwBuilder, err := s.listerWatcherBuilder(s.conf)
 	if err != nil {
 		return err
 	}
 	s.caches = make(map[string]cache.Store, len(kinds))
-	for _, res := range resources.APIResources {
-		if _, ok := kindsSet[res.Kind]; ok {
-			cl := lwBuilder.build(res)
-			informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
-			s.caches[res.Kind] = informer.GetStore()
-			informer.AddEventHandler(s)
-			go informer.Run(ctx.Done())
+	crdCtx, cancel := context.WithTimeout(ctx, s.retryTimeout)
+	defer cancel()
+	retry := false
+	informers := map[string]cache.SharedInformer{}
+	for len(s.caches) < len(kinds) {
+		if crdCtx.Err() != nil {
+			// TODO: runs goroutines for remaining kinds.
+			break
 		}
+		if retry {
+			glog.V(3).Infof("Retrying to fetch config...")
+		}
+		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
+		if err != nil {
+			glog.V(3).Infof("Failed to obtain resources for CRD: %v", err)
+			continue
+		}
+		for _, res := range resources.APIResources {
+			if _, ok := s.caches[res.Kind]; ok {
+				continue
+			}
+			if _, ok := kindsSet[res.Kind]; ok {
+				cl := lwBuilder.build(res)
+				informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
+				s.caches[res.Kind] = informer.GetStore()
+				informers[res.Kind] = informer
+				informer.AddEventHandler(s)
+				go informer.Run(ctx.Done())
+			}
+		}
+		retry = true
 	}
-	time.Sleep(initializationPeriod) // TODO
+	if len(s.caches) > 0 {
+		<-waitForSynced(ctx, informers)
+	}
 	return nil
 }
 
