@@ -74,7 +74,7 @@ func listCrdsInstances(printf shared.FormatFn, infos map[string]template.Info) {
 	for _, tmplName := range tmplNames {
 		info := infos[tmplName]
 		// TODO : Use the plural name from the template info
-		printCrd(printf, info.Name, info.HndlrInterfaceName, info.Name+"s", "mixer-instance")
+		printCrd(printf, info.Name, info.Impl, info.Name+"s", "mixer-instance")
 	}
 }
 

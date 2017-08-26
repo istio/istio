@@ -47,11 +47,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		checknothing.TemplateName: {
-			Name:               "checknothing",
+			Name:               checknothing.TemplateName,
+			Impl:               "checknothing",
 			CtrCfg:             &checknothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrInterfaceName:  "istio.io/mixer/template/checknothing.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/checknothing.Handler",
+			BldrInterfaceName:  checknothing.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: checknothing.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(checknothing.HandlerBuilder)
 				return ok
@@ -94,11 +95,12 @@ var (
 		},
 
 		listentry.TemplateName: {
-			Name:               "listentry",
+			Name:               listentry.TemplateName,
+			Impl:               "listentry",
 			CtrCfg:             &listentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrInterfaceName:  "istio.io/mixer/template/listentry.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/listentry.Handler",
+			BldrInterfaceName:  listentry.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: listentry.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(listentry.HandlerBuilder)
 				return ok
@@ -161,11 +163,12 @@ var (
 		},
 
 		logentry.TemplateName: {
-			Name:               "logentry",
+			Name:               logentry.TemplateName,
+			Impl:               "logentry",
 			CtrCfg:             &logentry.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/logentry.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/logentry.Handler",
+			BldrInterfaceName:  logentry.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: logentry.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(logentry.HandlerBuilder)
 				return ok
@@ -250,11 +253,12 @@ var (
 		},
 
 		metric.TemplateName: {
-			Name:               "metric",
+			Name:               metric.TemplateName,
+			Impl:               "metric",
 			CtrCfg:             &metric.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
+			BldrInterfaceName:  metric.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: metric.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(metric.HandlerBuilder)
 				return ok
@@ -336,11 +340,12 @@ var (
 		},
 
 		quota.TemplateName: {
-			Name:               "quota",
+			Name:               quota.TemplateName,
+			Impl:               "quota",
 			CtrCfg:             &quota.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
-			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
+			BldrInterfaceName:  quota.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: quota.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(quota.HandlerBuilder)
 				return ok
@@ -399,11 +404,12 @@ var (
 		},
 
 		reportnothing.TemplateName: {
-			Name:               "reportnothing",
+			Name:               reportnothing.TemplateName,
+			Impl:               "reportnothing",
 			CtrCfg:             &reportnothing.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/reportnothing.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/reportnothing.Handler",
+			BldrInterfaceName:  reportnothing.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: reportnothing.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(reportnothing.HandlerBuilder)
 				return ok

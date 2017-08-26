@@ -79,8 +79,8 @@ status:
 `
 
 var exampleTmplInfos = map[string]template.Info{
-	"abcd-foo": {Name: "abcd-foo"},
-	"abcdBar":  {Name: "abcdBar"},
+	"abcd-foo": {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
+	"abcdBar":  {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
 }
 var exampleInstanceCrd = `
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -88,7 +88,7 @@ kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
   labels:
-    impl: ""
+    impl: implPathShouldBeDNSCompat
     istio: mixer-instance
   name: abcd-foos.config.istio.io
 spec:
@@ -110,7 +110,7 @@ kind: CustomResourceDefinition
 metadata:
   creationTimestamp: null
   labels:
-    impl: ""
+    impl: implPathShouldBeDNSCompat2
     istio: mixer-instance
   name: abcdBars.config.istio.io
 spec:
