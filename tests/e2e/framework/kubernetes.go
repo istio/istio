@@ -15,13 +15,13 @@
 package framework
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -46,7 +46,6 @@ var (
 	caHub        = flag.String("ca_hub", "", "Ca hub")
 	caTag        = flag.String("ca_tag", "", "Ca tag")
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacEnable   = flag.Bool("rbac_enable", false, "Enable rbac")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
@@ -185,10 +184,7 @@ func (k *KubeInfo) deployIstio() error {
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
-	if *rbacEnable {
-		if *rbacfile == "" {
-			return errors.New("no rbac file is specified")
-		}
+	if *rbacfile != "" {
 		baseRbacYaml := util.GetResourcePath(*rbacfile)
 		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
 		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
@@ -246,6 +242,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *caHub != "" && *caTag != "" {
 		//Need to be updated when the string "istio-ca" is changed
 		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+	}
+	if *localCluster {
+		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)
