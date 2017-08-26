@@ -229,7 +229,7 @@ Using Mixer as an example:
 
 ```shell
 cd $ISTIO/mixer
-bazel build //...
+make build
 ```
 
 This build command figures out what it needs to do and does not need any input from you.
@@ -250,14 +250,14 @@ tooling functions correctly
 You can delete any build artifacts with:
 
 ```shell
-bazel clean
+make clean
 ```
 ### Running tests
 
 You can run all the available tests with:
 
 ```shell
-bazel test //...
+make test
 ```
 ### Getting coverage numbers
 
