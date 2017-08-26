@@ -50,8 +50,8 @@ type Node struct {
 	// Type specifies the node type
 	Type NodeType
 
-	// IPAddress is the IP address of the proxy used to identify its co-located
-	// service instances. Example: "10.60.1.6"
+	// IPAddress is the IP address of the proxy used to identify it and its
+	// co-located service instances. Example: "10.60.1.6"
 	IPAddress string
 
 	// ID is the unique platform-specific sidecar proxy ID

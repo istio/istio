@@ -28,13 +28,22 @@ import (
 	"istio.io/pilot/adapter/config/aggregate"
 	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/adapter/config/ingress"
+	"istio.io/pilot/adapter/config/memory"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
+	"istio.io/pilot/platform"
+	"istio.io/pilot/platform/consul"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
 )
+
+// ConsulArgs store the args related to Consul configuration
+type ConsulArgs struct {
+	config    string
+	serverURL string
+}
 
 type args struct {
 	kubeconfig string
@@ -43,6 +52,9 @@ type args struct {
 	// ingress sync mode is set to off by default
 	controllerOptions kube.ControllerOptions
 	discoveryOptions  envoy.DiscoveryServiceOptions
+
+	serviceregistry platform.ServiceRegistry
+	consulargs      ConsulArgs
 }
 
 var (
@@ -58,79 +70,113 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
-			client, err := kube.CreateInterface(flags.kubeconfig)
-			if err != nil {
-				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
-			}
-
-			if flags.controllerOptions.Namespace == "" {
-				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
-			}
-
-			glog.V(2).Infof("version %s", version.Line())
-			glog.V(2).Infof("flags %s", spew.Sdump(flags))
-
 			// receive mesh configuration
-			mesh, err := cmd.ReadMeshConfig(flags.meshconfig)
-			if err != nil {
-				return multierror.Prefix(err, "failed to read mesh configuration.")
+			mesh, fail := cmd.ReadMeshConfig(flags.meshconfig)
+			if fail != nil {
+				return multierror.Prefix(fail, "failed to read mesh configuration.")
 			}
-
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
 
-			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-				model.RouteRule,
-				model.DestinationPolicy,
-			})
-			if err != nil {
-				return multierror.Prefix(err, "failed to open a config client.")
-			}
-
-			if err = configClient.RegisterResources(); err != nil {
-				return multierror.Prefix(err, "failed to register custom resources.")
-			}
-
-			serviceController := kube.NewController(client, mesh, flags.controllerOptions)
+			var serviceController model.Controller
 			var configController model.ConfigStoreCache
-			if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-				configController = crd.NewController(configClient, flags.controllerOptions)
-			} else {
-				configController, err = aggregate.MakeCache([]model.ConfigStoreCache{
-					crd.NewController(configClient, flags.controllerOptions),
-					ingress.NewController(client, mesh, flags.controllerOptions),
+			environment := proxy.Environment{
+				Mesh: mesh,
+			}
+
+			stop := make(chan struct{})
+
+			// Set up values for input to discovery service in different platforms
+			if flags.serviceregistry == platform.KubernetesRegistry {
+
+				client, err := kube.CreateInterface(flags.kubeconfig)
+				if err != nil {
+					return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+				}
+
+				if flags.controllerOptions.Namespace == "" {
+					flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
+				}
+
+				glog.V(2).Infof("version %s", version.Line())
+				glog.V(2).Infof("flags %s", spew.Sdump(flags))
+
+				configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+					model.RouteRule,
+					model.DestinationPolicy,
 				})
 				if err != nil {
-					return err
+					return multierror.Prefix(err, "failed to open a config client.")
 				}
+
+				if err = configClient.RegisterResources(); err != nil {
+					return multierror.Prefix(err, "failed to register custom resources.")
+				}
+
+				kubeController := kube.NewController(client, mesh, flags.controllerOptions)
+				if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
+					configController = crd.NewController(configClient, flags.controllerOptions)
+				} else {
+					configController, err = aggregate.MakeCache([]model.ConfigStoreCache{
+						crd.NewController(configClient, flags.controllerOptions),
+						ingress.NewController(client, mesh, flags.controllerOptions),
+					})
+					if err != nil {
+						return err
+					}
+				}
+
+				environment.ServiceDiscovery = kubeController
+				environment.ServiceAccounts = kubeController
+				environment.IstioConfigStore = model.MakeIstioStore(configController)
+				environment.SecretRegistry = kube.MakeSecretRegistry(client)
+				serviceController = kubeController
+				ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
+
+				go ingressSyncer.Run(stop)
+			} else if flags.serviceregistry == platform.ConsulRegistry {
+				glog.V(2).Infof("Consul url: %v", flags.consulargs.serverURL)
+
+				consulController, err := consul.NewController(
+					flags.consulargs.serverURL, "dc1", 2*time.Second)
+				if err != nil {
+					return fmt.Errorf("failed to create Consul controller: %v", err)
+				}
+
+				configController = memory.NewController(memory.Make(model.ConfigDescriptor{
+					model.RouteRule,
+					model.DestinationPolicy,
+				}))
+
+				environment.ServiceDiscovery = consulController
+				environment.ServiceAccounts = consulController
+				environment.IstioConfigStore = model.MakeIstioStore(configController)
+				serviceController = consulController
 			}
 
-			environment := proxy.Environment{
-				ServiceDiscovery: serviceController,
-				ServiceAccounts:  serviceController,
-				IstioConfigStore: model.MakeIstioStore(configController),
-				SecretRegistry:   kube.MakeSecretRegistry(client),
-				Mesh:             mesh,
-			}
-			discovery, err := envoy.NewDiscoveryService(serviceController, configController, environment, flags.discoveryOptions)
+			// Set up discovery service
+			discovery, err := envoy.NewDiscoveryService(
+				serviceController,
+				configController,
+				environment,
+				flags.discoveryOptions)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
 
-			ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
-
-			stop := make(chan struct{})
 			go serviceController.Run(stop)
 			go configController.Run(stop)
 			go discovery.Run()
-			go ingressSyncer.Run(stop)
 			cmd.WaitSignal(stop)
-
 			return nil
 		},
 	}
 )
 
 func init() {
+	discoveryCmd.PersistentFlags().StringVar((*string)(&flags.serviceregistry), "serviceregistry",
+		string(platform.KubernetesRegistry),
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			string(platform.KubernetesRegistry), string(platform.ConsulRegistry)))
 	discoveryCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
@@ -148,6 +194,10 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
+	discoveryCmd.PersistentFlags().StringVar(&flags.consulargs.config, "consulconfig", "",
+		"Consul Config file for discovery")
+	discoveryCmd.PersistentFlags().StringVar(&flags.consulargs.serverURL, "consulserverURL", "",
+		"URL for the consul server")
 
 	cmd.AddFlags(rootCmd)
 

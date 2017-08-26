@@ -180,3 +180,8 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	})
 	return nil
 }
+
+// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
+func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
+	return nil
+}

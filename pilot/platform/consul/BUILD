@@ -6,6 +6,7 @@ go_library(
         "controller.go",
         "conversion.go",
         "monitor.go",
+        "net.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/golang/glog"
@@ -23,15 +24,18 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/pilot/cmd"
+	"istio.io/pilot/platform"
+	"istio.io/pilot/platform/consul"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
 )
 
 var (
-	configpath string
-	meshconfig string
-	role       proxy.Node
+	configpath      string
+	meshconfig      string
+	role            proxy.Node
+	serviceregistry platform.ServiceRegistry
 
 	rootCmd = &cobra.Command{
 		Use:   "agent",
@@ -43,17 +47,6 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			// set values from environment variables
-			if role.IPAddress == "" {
-				role.IPAddress = os.Getenv("INSTANCE_IP")
-			}
-			if role.ID == "" {
-				role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
-			}
-			if role.Domain == "" {
-				role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-			}
-
 			role.Type = proxy.Sidecar
 			if len(args) > 0 {
 				role.Type = proxy.NodeType(args[0])
@@ -67,6 +60,31 @@ var (
 
 			glog.V(2).Infof("version %s", version.Line())
 			glog.V(2).Infof("mesh configuration %#v", mesh)
+
+			// set values from registry platform
+			if role.IPAddress == "" {
+				if serviceregistry == platform.KubernetesRegistry {
+					role.IPAddress = os.Getenv("INSTANCE_IP")
+				} else if serviceregistry == platform.ConsulRegistry {
+					ipAddr := "127.0.0.1"
+					if ok := consul.WaitForPrivateNetwork(); ok {
+						ipAddr = consul.GetPrivateIP().String()
+						glog.V(2).Infof("obtained private IP %v", ipAddr)
+					}
+
+					role.IPAddress = ipAddr
+				}
+			}
+			if role.ID == "" {
+				if serviceregistry == platform.KubernetesRegistry {
+					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
+				}
+			}
+			if role.Domain == "" {
+				if serviceregistry == platform.KubernetesRegistry {
+					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+				}
+			}
 
 			watcher, err := envoy.NewWatcher(mesh, role, configpath)
 			if err != nil {
@@ -85,6 +103,10 @@ var (
 )
 
 func init() {
+	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
+		string(platform.KubernetesRegistry),
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			string(platform.KubernetesRegistry), string(platform.ConsulRegistry)))
 	proxyCmd.PersistentFlags().StringVar(&meshconfig, "meshconfig", "/etc/istio/config/mesh",
 		"File name for Istio mesh configuration")
 	proxyCmd.PersistentFlags().StringVar(&configpath, "configpath", "/etc/istio/proxy",
