@@ -142,14 +142,41 @@ func TestFSStore2WrongKind(t *testing.T) {
 	}
 }
 
+func TestFSStore2FileExtensions(t *testing.T) {
+	for _, ext := range []string{"yaml", "yml"} {
+		t.Run(ext, func(tt *testing.T) {
+			s, fsroot := getTempFSStore2()
+			defer cleanupRootIfOK(tt, fsroot)
+			err := ioutil.WriteFile(filepath.Join(fsroot, "foo."+ext), []byte(`
+kind: Kind
+apiVersion: testing
+metadata:
+  namespace: ns
+  name: foo
+spec:
+`), 0644)
+			if err != nil {
+				tt.Fatal(err)
+			}
+			if err := s.Init(context.Background(), []string{"Kind"}); err != nil {
+				tt.Fatal(err.Error())
+			}
+			if lst := s.List(); len(lst) != 1 {
+				tt.Errorf("Got %d elements, Want 1", len(lst))
+			}
+
+		})
+	}
+}
+
 func TestFSStore2FileFormat(t *testing.T) {
 	const good = `
-Kind: Foo
-APIVersion: testing
-Metadata:
-  Namespace: ns
-  Name: foo
-Spec:
+kind: Foo
+apiVersion: testing
+metadata:
+  namespace: ns
+  name: foo
+spec:
 `
 	const bad = "abc"
 	for _, c := range []struct {
@@ -171,11 +198,11 @@ Spec:
 			"key missing",
 			0,
 			`
-Kind: Foo
-APIVersion: testing
-Metadata:
-	Name: foo
-Spec:
+kind: Foo
+apiVersion: testing
+metadata:
+  name: foo
+spec:
 			`,
 		},
 		{
@@ -239,12 +266,12 @@ func TestFSStore2MissingRoot(t *testing.T) {
 func TestFSStore2Robust(t *testing.T) {
 	const ns = "testing"
 	const tmpl = `
-Kind: %s
-APIVersion: config.istio.io/v1alpha2
-Metadata:
-  Namespace: testing
-  Name: %s
-Spec:
+kind: %s
+apiVersion: config.istio.io/v1alpha2
+metadata:
+  namespace: testing
+  name: %s
+spec:
   %s
 `
 	for _, c := range []struct {
