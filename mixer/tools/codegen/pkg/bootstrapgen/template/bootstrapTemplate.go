@@ -54,11 +54,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info {
 	{{range .TemplateModels}}
 		{{.GoPackageName}}.TemplateName: {
-			Name: "{{.PackageName}}",
+			Name: {{.GoPackageName}}.TemplateName,
+			Impl: "{{.PackageName}}",
 			CtrCfg:  &{{.GoPackageName}}.InstanceParam{},
 			Variety:   adptTmpl.{{.VarietyName}},
-			BldrInterfaceName:  "{{.PackageImportPath}}.HandlerBuilder",
-			HndlrInterfaceName: "{{.PackageImportPath}}.Handler",
+			BldrInterfaceName:  {{.GoPackageName}}.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: {{.GoPackageName}}.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.({{.GoPackageName}}.HandlerBuilder)
 				return ok

@@ -41,11 +41,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		istio_mixer_adapter_sample_check.TemplateName: {
-			Name:               "istio.mixer.adapter.sample.check",
+			Name:               istio_mixer_adapter_sample_check.TemplateName,
+			Impl:               "istio.mixer.adapter.sample.check",
 			CtrCfg:             &istio_mixer_adapter_sample_check.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrInterfaceName:  "istio.io/mixer/template/sample/check.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/sample/check.Handler",
+			BldrInterfaceName:  istio_mixer_adapter_sample_check.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_adapter_sample_check.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_check.HandlerBuilder)
 				return ok
@@ -133,11 +134,12 @@ var (
 		},
 
 		istio_mixer_adapter_sample_quota.TemplateName: {
-			Name:               "istio.mixer.adapter.sample.quota",
+			Name:               istio_mixer_adapter_sample_quota.TemplateName,
+			Impl:               "istio.mixer.adapter.sample.quota",
 			CtrCfg:             &istio_mixer_adapter_sample_quota.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
-			BldrInterfaceName:  "istio.io/mixer/template/sample/quota.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/sample/quota.Handler",
+			BldrInterfaceName:  istio_mixer_adapter_sample_quota.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_adapter_sample_quota.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_quota.HandlerBuilder)
 				return ok
@@ -221,11 +223,12 @@ var (
 		},
 
 		istio_mixer_adapter_sample_report.TemplateName: {
-			Name:               "istio.mixer.adapter.sample.report",
+			Name:               istio_mixer_adapter_sample_report.TemplateName,
+			Impl:               "istio.mixer.adapter.sample.report",
 			CtrCfg:             &istio_mixer_adapter_sample_report.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/sample/report.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/sample/report.Handler",
+			BldrInterfaceName:  istio_mixer_adapter_sample_report.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_adapter_sample_report.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_adapter_sample_report.HandlerBuilder)
 				return ok

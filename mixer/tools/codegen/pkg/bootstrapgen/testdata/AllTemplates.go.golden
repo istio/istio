@@ -43,11 +43,12 @@ var (
 	SupportedTmplInfo = map[string]template.Info{
 
 		istio_mixer_template_list.TemplateName: {
-			Name:               "istio.mixer.template.list",
+			Name:               istio_mixer_template_list.TemplateName,
+			Impl:               "istio.mixer.template.list",
 			CtrCfg:             &istio_mixer_template_list.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
-			BldrInterfaceName:  "istio.io/mixer/template/list.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/list.Handler",
+			BldrInterfaceName:  istio_mixer_template_list.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_template_list.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_list.HandlerBuilder)
 				return ok
@@ -266,11 +267,12 @@ var (
 		},
 
 		istio_mixer_template_quota.TemplateName: {
-			Name:               "istio.mixer.template.quota",
+			Name:               istio_mixer_template_quota.TemplateName,
+			Impl:               "istio.mixer.template.quota",
 			CtrCfg:             &istio_mixer_template_quota.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/quota.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/quota.Handler",
+			BldrInterfaceName:  istio_mixer_template_quota.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_template_quota.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_quota.HandlerBuilder)
 				return ok
@@ -474,11 +476,12 @@ var (
 		},
 
 		istio_mixer_template_log.TemplateName: {
-			Name:               "istio.mixer.template.log",
+			Name:               istio_mixer_template_log.TemplateName,
+			Impl:               "istio.mixer.template.log",
 			CtrCfg:             &istio_mixer_template_log.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/log.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/log.Handler",
+			BldrInterfaceName:  istio_mixer_template_log.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_template_log.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_log.HandlerBuilder)
 				return ok
@@ -682,11 +685,12 @@ var (
 		},
 
 		istio_mixer_template_metric.TemplateName: {
-			Name:               "istio.mixer.template.metric",
+			Name:               istio_mixer_template_metric.TemplateName,
+			Impl:               "istio.mixer.template.metric",
 			CtrCfg:             &istio_mixer_template_metric.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  "istio.io/mixer/template/metric.HandlerBuilder",
-			HndlrInterfaceName: "istio.io/mixer/template/metric.Handler",
+			BldrInterfaceName:  istio_mixer_template_metric.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: istio_mixer_template_metric.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 				_, ok := hndlrBuilder.(istio_mixer_template_metric.HandlerBuilder)
 				return ok

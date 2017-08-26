@@ -63,6 +63,7 @@ type (
 	// Default instance params, type inference method etc.
 	Info struct {
 		Name                    string
+		Impl                    string
 		Variety                 adptTmpl.TemplateVariety
 		BldrInterfaceName       string
 		HndlrInterfaceName      string
