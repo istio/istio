@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +29,11 @@ import (
 )
 
 const defaultDuration = time.Second / 2
+
+var supportedExtensions = map[string]bool{
+	".yaml": true,
+	".yml":  true,
+}
 
 type resourceMeta struct {
 	Name      string
@@ -100,14 +104,13 @@ func parseFile(path string, data []byte) []*resource {
 }
 
 func (s *fsStore2) readFiles() map[Key]*resource {
-	const suffix = ".yaml"
 	result := map[Key]*resource{}
 
 	err := filepath.Walk(s.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !strings.HasSuffix(path, suffix) || (info.Mode()&os.ModeType) != 0 {
+		if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)
@@ -118,7 +121,6 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 		for _, r := range parseFile(path, data) {
 			k := r.Key()
 			if !s.kinds[k.Kind] {
-				glog.Warningf("Unknown kind %s is in the file", k.Kind)
 				continue
 			}
 			result[r.Key()] = r
