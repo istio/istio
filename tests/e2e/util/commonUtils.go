@@ -109,7 +109,7 @@ func HTTPDownload(dst string, src string) error {
 		}
 	}()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("http get request, received unexpected response code: %d", resp.StatusCode)
+		return fmt.Errorf("http get request, received unexpected response status: %s", resp.Status)
 	}
 	if _, err = io.Copy(out, resp.Body); err != nil {
 		return err
