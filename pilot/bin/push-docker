@@ -35,7 +35,7 @@ function docker_push() {
 }
 
 hubs="gcr.io/istio-testing"
-local_tag=$(whoami)_$(date +%y%m%d_%h%m%s)
+local_tag=$(whoami)_$(date +%y%m%d_%H%M%S)
 tags="${local_tag}"
 
 while [[ $# -gt 0 ]]; do
