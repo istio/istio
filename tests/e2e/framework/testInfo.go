@@ -92,7 +92,7 @@ func newTestInfo(testID string) (*testInfo, error) {
 	}
 	bucket := ""
 	logsPath := ""
-	tmpDir := ""
+	var tmpDir string
 	// testLogsPath will be used when called by Prow.
 	// Bootstrap already gather stdout and stdin so we don't need to keep the logs from glog.
 	if *testLogsPath != "" {
