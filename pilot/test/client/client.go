@@ -155,12 +155,12 @@ func makeWebSocketRequest(client *websocket.Dialer) func(int) func() error {
 	}
 }
 
-func makeGRPCRequest(client pb.GrpcEchoTestServiceClient) func(int) func() error {
+func makeGRPCRequest(client pb.EchoTestServiceClient) func(int) func() error {
 	return func(i int) func() error {
 		return func() error {
-			req := &pb.GrpcEchoRequest{Message: fmt.Sprintf("request #%d", i)}
+			req := &pb.EchoRequest{Message: fmt.Sprintf("request #%d", i)}
 			log.Printf("[%d] grpcecho.Echo(%v)\n", i, req)
-			resp, err := client.GrpcEcho(context.Background(), req)
+			resp, err := client.Echo(context.Background(), req)
 			if err != nil {
 				return err
 			}
@@ -230,7 +230,7 @@ func main() {
 				log.Println(err)
 			}
 		}()
-		client := pb.NewGrpcEchoTestServiceClient(conn)
+		client := pb.NewEchoTestServiceClient(conn)
 		f = makeGRPCRequest(client)
 	} else if strings.HasPrefix(url, "ws://") || strings.HasPrefix(url, "wss://") {
 		/* #nosec */

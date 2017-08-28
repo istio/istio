@@ -129,7 +129,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h handler) GrpcEcho(ctx context.Context, req *pb.GrpcEchoRequest) (*pb.GrpcEchoResponse, error) {
+func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
 	body := bytes.Buffer{}
 	md, ok := metadata.FromContext(ctx)
 	if ok {
@@ -140,7 +140,7 @@ func (h handler) GrpcEcho(ctx context.Context, req *pb.GrpcEchoRequest) (*pb.Grp
 	body.WriteString("ServiceVersion=" + version + "\n")
 	body.WriteString("ServicePort=" + strconv.Itoa(h.port) + "\n")
 	body.WriteString("Echo=" + req.GetMessage())
-	return &pb.GrpcEchoResponse{Message: body.String()}, nil
+	return &pb.EchoResponse{Message: body.String()}, nil
 }
 
 func (h handler) WebSocketEcho(w http.ResponseWriter, r *http.Request) {
@@ -201,7 +201,7 @@ func runGRPC(port int) {
 	} else {
 		grpcServer = grpc.NewServer()
 	}
-	pb.RegisterGrpcEchoTestServiceServer(grpcServer, &h)
+	pb.RegisterEchoTestServiceServer(grpcServer, &h)
 	if err = grpcServer.Serve(lis); err != nil {
 		log.Println(err.Error())
 	}

@@ -16,14 +16,17 @@ syntax = "proto3";
 
 package grpecho;
 
-service GrpcEchoTestService {
-  rpc GrpcEcho(GrpcEchoRequest) returns (GrpcEchoResponse);
+// DO NOT CHANGE THIS NAME. The test system will fail in unpredictable ways
+// because something (most probably Bazel) is caching the generated pb.go
+// files and refuses to flush the cache, making every PR to pilot fail.
+service EchoTestService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
 }
 
-message GrpcEchoRequest {
+message EchoRequest {
   string message = 1;
 }
 
-message GrpcEchoResponse {
+message EchoResponse {
   string message = 1;
 }
