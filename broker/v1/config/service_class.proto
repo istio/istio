@@ -1,0 +1,45 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+syntax = "proto3";
+
+package istio.broker.v1.config;
+
+// ServiceClass defines a service that are exposed to Istio service consumers.
+// The service is linked into one or more ServicePlan.
+message ServiceClass {
+  // Required. Istio deployment spec for the service class.
+  Deployment deployment = 1;
+
+  // Required. Listing information for the public catalog.
+  CatalogEntry entry = 2;
+}
+
+// Deployment defines how the service instances are deployed.
+message Deployment {
+  // For truely multi-tenant service, the deployed service instance name.
+  string instance = 1;
+}
+
+// CatalogEntry defines listing information for this service within the exposed catalog.
+// The message is a subset of OSBI service fields defined in https://github.com/openservicebrokerapi
+message CatalogEntry {
+  // Required. Public service name.
+  string name = 1;
+
+  // Required. Public unique service guid.
+  string id = 2;
+
+  // Required. Public short service description.
+  string description = 3;
+}
