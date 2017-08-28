@@ -12,10 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:4-onbuild
+FROM mysql:8
+# MYSQL_ROOT_PASSWORD must be supplied as an env var
+ENV MYSQL_DATABASE "test"
 
-ARG service_version
-ENV SERVICE_VERSION ${service_version:-v1}
-
-EXPOSE 9080
-CMD node ratings.js 9080
+COPY ./mysqldb-init.sql /docker-entrypoint-initdb.d/mysqldb-init.sql
