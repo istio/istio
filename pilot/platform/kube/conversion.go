@@ -169,7 +169,7 @@ func convertProbePort(c v1.Container, handler *v1.Handler) (*model.Port, error) 
 
 	var protocol model.Protocol
 	var portVal intstr.IntOrString
-	port := 0
+	var port int
 
 	// Only one type of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
 	if handler.HTTPGet != nil {

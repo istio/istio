@@ -36,7 +36,17 @@ ln -s /workspace /tmp/gopath/src/istio.io/pilot
 cd /tmp/gopath/src/istio.io/pilot
 touch platform/kube/config
 
-# Build istioctl binaries and upload to GCS
-./bin/upload-istioctl -r -p gs://"${PROJECT_ID}"/pilot/"${TAG_NAME}"
+# Download and set the credentials for docker.io/istio hub
+mkdir -p "${HOME}/.docker"
+gsutil cp gs://istio-secrets/dockerhub_config.json.enc "${HOME}/.docker/config.json.enc"
+gcloud kms decrypt \
+       --ciphertext-file="${HOME}/.docker/config.json.enc" \
+       --plaintext-file="${HOME}/.docker/config.json" \
+       --location=global \
+       --keyring=Secrets \
+       --key=DockerHub
 
-./bin/push-docker -hub gcr.io/"${PROJECT_ID}" -tag "${TAG_NAME}"
+# Build istioctl binaries and upload to GCS
+./bin/upload-istioctl -r -p gs://istio-release/releases/"${TAG_NAME}"/istioctl
+
+./bin/push-docker -hub gcr.io/istio-io,docker.io/istio -tag "${TAG_NAME}"
