@@ -62,7 +62,7 @@ loop:
 		case ev := <-q.chin:
 			converted, err := q.convertValue(ev)
 			if err != nil {
-				glog.Errorf("Failed to convert an event: %v", err)
+				glog.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 				break
 			}
 			evs := []Event{converted}
@@ -73,7 +73,7 @@ loop:
 				case ev := <-q.chin:
 					converted, err = q.convertValue(ev)
 					if err != nil {
-						glog.Errorf("Failed to convert an event: %v", err)
+						glog.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 						break
 					}
 					evs = append(evs, converted)

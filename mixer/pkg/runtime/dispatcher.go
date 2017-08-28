@@ -219,6 +219,13 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 		},
 	)
 	res, _ := cres.(*adapter.CheckResult)
+	if res == nil { // There was nothing to do.
+		res = &adapter.CheckResult{}
+	}
+
+	if glog.V(3) {
+		glog.Infof("Check %s", res)
+	}
 	return res, err
 }
 
@@ -346,16 +353,28 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
+	if glog.V(4) {
+		glog.Infof("runAsync %v", *callinfo)
+	}
+
 	m.gp.ScheduleWork(func() {
 		// tracing
 		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
-		out := do(ctx)
 
+		if glog.V(4) {
+			glog.Infof("runAsync %s -> %v", op, *callinfo)
+		}
+
+		out := do(ctx)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)
+		}
+
+		if glog.V(4) {
+			glog.Infof("runAsync %s <- %v", op, out.res)
 		}
 
 		duration := time.Since(start)

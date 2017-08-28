@@ -47,3 +47,13 @@ func Inventory() []adapter.RegisterFn {
 		noop.Register,
 	}
 }
+
+// InventoryMap converts adapter inventory to a builder map.
+func InventoryMap(inv []adapter.InfoFn) map[string]*adapter.BuilderInfo {
+	m := make(map[string]*adapter.BuilderInfo, len(inv))
+	for _, ai := range inv {
+		bi := ai()
+		m[bi.Name] = &bi
+	}
+	return m
+}

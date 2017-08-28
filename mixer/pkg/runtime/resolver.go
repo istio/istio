@@ -144,7 +144,7 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 		ns := splits[1]
 		if dcf := r.rules[ns]; dcf != nil {
 			rulesArr = append(rulesArr, dcf)
-		} else if glog.V(3) {
+		} else if glog.V(4) {
 			glog.Infof("Resolve: no namespace config for %s. target: %s.", ns, target)
 		}
 	}

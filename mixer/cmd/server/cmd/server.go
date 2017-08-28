@@ -49,6 +49,7 @@ import (
 	"istio.io/mixer/pkg/expr"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
+	mixerRuntime "istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/pkg/tracing/zipkin"
 	"istio.io/mixer/pkg/version"
@@ -75,6 +76,8 @@ type serverArgs struct {
 	serverKeyFile                 string
 	clientCertFiles               string
 	configStoreURL                string
+	configStore2URL               string
+	configDefaultNamespace        string
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
@@ -86,7 +89,7 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(repo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(info map[string]template.Info, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -103,7 +106,7 @@ func serverCmd(repo template.Repository, adapters []pkgAdapter.InfoFn, printf, f
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, repo, adapters, printf, fatalf)
+			runServer(sa, info, adapters, printf, fatalf)
 		},
 	}
 
@@ -139,6 +142,12 @@ func serverCmd(repo template.Repository, adapters []pkgAdapter.InfoFn, printf, f
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
+
+	serverCmd.PersistentFlags().StringVarP(&sa.configStore2URL, "configStore2URL", "", "",
+		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
+
+	serverCmd.PersistentFlags().StringVarP(&sa.configDefaultNamespace, "configDefaultNamespace", "", "istio-config-default",
+		"Namespace used to store mesh wide configuration.")
 
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
@@ -187,7 +196,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, repo template.Repository, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with args: %#v", sa)
 
 	var err error
@@ -218,6 +227,27 @@ func runServer(sa *serverArgs, repo template.Repository, adapters []pkgAdapter.I
 		}
 		eval = ilEval
 	}
+
+	var dispatcher mixerRuntime.Dispatcher
+
+	// TODO until the dispatcher 2 switch is complete,
+	// dispatcher 2 is only enabled when configStore2URL is specified.
+	if sa.configStore2URL != "" {
+		adapterMap := adapter.InventoryMap(adapters)
+		store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
+		if err != nil {
+			fatalf("Failed to connect to the configuration2 server. %v", err)
+		}
+		dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+			sa.configIdentityAttribute, sa.configDefaultNamespace,
+			store2, adapterMap, info,
+		)
+		if err != nil {
+			fatalf("Failed to create runtime dispatcher. %v", err)
+		}
+	}
+
+	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	adapterMgr := adapterManager.NewManager(adapter.Inventory(), aspect.Inventory(), eval, gp, adapterGP)
 	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
@@ -358,8 +388,9 @@ func runServer(sa *serverArgs, repo template.Repository, adapters []pkgAdapter.I
 
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
+
 	// FIXME construct a runtime.New as dispatcher param
-	s := api.NewGRPCServer(adapterMgr, nil, gp)
+	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 
 	printf("Istio Mixer: %s", version.Info)

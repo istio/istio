@@ -37,10 +37,10 @@ import (
 func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 	identityAttribute string, defaultConfigNamespace string,
 	s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info, attrDescFinder expr.AttributeDescriptorFinder) (Dispatcher, error) {
+	templateInfo map[string]template.Info) (Dispatcher, error) {
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp)
-	err := startController(s, adapterInfo, templateInfo, eval, attrDescFinder, d,
+	err := startController(s, adapterInfo, templateInfo, eval, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
 	return d, err
@@ -69,23 +69,25 @@ func kindMap(adapterInfo map[string]*adapter.BuilderInfo,
 	// typed instances
 	for kind, info := range templateInfo {
 		kindMap[kind] = info.CtrCfg
+		glog.Infof("template Kind: %s, %v", kind, info.CtrCfg)
 	}
 	// typed handlers
 	for kind, info := range adapterInfo {
 		kindMap[kind] = info.DefaultConfig
+		glog.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &cpb.Rule{}
+	glog.Infof("template Kind: %s", RulesKind)
+	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
+	glog.Infof("template Kind: %s", AttributeManifestKind)
 
-	if glog.V(3) {
-		glog.Info("kindMap = %v", kindMap)
-	}
 	return kindMap
 }
 
 // startController creates a controller from the given params.
 func startController(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
 	templateInfo map[string]template.Info, eval expr.Evaluator,
-	attrDescFinder expr.AttributeDescriptorFinder, dispatcher ResolverChangeListener,
+	dispatcher ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
 
 	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
@@ -97,7 +99,6 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
 		eval:                   eval,
-		attrDescFinder:         attrDescFinder,
 		configState:            data,
 		dispatcher:             dispatcher,
 		resolver:               &resolver{}, // get an empty resolver
@@ -109,7 +110,7 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo
 	}
 
 	c.publishSnapShot()
-	glog.Info("Config controller has started with %d config elements", len(c.configState))
+	glog.Infof("Config controller has started with %d config elements", len(c.configState))
 	go watchChanges(watchChan, c.applyEvents)
 	return nil
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/glog"
 )
 
 // cloneMessage looks up the kind in the map, and creates a clone of it.
@@ -38,5 +39,9 @@ func convert(spec map[string]interface{}, target proto.Message) error {
 	if err != nil {
 		return err
 	}
-	return jsonpb.Unmarshal(bytes.NewReader(jsonData), target)
+	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
+		glog.Warningf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+	}
+
+	return err
 }
