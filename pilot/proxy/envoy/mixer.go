@@ -37,8 +37,11 @@ const (
 	// AttrTargetIP is the server source IP
 	AttrTargetIP = "target.ip"
 
-	// AttrTargetUID is latform-specific unique identifier for the server instance of the target service
+	// AttrTargetUID is platform-specific unique identifier for the server instance of the target service
 	AttrTargetUID = "target.uid"
+
+	// AttrTargetService is name of the target service
+	AttrTargetService = "target.service"
 
 	// MixerRequestCount is the quota bucket name
 	MixerRequestCount = "RequestCount"
@@ -89,8 +92,8 @@ func buildMixerOpaqueConfig(check, forward bool) map[string]string {
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(role proxy.Node) *FilterMixerConfig {
-	return &FilterMixerConfig{
+func mixerHTTPRouteConfig(role proxy.Node, service string) *FilterMixerConfig {
+	r := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrTargetIP:  role.IPAddress,
 			AttrTargetUID: "kubernetes://" + role.ID,
@@ -101,6 +104,11 @@ func mixerHTTPRouteConfig(role proxy.Node) *FilterMixerConfig {
 		},
 		QuotaName: MixerRequestCount,
 	}
+	if len(service) > 0 {
+		r.MixerAttributes[AttrTargetService] = service
+	}
+
+	return r
 }
 
 // Mixer TCP filter config for inbound requests

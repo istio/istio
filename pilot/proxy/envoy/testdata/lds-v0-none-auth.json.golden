@@ -33,6 +33,7 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.0",
+           "target.service": "hello.default.svc.cluster.local",
            "target.uid": "kubernetes://v0.default"
           },
           "forward_attributes": {
@@ -84,6 +85,7 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.0",
+           "target.service": "hello.default.svc.cluster.local",
            "target.uid": "kubernetes://v0.default"
           },
           "forward_attributes": {
@@ -135,6 +137,7 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.0",
+           "target.service": "hello.default.svc.cluster.local",
            "target.uid": "kubernetes://v0.default"
           },
           "forward_attributes": {
@@ -225,6 +228,7 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.0",
+           "target.service": "hello.default.svc.cluster.local",
            "target.uid": "kubernetes://v0.default"
           },
           "forward_attributes": {
@@ -361,6 +365,7 @@
          "config": {
           "mixer_attributes": {
            "target.ip": "10.1.1.0",
+           "target.service": "hello.default.svc.cluster.local",
            "target.uid": "kubernetes://v0.default"
           },
           "forward_attributes": {
