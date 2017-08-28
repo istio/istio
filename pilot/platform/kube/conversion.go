@@ -35,11 +35,11 @@ const (
 
 	// KubeServiceAccountsOnVMAnnotation is to specify the K8s service accounts that are allowed to run
 	// this service on the VMs
-	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/serviceaccounts/kubernetes"
+	KubeServiceAccountsOnVMAnnotation = "alpha.istio.io/kubernetes-serviceaccounts"
 
 	// CanonicalServiceAccountsOnVMAnnotation is to specify the non-Kubernetes service accounts that
 	// are allowed to run this service on the VMs
-	CanonicalServiceAccountsOnVMAnnotation = "alpha.istio.io/serviceaccounts/canonical"
+	CanonicalServiceAccountsOnVMAnnotation = "alpha.istio.io/canonical-serviceaccounts"
 
 	// IstioURIPrefix is the URI prefix in the Istio service account scheme
 	IstioURIPrefix = "spiffe"
