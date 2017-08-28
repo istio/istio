@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -34,16 +35,19 @@ import (
 )
 
 const (
-	u1           = "normal-user"
-	u2           = "test-user"
-	create       = "create"
-	bookinfoYaml = "samples/apps/bookinfo/bookinfo.yaml"
-	modelDir     = "tests/apps/bookinfo/output"
-	rulesDir     = "samples/apps/bookinfo"
-	allRule      = "route-rule-all-v1.yaml"
-	delayRule    = "route-rule-delay.yaml"
-	fiftyRule    = "route-rule-reviews-50-v3.yaml"
-	testRule     = "route-rule-reviews-test-v2.yaml"
+	u1                    = "normal-user"
+	u2                    = "test-user"
+	create                = "create"
+	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
+	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
+	bookinfoMysqlYaml     = "samples/apps/bookinfo/bookinfo-mysql.yaml"
+	modelDir              = "tests/apps/bookinfo/output"
+	rulesDir              = "samples/apps/bookinfo"
+	allRule               = "route-rule-all-v1.yaml"
+	delayRule             = "route-rule-delay.yaml"
+	fiftyRule             = "route-rule-reviews-50-v3.yaml"
+	testRule              = "route-rule-reviews-test-v2.yaml"
+	testDbRule            = "route-rule-ratings-mysql.yaml"
 )
 
 var (
@@ -85,7 +89,7 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace with actual namespace and user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -191,6 +195,45 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 	closeResponseBody(resp)
 	return duration, err
+}
+
+func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
+	if err != nil {
+		return -1, err
+	}
+
+	defer closeResponseBody(resp)
+	glog.Infof("Get from page: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		glog.Errorf("Get response from product page failed!")
+		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return -1, err
+	}
+
+	if expr == "" {
+		return 1, nil
+	}
+
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		return -1, err
+	}
+
+	ref := re.FindAll(body, -1)
+	if ref == nil {
+		glog.Infof("%v", string(body))
+		return -1, fmt.Errorf("could not find %v in response", expr)
+	}
+	if count > 0 && len(ref) < count {
+		glog.Infof("%v", string(body))
+		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
+	}
+	return 1, nil
 }
 
 func deleteRules(ruleKeys []string) error {
@@ -353,12 +396,36 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApp := &framework.App{
-		AppYaml:    util.GetResourcePath(bookinfoYaml),
+	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
+	},
+		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
+			KubeInject: true,
+		},
+		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+			KubeInject: false,
+		},
 	}
-	tc.Kube.AppManager.AddApp(demoApp)
+	for i := range demoApps {
+		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
 	return nil
+}
+
+func TestDbRouting(t *testing.T) {
+	var err error
+	var rules = []string{testDbRule}
+	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(rules), "failed to delete rules", "", t)
+	}()
+
+	respExpr := "glyphicon-star"
+
+	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
+	inspect(
+		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
+		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
 func TestMain(m *testing.M) {
