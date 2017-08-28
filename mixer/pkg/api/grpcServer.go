@@ -87,12 +87,12 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	out := s.aspectDispatcher.Preprocess(legacyCtx, requestBag, preprocResponseBag)
 
 	if !status.IsOK(out) {
-		glog.Error("Preprocess Check returned with: ", statusString(out))
+		glog.Error("Preprocess Check returned with: ", status.String(out))
 		requestBag.Done()
 		preprocResponseBag.Done()
 		return nil, makeGRPCError(out)
 	}
-	glog.V(1).Info("Preprocess Check returned with: ", statusString(out))
+	glog.V(1).Info("Preprocess Check returned with: ", status.String(out))
 
 	if glog.V(2) {
 		glog.Info("Dispatching to main adapters after running processors")
@@ -119,18 +119,24 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		if err != nil {
 			out2 = status.WithError(err)
 		} else {
+			out2 = cr.Status
 			resp.Precondition.ValidDuration = cr.ValidDuration
 			// FIXME cr.ValidUseCount should be int32
 			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
+		}
+		if status.IsOK(out2) {
+			glog.V(2).Info("Check2 returned with ok")
+		} else {
+			glog.Error("Check2 returned with error : ", status.String(out2))
 		}
 	}
 
 	glog.V(1).Info("Dispatching Check")
 	out = s.aspectDispatcher.Check(legacyCtx, preprocResponseBag, responseBag)
 	if status.IsOK(out) {
-		glog.V(1).Info("Check returned with ok : ", statusString(out))
+		glog.V(1).Info("Check returned with ok : ", status.String(out))
 	} else {
-		glog.Error("Check returned with error : ", statusString(out))
+		glog.Error("Check returned with error : ", status.String(out))
 	}
 
 	// if out2 fails, we want to see that error
@@ -163,9 +169,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			glog.V(1).Info("Dispatching Quota")
 			qmr, out := s.aspectDispatcher.Quota(legacyCtx, preprocResponseBag, qma)
 			if status.IsOK(out) {
-				glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", statusString(out), qmr)
+				glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", status.String(out), qmr)
 			} else {
-				glog.Warningf("Quota returned with error '%s' and quota response '%v'", statusString(out), qmr)
+				glog.Warningf("Quota returned with error '%s' and quota response '%v'", status.String(out), qmr)
 			}
 			if qmr == nil {
 				qmr = &aspect.QuotaMethodResp{}
@@ -227,13 +233,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		glog.V(1).Info("Dispatching Preprocess")
 		out := s.aspectDispatcher.Preprocess(newctx, requestBag, preprocResponseBag)
 		if !status.IsOK(out) {
-			glog.Error("Preprocess returned with: ", statusString(out))
+			glog.Error("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Info("Preprocess returned with: ", statusString(out))
+		glog.V(1).Info("Preprocess returned with: ", status.String(out))
 
 		if glog.V(2) {
 			glog.Info("Dispatching to main adapters after running processors")
@@ -253,7 +259,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			}
 		}
 
-		glog.V(1).Info("Dispatching Report %d out of %d", i, len(req.Attributes))
+		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
 		out = s.aspectDispatcher.Report(legacyCtx, preprocResponseBag)
 
 		// if out2 fails, we want to see that error
@@ -263,13 +269,13 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 
 		if !status.IsOK(out) {
-			glog.Errorf("Report %d returned with: %s", i, statusString(out))
+			glog.Errorf("Report %d returned with: %s", i, status.String(out))
 			err = makeGRPCError(out)
 			span.LogFields(log.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Infof("Report %d returned with: %s", i, statusString(out))
+		glog.V(1).Infof("Report %d returned with: %s", i, status.String(out))
 
 		span.LogFields(log.String("success", fmt.Sprintf("finished Report for attribute bag %d", i)))
 		span.Finish()
@@ -289,11 +295,4 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 func makeGRPCError(status rpc.Status) error {
 	return grpc.Errorf(codes.Code(status.Code), status.Message)
-}
-
-func statusString(status rpc.Status) string {
-	if name, ok := rpc.Code_name[status.Code]; ok {
-		return fmt.Sprintf("%s %s", name, status.Message)
-	}
-	return "Unknown " + status.Message
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/mixer/pkg/adapter"
+	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
@@ -44,7 +45,6 @@ func TestControllerEmpty(t *testing.T) {
 		adapterInfo:            make(map[string]*adapter.BuilderInfo),
 		templateInfo:           make(map[string]template.Info),
 		eval:                   nil,
-		attrDescFinder:         nil,
 		configState:            make(map[store.Key]proto.Message),
 		dispatcher:             d,
 		resolver:               &resolver{}, // get an empty resolver
@@ -153,7 +153,6 @@ func TestController_workflow(t *testing.T) {
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
 		eval:                   nil,
-		attrDescFinder:         nil,
 		configState:            configState,
 		dispatcher:             d,
 		resolver:               res, // get an empty resolver
@@ -360,6 +359,94 @@ func Test_WaitForChanges(t *testing.T) {
 	waitFor(t, 2*watchFlushDuration, done, "changes did not appear")
 
 	watchFlushDuration = wd
+}
+
+func TestAttributeFinder_GetAttribute(t *testing.T) {
+	c := &Controller{}
+
+	c.configState = map[store.Key]proto.Message{
+		{AttributeManifestKind, DefaultConfigNamespace, "at1"}: &cpb.AttributeManifest{
+			Name: "k8s",
+			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
+				"a": {},
+				"b": {},
+			},
+		},
+		{AttributeManifestKind, DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{
+			Name: "k8s",
+			Attributes: map[string]*cpb.AttributeManifest_AttributeInfo{
+				"c": {},
+				"d": {},
+			},
+		},
+		{"unknownKind", DefaultConfigNamespace, "at2"}: &cpb.AttributeManifest{},
+	}
+
+	df := c.processAttributeManifests()
+
+	for _, tc := range []struct {
+		aname string
+		found bool
+	}{
+		{"a", true},
+		{"b", true},
+		{"c", true},
+		{"d", true},
+		{"e", false},
+		{"f", false},
+	} {
+		t.Run(tc.aname, func(t *testing.T) {
+
+			att := df.GetAttribute(tc.aname)
+			found := att != nil
+			if found != tc.found {
+				t.Fatalf("attribute %s got found=%t, want found=%t", tc.aname, found, tc.found)
+			}
+		})
+	}
+}
+
+func TestController_Resolve2(t *testing.T) {
+	handlerName := "h1"
+	rc := func() rulesMapByNamespace {
+		return rulesMapByNamespace{
+			"ns1": rulesByName{
+				"r1": &Rule{
+					selector: "true",
+					name:     "r1",
+					actions: map[adptTmpl.TemplateVariety][]*Action{
+						adptTmpl.TEMPLATE_VARIETY_CHECK: {
+							&Action{
+								handlerName: handlerName,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	for _, tc := range []struct {
+		desc     string
+		ht       map[string]*HandlerEntry
+		numRules int
+	}{
+		{"empty_table", nil, 0},
+		{"uninitialized_handler", map[string]*HandlerEntry{
+			handlerName: {},
+		}, 0},
+		{"good_handler", map[string]*HandlerEntry{
+			handlerName: {Handler: &fhandler{}},
+		}, 1},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, n := generateResolvedRules(rc(), tc.ht)
+			if n != tc.numRules {
+				t.Fatalf("nrules got: %d, want %d", n, tc.numRules)
+			}
+
+		})
+	}
 }
 
 var _ = flag.Lookup("v").Value.Set("99")

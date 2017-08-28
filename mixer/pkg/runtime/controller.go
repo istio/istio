@@ -41,7 +41,6 @@ type Controller struct {
 	adapterInfo            map[string]*adapter.BuilderInfo // maps adapter shortName to Info.
 	templateInfo           map[string]template.Info        // maps template name to Info.
 	eval                   expr.Evaluator                  // Used to infer types. Used by resolver and dispatcher.
-	attrDescFinder         expr.AttributeDescriptorFinder  // used by typeChecker
 	identityAttribute      string                          // used by resolver
 	defaultConfigNamespace string                          // used by resolver
 
@@ -65,6 +64,15 @@ type Controller struct {
 	// It is incremented every call.
 	nextResolverID int
 
+	// changedKinds is updated by applyEvents to indicate the kinds
+	// that have changed in the current batch of changes.
+	// It is reset on every config change.
+	changedKinds map[string]bool
+
+	// df is the cached version of descriptorFinder.
+	// It is recreated when attributes change.
+	df expr.AttributeDescriptorFinder
+
 	// Fields below are used for testing an debugging.
 
 	// createHandlerFactory for testing.
@@ -75,11 +83,19 @@ type Controller struct {
 }
 
 // RulesKind defines the config kind name of mixer rules.
-const RulesKind = "mixer-rules"
+const RulesKind = "mixer-rule"
+
+// AttributeManifestKind define the config kind name of attribute manifests.
+const AttributeManifestKind = "attribute-manifest"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
 	ChangeResolver(rt Resolver)
+}
+
+// VocabularyChangeListener is notified when attribute vocabulary changes.
+type VocabularyChangeListener interface {
+	ChangeVocabulary(finder expr.AttributeDescriptorFinder)
 }
 
 // factoryCreatorFunc creates a handler factory. It is used for testing.
@@ -89,15 +105,19 @@ type factoryCreatorFunc func(templateInfo map[string]template.Info, expr expr.Ty
 // applyEventsFn is used for testing
 type applyEventsFn func(events []*store.Event)
 
-// maxEvents is the likely maximum number of events
-// we can expect in a second. It is used to avoid slice reallocation.
-const maxEvents = 50
-
 // publishSnapShot converts the currently available configState into a resolver.
 // The config may be in an inconsistent state, however it *must* be converted into a consistent resolver.
 // The previous handler table enables handler cleanup and reuse.
 // This code is single threaded, it only runs on a config change control loop.
 func (c *Controller) publishSnapShot() {
+	// current view of attributes
+	// attribute manifests are used by type inference during handler creation.
+	attributes := c.processAttributeManifests()
+
+	if cl, ok := c.eval.(VocabularyChangeListener); ok {
+		cl.ChangeVocabulary(attributes)
+	}
+
 	// current consistent view of handler configuration
 	// keyed by Name.Kind.NameSpace
 	handlerConfig := c.validHandlerConfigs()
@@ -107,7 +127,7 @@ func (c *Controller) publishSnapShot() {
 	instanceConfig := c.validInstanceConfigs()
 
 	// new handler factory is created for every config change.
-	hb := c.createHandlerFactory(c.templateInfo, c.eval, c.attrDescFinder, c.adapterInfo)
+	hb := c.createHandlerFactory(c.templateInfo, c.eval, attributes, c.adapterInfo)
 
 	// new handler table is created for every config change. It uses handler factory
 	// to create new handlers.
@@ -160,6 +180,10 @@ var maxCleanupDuration = 10 * time.Second
 
 var watchFlushDuration = time.Second
 
+// maxEvents is the likely maximum number of events
+// we can expect in a second. It is used to avoid slice reallocation.
+const maxEvents = 50
+
 // watchChanges watches for changes on a channel and
 // publishes a batch of changes via applyEvents.
 // watchChanges is started in a goroutine.
@@ -189,7 +213,9 @@ func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
 
 // applyEvents applies given events to config state and then publishes a snapshot.
 func (c *Controller) applyEvents(events []*store.Event) {
+	ck := make(map[string]bool)
 	for _, ev := range events {
+		ck[ev.Kind] = true
 		switch ev.Type {
 		case store.Update:
 			c.configState[ev.Key] = ev.Value
@@ -197,6 +223,7 @@ func (c *Controller) applyEvents(events []*store.Event) {
 			delete(c.configState, ev.Key)
 		}
 	}
+	c.changedKinds = ck
 	c.publishSnapShot()
 }
 
@@ -233,12 +260,49 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 			Params:  cfg,
 		}
 	}
+	if glog.V(3) {
+		glog.Infof("handler = %v", handlerConfig)
+	}
 	return handlerConfig
 }
 
+// processAttributeManifests loads attribute manifests to produce an AttributeDescriptorFinder.
+// attribute manifests are not expected to change often.
+func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder {
+	if !c.changedKinds[AttributeManifestKind] && c.df != nil {
+		return c.df
+	}
+	attrs := make(map[string]*cpb.AttributeManifest_AttributeInfo)
+	for k, cfg := range c.configState {
+		if k.Kind != AttributeManifestKind {
+			continue
+		}
+		for an, at := range cfg.(*cpb.AttributeManifest).Attributes {
+			attrs[an] = at
+		}
+	}
+	if glog.V(2) {
+		glog.Infof("%d known attributes", len(attrs))
+	}
+	c.df = &attributeFinder{attrs: attrs}
+	return c.df
+}
+
+// attributeFinder exposes expr.AttributeDescriptorFinder
+type attributeFinder struct {
+	attrs map[string]*cpb.AttributeManifest_AttributeInfo
+}
+
+// GetAttribute finds an attribute by name.
+// This function is only called when a new handler is instantiated.
+func (a attributeFinder) GetAttribute(name string) *cpb.AttributeManifest_AttributeInfo {
+	return a.attrs[name]
+}
+
+// rulesByName is rules indexed by name.
 type rulesByName map[string]*Rule
 
-// rulesByName indexed by namespace
+// rulesMapByNamespace is rulesByName indexed by namespace.
 type rulesMapByNamespace map[string]rulesByName
 
 // rulesListByNamespace is the type needed by resolver.

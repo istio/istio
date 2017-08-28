@@ -161,11 +161,11 @@ func (s *store2) List() map[Key]proto.Message {
 	for k, spec := range data {
 		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
-			glog.Errorf("Failed to convert spec: %v", err)
+			glog.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
 		if err = convert(spec, pbSpec); err != nil {
-			glog.Errorf("Failed to convert spec: %v", err)
+			glog.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
 		result[k] = pbSpec

@@ -101,6 +101,12 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 	return nil
 }
 
+// ChangeVocabulary handles changing of the attribute vocabulary.
+func (e *IL) ChangeVocabulary(finder expr.AttributeDescriptorFinder) {
+	e.finder = finder
+	e.cache.Purge()
+}
+
 // ConfigChange handles changing of configuration.
 func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
 	e.finder = df

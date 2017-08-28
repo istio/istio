@@ -15,9 +15,12 @@
 package adapter
 
 import (
+	"fmt"
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
+
+	"istio.io/mixer/pkg/status"
 )
 
 // TODO revisit the comment on this adapter struct.
@@ -52,4 +55,8 @@ func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 		r.ValidUseCount = other.ValidUseCount
 	}
 	return r
+}
+
+func (r *CheckResult) String() string {
+	return fmt.Sprintf("CheckResult: status:%d, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidDuration)
 }

@@ -50,8 +50,9 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 
+	// template.NewRepository(info)
 	rootCmd.AddCommand(adapterCmd(printf))
-	rootCmd.AddCommand(serverCmd(template.NewRepository(info), adapters, printf, fatalf))
+	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(crdCmd(info, adapters, printf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
 
