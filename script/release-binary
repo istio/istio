@@ -19,7 +19,7 @@
 set -ex
 
 # Make sure to this script on x86_64 Ubuntu Xenial
-UBUNTU_RELEASE="$(lsb_release -c -s)"
+UBUNTU_RELEASE=${UBUNTU_RELEASE:-$(lsb_release -c -s)}
 [[ "${UBUNTU_RELEASE}" == 'xenial' ]] || { echo 'must run on Ubuntu Xenial'; exit 1; }
 
 # The bucket name to store proxy binary
@@ -45,11 +45,34 @@ sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
 gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 
+BINARY_NAME="istio-proxy-${SHA}.deb"
+SHA256_NAME="istio-proxy-${SHA}.sha256"
+bazel build --config=release //tools/deb:istio-proxy
+BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2.1_amd64.deb"
+cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
+sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
+
+# Copy it to the bucket.
+echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
+gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
+
+
 # Build the debug binary
 BINARY_NAME="envoy-debug-${SHA}.tar.gz"
 SHA256_NAME="envoy-debug-${SHA}.sha256"
 bazel build -c dbg //src/envoy/mixer:envoy_tar
 BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
+cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
+sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
+
+# Copy it to the bucket.
+echo "Copying ${BINARY_NAME} ${SHA256_NAME} to ${DST}/"
+gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
+
+BINARY_NAME="istio-proxy-debug-${SHA}.deb"
+SHA256_NAME="istio-proxy-debug${SHA}.sha256"
+bazel build -c dbg //tools/deb:istio-proxy
+BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2.1_amd64.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 

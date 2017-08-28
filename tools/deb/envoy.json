@@ -1,0 +1,77 @@
+{
+  "listeners": [
+  ],
+  "lds": {
+    "cluster": "lds",
+    "refresh_delay_ms": 10000
+  },
+  "admin": {
+    "access_log_path": "/dev/null",
+    "address": "tcp://0.0.0.0:15000"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "rds",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://istio-pilot:8080"
+          }
+        ]
+      },
+      {
+        "name": "lds",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://istio-pilot:8080"
+          }
+        ]
+      },
+       {
+        "name": "local8000",
+        "connect_timeout_ms": 5000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://localhost:8000"
+          }
+        ]
+      }
+    ],
+    "sds": {
+      "cluster": {
+        "name": "sds",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://istio-pilot:8080"
+          }
+        ]
+      },
+      "refresh_delay_ms": 10000
+    },
+    "cds": {
+      "cluster": {
+        "name": "cds",
+        "connect_timeout_ms": 1000,
+        "type": "strict_dns",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://istio-pilot:8080"
+          }
+        ]
+      },
+      "refresh_delay_ms": 10000
+    }
+  }
+}

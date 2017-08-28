@@ -1,4 +1,11 @@
 FROM ubuntu:xenial
+RUN apt-get update && \
+    apt-get install -y \
+    iptables
 ADD envoy /usr/local/bin/envoy
-ENTRYPOINT /usr/local/bin/envoy
+ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
+ADD istio-start.sh /usr/local/bin/istio-start.sh
+ADD envoy.json /var/lib/istio/envoy/envoy.json
+
+ENTRYPOINT /usr/local/bin/istio-start.sh
 
