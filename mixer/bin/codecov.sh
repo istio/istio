@@ -9,8 +9,7 @@ cd $ROOTDIR
 
 echo "Code coverage test"
 echo "" > coverage.txt
-# TODO remove the exclusion of codegen once the codegen tests start working via bazel
-for d in $(go list ./... | grep -v vendor | grep -v codegen); do
+for d in $(go list ./... | grep -v vendor); do
     go test -coverprofile=profile.out $d
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
