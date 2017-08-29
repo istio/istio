@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package consul
+package proxy
 
 import (
 	"net"
@@ -35,37 +35,12 @@ func GetPrivateIP() net.IP {
 	return addr
 }
 
-// GetPrivateIPv4 returns a private IPv4 address, or panics if no IP is available.
-func GetPrivateIPv4() net.IP {
-	addr := getPrivateIPv4IfAvailable()
-	if addr.IsUnspecified() {
-		panic("No private IP address is available")
-	}
-	return addr
-}
-
 // WaitForPrivateNetwork blocks until a private IP address is available, or a timeout is reached.
 // Returns 'true' if a private IP is available before timeout is reached, and 'false' otherwise.
 func WaitForPrivateNetwork() bool {
 	deadline := time.Now().Add(waitTimeout)
 	for {
 		addr := getPrivateIPIfAvailable()
-		if !addr.IsUnspecified() {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		time.Sleep(waitInterval)
-	}
-}
-
-// WaitForPrivateNetworkIPv4 blocks until a private IP address is available, or a timeout is reached.
-// Returns 'true' if a private IP is available before timeout is reached, and 'false' otherwise.
-func WaitForPrivateNetworkIPv4() bool {
-	deadline := time.Now().Add(waitTimeout)
-	for {
-		addr := getPrivateIPv4IfAvailable()
 		if !addr.IsUnspecified() {
 			return true
 		}
@@ -91,20 +66,6 @@ func getPrivateIPIfAvailable() net.IP {
 		}
 		if !ip.IsLoopback() {
 			return ip
-		}
-	}
-	return net.IPv4zero
-}
-
-// Returns a private IPv4 address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPv4IfAvailable() net.IP {
-	addrs, _ := net.InterfaceAddrs()
-	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP
-			}
 		}
 	}
 	return net.IPv4zero

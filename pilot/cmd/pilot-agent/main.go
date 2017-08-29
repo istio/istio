@@ -20,12 +20,10 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/platform"
-	"istio.io/pilot/platform/consul"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
@@ -55,7 +53,9 @@ var (
 			// receive mesh configuration
 			mesh, err := cmd.ReadMeshConfig(meshconfig)
 			if err != nil {
-				return multierror.Prefix(err, "failed to read mesh configuration.")
+				defaultMesh := proxy.DefaultMeshConfig()
+				mesh = &defaultMesh
+				glog.Warningf("failed to read mesh configuration, using default: %v", err)
 			}
 
 			glog.V(2).Infof("version %s", version.Line())
@@ -63,12 +63,12 @@ var (
 
 			// set values from registry platform
 			if role.IPAddress == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if serviceregistry == platform.KubernetesRegistry || serviceregistry == "" {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
 				} else if serviceregistry == platform.ConsulRegistry {
 					ipAddr := "127.0.0.1"
-					if ok := consul.WaitForPrivateNetwork(); ok {
-						ipAddr = consul.GetPrivateIP().String()
+					if ok := proxy.WaitForPrivateNetwork(); ok {
+						ipAddr = proxy.GetPrivateIP().String()
 						glog.V(2).Infof("obtained private IP %v", ipAddr)
 					}
 
@@ -76,14 +76,19 @@ var (
 				}
 			}
 			if role.ID == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if serviceregistry == platform.KubernetesRegistry || serviceregistry == "" {
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
+				} else if serviceregistry == platform.ConsulRegistry {
+					role.ID = role.IPAddress + ".service.consul"
 				}
 			}
 			if role.Domain == "" {
-				if serviceregistry == platform.KubernetesRegistry {
+				if serviceregistry == platform.KubernetesRegistry || serviceregistry == "" {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+				} else if serviceregistry == platform.ConsulRegistry {
+					role.Domain = "service.consul"
 				}
+
 			}
 
 			watcher, err := envoy.NewWatcher(mesh, role, configpath)

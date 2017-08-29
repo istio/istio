@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "agent.go",
         "context.go",
+        "net.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
