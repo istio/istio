@@ -108,6 +108,9 @@ func HTTPDownload(dst string, src string) error {
 			glog.Errorf("Error: close downloaded file from %s, %s", src, err)
 		}
 	}()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("http get request, received unexpected response status: %s", resp.Status)
+	}
 	if _, err = io.Copy(out, resp.Body); err != nil {
 		return err
 	}
