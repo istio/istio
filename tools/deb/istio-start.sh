@@ -46,7 +46,7 @@ fi
 if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
   # Update iptables, based on current config. This is for backward compatibility with the init image mode.
   # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
-  ${ISTIO_BIN_BASE}/istio-iptables.sh ${@}
+  ${ISTIO_BIN_BASE}/istio-iptables.sh "${@}"
   exit 0
 fi
 
