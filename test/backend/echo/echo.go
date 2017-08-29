@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -30,7 +31,85 @@ var (
 
 	requests = 0
 	data     = 0
+	lds_n    = 0
 )
+
+// Test LDS update with command
+//   envoy -c envoy_lds.conf --service-cluster cluster --service-node node
+const listener1 = `{
+  "listeners": [
+     {
+      "address": "tcp://0.0.0.0:9090",
+      "name": "server-http",
+      "bind_to_port": true,
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+	    "generate_request_id": true,
+            "stat_prefix": "ingress_http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "backend",
+                  "domains": ["*"],
+                  "routes": [
+                    {
+                      "timeout_ms": 0,
+                      "prefix": "/",
+                      "cluster": "service1",
+                      "opaque_config": {
+                        "mixer_control": "on",
+                        "mixer_forward": "off"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ],
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "mixer",
+                "config": {
+                  "mixer_attributes": {
+                      "target.uid": "POD222",
+                      "target.service": "foo.svc.cluster.local"
+                  },
+                  "random_string": "AAAAA",
+                  "quota_name": "RequestCount",
+                  "quota_amount": "1"
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+`
+
+func lds_handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	// Generates a new config to cause Envoy to update the listener
+	lds_n++
+	w.Write([]byte(strings.Replace(listener1, "AAAAA", strconv.Itoa(lds_n), -1)))
+}
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%v %v %v %v\n", r.Method, r.URL, r.Proto, r.RemoteAddr)
@@ -65,5 +144,6 @@ func main() {
 	fmt.Printf("Listening on port %v\n", *port)
 
 	http.HandleFunc("/", handler)
+	http.HandleFunc("/v1/listeners/cluster/node", lds_handler)
 	http.ListenAndServe(":"+strconv.Itoa(*port), nil)
 }
