@@ -9,7 +9,6 @@ cd $ROOTDIR
 
 echo "Code coverage test"
 echo "" > coverage.txt
-
 for d in $(go list ./... | grep -v vendor); do
     go test -coverprofile=profile.out $d
     if [ -f profile.out ]; then
@@ -17,3 +16,4 @@ for d in $(go list ./... | grep -v vendor); do
         rm profile.out
     fi
 done
+

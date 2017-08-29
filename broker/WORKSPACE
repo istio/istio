@@ -126,9 +126,21 @@ new_git_repository(
 )
 
 go_repository(
+    name = "org_golang_google_api",
+    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
+    importpath = "google.golang.org/api",
+)
+
+go_repository(
     name = "org_golang_google_grpc",
     commit = "cdee119ee21e61eef7093a41ba148fa83585e143",  # Mar 14, 2017 (v1.2.0)
     importpath = "google.golang.org/grpc",
+)
+
+go_repository(
+    name = "org_golang_google_genproto",
+    commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",  # Apr 4, 2017 (no release)
+    importpath = "google.golang.org/genproto",
 )
 
 go_repository(
@@ -404,7 +416,7 @@ go_repository(
 
 go_repository(
     name = "com_google_cloud_go",
-    commit = "2e6a95edb1071d750f6d7db777bf66cd2997af6c",  # Mar 9, 2017 (v0.7.0)
+    commit = "a5913b3f7deecba45e98ff33cefbac4fd204ddd7",  # Jun 27, 2017 (v0.10.0)
     importpath = "cloud.google.com/go",
 )
 
@@ -455,8 +467,8 @@ go_repository(
 ##
 
 git_repository(
-    name = "istio_test_infra",
-    commit = "983183f98b79f8b67fe380fef4cdd21481830fd7",  # Apr 13, 2017 (no releases)
+    name = "com_github_istio_test_infra",
+    commit = "9a3ac467ba862432c75e42cecff7aa5c2980e3b8",  # Jun 18, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
 

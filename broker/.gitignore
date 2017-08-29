@@ -32,7 +32,6 @@ _testmain.go
 _builds
 _projects
 _steps
-bin
 .DS_Store
 _builds/
 _projects/

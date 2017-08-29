@@ -11,8 +11,22 @@ def gitUtils = new GitUtilities()
 def utils = new Utilities()
 def bazel = new Bazel()
 
+// This should be updated for a release branch.
+ISTIO_VERSION_URL = 'https://raw.githubusercontent.com/istio/istio/master/istio.RELEASE'
+
+def setVersions() {
+  def version = sh(returnStdout: true, script: "curl ${ISTIO_VERSION_URL}").trim()
+  if (!(version  ==~ /[0-9]+\.[0-9]+\.[0-9]+/)) {
+    error('Could not parse version')
+  }
+  def v = version.tokenize('.')
+  env.ISTIO_VERSION = version
+  env.ISTIO_MINOR_VERSION = "${v[0]}.${v[1]}"
+}
+
 mainFlow(utils) {
   node {
+    setVersions()
     gitUtils.initialize()
     bazel.setVars()
   }
@@ -25,12 +39,8 @@ mainFlow(utils) {
     postsubmit(gitUtils, bazel, utils)
   }
   // PR from master to stable branch for qualification
-  if (utils.runStage('STABLE_PRESUBMIT')) {
-    stablePresubmit(gitUtils, bazel, utils)
-  }
-  // Postsubmit form stable branch, post qualification
-  if (utils.runStage('STABLE_POSTSUBMIT')) {
-    stablePostsubmit(gitUtils, bazel, utils)
+  if (utils.runStage('RELEASE')) {
+    release(gitUtils, bazel)
   }
 }
 
@@ -46,17 +56,19 @@ def presubmit(gitUtils, bazel, utils) {
     }
     stage('Code Check') {
       sh('bin/linters.sh')
-      sh('bin/racetest.sh')
     }
     stage('Code Coverage') {
-      sh('bin/codecov.sh > codecov.report')
-      sh('bazel-bin/bin/toolbox/presubmit/package_coverage_check')
+      sh('bin/codecov.sh | tee codecov.report')
+      sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('BROKER_CODECOV_TOKEN')
     }
     stage('Docker Test Push') {
       def images = 'broker'
       def tags = env.GIT_SHA
+      // Docker images built with bazel
       utils.publishDockerImagesToContainerRegistry(images, tags)
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-testing")
     }
   }
 }
@@ -69,36 +81,37 @@ def postsubmit(gitUtils, bazel, utils) {
       bazel.build('//...')
       sh('bin/bazel_to_go.py')
       bazel.test('//...')
-      sh('bin/codecov.sh')
+      sh('bin/codecov.sh | tee codecov.report')
+      sh('bin/toolbox/presubmit/pkg_coverage.sh')
       utils.publishCodeCoverage('BROKER_CODECOV_TOKEN')
     }
-    utils.fastForwardStable('broker')
-  }
-}
-
-def stablePresubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/broker') {
-    bazel.updateBazelRc()
     stage('Docker Push') {
       def images = 'broker'
       def tags = env.GIT_SHA
+      // Docker images built with bazel
       utils.publishDockerImagesToContainerRegistry(images, tags)
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h gcr.io/istio-testing")
     }
   }
 }
 
-def stablePostsubmit(gitUtils, bazel, utils) {
+def release(gitUtils, bazel) {
   goBuildNode(gitUtils, 'istio.io/broker') {
     bazel.updateBazelRc()
     stage('Docker Push') {
-      def date = new Date().format("YYYY-MM-dd-HH.mm.ss")
-      def images = 'broker,broker_debug'
-      def tags = "${env.GIT_SHORT_SHA},${date},latest"
+      def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"
+      def hubs = 'gcr.io/istio-io,docker.io/istio'
       if (env.GIT_TAG != '') {
-        tags += ",${env.GIT_TAG}"
+        if (env.GIT_TAG == env.ISTIO_VERSION) {
+          // Retagging
+          tags = "${env.ISTIO_VERSION},${env.ISTIO_MINOR_VERSION}"
+        } else {
+            tags += ",${env.GIT_TAG}"
+        }
       }
-      utils.publishDockerImagesToDockerHub(images, tags)
-      utils.publishDockerImagesToContainerRegistry(images, tags, '', 'gcr.io/istio-io')
+      // Docker images built with docker
+      sh("bin/publish-docker-images.sh -t ${tags} -h ${hubs}")
     }
   }
 }
