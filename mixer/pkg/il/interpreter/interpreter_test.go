@@ -15,6 +15,7 @@
 package interpreter
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -1561,6 +1562,21 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 		},
 
+		"extern/ret/duration": {
+			code: `
+		fn main() duration
+			call ext
+			ret
+		end
+		`,
+			expected: time.Hour,
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func() time.Duration {
+					return time.Hour
+				}),
+			},
+		},
+
 		"extern/ret/bool": {
 			code: `
 		fn main() bool
@@ -1603,6 +1619,36 @@ func TestInterpreter_Eval(t *testing.T) {
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() map[string]string {
 					return map[string]string{"b": "c"}
+				}),
+			},
+		},
+
+		"extern/ret/ipaddress": {
+			code: `
+		fn main() interface
+			call ext
+			ret
+		end
+		`,
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func() []byte {
+					return []byte{0x1, 0x2, 0x4, 0x6}
+				}),
+			},
+		},
+
+		"extern/ret/time": {
+			code: `
+		fn main() interface
+			call ext
+			ret
+		end
+		`,
+			expected: time.Unix(10, 25),
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func() time.Time {
+					return time.Unix(10, 25)
 				}),
 			},
 		},
@@ -1682,6 +1728,21 @@ func TestInterpreter_Eval(t *testing.T) {
 				}),
 			},
 		},
+		"extern/par/duration": {
+			code: `
+		fn main() duration
+			apush_i 3601000000000 // 1 Hour + 1 Second
+			call ext
+			ret
+		end
+		`,
+			expected: time.Hour + time.Second + time.Second,
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func(d time.Duration) time.Duration {
+					return d + time.Second
+				}),
+			},
+		},
 		"extern/par/double": {
 			code: `
 		fn main() double
@@ -1714,6 +1775,42 @@ func TestInterpreter_Eval(t *testing.T) {
 			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func(r map[string]string) string {
 					return r["b"]
+				}),
+			},
+		},
+		"extern/par/ipaddress": {
+			code: `
+		fn main() interface
+			resolve_f "a"
+			call ext
+			ret
+		end
+		`,
+			expected: []byte{0x1, 0x2, 0x4, 0x6},
+			input: map[string]interface{}{
+				"a": []byte{0x1, 0x2, 0x4, 0x6},
+			},
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func(b []byte) []byte {
+					return b
+				}),
+			},
+		},
+		"extern/par/time": {
+			code: `
+		fn main() interface
+			resolve_f "a"
+			call ext
+			ret
+		end
+		`,
+			expected: time.Unix(10, 25),
+			input: map[string]interface{}{
+				"a": time.Unix(10, 25),
+			},
+			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func(t time.Time) time.Time {
+					return t
 				}),
 			},
 		},
@@ -2234,7 +2331,7 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 
 		r := s.Result()
 		actual := r.AsInterface()
-		if actual != test.expected {
+		if !areEqual(actual, test.expected) {
 			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
@@ -2256,8 +2353,20 @@ func runTestProgram(t *testing.T, p *il.Program, test test) {
 		}
 
 		actual := r.AsInterface()
-		if actual != test.expected {
-			t.Fatalf("(stepper) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
+		if !areEqual(actual, test.expected) {
+			t.Fatalf("(interpreter) result is not as expected: A:'%+v' != E:'%+v'", actual, test.expected)
 		}
 	}
+}
+
+func areEqual(a1 interface{}, a2 interface{}) bool {
+	b1, b1Ok := a1.([]byte)
+	b2, b2Ok := a2.([]byte)
+	if b1Ok != b2Ok {
+		return false
+	}
+	if b1Ok {
+		return bytes.Equal(b1, b2)
+	}
+	return a1 == a2
 }

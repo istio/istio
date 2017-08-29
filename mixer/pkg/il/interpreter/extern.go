@@ -16,6 +16,7 @@ package interpreter
 
 import (
 	"reflect"
+	"time"
 
 	"istio.io/mixer/pkg/il"
 )
@@ -101,11 +102,23 @@ func ilType(t reflect.Type) il.Type {
 	case reflect.Bool:
 		return il.Bool
 	case reflect.Int64:
+		if t.Name() == "Duration" {
+			return il.Duration
+		}
 		return il.Integer
 	case reflect.Float64:
 		return il.Double
 	case reflect.Map:
 		if t.Key().Kind() == reflect.String || t.Elem().Kind() == reflect.String {
+			return il.Interface
+		}
+	case reflect.Slice:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return il.Interface
+		}
+	case reflect.Struct:
+		switch t.Name() {
+		case "Time":
 			return il.Interface
 		}
 	}
@@ -142,6 +155,10 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 		case il.Integer:
 			iv := il.ByteCodeToInteger(stack[ap+1], stack[ap])
 			ins[i] = reflect.ValueOf(iv)
+
+		case il.Duration:
+			iv := il.ByteCodeToInteger(stack[ap+1], stack[ap])
+			ins[i] = reflect.ValueOf(time.Duration(iv))
 
 		case il.Double:
 			d := il.ByteCodeToDouble(stack[ap+1], stack[ap])
@@ -196,7 +213,7 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 		}
 		return 0, 0, nil
 
-	case il.Integer:
+	case il.Integer, il.Duration:
 		i := rv.Int()
 		o1, o2 := il.IntegerToByteCode(i)
 		return o2, o1, nil
@@ -217,6 +234,6 @@ func (e Extern) invoke(s *il.StringTable, heap []interface{}, hp *uint32, stack 
 		return 0, 0, nil
 
 	default:
-		panic("interpreter.Extern.invoke: unrcognized return type")
+		panic("interpreter.Extern.invoke: unrecognized return type")
 	}
 }
