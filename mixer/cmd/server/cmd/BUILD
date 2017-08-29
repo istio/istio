@@ -36,9 +36,6 @@ go_library(
         "@com_github_openzipkin_zipkin_go_opentracing//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
-        "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
-        "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//grpclog/glogger:go_default_library",
@@ -50,4 +47,8 @@ go_test(
     size = "small",
     srcs = ["crd_test.go"],
     library = ":go_default_library",
+    deps = [
+        "//pkg/adapter:go_default_library",
+        "//pkg/template:go_default_library",
+    ],
 )

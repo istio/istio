@@ -53,7 +53,7 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	// template.NewRepository(info)
 	rootCmd.AddCommand(adapterCmd(printf))
 	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
-	rootCmd.AddCommand(crdCmd(info, adapters, printf))
+	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
 
 	return rootCmd
