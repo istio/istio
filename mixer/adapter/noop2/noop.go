@@ -40,22 +40,22 @@ type (
 
 // ensure our types implement the requisite interfaces
 var _ checknothing.HandlerBuilder = &builder{}
-var _ checknothing.Handler = handler{}
+var _ checknothing.Handler = &handler{}
 var _ reportnothing.HandlerBuilder = &builder{}
-var _ reportnothing.Handler = handler{}
+var _ reportnothing.Handler = &handler{}
 var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = handler{}
+var _ listentry.Handler = &handler{}
 var _ logentry.HandlerBuilder = &builder{}
-var _ logentry.Handler = handler{}
+var _ logentry.Handler = &handler{}
 var _ metric.HandlerBuilder = &builder{}
-var _ metric.Handler = handler{}
+var _ metric.Handler = &handler{}
 var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = handler{}
+var _ quota.Handler = &handler{}
 
 ///////////////// Configuration Methods ///////////////
 
 func (*builder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
-	return handler{}, nil
+	return &handler{}, nil
 }
 
 func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
@@ -90,27 +90,27 @@ var checkResult = adapter.CheckResult{
 	ValidUseCount: 1000000000,
 }
 
-func (handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+func (*handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
 	return checkResult, nil
 }
 
-func (handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
+func (*handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
 	return nil
 }
 
-func (handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+func (*handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
 	return checkResult, nil
 }
 
-func (handler) HandleLogEntry(context.Context, []*logentry.Instance) error {
+func (*handler) HandleLogEntry(context.Context, []*logentry.Instance) error {
 	return nil
 }
 
-func (handler) HandleMetric(context.Context, []*metric.Instance) error {
+func (*handler) HandleMetric(context.Context, []*metric.Instance) error {
 	return nil
 }
 
-func (handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 	return adapter.QuotaResult2{
 			ValidDuration: 1000000000 * time.Second,
 			Amount:        args.QuotaAmount,
@@ -118,7 +118,7 @@ func (handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.
 		nil
 }
 
-func (handler) Close() error { return nil }
+func (*handler) Close() error { return nil }
 
 ////////////////// Bootstrap //////////////////////////
 

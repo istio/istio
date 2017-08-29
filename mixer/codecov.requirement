@@ -2,6 +2,7 @@ Requirements of code coverage percentage for packages
 Use this format: "Package name \t Required percentage"
 istio.io/mixer/adapter/denier	100
 istio.io/mixer/adapter/list 100
+istio.io/mixer/adapter/memquota2	100
 istio.io/mixer/adapter/noop2	100
 istio.io/mixer/adapter/stdio	100
 istio.io/mixer/pkg/api  100

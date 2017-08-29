@@ -40,16 +40,16 @@ type (
 
 // ensure our types implement the requisite interfaces
 var _ checknothing.HandlerBuilder = &builder{}
-var _ checknothing.Handler = handler{}
+var _ checknothing.Handler = &handler{}
 var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = handler{}
+var _ listentry.Handler = &handler{}
 var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = handler{}
+var _ quota.Handler = &handler{}
 
 ///////////////// Configuration Methods ///////////////
 
 func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return handler{status: cfg.(*config.Params).Status}, nil
+	return &handler{status: cfg.(*config.Params).Status}, nil
 }
 
 func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
@@ -66,7 +66,7 @@ func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 
 ////////////////// Runtime Methods //////////////////////////
 
-func (h handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+func (h *handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
 	return adapter.CheckResult{
 		Status:        h.status,
 		ValidDuration: 1000 * time.Second,
@@ -74,7 +74,7 @@ func (h handler) HandleCheckNothing(context.Context, *checknothing.Instance) (ad
 	}, nil
 }
 
-func (h handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
 	return adapter.CheckResult{
 		Status:        h.status,
 		ValidDuration: 1000 * time.Second,
@@ -82,11 +82,11 @@ func (h handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.
 	}, nil
 }
 
-func (handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 	return adapter.QuotaResult2{}, nil
 }
 
-func (handler) Close() error { return nil }
+func (*handler) Close() error { return nil }
 
 ////////////////// Bootstrap //////////////////////////
 
