@@ -42,6 +42,8 @@ import (
 	"istio.io/mixer/template/quota"
 
 	"istio.io/mixer/template/reportnothing"
+
+	"time"
 )
 
 var (
@@ -190,6 +192,16 @@ var (
 					}
 				}
 
+				if cpb.Timestamp == "" {
+					return nil, errors.New("expression for field Timestamp cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Timestamp: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Timestamp: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
 				if cpb.Severity == "" {
 					return nil, errors.New("expression for field Severity cannot be empty")
 				}
@@ -228,6 +240,14 @@ var (
 						return errors.New(msg)
 					}
 
+					Timestamp, err := mapper.Eval(md.Timestamp, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Timestamp for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
 					Severity, err := mapper.Eval(md.Severity, attrs)
 
 					if err != nil {
@@ -240,6 +260,8 @@ var (
 						Name: name,
 
 						Variables: Variables,
+
+						Timestamp: Timestamp.(time.Time),
 
 						Severity: Severity.(string),
 					})

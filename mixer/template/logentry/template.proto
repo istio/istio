@@ -16,9 +16,7 @@ syntax = "proto3";
 
 package logentry;
 
-// TODO: STUFF THAT IS COMMENTED OUT NEEDS TO BE TURNED ON ONCE CODE GEN IS FIXED
-
-//import "google/protobuf/timestamp.proto";
+import "google/protobuf/timestamp.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
 
@@ -31,7 +29,7 @@ message Template {
     map<string, istio.mixer.v1.config.descriptor.ValueType> variables = 1;
 
     // Timestamp is the time value for the log entry
-//    google.protobuf.Timestamp timestamp = 2;
+    google.protobuf.Timestamp timestamp = 2;
 
     // Severity indicates the importance of the log entry.
     string severity = 3;

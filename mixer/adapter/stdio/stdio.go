@@ -167,9 +167,7 @@ func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instan
 		entry := zapcore.Entry{
 			LoggerName: instance.Name,
 			Level:      h.mapSeverityLevel(instance.Severity),
-
-			// TODO: disabled in template
-			// Time: instance.Timestemp
+			Time:       instance.Timestamp,
 		}
 
 		for _, varName := range h.logEntryVars[instance.Name] {
