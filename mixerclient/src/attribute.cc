@@ -14,10 +14,30 @@
  */
 
 #include "include/attribute.h"
+#include <iomanip>
+#include <locale>
 #include <sstream>
 
 namespace istio {
 namespace mixer_client {
+
+namespace {
+
+std::string escape(const std::string& source) {
+  std::stringstream ss;
+  static const std::locale& loc = std::locale::classic();
+
+  for (const auto& c : source) {
+    if (std::isprint(c, loc)) {
+      ss << c;
+    } else {
+      ss << "\\x" << std::setfill('0') << std::setw(2) << std::hex
+         << static_cast<uint16_t>(c);
+    }
+  }
+  return ss.str();
+}
+}
 
 const std::string Attributes::kQuotaName = "quota.name";
 const std::string Attributes::kQuotaAmount = "quota.amount";
@@ -120,7 +140,7 @@ std::string Attributes::DebugString() const {
         ss << "(STRING): " << it.second.str_v;
         break;
       case Attributes::Value::ValueType::BYTES:
-        ss << "(BYTES): " << it.second.str_v;
+        ss << "(BYTES): " << escape(it.second.str_v);
         break;
       case Attributes::Value::ValueType::INT64:
         ss << "(INT64): " << it.second.value.int64_v;
