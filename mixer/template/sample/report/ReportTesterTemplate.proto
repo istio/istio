@@ -4,6 +4,8 @@ package istio.mixer.adapter.sample.report;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 option (istio.mixer.v1.config.template.template_name) = "Sample";
@@ -21,4 +23,8 @@ message Template {
     string stringPrimitive = 6;
 
     map<string, int64> int64Map = 7;
+
+    google.protobuf.Timestamp timeStamp = 9;
+
+    google.protobuf.Duration duration = 10;
 }

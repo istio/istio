@@ -21,8 +21,8 @@ syntax = "proto3";
 
 package {{.PackageName}};
 
-import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
+$$additional_imports$$
 
 option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
 option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
@@ -31,9 +31,9 @@ option (istio.mixer.v1.config.template.template_name) = "{{.Name}}";
 {{.TemplateMessage.Comment}}
 message Type {
   {{range .TemplateMessage.Fields -}}
-  {{if containsValueType .ProtoType -}}
+  {{- if containsValueType .ProtoType}}
   {{.Comment}}
-  {{.ProtoType.Name}} {{.ProtoName}} = {{.Number}};
+  {{.ProtoType.Name}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
   {{- end}}
   {{- end}}
 }

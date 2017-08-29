@@ -40,13 +40,13 @@ func TestGenerator_Generate(t *testing.T) {
 		name, descriptor, wantIntFace, wantProto string
 	}{
 		{"Report", "testdata/report_proto.descriptor_set",
-			"testdata/ReportTmpl.golden.go",
+			"testdata/ReportTmpl.go.golden",
 			"testdata/ReportTmpl.golden.proto"},
 		{"Quota", "testdata/quota_proto.descriptor_set",
-			"testdata/QuotaTmpl.golden.go",
+			"testdata/QuotaTmpl.go.golden",
 			"testdata/QuotaTmpl.golden.proto"},
 		{"Check", "testdata/check_proto.descriptor_set",
-			"testdata/CheckTmpl.golden.go",
+			"testdata/CheckTmpl.go.golden",
 			"testdata/CheckTmpl.golden.proto"},
 	}
 	for _, v := range tests {

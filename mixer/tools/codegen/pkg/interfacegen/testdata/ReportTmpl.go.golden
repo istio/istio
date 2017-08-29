@@ -18,6 +18,7 @@ package istio_mixer_adapter_metric
 
 import (
 	"context"
+	"time"
 
 	"istio.io/mixer/pkg/adapter"
 )
@@ -55,6 +56,10 @@ type Instance struct {
 	AnotherValueType interface{}
 
 	DimensionsFixedInt64ValueDType map[string]int64
+
+	TimeStamp time.Time
+
+	Duration time.Duration
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
