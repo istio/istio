@@ -99,6 +99,10 @@ manifests:
         value_type: DOUBLE
       attr.int64:
         value_type: INT64
+      attr.timeStamp:
+        value_type: TIMESTAMP
+      attr.duration:
+        value_type: DURATION
 `
 	// TODO : If a value is a literal, does it have to be in quotes ?
 	// Seems like if I do not put in quotes, decoding this yaml fails.
@@ -117,6 +121,8 @@ instances:
   params:
     value: "2"
     int64Primitive: attr.int64 | 2
+    timeStamp: attr.timeStamp
+    duration: attr.duration
     boolPrimitive: attr.bool | true
     doublePrimitive: attr.double | 12.4
     stringPrimitive: "\"\""

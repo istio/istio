@@ -18,8 +18,8 @@ syntax = "proto3";
 
 package foo.bar.mylistchecker;
 
-import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 option (istio.mixer.v1.config.template.template_name) = "List";
@@ -29,7 +29,9 @@ option (istio.mixer.v1.config.template.template_name) = "List";
 
 message Type {
   
+  
   map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+  
   istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
 }
 
@@ -50,5 +52,9 @@ message InstanceParam {
   string anotherValueType = 7;
   
   map<string, string> dimensionsFixedInt64ValueDType = 8;
+  
+  string timeStamp = 9;
+  
+  string duration = 10;
   
 }

@@ -21,7 +21,9 @@ var InterfaceTemplate = `// Copyright 2017 Istio Authors
 package {{.GoPackageName}}
 
 import (
-"istio.io/mixer/pkg/adapter"
+  "context"
+  "istio.io/mixer/pkg/adapter"
+  $$additional_imports$$
 )
 
 {{.Comment}}
@@ -37,7 +39,7 @@ type Instance struct {
   Name string
   {{range .TemplateMessage.Fields}}
   {{.Comment}}
-  {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}
+  {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}
   {{end}}
 }
 

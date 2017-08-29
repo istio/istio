@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	rpc "github.com/googleapis/googleapis/google/rpc"
-	//rpc "github.com/googleapis/googleapis/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/adapter"
@@ -34,11 +33,13 @@ import (
 	//"istio.io/mixer/pkg/expr"
 	"context"
 
+	"time"
+
+	"istio.io/mixer/pkg/attribute"
+	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"
 	sample_quota "istio.io/mixer/template/sample/quota"
 	sample_report "istio.io/mixer/template/sample/report"
-	//"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/expr"
 )
 
 // Does not implement any template interfaces.
@@ -276,6 +277,7 @@ type inferTypeTest struct {
 
 func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 	return func(expr string) (pb.ValueType, error) {
+		expr = strings.ToLower(expr)
 		retType := pb.VALUE_TYPE_UNSPECIFIED
 		if strings.HasSuffix(expr, "string") {
 			retType = pb.STRING
@@ -288,6 +290,12 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 		}
 		if strings.HasSuffix(expr, "int64") {
 			retType = pb.INT64
+		}
+		if strings.HasSuffix(expr, "duration") {
+			retType = pb.DURATION
+		}
+		if strings.HasSuffix(expr, "timestamp") {
+			retType = pb.TIMESTAMP
 		}
 		return retType, err
 	}
@@ -303,6 +311,8 @@ int64Primitive: source.int64
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
 dimensions:
   source: source.string
   target: source.string
@@ -322,6 +332,8 @@ value: source.int64
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
 dimensions:
   source: source.string
   target: source.string
@@ -341,6 +353,8 @@ int64Primitive: source.int64 # missing int64Primitive
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.double # Double does not match string
+timeStamp: source.timestamp
+duration: source.duration
 dimensions:
   source: source.string
   target: source.string
@@ -417,6 +431,8 @@ func TestInferTypeForSampleCheck(t *testing.T) {
 			name: "SimpleValid",
 			ctrCnfg: `
 check_expression: source.string
+timeStamp: source.timestamp
+duration: source.duration
 `,
 			cstrParam:     &sample_check.InstanceParam{},
 			typeEvalError: nil,
@@ -465,6 +481,8 @@ func TestInferTypeForSampleQuota(t *testing.T) {
 		{
 			name: "SimpleValid",
 			ctrCnfg: `
+timeStamp: source.timestamp
+duration: source.duration
 dimensions:
   source: source.string
   target: source.string
@@ -487,8 +505,10 @@ dimensions:
 		{
 			name: "ErrorFromTypeEvaluator",
 			ctrCnfg: `
+timeStamp: source.timestamp
+duration: source.duration
 dimensions:
-  source: source.ip
+  source: source.badAttr
 `,
 			cstrParam:     &sample_quota.InstanceParam{},
 			typeEvalError: fmt.Errorf("some expression x.y.z is invalid"),
@@ -583,6 +603,57 @@ func TestConfigureType(t *testing.T) {
 	}
 }
 
+type fakeExpr struct {
+}
+
+// newFakeExpr returns the basic
+func newFakeExpr() *fakeExpr {
+	return &fakeExpr{}
+}
+
+// Eval evaluates given expression using the attribute bag
+func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{}, error) {
+	expr2 := strings.ToLower(mapExpression)
+
+	if strings.HasSuffix(expr2, "string") {
+		return "", nil
+	}
+	if strings.HasSuffix(expr2, "double") {
+		return 1.1, nil
+	}
+	if strings.HasSuffix(expr2, "bool") {
+		return true, nil
+	}
+	if strings.HasSuffix(expr2, "int64") {
+		return "1234", nil
+	}
+	if strings.HasSuffix(expr2, "duration") {
+		return 10 * time.Second, nil
+	}
+	if strings.HasSuffix(expr2, "timestamp") {
+		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
+	}
+	ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+	return ev.Eval(expr2, attrs)
+}
+
+// EvalString evaluates given expression using the attribute bag to a string
+func (e *fakeExpr) EvalString(mapExpression string, attrs attribute.Bag) (string, error) {
+	return "", nil
+}
+
+// EvalPredicate evaluates given predicate using the attribute bag
+func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (bool, error) {
+	return true, nil
+}
+
+func (e *fakeExpr) EvalType(string, expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	return pb.VALUE_TYPE_UNSPECIFIED, nil
+}
+func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, pb.ValueType) error {
+	return nil
+}
+
 func TestProcessReport(t *testing.T) {
 	for _, tst := range []struct {
 		name         string
@@ -594,10 +665,28 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "Simple",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
-				"bar": &sample_report.InstanceParam{Value: "2", Dimensions: map[string]string{"k": "3"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"b": "1"}},
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
+				"bar": &sample_report.InstanceParam{
+					Value:           "2",
+					Dimensions:      map[string]string{"k": "3"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"b": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
 			},
 			hdlr: &fakeReportHandler{},
 			wantInstance: []*sample_report.Instance{
@@ -608,8 +697,10 @@ func TestProcessReport(t *testing.T) {
 					BoolPrimitive:   true,
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
-					StringPrimitive: "myString",
+					StringPrimitive: "mystring",
 					Int64Map:        map[string]int64{"a": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
 				},
 				{
 					Name:            "bar",
@@ -618,16 +709,28 @@ func TestProcessReport(t *testing.T) {
 					BoolPrimitive:   true,
 					DoublePrimitive: 1.2,
 					Int64Primitive:  54362,
-					StringPrimitive: "myString",
+					StringPrimitive: "mystring",
 					Int64Map:        map[string]int64{"b": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
 				},
 			},
 		},
+
 		{
 			name: "EvalAllError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "bad.attribute"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "bad.attribute"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unresolved attribute bad.attribute",
@@ -635,8 +738,17 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "EvalError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "bad.attribute", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
+				"foo": &sample_report.InstanceParam{
+					Value:           "bad.attribute",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unresolved attribute bad.attribute",
@@ -644,8 +756,17 @@ func TestProcessReport(t *testing.T) {
 		{
 			name: "ProcessError",
 			insts: map[string]proto.Message{
-				"foo": &sample_report.InstanceParam{Value: "1", Dimensions: map[string]string{"s": "2"}, BoolPrimitive: "true",
-					DoublePrimitive: "1.2", Int64Primitive: "54362", StringPrimitive: `"myString"`, Int64Map: map[string]string{"a": "1"}},
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
 			},
 			hdlr:      &fakeReportHandler{retError: fmt.Errorf("error from process method")},
 			wantError: "error from process method",
@@ -653,8 +774,7 @@ func TestProcessReport(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			err := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(context.TODO(), tst.insts, fakeBag{}, ev, *h)
+			err := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(context.TODO(), tst.insts, fakeBag{}, newFakeExpr(), *h)
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
@@ -662,7 +782,7 @@ func TestProcessReport(t *testing.T) {
 				}
 			} else {
 				if err != nil {
-					t.Errorf("ProcessReport got error %v , want success", err)
+					t.Fatalf("ProcessReport got error %v , want success", err)
 				}
 				v := (*h).(*fakeReportHandler).procCallInput.([]*sample_report.Instance)
 				if !cmp(v, tst.wantInstance) {

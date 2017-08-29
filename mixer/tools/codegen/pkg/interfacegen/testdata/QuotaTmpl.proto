@@ -4,6 +4,8 @@ package istio.mixer.adapter.quota;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "pkg/adapter/template/TemplateExtensions.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 option (istio.mixer.v1.config.template.template_name) = "Quota";
@@ -24,4 +26,8 @@ message Template {
     istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
 
     map<string, int64> dimensionsFixedInt64ValueDType = 8;
+
+    google.protobuf.Timestamp timeStamp = 9;
+
+    google.protobuf.Duration duration = 10;
 }

@@ -48,11 +48,11 @@ filegroup(
     name = "golden_files",
     testonly = True,
     srcs = [
-        "CheckTmpl.golden.go",
+        "CheckTmpl.go.golden",
         "CheckTmpl.golden.proto",
-        "QuotaTmpl.golden.go",
+        "QuotaTmpl.go.golden",
         "QuotaTmpl.golden.proto",
-        "ReportTmpl.golden.go",
+        "ReportTmpl.go.golden",
         "ReportTmpl.golden.proto",
     ],
 )

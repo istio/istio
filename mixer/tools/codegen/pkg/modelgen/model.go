@@ -28,10 +28,27 @@ import (
 
 const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"
 
-//var SupportedCustomMessageTypes = map[string]string{
-//	"google.protobuf.Timestamp": "",
-//	"google.protobuf.Duration":  "",
-//}
+type typeMetadata struct {
+	goName   string
+	goImport string
+
+	protoImport string
+}
+
+// Hardcoded proto->go type mapping along with imports for the
+// generated code.
+var customMessageTypeMetadata = map[string]typeMetadata{
+	".google.protobuf.Timestamp": {
+		goName:      "time.Time",
+		goImport:    "time",
+		protoImport: "google/protobuf/timestamp.proto",
+	},
+	".google.protobuf.Duration": {
+		goName:      "time.Duration",
+		goImport:    "time",
+		protoImport: "google/protobuf/duration.proto",
+	},
+}
 
 type (
 	// Model represents the object used to code generate mixer artifacts.
@@ -73,6 +90,7 @@ type (
 		IsValueType bool
 		MapKey      *TypeInfo
 		MapValue    *TypeInfo
+		Import      string
 	}
 
 	// MessageInfo contains the data about the type/message
@@ -286,6 +304,11 @@ func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorPr
 			return TypeInfo{Name: field.GetTypeName()[1:], IsValueType: true}, TypeInfo{Name: g.TypeName(desc), IsValueType: true}, nil
 		}
 	case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+		if v, ok := customMessageTypeMetadata[field.GetTypeName()]; ok {
+			return TypeInfo{Name: field.GetTypeName()[1:], Import: v.protoImport},
+				TypeInfo{Name: v.goName, Import: v.goImport},
+				nil
+		}
 		desc := g.ObjectNamed(field.GetTypeName())
 		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
 			keyField, valField := d.Field[0], d.Field[1]
@@ -305,12 +328,14 @@ func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorPr
 						IsMap:    true,
 						MapKey:   &protoKeyType,
 						MapValue: &protoValType,
+						Import:   protoValType.Import,
 					},
 					TypeInfo{
 						Name:     fmt.Sprintf("map[%s]%s", goKeyType.Name, goValType.Name),
 						IsMap:    true,
 						MapKey:   &goKeyType,
 						MapValue: &goValType,
+						Import:   goValType.Import,
 					},
 					nil
 			}

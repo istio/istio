@@ -18,6 +18,7 @@ package bootstrapTemplateTest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
@@ -37,6 +38,8 @@ import (
 	"istio.io/mixer/template/log"
 
 	"istio.io/mixer/template/metric"
+
+	"time"
 )
 
 var (
@@ -63,7 +66,7 @@ var (
 				infrdType := &istio_mixer_template_list.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
@@ -77,7 +80,7 @@ var (
 				}
 
 				if cpb.Int64Primitive == "" {
-					return nil, fmt.Errorf("expression for field Int64Primitive cannot be empty")
+					return nil, errors.New("expression for field Int64Primitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 					if e != nil {
@@ -87,7 +90,7 @@ var (
 				}
 
 				if cpb.BoolPrimitive == "" {
-					return nil, fmt.Errorf("expression for field BoolPrimitive cannot be empty")
+					return nil, errors.New("expression for field BoolPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
 					if e != nil {
@@ -97,7 +100,7 @@ var (
 				}
 
 				if cpb.DoublePrimitive == "" {
-					return nil, fmt.Errorf("expression for field DoublePrimitive cannot be empty")
+					return nil, errors.New("expression for field DoublePrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
 					if e != nil {
@@ -107,7 +110,7 @@ var (
 				}
 
 				if cpb.StringPrimitive == "" {
-					return nil, fmt.Errorf("expression for field StringPrimitive cannot be empty")
+					return nil, errors.New("expression for field StringPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -117,7 +120,7 @@ var (
 				}
 
 				if cpb.AnotherValueType == "" {
-					return nil, fmt.Errorf("expression for field AnotherValueType cannot be empty")
+					return nil, errors.New("expression for field AnotherValueType cannot be empty")
 				}
 				if infrdType.AnotherValueType, err = tEvalFn(cpb.AnotherValueType); err != nil {
 					return nil, err
@@ -133,7 +136,7 @@ var (
 				}
 
 				if cpb.CheckExpression == "" {
-					return nil, fmt.Errorf("expression for field CheckExpression cannot be empty")
+					return nil, errors.New("expression for field CheckExpression cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.CheckExpression); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -166,7 +169,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
@@ -174,7 +177,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				Int64Primitive, err := mapper.Eval(castedInst.Int64Primitive, attrs)
@@ -182,7 +185,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				BoolPrimitive, err := mapper.Eval(castedInst.BoolPrimitive, attrs)
@@ -190,7 +193,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				DoublePrimitive, err := mapper.Eval(castedInst.DoublePrimitive, attrs)
@@ -198,7 +201,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				StringPrimitive, err := mapper.Eval(castedInst.StringPrimitive, attrs)
@@ -206,7 +209,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				AnotherValueType, err := mapper.Eval(castedInst.AnotherValueType, attrs)
@@ -214,7 +217,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				DimensionsFixedInt64ValueDType, err := template.EvalAll(castedInst.DimensionsFixedInt64ValueDType, attrs, mapper)
@@ -222,7 +225,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				CheckExpression, err := mapper.Eval(castedInst.CheckExpression, attrs)
@@ -230,7 +233,7 @@ var (
 				if err != nil {
 					msg := fmt.Sprintf("failed to eval CheckExpression for instance '%s': %v", instName, err)
 					glog.Error(msg)
-					return adapter.CheckResult{}, fmt.Errorf(msg)
+					return adapter.CheckResult{}, errors.New(msg)
 				}
 
 				_ = castedInst
@@ -287,7 +290,7 @@ var (
 				infrdType := &istio_mixer_template_quota.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
@@ -301,7 +304,7 @@ var (
 				}
 
 				if cpb.Int64Primitive == "" {
-					return nil, fmt.Errorf("expression for field Int64Primitive cannot be empty")
+					return nil, errors.New("expression for field Int64Primitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 					if e != nil {
@@ -311,7 +314,7 @@ var (
 				}
 
 				if cpb.BoolPrimitive == "" {
-					return nil, fmt.Errorf("expression for field BoolPrimitive cannot be empty")
+					return nil, errors.New("expression for field BoolPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
 					if e != nil {
@@ -321,7 +324,7 @@ var (
 				}
 
 				if cpb.DoublePrimitive == "" {
-					return nil, fmt.Errorf("expression for field DoublePrimitive cannot be empty")
+					return nil, errors.New("expression for field DoublePrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
 					if e != nil {
@@ -331,7 +334,7 @@ var (
 				}
 
 				if cpb.StringPrimitive == "" {
-					return nil, fmt.Errorf("expression for field StringPrimitive cannot be empty")
+					return nil, errors.New("expression for field StringPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -341,7 +344,7 @@ var (
 				}
 
 				if cpb.AnotherValueType == "" {
-					return nil, fmt.Errorf("expression for field AnotherValueType cannot be empty")
+					return nil, errors.New("expression for field AnotherValueType cannot be empty")
 				}
 				if infrdType.AnotherValueType, err = tEvalFn(cpb.AnotherValueType); err != nil {
 					return nil, err
@@ -381,7 +384,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
@@ -389,7 +392,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
@@ -397,7 +400,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
@@ -405,7 +408,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
@@ -413,7 +416,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
@@ -421,7 +424,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					AnotherValueType, err := mapper.Eval(md.AnotherValueType, attrs)
@@ -429,7 +432,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DimensionsFixedInt64ValueDType, err := template.EvalAll(md.DimensionsFixedInt64ValueDType, attrs, mapper)
@@ -437,7 +440,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					instances = append(instances, &istio_mixer_template_quota.Instance{
@@ -496,7 +499,7 @@ var (
 				infrdType := &istio_mixer_template_log.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
@@ -510,7 +513,7 @@ var (
 				}
 
 				if cpb.Int64Primitive == "" {
-					return nil, fmt.Errorf("expression for field Int64Primitive cannot be empty")
+					return nil, errors.New("expression for field Int64Primitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 					if e != nil {
@@ -520,7 +523,7 @@ var (
 				}
 
 				if cpb.BoolPrimitive == "" {
-					return nil, fmt.Errorf("expression for field BoolPrimitive cannot be empty")
+					return nil, errors.New("expression for field BoolPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
 					if e != nil {
@@ -530,7 +533,7 @@ var (
 				}
 
 				if cpb.DoublePrimitive == "" {
-					return nil, fmt.Errorf("expression for field DoublePrimitive cannot be empty")
+					return nil, errors.New("expression for field DoublePrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
 					if e != nil {
@@ -540,7 +543,7 @@ var (
 				}
 
 				if cpb.StringPrimitive == "" {
-					return nil, fmt.Errorf("expression for field StringPrimitive cannot be empty")
+					return nil, errors.New("expression for field StringPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -550,7 +553,7 @@ var (
 				}
 
 				if cpb.AnotherValueType == "" {
-					return nil, fmt.Errorf("expression for field AnotherValueType cannot be empty")
+					return nil, errors.New("expression for field AnotherValueType cannot be empty")
 				}
 				if infrdType.AnotherValueType, err = tEvalFn(cpb.AnotherValueType); err != nil {
 					return nil, err
@@ -563,6 +566,26 @@ var (
 						}
 						return nil, fmt.Errorf("error type checking for field DimensionsFixedInt64ValueDType: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.INT64)
 					}
+				}
+
+				if cpb.TimeStamp == "" {
+					return nil, errors.New("expression for field TimeStamp cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field TimeStamp: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field TimeStamp: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				if cpb.Duration == "" {
+					return nil, errors.New("expression for field Duration cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Duration: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Duration: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.DURATION)
 				}
 
 				_ = cpb
@@ -590,7 +613,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
@@ -598,7 +621,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
@@ -606,7 +629,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
@@ -614,7 +637,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
@@ -622,7 +645,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
@@ -630,7 +653,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					AnotherValueType, err := mapper.Eval(md.AnotherValueType, attrs)
@@ -638,7 +661,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DimensionsFixedInt64ValueDType, err := template.EvalAll(md.DimensionsFixedInt64ValueDType, attrs, mapper)
@@ -646,7 +669,23 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
+					}
+
+					TimeStamp, err := mapper.Eval(md.TimeStamp, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval TimeStamp for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					Duration, err := mapper.Eval(md.Duration, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval Duration for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
 					}
 
 					instances = append(instances, &istio_mixer_template_log.Instance{
@@ -673,6 +712,10 @@ var (
 							}
 							return res
 						}(DimensionsFixedInt64ValueDType),
+
+						TimeStamp: TimeStamp.(time.Time),
+
+						Duration: Duration.(time.Duration),
 					})
 					_ = md
 				}
@@ -705,7 +748,7 @@ var (
 				infrdType := &istio_mixer_template_metric.Type{}
 
 				if cpb.Value == "" {
-					return nil, fmt.Errorf("expression for field Value cannot be empty")
+					return nil, errors.New("expression for field Value cannot be empty")
 				}
 				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
 					return nil, err
@@ -719,7 +762,7 @@ var (
 				}
 
 				if cpb.Int64Primitive == "" {
-					return nil, fmt.Errorf("expression for field Int64Primitive cannot be empty")
+					return nil, errors.New("expression for field Int64Primitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
 					if e != nil {
@@ -729,7 +772,7 @@ var (
 				}
 
 				if cpb.BoolPrimitive == "" {
-					return nil, fmt.Errorf("expression for field BoolPrimitive cannot be empty")
+					return nil, errors.New("expression for field BoolPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
 					if e != nil {
@@ -739,7 +782,7 @@ var (
 				}
 
 				if cpb.DoublePrimitive == "" {
-					return nil, fmt.Errorf("expression for field DoublePrimitive cannot be empty")
+					return nil, errors.New("expression for field DoublePrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
 					if e != nil {
@@ -749,7 +792,7 @@ var (
 				}
 
 				if cpb.StringPrimitive == "" {
-					return nil, fmt.Errorf("expression for field StringPrimitive cannot be empty")
+					return nil, errors.New("expression for field StringPrimitive cannot be empty")
 				}
 				if t, e := tEvalFn(cpb.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
 					if e != nil {
@@ -759,7 +802,7 @@ var (
 				}
 
 				if cpb.AnotherValueType == "" {
-					return nil, fmt.Errorf("expression for field AnotherValueType cannot be empty")
+					return nil, errors.New("expression for field AnotherValueType cannot be empty")
 				}
 				if infrdType.AnotherValueType, err = tEvalFn(cpb.AnotherValueType); err != nil {
 					return nil, err
@@ -799,7 +842,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
@@ -807,7 +850,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
@@ -815,7 +858,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
@@ -823,7 +866,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
@@ -831,7 +874,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
@@ -839,7 +882,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					AnotherValueType, err := mapper.Eval(md.AnotherValueType, attrs)
@@ -847,7 +890,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					DimensionsFixedInt64ValueDType, err := template.EvalAll(md.DimensionsFixedInt64ValueDType, attrs, mapper)
@@ -855,7 +898,7 @@ var (
 					if err != nil {
 						msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", name, err)
 						glog.Error(msg)
-						return fmt.Errorf(msg)
+						return errors.New(msg)
 					}
 
 					instances = append(instances, &istio_mixer_template_metric.Instance{
