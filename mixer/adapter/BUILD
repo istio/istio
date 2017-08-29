@@ -20,7 +20,6 @@ go_library(
         "//adapter/prometheus:go_default_library",
         "//adapter/redisquota:go_default_library",
         "//adapter/serviceControl:go_default_library",
-        "//adapter/stackdriver:go_default_library",
         "//adapter/statsd:go_default_library",
         "//adapter/stdio:go_default_library",
         "//adapter/stdioLogger:go_default_library",
@@ -35,11 +34,13 @@ inventory_library(
         "list": "istio.io/mixer/adapter/list",
         "noop2": "istio.io/mixer/adapter/noop2",
         "prometheus": "istio.io/mixer/adapter/prometheus2",
+        "stackdriver": "istio.io/mixer/adapter/stackdriver",
     },
     deps = [
         "//adapter/denier:go_default_library",
         "//adapter/list:go_default_library",
         "//adapter/noop2:go_default_library",
         "//adapter/prometheus2:go_default_library",
+        "//adapter/stackdriver:go_default_library",
     ],
 )

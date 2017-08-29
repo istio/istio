@@ -93,3 +93,23 @@ func TestBuffered_Send(t *testing.T) {
 		})
 	}
 }
+
+type closeMe struct {
+	closed bool
+}
+
+func (c *closeMe) Close() error {
+	c.closed = true
+	return nil
+}
+
+func TestBuffered_Close(t *testing.T) {
+	closeMe := &closeMe{}
+	b := &buffered{closeMe: closeMe, l: test.NewEnv(t).Logger()}
+	if err := b.Close(); err != nil {
+		t.Fatalf("Unexpected error calling buffered.Close(): %v", err)
+	}
+	if !closeMe.closed {
+		t.Fatalf("buffered.Close() did not call Close() on buffered.closeMe.")
+	}
+}

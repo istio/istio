@@ -12,9 +12,11 @@ go_library(
     deps = [
         "//adapter/stackdriver/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//template/metric:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",
+        "@com_github_istio_api//:mixer/v1/config/descriptor",
         "@com_google_cloud_go//monitoring/apiv3:go_default_library",
         "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_genproto//googleapis/api/label:go_default_library",
@@ -35,8 +37,8 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//adapter/stackdriver/config:go_default_library",
-        "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
+        "//template/metric:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",

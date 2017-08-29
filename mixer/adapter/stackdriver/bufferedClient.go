@@ -16,6 +16,7 @@ package stackdriver // import "istio.io/mixer/adapter/stackdriver"
 
 import (
 	"context"
+	"io"
 	"sync"
 	"time"
 
@@ -27,6 +28,8 @@ import (
 
 // Abstracts over the specific impl for testing.
 type bufferedClient interface {
+	io.Closer
+
 	Record([]*monitoringpb.TimeSeries)
 }
 
@@ -37,41 +40,43 @@ type buffered struct {
 	pushMetrics pushFunc
 	l           adapter.Logger
 
+	closeMe io.Closer
+
 	// Guards buffer
 	m      sync.Mutex
 	buffer []*monitoringpb.TimeSeries
 }
 
-func (c *buffered) start(env adapter.Env, ticker *time.Ticker) {
+func (b *buffered) start(env adapter.Env, ticker *time.Ticker) {
 	env.ScheduleDaemon(func() {
 		for range ticker.C {
-			c.Send()
+			b.Send()
 		}
 	})
 }
 
-func (c *buffered) Record(toSend []*monitoringpb.TimeSeries) {
-	c.m.Lock()
-	c.buffer = append(c.buffer, toSend...)
+func (b *buffered) Record(toSend []*monitoringpb.TimeSeries) {
+	b.m.Lock()
+	b.buffer = append(b.buffer, toSend...)
 	// TODO: gauge metric reporting how many bytes/timeseries we're holding right now
-	c.m.Unlock()
+	b.m.Unlock()
 }
 
-func (c *buffered) Send() {
-	c.m.Lock()
-	if len(c.buffer) == 0 {
-		c.m.Unlock()
-		c.l.Infof("No data to send to Stackdriver.")
+func (b *buffered) Send() {
+	b.m.Lock()
+	if len(b.buffer) == 0 {
+		b.m.Unlock()
+		b.l.Infof("No data to send to Stackdriver.")
 		return
 	}
-	toSend := c.buffer
-	c.buffer = make([]*monitoringpb.TimeSeries, 0, len(toSend))
-	c.m.Unlock()
+	toSend := b.buffer
+	b.buffer = make([]*monitoringpb.TimeSeries, 0, len(toSend))
+	b.m.Unlock()
 
-	merged := merge(toSend, c.l)
-	err := c.pushMetrics(context.Background(),
+	merged := merge(toSend, b.l)
+	err := b.pushMetrics(context.Background(),
 		&monitoringpb.CreateTimeSeriesRequest{
-			Name:       monitoring.MetricProjectPath(c.project),
+			Name:       monitoring.MetricProjectPath(b.project),
 			TimeSeries: merged,
 		})
 
@@ -79,8 +84,14 @@ func (c *buffered) Send() {
 	// We need to build framework level support for these kinds of async tasks. Perhaps a generic batching adapter
 	// can handle some of this complexity?
 	if err != nil {
-		_ = c.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, merged)
+		_ = b.l.Errorf("Stackdriver returned: %v\nGiven data: %v", err, merged)
 	} else {
-		c.l.Infof("Successfully sent data to Stackdriver.")
+		b.l.Infof("Successfully sent data to Stackdriver.")
 	}
+}
+
+func (b *buffered) Close() error {
+	b.l.Infof("Sending last data before shutting down")
+	b.Send()
+	return b.closeMe.Close()
 }
