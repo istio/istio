@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -55,7 +56,7 @@ func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 
 type dummyListerWatcherBuilder struct {
 	mu       sync.RWMutex
-	data     map[store.Key]*resource
+	data     map[store.Key]*unstructured.Unstructured
 	watchers map[string]*watch.FakeWatcher
 }
 
@@ -64,10 +65,10 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 		ListFunc: func(metav1.ListOptions) (runtime.Object, error) {
 			d.mu.RLock()
 			defer d.mu.RUnlock()
-			list := &resourceList{}
+			list := &unstructured.UnstructuredList{}
 			for k, v := range d.data {
 				if k.Kind == res.Kind {
-					list.Items = append(list.Items, v)
+					list.Items = append(list.Items, *v)
 				}
 			}
 			return list, nil
@@ -85,15 +86,12 @@ func (d *dummyListerWatcherBuilder) build(res metav1.APIResource) cache.ListerWa
 func (d *dummyListerWatcherBuilder) put(key store.Key, spec map[string]interface{}) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	res := &resource{
-		Kind:       key.Kind,
-		APIVersion: apiGroupVersion,
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-		Spec: spec,
-	}
+	res := &unstructured.Unstructured{}
+	res.SetKind(key.Kind)
+	res.SetAPIVersion(apiGroupVersion)
+	res.SetName(key.Name)
+	res.SetNamespace(key.Namespace)
+	res.Object["spec"] = spec
 	_, existed := d.data[key]
 	d.data[key] = res
 	w, ok := d.watchers[key.Kind]
@@ -126,7 +124,7 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
-		data:     map[store.Key]*resource{},
+		data:     map[store.Key]*unstructured.Unstructured{},
 		watchers: map[string]*watch.FakeWatcher{},
 	}
 	client := &Store{

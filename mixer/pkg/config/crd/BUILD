@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "init.go",
-        "resource.go",
         "store.go",
     ],
     visibility = ["//visibility:public"],
@@ -12,6 +11,7 @@ go_library(
         "//pkg/config/store:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/serializer:go_default_library",
@@ -29,7 +29,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "resource_test.go",
         "store_test.go",
     ],
     library = ":go_default_library",
