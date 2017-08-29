@@ -85,7 +85,8 @@ func (t *zipkin) verifyTraces() error {
 		for _, id := range t.traces {
 			response := t.infra.clientRequest(
 				"t",
-				fmt.Sprintf("http://zipkin:9411/api/v1/traces?annotationQuery=guid:x-request-id=/%s", id),
+				fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces?annotationQuery=guid:x-request-id=/%s",
+					t.IstioNamespace, id),
 				1, "",
 			)
 

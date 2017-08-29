@@ -17,7 +17,11 @@ package ingress
 import (
 	"fmt"
 
+	"github.com/golang/glog"
+
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	betaext "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -55,10 +59,10 @@ func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interf
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.Namespace).List(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.AppNamespace).List(opts)
 			},
 			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.Namespace).Watch(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.AppNamespace).Watch(opts)
 			},
 		},
 		&v1beta1.Ingress{}, options.ResyncPeriod, cache.Indexers{},
@@ -68,7 +72,13 @@ func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interf
 	if mesh.IngressService != "" {
 		publishService = fmt.Sprintf("%v/%v", options.Namespace, mesh.IngressService)
 	}
+	glog.V(2).Infof("INGRESS STATUS publishService %s", publishService)
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
+
+	customIngressStatus := func(*betaext.Ingress) []v1.LoadBalancerIngress {
+		return nil
+	}
+
 	sync := status.NewStatusSyncer(status.Config{
 		Client:              client,
 		IngressLister:       store.IngressLister{Store: informer.GetStore()},
@@ -76,6 +86,7 @@ func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interf
 		PublishService:      publishService,
 		DefaultIngressClass: defaultIngressClass,
 		IngressClass:        ingressClass,
+		CustomIngressStatus: customIngressStatus,
 	})
 
 	return &StatusSyncer{

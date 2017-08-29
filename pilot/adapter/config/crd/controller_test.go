@@ -29,20 +29,20 @@ const (
 func TestControllerEvents(t *testing.T) {
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, AppNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheEvents(cl, ctl, ns, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, AppNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheFreshness(ctl, ns, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
 	cl, ns, cleanup := makeTempClient(t)
 	defer cleanup()
-	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, ResyncPeriod: resync})
+	ctl := NewController(cl, kube.ControllerOptions{Namespace: ns, AppNamespace: ns, ResyncPeriod: resync})
 	mock.CheckCacheSync(cl, ctl, ns, 5, t)
 }

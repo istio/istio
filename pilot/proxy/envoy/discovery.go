@@ -380,7 +380,7 @@ func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response 
 	}
 }
 
-// ListEndpoints responds to SDS requests
+// ListEndpoints responds to EDS requests
 func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *restful.Response) {
 	key := request.Request.URL.String()
 	out, cached := ds.sdsCache.cachedDiscoveryResponse(key)
@@ -396,7 +396,7 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 		}
 		var err error
 		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {
-			errorResponse(response, http.StatusInternalServerError, err.Error())
+			errorResponse(response, http.StatusInternalServerError, "EDS "+err.Error())
 			return
 		}
 		ds.sdsCache.updateCachedDiscoveryResponse(key, out)
@@ -404,17 +404,19 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 	writeResponse(response, out)
 }
 
-func (ds *DiscoveryService) parseRole(request *restful.Request) (proxy.Node, error) {
-	if sc := request.PathParameter(ServiceCluster); sc != ds.Mesh.IstioServiceCluster {
-		return proxy.Node{}, fmt.Errorf("unexpected %s %q", ServiceCluster, sc)
+func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (string, string, proxy.Node, error) {
+	cluster := request.PathParameter(ServiceCluster)
+	// request has to match the IstioServiceCluster (default is "istio-proxy")
+	if cluster != ds.Mesh.IstioServiceCluster {
+		return cluster, "", proxy.Node{}, fmt.Errorf("unexpected %s %q", ServiceCluster, cluster)
 	}
 
 	node := request.PathParameter(ServiceNode)
 	role, err := proxy.ParseServiceNode(node)
 	if err != nil {
-		return role, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
+		return cluster, node, role, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
 	}
-	return role, nil
+	return cluster, node, role, nil
 }
 
 // ListClusters responds to CDS requests for all outbound clusters
@@ -422,15 +424,17 @@ func (ds *DiscoveryService) ListClusters(request *restful.Request, response *res
 	key := request.Request.URL.String()
 	out, cached := ds.cdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseRole(request)
+		cluster, node, role, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
-			errorResponse(response, http.StatusNotFound, err.Error())
+			errorResponse(response, http.StatusNotFound, "CDS "+err.Error())
 			return
 		}
+		glog.V(5).Infof("CDS Discovery request to ListClusters for service_cluster %s, service_node %s, role %s",
+			cluster, node, role.Type)
 
 		clusters := buildClusters(ds.Environment, role)
 		if out, err = json.MarshalIndent(ClusterManager{Clusters: clusters}, " ", " "); err != nil {
-			errorResponse(response, http.StatusInternalServerError, err.Error())
+			errorResponse(response, http.StatusInternalServerError, "CDS "+err.Error())
 			return
 		}
 		ds.cdsCache.updateCachedDiscoveryResponse(key, out)
@@ -443,16 +447,18 @@ func (ds *DiscoveryService) ListListeners(request *restful.Request, response *re
 	key := request.Request.URL.String()
 	out, cached := ds.ldsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseRole(request)
+		cluster, node, role, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
-			errorResponse(response, http.StatusNotFound, err.Error())
+			errorResponse(response, http.StatusNotFound, "LDS "+err.Error())
 			return
 		}
+		glog.V(5).Infof("LDS Discovery request to ListListeners for service_cluster %s, service_node %s, role %s",
+			cluster, node, role.Type)
 
 		listeners := buildListeners(ds.Environment, role)
 		out, err = json.MarshalIndent(ldsResponse{Listeners: listeners}, " ", " ")
 		if err != nil {
-			errorResponse(response, http.StatusInternalServerError, err.Error())
+			errorResponse(response, http.StatusInternalServerError, "LDS "+err.Error())
 			return
 		}
 		ds.ldsCache.updateCachedDiscoveryResponse(key, out)
@@ -467,16 +473,21 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 	key := request.Request.URL.String()
 	out, cached := ds.rdsCache.cachedDiscoveryResponse(key)
 	if !cached {
-		role, err := ds.parseRole(request)
+		cluster, node, role, err := ds.parseDiscoveryRequest(request)
 		if err != nil {
-			errorResponse(response, http.StatusNotFound, err.Error())
+			errorResponse(response, http.StatusNotFound, "RDS "+err.Error())
 			return
 		}
 
 		routeConfigName := request.PathParameter(RouteConfigName)
+
+		glog.V(5).Infof("RDS Discovery request to ListRoutes for service_cluster %s, service_node %s, "+
+			"role %s, route-config-name %s",
+			cluster, node, role.Type, routeConfigName)
+
 		routeConfig := buildRDSRoute(ds.Mesh, role, routeConfigName, ds.ServiceDiscovery, ds.IstioConfigStore)
 		if out, err = json.MarshalIndent(routeConfig, " ", " "); err != nil {
-			errorResponse(response, http.StatusInternalServerError, err.Error())
+			errorResponse(response, http.StatusInternalServerError, "RDS "+err.Error())
 			return
 		}
 		ds.rdsCache.updateCachedDiscoveryResponse(key, out)
@@ -487,11 +498,16 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 // ListSecret responds to TLS secret registration
 func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restful.Response) {
 	// caching is disabled due to lack of secret watch notifications
-	role, err := ds.parseRole(request)
+
+	cluster, node, role, err := ds.parseDiscoveryRequest(request)
+
 	if err != nil {
-		errorResponse(response, http.StatusNotFound, err.Error())
+		errorResponse(response, http.StatusNotFound, "ListSecrets "+err.Error())
 		return
 	}
+
+	glog.V(5).Infof("ListSecrets Discovery request to ListSecret for service_cluster %s, service_node %s, role %s",
+		cluster, node, role.Type)
 
 	if role.Type != proxy.Ingress {
 		writeResponse(response, nil)
@@ -501,6 +517,7 @@ func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restf
 	_, secret := buildIngressRoutes(ds.Mesh, ds, ds)
 
 	if secret == "" {
+		glog.V(5).Infof("Secret is not set")
 		writeResponse(response, nil)
 		return
 	}
@@ -508,13 +525,13 @@ func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restf
 	tls, err := ds.GetTLSSecret(secret)
 	if err != nil {
 		errorResponse(response, http.StatusNotFound,
-			fmt.Sprintf("Failed to read the secret: %s", err))
+			fmt.Sprintf("ListSecrets Failed to read the secret: %s", err))
 		return
 	}
 
 	out, err := json.Marshal(tls)
 	if err != nil {
-		errorResponse(response, http.StatusInternalServerError, err.Error())
+		errorResponse(response, http.StatusInternalServerError, "ListSecrets "+err.Error())
 	}
 	writeResponse(response, out)
 }

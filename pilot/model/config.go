@@ -43,6 +43,9 @@ type ConfigMeta struct {
 	// (security domains, fault domains, organizational domains)
 	Namespace string `json:"namespace,omitempty"`
 
+	// Namespace where istio control plane is installed
+	IstioNamespace string `json:"istioNamespace,omitempty"`
+
 	// Map of string keys and values that can be used to organize and categorize
 	// (scope and select) objects.
 	Labels map[string]string `json:"labels,omitempty"`

@@ -159,11 +159,13 @@ func (w *watcher) UpdateIngressSecret(ctx context.Context) error {
 		return multierror.Prefix(err, "failed to read request body")
 	}
 	if len(tlsData) == 0 {
+		glog.Errorf("failed to get TLS data, zero data")
 		return nil
 	}
 
 	var tls model.TLSSecret
 	if err = json.Unmarshal(tlsData, &tls); err != nil {
+		glog.Errorf("failed to unmarshal TLS secret")
 		return err
 	}
 

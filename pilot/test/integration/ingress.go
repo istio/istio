@@ -69,7 +69,7 @@ func (t *ingress) setup() error {
 	if err != nil {
 		return err
 	}
-	if err = t.kubeApply(string(yamlFile)); err != nil {
+	if err = t.kubeApply(string(yamlFile), t.Namespace); err != nil {
 		return err
 	}
 
@@ -100,16 +100,16 @@ func (t *ingress) run() error {
 		url  string
 		host string
 	}{
-		{"a", fmt.Sprintf("https://%s:443/http", ingressServiceName), ""},
-		{"b", fmt.Sprintf("https://%s:443/pasta", ingressServiceName), ""},
-		{"a", fmt.Sprintf("http://%s/lucky", ingressServiceName), ""},
-		{"b", fmt.Sprintf("http://%s/lol", ingressServiceName), ""},
-		{"a", fmt.Sprintf("http://%s/foo", ingressServiceName), "foo.bar.com"},
-		{"a", fmt.Sprintf("http://%s/bar", ingressServiceName), "foo.baz.com"},
-		{"a", fmt.Sprintf("grpc://%s:80", ingressServiceName), "api.company.com"},
-		{"a", fmt.Sprintf("grpcs://%s:443", ingressServiceName), "api.company.com"},
-		{"", fmt.Sprintf("http://%s/notfound", ingressServiceName), ""},
-		{"", fmt.Sprintf("http://%s/foo", ingressServiceName), ""},
+		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.IstioNamespace), ""},
+		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.IstioNamespace), ""},
+		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), "foo.bar.com"},
+		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.IstioNamespace), "foo.baz.com"},
+		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.IstioNamespace), "api.company.com"},
+		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.IstioNamespace), "api.company.com"},
+		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.IstioNamespace), ""},
+		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), ""},
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
@@ -152,7 +152,7 @@ func (t *ingress) run() error {
 
 // checkRouteRule verifies that version splitting is applied to ingress paths
 func (t *ingress) checkRouteRule() status {
-	url := fmt.Sprintf("http://%s/c", ingressServiceName)
+	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.IstioNamespace)
 	resp := t.clientRequest("t", url, 100, "")
 	count := counts(resp.version)
 	glog.V(2).Infof("counts: %v", count)

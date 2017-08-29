@@ -71,51 +71,54 @@ func GetPods(cl kubernetes.Interface, ns string) []string {
 
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
 // from "app" label value to the pod names.
-func GetAppPods(cl kubernetes.Interface, ns string) (map[string][]string, error) {
+func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, error) {
 	pods := make(map[string][]string)
 	var items []v1.Pod
-	for n := 0; ; n++ {
-		glog.Info("Checking all pods are running...")
-		list, err := cl.CoreV1().Pods(ns).List(meta_v1.ListOptions{})
-		if err != nil {
-			return pods, err
-		}
-		items = list.Items
-		ready := true
 
-		for _, pod := range items {
-			if pod.Status.Phase != "Running" {
-				glog.Infof("Pod %s has status %s", pod.Name, pod.Status.Phase)
-				ready = false
-				break
-			} else {
-				for _, container := range pod.Status.ContainerStatuses {
-					if !container.Ready {
-						glog.Infof("Container %s in Pod %s is not ready", container.Name, pod.Name)
-						ready = false
+	for _, ns := range nslist {
+		glog.Infof("Checking all pods are running in namespace %s ...", ns)
+
+		for n := 0; ; n++ {
+			list, err := cl.CoreV1().Pods(ns).List(meta_v1.ListOptions{})
+			if err != nil {
+				return pods, err
+			}
+			items = list.Items
+			ready := true
+
+			for _, pod := range items {
+				if pod.Status.Phase != "Running" {
+					glog.Infof("Pod %s.%s has status %s", pod.Name, ns, pod.Status.Phase)
+					ready = false
+					break
+				} else {
+					for _, container := range pod.Status.ContainerStatuses {
+						if !container.Ready {
+							glog.Infof("Container %s in Pod %s in namespace % s is not ready", container.Name, pod.Name, ns)
+							ready = false
+							break
+						}
+					}
+					if !ready {
 						break
 					}
 				}
-				if !ready {
-					break
-				}
 			}
-		}
 
-		if ready {
-			break
-		}
+			if ready {
+				for _, pod := range items {
+					if app, exists := pod.Labels["app"]; exists {
+						pods[app] = append(pods[app], pod.Name)
+					}
+				}
 
-		if n > PodCheckBudget {
-			return pods, fmt.Errorf("exceeded budget for checking pod status")
-		}
+				break
+			}
+			if n > PodCheckBudget {
+				return pods, fmt.Errorf("exceeded budget for checking pod status")
+			}
 
-		time.Sleep(time.Second)
-	}
-
-	for _, pod := range items {
-		if app, exists := pod.Labels["app"]; exists {
-			pods[app] = append(pods[app], pod.Name)
+			time.Sleep(time.Second)
 		}
 	}
 

@@ -74,8 +74,10 @@ func init() {
 		"CA Docker image")
 	flag.StringVar(&params.MixerImage, "mixer", mixerImage,
 		"Mixer Docker image")
+	flag.StringVar(&params.IstioNamespace, "ns", "",
+		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&params.Namespace, "n", "",
-		"Namespace to use for testing (empty to create/delete temporary one)")
+		"Namespace in which to install the applications (empty to create/delete temporary one)")
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
 	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 
@@ -90,6 +92,8 @@ func init() {
 	// Keep disabled until default no-op initializer is distributed
 	// and running in test clusters.
 	flag.BoolVar(&params.UseInitializer, "use-initializer", false, "Use k8s sidecar initializer")
+
+	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
 }
 
 type test interface {
@@ -172,7 +176,8 @@ func runTests(envs ...infra) {
 			continue
 		}
 
-		istio.apps, errs = util.GetAppPods(client, istio.Namespace)
+		nslist := []string{istio.IstioNamespace, istio.Namespace}
+		istio.apps, errs = util.GetAppPods(client, nslist)
 
 		tests := []test{
 			&http{infra: &istio},
@@ -212,10 +217,16 @@ func runTests(envs ...infra) {
 			for _, pod := range util.GetPods(client, istio.Namespace) {
 				if strings.HasPrefix(pod, "istio-pilot") {
 					log("Discovery log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "discovery"))
+					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, "discovery"))
 				} else if strings.HasPrefix(pod, "istio-mixer") {
 					log("Mixer log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.Namespace, "mixer"))
+					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, "mixer"))
+				} else if strings.HasPrefix(pod, "istio-ingress") {
+					log("Ingress log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, inject.ProxyContainerName))
+				} else if strings.HasPrefix(pod, "istio-egress") {
+					log("Egress log", pod)
+					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, inject.ProxyContainerName))
 				} else {
 					log("Proxy log", pod)
 					glog.Info(util.FetchLogs(client, pod, istio.Namespace, inject.ProxyContainerName))

@@ -8,7 +8,7 @@ spec:
   - name: http
     port: 80
   selector:
-    app: istio-egress
+    app: egress
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -26,7 +26,7 @@ spec:
   template:
     metadata:
       labels:
-        app: istio-egress
+        app: egress
     spec:
       serviceAccountName: istio-egress-service-account
       containers:

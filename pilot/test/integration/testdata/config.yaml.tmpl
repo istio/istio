@@ -4,12 +4,13 @@ metadata:
   name: istio
 data:
   mesh: |-
-    discoveryAddress: istio-pilot:8080
+    discoveryAddress: istio-pilot.{{.IstioNamespace}}:8080
+    egressProxyAddress: istio-egress.{{.IstioNamespace}}:80
 {{if .Mixer}}
-    mixerAddress: istio-mixer:9091
+    mixerAddress: istio-mixer.{{.IstioNamespace}}:9091
 {{end}}
     authPolicy: {{ .Auth }}
     authCertsPath: /etc/certs
 {{if .Zipkin}}
-    zipkinAddress: zipkin:9411
+    zipkinAddress: zipkin.{{.IstioNamespace}}:9411
 {{end}}

@@ -1,4 +1,36 @@
 # pilot service for discovery
+
+{{if .DebugPort}}
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: debug
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Delete
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/debug"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pilot-debug-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+{{end}}
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,9 +38,16 @@ metadata:
   labels:
     infra: pilot
 spec:
+{{if .DebugPort}}
+  type: LoadBalancer
+{{end}}
   ports:
   - port: 8080
     name: http-discovery
+{{if .DebugPort}}
+  - port: {{.DebugPort}}
+    name: tcp-debug
+{{end}}
   selector:
     infra: pilot
 ---
@@ -35,9 +74,15 @@ spec:
       - name: discovery
         image: {{.Hub}}/pilot:{{.Tag}}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "{{.Verbosity}}"]
+        args: ["discovery", "-v", "{{.Verbosity}}", "-a", "{{.Namespace}}"]
         ports:
         - containerPort: 8080
+{{if .DebugPort}}
+        - containerPort: {{.DebugPort}}
+        volumeMounts:
+          - mountPath: "/data/debug"
+            name: debug
+{{end}}
         env:
         - name: POD_NAME
           valueFrom:
@@ -52,8 +97,17 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+{{if .DebugPort}}
+        - mountPath: "/data/debug"
+          name: debug
+{{end}}
       volumes:
       - name: config-volume
         configMap:
           name: istio
+{{if .DebugPort}}
+      - name: debug
+        persistentVolumeClaim:
+          claimName: pilot-debug-claim
+{{end}}
 ---

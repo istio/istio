@@ -47,6 +47,10 @@ type cacheHandler struct {
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
+
+	glog.V(2).Infof("CRD controller running in namespace %s, watching app namespaces %s",
+		options.Namespace, options.AppNamespace)
+
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
 		client: client,
@@ -56,7 +60,7 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 
 	// add stores for CRD kinds
 	for _, schema := range client.ConfigDescriptor() {
-		out.addInformer(schema, options.Namespace, options.ResyncPeriod)
+		out.addInformer(schema, options.AppNamespace, options.ResyncPeriod)
 	}
 
 	return out
@@ -90,11 +94,9 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
 	}
-	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
 		glog.V(2).Infof("Error retrieving key: %v", err)
-	} else {
-		glog.V(2).Infof("Event %s: key %#v", event, k)
 	}
 	return nil
 }

@@ -92,3 +92,4 @@
 
 [[constraint]]
   name = "k8s.io/ingress"
+  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"

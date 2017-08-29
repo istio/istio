@@ -101,10 +101,15 @@ func TestServices(t *testing.T) {
 	eventually(func() bool {
 		out := sds.Services()
 		glog.Info("Services: %#v", out)
-		return len(out) == 1 &&
-			out[0].Hostname == hostname &&
-			len(out[0].Ports) == 1 &&
-			out[0].Ports[0].Protocol == model.ProtocolHTTP
+
+		for _, item := range out {
+			if item.Hostname == hostname &&
+				len(item.Ports) == 1 &&
+				item.Ports[0].Protocol == model.ProtocolHTTP {
+				return true
+			}
+		}
+		return false
 	}, t)
 
 	svc, exists := sds.GetService(hostname)

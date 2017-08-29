@@ -431,6 +431,7 @@ func buildOutboundHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.No
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(sidecar.Domain, ".")
 
+	//TODO optimize route build to avoid linear search
 	// get all the route rules applicable to the instances
 	rules := config.RouteRulesBySource(instances)
 

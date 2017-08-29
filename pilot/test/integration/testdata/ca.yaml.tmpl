@@ -22,9 +22,3 @@ spec:
       - name: istio-ca-container
         image: {{.CaImage}}
         imagePullPolicy: IfNotPresent
-        env:
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace

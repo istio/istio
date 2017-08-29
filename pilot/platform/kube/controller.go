@@ -37,12 +37,15 @@ const (
 	NodeRegionLabel = "failure-domain.beta.kubernetes.io/region"
 	// NodeZoneLabel is the well-known label for kubernetes node zone
 	NodeZoneLabel = "failure-domain.beta.kubernetes.io/zone"
+	// IstioNamespace used by default for Istio cluster-wide installation
+	IstioNamespace = "istio-system"
 )
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace to restrict controller to (empty to disable restriction)
 	Namespace    string
+	AppNamespace string
 	ResyncPeriod time.Duration
 	DomainSuffix string
 }
@@ -80,18 +83,18 @@ func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfi
 
 	out.services = out.createInformer(&v1.Service{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Services(options.Namespace).List(opts)
+			return client.CoreV1().Services(meta_v1.NamespaceAll).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Services(options.Namespace).Watch(opts)
+			return client.CoreV1().Services(meta_v1.NamespaceAll).Watch(opts)
 		})
 
 	out.endpoints = out.createInformer(&v1.Endpoints{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Endpoints(options.Namespace).List(opts)
+			return client.CoreV1().Endpoints(meta_v1.NamespaceAll).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Endpoints(options.Namespace).Watch(opts)
+			return client.CoreV1().Endpoints(meta_v1.NamespaceAll).Watch(opts)
 		})
 
 	out.nodes = out.createInformer(&v1.Node{}, options.ResyncPeriod,
@@ -104,10 +107,10 @@ func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfi
 
 	out.pods = newPodCache(out.createInformer(&v1.Pod{}, options.ResyncPeriod,
 		func(opts meta_v1.ListOptions) (runtime.Object, error) {
-			return client.CoreV1().Pods(options.Namespace).List(opts)
+			return client.CoreV1().Pods(meta_v1.NamespaceAll).List(opts)
 		},
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
-			return client.CoreV1().Pods(options.Namespace).Watch(opts)
+			return client.CoreV1().Pods(meta_v1.NamespaceAll).Watch(opts)
 		}))
 
 	return out
@@ -123,7 +126,7 @@ func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if err != nil {
 		glog.V(2).Infof("Error retrieving key: %v", err)
 	} else {
-		glog.V(2).Infof("Event %s: key %#v", event, k)
+		glog.V(6).Infof("Event %s: key %#v", event, k)
 	}
 	return nil
 }
@@ -416,8 +419,17 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.services.handler.Append(func(obj interface{}, event model.Event) error {
-		if svc := convertService(*obj.(*v1.Service), c.domainSuffix); svc != nil {
-			f(svc, event)
+		svc := *obj.(*v1.Service)
+
+		// Do not handle "kube-system" services
+		if svc.Namespace == meta_v1.NamespaceSystem {
+			return nil
+		}
+
+		glog.V(2).Infof("Handle service %s in namespace %s", svc.Name, svc.Namespace)
+
+		if svcConv := convertService(svc, c.domainSuffix); svcConv != nil {
+			f(svcConv, event)
 		}
 		return nil
 	})
@@ -428,6 +440,13 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.endpoints.handler.Append(func(obj interface{}, event model.Event) error {
 		ep := *obj.(*v1.Endpoints)
+
+		// Do not handle "kube-system" endpoints
+		if ep.Namespace == meta_v1.NamespaceSystem {
+			return nil
+		}
+
+		glog.V(2).Infof("Handle endpoint %s in namespace %s", ep.Name, ep.Namespace)
 		if item, exists := c.serviceByKey(ep.Name, ep.Namespace); exists {
 			if svc := convertService(*item, c.domainSuffix); svc != nil {
 				// TODO: we're passing an incomplete instance to the
