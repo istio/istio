@@ -33,15 +33,13 @@ function build_all() {
   if [[ -d $GOPATH/src/istio.io/pilot ]]; then
     (cd $GOPATH/src/istio.io/pilot; git pull upstream master)
   else
-    #(cd $GOPATH/src/istio.io; git clone https://github.com/istio/pilot)
-    (cd $GOPATH/src/istio.io; git clone https://github.com/costinm/pilot -b deb)
+    (cd $GOPATH/src/istio.io; git clone https://github.com/istio/pilot)
   fi
 
   if [[ -d $GOPATH/src/istio.io/istio ]]; then
     (cd $GOPATH/src/istio.io/istio; git pull upstream master)
   else
-    #(cd $GOPATH/src/istio.io; git clone https://github.com/istio/pilot)
-    (cd $GOPATH/src/istio.io; git clone https://github.com/costinm/istio)
+    (cd $GOPATH/src/istio.io; git clone https://github.com/istio/istio)
   fi
 
   if [[ -d $GOPATH/src/istio.io/mixer ]]; then
