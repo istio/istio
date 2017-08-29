@@ -156,7 +156,7 @@ message IstioService {
   //
   // *Note:* When used for a RouteRule destination, labels MUST be empty.
   //
-  map<string, string> labels = 4;
+  map<string, string> labels = 5;
 }
 
 // Match condition specifies a set of criterion to be met in order for the
