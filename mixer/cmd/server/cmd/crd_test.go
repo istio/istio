@@ -32,14 +32,13 @@ var exampleAdapters = []pkgadapter.InfoFn{
 	func() adapter.BuilderInfo { return adapter.BuilderInfo{Name: "abcd"} },
 }
 var exampleAdaptersCrd = `
-apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  creationTimestamp: null
-  labels:
-    impl: foo-bar
-    istio: mixer-adapter
   name: foo-bars.config.istio.io
+  labels:
+    package: foo-bar
+    istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
@@ -48,20 +47,14 @@ spec:
     singular: foo-bar
   scope: Namespaced
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  creationTimestamp: null
-  labels:
-    impl: abcd
-    istio: mixer-adapter
   name: abcds.config.istio.io
+  labels:
+    package: abcd
+    istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
@@ -70,27 +63,19 @@ spec:
     singular: abcd
   scope: Namespaced
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
----
-`
+---`
 
 var exampleTmplInfos = map[string]template.Info{
 	"abcd-foo": {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
 	"abcdBar":  {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
 }
-var exampleInstanceCrd = `
+var exampleInstanceCrd = `kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
-kind: CustomResourceDefinition
 metadata:
-  creationTimestamp: null
-  labels:
-    impl: implPathShouldBeDNSCompat
-    istio: mixer-instance
   name: abcd-foos.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat
+    istio: mixer-instance
 spec:
   group: config.istio.io
   names:
@@ -99,20 +84,14 @@ spec:
     singular: abcd-foo
   scope: Namespaced
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  creationTimestamp: null
-  labels:
-    impl: implPathShouldBeDNSCompat2
-    istio: mixer-instance
   name: abcdBars.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
 spec:
   group: config.istio.io
   names:
@@ -121,11 +100,6 @@ spec:
     singular: abcdBar
   scope: Namespaced
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
 ---
 `
 
@@ -144,8 +118,9 @@ func TestListCrdsAdapters(t *testing.T) {
 			var printf = func(format string, args ...interface{}) {
 				buffer.WriteString(fmt.Sprintf(format, args...))
 			}
-			listCrdsAdapters(printf, tt.args)
+			listCrdsAdapters(printf, printf, tt.args)
 			gotOut := buffer.String()
+
 			if strings.TrimSpace(gotOut) != strings.TrimSpace(tt.wantOut) {
 				t.Errorf("listCrdsAdapters() = %s, want %s", gotOut, tt.wantOut)
 			}
@@ -168,10 +143,11 @@ func TestListCrdsInstances(t *testing.T) {
 			var printf = func(format string, args ...interface{}) {
 				buffer.WriteString(fmt.Sprintf(format, args...))
 			}
-			listCrdsInstances(printf, tt.args)
+			listCrdsInstances(printf, printf, tt.args)
 			gotOut := buffer.String()
+
 			if strings.TrimSpace(gotOut) != strings.TrimSpace(tt.wantOut) {
-				t.Errorf("listCrdsInstances() = %s, want %s", gotOut, tt.wantOut)
+				t.Errorf("listCrdsInstances() = %v, want %v", gotOut, tt.wantOut)
 			}
 		})
 	}
