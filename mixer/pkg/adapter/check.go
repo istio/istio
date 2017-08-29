@@ -32,7 +32,7 @@ type CheckResult struct {
 	// ValidDuration represents amount of time for which this result can be considered valid.
 	ValidDuration time.Duration
 	// ValidUseCount represents the number of uses for which this result can be considered valid.
-	ValidUseCount int64
+	ValidUseCount int32
 }
 
 // GetStatus gets status embedded in the result.

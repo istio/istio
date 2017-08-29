@@ -44,7 +44,7 @@ message Params {
 
     // Indicates the number of times a caller of this adapter can use a cached answer
     // before it should ask the adapter again.
-    int64 caching_use_count = 5;
+    int32 caching_use_count = 5;
 
     // List entries that are consulted first, before the list from the server
     repeated string overrides = 6;

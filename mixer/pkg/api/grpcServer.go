@@ -121,8 +121,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		} else {
 			out2 = cr.Status
 			resp.Precondition.ValidDuration = cr.ValidDuration
-			// FIXME cr.ValidUseCount should be int32
-			resp.Precondition.ValidUseCount = int32(cr.ValidUseCount)
+			resp.Precondition.ValidUseCount = cr.ValidUseCount
 		}
 		if status.IsOK(out2) {
 			glog.V(2).Info("Check2 returned with ok")
