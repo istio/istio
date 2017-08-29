@@ -63,7 +63,7 @@ func makeClient(t *testing.T) *Client {
 
 // makeTempClient allocates a namespace and cleans it up on test completion
 func makeTempClient(t *testing.T) (*Client, string, func()) {
-	client, err := kube.CreateInterface(kubeconfig(t))
+	_, client, err := kube.CreateInterface(kubeconfig(t))
 	if err != nil {
 		t.Fatal(err)
 	}

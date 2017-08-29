@@ -15,11 +15,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
-	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -35,68 +32,60 @@ func getRootCmd() *cobra.Command {
 	flags := struct {
 		kubeconfig   string
 		meshconfig   string
-		hub          string
-		tag          string
+		injectConfig string
 		namespace    string
-		policy       string
-		resyncPeriod time.Duration
+		port         int
 	}{}
 
 	rootCmd := &cobra.Command{
 		Use:   "sidecar-initializer",
 		Short: "Kubernetes initializer for Istio sidecar",
 		RunE: func(*cobra.Command, []string) error {
-			switch inject.InjectionPolicy(flags.policy) {
-			case inject.InjectionPolicyOff, inject.InjectionPolicyOptIn, inject.InjectionPolicyOptOut:
-			default:
-				return fmt.Errorf("unknown injection policy: %v", flags.policy)
-			}
-
-			client, err := kube.CreateInterface(flags.kubeconfig)
+			restConfig, client, err := kube.CreateInterface(flags.kubeconfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
 			}
 
 			glog.V(2).Infof("version %s", version.Line())
-			glog.V(2).Infof("flags %s", spew.Sdump(flags))
 
-			// receive mesh configuration
-			mesh, err := cmd.ReadMeshConfig(flags.meshconfig)
+			config, err := inject.GetInitializerConfig(client, flags.namespace, flags.injectConfig)
 			if err != nil {
+				return multierror.Prefix(err, "failed to read initializer configuration")
+			}
+
+			// retrieve mesh configuration separately
+			if config.Params.Mesh, err = cmd.ReadMeshConfig(flags.meshconfig); err != nil {
 				return multierror.Prefix(err, "failed to read mesh configuration.")
 			}
 
-			options := inject.InitializerOptions{
-				ResyncPeriod: flags.resyncPeriod,
-				Hub:          flags.hub,
-				Tag:          flags.tag,
-				Namespace:    flags.namespace,
-
-				InjectionPolicy: inject.InjectionPolicy(flags.policy),
+			initializer, err := inject.NewInitializer(restConfig, config, client)
+			if err != nil {
+				return multierror.Prefix(err, "failed to create initializer")
 			}
-			initializer := inject.NewInitializer(client, mesh, options)
 
 			stop := make(chan struct{})
-			go initializer.Run(stop)
-			cmd.WaitSignal(stop)
 
+			if flags.port != 0 {
+				server := inject.NewHTTPServer(flags.port, config)
+				go server.Run(stop)
+			}
+			go initializer.Run(stop)
+
+			cmd.WaitSignal(stop)
 			return nil
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&flags.hub, "hub", "docker.io/istio", "Docker hub")
-	rootCmd.PersistentFlags().StringVar(&flags.tag, "tag", "0.2", "Docker tag")
-	rootCmd.PersistentFlags().StringVar(&flags.namespace, "namespace",
-		v1.NamespaceAll, "Namespace managed by initializer")
-	rootCmd.PersistentFlags().StringVar(&flags.policy, "policy",
-		string(inject.InjectionPolicyOff), "default injection policy")
-
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshconfig", "/etc/istio/config/mesh",
-		fmt.Sprintf("File name for Istio mesh configuration"))
-	rootCmd.PersistentFlags().DurationVar(&flags.resyncPeriod, "resync", 6*time.Minute,
-		"Initializers resync interval")
+		"File name for Istio mesh configuration")
+	rootCmd.PersistentFlags().StringVar(&flags.injectConfig, "injectConfig", "istio-inject",
+		"Name of initializer configuration ConfigMap")
+	rootCmd.PersistentFlags().StringVar(&flags.namespace, "namespace", v1.NamespaceDefault, // TODO istio-system?
+		"Namespace of initializer configuration ConfigMap")
+	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 8083,
+		"HTTP-based initializer service port. Zero value disables HTTP endpoint")
 
 	cmd.AddFlags(rootCmd)
 

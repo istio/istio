@@ -48,8 +48,11 @@ metadata:
   name: istio-sidecar-initializer
 rules:
 - apiGroups: ["*"]
-  resources: ["deployments", "statefulsets", "jobs", "daemonsets", "replicasets", "replicationcontrollers", "pods"]
+  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
   verbs: ["initialize", "patch", "watch", "list"]
+- apiGroups: ["*"]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
 ---
 # Grant permissions to the Pilot/discovery.
 kind: ClusterRoleBinding

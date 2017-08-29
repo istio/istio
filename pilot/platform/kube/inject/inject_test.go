@@ -20,12 +20,14 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/test/util"
+	"istio.io/pilot/tools/version"
 )
 
 func TestImageName(t *testing.T) {
@@ -151,23 +153,28 @@ func TestIntoResourceFile(t *testing.T) {
 			mesh.AuthCertsPath = c.authConfigPath
 		}
 
-		params := Params{
-			InitImage:         InitImageName(unitTestHub, unitTestTag),
-			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
-			ImagePullPolicy:   "IfNotPresent",
-			Verbosity:         DefaultVerbosity,
-			SidecarProxyUID:   DefaultSidecarProxyUID,
-			Version:           "12345678",
-			EnableCoreDump:    c.enableCoreDump,
-			Mesh:              &mesh,
-			MeshConfigMapName: "istio",
+		config := &Config{
+			Policy:     InjectionPolicyOptOut,
+			Namespaces: []string{v1.NamespaceAll},
+			Params: Params{
+				InitImage:         InitImageName(unitTestHub, unitTestTag),
+				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+				ImagePullPolicy:   "IfNotPresent",
+				Verbosity:         DefaultVerbosity,
+				SidecarProxyUID:   DefaultSidecarProxyUID,
+				Version:           "12345678",
+				EnableCoreDump:    c.enableCoreDump,
+				Mesh:              &mesh,
+				MeshConfigMapName: "istio",
+			},
 		}
+
 		if c.configMapName != "" {
-			params.MeshConfigMapName = c.configMapName
+			config.Params.MeshConfigMapName = c.configMapName
 		}
 
 		if c.imagePullPolicy != "" {
-			params.ImagePullPolicy = c.imagePullPolicy
+			config.Params.ImagePullPolicy = c.imagePullPolicy
 		}
 
 		in, err := os.Open(c.in)
@@ -176,16 +183,12 @@ func TestIntoResourceFile(t *testing.T) {
 		}
 		defer func() { _ = in.Close() }()
 		var got bytes.Buffer
-		if err = IntoResourceFile(&params, in, &got); err != nil {
+		if err = IntoResourceFile(config, in, &got); err != nil {
 			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
 		}
 
 		util.CompareContent(got.Bytes(), c.want, t)
 	}
-
-	// file with mixture of deployment, service, etc.
-	// file with existing annotation
-	// file with another init-container
 }
 
 func TestInjectRequired(t *testing.T) {
@@ -290,7 +293,7 @@ func TestInjectRequired(t *testing.T) {
 }
 
 func TestGetMeshConfig(t *testing.T) {
-	cl := makeClient(t)
+	_, cl := makeClient(t)
 	t.Parallel()
 	ns, err := util.CreateNamespace(cl)
 	if err != nil {
@@ -371,6 +374,115 @@ func TestGetMeshConfig(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, &want) {
 			t.Fatalf("%v: GetMeshConfig returned the wrong result: \ngot  %v \nwant %v", c.name, got, &want)
+		}
+		if err = cl.CoreV1().ConfigMaps(ns).Delete(c.configMap.Name, &metav1.DeleteOptions{}); err != nil {
+			t.Fatalf("%v: Delete failed: %v", c.name, err)
+		}
+	}
+}
+
+func TestGetInitializerConfig(t *testing.T) {
+	_, cl := makeClient(t)
+	t.Parallel()
+	ns, err := util.CreateNamespace(cl)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	defer util.DeleteNamespace(cl, ns)
+
+	goodConfig := Config{
+		Policy: InjectionPolicyOptIn,
+		Params: Params{
+			InitImage:         InitImageName(unitTestHub, unitTestTag),
+			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+			SidecarProxyUID:   1234,
+			MeshConfigMapName: "something",
+			ImagePullPolicy:   "Always",
+		},
+	}
+	goodConfigYAML, err := yaml.Marshal(&goodConfig)
+	if err != nil {
+		t.Fatalf("Failed to create test config data: %v", err)
+	}
+
+	cases := []struct {
+		name      string
+		configMap *v1.ConfigMap
+		queryName string
+		wantErr   bool
+		want      Config
+	}{
+		{
+			name:      "bad query name",
+			queryName: "bad-query-name-foo-bar",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-query-name"},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "bad config key",
+			queryName: "bad-config-key",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-config-key"},
+				Data: map[string]string{
+					"bad-key": "",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "override all defaults",
+			queryName: "default-config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "default-config"},
+				Data: map[string]string{
+					InitializerConfigMapKey: "",
+				},
+			},
+			want: Config{
+				Policy: DefaultInjectionPolicy,
+				Params: Params{
+					InitImage:         InitImageName(DefaultHub, version.Info.Version),
+					ProxyImage:        ProxyImageName(DefaultHub, version.Info.Version),
+					SidecarProxyUID:   DefaultSidecarProxyUID,
+					MeshConfigMapName: DefaultMeshConfigMapName,
+					ImagePullPolicy:   DefaultImagePullPolicy,
+				},
+			},
+		},
+		{
+			name:      "normal config",
+			queryName: "config",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "config"},
+				Data: map[string]string{
+					InitializerConfigMapKey: string(goodConfigYAML),
+				},
+			},
+			want: goodConfig,
+		},
+	}
+
+	for _, c := range cases {
+		_, err = cl.CoreV1().ConfigMaps(ns).Create(c.configMap)
+		if err != nil {
+			t.Fatalf("%v: Create failed: %v", c.name, err)
+		}
+		got, err := GetInitializerConfig(cl, ns, c.queryName)
+		gotErr := err != nil
+		if gotErr != c.wantErr {
+			t.Fatalf("%v: GetMeshConfig returned wrong error value: got %v want %v: err=%v", c.name, gotErr, c.wantErr, err)
+		}
+		if gotErr {
+			continue
+		}
+		if !reflect.DeepEqual(got, &c.want) {
+			t.Fatalf("%v: GetMeshConfig returned the wrong result: \ngot  %v \nwant %v", c.name, got, &c.want)
 		}
 		if err = cl.CoreV1().ConfigMaps(ns).Delete(c.configMap.Name, &metav1.DeleteOptions{}); err != nil {
 			t.Fatalf("%v: Delete failed: %v", c.name, err)

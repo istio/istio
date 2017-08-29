@@ -64,8 +64,8 @@ type infra struct {
 	istioNamespaceCreated bool
 
 	// sidecar initializer
-	UseInitializer  bool
-	InjectionPolicy inject.InjectionPolicy
+	UseInitializer bool
+	InjectConfig   *inject.Config
 }
 
 func (infra *infra) setup() error {
@@ -112,17 +112,32 @@ func (infra *infra) setup() error {
 		return err
 	}
 
-	if infra.UseInitializer {
-		infra.InjectionPolicy = inject.InjectionPolicyOptOut
+	mesh, err := inject.GetMeshConfig(client, infra.IstioNamespace, "istio")
+	if err != nil {
+		return err
+	}
 
-		// NOTE: InitializerConfiguration is cluster-scoped and may be
-		// created and used by other tests in the same test
-		// cluster.
+	infra.InjectConfig = &inject.Config{
+		Policy:     inject.InjectionPolicyOptOut,
+		Namespaces: []string{infra.Namespace, infra.IstioNamespace},
+		Params: inject.Params{
+			InitImage:         inject.InitImageName(infra.Hub, infra.Tag),
+			ProxyImage:        inject.ProxyImageName(infra.Hub, infra.Tag),
+			Verbosity:         infra.Verbosity,
+			SidecarProxyUID:   inject.DefaultSidecarProxyUID,
+			EnableCoreDump:    true,
+			Version:           "integration-test",
+			Mesh:              mesh,
+			MeshConfigMapName: "istio",
+		},
+	}
+
+	// NOTE: InitializerConfiguration is cluster-scoped and may be
+	// created and used by other tests in the same test cluster.
+	if infra.UseInitializer {
 		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-	} else {
-		infra.InjectionPolicy = inject.InjectionPolicyOff
 	}
 
 	// TODO - Initializer configs can block initializers from being
@@ -141,16 +156,19 @@ func (infra *infra) setup() error {
 	//
 	// See github.com/kubernetes/kubernetes/issues/49048 for k8s
 	// tracking issue.
-	if infra.UseInitializer {
-		if yaml, err := fill("initializer.yaml.tmpl", infra); err != nil {
-			return err
-		} else if err = infra.kubeDelete(yaml); err != nil {
-			glog.Infof("Sidecar initializer could not be deleted: %v", err)
-		}
+	if yaml, err := fill("initializer.yaml.tmpl", infra); err != nil {
+		return err
+	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
+		glog.Infof("Sidecar initializer could not be deleted: %v", err)
+	}
 
-		if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
+	if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
+		return err
+	} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
+		return err
+	}
+	if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
+		return err
 	}
 
 	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
@@ -228,22 +246,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 	writer := new(bytes.Buffer)
 
 	if injectProxy && !infra.UseInitializer {
-		mesh, err := inject.GetMeshConfig(client, infra.Namespace, "istio")
-		if err != nil {
-			return err
-		}
-
-		p := &inject.Params{
-			InitImage:         inject.InitImageName(infra.Hub, infra.Tag),
-			ProxyImage:        inject.ProxyImageName(infra.Hub, infra.Tag),
-			Verbosity:         infra.Verbosity,
-			SidecarProxyUID:   inject.DefaultSidecarProxyUID,
-			EnableCoreDump:    true,
-			Version:           "integration-test",
-			Mesh:              mesh,
-			MeshConfigMapName: "istio",
-		}
-		if err := inject.IntoResourceFile(p, strings.NewReader(w), writer); err != nil {
+		if err := inject.IntoResourceFile(infra.InjectConfig, strings.NewReader(w), writer); err != nil {
 			return err
 		}
 	} else {
@@ -271,9 +274,9 @@ func (infra *infra) kubeApply(yaml, namespace string) error {
 		kubeconfig, namespace), yaml)
 }
 
-func (infra *infra) kubeDelete(yaml string) error {
+func (infra *infra) kubeDelete(yaml, namespace string) error {
 	return util.RunInput(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s -f -",
-		kubeconfig, infra.Namespace), yaml)
+		kubeconfig, namespace), yaml)
 }
 
 type response struct {

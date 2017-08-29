@@ -47,7 +47,7 @@ var (
 			}
 			glog.Infof("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)
-			client, err := kube.CreateInterface(kubeconfig)
+			_, client, err := kube.CreateInterface(kubeconfig)
 			if err != nil {
 				return err
 			}

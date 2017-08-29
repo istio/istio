@@ -53,7 +53,7 @@ func makeTempClient(t *testing.T) (string, kubernetes.Interface, func()) {
 		kubeconfig = kubeconfig + "/../../../platform/kube/config"
 	}
 
-	client, err := kube.CreateInterface(kubeconfig)
+	_, client, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}

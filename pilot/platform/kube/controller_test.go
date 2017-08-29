@@ -48,7 +48,7 @@ func makeClient(t *testing.T) kubernetes.Interface {
 		kubeconfig = kubeconfig + "/config"
 	}
 
-	cl, err := CreateInterface(kubeconfig)
+	_, cl, err := CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}

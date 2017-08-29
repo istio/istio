@@ -25,6 +25,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -57,19 +58,19 @@ func ResolveConfig(kubeconfig string) (string, error) {
 }
 
 // CreateInterface is a helper function to create Kubernetes interface
-func CreateInterface(kubeconfig string) (kubernetes.Interface, error) {
+func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, error) {
 	kube, err := ResolveConfig(kubeconfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kube)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	client, err := kubernetes.NewForConfig(config)
-	return client, err
+	return config, client, err
 }
 
 const (

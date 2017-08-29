@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: hello
+  namespace: default
   initializers:
     pending:
     - name: sidecar.initializer.istio.io

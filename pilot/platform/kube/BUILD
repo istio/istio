@@ -24,6 +24,7 @@ go_library(
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/oidc:go_default_library",
+        "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
         "@io_k8s_client_go//util/flowcontrol:go_default_library",

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+data:
+  config: |-
+    policy: {{.Policy}}
+    namespaces:
+{{ range $namespace := .Namespaces}}
+    - {{$namespace}}
+{{ end }}
+    params:
+      initImage: {{.Params.InitImage}}
+      proxyImage: {{.Params.ProxyImage}}
+      verbosity: {{.Params.Verbosity}}
+      SidecarProxyUID: {{.Params.SidecarProxyUID}}
+      Version: {{.Params.Version}}
+      EnableCoreDump: {{.Params.EnableCoreDump}}
+      MeshConfigMapName: {{.Params.MeshConfigMapName}}
+      ImagePullPolicy: {{.Params.ImagePullPolicy}}
+      IncludeIPRanges: {{.Params.IncludeIPRanges}}

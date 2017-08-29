@@ -320,7 +320,7 @@ func setupClient() error {
 	if err != nil {
 		return err
 	}
-	client, err = kube.CreateInterface(kubeconfig)
+	_, client, err = kube.CreateInterface(kubeconfig)
 	if err != nil {
 		return err
 	}

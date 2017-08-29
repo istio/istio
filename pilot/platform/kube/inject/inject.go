@@ -23,22 +23,25 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
+	"istio.io/pilot/tools/version"
 )
 
 // TODO - Temporally retain the deprecated alpha annotations to ease
@@ -90,8 +93,11 @@ const (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID = int64(1337)
-	DefaultVerbosity       = 2
+	DefaultSidecarProxyUID   = int64(1337)
+	DefaultVerbosity         = 2
+	DefaultHub               = "docker.io/istio"
+	DefaultMeshConfigMapName = "meshConfig"
+	DefaultImagePullPolicy   = "IfNotPresent"
 )
 
 const (
@@ -117,8 +123,15 @@ const (
 	// ConfigMapKey should match the expected MeshConfig file name
 	ConfigMapKey = "mesh"
 
+	// InitializerConfigMapKey is the key into the initailizer ConfigMap data.
+	InitializerConfigMapKey = "config"
+
 	// EnvoyConfigPath is the temporary directory for storing configuration
 	EnvoyConfigPath = "/etc/istio/proxy"
+
+	// DefaultResyncPeriod specifies how frequently to retrieve the
+	// full list of watched resources for initialization.
+	DefaultResyncPeriod = 30 * time.Second
 )
 
 // InitImageName returns the fully qualified image name for the istio
@@ -132,22 +145,36 @@ func ProxyImageName(hub, tag string) string { return hub + "/proxy_debug:" + tag
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage         string
-	ProxyImage        string
-	Verbosity         int
-	SidecarProxyUID   int64
-	Version           string
-	EnableCoreDump    bool
-	Mesh              *proxyconfig.ProxyMeshConfig
-	MeshConfigMapName string
-	ImagePullPolicy   string
+	InitImage         string                       `json:"initImage"`
+	ProxyImage        string                       `json:"proxyImage"`
+	Verbosity         int                          `json:"verbosity"`
+	SidecarProxyUID   int64                        `json:"sidecarProxyUID"`
+	Version           string                       `json:"version"`
+	EnableCoreDump    bool                         `json:"enableCoreDump"`
+	Mesh              *proxyconfig.ProxyMeshConfig `json:"-"`
+	MeshConfigMapName string                       `json:"meshConfigMapName"`
+	ImagePullPolicy   string                       `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
-	IncludeIPRanges string
+	IncludeIPRanges string `json:"includeIPRanges"`
 }
 
-// GetMeshConfig fetches configuration from a config map
+// Config specifies the initializer configuration for sidecar
+// injection. This includes the sidear template and cluster-side
+// injection policy. It is used by kube-inject, initializer, and http
+// endpoint.
+type Config struct {
+	Policy InjectionPolicy `json:"policy"`
+
+	// deprecate if InitializerConfiguration becomes namespace aware
+	Namespaces []string `json:"namespaces"`
+
+	// Params specifies the parameters of the injected sidcar template
+	Params Params `json:"params"`
+}
+
+// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxyconfig.ProxyMeshConfig, error) {
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -173,13 +200,62 @@ func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxycon
 	return &mesh, nil
 }
 
-func injectRequired(namespacePolicy InjectionPolicy, objectMeta *metav1.ObjectMeta) bool {
+// GetInitializerConfig fetches the initializer configuration from a Kubernetes ConfigMap.
+func GetInitializerConfig(kube kubernetes.Interface, namespace, name string) (*Config, error) {
+	var configMap *v1.ConfigMap
+	var err error
+	if errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		if configMap, err = kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{}); err != nil {
+			return false, err
+		}
+		return true, nil
+	}); errPoll != nil {
+		return nil, errPoll
+	}
+	data, exists := configMap.Data[InitializerConfigMapKey]
+	if !exists {
+		return nil, fmt.Errorf("missing configuration map key %q", InitializerConfigMapKey)
+	}
+
+	var c Config
+	if err := yaml.Unmarshal([]byte(data), &c); err != nil {
+		return nil, err
+	}
+
+	// apply safe defaults if not specified
+	switch c.Policy {
+	case InjectionPolicyOff, InjectionPolicyOptIn, InjectionPolicyOptOut:
+	default:
+		c.Policy = DefaultInjectionPolicy
+	}
+	if c.Params.InitImage == "" {
+		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version)
+	}
+	if c.Params.ProxyImage == "" {
+		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version)
+	}
+	if c.Params.SidecarProxyUID == 0 {
+		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
+	}
+	if c.Params.MeshConfigMapName == "" {
+		c.Params.MeshConfigMapName = DefaultMeshConfigMapName
+	}
+	if c.Params.ImagePullPolicy == "" {
+		c.Params.ImagePullPolicy = DefaultImagePullPolicy
+	}
+
+	return &c, nil
+}
+
+func injectRequired(namespacePolicy InjectionPolicy, obj metav1.Object) bool {
 	var resourcePolicy string
-	if objectMeta.Annotations == nil {
+
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
 		resourcePolicy = istioSidecarAnnotationPolicyValueDefault
 	} else {
 		var ok bool
-		if resourcePolicy, ok = objectMeta.Annotations[istioSidecarAnnotationPolicyKey]; !ok {
+		if resourcePolicy, ok = annotations[istioSidecarAnnotationPolicyKey]; !ok {
 			resourcePolicy = istioSidecarAnnotationPolicyValueDefault
 		}
 	}
@@ -196,17 +272,17 @@ func injectRequired(namespacePolicy InjectionPolicy, objectMeta *metav1.ObjectMe
 		}
 	}
 
-	status, ok := objectMeta.Annotations[istioSidecarAnnotationStatusKey]
+	status, ok := annotations[istioSidecarAnnotationStatusKey]
 
 	// avoid injecting sidecar to resources previously modified with kube-inject
-	if checkDeprecatedAlphaAnnotation {
-		if _, ok = objectMeta.Annotations[deprecatedIstioSidecarAnnotationSidecarKey]; ok {
+	if annotations != nil && checkDeprecatedAlphaAnnotation {
+		if _, ok = annotations[deprecatedIstioSidecarAnnotationSidecarKey]; ok {
 			required = false
 		}
 	}
 
 	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespace:%v resource:%v status:%q required:%v",
-		objectMeta.Namespace, objectMeta.Name, namespacePolicy, resourcePolicy, status, required)
+		obj.GetNamespace(), obj.GetName(), namespacePolicy, resourcePolicy, status, required)
 
 	if !required {
 		return false
@@ -215,18 +291,6 @@ func injectRequired(namespacePolicy InjectionPolicy, objectMeta *metav1.ObjectMe
 	// TODO - add version check for sidecar upgrade
 
 	return !ok
-}
-
-func addAnnotation(objectMeta *metav1.ObjectMeta, version string) {
-	if objectMeta.Annotations == nil {
-		objectMeta.Annotations = make(map[string]string)
-	}
-	objectMeta.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-" + version
-
-	if insertDeprecatedAlphaAnnotation {
-		objectMeta.Annotations[deprecatedIstioSidecarAnnotationSidecarKey] =
-			deprecatedIstioSidecarAnnotationSidecarValue
-	}
 }
 
 func injectIntoSpec(p *Params, spec *v1.PodSpec) {
@@ -386,19 +450,56 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 	spec.Containers = append(spec.Containers, sidecar)
 }
 
-// IntoResourceFile injects the istio proxy into the specified
-// kubernetes YAML file.
-func IntoResourceFile(p *Params, in io.Reader, out io.Writer) error {
-	injectWithPolicyCheck := func(objectMeta, templateObjectMeta *metav1.ObjectMeta, spec *v1.PodSpec) error {
-		if !injectRequired(DefaultInjectionPolicy, objectMeta) {
-			return nil
-		}
-		injectIntoSpec(p, spec)
-		addAnnotation(objectMeta, p.Version)
-		addAnnotation(templateObjectMeta, p.Version)
-		return nil
+func intoObject(c *Config, in interface{}) (interface{}, error) {
+	obj, err := meta.Accessor(in)
+	if err != nil {
+		return nil, err
 	}
 
+	out, err := injectScheme.DeepCopy(in)
+	if err != nil {
+		return nil, err
+	}
+
+	if !injectRequired(c.Policy, obj) {
+		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
+		return out, nil
+	}
+
+	// `in` is a pointer to an Object. Dereference it.
+	outValue := reflect.ValueOf(out).Elem()
+
+	templateValue := outValue.FieldByName("Spec").FieldByName("Template")
+	// `Template` is defined as a pointer in some older API
+	// definitions, e.g. ReplicationController
+	if templateValue.Kind() == reflect.Ptr {
+		templateValue = templateValue.Elem()
+	}
+
+	objectMeta := outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+	templateObjectMeta := templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+	templatePodSpec := templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
+
+	for _, m := range []*metav1.ObjectMeta{objectMeta, templateObjectMeta} {
+		if m.Annotations == nil {
+			m.Annotations = make(map[string]string)
+		}
+		m.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-" + c.Params.Version
+
+		if insertDeprecatedAlphaAnnotation {
+			m.Annotations[deprecatedIstioSidecarAnnotationSidecarKey] =
+				deprecatedIstioSidecarAnnotationSidecarValue
+		}
+	}
+
+	injectIntoSpec(&c.Params, templatePodSpec)
+
+	return out, nil
+}
+
+// IntoResourceFile injects the istio proxy into the specified
+// kubernetes YAML file.
+func IntoResourceFile(c *Config, in io.Reader, out io.Writer) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -408,72 +509,29 @@ func IntoResourceFile(p *Params, in io.Reader, out io.Writer) error {
 		if err != nil {
 			return err
 		}
-		kinds := map[string]struct {
-			typ    interface{}
-			inject func(typ interface{}) error
-		}{
-			"Job": {
-				typ: &batchv1.Job{},
-				inject: func(typ interface{}) error {
-					o := typ.(*batchv1.Job)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-			"DaemonSet": {
-				typ: &v1beta1.DaemonSet{},
-				inject: func(typ interface{}) error {
-					o := typ.(*v1beta1.DaemonSet)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-			"ReplicaSet": {
-				typ: &v1beta1.ReplicaSet{},
-				inject: func(typ interface{}) error {
-					o := typ.(*v1beta1.ReplicaSet)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-			"Deployment": {
-				typ: &v1beta1.Deployment{},
-				inject: func(typ interface{}) error {
-					o := typ.(*v1beta1.Deployment)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-			"ReplicationController": {
-				typ: &v1.ReplicationController{},
-				inject: func(typ interface{}) error {
-					o := typ.(*v1.ReplicationController)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-			"StatefulSet": {
-				typ: &appsv1beta1.StatefulSet{},
-				inject: func(typ interface{}) error {
-					o := typ.(*appsv1beta1.StatefulSet)
-					return injectWithPolicyCheck(&o.ObjectMeta, &o.Spec.Template.ObjectMeta, &o.Spec.Template.Spec)
-				},
-			},
-		}
-		var meta metav1.TypeMeta
-		var updated []byte
-		if err = yaml.Unmarshal(raw, &meta); err != nil {
+
+		var typeMeta metav1.TypeMeta
+		if err = yaml.Unmarshal(raw, &typeMeta); err != nil {
 			return err
 		}
-		if kind, ok := kinds[meta.Kind]; ok {
-			if err = yaml.Unmarshal(raw, kind.typ); err != nil {
+
+		gvk := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
+		obj, err := injectScheme.New(gvk)
+		var updated []byte
+		if err == nil {
+			if err = yaml.Unmarshal(raw, obj); err != nil {
 				return err
 			}
-			if err = kind.inject(kind.typ); err != nil {
+			out, err := intoObject(c, obj) // nolint: vetshadow
+			if err != nil {
 				return err
 			}
-			if updated, err = yaml.Marshal(kind.typ); err != nil {
+			if updated, err = yaml.Marshal(out); err != nil {
 				return err
 			}
 		} else {
 			updated = raw // unchanged
 		}
-
 		if _, err = out.Write(updated); err != nil {
 			return err
 		}

@@ -28,4 +28,3 @@ pkg_deb(
     package = "istio-agent",
     version = "0.2.1",
 )
-

@@ -69,6 +69,7 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
+
 			// receive mesh configuration
 			mesh, fail := cmd.ReadMeshConfig(flags.meshconfig)
 			if fail != nil {
@@ -89,7 +90,7 @@ var (
 			// Set up values for input to discovery service in different platforms
 			if flags.serviceregistry == platform.KubernetesRegistry || flags.serviceregistry == "" {
 
-				client, err := kube.CreateInterface(flags.kubeconfig)
+				_, client, err := kube.CreateInterface(flags.kubeconfig)
 				if err != nil {
 					return multierror.Prefix(err, "failed to connect to Kubernetes API.")
 				}

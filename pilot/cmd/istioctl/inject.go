@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
@@ -107,7 +108,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				versionStr = version.Line()
 			}
 
-			client, err := kube.CreateInterface(kubeconfig)
+			_, client, err := kube.CreateInterface(kubeconfig)
 			if err != nil {
 				return err
 			}
@@ -118,19 +119,23 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					"installed in namespace %q with `kubectl get -n %s configmap istio`",
 					namespace, namespace)
 			}
-			params := &inject.Params{
-				InitImage:         inject.InitImageName(hub, tag),
-				ProxyImage:        inject.ProxyImageName(hub, tag),
-				Verbosity:         verbosity,
-				SidecarProxyUID:   sidecarProxyUID,
-				Version:           versionStr,
-				EnableCoreDump:    enableCoreDump,
-				Mesh:              mesh,
-				MeshConfigMapName: meshConfig,
-				ImagePullPolicy:   imagePullPolicy,
-				IncludeIPRanges:   includeIPRanges,
+			config := &inject.Config{
+				Policy:     inject.DefaultInjectionPolicy,
+				Namespaces: []string{v1.NamespaceAll},
+				Params: inject.Params{
+					InitImage:         inject.InitImageName(hub, tag),
+					ProxyImage:        inject.ProxyImageName(hub, tag),
+					Verbosity:         verbosity,
+					SidecarProxyUID:   sidecarProxyUID,
+					Version:           versionStr,
+					EnableCoreDump:    enableCoreDump,
+					Mesh:              mesh,
+					MeshConfigMapName: meshConfig,
+					ImagePullPolicy:   imagePullPolicy,
+					IncludeIPRanges:   includeIPRanges,
+				},
 			}
-			return inject.IntoResourceFile(params, reader, writer)
+			return inject.IntoResourceFile(config, reader, writer)
 		},
 	}
 )
@@ -138,7 +143,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 func init() {
 	rootCmd.AddCommand(injectCmd)
 
-	injectCmd.PersistentFlags().StringVar(&hub, "hub", "docker.io/istio", "Docker hub")
+	injectCmd.PersistentFlags().StringVar(&hub, "hub", inject.DefaultHub, "Docker hub")
 	injectCmd.PersistentFlags().StringVar(&tag, "tag", version.Info.Version, "Docker tag")
 
 	injectCmd.PersistentFlags().StringVarP(&inFilename, "filename", "f",
@@ -161,7 +166,7 @@ func init() {
 	injectCmd.PersistentFlags().BoolVar(&enableCoreDump, "coreDump",
 		true, "Enable/Disable core dumps in injected Envoy sidecar (--coreDump=true affects "+
 			"all pods in a node and should only be used the cluster admin)")
-	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", "IfNotPresent",
+	injectCmd.PersistentFlags().StringVar(&imagePullPolicy, "imagePullPolicy", inject.DefaultImagePullPolicy,
 		"Sets the container image pull policy. Valid options are Always,IfNotPresent,Never."+
 			"The default policy is IfNotPresent.")
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",

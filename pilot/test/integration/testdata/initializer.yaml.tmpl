@@ -30,10 +30,8 @@ spec:
           image: {{.Hub}}/sidecar_initializer:{{.Tag}}
           imagePullPolicy: IfNotPresent
           args:
-            - --hub={{.Hub}}
-            - --tag={{.Tag}}
-            - --namespace={{.Namespace}}
-            - --policy={{.InjectionPolicy}}
+            - --port=8083
+            - --namespace={{.IstioNamespace}}
             - -v=2
           volumeMounts:
           - name: config-volume

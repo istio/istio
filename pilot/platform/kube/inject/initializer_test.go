@@ -18,21 +18,25 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/test/util"
 )
 
-func makeClient(t *testing.T) kubernetes.Interface {
+func makeClient(t *testing.T) (*rest.Config, kubernetes.Interface) {
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -46,203 +50,188 @@ func makeClient(t *testing.T) kubernetes.Interface {
 		kubeconfig = kubeconfig + "/config"
 	}
 
-	cl, err := kube.CreateInterface(kubeconfig)
+	config, cl, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return cl
+	return config, cl
 }
 
 func TestInitializerRun(t *testing.T) {
-	cl := makeClient(t)
+	restConfig, cl := makeClient(t)
 	t.Parallel()
 	ns, err := util.CreateNamespace(cl)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl, ns)
-	mesh := proxy.DefaultMeshConfig()
 
-	options := InitializerOptions{
-		Hub:             unitTestHub,
-		Tag:             unitTestTag,
-		Namespace:       ns,
-		InjectionPolicy: InjectionPolicyOptOut,
+	config := &Config{}
+	i, err := NewInitializer(restConfig, config, cl)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
-	i := NewInitializer(cl, &mesh, options)
 
 	stop := make(chan struct{})
 	go i.Run(stop)
+
 	time.Sleep(3 * time.Second)
 	close(stop)
 }
 
-func TestHasIstioInitializerNext(t *testing.T) {
-	cl := makeClient(t)
+func TestInitialize(t *testing.T) {
+	restConfig, cl := makeClient(t)
 	t.Parallel()
 	ns, err := util.CreateNamespace(cl)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	defer util.DeleteNamespace(cl, ns)
+
 	mesh := proxy.DefaultMeshConfig()
 
-	options := InitializerOptions{
-		Hub:             unitTestHub,
-		Tag:             unitTestTag,
-		Namespace:       ns,
-		InjectionPolicy: InjectionPolicyOptOut,
-	}
-	i := NewInitializer(cl, &mesh, options)
-
 	cases := []struct {
-		meta *metav1.ObjectMeta
-		want bool
+		name                   string
+		in                     string
+		wantPatchBytesFilename string
+		policy                 InjectionPolicy
+		managedNamespace       string
+		objNamespace           string
+		wantPatched            bool
 	}{
 		{
-			meta: &metav1.ObjectMeta{
-				Name:        "no-initializer",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{},
-			},
-			want: false,
+			name:                   "initializer not configured",
+			in:                     "testdata/hello.yaml",
+			policy:                 InjectionPolicyOptOut,
+			objNamespace:           v1.NamespaceDefault,
+			managedNamespace:       v1.NamespaceAll,
+			wantPatchBytesFilename: "testdata/hello.yaml.patch",
 		},
 		{
-			meta: &metav1.ObjectMeta{
-				Name:         "empty-initializer",
-				Namespace:    "test-namespace",
-				Annotations:  map[string]string{},
-				Initializers: &metav1.Initializers{},
-			},
-			want: false,
+			name:                   "required with NamespaceAll",
+			in:                     "testdata/required.yaml",
+			policy:                 InjectionPolicyOptOut,
+			objNamespace:           v1.NamespaceDefault,
+			managedNamespace:       v1.NamespaceAll,
+			wantPatchBytesFilename: "testdata/required.yaml.patch",
+			wantPatched:            true,
 		},
 		{
-			meta: &metav1.ObjectMeta{
-				Name:        "initializer-empty-pending",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{},
-				Initializers: &metav1.Initializers{
-					Pending: []metav1.Initializer{},
-				},
-			},
-			want: false,
+			name:                   "required with default namespace",
+			in:                     "testdata/required.yaml",
+			policy:                 InjectionPolicyOptOut,
+			objNamespace:           v1.NamespaceDefault,
+			managedNamespace:       v1.NamespaceDefault,
+			wantPatchBytesFilename: "testdata/required.yaml.patch",
+			wantPatched:            true,
 		},
 		{
-			meta: &metav1.ObjectMeta{
-				Name:        "single-initializer",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{},
-				Initializers: &metav1.Initializers{
-					Pending: []metav1.Initializer{
-						{Name: "unknown-initializer"},
-					},
-				},
-			},
-			want: false,
+			name:                   "first initializer",
+			in:                     "testdata/first-initializer.yaml",
+			policy:                 InjectionPolicyOptOut,
+			objNamespace:           v1.NamespaceDefault,
+			managedNamespace:       v1.NamespaceDefault,
+			wantPatchBytesFilename: "testdata/first-initializer.yaml.patch",
+			wantPatched:            true,
 		},
 		{
-			meta: &metav1.ObjectMeta{
-				Name:        "single-initializer-match",
-				Namespace:   "test-namespace",
-				Annotations: map[string]string{},
-				Initializers: &metav1.Initializers{
-					Pending: []metav1.Initializer{
-						{Name: initializerName},
-					},
-				},
-			},
-			want: true,
+			name:                   "second initializer",
+			in:                     "testdata/second-initializer.yaml",
+			policy:                 InjectionPolicyOptOut,
+			objNamespace:           v1.NamespaceDefault,
+			managedNamespace:       v1.NamespaceDefault,
+			wantPatchBytesFilename: "testdata/second-initializer.yaml.patch",
 		},
 	}
 
 	for _, c := range cases {
-		if got := i.hasIstioInitializerNext(c.meta); got != c.want {
-			t.Errorf("hasIstioInitializerNext(%v): got %v want %v", c.meta.Name, got, c.want)
+		config := &Config{
+			Policy:     c.policy,
+			Namespaces: []string{c.managedNamespace},
+			Params: Params{
+				InitImage:         InitImageName(unitTestHub, unitTestTag),
+				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+				ImagePullPolicy:   "IfNotPresent",
+				Verbosity:         DefaultVerbosity,
+				SidecarProxyUID:   DefaultSidecarProxyUID,
+				Version:           "12345678",
+				Mesh:              &mesh,
+				MeshConfigMapName: "istio",
+			},
 		}
-	}
-}
-
-func TestInitializerModifyResource(t *testing.T) {
-	cl := makeClient(t)
-	t.Parallel()
-	mesh := proxy.DefaultMeshConfig()
-
-	namespace := "test-namespace"
-
-	cases := []struct {
-		in               string
-		want             string
-		objNamespace     string
-		managedNamespace string
-	}{
-		{
-			in:               "testdata/kube-system.yaml",
-			want:             "testdata/kube-system.yaml.injected",
-			managedNamespace: v1.NamespaceAll,
-			objNamespace:     "kube-system",
-		},
-		{
-			in:               "testdata/non-managed-namespace.yaml",
-			want:             "testdata/non-managed-namespace.yaml.injected",
-			managedNamespace: namespace,
-			objNamespace:     "non-matching",
-		},
-		{
-			in:               "testdata/single-initializer.yaml",
-			want:             "testdata/single-initializer.yaml.injected",
-			managedNamespace: namespace,
-			objNamespace:     namespace,
-		},
-		{
-			in:               "testdata/multiple-initializer.yaml",
-			want:             "testdata/multiple-initializer.yaml.injected",
-			managedNamespace: namespace,
-			objNamespace:     namespace,
-		},
-		{
-			in:               "testdata/not-required.yaml",
-			want:             "testdata/not-required.yaml.injected",
-			managedNamespace: namespace,
-			objNamespace:     namespace,
-		},
-		{
-			in:               "testdata/required.yaml",
-			want:             "testdata/required.yaml.injected",
-			managedNamespace: namespace,
-			objNamespace:     namespace,
-		},
-	}
-
-	for _, c := range cases {
-		options := InitializerOptions{
-			Hub:             unitTestHub,
-			Tag:             unitTestTag,
-			Namespace:       c.managedNamespace,
-			InjectionPolicy: InjectionPolicyOptOut,
+		i, err := NewInitializer(restConfig, config, cl)
+		if err != nil {
+			t.Fatal(err.Error())
 		}
-		i := NewInitializer(cl, &mesh, options)
+
+		var (
+			gotNamespace        string
+			gotName             string
+			gotPatchBytes       []byte
+			gotGroupVersionKind schema.GroupVersionKind
+			gotPatched          bool
+		)
+		mockPatch := func(namespace, name string, patchBytes []byte, obj runtime.Object) error {
+			gotNamespace = namespace
+			gotName = name
+			gotPatchBytes = patchBytes
+			gotPatched = true
+
+			gvk, _, err := injectScheme.ObjectKind(obj) // nolint: vetshadow
+			if err != nil {
+				t.Fatalf("%v: failed to determine GroupVersionKind of obj: %v", c.name, err)
+			}
+			gotGroupVersionKind = gvk
+			return nil
+		}
 
 		raw, err := ioutil.ReadFile(c.in)
 		if err != nil {
-			t.Fatalf("ReadFile(%v) failed: %v", c.in, err)
+			t.Fatalf("%v: ReadFile(%v) failed: %v", c.name, c.in, err)
 		}
-		var deployment appsv1beta1.Deployment
-		if err = yaml.Unmarshal(raw, &deployment); err != nil {
-			t.Fatalf("Unmarshal(%v) failed: %v", c.in, err)
+		var typeMeta metav1.TypeMeta
+		if err = yaml.Unmarshal(raw, &typeMeta); err != nil {
+			t.Fatalf("%v: Unmarshal(typeMeta) failed: %v", c.name, err)
 		}
-		orig := deployment.ObjectMeta.Namespace
-		deployment.ObjectMeta.Namespace = c.objNamespace
-		err = i.modifyResource(&deployment.ObjectMeta,
-			&deployment.Spec.Template.ObjectMeta, &deployment.Spec.Template.Spec)
+
+		wantGroupVersionKind := schema.FromAPIVersionAndKind(typeMeta.APIVersion, typeMeta.Kind)
+
+		obj, err := injectScheme.New(wantGroupVersionKind)
 		if err != nil {
-			t.Fatalf("modifyResource(%v) failed: %v", c.in, err)
+			t.Fatalf("%v: failed to create obj from GroupVersionKind: %v", c.name, err)
 		}
-		deployment.ObjectMeta.Namespace = orig
-		got, err := yaml.Marshal(&deployment)
-		if err != nil {
-			t.Fatalf("Marshal(%v) failed: %v", c.in, err)
+		if err = yaml.Unmarshal(raw, obj); err != nil {
+			t.Fatalf("%v: Unmarshal(obj) failed: %v", c.name, err)
 		}
-		util.CompareContent(got, c.want, t)
+
+		if err := i.initialize(obj, mockPatch); err != nil {
+			t.Fatalf("%v: initialize() returned an error: %v", c.name, err)
+		}
+
+		if gotPatched != c.wantPatched {
+			t.Fatalf("%v: incorrect patching of object: got patched=%v want patched=%v", c.name, gotPatched, c.wantPatched)
+		}
+
+		if gotPatched {
+			m, err := meta.Accessor(obj)
+			if err != nil {
+				t.Fatalf("%v: failed to create accessor object: %v", c.name, err)
+			}
+
+			if gotNamespace != m.GetNamespace() {
+				t.Errorf("%v: wrong namespace: got %q want %q", c.name, gotNamespace, m.GetNamespace())
+			}
+			if gotName != m.GetName() {
+				t.Errorf("%v: wrong name: got %q want %q", c.name, gotName, m.GetName())
+			}
+			wantGroupVersionKind.Group = gotGroupVersionKind.Group
+			if !reflect.DeepEqual(&gotGroupVersionKind, &wantGroupVersionKind) {
+				t.Errorf("%v: wrong GroupVersionKind of runtime.Object: got %#v want %#v",
+					c.name, gotGroupVersionKind, wantGroupVersionKind)
+			}
+
+			util.CompareContent(gotPatchBytes, c.wantPatchBytesFilename, t)
+		}
 	}
 }
