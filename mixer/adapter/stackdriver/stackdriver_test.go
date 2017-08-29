@@ -15,22 +15,24 @@
 package stackdriver
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
+	"cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
 	gapiopts "google.golang.org/api/option"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stackdriver/config"
-	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
+	metrict "istio.io/mixer/template/metric"
 )
 
 type fakebuf struct {
@@ -40,6 +42,8 @@ type fakebuf struct {
 func (f *fakebuf) Record(in []*monitoringpb.TimeSeries) {
 	f.buf = append(f.buf, in...)
 }
+
+func (*fakebuf) Close() error { return nil }
 
 var clientFunc = func(err error) createClientFunc {
 	return func(cfg *config.Params) (*monitoring.MetricClient, error) {
@@ -68,13 +72,14 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			metrics := make(map[string]*adapter.MetricDefinition)
+			metrics := make(map[string]*metrict.Type)
 			for _, name := range tt.metricNames {
-				metrics[name] = &adapter.MetricDefinition{Name: name}
+				metrics[name] = &metrict.Type{}
 			}
 			env := test.NewEnv(t)
-
-			_, err := newFactory(clientFunc(nil)).NewMetricsAspect(env, tt.cfg, metrics)
+			b := &builder{createClient: clientFunc(nil)}
+			_ = b.ConfigureMetricHandler(metrics)
+			_, err := b.Build(tt.cfg, env)
 			if err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("factory{}.NewMetricsAspect(test.NewEnv(t), nil, nil) = '%s', wanted no err", err.Error())
@@ -106,8 +111,8 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 func TestFactory_NewMetricsAspect_Errs(t *testing.T) {
 	err := fmt.Errorf("expected")
-	f := newFactory(clientFunc(err))
-	res, e := f.NewMetricsAspect(test.NewEnv(t), &config.Params{}, map[string]*adapter.MetricDefinition{})
+	b := &builder{createClient: clientFunc(err)}
+	res, e := b.Build(&config.Params{}, test.NewEnv(t))
 	if e != nil && !strings.Contains(e.Error(), err.Error()) {
 		t.Fatalf("Expected error from factory.createClient to be propagated, got %v, %v", res, e)
 	} else if e == nil {
@@ -149,7 +154,7 @@ func TestToOpts(t *testing.T) {
 			for _, expected := range tt.out {
 				found := false
 				for _, actual := range opts {
-					// We care that the types are what we expect, no necessarily that they're identical
+					// We care that the types are what we expect, not necessarily that they're identical
 					found = found || (reflect.TypeOf(expected) == reflect.TypeOf(actual))
 				}
 				if !found {
@@ -168,40 +173,34 @@ func TestRecord(t *testing.T) {
 			"project_id": projectID,
 		},
 	}
-	metric := &metricpb.Metric{
+	m := &metricpb.Metric{
 		Type:   "type",
 		Labels: map[string]string{"str": "str", "int": "34"},
 	}
-	info := map[string]sdinfo{
-		"gauge":      {ttype: "type", kind: metricpb.MetricDescriptor_GAUGE, value: metricpb.MetricDescriptor_INT64},
-		"cumulative": {ttype: "type", kind: metricpb.MetricDescriptor_CUMULATIVE, value: metricpb.MetricDescriptor_STRING},
-		"delta":      {ttype: "type", kind: metricpb.MetricDescriptor_DELTA, value: metricpb.MetricDescriptor_BOOL},
+	info := map[string]info{
+		"gauge":      {ttype: "type", kind: metricpb.MetricDescriptor_GAUGE, value: metricpb.MetricDescriptor_INT64, vtype: descriptor.INT64},
+		"cumulative": {ttype: "type", kind: metricpb.MetricDescriptor_CUMULATIVE, value: metricpb.MetricDescriptor_STRING, vtype: descriptor.STRING},
+		"delta":      {ttype: "type", kind: metricpb.MetricDescriptor_DELTA, value: metricpb.MetricDescriptor_BOOL, vtype: descriptor.BOOL},
 	}
 	now := time.Now()
 	pbnow, _ := ptypes.TimestampProto(now)
 
 	tests := []struct {
 		name     string
-		vals     []adapter.Value
+		vals     []*metrict.Instance
 		expected []*monitoringpb.TimeSeries
 	}{
-		{"empty", []adapter.Value{}, []*monitoringpb.TimeSeries{}},
-		{"missing", []adapter.Value{
+		{"empty", []*metrict.Instance{}, []*monitoringpb.TimeSeries{}},
+		{"missing", []*metrict.Instance{{Name: "not in the info map"}}, []*monitoringpb.TimeSeries{}},
+		{"gauge", []*metrict.Instance{
 			{
-				Definition: &adapter.MetricDefinition{Name: "not in the info map"},
-			},
-		}, []*monitoringpb.TimeSeries{}},
-		{"gauge", []adapter.Value{
-			{
-				Definition:  &adapter.MetricDefinition{Name: "gauge", Value: adapter.Int64},
-				MetricValue: int64(7),
-				StartTime:   now,
-				EndTime:     now,
-				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
+				Name:       "gauge",
+				Value:      int64(7),
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
 			{
-				Metric:     metric,
+				Metric:     m,
 				Resource:   resource,
 				MetricKind: metricpb.MetricDescriptor_GAUGE,
 				ValueType:  metricpb.MetricDescriptor_INT64,
@@ -211,37 +210,33 @@ func TestRecord(t *testing.T) {
 				}},
 			},
 		}},
-		{"cumulative", []adapter.Value{
+		{"cumulative", []*metrict.Instance{
 			{
-				Definition:  &adapter.MetricDefinition{Name: "cumulative", Value: adapter.String},
-				MetricValue: "s",
-				StartTime:   now,
-				EndTime:     now,
-				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
+				Name:       "cumulative",
+				Value:      "asldkfj",
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
 			{
-				Metric:     metric,
+				Metric:     m,
 				Resource:   resource,
 				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
 				ValueType:  metricpb.MetricDescriptor_STRING,
 				Points: []*monitoringpb.Point{{
 					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
-					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "s"}},
+					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_StringValue{StringValue: "asldkfj"}},
 				}},
 			},
 		}},
-		{"delta", []adapter.Value{
+		{"delta", []*metrict.Instance{
 			{
-				Definition:  &adapter.MetricDefinition{Name: "delta", Value: adapter.Bool},
-				MetricValue: true,
-				StartTime:   now,
-				EndTime:     now,
-				Labels:      map[string]interface{}{"str": "str", "int": int64(34)},
+				Name:       "delta",
+				Value:      true,
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
 			},
 		}, []*monitoringpb.TimeSeries{
 			{
-				Metric:     metric,
+				Metric:     m,
 				Resource:   resource,
 				MetricKind: metricpb.MetricDescriptor_DELTA,
 				ValueType:  metricpb.MetricDescriptor_BOOL,
@@ -256,8 +251,8 @@ func TestRecord(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
 			buf := &fakebuf{}
-			s := &sd{metricInfo: info, projectID: projectID, client: buf, l: test.NewEnv(t).Logger()}
-			_ = s.Record(tt.vals)
+			s := &handler{metricInfo: info, projectID: projectID, client: buf, l: test.NewEnv(t).Logger(), now: func() time.Time { return now }}
+			_ = s.HandleMetric(context.Background(), tt.vals)
 
 			if len(buf.buf) != len(tt.expected) {
 				t.Errorf("Want %d values to send, got %d", len(tt.expected), len(buf.buf))

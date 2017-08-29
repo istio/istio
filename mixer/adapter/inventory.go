@@ -24,7 +24,6 @@ import (
 	"istio.io/mixer/adapter/prometheus"
 	"istio.io/mixer/adapter/redisquota"
 	"istio.io/mixer/adapter/serviceControl"
-	"istio.io/mixer/adapter/stackdriver"
 	"istio.io/mixer/adapter/statsd"
 	"istio.io/mixer/adapter/stdioLogger"
 	"istio.io/mixer/pkg/adapter"
@@ -41,7 +40,6 @@ func Inventory() []adapter.RegisterFn {
 		redisquota.Register,
 		serviceControl.Register,
 		statsd.Register,
-		stackdriver.Register,
 		stdioLogger.Register,
 		kubernetes.Register,
 		noop.Register,
