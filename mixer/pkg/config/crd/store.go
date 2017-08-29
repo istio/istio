@@ -18,14 +18,11 @@ package crd
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -101,20 +98,10 @@ var _ store.Store2Backend = &Store{}
 
 // Init implements store.Store2Backend interface.
 func (s *Store) Init(ctx context.Context, kinds []string) error {
-	scheme := runtime.NewScheme()
 	kindsSet := map[string]bool{}
 	for _, kind := range kinds {
-		scheme.AddKnownTypeWithName(
-			schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind},
-			&resource{},
-		)
-		scheme.AddKnownTypeWithName(
-			schema.GroupVersionKind{Group: apiGroup, Version: apiVersion, Kind: kind + "List"},
-			&resourceList{},
-		)
 		kindsSet[kind] = true
 	}
-	s.conf.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
 	d, err := s.discoveryBuilder(s.conf)
 	if err != nil {
 		return err
@@ -147,7 +134,7 @@ func (s *Store) Init(ctx context.Context, kinds []string) error {
 			}
 			if _, ok := kindsSet[res.Kind]; ok {
 				cl := lwBuilder.build(res)
-				informer := cache.NewSharedInformer(cl, nil, defaultResyncPeriod)
+				informer := cache.NewSharedInformer(cl, &unstructured.Unstructured{}, defaultResyncPeriod)
 				s.caches[res.Kind] = informer.GetStore()
 				informers[res.Kind] = informer
 				informer.AddEventHandler(s)
@@ -175,18 +162,17 @@ func (s *Store) Get(key store.Key) (map[string]interface{}, error) {
 	if !ok {
 		return nil, store.ErrNotFound
 	}
-	obj, exists, err := c.Get(&resource{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}})
+	req := &unstructured.Unstructured{}
+	req.SetName(key.Name)
+	req.SetNamespace(key.Namespace)
+	obj, exists, err := c.Get(req)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
 		return nil, store.ErrNotFound
 	}
-	r, ok := obj.(*resource)
-	if !ok {
-		return nil, fmt.Errorf("unrecognized response")
-	}
-	return r.Spec, nil
+	return obj.(*unstructured.Unstructured).UnstructuredContent()["spec"].(map[string]interface{}), nil
 }
 
 // List implements store.Store2Backend interface.
@@ -194,29 +180,21 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 	result := map[store.Key]map[string]interface{}{}
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
-			if res, ok := obj.(*resource); ok {
-				if s.ns == nil || s.ns[res.Namespace] {
-					key := store.Key{Kind: kind, Name: res.Name, Namespace: res.Namespace}
-					result[key] = res.Spec
-				}
-			} else {
-				glog.Errorf("Unrecognized object %+v", obj)
-			}
+			uns := obj.(*unstructured.Unstructured)
+			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
+			result[key] = uns.UnstructuredContent()["spec"].(map[string]interface{})
 		}
 	}
 	return result
 }
 
-func toEvent(t store.ChangeType, obj interface{}) (store.BackendEvent, error) {
-	r, ok := obj.(*resource)
-	if !ok {
-		return store.BackendEvent{}, fmt.Errorf("unrecognized data %+v", obj)
-	}
+func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
+	uns := obj.(*unstructured.Unstructured)
 	return store.BackendEvent{
 		Type:  t,
-		Key:   store.Key{Kind: r.Kind, Namespace: r.Namespace, Name: r.Name},
-		Value: r.Spec,
-	}, nil
+		Key:   store.Key{Kind: uns.GetKind(), Namespace: uns.GetNamespace(), Name: uns.GetName()},
+		Value: uns.UnstructuredContent()["spec"].(map[string]interface{}),
+	}
 }
 
 func (s *Store) dispatch(ev store.BackendEvent) {
@@ -231,28 +209,17 @@ func (s *Store) dispatch(ev store.BackendEvent) {
 
 // OnAdd implements cache.ResourceEventHandler interface.
 func (s *Store) OnAdd(obj interface{}) {
-	if ev, err := toEvent(store.Update, obj); err != nil {
-		glog.Errorf("Failed to process event: %v", err)
-	} else {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, obj))
 }
 
 // OnUpdate implements cache.ResourceEventHandler interface.
 func (s *Store) OnUpdate(oldObj, newObj interface{}) {
-	if ev, err := toEvent(store.Update, newObj); err != nil {
-		glog.Errorf("Failed to process event: %v", err)
-	} else {
-		s.dispatch(ev)
-	}
+	s.dispatch(toEvent(store.Update, newObj))
 }
 
 // OnDelete implements cache.ResourceEventHandler interface.
 func (s *Store) OnDelete(obj interface{}) {
-	if ev, err := toEvent(store.Delete, obj); err != nil {
-		glog.Errorf("Failed to process event: %v", err)
-	} else {
-		ev.Value = nil
-		s.dispatch(ev)
-	}
+	ev := toEvent(store.Delete, obj)
+	ev.Value = nil
+	s.dispatch(ev)
 }
