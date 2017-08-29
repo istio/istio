@@ -172,7 +172,8 @@ func (s *Store) Get(key store.Key) (map[string]interface{}, error) {
 	if !exists {
 		return nil, store.ErrNotFound
 	}
-	return obj.(*unstructured.Unstructured).UnstructuredContent()["spec"].(map[string]interface{}), nil
+	val, _ := obj.(*unstructured.Unstructured).UnstructuredContent()["spec"].(map[string]interface{})
+	return val, nil
 }
 
 // List implements store.Store2Backend interface.
@@ -181,8 +182,9 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
+			val, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
-			result[key] = uns.UnstructuredContent()["spec"].(map[string]interface{})
+			result[key] = val
 		}
 	}
 	return result
@@ -190,10 +192,11 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 
 func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 	uns := obj.(*unstructured.Unstructured)
+	val, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 	return store.BackendEvent{
 		Type:  t,
 		Key:   store.Key{Kind: uns.GetKind(), Namespace: uns.GetNamespace(), Name: uns.GetName()},
-		Value: uns.UnstructuredContent()["spec"].(map[string]interface{}),
+		Value: val,
 	}
 }
 
