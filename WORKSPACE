@@ -39,7 +39,7 @@ bind(
 git_repository(
     name = "envoy",
     remote = "https://github.com/lyft/envoy.git",
-    commit = "3f3fc94f85766b70ca6239dfbba7067e95ee0bdb",
+    commit = "419b26e942d606178321af6870fa70a294a7525c",
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")

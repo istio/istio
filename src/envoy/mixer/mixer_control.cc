@@ -17,8 +17,6 @@
 
 #include "common/common/base64.h"
 #include "common/common/utility.h"
-#include "common/grpc/async_client_impl.h"
-#include "common/http/utility.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -231,7 +229,7 @@ istio::mixer_client::CancelFunc MixerControl::SendCheck(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
     return nullptr;
   }
-  log().debug("Send Check: {}", request_data->attributes.DebugString());
+  ENVOY_LOG(debug, "Send Check: {}", request_data->attributes.DebugString());
   return mixer_client_->Check(request_data->attributes,
                               CheckTransport::GetFunc(cm_, headers), on_done);
 }
@@ -240,7 +238,7 @@ void MixerControl::SendReport(HttpRequestDataPtr request_data) {
   if (!mixer_client_) {
     return;
   }
-  log().debug("Send Report: {}", request_data->attributes.DebugString());
+  ENVOY_LOG(debug, "Send Report: {}", request_data->attributes.DebugString());
   mixer_client_->Report(request_data->attributes);
 }
 
@@ -253,7 +251,7 @@ void MixerControl::ForwardAttributes(
       mixer_config_.forward_attributes, route_attributes);
   std::string base64 =
       Base64::encode(serialized_str.c_str(), serialized_str.size());
-  log().debug("Mixer forward attributes set: {}", base64);
+  ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
   headers.addReferenceKey(Utils::kIstioAttributeHeader, base64);
 }
 

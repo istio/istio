@@ -18,7 +18,6 @@
 #include "common/http/headers.h"
 #include "common/http/utility.h"
 #include "envoy/registry/registry.h"
-#include "envoy/server/instance.h"
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
@@ -98,7 +97,7 @@ int HttpCode(int code) {
 
 }  // namespace
 
-class Config : public Logger::Loggable<Logger::Id::http> {
+class Config {
  private:
   Upstream::ClusterManager& cm_;
   MixerConfig mixer_config_;
@@ -110,7 +109,7 @@ class Config : public Logger::Loggable<Logger::Id::http> {
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
-    Runtime::RandomGenerator& random = context.server().random();
+    Runtime::RandomGenerator& random = context.random();
     tls_->set(
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
@@ -125,7 +124,8 @@ class Config : public Logger::Loggable<Logger::Id::http> {
 typedef std::shared_ptr<Config> ConfigPtr;
 
 class Instance : public Http::StreamDecoderFilter,
-                 public Http::AccessLog::Instance {
+                 public Http::AccessLog::Instance,
+                 public Logger::Loggable<Logger::Id::http> {
  private:
   MixerControl& mixer_control_;
   std::shared_ptr<HttpRequestData> request_data_;
@@ -198,11 +198,11 @@ class Instance : public Http::StreamDecoderFilter,
         state_(NotStarted),
         initiating_call_(false),
         check_status_code_(HttpCode(StatusCode::UNKNOWN)) {
-    Log().debug("Called Mixer::Instance : {}", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
   }
 
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
-    Log().debug("Called Mixer::Instance : {}", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
     mixer_disabled_ = mixer_disabled();
     if (mixer_disabled_) {
@@ -219,7 +219,7 @@ class Instance : public Http::StreamDecoderFilter,
 
     std::string origin_user;
     Ssl::Connection* ssl =
-        const_cast<Ssl::Connection*>(decoder_callbacks_->ssl());
+        const_cast<Ssl::Connection*>(decoder_callbacks_->connection()->ssl());
     if (ssl != nullptr) {
       origin_user = ssl->uriSanPeerCertificate();
     }
@@ -251,7 +251,7 @@ class Instance : public Http::StreamDecoderFilter,
     if (state_ == Complete) {
       return FilterHeadersStatus::Continue;
     }
-    Log().debug("Called Mixer::Instance : {} Stop", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {} Stop", __func__);
     return FilterHeadersStatus::StopIteration;
   }
 
@@ -261,8 +261,8 @@ class Instance : public Http::StreamDecoderFilter,
       return FilterDataStatus::Continue;
     }
 
-    Log().debug("Called Mixer::Instance : {} ({}, {})", __func__, data.length(),
-                end_stream);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {} ({}, {})", __func__,
+              data.length(), end_stream);
     if (state_ == Calling) {
       return FilterDataStatus::StopIterationAndBuffer;
     }
@@ -274,7 +274,7 @@ class Instance : public Http::StreamDecoderFilter,
       return FilterTrailersStatus::Continue;
     }
 
-    Log().debug("Called Mixer::Instance : {}", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     if (state_ == Calling) {
       return FilterTrailersStatus::StopIteration;
     }
@@ -283,13 +283,13 @@ class Instance : public Http::StreamDecoderFilter,
 
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override {
-    Log().debug("Called Mixer::Instance : {}", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     decoder_callbacks_ = &callbacks;
   }
 
   void completeCheck(const Status& status) {
-    Log().debug("Called Mixer::Instance : check complete {}",
-                status.ToString());
+    ENVOY_LOG(debug, "Called Mixer::Instance : check complete {}",
+              status.ToString());
     // This stream has been reset, abort the callback.
     if (state_ == Responded) {
       return;
@@ -309,13 +309,13 @@ class Instance : public Http::StreamDecoderFilter,
   }
 
   void onDestroy() override {
-    Log().debug("Called Mixer::Instance : {} state: {}", __func__, state_);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {} state: {}", __func__, state_);
     if (state_ != Calling) {
       cancel_check_ = nullptr;
     }
     state_ = Responded;
     if (cancel_check_) {
-      Log().debug("Cancelling check call");
+      ENVOY_LOG(debug, "Cancelling check call");
       cancel_check_();
       cancel_check_ = nullptr;
     }
@@ -323,18 +323,12 @@ class Instance : public Http::StreamDecoderFilter,
 
   virtual void log(const HeaderMap*, const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
-    Log().debug("Called Mixer::Instance : {}", __func__);
+    ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     // If decodeHaeders() is not called, not to call Mixer report.
     if (!request_data_) return;
     mixer_control_.BuildHttpReport(request_data_, response_headers,
                                    request_info, check_status_code_);
     mixer_control_.SendReport(request_data_);
-  }
-
-  static spdlog::logger& Log() {
-    static spdlog::logger& instance =
-        Logger::Registry::getLog(Logger::Id::http);
-    return instance;
   }
 };
 

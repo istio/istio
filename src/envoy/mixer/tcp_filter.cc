@@ -42,7 +42,7 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
-    Runtime::RandomGenerator& random = context.server().random();
+    Runtime::RandomGenerator& random = context.random();
     tls_->set(
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
@@ -75,7 +75,7 @@ class TcpInstance : public Network::Filter,
 
  public:
   TcpInstance(TcpConfigPtr config) : mixer_control_(config->mixer_control()) {
-    log().debug("Called TcpInstance: {}", __func__);
+    ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
   }
 
   ~TcpInstance() {
@@ -84,15 +84,15 @@ class TcpInstance : public Network::Filter,
     }
     state_ = State::Closed;
     if (cancel_check_) {
-      log().debug("Cancelling check call");
+      ENVOY_LOG(debug, "Cancelling check call");
       cancel_check_();
     }
-    log().debug("Called TcpInstance : {}", __func__);
+    ENVOY_LOG(debug, "Called TcpInstance : {}", __func__);
   }
 
   void initializeReadFilterCallbacks(
       Network::ReadFilterCallbacks& callbacks) override {
-    log().debug("Called TcpInstance: {}", __func__);
+    ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
     filter_callbacks_ = &callbacks;
     filter_callbacks_->connection().addConnectionCallbacks(*this);
     start_time_ = std::chrono::system_clock::now();
@@ -100,7 +100,7 @@ class TcpInstance : public Network::Filter,
 
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance& data) override {
-    conn_log_debug("Called TcpInstance onRead bytes: {}",
+    ENVOY_CONN_LOG(debug, "Called TcpInstance onRead bytes: {}",
                    filter_callbacks_->connection(), data.length());
     received_bytes_ += data.length();
     return Network::FilterStatus::Continue;
@@ -108,14 +108,15 @@ class TcpInstance : public Network::Filter,
 
   // Network::WriteFilter
   Network::FilterStatus onWrite(Buffer::Instance& data) override {
-    conn_log_debug("Called TcpInstance onWrite bytes: {}",
+    ENVOY_CONN_LOG(debug, "Called TcpInstance onWrite bytes: {}",
                    filter_callbacks_->connection(), data.length());
     send_bytes_ += data.length();
     return Network::FilterStatus::Continue;
   }
 
   Network::FilterStatus onNewConnection() override {
-    conn_log_debug("Called TcpInstance onNewConnection: remote {}, local {}",
+    ENVOY_CONN_LOG(debug,
+                   "Called TcpInstance onNewConnection: remote {}, local {}",
                    filter_callbacks_->connection(),
                    filter_callbacks_->connection().remoteAddress().asString(),
                    filter_callbacks_->connection().localAddress().asString());
@@ -144,7 +145,7 @@ class TcpInstance : public Network::Filter,
   }
 
   void completeCheck(const Status& status) {
-    log().debug("Called TcpInstance completeCheck: {}", status.ToString());
+    ENVOY_LOG(debug, "Called TcpInstance completeCheck: {}", status.ToString());
     if (state_ == State::Closed) {
       return;
     }
@@ -165,11 +166,11 @@ class TcpInstance : public Network::Filter,
   // Network::ConnectionCallbacks
   void onEvent(Network::ConnectionEvent event) override {
     if (filter_callbacks_->upstreamHost()) {
-      log().debug("Called TcpInstance onEvent: {} upstream {}",
-                  enumToInt(event),
-                  filter_callbacks_->upstreamHost()->address()->asString());
+      ENVOY_LOG(debug, "Called TcpInstance onEvent: {} upstream {}",
+                enumToInt(event),
+                filter_callbacks_->upstreamHost()->address()->asString());
     } else {
-      log().debug("Called TcpInstance onEvent: {}", enumToInt(event));
+      ENVOY_LOG(debug, "Called TcpInstance onEvent: {}", enumToInt(event));
     }
 
     if (event == Network::ConnectionEvent::RemoteClose ||
