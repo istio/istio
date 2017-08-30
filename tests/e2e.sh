@@ -38,10 +38,9 @@ function error_exit() {
 }
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
-TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
+TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))|| error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
-RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
 PARALLEL_MODE=false
 
@@ -70,7 +69,7 @@ function concurrent_exec() {
         log_file="${bin_path///_}.log"
         # Run tests concurrently as subprocesses
         # Dup stdout and stderr to file
-        "./$bin_path" ${ARGS[@]} ${TESTARGS[@]} --rbac_path ${RBAC_FILE} &> ${log_file} &
+        "./$bin_path" ${ARGS[@]} ${TESTARGS[@]} &> ${log_file} &
         pid=$!
         pid2testname["$pid"]=$bin_path
         pid2logfile["$pid"]=$log_file
@@ -97,7 +96,7 @@ function sequential_exec() {
         echo '****************************************************'
         echo "Running ${T}"
         echo '****************************************************'
-        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]} --rbac_path ${RBAC_FILE}
+        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]}
         process_result $? ${T}
         echo '****************************************************'
     done

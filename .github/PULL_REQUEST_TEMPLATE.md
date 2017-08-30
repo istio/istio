@@ -4,5 +4,6 @@
 2. Enter your extended release note in the below block; leaving it blank means using the PR title as the release note. If no release note is required, just write `NONE`.
 -->
 ```release-note
+<PLEASE PUT RELEASE-NOTE HERE, PUT NONE if NO RELEASE-NOTE>
 ```
 

@@ -15,13 +15,14 @@
 package framework
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -45,7 +46,6 @@ var (
 	caHub        = flag.String("ca_hub", "", "Ca hub")
 	caTag        = flag.String("ca_tag", "", "Ca tag")
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacEnable   = flag.Bool("rbac_enable", false, "Enable rbac")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 
@@ -138,11 +138,29 @@ func (k *KubeInfo) Teardown() error {
 	var err error
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
-			glog.Error("Failed to delete namespace")
+			glog.Errorf("Failed to delete namespace %s", k.Namespace)
+			return err
+		}
+
+		// confirm the namespace is deleted as it will cause future creation to fail
+		maxAttempts := 15
+		namespaceDeleted := false
+		totalWait := 0
+		for attempts := 1; attempts <= maxAttempts; attempts++ {
+			namespaceDeleted, err = util.NamespaceDeleted(k.Namespace)
+			if namespaceDeleted {
+				break
+			}
+			totalWait += attempts
+			time.Sleep(time.Duration(attempts) * time.Second)
+		}
+
+		if !namespaceDeleted {
+			glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, totalWait)
 			return err
 		}
 		k.namespaceCreated = false
-		glog.Infof("Namespace %s deleted", k.Namespace)
+		glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 	}
 	return err
 }
@@ -166,10 +184,7 @@ func (k *KubeInfo) deployIstio() error {
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
-	if *rbacEnable {
-		if *rbacfile == "" {
-			return errors.New("no rbac file is specified")
-		}
+	if *rbacfile != "" {
 		baseRbacYaml := util.GetResourcePath(*rbacfile)
 		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
 		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
@@ -227,6 +242,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *caHub != "" && *caTag != "" {
 		//Need to be updated when the string "istio-ca" is changed
 		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+	}
+	if *localCluster {
+		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
 
 	err = ioutil.WriteFile(dst, content, 0600)

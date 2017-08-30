@@ -228,8 +228,8 @@ reviews much easier.
 Using Mixer as an example:
 
 ```shell
-cd $(ISTIO)/mixer
-bazel build //...
+cd $ISTIO/mixer
+make build
 ```
 
 This build command figures out what it needs to do and does not need any input from you.
@@ -250,14 +250,14 @@ tooling functions correctly
 You can delete any build artifacts with:
 
 ```shell
-bazel clean
+make clean
 ```
 ### Running tests
 
 You can run all the available tests with:
 
 ```shell
-bazel test //...
+make test
 ```
 ### Getting coverage numbers
 
@@ -284,6 +284,14 @@ You can run all the linters we require on your local repo by going to the top of
 make lint
 # To run only on your local changes
 bin/linters.sh -s HEAD^
+```
+
+### Source file dependencies
+
+You can keep track of dependencies between sources using:
+
+```shell
+make gazelle
 ```
 
 ### Race detection tests
@@ -350,7 +358,7 @@ For local development (building from source and running the major components) on
 
 Assuming you did (once):
 1. [Install bazel](https://bazel.build/versions/master/docs/install-ubuntu.html), note that as of this writing Bazel needs the `openjdk-8-jdk` VM (you might need to uninstall or get out of the way the `ibm-java80-jdk` that comes by default with GCE for instance)
-2. Install required packages: `sudo apt-get install make openjdk-8-jdk libtool m4 autoconf uuid-dev cmake`
+2. Install required packages: `sudo apt-get install make openjdk-8-jdk libtool m4 autoconf uuid-dev cmake golang-go`
 3. Get the source trees
    ```bash
    mkdir github

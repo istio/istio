@@ -53,10 +53,11 @@ func Shell(format string, args ...interface{}) (string, error) {
 	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
-	glog.V(3).Infof("Command output: \n%s", string(bytes[:]))
+	glog.V(3).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
 	if err != nil {
-		return "", fmt.Errorf("command failed: %q %v", string(bytes), err)
+		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
+
 	return string(bytes), nil
 }
 
@@ -107,6 +108,9 @@ func HTTPDownload(dst string, src string) error {
 			glog.Errorf("Error: close downloaded file from %s, %s", src, err)
 		}
 	}()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("http get request, received unexpected response status: %s", resp.Status)
+	}
 	if _, err = io.Copy(out, resp.Body); err != nil {
 		return err
 	}

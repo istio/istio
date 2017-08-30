@@ -82,6 +82,7 @@ func (w *Wrk) Install() error {
 		}
 		err = HTTPDownload(w.BinaryPath, *wrkURL)
 		if err != nil {
+			glog.Error("Failed to download wrk")
 			return err
 		}
 		err = os.Chmod(w.BinaryPath, 0755) // #nosec

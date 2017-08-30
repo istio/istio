@@ -8,7 +8,7 @@ BAZEL_DIR="${ROOT}/bazel-${MODULE}"
 
 BDIR="$(dirname $(dirname $(readlink "${BAZEL_DIR}")))"
 
-export GOROOT=$(ls -1d $BDIR/external/golang_*)
+export GOROOT="$(find ${BDIR}/external -type d -name 'go1_*')"
 export PATH=$GOROOT/bin:$PATH
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
