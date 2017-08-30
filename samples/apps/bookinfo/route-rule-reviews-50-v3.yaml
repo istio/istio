@@ -1,6 +1,6 @@
 type: route-rule
+name: reviews-default
 spec:
-  name: reviews-default
   destination: reviews.default.svc.cluster.local
   precedence: 1
   route:

@@ -67,9 +67,26 @@ func DeleteNamespace(n string) error {
 	return err
 }
 
-// KubeApply kubectl apply
+// NamespaceDeleted check if a kubernete namespace is deleted
+func NamespaceDeleted(n string) (bool, error) {
+	output, err := Shell("kubectl get namespace %s", n)
+	if strings.Contains(output, "NotFound") {
+		glog.V(2).Infof("namespace %s deleted\n", n)
+		return true, nil
+	}
+	glog.V(2).Infof("namespace %s not deleted yet\n", n)
+	return false, err
+}
+
+// KubeApply kubectl apply from file
 func KubeApply(n, yaml string) error {
 	_, err := Shell("kubectl apply -n %s -f %s", n, yaml)
+	return err
+}
+
+// KubeDelete kubectl delete from file
+func KubeDelete(n, yaml string) error {
+	_, err := Shell("kubectl delete -n %s -f %s", n, yaml)
 	return err
 }
 
@@ -77,8 +94,8 @@ func KubeApply(n, yaml string) error {
 func GetIngress(n string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
-		MaxDelay:  30 * time.Second,
-		Retries:   10,
+		MaxDelay:  20 * time.Second,
+		Retries:   20,
 	}
 	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	var ingress string
@@ -106,8 +123,8 @@ func GetIngress(n string) (string, error) {
 func GetIngressPod(n string) (string, error) {
 	retry := Retrier{
 		BaseDelay: 5 * time.Second,
-		MaxDelay:  30 * time.Minute,
-		Retries:   10,
+		MaxDelay:  5 * time.Minute,
+		Retries:   20,
 	}
 	ipRegex := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 	portRegex := regexp.MustCompile(`^[0-9]+$`)

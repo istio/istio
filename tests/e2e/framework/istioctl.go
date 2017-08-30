@@ -30,6 +30,9 @@ import (
 
 const (
 	istioctlURL = "ISTIOCTL_URL"
+	// We use proxy always from pilot, at lease for now, so proxy and pilot always share the same hub and tag
+	proxyHubConst = "PILOT_HUB"
+	proxyTagConst = "PILOT_TAG"
 )
 
 var (
@@ -52,6 +55,13 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return nil, err
+	}
+
+	if proxyHub == "" {
+		proxyHub = os.Getenv(proxyHubConst)
+	}
+	if proxyTag == "" {
+		proxyTag = os.Getenv(proxyTagConst)
 	}
 
 	return &Istioctl{
@@ -85,6 +95,7 @@ func (i *Istioctl) Install() error {
 	if *localPath == "" {
 		var usr, err = user.Current()
 		if err != nil {
+			glog.Error("Failed to get current user")
 			return err
 		}
 		homeDir := usr.HomeDir
@@ -100,10 +111,12 @@ func (i *Istioctl) Install() error {
 		}
 
 		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
+			glog.Error("Failed to download istioclt")
 			return err
 		}
 		err = os.Chmod(i.binaryPath, 0755) // #nosec
 		if err != nil {
+			glog.Error("Failed to add execute permission to istioctl")
 			return err
 		}
 		i.binaryPath = fmt.Sprintf("%s -c %s/.kube/config", i.binaryPath, homeDir)

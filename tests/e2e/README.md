@@ -20,7 +20,9 @@ Tests could be built and drove manually as a single test or automatically detect
 * `--istioctl_url` the location of an `istioctl` binary
 * `--skip_cleanup` if skip cleanup steps
 * `--log_provider` where cluster logs are hosted, only support `stackdriver` for now
-* `--project_id=` project id used to filter logs from provider
+* `--project_id` project id used to filter logs from provider
+* `--use_local_cluster` whether the cluster is local or not
+* `--parallel` run tests in parallel (sequentially if without flag)
 
 Default values for the `mixer_hub/tag`, `pilot_hub/tag`, and `istioctl_url` are as specified in
 [istio.VERSION](../../istio.VERSION), which are latest tested stable version pairs.

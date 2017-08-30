@@ -17,6 +17,19 @@
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
+TESTARGS=${@}
+
+function print_block() {
+    line=""
+    for i in {1..50}
+    do
+        line+="$1"
+    done
+
+    echo $line
+    echo $2
+    echo $line
+}
 
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
@@ -25,26 +38,88 @@ function error_exit() {
 }
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
-
-TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))
-FAILURE_COUNT=0
+TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))|| error_exit 'Could not find tests targets'
+TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
+PARALLEL_MODE=false
 
-for T in ${TESTS_TARGETS[@]}; do
-  echo '****************************************************'
-  echo "Running ${T}"
-  echo '****************************************************'
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${@}
-  RET=${?}
-  echo '****************************************************'
-  if [[ ${RET} -eq 0 ]]; then
-    SUMMARY+="\nPASSED: ${T} "
-  else
-    SUMMARY+="\nFAILED: ${T} "
-    ((FAILURE_COUNT++))
-  fi
+function process_result() {
+    if [[ $1 -eq 0 ]]; then
+        SUMMARY+="\nPASSED: $2 "
+    else
+        SUMMARY+="\nFAILED: $2 "
+        ((FAILURE_COUNT++))
+    fi
+}
+
+function concurrent_exec() {
+    cd ${ROOT}
+    declare -A pid2testname
+    declare -A pid2logfile
+
+    for T in ${TESTS_TARGETS[@]}; do
+        # Compile test target
+        bazel build ${T}
+        # Construct path to binary using bazel target name
+        BAZEL_RULE_PREFIX="//"
+        BAZEL_BIN="bazel-bin/"
+        bin_path=${T/$BAZEL_RULE_PREFIX/$BAZEL_BIN}
+        bin_path=${bin_path/://}
+        log_file="${bin_path///_}.log"
+        # Run tests concurrently as subprocesses
+        # Dup stdout and stderr to file
+        "./$bin_path" ${ARGS[@]} ${TESTARGS[@]} &> ${log_file} &
+        pid=$!
+        pid2testname["$pid"]=$bin_path
+        pid2logfile["$pid"]=$log_file
+    done
+
+    echo "Running tests in parallel. Logs reported in serial order after all tests finish."
+
+    # Barrier until all forked processes finish
+    # also collects test results
+    for job in `jobs -p`; do
+        wait $job
+        process_result $? ${pid2testname[$job]}
+        echo '****************************************************'
+        echo "Log from ${pid2testname[$job]}"
+        echo '****************************************************'
+        cat ${pid2logfile[$job]}
+        echo
+        rm -rf ${pid2logfile[$job]}
+    done
+}
+
+function sequential_exec() {
+    for T in ${TESTS_TARGETS[@]}; do
+        echo '****************************************************'
+        echo "Running ${T}"
+        echo '****************************************************'
+        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]}
+        process_result $? ${T}
+        echo '****************************************************'
+    done
+}
+
+# getopts only handles single character flags
+for ((i=1; i<=$#; i++)); do
+    case ${!i} in
+        -p|--parallel) PARALLEL_MODE=true
+        continue
+        ;;
+    esac
+    # Filter -p out as it is not defined in the test framework
+    ARGS+=( ${!i} )
 done
-echo
+
+if $PARALLEL_MODE ; then
+    echo "Executing tests in parallel"
+    concurrent_exec
+else
+    echo "Executing tests sequentially"
+    sequential_exec
+fi
+
 printf "${SUMMARY}\n"
 exit ${FAILURE_COUNT}

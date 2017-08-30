@@ -15,12 +15,14 @@
 package e2e
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -33,20 +35,25 @@ import (
 )
 
 const (
-	u1           = "normal-user"
-	u2           = "test-user"
-	create       = "create"
-	bookinfoYaml = "samples/apps/bookinfo/bookinfo.yaml"
-	modelDir     = "tests/apps/bookinfo/output"
-	rulesDir     = "samples/apps/bookinfo"
-	allRule      = "route-rule-all-v1.yaml"
-	delayRule    = "route-rule-delay.yaml"
-	fiftyRule    = "route-rule-reviews-50-v3.yaml"
-	testRule     = "route-rule-reviews-test-v2.yaml"
+	u1                    = "normal-user"
+	u2                    = "test-user"
+	create                = "create"
+	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
+	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
+	bookinfoMysqlYaml     = "samples/apps/bookinfo/bookinfo-mysql.yaml"
+	modelDir              = "tests/apps/bookinfo/output"
+	rulesDir              = "samples/apps/bookinfo"
+	allRule               = "route-rule-all-v1.yaml"
+	delayRule             = "route-rule-delay.yaml"
+	fiftyRule             = "route-rule-reviews-50-v3.yaml"
+	testRule              = "route-rule-reviews-test-v2.yaml"
+	testDbRule            = "route-rule-ratings-mysql.yaml"
 )
 
 var (
-	tc *testConfig
+	tc             *testConfig
+	testRetryTimes = 5
+	defaultRules   = []string{allRule}
 )
 
 type testConfig struct {
@@ -82,7 +89,7 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace with actual namespace and user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -104,6 +111,13 @@ func (t *testConfig) Setup() error {
 }
 
 func (t *testConfig) Teardown() error {
+	if err := deleteRules(defaultRules); err != nil {
+		// don't report errors if the rule being deleted doesn't exist
+		if notFound := strings.Contains(err.Error(), "not found"); notFound {
+			return nil
+		}
+		return err
+	}
 	return nil
 }
 
@@ -123,8 +137,11 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
+	if err := applyRules(defaultRules, create); err != nil {
+		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
+	}
 	standby := 0
-	for i := 0; i <= 10; i++ {
+	for i := 0; i <= testRetryTimes; i++ {
 		time.Sleep(time.Duration(standby) * time.Second)
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
@@ -137,8 +154,8 @@ func setUpDefaultRouting() error {
 			}
 			closeResponseBody(resp)
 		}
-		if i == 10 {
-			return fmt.Errorf("unable to set default route")
+		if i == testRetryTimes {
+			return errors.New("unable to set default route")
 		}
 		standby += 5
 		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
@@ -180,12 +197,51 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	return duration, err
 }
 
+func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
+	if err != nil {
+		return -1, err
+	}
+
+	defer closeResponseBody(resp)
+	glog.Infof("Get from page: %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		glog.Errorf("Get response from product page failed!")
+		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return -1, err
+	}
+
+	if expr == "" {
+		return 1, nil
+	}
+
+	re, err := regexp.Compile(expr)
+	if err != nil {
+		return -1, err
+	}
+
+	ref := re.FindAll(body, -1)
+	if ref == nil {
+		glog.Infof("%v", string(body))
+		return -1, fmt.Errorf("could not find %v in response", expr)
+	}
+	if count > 0 && len(ref) < count {
+		glog.Infof("%v", string(body))
+		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
+	}
+	return 1, nil
+}
+
 func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
 		if e := tc.Kube.Istioctl.DeleteRule(rule); e != nil {
-			err = multierror.Append(err, err)
+			err = multierror.Append(err, e)
 		}
 	}
 	glog.Info("Waiting for rule to be cleaned up...")
@@ -216,7 +272,7 @@ func applyRules(ruleKeys []string, operation string) error {
 
 func TestVersionRouting(t *testing.T) {
 	var err error
-	var rules = []string{allRule, testRule}
+	var rules = []string{testRule}
 	inspect(applyRules(rules, create), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
@@ -236,7 +292,7 @@ func TestVersionRouting(t *testing.T) {
 }
 
 func TestFaultDelay(t *testing.T) {
-	var rules = []string{allRule, testRule, delayRule}
+	var rules = []string{testRule, delayRule}
 	inspect(applyRules(rules, create), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
@@ -246,7 +302,7 @@ func TestFaultDelay(t *testing.T) {
 	standby := 10
 	testModel := util.GetResourcePath(
 		filepath.Join(modelDir, "productpage-test-user-v1-review-timeout.html"))
-	for i := 0; i < 5; i++ {
+	for i := 0; i < testRetryTimes; i++ {
 		duration, err := checkRoutingResponse(
 			u2, "v1-timeout", tc.gateway,
 			testModel)
@@ -269,7 +325,7 @@ func TestFaultDelay(t *testing.T) {
 
 func TestVersionMigration(t *testing.T) {
 	var rules = []string{fiftyRule}
-	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	inspect(applyRules(rules, "replace"), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
@@ -292,7 +348,7 @@ func TestVersionMigration(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < testRetryTimes; i++ {
 		c1, c3 := 0, 0
 		for c := 0; c < totalShot; c++ {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)
@@ -340,12 +396,36 @@ func setTestConfig() error {
 	if err != nil {
 		return err
 	}
-	demoApp := &framework.App{
-		AppYaml:    util.GetResourcePath(bookinfoYaml),
+	demoApps := []framework.App{{AppYaml: util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
+	},
+		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
+			KubeInject: true,
+		},
+		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+			KubeInject: false,
+		},
 	}
-	tc.Kube.AppManager.AddApp(demoApp)
+	for i := range demoApps {
+		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
 	return nil
+}
+
+func TestDbRouting(t *testing.T) {
+	var err error
+	var rules = []string{testDbRule}
+	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(rules), "failed to delete rules", "", t)
+	}()
+
+	respExpr := "glyphicon-star"
+
+	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
+	inspect(
+		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
+		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
 func TestMain(m *testing.M) {

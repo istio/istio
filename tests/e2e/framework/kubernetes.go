@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -28,30 +30,24 @@ import (
 )
 
 const (
-	yamlSuffix      = ".yaml"
-	mixerHubEnvVar  = "MIXER_HUB"
-	mixerTagEnvVar  = "MIXER_TAG"
-	pilotHubEnvVar  = "PILOT_HUB"
-	pilotTagEnvVar  = "PILOT_TAG"
-	istioInstallDir = "install/kubernetes/templates"
-	istioAddonsDir  = "install/kubernetes/addons"
+	yamlSuffix         = ".yaml"
+	istioInstallDir    = "install/kubernetes"
+	istioAddonsDir     = "install/kubernetes/addons"
+	nonAuthInstallFile = "istio.yaml"
+	authInstallFile    = "istio-auth.yaml"
 )
 
 var (
-	namespace = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub  = flag.String("mixer_hub", os.Getenv(mixerHubEnvVar), "Mixer hub")
-	mixerTag  = flag.String("mixer_tag", os.Getenv(mixerTagEnvVar), "Mixer tag")
-	pilotHub  = flag.String("pilot_hub", os.Getenv(pilotHubEnvVar), "Manager hub")
-	pilotTag  = flag.String("pilot_tag", os.Getenv(pilotTagEnvVar), "Manager tag")
-	//caHub        = flag.String("ca_hub", "", "Ca hub")
-	//caTag        = flag.String("ca_tag", "", "Ca tag")
+	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub     = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
+	mixerTag     = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
+	pilotHub     = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
+	pilotTag     = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
+	caHub        = flag.String("ca_hub", "", "Ca hub")
+	caTag        = flag.String("ca_tag", "", "Ca tag")
+	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
+	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
-
-	modules = []string{
-		"pilot",
-		"mixer",
-		"ingress",
-	}
 
 	addons = []string{
 		"prometheus",
@@ -114,7 +110,7 @@ func (k *KubeInfo) Setup() error {
 	k.namespaceCreated = true
 
 	if err = k.deployIstio(); err != nil {
-		glog.Error("Failed to deployIstio.")
+		glog.Error("Failed to deploy Istio.")
 		return err
 	}
 
@@ -142,23 +138,31 @@ func (k *KubeInfo) Teardown() error {
 	var err error
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
-			glog.Error("Failed to delete namespace")
+			glog.Errorf("Failed to delete namespace %s", k.Namespace)
+			return err
+		}
+
+		// confirm the namespace is deleted as it will cause future creation to fail
+		maxAttempts := 15
+		namespaceDeleted := false
+		totalWait := 0
+		for attempts := 1; attempts <= maxAttempts; attempts++ {
+			namespaceDeleted, err = util.NamespaceDeleted(k.Namespace)
+			if namespaceDeleted {
+				break
+			}
+			totalWait += attempts
+			time.Sleep(time.Duration(attempts) * time.Second)
+		}
+
+		if !namespaceDeleted {
+			glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, totalWait)
 			return err
 		}
 		k.namespaceCreated = false
-		glog.Infof("Namespace %s deleted", k.Namespace)
+		glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 	}
 	return err
-}
-
-func (k *KubeInfo) deployIstio() error {
-	for _, module := range modules {
-		if err := k.deployIstioCore(module); err != nil {
-			glog.Infof("Failed to deploy %s", module)
-			return err
-		}
-	}
-	return nil
 }
 
 func (k *KubeInfo) deployAddons() error {
@@ -172,47 +176,86 @@ func (k *KubeInfo) deployAddons() error {
 	return nil
 }
 
-// DeployIstioCore deploy istio module from yaml files
-func (k *KubeInfo) deployIstioCore(module string) error {
-	yamlFile := filepath.Join(k.TmpDir, "yaml", fmt.Sprintf("istio-%s.yaml", module))
-	if err := k.generateIstioCore(yamlFile, module); err != nil {
+func (k *KubeInfo) deployIstio() error {
+	istioYaml := nonAuthInstallFile
+	if *authEnable {
+		istioYaml = authInstallFile
+	}
+	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
+	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+	if *rbacfile != "" {
+		baseRbacYaml := util.GetResourcePath(*rbacfile)
+		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
+		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
+			glog.Errorf("Generating rbac yaml failed")
+		}
+		if err := util.KubeApply(k.Namespace, testRbacYaml); err != nil {
+			glog.Errorf("Rbac deployment failed")
+			return err
+		}
+	}
+
+	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
+		glog.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
-	if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
-		glog.Errorf("Kubectl apply %s failed", yamlFile)
+	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
+		glog.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
 	}
 
 	return nil
 }
 
-func (k *KubeInfo) generateIstioCore(dst, module string) error {
-	src := util.GetResourcePath(filepath.Join(istioInstallDir, fmt.Sprintf("istio-%s.yaml", module)))
+func (k *KubeInfo) generateRbac(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	var hubMacro, tagMacro string
-	var hubValue, tagValue []byte
-	switch module {
-	case "pilot":
-		hubMacro, tagMacro = `{PILOT_HUB}`, `{PILOT_TAG}`
-		hubValue, tagValue = []byte(*pilotHub), []byte(*pilotTag)
-	case "mixer":
-		hubMacro, tagMacro = `{MIXER_HUB}`, `{MIXER_TAG}`
-		hubValue, tagValue = []byte(*mixerHub), []byte(*mixerTag)
-	case "ingress":
-		hubMacro, tagMacro = `{PROXY_HUB}`, `{PROXY_TAG}`
-		hubValue, tagValue = []byte(*pilotHub), []byte(*pilotTag)
+	namespace := []byte(fmt.Sprintf("namespace: %s", k.Namespace))
+	r := regexp.MustCompile("namespace: default")
+	content = r.ReplaceAllLiteral(content, namespace)
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		glog.Errorf("Cannot write into generate rbac file %s", dst)
 	}
-	r := regexp.MustCompile(hubMacro)
-	content = r.ReplaceAllLiteral(content, hubValue)
-	r = regexp.MustCompile(tagMacro)
-	content = r.ReplaceAllLiteral(content, tagValue)
+	return err
+}
+
+func (k *KubeInfo) generateIstio(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+
+	if *mixerHub != "" && *mixerTag != "" {
+		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
+	}
+	if *pilotHub != "" && *pilotTag != "" {
+		content = updateIstioYaml("pilot", *pilotHub, *pilotTag, content)
+		//Need to be updated when the string "proxy_debug" is changed
+		content = updateIstioYaml("proxy_debug", *pilotHub, *pilotTag, content)
+	}
+	if *caHub != "" && *caTag != "" {
+		//Need to be updated when the string "istio-ca" is changed
+		content = updateIstioYaml("istio-ca", *caHub, *caTag, content)
+	}
+	if *localCluster {
+		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
+	}
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)
 	}
 	return err
+}
+
+func updateIstioYaml(module, hub, tag string, content []byte) []byte {
+	image := []byte(fmt.Sprintf("image: %s/%s:%s", hub, module, tag))
+	r := regexp.MustCompile(fmt.Sprintf("image: .*(\\/%s):.*", module))
+	return r.ReplaceAllLiteral(content, image)
 }

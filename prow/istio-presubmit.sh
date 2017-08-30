@@ -26,7 +26,7 @@ set -u
 # Print commands
 set -x
 
-if [ "${CI}" == 'bootstrap' ]; then
+if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
@@ -47,6 +47,3 @@ bazel test //...
 
 echo 'Pushing Images'
 (cd devel/fortio && make authorize all TAG="${GIT_SHA}")
-
-echo 'Running Integration Tests'
-./prow/e2e.sh
