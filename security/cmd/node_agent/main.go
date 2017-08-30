@@ -39,14 +39,20 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	flags.StringVar(&naConfig.ServiceIdentity, "service-identity", "", "Service Identity the node agent is managing")
-	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "Juju org", "Organization for the cert")
+	// TODO(wattli): Remove this flag, and use cert identity for CSR.
+	flags.StringVar(&naConfig.ServiceIdentity,
+		"service-identity", "spiffe://cluster.local/ns/default/sa/default", "Node agent identity")
+	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
 	flags.IntVar(&naConfig.RSAKeySize, "key-size", 1024, "Size of generated private key")
-	flags.StringVar(&naConfig.NodeIdentityCertFile, "na-cert", "", "Node Agent identity cert file")
-	flags.StringVar(&naConfig.NodeIdentityPrivateKeyFile, "na-key", "", "Node identity private key file")
-	flags.StringVar(&naConfig.IstioCAAddress, "ca-address", "127.0.0.1", "Istio CA address")
+	flags.StringVar(&naConfig.NodeIdentityCertFile, "na-cert",
+		"/etc/certs/na-cert.pem", "Node Agent identity cert file")
+	flags.StringVar(&naConfig.NodeIdentityPrivateKeyFile,
+		"na-key", "/etc/certs/na-key.pem", "Node identity private key file")
+	flags.StringVar(&naConfig.IstioCAAddress,
+		"ca-address", "istio-ca.default.svc.cluster.local:8060", "Istio CA address")
 	flags.StringVar(&naConfig.ServiceIdentityDir, "cert-dir", "./", "Certificate directory")
-	flags.StringVar(&naConfig.RootCACertFile, "root-cert", "", "Root Certificate file")
+	flags.StringVar(&naConfig.RootCACertFile, "root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file")
 	flags.IntVar(&naConfig.Env, "env", na.ONPREM, "Node Environment : onprem | gcp")
 
 	cmd.InitializeFlags(rootCmd)
