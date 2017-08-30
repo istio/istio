@@ -18,6 +18,7 @@ import (
 	"time"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/status"
 )
@@ -71,7 +72,7 @@ type ChannelsHandler struct {
 func NewChannelsHandler() *ChannelsHandler {
 	return &ChannelsHandler{
 		CheckResponseBag: attribute.GetMutableBag(nil),
-		QuotaResponse:    QuotaResponse{DefaultValidDuration, DefaultAmount},
+		QuotaResponse:    QuotaResponse{DefaultValidDuration, DefaultAmount, nil},
 		ReturnStatus:     status.OK,
 		CheckAttributes:  make(chan attribute.Bag),
 		QuotaDispatches:  make(chan QuotaDispatchInfo),
@@ -151,6 +152,9 @@ type QuotaResponse struct {
 
 	// The total amount of quota returned, may be less than requested.
 	Amount int64
+
+	// Referenced attributes for client
+	Referenced *mixerpb.ReferencedAttributes
 }
 
 // CheckResponse provides information on the result of a Check operation. It allows testing
@@ -161,4 +165,7 @@ type CheckResponse struct {
 
 	// // The number of uses for which this result can be considered valid.
 	ValidUseCount int32
+
+	// Referenced attributes for client
+	Referenced *mixerpb.ReferencedAttributes
 }
