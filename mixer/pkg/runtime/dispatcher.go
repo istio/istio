@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -351,6 +352,20 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 	return combineResults(results)
 }
 
+// safeDispatch ensures that an adapter panic does not bring down Mixer.
+func safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
+	defer func() {
+		if r := recover(); r != nil {
+			glog.Errorf("Dispatch %s panic: %v", op, r)
+			res = &result{
+				err: fmt.Errorf("dispatch %s panic: %v", op, r),
+			}
+		}
+	}()
+	res = do(ctx)
+	return
+}
+
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
 	if glog.V(4) {
@@ -367,7 +382,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 			glog.Infof("runAsync %s -> %v", op, *callinfo)
 		}
 
-		out := do(ctx)
+		out := safeDispatch(ctx, do, op)
 		st := status.OK
 		if out.err != nil {
 			st = status.WithError(out.err)

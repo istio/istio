@@ -37,6 +37,40 @@ import (
 	"istio.io/mixer/pkg/template"
 )
 
+func TestDispatcher_safeDispatch(t *testing.T) {
+	//safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
+
+	ctx := context.Background()
+	panicerror := errors.New("panicerror")
+
+	for _, tc := range []struct {
+		desc  string
+		panic bool
+	}{} {
+		t.Run(tc.desc, func(t *testing.T) {
+			want := &result{}
+			if tc.panic {
+				want.err = panicerror
+			}
+
+			res := safeDispatch(ctx, func(context context.Context) *result {
+				if tc.panic {
+					panic(panicerror)
+				}
+				return &result{}
+			}, tc.desc)
+
+			if res == want {
+				return
+			}
+
+			if !strings.Contains(res.err.Error(), want.err.Error()) {
+				t.Fatalf("got %v\nwant %v", res.err, want.err)
+			}
+		})
+	}
+}
+
 func TestReport(t *testing.T) {
 	gp := pool.NewGoroutinePool(1, true)
 	tname := "metric1"
