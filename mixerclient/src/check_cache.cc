@@ -14,7 +14,6 @@
  */
 
 #include "src/check_cache.h"
-#include "src/signature.h"
 #include "utils/protobuf.h"
 
 using namespace std::chrono;
@@ -64,9 +63,8 @@ bool CheckCache::CheckResult::IsCacheHit() const {
 }
 
 CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
-  if (options.num_entries > 0 && !options_.cache_keys.empty()) {
+  if (options.num_entries > 0) {
     cache_.reset(new CheckLRUCache(options.num_entries));
-    cache_keys_ = CacheKeySet::CreateInclusive(options_.cache_keys);
   }
 }
 
@@ -76,14 +74,14 @@ CheckCache::~CheckCache() {
 }
 
 void CheckCache::Check(const Attributes& attributes, CheckResult* result) {
-  std::string signature;
-  Status status = Check(attributes, system_clock::now(), &signature);
+  Status status = Check(attributes, system_clock::now());
   if (status.error_code() != Code::NOT_FOUND) {
     result->status_ = status;
   }
 
-  result->on_response_ = [this, signature](
-      const Status& status, const CheckResponse& response) -> Status {
+  result->on_response_ = [this](const Status& status,
+                                const Attributes& attributes,
+                                const CheckResponse& response) -> Status {
     if (!status.ok()) {
       if (options_.network_fail_open) {
         return Status::OK;
@@ -91,43 +89,42 @@ void CheckCache::Check(const Attributes& attributes, CheckResult* result) {
         return status;
       }
     } else {
-      return CacheResponse(signature, response, system_clock::now());
+      return CacheResponse(attributes, response, system_clock::now());
     }
   };
 }
 
-Status CheckCache::Check(const Attributes& attributes, Tick time_now,
-                         std::string* ret_signature) {
+Status CheckCache::Check(const Attributes& attributes, Tick time_now) {
   if (!cache_) {
     // By returning NOT_FOUND, caller will send request to server.
     return Status(Code::NOT_FOUND, "");
   }
 
-  std::string signature = GenerateSignature(attributes, *cache_keys_);
-  if (ret_signature) {
-    *ret_signature = signature;
+  for (const auto& it : referenced_map_) {
+    const Referenced& reference = it.second;
+    std::string signature;
+    if (!reference.Signature(attributes, &signature)) {
+      continue;
+    }
+
+    std::lock_guard<std::mutex> lock(cache_mutex_);
+    CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
+    if (lookup.Found()) {
+      CacheElem* elem = lookup.value();
+      if (elem->IsExpired(time_now)) {
+        cache_->Remove(signature);
+        return Status(Code::NOT_FOUND, "");
+      }
+      return elem->status();
+    }
   }
 
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-  CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
-
-  if (!lookup.Found()) {
-    // By returning NO_FOUND, caller will send request to server.
-    return Status(Code::NOT_FOUND, "");
-  }
-
-  CacheElem* elem = lookup.value();
-  if (elem->IsExpired(time_now)) {
-    // By returning NO_FOUND, caller will send request to server.
-    cache_->Remove(signature);
-    return Status(Code::NOT_FOUND, "");
-  }
-  return elem->status();
+  return Status(Code::NOT_FOUND, "");
 }
 
-Status CheckCache::CacheResponse(const std::string& signature,
+Status CheckCache::CacheResponse(const Attributes& attributes,
                                  const CheckResponse& response, Tick time_now) {
-  if (!cache_) {
+  if (!cache_ || !response.has_precondition()) {
     if (response.has_precondition()) {
       return ConvertRpcStatus(response.precondition().status());
     } else {
@@ -136,9 +133,28 @@ Status CheckCache::CacheResponse(const std::string& signature,
     }
   }
 
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-  CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
+  Referenced referenced;
+  if (!referenced.Fill(response.precondition().referenced_attributes())) {
+    // Failed to decode referenced_attributes, not to cache this result.
+    return ConvertRpcStatus(response.precondition().status());
+  }
+  std::string signature;
+  if (!referenced.Signature(attributes, &signature)) {
+    GOOGLE_LOG(ERROR) << "Response referenced mismatchs with request";
+    GOOGLE_LOG(ERROR) << "Request attributes: " << attributes.DebugString();
+    GOOGLE_LOG(ERROR) << "Referenced attributes: " << referenced.DebugString();
+    return ConvertRpcStatus(response.precondition().status());
+  }
 
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  std::string hash = referenced.Hash();
+  if (referenced_map_.find(hash) == referenced_map_.end()) {
+    referenced_map_[hash] = referenced;
+    GOOGLE_LOG(INFO) << "Add a new Referenced for check cache: "
+                     << referenced.DebugString();
+  }
+
+  CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
   if (lookup.Found()) {
     lookup.value()->SetResponse(response, time_now);
     return lookup.value()->status();

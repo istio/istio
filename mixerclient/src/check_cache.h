@@ -27,7 +27,7 @@
 #include "google/protobuf/stubs/status.h"
 #include "include/client.h"
 #include "include/options.h"
-#include "src/cache_key_set.h"
+#include "src/referenced.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 
@@ -57,9 +57,10 @@ class CheckCache {
     ::google::protobuf::util::Status status() const { return status_; }
 
     void SetResponse(const ::google::protobuf::util::Status& status,
+                     const Attributes& attributes,
                      const ::istio::mixer::v1::CheckResponse& response) {
       if (on_response_) {
-        status_ = on_response_(status, response);
+        status_ = on_response_(status, attributes, response);
       }
     }
 
@@ -70,7 +71,7 @@ class CheckCache {
 
     // The function to set check response.
     using OnResponseFunc = std::function<::google::protobuf::util::Status(
-        const ::google::protobuf::util::Status&,
+        const ::google::protobuf::util::Status&, const Attributes& attributes,
         const ::istio::mixer::v1::CheckResponse&)>;
     OnResponseFunc on_response_;
   };
@@ -84,12 +85,12 @@ class CheckCache {
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
   ::google::protobuf::util::Status Check(const Attributes& request,
-                                         Tick time_now, std::string* signature);
+                                         Tick time_now);
 
   // Caches a response from a remote mixer call.
   // Return the converted status from response.
   ::google::protobuf::util::Status CacheResponse(
-      const std::string& signature,
+      const Attributes& attributes,
       const ::istio::mixer::v1::CheckResponse& response, Tick time_now);
 
   // Flushes out all cached check responses; clears all cache items.
@@ -139,8 +140,8 @@ class CheckCache {
   // The check options.
   CheckOptions options_;
 
-  // The cache keys.
-  std::unique_ptr<CacheKeySet> cache_keys_;
+  // Referenced map keyed with their hashes
+  std::unordered_map<std::string, Referenced> referenced_map_;
 
   // Mutex guarding the access of cache_;
   std::mutex cache_mutex_;

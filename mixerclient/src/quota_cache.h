@@ -24,7 +24,6 @@
 #include "include/client.h"
 #include "prefetch/quota_prefetch.h"
 #include "src/attribute_converter.h"
-#include "src/cache_key_set.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 
@@ -60,6 +59,7 @@ class QuotaCache {
     ::google::protobuf::util::Status status() const { return status_; }
 
     void SetResponse(const ::google::protobuf::util::Status& status,
+                     const Attributes& attributes,
                      const ::istio::mixer::v1::CheckResponse& response);
 
    private:
@@ -135,9 +135,6 @@ class QuotaCache {
 
   // The quota options.
   QuotaOptions options_;
-
-  // The cache keys.
-  std::unique_ptr<CacheKeySet> cache_keys_;
 
   // Mutex guarding the access of cache_;
   std::mutex cache_mutex_;

@@ -14,7 +14,6 @@
  */
 
 #include "src/quota_cache.h"
-#include "src/signature.h"
 #include "utils/protobuf.h"
 
 using namespace std::chrono;
@@ -96,6 +95,7 @@ bool QuotaCache::CheckResult::BuildRequest(CheckRequest* request) {
 }
 
 void QuotaCache::CheckResult::SetResponse(const Status& status,
+                                          const Attributes& attributes,
                                           const CheckResponse& response) {
   std::string rejected_quota_names;
   for (const auto& quota : quotas_) {
@@ -132,9 +132,6 @@ QuotaCache::QuotaCache(const QuotaOptions& options) : options_(options) {
   if (options.num_entries > 0) {
     cache_.reset(new QuotaLRUCache(options.num_entries));
     cache_->SetMaxIdleSeconds(options.expiration_ms / 1000.0);
-
-    // Excluse quota_amount in the key calculation.
-    cache_keys_ = CacheKeySet::CreateExclusive({Attributes::kQuotaAmount});
   }
 }
 
@@ -157,9 +154,8 @@ void QuotaCache::CheckCache(const Attributes& request, bool use_cache,
     return;
   }
 
-  // TODO: add quota name into signature calculation.
-  // For now, the cache key is the quota name.
-  //  std::string signature = GenerateSignature(request, *cache_keys_);
+  // TODO: for now, quota cache key always is the quota name.
+  // Need to use ReferencedAttributes from Mixer server to calculate cache key.
   std::string signature = quota->name;
 
   std::lock_guard<std::mutex> lock(cache_mutex_);

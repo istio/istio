@@ -24,8 +24,6 @@ cc_library(
         "src/attribute_converter.h",
         "src/check_cache.cc",
         "src/check_cache.h",
-        "src/cache_key_set.cc",
-        "src/cache_key_set.h",
         "src/client_impl.cc",
         "src/client_impl.h",
         "src/delta_update.cc",
@@ -34,8 +32,8 @@ cc_library(
         "src/global_dictionary.h",
         "src/report_batch.cc",
         "src/report_batch.h",
-        "src/signature.cc",
-        "src/signature.h",
+        "src/referenced.cc",
+        "src/referenced.h",
         "src/quota_cache.cc",
         "src/quota_cache.h",
         "utils/md5.cc",
@@ -107,17 +105,6 @@ cc_test(
 )
 
 cc_test(
-    name = "cache_key_set_test",
-    size = "small",
-    srcs = ["src/cache_key_set_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
     name = "check_cache_test",
     size = "small",
     srcs = ["src/check_cache_test.cc"],
@@ -173,9 +160,9 @@ cc_test(
 )
 
 cc_test(
-    name = "signature_test",
+    name = "referenced_test",
     size = "small",
-    srcs = ["src/signature_test.cc"],
+    srcs = ["src/referenced_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",

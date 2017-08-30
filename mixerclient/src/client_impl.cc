@@ -76,6 +76,8 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
   request.set_deduplication_id(deduplication_id_base_ +
                                std::to_string(deduplication_id_.fetch_add(1)));
 
+  // Need to make a copy for processing the response for check cache.
+  Attributes *request_copy = new Attributes(attributes);
   auto response = new CheckResponse;
   // Lambda capture could not pass unique_ptr, use raw pointer.
   CheckCache::CheckResult *raw_check_result = check_result.release();
@@ -83,26 +85,27 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
   if (!transport) {
     transport = options_.check_transport;
   }
-  return transport(request, response,
-                   [this, response, raw_check_result, raw_quota_result,
-                    on_done](const Status &status) {
-                     raw_check_result->SetResponse(status, *response);
-                     raw_quota_result->SetResponse(status, *response);
-                     if (on_done) {
-                       if (!raw_check_result->status().ok()) {
-                         on_done(raw_check_result->status());
-                       } else {
-                         on_done(raw_quota_result->status());
-                       }
-                     }
-                     delete raw_check_result;
-                     delete raw_quota_result;
-                     delete response;
+  return transport(
+      request, response, [this, request_copy, response, raw_check_result,
+                          raw_quota_result, on_done](const Status &status) {
+        raw_check_result->SetResponse(status, *request_copy, *response);
+        raw_quota_result->SetResponse(status, *request_copy, *response);
+        if (on_done) {
+          if (!raw_check_result->status().ok()) {
+            on_done(raw_check_result->status());
+          } else {
+            on_done(raw_quota_result->status());
+          }
+        }
+        delete raw_check_result;
+        delete raw_quota_result;
+        delete request_copy;
+        delete response;
 
-                     if (InvalidDictionaryStatus(status)) {
-                       converter_.ShrinkGlobalDictionary();
-                     }
-                   });
+        if (InvalidDictionaryStatus(status)) {
+          converter_.ShrinkGlobalDictionary();
+        }
+      });
 }
 
 void MixerClientImpl::Report(const Attributes &attributes) {

@@ -82,7 +82,7 @@ TEST_F(QuotaCacheTest, TestDisabledCache) {
   CheckResponse::QuotaResult quota_result;
   quota_result.set_granted_amount(1);
   (*response.mutable_quotas())[kQuotaName] = quota_result;
-  result.SetResponse(Status::OK, response);
+  result.SetResponse(Status::OK, request_, response);
   EXPECT_OK(result.status());
 }
 
@@ -104,7 +104,7 @@ TEST_F(QuotaCacheTest, TestNotUseCache) {
   // granted_amount = 0
   quota_result.set_granted_amount(0);
   (*response.mutable_quotas())[kQuotaName] = quota_result;
-  result.SetResponse(Status::OK, response);
+  result.SetResponse(Status::OK, request_, response);
   EXPECT_ERROR_CODE(Code::RESOURCE_EXHAUSTED, result.status());
 }
 
@@ -127,7 +127,7 @@ TEST_F(QuotaCacheTest, TestUseCache) {
   EXPECT_EQ(request.quotas().begin()->second.best_effort(), true);
 
   CheckResponse response;
-  result.SetResponse(Status::OK, response);
+  result.SetResponse(Status::OK, request_, response);
   EXPECT_OK(result.status());
 }
 
@@ -152,7 +152,7 @@ TEST_F(QuotaCacheTest, TestUseCacheRejected) {
       ++rejected;
     }
 
-    result.SetResponse(Status::OK, response);
+    result.SetResponse(Status::OK, request_, response);
   }
   // Only the first one allowed, the rest should be rejected.
   EXPECT_EQ(rejected, 9);
