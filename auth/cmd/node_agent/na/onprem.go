@@ -29,7 +29,7 @@ type onPremPlatformImpl struct{}
 func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
 	transportCreds := getTLSCredentials(cfg.NodeIdentityCertFile,
 		cfg.NodeIdentityPrivateKeyFile,
-		cfg.RootCACertFile, true /* isClient */)
+		cfg.RootCACertFile)
 	var options []grpc.DialOption
 	options = append(options, grpc.WithTransportCredentials(transportCreds))
 	return options, nil
@@ -42,7 +42,7 @@ func (na *onPremPlatformImpl) IsProperPlatform() bool {
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
 func getTLSCredentials(certificateFile string, keyFile string,
-	caCertFile string, isClient bool) credentials.TransportCredentials {
+	caCertFile string) credentials.TransportCredentials {
 
 	// Load the certificate from disk
 	certificate, err := tls.LoadX509KeyPair(certificateFile, keyFile)
@@ -65,15 +65,7 @@ func getTLSCredentials(certificateFile string, keyFile string,
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
 	}
-
-	if isClient {
-		config.RootCAs = certPool
-	} else {
-		// The server does not always require client cert. Client provides cert for on-prem VM and JWT
-		// for GCE VM.
-		config.ClientAuth = tls.VerifyClientCertIfGiven
-		config.ClientCAs = certPool
-	}
+	config.RootCAs = certPool
 
 	return credentials.NewTLS(&config)
 }
