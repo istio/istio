@@ -64,11 +64,11 @@ func clearStatus(s *AttributesServer, h *ChannelsHandler) {
 }
 
 func setQuotaResponse(s *AttributesServer, h *ChannelsHandler) {
-	h.QuotaResponse = QuotaResponse{55 * time.Second, int64(999)}
+	h.QuotaResponse = QuotaResponse{55 * time.Second, int64(999), nil}
 }
 
 func clearQuotaResponse(s *AttributesServer, h *ChannelsHandler) {
-	h.QuotaResponse = QuotaResponse{DefaultValidDuration, DefaultAmount}
+	h.QuotaResponse = QuotaResponse{DefaultValidDuration, DefaultAmount, nil}
 }
 
 func TestCheck(t *testing.T) {
