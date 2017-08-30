@@ -207,12 +207,18 @@ spec:
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
+        - mountPath: /etc/istio/ingress-certs
+          name: ingress-certs
+          readOnly: true
         - name: config-volume
           mountPath: /etc/istio/config
       volumes:
       - name: istio-certs
         secret:
           secretName: istio.default
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
       - name: config-volume
         configMap:
           name: istio
