@@ -43,8 +43,8 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []pkgAdapter.InfoFn, pr
 		Use:   "all",
 		Short: "List all CRDs",
 		Run: func(cmd *cobra.Command, args []string) {
-			printCrd(printf, fatalf, mixerRuntime.RulesKind, "istio.io.mixer", mixerRuntime.RulesKind+"s", "core")
-			printCrd(printf, fatalf, mixerRuntime.AttributeManifestKind, "istio.io.mixer", mixerRuntime.AttributeManifestKind+"s", "core")
+			printCrd(printf, fatalf, mixerRuntime.RulesKind, "istio.io.mixer", "core")
+			printCrd(printf, fatalf, mixerRuntime.AttributeManifestKind, "istio.io.mixer", "core")
 			listCrdsAdapters(printf, fatalf, adapters)
 			listCrdsInstances(printf, fatalf, tmplInfos)
 		},
@@ -74,7 +74,7 @@ func listCrdsAdapters(printf, fatalf shared.FormatFn, infoFns []pkgAdapter.InfoF
 		info := infoFn()
 		shrtName := info.Name /* TODO make this info.shortName when related PR is in. */
 		// TODO : Use the plural name from the adapter info
-		printCrd(printf, fatalf, shrtName, info.Name, shrtName+"s", "mixer-adapter")
+		printCrd(printf, fatalf, shrtName, info.Name, "mixer-adapter")
 	}
 }
 
@@ -90,7 +90,7 @@ func listCrdsInstances(printf, fatalf shared.FormatFn, infos map[string]template
 	for _, tmplName := range tmplNames {
 		info := infos[tmplName]
 		// TODO : Use the plural name from the template info
-		printCrd(printf, fatalf, info.Name, info.Impl, info.Name+"s", "mixer-instance")
+		printCrd(printf, fatalf, info.Name, info.Impl, "mixer-instance")
 	}
 }
 
@@ -104,19 +104,33 @@ type crdVar struct {
 	Version    string
 }
 
-func newCrdVar(shrtName, implName, pluralName, label string) *crdVar {
+// pluralize gives a plural the way k8s like it.
+// https://github.com/kubernetes/gengo/blob/master/namer/plural_namer.go
+func pluralize(singular string) string {
+	switch string(singular[len(singular)-1]) {
+	case "s", "x":
+		return singular + "es"
+	case "y":
+		return singular[:len(singular)-1] + "ies"
+	default:
+		return singular + "s"
+	}
+}
+
+func newCrdVar(shrtName, implName, label string) *crdVar {
+	plural := pluralize(shrtName)
 	return &crdVar{
 		ShrtName:   shrtName,
 		ImplName:   implName,
-		PluralName: pluralName,
+		PluralName: plural,
 		Label:      label,
-		Name:       pluralName + "." + Group,
+		Name:       plural + "." + Group,
 		Group:      Group,
 		Version:    Version,
 	}
 }
 
-func printCrd(printf, fatalf shared.FormatFn, shrtName, implName, pluralName, label string) {
+func printCrd(printf, fatalf shared.FormatFn, shrtName, implName, label string) {
 	crdTemplate := `kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -137,7 +151,7 @@ spec:
 	t := gotemplate.New("crd")
 	w := &bytes.Buffer{}
 	t, _ = t.Parse(crdTemplate)
-	if err := t.Execute(w, newCrdVar(shrtName, implName, pluralName, label)); err != nil {
+	if err := t.Execute(w, newCrdVar(shrtName, implName, label)); err != nil {
 		fatalf("Could not create CRD " + err.Error())
 	}
 	printf(w.String())
