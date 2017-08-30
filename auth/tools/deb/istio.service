@@ -1,0 +1,12 @@
+[Unit]
+Description=istio-node-agent: The Istio node agent
+Documentation=http://istio.io/
+
+[Service]
+ExecStart=/usr/local/bin/istio-node-agent --env=0 --alsologtostder
+Restart=always
+StartLimitInterval=0
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
