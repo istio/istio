@@ -66,8 +66,11 @@ spec:
 ---`
 
 var exampleTmplInfos = map[string]template.Info{
-	"abcd-foo": {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
-	"abcdBar":  {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
+	"abcd-foo":   {Name: "abcd-foo", Impl: "implPathShouldBeDNSCompat"},
+	"abcdBar":    {Name: "abcdBar", Impl: "implPathShouldBeDNSCompat2"},
+	"entry":      {Name: "entry", Impl: "implPathShouldBeDNSCompat2"},      // unusual plural
+	"prometheus": {Name: "prometheus", Impl: "implPathShouldBeDNSCompat2"}, // unusual plural
+	"box":        {Name: "box", Impl: "implPathShouldBeDNSCompat2"},        // unusual plural
 }
 var exampleInstanceCrd = `kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -98,6 +101,54 @@ spec:
     kind: abcdBar
     plural: abcdBars
     singular: abcdBar
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: boxes.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: box
+    plural: boxes
+    singular: box
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: entries.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: entry
+    plural: entries
+    singular: entry
+  scope: Namespaced
+  version: v1alpha2
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: prometheuses.config.istio.io
+  labels:
+    package: implPathShouldBeDNSCompat2
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: prometheus
+    plural: prometheuses
+    singular: prometheus
   scope: Namespaced
   version: v1alpha2
 ---
