@@ -111,7 +111,7 @@ func (na *nodeAgentInternal) Start() error {
 
 	retries := 0
 	retrialInterval := na.config.CSRInitialRetrialInterval
-	success := false
+	var success bool
 	for {
 		privKey, req, reqErr := na.createRequest()
 		if reqErr != nil {
