@@ -116,3 +116,51 @@ func TestExtractSANExtension(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractIDs(t *testing.T) {
+	id := "test.id"
+	sanExt, err := BuildSANExtension([]Identity{
+		{Type: TypeURI, Value: []byte(id)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCases := map[string]struct {
+		exts        []pkix.Extension
+		expectedIDs []string
+	}{
+		"Empty extension list": {
+			exts:        []pkix.Extension{},
+			expectedIDs: nil,
+		},
+		"Extensions without SAN": {
+			exts: []pkix.Extension{
+				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
+				{Id: asn1.ObjectIdentifier{3, 2, 1}},
+			},
+			expectedIDs: nil,
+		},
+		"Extensions with bad SAN": {
+			exts: []pkix.Extension{
+				{Id: asn1.ObjectIdentifier{2, 5, 29, 17}, Value: []byte("bad san bytes")},
+			},
+			expectedIDs: nil,
+		},
+		"Extensions with SAN": {
+			exts: []pkix.Extension{
+				{Id: asn1.ObjectIdentifier{1, 2, 3, 4}},
+				*sanExt,
+				{Id: asn1.ObjectIdentifier{3, 2, 1}},
+			},
+			expectedIDs: []string{id},
+		},
+	}
+
+	for id, tc := range testCases {
+		actualIDs := ExtractIDs(tc.exts)
+		if !reflect.DeepEqual(actualIDs, tc.expectedIDs) {
+			t.Errorf("Case %q: unexpected identities: want %v but got %v", id, tc.expectedIDs, actualIDs)
+		}
+	}
+}

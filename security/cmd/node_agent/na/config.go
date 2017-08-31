@@ -29,32 +29,25 @@ const (
 
 // Config is Node agent configuration that is provided from CLI.
 type Config struct {
-	// Root CA cert file
-	RootCACertFile string
-
-	// Node Identity key file
-	NodeIdentityPrivateKeyFile string
-
-	// Node Identity certificate file
-	NodeIdentityCertFile string
-
-	// Service Identity
-	ServiceIdentity string
-
-	// Organization for service Identity
-	ServiceIdentityOrg string
-
-	// Directory where service identity private key and certificate
-	// are written.
-	ServiceIdentityDir string
-
-	RSAKeySize int
-
 	// Istio CA grpc server
 	IstioCAAddress string
 
+	// Root CA cert file to validate the gRPC service in CA.
+	RootCACertFile string
+
+	// The private key file
+	KeyFile string
+
+	// The cert chain file
+	CertChainFile string
+
+	// Organization of service
+	ServiceIdentityOrg string
+
+	RSAKeySize int
+
 	// The environment this node agent is running on
-	Env int
+	Env string
 
 	// CSRInitialRetrialInterval is the retrial interval for certificate requests.
 	CSRInitialRetrialInterval time.Duration
