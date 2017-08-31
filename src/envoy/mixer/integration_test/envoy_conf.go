@@ -42,6 +42,7 @@ type ConfParam struct {
 	ClientConfig string
 	ServerConfig string
 	AccessLog    string
+	MixerRouteFlags string
 }
 
 // A basic config
@@ -86,6 +87,10 @@ const defaultClientMixerConfig = `
                    }
 `
 
+const defaultMixerRouteFlags = `
+                   "mixer_control": "on",
+`
+
 // The envoy config template
 const envoyConfTempl = `
 {
@@ -111,7 +116,7 @@ const envoyConfTempl = `
                       "prefix": "/",
                       "cluster": "service1",
                       "opaque_config": {
-                        "mixer_control": "on",
+{{.MixerRouteFlags}}
                         "mixer_forward": "off",
                         "mixer_attributes.target.user": "target-user",
                         "mixer_attributes.target.name": "target-name"
@@ -302,9 +307,13 @@ func getConf() ConfParam {
 	}
 }
 
-func CreateEnvoyConf(path string, conf string, stress bool) error {
+func CreateEnvoyConf(path, conf, flags string, stress bool) error {
 	c := getConf()
 	c.ServerConfig = conf
+	c.MixerRouteFlags = defaultMixerRouteFlags;
+	if flags != "" {
+	   c.MixerRouteFlags = flags;
+	}
 	if stress {
 		c.AccessLog = "/dev/null"
 	}

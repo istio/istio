@@ -119,11 +119,18 @@ By default, the mixer filter only forwards attributes and does not call mixer se
      "prefix": "/",
      "cluster": "service1",
      "opaque_config": {
-      "mixer_control": "on",
-      "mixer_forward": "off"
+        "mixer_control": "off",
+        "mixer_check": "on",
+        "mixer_report": "off",
+        "mixer_forward": "off"
      }
    }
 ```
+Notes:
+* mixer_forward: turn on/off attribute forwarding feature. If on, it will forward attributes specified in "forward_attributes" in mixer filter config and "mixer_forward_attributes." prefixed attributes in route opaque data.  Default is on.
+* mixer_check: if on, call Mixer Check. Default is off.
+* mixer_report: if on, call Mixer Report. Default is off.
+* mixer_control: if on, call both Mixer Check and Report. Default is off. If "mixer_check" or "mixer_report" is specified, its value will override this.
 
 Above route opaque config reverts the behavior by sending requests to mixer server but not forwarding any attributes.
 
@@ -136,8 +143,8 @@ Mixer attributes and forward attributes can be set per-route in the route opaque
      "prefix": "/",
      "cluster": "service1",
      "opaque_config": {
-      "mixer_attributes.key1": "value1",
-      "mixer_forward_attributes.key2": "value2"
+        "mixer_attributes.key1": "value1",
+        "mixer_forward_attributes.key2": "value2"
      }
    }
 ```

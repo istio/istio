@@ -40,8 +40,15 @@ namespace {
 // Switch to turn off attribute forwarding
 const std::string kJsonNameForwardSwitch("mixer_forward");
 
-// Switch to turn off mixer check/report/quota
-const std::string kJsonNameMixerSwitch("mixer_control");
+// Switch to turn off mixer both check and report
+// They can be overrided by "mixer_check" and "mixer_report" flags.
+const std::string kJsonNameMixerControl("mixer_control");
+
+// Switch to turn on/off mixer check only.
+const std::string kJsonNameMixerCheck("mixer_check");
+
+// Switch to turn on/off mixer report only.
+const std::string kJsonNameMixerReport("mixer_report");
 
 // The prefix in route opaque data to define
 // a sub string map of mixer attributes passed to mixer for the route.
@@ -139,21 +146,36 @@ class Instance : public Http::StreamDecoderFilter,
   bool initiating_call_;
   int check_status_code_;
 
-  bool mixer_disabled_;
+  bool mixer_check_disabled_;
+  bool mixer_report_disabled_;
 
-  // mixer control switch (off by default)
-  bool mixer_disabled() {
+  // check mixer on/off flags in route opaque data
+  void check_mixer_route_flags() {
+    // Both check and report are disabled by default.
+    mixer_check_disabled_ = true;
+    mixer_report_disabled_ = true;
     auto route = decoder_callbacks_->route();
     if (route != nullptr) {
       auto entry = route->routeEntry();
       if (entry != nullptr) {
-        auto key = entry->opaqueConfig().find(kJsonNameMixerSwitch);
-        if (key != entry->opaqueConfig().end() && key->second == "on") {
-          return false;
+        auto control_key = entry->opaqueConfig().find(kJsonNameMixerControl);
+        if (control_key != entry->opaqueConfig().end() &&
+            control_key->second == "on") {
+          mixer_check_disabled_ = false;
+          mixer_report_disabled_ = false;
+        }
+        auto check_key = entry->opaqueConfig().find(kJsonNameMixerCheck);
+        if (check_key != entry->opaqueConfig().end() &&
+            check_key->second == "on") {
+          mixer_check_disabled_ = false;
+        }
+        auto report_key = entry->opaqueConfig().find(kJsonNameMixerReport);
+        if (report_key != entry->opaqueConfig().end() &&
+            report_key->second == "on") {
+          mixer_report_disabled_ = false;
         }
       }
     }
-    return true;
   }
 
   // attribute forward switch (on by default)
@@ -204,8 +226,8 @@ class Instance : public Http::StreamDecoderFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
-    mixer_disabled_ = mixer_disabled();
-    if (mixer_disabled_) {
+    check_mixer_route_flags();
+    if (mixer_check_disabled_ && mixer_report_disabled_) {
       if (!forward_disabled()) {
         mixer_control_.ForwardAttributes(
             headers, GetRouteStringMap(kPrefixForwardAttributes));
@@ -213,8 +235,6 @@ class Instance : public Http::StreamDecoderFilter,
       return FilterHeadersStatus::Continue;
     }
 
-    state_ = Calling;
-    initiating_call_ = true;
     request_data_ = std::make_shared<HttpRequestData>();
 
     std::string origin_user;
@@ -243,6 +263,12 @@ class Instance : public Http::StreamDecoderFilter,
           headers, GetRouteStringMap(kPrefixForwardAttributes));
     }
 
+    if (mixer_check_disabled_) {
+      return FilterHeadersStatus::Continue;
+    }
+
+    state_ = Calling;
+    initiating_call_ = true;
     cancel_check_ = mixer_control_.SendCheck(
         request_data_, &headers,
         [this](const Status& status) { completeCheck(status); });
@@ -257,7 +283,7 @@ class Instance : public Http::StreamDecoderFilter,
 
   FilterDataStatus decodeData(Buffer::Instance& data,
                               bool end_stream) override {
-    if (mixer_disabled_) {
+    if (mixer_check_disabled_) {
       return FilterDataStatus::Continue;
     }
 
@@ -270,7 +296,7 @@ class Instance : public Http::StreamDecoderFilter,
   }
 
   FilterTrailersStatus decodeTrailers(HeaderMap&) override {
-    if (mixer_disabled_) {
+    if (mixer_check_disabled_) {
       return FilterTrailersStatus::Continue;
     }
 
@@ -325,7 +351,7 @@ class Instance : public Http::StreamDecoderFilter,
                    const AccessLog::RequestInfo& request_info) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     // If decodeHaeders() is not called, not to call Mixer report.
-    if (!request_data_) return;
+    if (!request_data_ || mixer_report_disabled_) return;
     mixer_control_.BuildHttpReport(request_data_, response_headers,
                                    request_info, check_status_code_);
     mixer_control_.SendReport(request_data_);
