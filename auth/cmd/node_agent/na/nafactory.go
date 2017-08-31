@@ -35,12 +35,12 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 	}
 
 	switch cfg.Env {
-	case ONPREM:
-		na.pr = &onPremPlatformImpl{}
-	case GCP:
+	case "onprem":
+		na.pr = &onPremPlatformImpl{cfg.CertChainFile}
+	case "gcp":
 		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{}}
 	default:
-		glog.Fatalf("Invalid env %d specified", cfg.Env)
+		glog.Fatalf("Invalid env %s specified", cfg.Env)
 	}
 
 	client, err := NewCAGrpcClient(cfg, na.pr)

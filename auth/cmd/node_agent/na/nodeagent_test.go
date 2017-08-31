@@ -48,11 +48,16 @@ TUwOfQd26zZxdjg/Cl6pCT6yDQlUH7Pzf9pogM7gHjd9sFA=
 
 type FakePlatformSpecificRequest struct {
 	dialOption       []grpc.DialOption
+	identity         string
 	isProperPlatform bool
 }
 
 func (f FakePlatformSpecificRequest) GetDialOptions(*Config) ([]grpc.DialOption, error) {
 	return f.dialOption, nil
+}
+
+func (f FakePlatformSpecificRequest) GetServiceIdentity() (string, error) {
+	return f.identity, nil
 }
 
 func (f FakePlatformSpecificRequest) IsProperPlatform() bool {
@@ -72,7 +77,7 @@ func (f *FakeCAClient) SendCSR(req *pb.Request) (*pb.Response, error) {
 
 func TestStartWithArgs(t *testing.T) {
 	generalConfig := Config{
-		"ca_file", "pkey", "cert_file", "service1", "Google Inc.", "dir/", 512, "ca_addr", 1, time.Millisecond, 3, 50,
+		"ca_addr", "ca_file", "pkey", "cert_file", "Google Inc.", 512, "onprem", time.Millisecond, 3, 50,
 	}
 	testCases := map[string]struct {
 		config      *Config
@@ -82,14 +87,14 @@ func TestStartWithArgs(t *testing.T) {
 		sendTimes   int
 	}{
 		"Config Nil error": {
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node Agent configuration is nil",
 			sendTimes:   0,
 		},
 		"Platform error": {
 			config:      &generalConfig,
-			req:         FakePlatformSpecificRequest{nil, false},
+			req:         FakePlatformSpecificRequest{nil, "service1", false},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node Agent is not running on the right platform",
 			sendTimes:   0,
@@ -97,37 +102,37 @@ func TestStartWithArgs(t *testing.T) {
 		"CreateCSR error": {
 			// 128 is too small for a RSA private key. GenCSR will return error.
 			config: &Config{
-				"ca_file", "pkey", "cert_file", "service1", "Google Inc.", "dir/", 128, "ca_addr", 1, time.Millisecond, 3, 50,
+				"ca_addr", "ca_file", "pkey", "cert_file", "Google Inc.", 128, "onprem", time.Millisecond, 3, 50,
 			},
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "failed to generate CSR: crypto/rsa: message too long for RSA public key size",
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
 			config:      &generalConfig,
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR returns error": {
 			config:      &generalConfig,
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, nil, fmt.Errorf("Error returned from CA")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR not approved": {
 			config:      &generalConfig,
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, &pb.Response{IsApproved: false}, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR parsing error": {
 			config:      &generalConfig,
-			req:         FakePlatformSpecificRequest{nil, true},
+			req:         FakePlatformSpecificRequest{nil, "service1", true},
 			cAClient:    &FakeCAClient{0, &pb.Response{IsApproved: true, SignedCertChain: []byte(`INVALIDCERT`)}, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
@@ -135,7 +140,7 @@ func TestStartWithArgs(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		na := nodeAgentInternal{c.config, c.req, c.cAClient}
+		na := nodeAgentInternal{c.config, c.req, c.cAClient, "service1"}
 		err := na.Start()
 		if err.Error() != c.expectedErr {
 			t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
@@ -187,11 +192,11 @@ func TestGettingWaitTimeFromCert(t *testing.T) {
 
 	for id, c := range testCases {
 		config := Config{
-			"ca_file", "pkey", "cert_file", "service1", "Google Inc.", "dir/", 512, "ca_addr", 1, time.Millisecond, 3, 50,
+			"ca_addr", "ca_file", "pkey", "cert_file", "Google Inc.", 512, "onprem", time.Millisecond, 3, 50,
 		}
-		req := FakePlatformSpecificRequest{nil, true}
+		req := FakePlatformSpecificRequest{nil, "service1", true}
 		caClient := FakeCAClient{0, nil, nil}
-		na := nodeAgentInternal{&config, req, &caClient}
+		na := nodeAgentInternal{&config, req, &caClient, "service1"}
 		waitTime, err := na.getWaitTimeFromCert([]byte(c.cert), c.now, 50)
 		if c.expectedErr != "" {
 			if err == nil {

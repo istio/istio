@@ -66,7 +66,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		return nil, grpc.Errorf(codes.InvalidArgument, "failed to parse the CSR (error %v)", err)
 	}
 
-	requestedIDs := extractIDs(csr.Extensions)
+	requestedIDs := pki.ExtractIDs(csr.Extensions)
 	if len(requestedIDs) == 0 {
 		return nil, grpc.Errorf(codes.InvalidArgument, "failed to extract identities from the CSR")
 	}

@@ -19,6 +19,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	"istio.io/auth/pkg/pki"
 )
 
 type user struct {
@@ -55,6 +57,6 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) *user {
 		return nil
 	}
 
-	ids := extractIDs(chains[0][0].Extensions)
+	ids := pki.ExtractIDs(chains[0][0].Extensions)
 	return &user{ids}
 }

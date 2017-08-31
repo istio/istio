@@ -6,7 +6,6 @@ go_library(
         "authenticator.go",
         "authorizer.go",
         "server.go",
-        "util.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -28,7 +27,6 @@ go_test(
         "authenticator_test.go",
         "authorizer_test.go",
         "server_test.go",
-        "util_test.go",
     ],
     library = ":go_default_library",
     deps = [

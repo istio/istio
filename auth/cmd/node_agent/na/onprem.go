@@ -17,19 +17,22 @@ package na
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	"istio.io/auth/pkg/pki"
 )
 
-type onPremPlatformImpl struct{}
+type onPremPlatformImpl struct {
+	certFile string
+}
 
 func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
-	transportCreds := getTLSCredentials(cfg.NodeIdentityCertFile,
-		cfg.NodeIdentityPrivateKeyFile,
-		cfg.RootCACertFile)
+	transportCreds := getTLSCredentials(cfg.CertChainFile, cfg.KeyFile, cfg.RootCACertFile)
 	var options []grpc.DialOption
 	options = append(options, grpc.WithTransportCredentials(transportCreds))
 	return options, nil
@@ -37,6 +40,22 @@ func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, er
 
 func (na *onPremPlatformImpl) IsProperPlatform() bool {
 	return true
+}
+
+func (na *onPremPlatformImpl) GetServiceIdentity() (string, error) {
+	certBytes, err := ioutil.ReadFile(na.certFile)
+	if err != nil {
+		return "", err
+	}
+	cert, err := pki.ParsePemEncodedCertificate(certBytes)
+	if err != nil {
+		return "", err
+	}
+	serviceIDs := pki.ExtractIDs(cert.Extensions)
+	if len(serviceIDs) != 1 {
+		return "", fmt.Errorf("Cert have %v SAN fields, should be 1", len(serviceIDs))
+	}
+	return serviceIDs[0], nil
 }
 
 // getTLSCredentials creates transport credentials that are common to
