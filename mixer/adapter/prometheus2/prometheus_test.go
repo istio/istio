@@ -31,10 +31,10 @@ import (
 )
 
 type testServer struct {
-	server
-
 	errOnStart bool
 }
+
+var _ server = &testServer{}
 
 func (t testServer) Start(adapter.Env, http.Handler) error {
 	if t.errOnStart {
@@ -46,7 +46,11 @@ func (t testServer) Start(adapter.Env, http.Handler) error {
 func (testServer) Close() error { return nil }
 
 func newBuilder(s server) *builder {
-	return &builder{newServer: func(string) server { return s }, registry: prometheus.NewPedanticRegistry()}
+	return &builder{
+		srv:      s,
+		registry: prometheus.NewPedanticRegistry(),
+		metrics:  make(map[string]*cinfo),
+	}
 }
 
 var (
@@ -227,11 +231,9 @@ func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			for i, met := range v.metrics {
-				_, err := f.Build(makeConfig(met), test.NewEnv(t))
-				if i > 0 && err == nil {
-					t.Error("Build() => expected error during metrics registration")
-				}
+			_, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
+			if err == nil {
+				t.Error("Build() => expected error during metrics registration")
 			}
 		})
 	}
@@ -280,12 +282,12 @@ func TestProm_Record(t *testing.T) {
 			// Check tautological recording of entries.
 			pr := aspect.(*handler)
 			for _, adapterVal := range v.values {
-				c, ok := pr.metrics[adapterVal.Name]
+				ci, ok := pr.metrics[adapterVal.Name]
 				if !ok {
 					t.Errorf("Record() could not find metric with name %s:", adapterVal.Name)
 					continue
 				}
-
+				c := ci.c
 				m := new(dto.Metric)
 				switch c.(type) {
 				case *prometheus.CounterVec:

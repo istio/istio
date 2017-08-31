@@ -20,6 +20,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"istio.io/mixer/pkg/adapter"
@@ -34,7 +35,11 @@ type (
 
 	serverInst struct {
 		addr string
-		srv  *http.Server
+
+		lock    sync.Mutex // protects resources below
+		srv     *http.Server
+		handler *metaHandler
+		refCnt  int
 	}
 )
 
@@ -43,33 +48,87 @@ const (
 	defaultAddr = ":42422"
 )
 
-func newServer(addr string) server {
+func newServer(addr string) *serverInst {
 	return &serverInst{addr: addr}
 }
 
-func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) error {
-	var listener net.Listener
+// metaHandler switches the delegate without downtime.
+type metaHandler struct {
+	delegate http.Handler
+	lock     sync.RWMutex
+}
+
+func (m *metaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.lock.RLock()
+	m.delegate.ServeHTTP(w, r)
+	m.lock.RUnlock()
+}
+
+func (m *metaHandler) setDelegate(delegate http.Handler) {
+	m.lock.Lock()
+	m.delegate = delegate
+	m.lock.Unlock()
+}
+
+// Start the prometheus singleton listener.
+func (s *serverInst) Start(env adapter.Env, metricsHandler http.Handler) (err error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	// if server is already running,
+	// just switch the delegate handler.
+	if s.srv != nil {
+		s.refCnt++
+		s.handler.setDelegate(metricsHandler)
+		return nil
+	}
+
 	listener, err := net.Listen("tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("could not start prometheus metrics server: %v", err)
 	}
+
 	srvMux := http.NewServeMux()
-	srvMux.Handle(metricsPath, metricsHandler)
-	s.srv = &http.Server{Addr: s.addr, Handler: srvMux}
+	s.handler = &metaHandler{delegate: metricsHandler}
+	srvMux.Handle(metricsPath, s.handler)
+	srv := &http.Server{Addr: s.addr, Handler: srvMux}
 	env.ScheduleDaemon(func() {
 		env.Logger().Infof("serving prometheus metrics on %s", s.addr)
-		if err := s.srv.Serve(listener.(*net.TCPListener)); err != nil {
-			_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
+		if err := srv.Serve(listener.(*net.TCPListener)); err != nil {
+			if err == http.ErrServerClosed {
+				env.Logger().Infof("HTTP server stopped")
+			} else {
+				_ = env.Logger().Errorf("prometheus HTTP server error: %v", err) // nolint: gas
+			}
 		}
 	})
+	s.srv = srv
+	s.refCnt++
+
 	return nil
 }
 
+// Close -- closes the HTTP server if reference Count is 0.
 func (s *serverInst) Close() error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	// not started yet, nothing to close.
 	if s.srv == nil {
 		return nil
 	}
+
+	s.refCnt--
+	if s.refCnt > 0 {
+		return nil
+	}
+
+	// reference count is 0, cleanup.
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	return s.srv.Shutdown(ctx)
+	srv := s.srv
+	s.srv = nil
+	s.handler = nil
+	return srv.Shutdown(ctx)
 }
