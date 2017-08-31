@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attribute-manifest
 metadata:
   name: istio-proxy
-  namespace: default
+  namespace: istio-config-default
 spec:
    attributes:
       origin.ip:
@@ -57,7 +57,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attribute-manifest
 metadata:
   name: kubernetes
-  namespace: default
+  namespace: istio-config-default
 spec:
    attributes:
       source.ip:
