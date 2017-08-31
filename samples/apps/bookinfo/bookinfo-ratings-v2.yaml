@@ -26,17 +26,11 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: quay.io/saurabh/examples-bookinfo-ratings-v2:v1
+        image: quay.io/saurabh/examples-bookinfo-ratings-mongo:v1
         imagePullPolicy: IfNotPresent
         env:
-          - name: MYSQL_DB_HOST
-            value: mysqldb
-          - name: MYSQL_DB_PORT
-            value: "3306"
-          - name: MYSQL_DB_USER
-            value: root
-          - name: MYSQL_DB_PASSWORD
-            value: password
+          - name: MONGO_DB_URL
+            value: mongodb://mongodb:27017/test
         ports:
         - containerPort: 9080
 ---

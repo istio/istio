@@ -2,7 +2,7 @@ filegroup(
     name = "bookinfo",
     srcs = [
         "bookinfo.yaml",
-        "bookinfo-mysql.yaml",
+        "bookinfo-db.yaml",
         "bookinfo-ratings-v2.yaml",
         "mixer-rule-additional-telemetry.yaml",
         "mixer-rule-empty-rule.yaml",
@@ -10,7 +10,7 @@ filegroup(
         "mixer-rule-ratings-ratelimit.yaml",
         "route-rule-all-v1.yaml",
         "route-rule-delay.yaml",
-        "route-rule-ratings-mysql.yaml",
+        "route-rule-ratings-db.yaml",
         "route-rule-reviews-50-v3.yaml",
         "route-rule-reviews-test-v2.yaml",
         "route-rule-reviews-v2-v3.yaml",

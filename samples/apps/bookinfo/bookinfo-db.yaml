@@ -12,53 +12,35 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-##################################################################################################
-# Mysql db services
-# credentials: root/password
-##################################################################################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mysql-credentials
-type: Opaque
-data:
-  rootpasswd: cGFzc3dvcmQ=
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysqldb
+  name: mongodb
   labels:
-    app: mysqldb
+    app: mongodb
 spec:
   ports:
-  - port: 3306
-    name: mysql
+  - port: 27017
+    name: mongodb 
   selector:
-    app: mysqldb
+    app: mongodb
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mysqldb-v1
+  name: mongodb-v1
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: mysqldb
+        app: mongodb 
         version: v1
     spec:
       containers:
-      - name: mysqldb
-        image: quay.io/saurabh/mysqldb:v4
-        imagePullPolicy: IfNotPresent
+      - name: mongodb 
+        image: quay.io/saurabh/mongodb:v1
+        imagePullPolicy: Always
         ports:
-        - containerPort: 3306
-        env:
-          - name: MYSQL_ROOT_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mysql-credentials
-                key: rootpasswd
+        - containerPort: 27017
 ---
