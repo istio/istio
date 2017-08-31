@@ -35,7 +35,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	if !containsListEntryTemplate(info.SupportedTemplates) {
 		t.Error("Didn't find all expected supported templates")
@@ -88,7 +88,7 @@ func TestIPList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -179,7 +179,7 @@ func TestStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -236,7 +236,7 @@ func TestBlackStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -294,7 +294,7 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -342,7 +342,7 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 }
 
 func TestNoUrlStringList(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		Overrides: []string{"OVERRIDE"},
@@ -384,7 +384,7 @@ func TestNoUrlStringList(t *testing.T) {
 }
 
 func TestBadUrl(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     "https://localhost:80",
@@ -417,7 +417,7 @@ func TestIOErrors(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -481,7 +481,7 @@ func TestRefreshAndPurge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
@@ -580,7 +580,7 @@ func TestValidateConfig(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

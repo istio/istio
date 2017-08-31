@@ -22,12 +22,12 @@ import (
 	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/mixer/cmd/shared"
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(args []string, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",

@@ -9,6 +9,7 @@ go_library(
     deps = [
         "//adapter/stdio/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/handler:go_default_library",
         "//template/logentry:go_default_library",
         "//template/metric:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",

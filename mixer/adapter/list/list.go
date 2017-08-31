@@ -31,6 +31,7 @@ import (
 
 	"istio.io/mixer/adapter/list/config"
 	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/listentry"
 )
 
@@ -268,9 +269,9 @@ func (h *handler) purgeList() {
 
 ///////////////// Bootstrap ///////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
+	return pkgHndlr.Info{
 		Name:               "list-checker",
 		Impl:               "istio.io/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",

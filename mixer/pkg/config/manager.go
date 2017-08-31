@@ -30,6 +30,7 @@ import (
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -86,7 +87,7 @@ type Manager struct {
 // GlobalConfig specifies the location of Global Config.
 // ServiceConfig specifies the location of Service config.
 func NewManager(eval expr.Evaluator, aspectFinder AspectValidatorFinder, builderFinder BuilderValidatorFinder,
-	getBuilderInfoFns []adapter.InfoFn, findAspects AdapterToAspectMapper, repository template.Repository,
+	getBuilderInfoFns []handler.InfoFn, findAspects AdapterToAspectMapper, repository template.Repository,
 	store store.KeyValueStore, loopDelay time.Duration, identityAttribute string,
 	identityAttributeDomain string) *Manager {
 	m := &Manager{

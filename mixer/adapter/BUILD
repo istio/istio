@@ -24,6 +24,7 @@ go_library(
         "//adapter/stdio:go_default_library",
         "//adapter/stdioLogger:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/handler:go_default_library",
     ],
 )
 

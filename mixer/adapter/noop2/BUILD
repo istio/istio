@@ -8,6 +8,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
+        "//pkg/handler:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/logentry:go_default_library",

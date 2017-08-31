@@ -33,6 +33,7 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
@@ -219,9 +220,9 @@ func (h *handler) Close() error {
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetBuilderInfo returns the Info associated with this adapter implementation.
+func GetBuilderInfo() pkgHndlr.Info {
+	return pkgHndlr.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",

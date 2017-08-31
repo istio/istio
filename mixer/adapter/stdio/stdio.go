@@ -26,6 +26,7 @@ import (
 
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -224,9 +225,9 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetBuilderInfo returns the BuilderInfo associated with this adapter implementation.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetBuilderInfo returns the Info associated with this adapter implementation.
+func GetBuilderInfo() pkgHndlr.Info {
+	return pkgHndlr.Info{
 		Name:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
 		SupportedTemplates: []string{

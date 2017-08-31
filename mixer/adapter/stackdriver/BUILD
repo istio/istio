@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//adapter/stackdriver/config:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/handler:go_default_library",
         "//template/metric:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
