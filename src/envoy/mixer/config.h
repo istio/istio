@@ -46,6 +46,9 @@ struct MixerConfig {
   // valid values are: [open|close]
   std::string network_fail_policy;
 
+  // if value is 1 or true, disable check/quota calls.
+  bool disable_tcp_check_calls;
+
   // Load the config from envoy config.
   void Load(const Json::Object& json);
 

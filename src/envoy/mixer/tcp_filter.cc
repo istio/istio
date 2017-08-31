@@ -121,20 +121,23 @@ class TcpInstance : public Network::Filter,
                    filter_callbacks_->connection().remoteAddress().asString(),
                    filter_callbacks_->connection().localAddress().asString());
 
-    if (state_ == State::NotStarted) {
+    // Reports are always enabled.. And TcpReport uses attributes
+    // extracted by BuildTcpCheck
+    request_data_ = std::make_shared<HttpRequestData>();
+
+    std::string origin_user;
+    Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
+    if (ssl != nullptr) {
+      origin_user = ssl->uriSanPeerCertificate();
+    }
+    mixer_control_.BuildTcpCheck(request_data_, filter_callbacks_->connection(),
+                                 origin_user);
+
+    if (state_ == State::NotStarted &&
+        !mixer_control_.MixerTcpCheckDisabled()) {
       state_ = State::Calling;
-      request_data_ = std::make_shared<HttpRequestData>();
-
-      std::string origin_user;
-      Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
-      if (ssl != nullptr) {
-        origin_user = ssl->uriSanPeerCertificate();
-      }
-
       filter_callbacks_->connection().readDisable(true);
       calling_check_ = true;
-      mixer_control_.BuildTcpCheck(
-          request_data_, filter_callbacks_->connection(), origin_user);
       cancel_check_ = mixer_control_.SendCheck(
           request_data_, nullptr,
           [this](const Status& status) { completeCheck(status); });

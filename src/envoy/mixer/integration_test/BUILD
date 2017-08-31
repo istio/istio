@@ -67,5 +67,6 @@ go_test_suite(
         "report_batch_test.go",
         "stress_test.go",
         "tcp_filter_test.go",
+        "disable_tcp_check_calls_test.go",
     ],
 )
