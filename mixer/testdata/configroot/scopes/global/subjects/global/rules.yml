@@ -10,8 +10,9 @@ rules:
     params:
       input_expressions:
         sourceUID: source.uid | ""
+        sourceIP: source.ip | ip("0.0.0.0") # default to unspecified ip addr
         targetUID: target.uid | ""
-        originUID: origin.uid | ""
+        targetIP: target.ip | ip("0.0.0.0") # default to unspecified ip addr
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels

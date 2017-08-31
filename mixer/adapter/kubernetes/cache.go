@@ -16,8 +16,8 @@ package kubernetes
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -34,7 +34,7 @@ type (
 	// internal interface used to support testing
 	cacheController interface {
 		Run(<-chan struct{})
-		GetPod(string) (*v1.Pod, error)
+		GetPod(string) (*v1.Pod, bool)
 		HasSynced() bool
 	}
 
@@ -43,6 +43,9 @@ type (
 		env           adapter.Env
 		pods          cache.SharedInformer
 		mutationsChan chan resourceMutation
+
+		ipPodMap      map[string]string
+		ipPodMapMutex *sync.RWMutex
 	}
 
 	// used to send updates to the logger
@@ -82,6 +85,8 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 		clientset:     clientset,
 		env:           env,
 		mutationsChan: make(chan resourceMutation, mutationBufferSize),
+		ipPodMapMutex: &sync.RWMutex{},
+		ipPodMap:      make(map[string]string),
 	}
 
 	namespace := "" // todo: address unparam linter issue
@@ -98,6 +103,18 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 		&v1.Pod{},
 		refreshDuration,
 		cache.Indexers{},
+	)
+
+	c.pods.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.updateIPPodMap,
+			DeleteFunc: c.deleteFromIPPodMap,
+			UpdateFunc: func(old, cur interface{}) {
+				if !reflect.DeepEqual(old, cur) {
+					c.updateIPPodMap(cur)
+				}
+			},
+		},
 	)
 
 	// debug logging for pod update events
@@ -131,7 +148,7 @@ func (c *controllerImpl) Run(stop <-chan struct{}) {
 	}
 	c.env.ScheduleDaemon(func() {
 		c.pods.Run(stop)
-		c.env.Logger().Infof("cluster cache started")
+		c.env.Logger().Infof("pod cache started")
 	})
 	<-stop
 	c.env.Logger().Infof("cluster cache updating terminated")
@@ -187,16 +204,19 @@ func (c *controllerImpl) log(obj interface{}, kind eventType) error {
 
 // GetPod returns a Pod object that corresponds to the supplied key, if one
 // exists (and is known to the store). Keys are expected in the form of:
-// namespace/name (example: "default/curl-2421989462-b2g2d.default").
-func (c *controllerImpl) GetPod(podKey string) (*v1.Pod, error) {
-	item, exists, err := c.pods.GetStore().GetByKey(podKey)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving pod: %v", err)
-	}
+// namespace/name or IP address (example: "default/curl-2421989462-b2g2d.default").
+func (c *controllerImpl) GetPod(podKey string) (*v1.Pod, bool) {
+	c.ipPodMapMutex.RLock()
+	key, exists := c.ipPodMap[podKey]
+	c.ipPodMapMutex.RUnlock()
 	if !exists {
-		return nil, fmt.Errorf("pod '%s' does not exist", podKey)
+		key = podKey
 	}
-	return item.(*v1.Pod), nil
+	item, exists, err := c.pods.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil, false
+	}
+	return item.(*v1.Pod), true
 }
 
 func (e eventType) String() string {
@@ -210,4 +230,37 @@ func (e eventType) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+func (c *controllerImpl) updateIPPodMap(obj interface{}) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		c.env.Logger().Warningf("received update for non-pod item")
+		return
+	}
+	ip := pod.Status.PodIP
+
+	if len(ip) > 0 {
+		c.ipPodMapMutex.Lock()
+		c.ipPodMap[ip] = key(pod.Namespace, pod.Name)
+		c.ipPodMapMutex.Unlock()
+	}
+}
+
+func (c *controllerImpl) deleteFromIPPodMap(obj interface{}) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		c.env.Logger().Warningf("received update for non-pod item")
+		return
+	}
+	ip := pod.Status.PodIP
+	if len(ip) > 0 {
+		c.ipPodMapMutex.Lock()
+		delete(c.ipPodMap, ip)
+		c.ipPodMapMutex.Unlock()
+	}
+}
+
+func key(namespace, name string) string {
+	return namespace + "/" + name
 }

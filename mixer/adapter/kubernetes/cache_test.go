@@ -15,7 +15,6 @@
 package kubernetes
 
 import (
-	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -99,19 +98,20 @@ func (f *fakeInformer) RunCalled(timeout time.Duration) bool {
 type fakeStore struct {
 	cache.Store
 
-	pods      map[string]*v1.Pod
-	returnErr bool
+	pods     map[string]*v1.Pod
+	services map[string]*v1.Service
 }
 
 func (f fakeStore) GetByKey(key string) (interface{}, bool, error) {
-	if f.returnErr {
-		return nil, false, errors.New("get by key error")
-	}
 	p, found := f.pods[key]
-	if !found {
-		return nil, false, nil
+	if found {
+		return p, true, nil
 	}
-	return p, true, nil
+	s, found := f.services[key]
+	if found {
+		return s, true, nil
+	}
+	return nil, false, nil
 }
 
 func TestClusterInfoCache_GetPod(t *testing.T) {
@@ -120,23 +120,14 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 			"default/test": {},
 		},
 	}
-
-	errStore := fakeStore{
-		pods: map[string]*v1.Pod{
-			"default/test": {},
-		},
-		returnErr: true,
-	}
-
 	tests := []struct {
-		name    string
-		key     string
-		store   cache.Store
-		wantErr bool
+		name  string
+		key   string
+		store cache.Store
+		want  bool
 	}{
-		{"found", "default/test", workingStore, false},
-		{"not found", "custom/missing", workingStore, true},
-		{"store error", "default/test", errStore, true},
+		{"found", "default/test", workingStore, true},
+		{"not found", "custom/missing", workingStore, false},
 	}
 
 	for _, v := range tests {
@@ -144,19 +135,104 @@ func TestClusterInfoCache_GetPod(t *testing.T) {
 			informer := &fakeInformer{store: v.store}
 
 			c := &controllerImpl{
-				pods: informer,
-				env:  test.NewEnv(t),
+				pods:          informer,
+				env:           test.NewEnv(t),
+				ipPodMapMutex: &sync.RWMutex{},
 			}
 
-			got, err := c.GetPod(v.key)
-			if err == nil && v.wantErr {
-				t.Fatal("Expected error")
+			_, got := c.GetPod(v.key)
+			if got != v.want {
+				t.Errorf("GetPod() => (_, %t), wanted (_, %t)", got, v.want)
 			}
-			if err != nil && !v.wantErr {
-				t.Fatalf("Unexpected error: %v", err)
+		})
+	}
+}
+
+func TestClusterInfoCache_UpdateIPPodMap(t *testing.T) {
+	workingStore := fakeStore{
+		pods: map[string]*v1.Pod{
+			"default/test": {},
+		},
+	}
+
+	foundPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.1"},
+	}
+
+	missingPod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "missing", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.2"},
+	}
+
+	informer := &fakeInformer{store: workingStore}
+
+	c := &controllerImpl{
+		pods:          informer,
+		env:           test.NewEnv(t),
+		ipPodMapMutex: &sync.RWMutex{},
+		ipPodMap:      make(map[string]string),
+	}
+
+	tests := []struct {
+		name   string
+		newPod interface{}
+		getKey string
+		want   bool
+	}{
+		{"found", foundPod, foundPod.Status.PodIP, true},
+		{"not found", missingPod, missingPod.Status.PodIP, false},
+		{"nil", nil, "10.1.10.3", false},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			c.updateIPPodMap(v.newPod)
+			_, got := c.GetPod(v.getKey)
+			if got != v.want {
+				t.Errorf("GetPod(%s) => (_, %t), wanted (_, %t)", v.getKey, got, v.want)
 			}
-			if got == nil && !v.wantErr {
-				t.Error("Expected non-nil Pod returned")
+		})
+	}
+}
+
+func TestClusterInfoCache_DeleteFromIPPodMap(t *testing.T) {
+	workingStore := fakeStore{
+		pods: map[string]*v1.Pod{
+			"default/test": {},
+		},
+	}
+
+	toDelete := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Status:     v1.PodStatus{PodIP: "10.1.10.1"},
+	}
+
+	informer := &fakeInformer{store: workingStore}
+
+	c := &controllerImpl{
+		pods:          informer,
+		env:           test.NewEnv(t),
+		ipPodMapMutex: &sync.RWMutex{},
+		ipPodMap:      map[string]string{toDelete.Status.PodIP: key(toDelete.Namespace, toDelete.Name)},
+	}
+
+	tests := []struct {
+		name   string
+		pod    interface{}
+		getKey string
+		want   bool
+	}{
+		{"deleted", toDelete, toDelete.Status.PodIP, false},
+		{"nil", nil, toDelete.Status.PodIP, false},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			c.deleteFromIPPodMap(v.pod)
+			_, got := c.GetPod(v.getKey)
+			if got != v.want {
+				t.Errorf("GetPod(%s) => (_, %t), wanted (_, %t)", v.getKey, got, v.want)
 			}
 		})
 	}

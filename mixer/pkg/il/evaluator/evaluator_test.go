@@ -45,6 +45,15 @@ func TestEval_Error(t *testing.T) {
 	}
 }
 
+func TestEval_IPError(t *testing.T) {
+	e := initEvaluator(t, configInt)
+	bag := initBag(int64(23))
+	_, err := e.Eval("ip(\"not-an-ip-addr\")", bag)
+	if err == nil {
+		t.Fatal("Was expecting an error")
+	}
+}
+
 func TestEvalString(t *testing.T) {
 	e := initEvaluator(t, configString)
 	bag := initBag("foo")

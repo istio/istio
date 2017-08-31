@@ -15,8 +15,13 @@
 package expr
 
 import (
+	"errors"
+	"fmt"
+	"net"
 	"reflect"
 	"strings"
+
+	multierror "github.com/hashicorp/go-multierror"
 
 	config "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -211,8 +216,18 @@ func newOR() Func {
 // Call selects first non empty argument / non erroneous
 // may return nil
 func (f *orFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
-	for _, arg := range args {
-		ret, _ := arg.Eval(attrs, fMap)
+	var me *multierror.Error
+	for i, arg := range args {
+		ret, err := arg.Eval(attrs, fMap)
+
+		if err != nil {
+			me = multierror.Append(me, err)
+			if i == len(args)-1 {
+				return nil, fmt.Errorf("error(s) evaluating OR: %v", me.ErrorOrNil())
+			}
+			continue
+		}
+
 		// treating empty strings as nil, since
 		// go strings cannot be nil
 		if ret != nil && ret != "" {
@@ -251,6 +266,38 @@ func (f *indexFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[strin
 	return mp.(map[string]string)[key.(string)], nil
 }
 
+// func (string) []uint8
+type ipFunc struct {
+	*baseFunc
+}
+
+// newIP returns a fn that converts strings to IP_ADDRESSes.
+func newIP() Func {
+	return &ipFunc{
+		baseFunc: &baseFunc{
+			name:     "ip",
+			retType:  config.IP_ADDRESS,
+			argTypes: []config.ValueType{config.STRING},
+		},
+	}
+}
+
+// TODO: fix when proper net.IP support is added to Mixer.
+func (f *ipFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	val, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	rawIP, ok := val.(string)
+	if !ok {
+		return nil, errors.New("input to 'ip' func was not a string")
+	}
+	if ip := net.ParseIP(rawIP); ip != nil {
+		return []uint8(ip), nil
+	}
+	return nil, fmt.Errorf("could not convert '%s' to IP_ADDRESS", rawIP)
+}
+
 func inventory() []FuncBase {
 	return []FuncBase{
 		newEQ(),
@@ -259,6 +306,7 @@ func inventory() []FuncBase {
 		newLOR(),
 		newLAND(),
 		newIndex(),
+		newIP(),
 	}
 }
 
