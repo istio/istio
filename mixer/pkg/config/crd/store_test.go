@@ -19,6 +19,7 @@ import (
 	"errors"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -122,6 +123,7 @@ func (d *dummyListerWatcherBuilder) delete(key store.Key) {
 }
 
 func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
+	retryInterval = 0
 	ns := "istio-mixer-testing"
 	lw := &dummyListerWatcherBuilder{
 		data:     map[store.Key]*unstructured.Unstructured{},
@@ -288,5 +290,78 @@ func TestCrdsRetryMakeSucceed(t *testing.T) {
 	}
 	if callCount != 3 {
 		t.Errorf("Got %d, Want 3", callCount)
+	}
+}
+
+func TestCrdsRetryAsynchronously(t *testing.T) {
+	fakeDiscovery := &fake.FakeDiscovery{
+		Fake: &k8stesting.Fake{
+			Resources: []*metav1.APIResourceList{
+				{
+					GroupVersion: apiGroupVersion,
+					APIResources: []metav1.APIResource{
+						{Name: "handlers", SingularName: "handler", Kind: "Handler", Namespaced: true},
+					},
+				},
+			},
+		},
+	}
+	var count int32
+	// Gradually increase the number of API resources.
+	fakeDiscovery.AddReactor("get", "resource", func(k8stesting.Action) (bool, runtime.Object, error) {
+		if atomic.LoadInt32(&count) != 0 {
+			fakeDiscovery.Resources[0].APIResources = append(
+				fakeDiscovery.Resources[0].APIResources,
+				metav1.APIResource{Name: "actions", SingularName: "action", Kind: "Action", Namespaced: true},
+			)
+		}
+		return true, nil, nil
+	})
+	s, ns, lw := getTempClient()
+	s.discoveryBuilder = func(*rest.Config) (discovery.DiscoveryInterface, error) {
+		return fakeDiscovery, nil
+	}
+	k1 := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
+	if err := lw.put(k1, map[string]interface{}{"adapter": "noop"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Init(context.Background(), []string{"Handler", "Action"}); err != nil {
+		t.Fatal(err)
+	}
+	s.cacheMutex.Lock()
+	ncaches := len(s.caches)
+	s.cacheMutex.Unlock()
+	if ncaches != 1 {
+		t.Errorf("Has %d caches, Want 1 caches", ncaches)
+	}
+	wch, err := s.Watch(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	atomic.StoreInt32(&count, 1)
+	k2 := store.Key{Kind: "Action", Namespace: ns, Name: "default"}
+	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
+		t.Error(err)
+	}
+	waitFor(wch, store.Update, k2)
+
+	after := time.After(time.Second / 10)
+	tick := time.Tick(time.Millisecond)
+loop:
+	for {
+		select {
+		case <-after:
+			break loop
+		case <-tick:
+			s.cacheMutex.Lock()
+			ncaches = len(s.caches)
+			s.cacheMutex.Unlock()
+			if ncaches > 1 {
+				break loop
+			}
+		}
+	}
+	if ncaches != 2 {
+		t.Errorf("Has %d caches, Want 2 caches", ncaches)
 	}
 }

@@ -61,8 +61,10 @@ type fsStore2 struct {
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
-	watchCtx      context.Context
-	watchCh       chan BackendEvent
+
+	watchMutex sync.RWMutex
+	watchCtx   context.Context
+	watchCh    chan BackendEvent
 
 	mu   sync.RWMutex
 	data map[Key]*resource
@@ -157,6 +159,8 @@ func (s *fsStore2) checkAndUpdate() {
 		return
 	}
 	s.data = newData
+	s.watchMutex.RLock()
+	defer s.watchMutex.RUnlock()
 	if s.watchCtx == nil || s.watchCtx.Err() != nil {
 		return
 	}
@@ -208,9 +212,12 @@ func (s *fsStore2) Init(ctx context.Context, kinds []string) error {
 
 // Watch implements Store2Backend interface.
 func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
+	ch := make(chan BackendEvent)
+	s.watchMutex.Lock()
 	s.watchCtx = ctx
-	s.watchCh = make(chan BackendEvent)
-	return s.watchCh, nil
+	s.watchCh = ch
+	s.watchMutex.Unlock()
+	return ch, nil
 }
 
 // Get implements Store2Backend interface.
