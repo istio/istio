@@ -1,4 +1,4 @@
-apiVersion: config.istio.io/v1beta1
+apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
   name: reviews-test-v2
@@ -10,7 +10,7 @@ spec:
     request:
       headers:
         cookie:
-          regex: ^(.*?;)?(user=jason)(;.*)?$
+          regex: "^(.*?;)?(user=jason)(;.*)?$"
   route:
   - labels:
       version: v2

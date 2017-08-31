@@ -24,7 +24,7 @@ kubectl apply -f myrule.yaml
 ```
 0.2.x:
 ```
-apiVersion: config.istio.io/v1beta1
+apiVersion: config.istio.io/v1alpha2
 ```
 
 0.1.x:
@@ -144,7 +144,7 @@ kubectl apply -f mypolicy.yaml
 ```
 0.2.x:
 ```
-apiVersion: config.istio.io/v1beta1
+apiVersion: config.istio.io/v1alpha2
 ```
 
 0.1.x:
@@ -196,7 +196,7 @@ spec:
 
 0.2.x:
 ```
-apiVersion: config.istio.io/v1beta1
+apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
   name: ratings-test-delay
@@ -233,7 +233,7 @@ spec:
 ```
 0.2.x:
 ```
-apiVersion: config.istio.io/v1beta1
+apiVersion: config.istio.io/v1alpha2
 kind: DestinationPolicy
 metadata:
   name: reviews
