@@ -108,31 +108,18 @@ func TestQueueSync(t *testing.T) {
 	}
 }
 
-func TestQueueCancel(t *testing.T) {
-	count := 10
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(count)/2)
-	defer cancel()
+func TestQueueCancelClosesOutputChannel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
 	chin := make(chan BackendEvent)
 	q := newQueue(ctx, chin, map[string]proto.Message{"Handler": &cfg.Handler{}})
-	evs := []Event{}
 	donec := make(chan struct{})
 	go func() {
-		for ev := range q.chout {
-			evs = append(evs, ev)
+		for range q.chout {
 		}
 		close(donec)
 	}()
-	for i := 0; i < count; i++ {
-		select {
-		case <-ctx.Done():
-		case chin <- BackendEvent{Type: Update, Key: Key{Kind: "Handler", Namespace: "ns", Name: fmt.Sprintf("%d", i)}}:
-		}
-		time.Sleep(time.Millisecond)
-	}
+	cancel()
 	<-donec
-	if len(evs) > count/2 {
-		t.Errorf("Got %d, Want <=%d", len(evs), count/2)
-	}
 }
 
 func TestQueueCancelSync(t *testing.T) {
