@@ -16,6 +16,7 @@ package evaluator
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -39,6 +40,19 @@ type IL struct {
 
 var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
+
+const ipFnName = "ip"
+
+var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
+	if ip := net.ParseIP(in); ip != nil {
+		return []byte(ip), nil
+	}
+	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
+})
+
+var externMap = map[string]interpreter.Extern{
+	ipFnName: ipExternFn,
+}
 
 type cacheEntry struct {
 	expression  *expr.Expression
@@ -146,7 +160,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 
-	intr := interpreter.New(result.Program, make(map[string]interpreter.Extern))
+	intr := interpreter.New(result.Program, externMap)
 	entry := cacheEntry{
 		expression:  result.Expression,
 		interpreter: intr,

@@ -206,7 +206,11 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
+	case "ip":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.builder.Call("ip")
 	default:
+		// TODO: generalize "ip" case to iterate over Args and append Call
 		g.internalError("function not yet implemented: %s", f.Name)
 	}
 }

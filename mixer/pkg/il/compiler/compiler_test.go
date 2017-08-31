@@ -15,7 +15,9 @@
 package compiler
 
 import (
+	"bytes"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -976,6 +978,15 @@ end`,
 		},
 		result: []byte{0x1, 0x2, 0x3, 0x4},
 	},
+	{
+		expr:   `ip("0.0.0.0")`,
+		result: []byte(net.IPv4zero),
+		code: `fn eval() interface
+  apush_s "0.0.0.0"
+  call ip
+  ret
+end`,
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -1067,7 +1078,19 @@ func TestCompile(t *testing.T) {
 				}
 			}
 			b := bag{attrs: te.input}
-			i := interpreter.New(result.Program, map[string]interpreter.Extern{})
+
+			ipExtern := interpreter.ExternFromFn("ip", func(in string) []byte {
+				if ip := net.ParseIP(in); ip != nil {
+					return []byte(ip)
+				}
+				return []byte{}
+			})
+
+			externMap := map[string]interpreter.Extern{
+				"ip": ipExtern,
+			}
+
+			i := interpreter.New(result.Program, externMap)
 			v, err := i.Eval("eval", &b)
 			if err != nil {
 				if len(te.err) != 0 {
@@ -1088,7 +1111,7 @@ func TestCompile(t *testing.T) {
 			bExp, found := te.result.([]byte)
 			if found {
 				bAct, found := v.AsInterface().([]byte)
-				if !found || !bytesEqual(bExp, bAct) {
+				if !found || !bytes.Equal(bExp, bAct) {
 					tt.Fatalf("Result match failed: %+v == %+v", v.AsInterface(), te.result)
 				}
 			} else if v.AsInterface() != te.result {
@@ -1096,19 +1119,6 @@ func TestCompile(t *testing.T) {
 			}
 		})
 	}
-}
-
-func bytesEqual(b1 []byte, b2 []byte) bool {
-	if len(b1) != len(b2) {
-		return false
-	}
-	for i := 0; i < len(b1); i++ {
-		if b1[i] != b2[i] {
-			return false
-		}
-	}
-
-	return true
 }
 
 func TestCompile_ParseError(t *testing.T) {
