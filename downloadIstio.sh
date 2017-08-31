@@ -8,7 +8,7 @@
 # The script fetches the latest Istio release and untars it.
 
 # TODO: Automate updating me.
-ISTIO_VERSION="0.1.6"
+ISTIO_VERSION="0.2.1"
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
