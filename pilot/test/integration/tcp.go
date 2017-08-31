@@ -36,14 +36,15 @@ func (t *tcp) teardown() {
 }
 
 func (t *tcp) run() error {
-	testPods := []string{"a", "b"}
+	srcPods := []string{"a", "b", "t"}
+	dstPods := []string{"a", "b"}
 	if t.Auth == proxyconfig.ProxyMeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
-		testPods = append(testPods, "t")
+		dstPods = append(dstPods, "t")
 	}
 	funcs := make(map[string]func() status)
-	for _, src := range testPods {
-		for _, dst := range testPods {
+	for _, src := range srcPods {
+		for _, dst := range dstPods {
 			if src == "t" && dst == "t" {
 				// this is flaky in minikube
 				continue
@@ -55,7 +56,12 @@ func (t *tcp) run() error {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 						return func() status {
 							resp := t.clientRequest(src, url, 1, "")
-							if len(resp.code) > 0 && resp.code[0] == httpOk {
+							if t.Auth == proxyconfig.ProxyMeshConfig_MUTUAL_TLS && src == "t" {
+								// t cannot talk to envoy (a or b) with mTLS enabled.
+								if len(resp.code) == 0 || resp.code[0] != httpOk {
+									return nil
+								}
+							} else if len(resp.code) > 0 && resp.code[0] == httpOk {
 								return nil
 							}
 							return errAgain

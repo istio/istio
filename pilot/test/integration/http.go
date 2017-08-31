@@ -51,14 +51,15 @@ func (r *http) run() error {
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
 func (r *http) makeRequests() error {
-	testPods := []string{"a", "b"}
+	srcPods := []string{"a", "b", "t"}
+	dstPods := []string{"a", "b"}
 	if r.Auth == proxyconfig.ProxyMeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
-		testPods = append(testPods, "t")
+		dstPods = append(dstPods, "t")
 	}
 	funcs := make(map[string]func() status)
-	for _, src := range testPods {
-		for _, dst := range testPods {
+	for _, src := range srcPods {
+		for _, dst := range dstPods {
 			if src == "t" && dst == "t" {
 				// this is flaky in minikube
 				continue
@@ -70,6 +71,13 @@ func (r *http) makeRequests() error {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 						return func() status {
 							resp := r.clientRequest(src, url, 1, "")
+							if r.Auth == proxyconfig.ProxyMeshConfig_MUTUAL_TLS && src == "t" {
+								if len(resp.id) == 0 {
+									// Expected no match for t->a
+									return nil
+								}
+								return errAgain
+							}
 							if len(resp.id) > 0 {
 								id := resp.id[0]
 								if src != "t" {
