@@ -223,7 +223,17 @@ spec:
         configMap:
           name: istio
 ---
-
+################################
+# Empty secret for Istio ingress controller
+################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: istio-ingress-certs
+data:
+  tls.key:
+  tls.crt:
+---
 ################################
 # Istio egress envoy with Istio auth
 ################################
