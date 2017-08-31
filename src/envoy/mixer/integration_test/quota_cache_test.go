@@ -16,6 +16,7 @@ package test
 
 import (
 	"fmt"
+	mixerpb "istio.io/api/mixer/v1"
 	"testing"
 )
 
@@ -23,7 +24,7 @@ func TestQuotaCache(t *testing.T) {
 	// Only check cache is enabled, quota cache is enabled.
 	s := &TestSetup{
 		t:    t,
-		conf: basicConfig + "," + checkCacheConfig + "," + quotaCacheConfig,
+		conf: basicConfig + "," + quotaCacheConfig,
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -31,6 +32,18 @@ func TestQuotaCache(t *testing.T) {
 	defer s.TearDown()
 
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
+
+	// Need to override mixer test server Referenced field in the check response.
+	// Its default is all fields in the request which could not be used fo test check cache.
+	output := mixerpb.ReferencedAttributes{
+		AttributeMatches: make([]mixerpb.ReferencedAttributes_AttributeMatch, 1),
+	}
+	output.AttributeMatches[0] = mixerpb.ReferencedAttributes_AttributeMatch{
+		// Assume "target.name" is in the request attributes, and it is used for Check.
+		Name:      10,
+		Condition: mixerpb.EXACT,
+	}
+	s.mixer.check_referenced = &output
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"

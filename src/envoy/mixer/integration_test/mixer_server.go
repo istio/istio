@@ -23,6 +23,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
+	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/test"
 )
@@ -67,12 +68,16 @@ type MixerServer struct {
 	qma          test.QuotaArgs
 	quota_amount int64
 	quota_limit  int64
+
+	check_referenced *mixerpb.ReferencedAttributes
+	quota_referenced *mixerpb.ReferencedAttributes
 }
 
 func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (test.CheckResponse, rpc.Status) {
 	result := test.CheckResponse{
 		ValidDuration: test.DefaultValidDuration,
 		ValidUseCount: test.DefaultValidUseCount,
+		Referenced:    ts.check_referenced,
 	}
 	return result, ts.check.run(bag)
 }
@@ -101,6 +106,7 @@ func (ts *MixerServer) Quota(bag attribute.Bag, qma test.QuotaArgs) (test.QuotaR
 		}
 		qmr.Expiration = time.Minute
 	}
+	qmr.Referenced = ts.quota_referenced
 	return qmr, status
 }
 

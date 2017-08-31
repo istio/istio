@@ -33,8 +33,9 @@ const std::string kForwardAttributes("forward_attributes");
 const std::string kQuotaName("quota_name");
 const std::string kQuotaAmount("quota_amount");
 
-// The Json object name for check cache keys.
-const std::string kCheckCacheKeys("check_cache_keys");
+// The Json object name to disable check cache and quota cache
+const std::string kDisableCheckCache("disable_check_cache");
+const std::string kDisableQuotaCache("disable_quota_cache");
 
 const std::string kNetworkFailPolicy("network_fail_policy");
 
@@ -56,14 +57,6 @@ void ReadStringMap(const Json::Object& json, const std::string& name,
   }
 }
 
-void ReadStringVector(const Json::Object& json, const std::string& name,
-                      std::vector<std::string>* value) {
-  if (json.hasObject(name)) {
-    auto v = json.getStringArray(name);
-    value->swap(v);
-  }
-}
-
 }  // namespace
 
 void MixerConfig::Load(const Json::Object& json) {
@@ -75,7 +68,8 @@ void MixerConfig::Load(const Json::Object& json) {
 
   ReadString(json, kNetworkFailPolicy, &network_fail_policy);
 
-  ReadStringVector(json, kCheckCacheKeys, &check_cache_keys);
+  ReadString(json, kDisableCheckCache, &disable_check_cache);
+  ReadString(json, kDisableQuotaCache, &disable_quota_cache);
 }
 
 void MixerConfig::ExtractQuotaAttributes(Attributes* attr) const {

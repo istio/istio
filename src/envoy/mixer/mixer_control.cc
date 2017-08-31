@@ -75,18 +75,28 @@ const std::string kCheckStatusCode = "check.status";
 // Keys to well-known headers
 const LowerCaseString kRefererHeaderKey("referer");
 
-// Check cache size: 10000 cache entries.
-const int kCheckCacheEntries = 10000;
+CheckOptions GetJustCheckOptions(const MixerConfig& config) {
+  if (config.disable_check_cache == "1" or
+      config.disable_check_cache == "true") {
+    return CheckOptions(0);
+  }
+  return CheckOptions();
+}
 
 CheckOptions GetCheckOptions(const MixerConfig& config) {
-  CheckOptions options(kCheckCacheEntries);
-  options.cache_keys = config.check_cache_keys;
-
+  auto options = GetJustCheckOptions(config);
   if (config.network_fail_policy == "close") {
     options.network_fail_open = false;
   }
-
   return options;
+}
+
+QuotaOptions GetQuotaOptions(const MixerConfig& config) {
+  if (config.disable_quota_cache == "1" or
+      config.disable_quota_cache == "true") {
+    return QuotaOptions(0, 1000);
+  }
+  return QuotaOptions();
 }
 
 void SetStringAttribute(const std::string& name, const std::string& value,
@@ -202,7 +212,7 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
                            Runtime::RandomGenerator& random)
     : cm_(cm), mixer_config_(mixer_config) {
   MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
-                             QuotaOptions());
+                             GetQuotaOptions(mixer_config));
 
   options.check_transport = CheckTransport::GetFunc(cm, nullptr);
   options.report_transport = ReportTransport::GetFunc(cm);

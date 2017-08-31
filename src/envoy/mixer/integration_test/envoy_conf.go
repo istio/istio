@@ -58,18 +58,19 @@ const quotaConfig = `
                   "quota_amount": "5"
 `
 
-// A quota config with cache
+// A quota cache is on by default
 const quotaCacheConfig = `
                   "quota_name": "RequestCount"
 `
 
-// A config with check cache keys
-const checkCacheConfig = `
-                  "check_cache_keys": [
-                      "request.host",
-                      "request.path",
-                      "origin.user"
-                  ]
+// A config to disable check cache
+const disableCheckCache = `
+                  "disable_check_cache": "true"
+`
+
+// A config to disable quota cache
+const disableQuotaCache = `
+                  "disable_quota_cache": "true"
 `
 
 // A config with network fail close policy

@@ -39,8 +39,9 @@ struct MixerConfig {
   std::string quota_name;
   std::string quota_amount;
 
-  // The attribute names for check cache.
-  std::vector<std::string> check_cache_keys;
+  // if value is 1 or true, disable check cache and quota cache.
+  std::string disable_check_cache;
+  std::string disable_quota_cache;
 
   // valid values are: [open|close]
   std::string network_fail_policy;
