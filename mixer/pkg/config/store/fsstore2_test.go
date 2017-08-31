@@ -158,7 +158,9 @@ spec:
 			if err != nil {
 				tt.Fatal(err)
 			}
-			if err := s.Init(context.Background(), []string{"Kind"}); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if err := s.Init(ctx, []string{"Kind"}); err != nil {
 				tt.Fatal(err.Error())
 			}
 			if lst := s.List(); len(lst) != 1 {
@@ -255,7 +257,9 @@ func TestFSStore2MissingRoot(t *testing.T) {
 	if err := os.RemoveAll(fsroot); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Init(context.Background(), []string{"Kind"}); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Kind"}); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
 	if lst := s.List(); len(lst) != 0 {
@@ -319,7 +323,9 @@ spec:
 			if err := c.prepare(fsroot); err != nil {
 				tt.Fatalf("Failed to prepare precondition: %v", err)
 			}
-			if err := s.Init(context.Background(), []string{"Handler"}); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if err := s.Init(ctx, []string{"Handler"}); err != nil {
 				tt.Fatalf("Init failed: %v", err)
 			}
 			want := map[Key]map[string]interface{}{k: data}
