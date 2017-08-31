@@ -72,6 +72,13 @@ func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
 	}
 }
 
+func (s *TestSetup) VerifyReportCount(tag string, expected int) {
+	if s.mixer.report.count != expected {
+		s.t.Fatalf("%s report count doesn't match: %v\n, expected: %+v",
+			tag, s.mixer.report.count, expected)
+	}
+}
+
 func (s *TestSetup) VerifyCheck(tag string, result string) {
 	bag := <-s.mixer.check.ch
 	if err := Verify(bag, result); err != nil {

@@ -177,14 +177,21 @@ Check calls can be cached. By default, it is enabled. Mixer server controls whic
 
 Check cache can be disabled with following config:
 ```
-         "disable_check_cache": "true",
+         "disable_check_cache": true,
 ```
 
 ## How to disable cache for Quota calls
 
 Quota cache is tied to Check cache. It is enabled automatically if Check cache is enabled.  It can be disabled with following config:
 ```
-         "disable_quota_cache": "true",
+         "disable_quota_cache": true,
+```
+
+## How to disable batch for Report calls
+
+Reports are batched up to 1 second or up to 1000 records. It is enabled by default.  It can be disabled with following config:
+```
+         "disable_report_batch": true,
 ```
 
 ## How to change network failure policy
@@ -220,5 +227,6 @@ Here is its sample config:
 This filter will intercept a tcp connection:
 * Call Check at connection creation and call Report at connection close.
 * All mixer settings described above can be used here.
+* disable_tcp_check_calls is a tcp filter specific config to disable check for tcp connection.
 
 

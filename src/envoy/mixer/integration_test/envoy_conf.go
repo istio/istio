@@ -33,15 +33,15 @@ const (
 )
 
 type ConfParam struct {
-	ClientPort   int
-	ServerPort   int
-	TcpProxyPort int
-	AdminPort    int
-	MixerServer  string
-	Backend      string
-	ClientConfig string
-	ServerConfig string
-	AccessLog    string
+	ClientPort      int
+	ServerPort      int
+	TcpProxyPort    int
+	AdminPort       int
+	MixerServer     string
+	Backend         string
+	ClientConfig    string
+	ServerConfig    string
+	AccessLog       string
 	MixerRouteFlags string
 }
 
@@ -71,12 +71,17 @@ const disableTcpCheckCalls = `
 
 // A config to disable check cache
 const disableCheckCache = `
-                  "disable_check_cache": "true"
+                  "disable_check_cache": true
 `
 
 // A config to disable quota cache
 const disableQuotaCache = `
-                  "disable_quota_cache": "true"
+                  "disable_quota_cache": true
+`
+
+// A config to disable report batch
+const disableReportBatch = `
+                  "disable_report_batch": true
 `
 
 // A config with network fail close policy
@@ -315,9 +320,9 @@ func getConf() ConfParam {
 func CreateEnvoyConf(path, conf, flags string, stress bool) error {
 	c := getConf()
 	c.ServerConfig = conf
-	c.MixerRouteFlags = defaultMixerRouteFlags;
+	c.MixerRouteFlags = defaultMixerRouteFlags
 	if flags != "" {
-	   c.MixerRouteFlags = flags;
+		c.MixerRouteFlags = flags
 	}
 	if stress {
 		c.AccessLog = "/dev/null"

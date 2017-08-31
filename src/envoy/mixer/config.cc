@@ -33,9 +33,10 @@ const std::string kForwardAttributes("forward_attributes");
 const std::string kQuotaName("quota_name");
 const std::string kQuotaAmount("quota_amount");
 
-// The Json object name to disable check cache and quota cache
+// The Json object name to disable check cache, quota cache and report batch
 const std::string kDisableCheckCache("disable_check_cache");
 const std::string kDisableQuotaCache("disable_quota_cache");
+const std::string kDisableReportBatch("disable_report_batch");
 
 const std::string kNetworkFailPolicy("network_fail_policy");
 const std::string kDisableTcpCheckCalls("disable_tcp_check_calls");
@@ -69,8 +70,10 @@ void MixerConfig::Load(const Json::Object& json) {
 
   ReadString(json, kNetworkFailPolicy, &network_fail_policy);
 
-  ReadString(json, kDisableCheckCache, &disable_check_cache);
-  ReadString(json, kDisableQuotaCache, &disable_quota_cache);
+  disable_check_cache = json.getBoolean(kDisableCheckCache, false);
+  disable_quota_cache = json.getBoolean(kDisableQuotaCache, false);
+  disable_report_batch = json.getBoolean(kDisableReportBatch, false);
+
   disable_tcp_check_calls = json.getBoolean(kDisableTcpCheckCalls, false);
 }
 

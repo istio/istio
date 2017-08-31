@@ -39,9 +39,10 @@ struct MixerConfig {
   std::string quota_name;
   std::string quota_amount;
 
-  // if value is 1 or true, disable check cache and quota cache.
-  std::string disable_check_cache;
-  std::string disable_quota_cache;
+  // boo flags to disable check cache, quota cache, and report batch.
+  bool disable_check_cache;
+  bool disable_quota_cache;
+  bool disable_report_batch;
 
   // valid values are: [open|close]
   std::string network_fail_policy;

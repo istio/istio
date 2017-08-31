@@ -76,8 +76,7 @@ const std::string kCheckStatusCode = "check.status";
 const LowerCaseString kRefererHeaderKey("referer");
 
 CheckOptions GetJustCheckOptions(const MixerConfig& config) {
-  if (config.disable_check_cache == "1" or
-      config.disable_check_cache == "true") {
+  if (config.disable_check_cache) {
     return CheckOptions(0);
   }
   return CheckOptions();
@@ -92,11 +91,17 @@ CheckOptions GetCheckOptions(const MixerConfig& config) {
 }
 
 QuotaOptions GetQuotaOptions(const MixerConfig& config) {
-  if (config.disable_quota_cache == "1" or
-      config.disable_quota_cache == "true") {
+  if (config.disable_quota_cache) {
     return QuotaOptions(0, 1000);
   }
   return QuotaOptions();
+}
+
+ReportOptions GetReportOptions(const MixerConfig& config) {
+  if (config.disable_report_batch) {
+    return ReportOptions(0, 1000);
+  }
+  return ReportOptions();
 }
 
 void SetStringAttribute(const std::string& name, const std::string& value,
@@ -211,7 +216,8 @@ MixerControl::MixerControl(const MixerConfig& mixer_config,
                            Event::Dispatcher& dispatcher,
                            Runtime::RandomGenerator& random)
     : cm_(cm), mixer_config_(mixer_config) {
-  MixerClientOptions options(GetCheckOptions(mixer_config), ReportOptions(),
+  MixerClientOptions options(GetCheckOptions(mixer_config),
+                             GetReportOptions(mixer_config),
                              GetQuotaOptions(mixer_config));
 
   options.check_transport = CheckTransport::GetFunc(cm, nullptr);
