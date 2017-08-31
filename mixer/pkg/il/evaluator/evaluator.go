@@ -15,8 +15,10 @@
 package evaluator
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -33,9 +35,17 @@ import (
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
 // Specifically, it can listen to config change events.
 type IL struct {
+	cacheSize   int
+	context     *attrContext
+	contextLock sync.RWMutex
+	fMap        map[string]expr.FuncBase
+}
+
+// attrContext captures the set of fields that needs to be kept & evicted together based on
+// particular attribute metadata that was supplied as part of a ChangeListener call.
+type attrContext struct {
 	cache  *lru.Cache
 	finder expr.AttributeDescriptorFinder
-	fMap   map[string]expr.FuncBase
 }
 
 var _ expr.Evaluator = &IL{}
@@ -117,14 +127,37 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 
 // ChangeVocabulary handles changing of the attribute vocabulary.
 func (e *IL) ChangeVocabulary(finder expr.AttributeDescriptorFinder) {
-	e.finder = finder
-	e.cache.Purge()
+	e.updateAttrContext(finder)
 }
 
 // ConfigChange handles changing of configuration.
 func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
-	e.finder = df
-	e.cache.Purge()
+	e.updateAttrContext(df)
+}
+
+// updateAttrContext creates a new attrContext based on the supplied finder and a new cache, and replaces
+// the old one atomically.
+func (e *IL) updateAttrContext(finder expr.AttributeDescriptorFinder) {
+	cache, err := lru.New(e.cacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error from lru.New: %v", err))
+	}
+
+	context := &attrContext{
+		cache:  cache,
+		finder: finder,
+	}
+
+	e.contextLock.Lock()
+	e.context = context
+	e.contextLock.Unlock()
+}
+
+// getAttrContext gets the current attribute context atomically.
+func (e *IL) getAttrContext() *attrContext {
+	e.contextLock.RLock()
+	defer e.contextLock.RUnlock()
+	return e.context
 }
 
 func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, error) {
@@ -140,8 +173,8 @@ func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, e
 
 func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
-
-	if entry, found := e.cache.Get(expr); found {
+	ctx := e.getAttrContext()
+	if entry, found := ctx.cache.Get(expr); found {
 		return entry.(cacheEntry), nil
 	}
 
@@ -151,7 +184,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 
 	var err error
 	var result compiler.Result
-	if result, err = compiler.Compile(expr, e.finder); err != nil {
+	if result, err = compiler.Compile(expr, ctx.finder); err != nil {
 		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
 		return cacheEntry{}, err
 	}
@@ -166,19 +199,21 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		interpreter: intr,
 	}
 
-	_ = e.cache.Add(expr, entry)
+	_ = ctx.cache.Add(expr, entry)
 
 	return entry, nil
 }
 
 // NewILEvaluator returns a new instance of IL.
 func NewILEvaluator(cacheSize int) (*IL, error) {
-	cache, err := lru.New(cacheSize)
-	if err != nil {
-		return nil, err
+	// check the cacheSize here, to ensure that we can ignore errors in lru.New calls.
+	// cacheSize restriction is the only reason lru.New returns an error.
+	if cacheSize <= 0 {
+		return nil, errors.New("cacheSize must be positive")
 	}
+
 	return &IL{
-		cache: cache,
-		fMap:  expr.FuncMap(),
+		cacheSize: cacheSize,
+		fMap:      expr.FuncMap(),
 	}, nil
 }

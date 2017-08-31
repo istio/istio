@@ -119,7 +119,7 @@ func TestEvalPredicate_WrongType(t *testing.T) {
 
 func TestEvalType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	ty, err := e.EvalType("attr", e.finder)
+	ty, err := e.EvalType("attr", e.getAttrContext().finder)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -130,7 +130,7 @@ func TestEvalType(t *testing.T) {
 
 func TestEvalType_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	_, err := e.EvalType("boo", e.finder)
+	_, err := e.EvalType("boo", e.getAttrContext().finder)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -138,7 +138,7 @@ func TestEvalType_WrongType(t *testing.T) {
 
 func TestAssertType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.finder, pbv.BOOL)
+	err := e.AssertType("attr", e.getAttrContext().finder, pbv.BOOL)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -146,7 +146,7 @@ func TestAssertType(t *testing.T) {
 
 func TestAssertType_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.finder, pbv.STRING)
+	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -154,7 +154,7 @@ func TestAssertType_WrongType(t *testing.T) {
 
 func TestAssertType_EvaluationError(t *testing.T) {
 	e := initEvaluator(t, configBool)
-	err := e.AssertType("boo", e.finder, pbv.BOOL)
+	err := e.AssertType("boo", e.getAttrContext().finder, pbv.BOOL)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
@@ -172,7 +172,7 @@ func TestConfigChange(t *testing.T) {
 
 	f := descriptor.NewFinder(&configBool)
 	e.ConfigChange(nil, f, nil)
-	if e.finder != f {
+	if e.getAttrContext().finder != f {
 		t.Fatal("Finder is not set correctly")
 	}
 
