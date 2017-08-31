@@ -40,13 +40,13 @@ import (
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/shared"
-	pkgAdapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/api"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/il/evaluator"
 	"istio.io/mixer/pkg/pool"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
@@ -89,7 +89,7 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
-func serverCmd(info map[string]template.Info, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -196,7 +196,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, info map[string]template.Info, adapters []pkgAdapter.InfoFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with args: %#v", sa)
 
 	var err error
@@ -233,7 +233,7 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []pkgAdap
 	// TODO until the dispatcher 2 switch is complete,
 	// dispatcher 2 is only enabled when configStore2URL is specified.
 	if sa.configStore2URL != "" {
-		adapterMap := adapter.InventoryMap(adapters)
+		adapterMap := config.InventoryMap(adapters)
 		store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
 		if err != nil {
 			fatalf("Failed to connect to the configuration2 server. %v", err)

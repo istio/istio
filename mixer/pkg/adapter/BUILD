@@ -15,7 +15,6 @@ go_library(
         "configError.go",
         "denials.go",
         "handler.go",
-        "info.go",
         "labels.go",
         "lists.go",
         "metrics.go",
@@ -29,6 +28,12 @@ go_library(
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
+        # "//template/checknothing:go_default_library_gogo_proto",
+        # "//template/listentry:go_default_library_gogo_proto",
+        # "//template/logentry:go_default_library_gogo_proto",
+        # "//template/metric:go_default_library_gogo_proto",
+        # "//template/quota:go_default_library_gogo_proto",
+        # "//template/reportnothing:go_default_library_gogo_proto",
     ],
 )
 

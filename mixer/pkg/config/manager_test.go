@@ -25,6 +25,7 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/config/descriptor"
 	"istio.io/mixer/pkg/config/store"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -41,7 +42,7 @@ type mtest struct {
 	scContent string
 	sc        string
 	ada       map[string]adapter.ConfigValidator
-	hbi       map[string]*adapter.BuilderInfo
+	hbi       map[string]*handler.Info
 	asp       map[Kind]AspectValidator
 	errStr    string
 }

@@ -36,7 +36,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, checknothing.TemplateName) ||
 		!contains(info.SupportedTemplates, reportnothing.TemplateName) ||

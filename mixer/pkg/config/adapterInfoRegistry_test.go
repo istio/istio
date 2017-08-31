@@ -21,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 	"istio.io/mixer/template/sample"
 	sample_report "istio.io/mixer/template/sample/report"
@@ -30,8 +31,8 @@ type TestBuilderInfoInventory struct {
 	name string
 }
 
-func createBuilderInfo(name string) adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func createBuilderInfo(name string) handler.Info {
+	return handler.Info{
 		Name:                 name,
 		Description:          "mock adapter for testing",
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
@@ -41,7 +42,7 @@ func createBuilderInfo(name string) adapter.BuilderInfo {
 	}
 }
 
-func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo {
+func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() handler.Info {
 	return createBuilderInfo(t.name)
 }
 
@@ -66,7 +67,7 @@ func fakeValidateSupportedTmpl(hndlrBuilder adapter.HandlerBuilder, t string) (b
 
 func TestRegisterSampleProcessor(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
-	reg := newRegistry2([]adapter.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
+	reg := newRegistry2([]handler.InfoFn{testBuilderInfoInventory.getNewGetBuilderInfoFn},
 		template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate)
 
 	builderInfo, ok := reg.FindAdapterInfo(testBuilderInfoInventory.name)
@@ -90,7 +91,7 @@ func TestCollisionSameNameAdapter(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry2([]handler.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn}, fakeValidateSupportedTmpl,
 	)
@@ -105,12 +106,12 @@ func TestMissingDefaultValue(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic due to missing DefaultValue in BuilderInfo, " +
+			t.Error("Expected to recover from panic due to missing DefaultValue in Info, " +
 				"but recover was nil.")
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -122,12 +123,12 @@ func TestMissingValidateConfigFn(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic due to missing ValidateConfig in BuilderInfo, " +
+			t.Error("Expected to recover from panic due to missing ValidateConfig in Info, " +
 				"but recover was nil.")
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]handler.InfoFn{func() handler.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -136,7 +137,7 @@ func TestHandlerMap(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
 
-	mp := AdapterInfoMap([]adapter.InfoFn{
+	mp := AdapterInfoMap([]handler.InfoFn{
 		testBuilderInfoInventory.getNewGetBuilderInfoFn,
 		testBuilderInfoInventory2.getNewGetBuilderInfoFn,
 	}, fakeValidateSupportedTmpl)
@@ -163,8 +164,8 @@ func (badHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, er
 }
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
-	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
-		return adapter.BuilderInfo{
+	badHandlerBuilderBuilderInfo1 := func() handler.Info {
+		return handler.Info{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
@@ -173,8 +174,8 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			SupportedTemplates:   []string{sample_report.TemplateName},
 		}
 	}
-	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
-		return adapter.BuilderInfo{
+	badHandlerBuilderBuilderInfo2 := func() handler.Info {
+		return handler.Info{
 			Name:                 "badAdapter1",
 			Description:          "mock adapter for testing",
 			DefaultConfig:        &types.Empty{},
@@ -191,7 +192,7 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{
+	_ = newRegistry2([]handler.InfoFn{
 		badHandlerBuilderBuilderInfo1, badHandlerBuilderBuilderInfo2}, template.NewRepository(sample.SupportedTmplInfo).SupportsTemplate,
 	)
 

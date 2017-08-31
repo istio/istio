@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adapter
+package handler
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
+
+	"istio.io/mixer/pkg/adapter"
 )
 
-// BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
+// Info describes the Adapter and provides a function to a Handler Builder method.
 // TODO change this to Info when we delete the ApplicationLog.Info enum.
-type BuilderInfo struct {
+type Info struct {
 	// Name returns the official name of the adapter, it must be RFC 1035 compatible DNS label.
 	// Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
 	// Name is used in Istio configuration, therefore it should be descriptive but short.
@@ -35,7 +39,7 @@ type BuilderInfo struct {
 	Description string
 	// CreateHandlerBuilder is a function that creates a HandlerBuilder which implements Builders associated
 	// with the SupportedTemplates.
-	CreateHandlerBuilder CreateHandlerBuilderFn
+	CreateHandlerBuilder CreateHandlerBuilderFn // DEPRECATED
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
 	SupportedTemplates []string
 	// DefaultConfig is a default configuration struct for this
@@ -44,15 +48,35 @@ type BuilderInfo struct {
 	DefaultConfig proto.Message
 	// ValidateConfig is a function that determines whether the given handler configuration meets all
 	// correctness requirements.
-	ValidateConfig ValidateConfigFn
+	ValidateConfig ValidateConfigFn // DEPRECATED
+
+	// ValidateConfig2 is a function that determines whether the given handler configuration meets all
+	// correctness requirements.
+	ValidateConfig2 ValidateConfigFn2
+
+	// NewHandler must return a handler that implements all the template-specific runtime request serving
+	// interfaces that the adapter supports.
+	// If the returned Handler fails to implement the required interfaces, Mixer will report an error and stop serving
+	// runtime traffic to the particular Handler.
+	NewHandler NewHandlerFn
 }
 
 // CreateHandlerBuilderFn is a function that creates a HandlerBuilder.
-type CreateHandlerBuilderFn func() HandlerBuilder
+type CreateHandlerBuilderFn func() adapter.HandlerBuilder
+
+// NewHandlerFn must return a handler that implements all the template-specific runtime request serving
+// interfaces that adapter supports.
+// If the returned Handler fails to implement the required interfaces, Mixer will report an error and stop serving
+// runtime traffic to the particular Handler.
+type NewHandlerFn func(context.Context, adapter.Env, *HandlerConfig) (adapter.Handler, error)
+
+// ValidateConfigFn2 is a function that determines whether the given handler configuration meets all
+// correctness requirements.
+type ValidateConfigFn2 func(*HandlerConfig) *adapter.ConfigErrors
 
 // ValidateConfigFn is a function that determines whether the given handler configuration meets all
 // correctness requirements.
-type ValidateConfigFn func(Config) *ConfigErrors
+type ValidateConfigFn func(adapter.Config) *adapter.ConfigErrors
 
 // InfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
-type InfoFn func() BuilderInfo
+type InfoFn func() Info

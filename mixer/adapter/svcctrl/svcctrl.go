@@ -24,6 +24,7 @@ import (
 
 	"istio.io/mixer/adapter/svcctrl/config"
 	"istio.io/mixer/pkg/adapter"
+	pkgHandler "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -107,8 +108,8 @@ func (h *handler) Close() error {
 }
 
 // GetBuilderInfo registers Adapter with Mixer.
-func GetBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func GetBuilderInfo() pkgHandler.Info {
+	return pkgHandler.Info{
 		Name:        "svcctrl",
 		Impl:        "istio.io/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
