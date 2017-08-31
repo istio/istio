@@ -30,6 +30,11 @@ message ProxyMeshConfig {
   // Address of the mixer service (e.g. _istio-mixer:9090_).
   string mixer_address = 3;
 
+  // Disable policy checks by the mixer service. Metrics will still be
+  // reported to the mixer for HTTP requests and TCP connections. Default
+  // is false, i.e. mixer policy check is enabled by default.
+  bool disable_policy_checks = 25;
+  
   // Address of the Zipkin service (e.g. _zipkin:9411_).
   string zipkin_address = 4;
 
