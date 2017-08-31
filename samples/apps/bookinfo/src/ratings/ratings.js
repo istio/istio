@@ -17,12 +17,9 @@ var dispatcher = require('httpdispatcher');
 
 port = parseInt(process.argv[2]);
 
-if (process.env.SERVICE_VERSION == "v2") {
-  var mysql = require('mysql');
-  var hostName = process.env.MYSQL_DB_HOST;
-  var portNumber = process.env.MYSQL_DB_PORT;
-  var username = process.env.MYSQL_DB_USER;
-  var password = process.env.MYSQL_DB_PASSWORD;
+if (process.env.SERVICE_VERSION == 'v2') {
+  var MongoClient = require('mongodb').MongoClient
+  var url = process.env.MONGO_DB_URL
 }
 
 var ratingsResponse = {"Reviewer1": 5, "Reviewer2": 4}
@@ -55,39 +52,36 @@ dispatcher.onGet("/", function(req, res) {
 
 dispatcher.onGet("/ratings", function(req, res) {
   if (process.env.SERVICE_VERSION == "v2") {
-    var first_rating = 0;
-    var second_rating = 0;
-    var connection = mysql.createConnection({
-        host: hostName,
-        port: portNumber,
-        user: username,
-        password: password,
-        database : 'test'
-    });
-
-    var json;
-    connection.connect();
-    connection.query('SELECT Rating FROM ratings', function (error, results, fields) {
-        if (error) throw error;
-        if (results[0]) {
-            first_rating = results[0].Rating;
-        }
-        if (results[1]) {
-            second_rating = results[1].Rating;
-        }
-        ratingsResponse = {"Reviewer1": first_rating, "Reviewer2": second_rating};
-
-        json = JSON.stringify(ratingsResponse)
-        res.writeHead(200, {"Content-type": "application/json"})
-        res.end(json)
-
-    });
-    connection.end();
+    var first_rating = 0
+    var second_rating = 0
+    MongoClient.connect(url, function (err, db) {
+      if (err) {
+        res.writeHead(500, {"Content-type": "application/json"})
+        res.end(JSON.stringify(err))
+      } else {
+        db.collection('ratings').find({}).toArray(function (err, data) {
+          if (err) {
+            res.writeHead(500, {"Content-type": "application/json"})
+            res.end(JSON.stringify(err))
+          } else {
+            first_rating = data[0].rating
+            second_rating = data[1].rating
+            var result = {
+              Reviewer1: first_rating,
+              Reviewer2: second_rating
+            }
+            res.writeHead(200, {"Content-type": "application/json"})
+            res.end(JSON.stringify(result))
+          }
+          // close DB in any case:
+          db.close()
+        })
+      }
+    })
   }
   else {
-    var json = JSON.stringify(ratingsResponse)
     res.writeHead(200, {"Content-type": "application/json"})
-    res.end(json)
+    res.end(JSON.stringify(ratingsResponse))
   }
 })
 
