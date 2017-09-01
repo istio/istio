@@ -131,6 +131,46 @@ func TestServiceConversion(t *testing.T) {
 	}
 }
 
+func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	ip := "10.0.0.1"
+
+	localSvc := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        serviceName,
+			Namespace:   namespace,
+			Annotations: map[string]string{},
+		},
+		Spec: v1.ServiceSpec{
+			ClusterIP: ip,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "http",
+					Port:     8080,
+					Protocol: v1.ProtocolTCP,
+				},
+				{
+					Name:     "https",
+					Protocol: v1.ProtocolTCP,
+					Port:     443,
+				},
+			},
+		},
+	}
+
+	service := convertService(localSvc, domainSuffix)
+	if service == nil {
+		t.Errorf("could not convert service")
+	}
+
+	sa := service.ServiceAccounts
+	if len(sa) != 0 {
+		t.Errorf("number of service accounts is incorrect: %d, expected 0", len(sa))
+	}
+}
+
 func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"

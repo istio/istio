@@ -83,11 +83,15 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
-		for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsOnVMAnnotation], ",") {
-			serviceaccounts = append(serviceaccounts, canonicalToIstioServiceAccount(csa))
+		if svc.Annotations[CanonicalServiceAccountsOnVMAnnotation] != "" {
+			for _, csa := range strings.Split(svc.Annotations[CanonicalServiceAccountsOnVMAnnotation], ",") {
+				serviceaccounts = append(serviceaccounts, canonicalToIstioServiceAccount(csa))
+			}
 		}
-		for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
-			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
+		if svc.Annotations[KubeServiceAccountsOnVMAnnotation] != "" {
+			for _, ksa := range strings.Split(svc.Annotations[KubeServiceAccountsOnVMAnnotation], ",") {
+				serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace, domainSuffix))
+			}
 		}
 	}
 	sort.Sort(sort.StringSlice(serviceaccounts))
