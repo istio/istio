@@ -36,26 +36,32 @@ QuotaCache::CacheElem::CacheElem(const std::string& name) : name_(name) {
 void QuotaCache::CacheElem::Alloc(int amount, QuotaPrefetch::DoneFunc fn) {
   quota_->amount = amount;
   quota_->best_effort = true;
-  quota_->response_func =
-      [fn](const CheckResponse::QuotaResult* result) -> bool {
+  quota_->response_func = [fn](
+      const Attributes&, const CheckResponse::QuotaResult* result) -> bool {
     int amount = -1;
-    milliseconds expire;
+    milliseconds expire = duration_cast<milliseconds>(minutes(1));
     if (result != nullptr) {
       amount = result->granted_amount();
-      expire = ToMilliseonds(result->valid_duration());
+      if (result->has_valid_duration()) {
+        expire = ToMilliseonds(result->valid_duration());
+      }
     }
     fn(amount, expire, system_clock::now());
     return true;
   };
 }
 
-bool QuotaCache::CacheElem::Quota(int amount, CheckResult::Quota* quota) {
+void QuotaCache::CacheElem::Quota(int amount, CheckResult::Quota* quota) {
   quota_ = quota;
-  bool ret = prefetch_->Check(amount, system_clock::now());
+  if (prefetch_->Check(amount, system_clock::now())) {
+    quota->result = CheckResult::Quota::Passed;
+  } else {
+    quota->result = CheckResult::Quota::Rejected;
+  }
+
   // A hack that requires prefetch code to call transport Alloc() function
   // within Check() call.
   quota_ = nullptr;
-  return ret;
 }
 
 QuotaCache::CheckResult::CheckResult() : status_(Code::UNAVAILABLE, "") {}
@@ -111,7 +117,7 @@ void QuotaCache::CheckResult::SetResponse(const Status& status,
                             << quota.name;
         }
       }
-      if (!quota.response_func(result)) {
+      if (!quota.response_func(attributes, result)) {
         if (!rejected_quota_names.empty()) {
           rejected_quota_names += ",";
         }
@@ -140,13 +146,17 @@ QuotaCache::~QuotaCache() {
   FlushAll();
 }
 
-void QuotaCache::CheckCache(const Attributes& request, bool use_cache,
+void QuotaCache::CheckCache(const Attributes& request, bool check_use_cache,
                             CheckResult::Quota* quota) {
-  if (!cache_ || !use_cache) {
+  // If check is not using cache, that check may be rejected.
+  // If quota cache is used, quota amount is already substracted from the cache.
+  // If the check is rejected, there is not easy way to add them back to cache.
+  // The workaround is not to use quota cache if check is not in the cache.
+  if (!cache_ || !check_use_cache) {
     quota->best_effort = false;
     quota->result = CheckResult::Quota::Pending;
-    quota->response_func =
-        [](const CheckResponse::QuotaResult* result) -> bool {
+    quota->response_func = [](
+        const Attributes&, const CheckResponse::QuotaResult* result) -> bool {
       // nullptr means connection error, for quota, it is fail open for
       // connection error.
       return result == nullptr || result->granted_amount() > 0;
@@ -154,29 +164,76 @@ void QuotaCache::CheckCache(const Attributes& request, bool use_cache,
     return;
   }
 
-  // TODO: for now, quota cache key always is the quota name.
-  // Need to use ReferencedAttributes from Mixer server to calculate cache key.
-  std::string signature = quota->name;
+  std::lock_guard<std::mutex> lock(cache_mutex_);
+  PerQuotaReferenced& quota_ref = quota_referenced_map_[quota->name];
+  for (const auto& it : quota_ref.referenced_map) {
+    const Referenced& referenced = it.second;
+    std::string signature;
+    if (!referenced.Signature(request, &signature)) {
+      continue;
+    }
+    QuotaLRUCache::ScopedLookup lookup(cache_.get(), signature);
+    if (lookup.Found()) {
+      CacheElem* cache_elem = lookup.value();
+      cache_elem->Quota(quota->amount, quota);
+      return;
+    }
+  }
+
+  if (!quota_ref.pending_item) {
+    quota_ref.pending_item.reset(new CacheElem(quota->name));
+  }
+  quota_ref.pending_item->Quota(quota->amount, quota);
+
+  auto saved_func = quota->response_func;
+  std::string quota_name = quota->name;
+  quota->response_func = [saved_func, quota_name, this](
+      const Attributes& attributes,
+      const CheckResponse::QuotaResult* result) -> bool {
+    SetResponse(attributes, quota_name, result);
+    if (saved_func) {
+      return saved_func(attributes, result);
+    }
+    return true;
+  };
+}
+
+void QuotaCache::SetResponse(const Attributes& attributes,
+                             const std::string& quota_name,
+                             const CheckResponse::QuotaResult* result) {
+  if (result == nullptr) {
+    return;
+  }
+
+  Referenced referenced;
+  if (!referenced.Fill(result->referenced_attributes())) {
+    return;
+  }
+
+  std::string signature;
+  if (!referenced.Signature(attributes, &signature)) {
+    GOOGLE_LOG(ERROR) << "Quota response referenced mismatchs with request";
+    GOOGLE_LOG(ERROR) << "Request attributes: " << attributes.DebugString();
+    GOOGLE_LOG(ERROR) << "Referenced attributes: " << referenced.DebugString();
+    return;
+  }
 
   std::lock_guard<std::mutex> lock(cache_mutex_);
   QuotaLRUCache::ScopedLookup lookup(cache_.get(), signature);
-  CacheElem* cache_elem;
-  if (!lookup.Found()) {
-    cache_elem = new CacheElem(quota->name);
-    cache_->Insert(signature, cache_elem, 1);
-  } else {
-    cache_elem = lookup.value();
+  if (lookup.Found()) {
+    // Not to override the existing cache entry.
+    return;
   }
 
-  if (cache_elem->Quota(quota->amount, quota)) {
-    quota->result = CheckResult::Quota::Passed;
-  } else {
-    // TODO: for multiple quota metrics in a request,
-    // if a metric is rejected, other metrics should not use any tokens.
-    // One way is for prefetch to implement TryQuota, we call TryQuota
-    // for all metrics first, only all passed, then deduce the tokens.
-    quota->result = CheckResult::Quota::Rejected;
+  PerQuotaReferenced& quota_ref = quota_referenced_map_[quota_name];
+  std::string hash = referenced.Hash();
+  if (quota_ref.referenced_map.find(hash) == quota_ref.referenced_map.end()) {
+    quota_ref.referenced_map[hash] = referenced;
+    GOOGLE_LOG(INFO) << "Add a new Referenced for quota cache: " << quota_name
+                     << ", reference: " << referenced.DebugString();
   }
+
+  cache_->Insert(signature, quota_ref.pending_item.release(), 1);
 }
 
 void QuotaCache::Check(const Attributes& request, bool use_cache,

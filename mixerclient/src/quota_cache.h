@@ -20,10 +20,12 @@
 
 #include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include "include/client.h"
 #include "prefetch/quota_prefetch.h"
 #include "src/attribute_converter.h"
+#include "src/referenced.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
 
@@ -79,6 +81,7 @@ class QuotaCache {
 
       // The function to set the quota response from server.
       using OnResponseFunc = std::function<bool(
+          const Attributes& attributes,
           const ::istio::mixer::v1::CheckResponse::QuotaResult* result)>;
       OnResponseFunc response_func;
     };
@@ -111,7 +114,7 @@ class QuotaCache {
     CacheElem(const std::string& name);
 
     // Use the prefetch object to check the quota.
-    bool Quota(int amount, CheckResult::Quota* quota);
+    void Quota(int amount, CheckResult::Quota* quota);
 
     // The quota name.
     const std::string& quota_name() const { return name_; }
@@ -129,6 +132,24 @@ class QuotaCache {
     std::unique_ptr<QuotaPrefetch> prefetch_;
   };
 
+  // Per quota Referenced data.
+  struct PerQuotaReferenced {
+    // Pending CacheElem for all cache miss requests.
+    // This item will be added to the cache after response.
+    std::unique_ptr<CacheElem> pending_item;
+
+    // Referenced map keyed with their hashes
+    std::unordered_map<std::string, Referenced> referenced_map;
+  };
+
+  // Set a quota response.
+  void SetResponse(
+      const Attributes& attributes, const std::string& quota_name,
+      const ::istio::mixer::v1::CheckResponse::QuotaResult* result);
+
+  // A map from quota name to PerQuotaReferenced.
+  std::unordered_map<std::string, PerQuotaReferenced> quota_referenced_map_;
+
   // Key is the signature of the Attributes. Value is the CacheElem.
   // It is a LRU cache with MaxIdelTime as response_expiration_time.
   using QuotaLRUCache = SimpleLRUCache<std::string, CacheElem>;
@@ -136,7 +157,7 @@ class QuotaCache {
   // The quota options.
   QuotaOptions options_;
 
-  // Mutex guarding the access of cache_;
+  // Mutex guarding the access of cache_ and quota_referenced_map_
   std::mutex cache_mutex_;
 
   // The cache that maps from key to prefetch object
