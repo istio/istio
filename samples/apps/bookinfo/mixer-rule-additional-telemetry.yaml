@@ -11,7 +11,7 @@ rules:
           source: source.labels["app"] | "unknown"
           target: target.service | "unknown"
           service: target.labels["app"] | "unknown"
-          method: request.path | "unknown"
+          method: request.method | "unknown"
           version: target.labels["version"] | "unknown"
           response_code: response.code | 200
   - kind: access-logs
