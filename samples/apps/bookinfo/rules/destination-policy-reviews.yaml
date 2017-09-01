@@ -1,8 +1,9 @@
 apiVersion: config.istio.io/v1beta1
 kind: DestinationPolicy
 metadata:
-  name: reviews
+  name: reviews-random
 spec:
-  policy:
-  - loadBalancing: 
-      name: RANDOM
+  destination:
+    name: reviews
+  loadBalancing:
+    name: RANDOM

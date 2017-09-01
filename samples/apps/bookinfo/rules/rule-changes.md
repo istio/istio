@@ -155,8 +155,10 @@ spec:
 0.2.x:
 ```
 metadata:
-  name: foo
   namespace: bar # optional (alternatively could use kubectl -n bar ...)
+spec:
+  destination:
+    name: foo
 ```
 
 0.1.x:
@@ -168,8 +170,8 @@ spec:
 0.2.x:
 ```
 spec:
-  policy:
-  - labels:
+  destination:
+    labels:
 ```
 
 ### Examples
@@ -236,12 +238,13 @@ spec:
 apiVersion: config.istio.io/v1alpha2
 kind: DestinationPolicy
 metadata:
-  name: reviews
+  name: reviews-cb
 spec:
-  policy:
-  - labels:
+  destination:
+    name: reviews
+    labels:
       version: v1
-    circuitBreaker:
-      simpleCb:
-        maxConnections: 100
+  circuitBreaker:
+    simpleCb:
+      maxConnections: 100
 ```
