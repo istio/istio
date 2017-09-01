@@ -31,38 +31,8 @@ import (
 	"istio.io/mixer/template/quota"
 )
 
-type (
-	builder struct{}
-
-	handler struct {
-		status rpc.Status
-	}
-)
-
-// ensure our types implement the requisite interfaces
-var _ checknothing.HandlerBuilder = &builder{}
-var _ checknothing.Handler = &handler{}
-var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = &handler{}
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return &handler{status: cfg.(*config.Params).Status}, nil
-}
-
-func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
-	return nil
+type handler struct {
+	status rpc.Status
 }
 
 ////////////////// Runtime Methods //////////////////////////
@@ -105,7 +75,42 @@ func GetInfo() pkgHndlr.Info {
 		DefaultConfig: &config.Params{
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
+
+		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
+}
+
+func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	return
+}
+
+func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	return &handler{status: hc.AdapterConfig.(*config.Params).Status}, nil
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct{}
+
+func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+}
+
+func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+	return nil
+}
+
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+	return nil
+}
+
+func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+	return nil
 }

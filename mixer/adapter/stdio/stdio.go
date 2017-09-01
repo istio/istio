@@ -35,12 +35,6 @@ type (
 	zapBuilderFn func(outputPath string, encoding string) (*zap.Logger, error)
 	getTimeFn    func() time.Time
 
-	builder struct {
-		zapBuilder   zapBuilderFn // indirection to allow override in tests
-		logEntryVars map[string][]string
-		metricDims   map[string][]string
-	}
-
 	handler struct {
 		logger         *zap.Logger
 		severityLevels map[string]zapcore.Level
@@ -50,115 +44,6 @@ type (
 		metricDims     map[string][]string
 	}
 )
-
-// ensure our types implement the requisite interfaces
-var _ logentry.HandlerBuilder = &builder{}
-var _ logentry.Handler = &handler{}
-var _ metric.HandlerBuilder = &builder{}
-var _ metric.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (b *builder) Build(cfg adapter.Config, _ adapter.Env) (adapter.Handler, error) {
-	c := cfg.(*config.Params)
-
-	outputPath := "stdout"
-	if c.LogStream == config.STDERR {
-		outputPath = "stderr"
-	}
-
-	encoding := "console"
-	if c.OutputAsJson {
-		encoding = "json"
-	}
-
-	zapLogger, err := b.zapBuilder(outputPath, encoding)
-	if err != nil {
-		return nil, fmt.Errorf("could not build logger: %v", err)
-	}
-
-	sl := make(map[string]zapcore.Level)
-	for k, v := range c.SeverityLevels {
-		sl[k] = mapConfigLevel(v)
-	}
-
-	return &handler{
-		severityLevels: sl,
-		metricLevel:    mapConfigLevel(c.MetricLevel),
-		logger:         zapLogger,
-		getTime:        time.Now,
-		logEntryVars:   b.logEntryVars,
-		metricDims:     b.metricDims,
-	}, nil
-}
-
-func (b *builder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
-	// We produce sorted tables of the variables we'll receive such that
-	// we send output to the zap logger in a consistent order at runtime
-
-	varLists := make(map[string][]string, len(types))
-	for tn, tv := range types {
-		l := make([]string, 0, len(tv.Variables))
-		for v := range tv.Variables {
-			l = append(l, v)
-		}
-
-		sort.Strings(l)
-		varLists[tn] = l
-	}
-	b.logEntryVars = varLists
-	return nil
-}
-
-func (b *builder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	// We produce sorted tables of the dimensions we'll receive such that
-	// we send output to the zap logger in a consistent order at runtime
-
-	dimLists := make(map[string][]string, len(types))
-	for tn, tv := range types {
-		l := make([]string, 0, len(tv.Dimensions))
-		for v := range tv.Dimensions {
-			l = append(l, v)
-		}
-
-		sort.Strings(l)
-		dimLists[tn] = l
-	}
-	b.metricDims = dimLists
-	return nil
-}
-
-func mapConfigLevel(l config.Params_Level) zapcore.Level {
-	if l == config.WARNING {
-		return zapcore.WarnLevel
-	} else if l == config.ERROR {
-		return zapcore.ErrorLevel
-	}
-	return zapcore.InfoLevel
-}
-
-func newZapEncoderConfig() zapcore.EncoderConfig {
-	encConfig := zap.NewProductionEncoderConfig()
-	encConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encConfig.EncodeDuration = zapcore.StringDurationEncoder
-	encConfig.MessageKey = ""
-	encConfig.NameKey = "instance"
-
-	return encConfig
-}
-
-func newZapLogger(outputPath string, encoding string) (*zap.Logger, error) {
-	zapConfig := zap.NewProductionConfig()
-	zapConfig.DisableCaller = true
-	zapConfig.DisableStacktrace = true
-	zapConfig.OutputPaths = []string{outputPath}
-	zapConfig.EncoderConfig = newZapEncoderConfig()
-	zapConfig.Encoding = encoding
-
-	return zapConfig.Build()
-}
-
-////////////////// Runtime Methods //////////////////////////
 
 func (h *handler) HandleLogEntry(_ context.Context, instances []*logentry.Instance) error {
 	var errors *multierror.Error
@@ -223,10 +108,10 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 	return level
 }
 
-////////////////// Bootstrap //////////////////////////
+////////////////// Config //////////////////////////
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
 		Name:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
@@ -239,7 +124,138 @@ func GetBuilderInfo() pkgHndlr.Info {
 			MetricLevel:  config.INFO,
 			OutputAsJson: false,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{newZapLogger, nil, nil} },
-		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
+
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
+}
+
+func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	return
+}
+
+func newHandler(ctx context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	return newHandlerWithZapBuilder(ctx, env, hc, newZapLogger)
+}
+
+func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.HandlerConfig, zb zapBuilderFn) (adapter.Handler, error) {
+	// We produce sorted tables of the variables we'll receive such that
+	// we send output to the zap logger in a consistent order at runtime
+	varLists := make(map[string][]string, len(hc.LogEntryTypes))
+	for tn, tv := range hc.LogEntryTypes {
+		l := make([]string, 0, len(tv.Variables))
+		for v := range tv.Variables {
+			l = append(l, v)
+		}
+
+		sort.Strings(l)
+		varLists[tn] = l
+	}
+
+	// We produce sorted tables of the dimensions we'll receive such that
+	// we send output to the zap logger in a consistent order at runtime
+	dimLists := make(map[string][]string, len(hc.MetricEntryTypes))
+	for tn, tv := range hc.MetricEntryTypes {
+		l := make([]string, 0, len(tv.Dimensions))
+		for v := range tv.Dimensions {
+			l = append(l, v)
+		}
+
+		sort.Strings(l)
+		dimLists[tn] = l
+	}
+
+	ac := hc.AdapterConfig.(*config.Params)
+
+	outputPath := "stdout"
+	if ac.LogStream == config.STDERR {
+		outputPath = "stderr"
+	}
+
+	encoding := "console"
+	if ac.OutputAsJson {
+		encoding = "json"
+	}
+
+	zapLogger, err := zb(outputPath, encoding)
+	if err != nil {
+		return nil, fmt.Errorf("could not build logger: %v", err)
+	}
+
+	sl := make(map[string]zapcore.Level)
+	for k, v := range ac.SeverityLevels {
+		sl[k] = mapConfigLevel(v)
+	}
+
+	return &handler{
+		severityLevels: sl,
+		metricLevel:    mapConfigLevel(ac.MetricLevel),
+		logger:         zapLogger,
+		getTime:        time.Now,
+		logEntryVars:   varLists,
+		metricDims:     dimLists,
+	}, nil
+}
+
+func mapConfigLevel(l config.Params_Level) zapcore.Level {
+	if l == config.WARNING {
+		return zapcore.WarnLevel
+	} else if l == config.ERROR {
+		return zapcore.ErrorLevel
+	}
+	return zapcore.InfoLevel
+}
+
+func newZapEncoderConfig() zapcore.EncoderConfig {
+	encConfig := zap.NewProductionEncoderConfig()
+	encConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encConfig.EncodeDuration = zapcore.StringDurationEncoder
+	encConfig.MessageKey = ""
+	encConfig.NameKey = "instance"
+
+	return encConfig
+}
+
+func newZapLogger(outputPath string, encoding string) (*zap.Logger, error) {
+	zapConfig := zap.NewProductionConfig()
+	zapConfig.DisableCaller = true
+	zapConfig.DisableStacktrace = true
+	zapConfig.OutputPaths = []string{outputPath}
+	zapConfig.EncoderConfig = newZapEncoderConfig()
+	zapConfig.Encoding = encoding
+
+	return zapConfig.Build()
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct {
+	MetricTypes   map[string]*metric.Type
+	LogEntryTypes map[string]*logentry.Type
+}
+
+// Build is to be deleted
+func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	hc := &pkgHndlr.HandlerConfig{
+		AdapterConfig: cfg,
+	}
+	return newHandler(context.Background(), env, hc)
+}
+
+// ConfigureLogEntryHandler is to be deleted
+func (b *builder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
+	b.LogEntryTypes = types
+	return nil
+}
+
+// ConfigureMetricHandler is to be deleted
+func (b *builder) ConfigureMetricHandler(types map[string]*metric.Type) error {
+	b.MetricTypes = types
+	return nil
 }

@@ -36,8 +36,6 @@ import (
 )
 
 type (
-	builder struct{}
-
 	handler struct {
 		log           adapter.Logger
 		closing       chan bool
@@ -61,40 +59,6 @@ type (
 		numEntries() int
 	}
 )
-
-// ensure our types implement the requisite interfaces
-var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = &handler{}
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	c := cfg.(*config.Params)
-
-	h := &handler{
-		log:     env.Logger(),
-		closing: make(chan bool),
-		config:  *c,
-		readAll: ioutil.ReadAll,
-	}
-
-	if c.ProviderUrl != "" {
-		h.refreshTicker = time.NewTicker(c.RefreshInterval)
-		h.purgeTimer = time.NewTimer(c.Ttl)
-	}
-
-	// Load up the list synchronously so we're ready to accept traffic immediately.
-	h.fetchList()
-
-	if c.ProviderUrl != "" {
-		// goroutine to periodically refresh the list
-		env.ScheduleDaemon(h.listRefresher)
-	}
-
-	return h, nil
-}
-
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
-	return nil
-}
 
 ///////////////// Runtime Methods ///////////////
 
@@ -285,13 +249,19 @@ func GetInfo() pkgHndlr.Info {
 			EntryType:       config.STRINGS,
 			Blacklist:       false,
 		},
+		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       validateConfig,
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
 }
 
-func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
-	c := cfg.(*config.Params)
+func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	c := hc.AdapterConfig.(*config.Params)
 
 	if c.ProviderUrl != "" {
 		u, err := url.Parse(c.ProviderUrl)
@@ -333,4 +303,42 @@ func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
 	}
 
 	return
+}
+
+func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	ac := hc.AdapterConfig.(*config.Params)
+
+	h := &handler{
+		log:     env.Logger(),
+		closing: make(chan bool),
+		config:  *ac,
+		readAll: ioutil.ReadAll,
+	}
+
+	if ac.ProviderUrl != "" {
+		h.refreshTicker = time.NewTicker(ac.RefreshInterval)
+		h.purgeTimer = time.NewTimer(ac.Ttl)
+	}
+
+	// Load up the list synchronously so we're ready to accept traffic immediately.
+	h.fetchList()
+
+	if ac.ProviderUrl != "" {
+		// goroutine to periodically refresh the list
+		env.ScheduleDaemon(h.listRefresher)
+	}
+
+	return h, nil
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct{}
+
+func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+}
+
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+	return nil
 }

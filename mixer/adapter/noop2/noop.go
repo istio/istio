@@ -34,56 +34,7 @@ import (
 	"istio.io/mixer/template/reportnothing"
 )
 
-type (
-	builder struct{}
-	handler struct{}
-)
-
-// ensure our types implement the requisite interfaces
-var _ checknothing.HandlerBuilder = &builder{}
-var _ checknothing.Handler = &handler{}
-var _ reportnothing.HandlerBuilder = &builder{}
-var _ reportnothing.Handler = &handler{}
-var _ listentry.HandlerBuilder = &builder{}
-var _ listentry.Handler = &handler{}
-var _ logentry.HandlerBuilder = &builder{}
-var _ logentry.Handler = &handler{}
-var _ metric.HandlerBuilder = &builder{}
-var _ metric.Handler = &handler{}
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (*builder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
-	return &handler{}, nil
-}
-
-func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureReportNothingHandler(map[string]*reportnothing.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureLogEntryHandler(map[string]*logentry.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureMetricHandler(map[string]*metric.Type) error {
-	return nil
-}
-
-func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
-	return nil
-}
-
-////////////////// Runtime Methods //////////////////////////
+type handler struct{}
 
 var checkResult = adapter.CheckResult{
 	Status:        rpc.Status{Code: int32(rpc.OK)},
@@ -121,7 +72,7 @@ func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter
 
 func (*handler) Close() error { return nil }
 
-////////////////// Bootstrap //////////////////////////
+////////////////// Config //////////////////////////
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() pkgHndlr.Info {
@@ -137,8 +88,65 @@ func GetInfo() pkgHndlr.Info {
 			metric.TemplateName,
 			quota.TemplateName,
 		},
-		DefaultConfig:        &types.Empty{},
+		DefaultConfig: &types.Empty{},
+
+		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       func(adapter.Config) *adapter.ConfigErrors { return nil },
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
+}
+
+func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	return
+}
+
+func newHandler(context.Context, adapter.Env, *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	return &handler{}, nil
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct{}
+
+// Build is to be deleted
+func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	hc := &pkgHndlr.HandlerConfig{
+		AdapterConfig: cfg,
+	}
+	return newHandler(context.Background(), env, hc)
+}
+
+// ConfigureCheckNothingHandler is to be deleted
+func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+	return nil
+}
+
+// ConfigureReportNothingHandler is to be deleted
+func (*builder) ConfigureReportNothingHandler(map[string]*reportnothing.Type) error {
+	return nil
+}
+
+// ConfigureListEntryHandler is to be deleted
+func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+	return nil
+}
+
+// ConfigureLogEntryHandler is to be deleted
+func (*builder) ConfigureLogEntryHandler(map[string]*logentry.Type) error {
+	return nil
+}
+
+// ConfigureMetricHandler is to be deleted
+func (*builder) ConfigureMetricHandler(map[string]*metric.Type) error {
+	return nil
+}
+
+// ConfigureQuotaHandler is to be deleted
+func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+	return nil
 }
