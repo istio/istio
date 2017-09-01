@@ -324,7 +324,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
 			Capabilities: &v1.Capabilities{
-				Add: []v1.Capability{"CAP_NET_ADMIN"},
+				Add: []v1.Capability{"NET_ADMIN"},
 			},
 			// TODO: Determine SELINUX options needed to remove privileged
 			Privileged: &privTrue,

@@ -70,7 +70,7 @@ spec:
         securityContext:
           capabilities:
             add:
-            - CAP_NET_ADMIN
+            - NET_ADMIN
           privileged: true
       volumes:
       - configMap:
