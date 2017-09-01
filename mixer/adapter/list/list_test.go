@@ -31,7 +31,6 @@ import (
 
 	"istio.io/mixer/adapter/list/config"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/listentry"
 )
 
@@ -43,13 +42,14 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	if err := validateConfig(hc); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -91,9 +91,11 @@ func TestIPList(t *testing.T) {
 		Overrides:       []string{"11.11.11.11"},
 		EntryType:       config.IP_ADDRESSES,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -181,9 +183,11 @@ func TestStringList(t *testing.T) {
 		Overrides:       []string{"OVERRIDE"},
 		EntryType:       config.STRINGS,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -238,9 +242,11 @@ func TestBlackStringList(t *testing.T) {
 		EntryType:       config.STRINGS,
 		Blacklist:       true,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -294,9 +300,11 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 		Overrides:       []string{"Override"},
 		EntryType:       config.CASE_INSENSITIVE_STRINGS,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -338,9 +346,11 @@ func TestNoUrlStringList(t *testing.T) {
 		Overrides: []string{"OVERRIDE"},
 		EntryType: config.STRINGS,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -380,9 +390,11 @@ func TestBadUrl(t *testing.T) {
 		RefreshInterval: 1 * time.Second,
 		Ttl:             2 * time.Second,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -412,9 +424,11 @@ func TestIOErrors(t *testing.T) {
 		RefreshInterval: 10000 * time.Second,
 		Ttl:             20000 * time.Second,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -476,9 +490,11 @@ func TestRefreshAndPurge(t *testing.T) {
 		Ttl:             2 * time.Millisecond,
 		EntryType:       config.STRINGS,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(&cfg)
 
-	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	h, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -570,7 +586,11 @@ func TestValidateConfig(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			err := validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: &c.cfg})
+			info := GetInfo()
+			b := info.CreateBuilder().(*builder)
+			b.SetAdapterConfig(&c.cfg)
+
+			err := b.Validate()
 			if err == nil {
 				if c.field != "" {
 					t.Errorf("Got success, expecting error for field %s", c.field)

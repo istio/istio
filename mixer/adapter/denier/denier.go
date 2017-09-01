@@ -76,41 +76,51 @@ func GetInfo() pkgHndlr.Info {
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
 
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
+		CreateBuilder: func() adapter.Builder2 { return &builder{} },
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	return
+type builder struct {
+	adapterConfig adapter.Config
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
-	return &handler{status: hc.AdapterConfig.(*config.Params).Status}, nil
+func (*builder) SetCheckNothingTypes(map[string]*checknothing.Type) {}
+func (*builder) SetListEntryTypes(map[string]*listentry.Type)       {}
+func (*builder) SetQuotaTypes(map[string]*quota.Type)               {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg }
+func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	return &handler{status: b.adapterConfig.(*config.Params).Status}, nil
 }
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct{}
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+type obuilder struct {
+	b *builder
 }
 
-func (*builder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+// Build is to be deleted
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
+}
+
+// ConfigureCheckNothingHandler is to be deleted
+func (*obuilder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
 	return nil
 }
 
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+// ConfigureListEntryHandler is to be deleted
+func (*obuilder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
 	return nil
 }
 
-func (*builder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+// ConfigureQuotaHandler is to be deleted
+func (*obuilder) ConfigureQuotaHandler(map[string]*quota.Type) error {
 	return nil
 }

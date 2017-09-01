@@ -40,6 +40,9 @@ type Info struct {
 	// CreateHandlerBuilder is a function that creates a HandlerBuilder which implements Builders associated
 	// with the SupportedTemplates.
 	CreateHandlerBuilder CreateHandlerBuilderFn // DEPRECATED
+	// CreateBuilder is a function that creates a Builder which implements Builders associated
+	// with the SupportedTemplates.
+	CreateBuilder CreateBuilderFn
 	// SupportedTemplates expressess all the templates the Adapter wants to serve.
 	SupportedTemplates []string
 	// DefaultConfig is a default configuration struct for this
@@ -63,6 +66,9 @@ type Info struct {
 
 // CreateHandlerBuilderFn is a function that creates a HandlerBuilder.
 type CreateHandlerBuilderFn func() adapter.HandlerBuilder
+
+// CreateBuilderFn is a function that creates a Builder.
+type CreateBuilderFn func() adapter.Builder2
 
 // NewHandlerFn must return a handler that implements all the template-specific runtime request serving
 // interfaces that adapter supports.
