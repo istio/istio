@@ -64,7 +64,7 @@ const (
 	tmpPrefix            = "istio.e2e."
 	idMaxLength          = 36
 	pageSize             = 1000 // number of log entries for each paginated request to fetch logs
-	maxConcurrentWorkers = 2    //avoid overloading stackdriver api
+	maxConcurrentWorkers = 1    //avoid overloading stackdriver api
 )
 
 // TestInfo gathers Test Information
