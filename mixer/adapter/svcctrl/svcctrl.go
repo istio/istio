@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package svcctrl // import "istio.io/mixer/adapter/svcctrl"
 
 import (
 	"bytes"
@@ -24,35 +24,14 @@ import (
 
 	"istio.io/mixer/adapter/svcctrl/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHandler "istio.io/mixer/pkg/handler"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
-
-type builder struct {
-	createClientFn
-}
 
 type handler struct {
 	serviceControlClient *sc.Service
 	env                  adapter.Env
 	configParams         *config.Params
-}
-
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	client, err := b.createClientFn(env.Logger())
-	if err != nil {
-		return nil, err
-	}
-
-	return &handler{
-		serviceControlClient: client,
-		env:                  env,
-		configParams:         cfg.(*config.Params),
-	}, nil
-}
-
-func (b *builder) ConfigureMetricHandler(instanceTypes map[string]*metric.Type) error {
-	return nil
 }
 
 func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance) error {
@@ -107,23 +86,62 @@ func (h *handler) Close() error {
 	return nil
 }
 
-// GetBuilderInfo registers Adapter with Mixer.
-func GetBuilderInfo() pkgHandler.Info {
-	return pkgHandler.Info{
+////////////////// Config //////////////////////////
+
+// GetInfo registers Adapter with Mixer.
+func GetInfo() pkgHndlr.Info {
+	return pkgHndlr.Info{
 		Name:        "svcctrl",
 		Impl:        "istio.io/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return &builder{
-				createClientFn: createClient,
-			}
-		},
 		DefaultConfig: &config.Params{
 			ServiceName: "library-example.sandbox.googleapis.com",
 		},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
+}
+
+func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	return
+}
+
+func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	client, err := createClient(env.Logger())
+	if err != nil {
+		return nil, err
+	}
+
+	return &handler{
+		serviceControlClient: client,
+		env:                  env,
+		configParams:         hc.AdapterConfig.(*config.Params),
+	}, nil
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct{}
+
+// Build is to be deleted
+func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	hc := &pkgHndlr.HandlerConfig{
+		AdapterConfig: cfg,
+	}
+	return newHandler(context.Background(), env, hc)
+}
+
+// ConfigureMetricHandler is to be deleted
+func (*builder) ConfigureMetricHandler(map[string]*metric.Type) error {
+	return nil
 }

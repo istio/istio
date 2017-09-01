@@ -26,6 +26,7 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/quota"
@@ -40,29 +41,13 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
-	cfg := info.DefaultConfig
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: info.DefaultConfig}
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	checkNothingBuilder := builder.(checknothing.HandlerBuilder)
-	if err := checkNothingBuilder.ConfigureCheckNothingHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	listEntryBuilder := builder.(listentry.HandlerBuilder)
-	if err := listEntryBuilder.ConfigureListEntryHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	quotaBuilder := builder.(quota.HandlerBuilder)
-	if err := quotaBuilder.ConfigureQuotaHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}

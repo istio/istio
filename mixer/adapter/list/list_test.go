@@ -31,6 +31,7 @@ import (
 
 	"istio.io/mixer/adapter/list/config"
 	"istio.io/mixer/pkg/adapter/test"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/listentry"
 )
 
@@ -41,19 +42,14 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	listEntryBuilder := builder.(listentry.HandlerBuilder)
-	if err := listEntryBuilder.ConfigureListEntryHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -88,8 +84,6 @@ func TestIPList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -97,8 +91,9 @@ func TestIPList(t *testing.T) {
 		Overrides:       []string{"11.11.11.11"},
 		EntryType:       config.IP_ADDRESSES,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -179,8 +174,6 @@ func TestStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -188,8 +181,9 @@ func TestStringList(t *testing.T) {
 		Overrides:       []string{"OVERRIDE"},
 		EntryType:       config.STRINGS,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -236,8 +230,6 @@ func TestBlackStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -246,8 +238,9 @@ func TestBlackStringList(t *testing.T) {
 		EntryType:       config.STRINGS,
 		Blacklist:       true,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -294,8 +287,6 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Second,
@@ -303,8 +294,9 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 		Overrides:       []string{"Override"},
 		EntryType:       config.CASE_INSENSITIVE_STRINGS,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -342,14 +334,13 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 }
 
 func TestNoUrlStringList(t *testing.T) {
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
-	cfg := config.Params{
+	cfg := &config.Params{
 		Overrides: []string{"OVERRIDE"},
 		EntryType: config.STRINGS,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -384,15 +375,14 @@ func TestNoUrlStringList(t *testing.T) {
 }
 
 func TestBadUrl(t *testing.T) {
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     "https://localhost:80",
 		RefreshInterval: 1 * time.Second,
 		Ttl:             2 * time.Second,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	handler, err := builder.Build(&cfg, test.NewEnv(t))
+	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -417,15 +407,14 @@ func TestIOErrors(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 10000 * time.Second,
 		Ttl:             20000 * time.Second,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -481,16 +470,15 @@ func TestRefreshAndPurge(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	info := GetInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		ProviderUrl:     ts.URL,
 		RefreshInterval: 1 * time.Millisecond,
 		Ttl:             2 * time.Millisecond,
 		EntryType:       config.STRINGS,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	h, err := builder.Build(&cfg, test.NewEnv(t))
+	h, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -580,11 +568,9 @@ func TestValidateConfig(t *testing.T) {
 		},
 	}
 
-	info := GetInfo()
-
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			err := info.ValidateConfig(&c.cfg)
+			err := validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: &c.cfg})
 			if err == nil {
 				if c.field != "" {
 					t.Errorf("Got success, expecting error for field %s", c.field)

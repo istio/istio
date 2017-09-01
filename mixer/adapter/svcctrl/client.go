@@ -25,8 +25,6 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-type createClientFn func(adapter.Logger) (*sc.Service, error)
-
 // Creates a service control client. The client is authenticated with service control with Oauth2.
 func createClient(logger adapter.Logger) (*sc.Service, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{

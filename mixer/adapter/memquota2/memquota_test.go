@@ -23,29 +23,25 @@ import (
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
+	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/quota"
 )
 
 func TestBasic(t *testing.T) {
-	info := GetBuilderInfo()
+	info := GetInfo()
 
 	if !containsQuotaTemplate(info.SupportedTemplates) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	builder := info.CreateHandlerBuilder()
 	cfg := info.DefaultConfig
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
 
-	if err := info.ValidateConfig(cfg); err != nil {
+	if err := validateConfig(hc); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	quotaBuilder := builder.(quota.HandlerBuilder)
-	if err := quotaBuilder.ConfigureQuotaHandler(nil); err != nil {
-		t.Errorf("Got error %v, expecting success", err)
-	}
-
-	handler, err := builder.Build(cfg, test.NewEnv(t))
+	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -85,14 +81,13 @@ func TestAllocAndRelease(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	hndlr, err := builder.Build(&cfg, test.NewEnv(t))
+	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -199,32 +194,29 @@ func TestAllocAndRelease(t *testing.T) {
 }
 
 func TestBadConfig(t *testing.T) {
-	info := GetBuilderInfo()
-	c := info.DefaultConfig.(*config.Params)
+	info := GetInfo()
+	cfg := info.DefaultConfig.(*config.Params)
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
 
-	c.MinDeduplicationDuration = 0
-	if err := info.ValidateConfig(c); err == nil {
+	cfg.MinDeduplicationDuration = 0
+	if err := validateConfig(hc); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = -1
-	if err := info.ValidateConfig(c); err == nil {
+	cfg.MinDeduplicationDuration = -1
+	if err := validateConfig(hc); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
-	c.MinDeduplicationDuration = 1 * time.Second
-
-	builder := info.CreateHandlerBuilder().(*builder)
+	cfg.MinDeduplicationDuration = 1 * time.Second
 
 	types := map[string]*quota.Type{
 		"Foo": {},
 	}
 
-	if err := builder.ConfigureQuotaHandler(types); err != nil {
-		t.Errorf("Expecting success, got %v", err)
-	}
+	hc.QuotaTypes = types
 
-	_, err := builder.Build(c, test.NewEnv(t))
+	_, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -239,14 +231,13 @@ func TestReaper(t *testing.T) {
 		},
 	}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder()
 	cfg := config.Params{
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
 
-	hndlr, err := builder.Build(&cfg, test.NewEnv(t))
+	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}
@@ -318,12 +309,13 @@ func TestReaperTicker(t *testing.T) {
 	testChan := make(chan time.Time)
 	testTicker := &time.Ticker{C: testChan}
 
-	info := GetBuilderInfo()
-	builder := info.CreateHandlerBuilder().(*builder)
+	info := GetInfo()
 	cfg := info.DefaultConfig.(*config.Params)
 	cfg.Quotas = limits
 
-	h, err := builder.buildWithDedup(cfg, test.NewEnv(t), testTicker)
+	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+
+	h, err := newHandlerWithDedup(context.Background(), test.NewEnv(t), hc, testTicker)
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}

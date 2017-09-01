@@ -24,7 +24,7 @@
 // - Since the data is all memory-resident and there isn't any cross-node
 // synchronization, this adapter can't be used in an Istio mixer where
 // a single service can be handled by different mixer instances.
-package memquota
+package memquota // import "istio.io/mixer/adapter/memquota"
 
 import (
 	"context"
@@ -37,10 +37,6 @@ import (
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
-
-type builder struct {
-	types map[string]*quota.Type
-}
 
 type handler struct {
 	// common info among different quota adapters
@@ -55,60 +51,6 @@ type handler struct {
 	// the limits we know about
 	limits map[string]config.Params_Quota
 }
-
-// ensure our types implement the requisite interfaces
-var _ quota.HandlerBuilder = &builder{}
-var _ quota.Handler = &handler{}
-
-///////////////// Configuration Methods ///////////////
-
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	c := cfg.(*config.Params)
-	return b.buildWithDedup(c, env, time.NewTicker(c.MinDeduplicationDuration))
-}
-
-func (b *builder) buildWithDedup(c *config.Params, env adapter.Env, ticker *time.Ticker) (*handler, error) {
-	limits := make(map[string]config.Params_Quota, len(c.Quotas))
-	for _, l := range c.Quotas {
-		limits[l.Name] = l
-	}
-
-	for k := range b.types {
-		if _, ok := limits[k]; !ok {
-			return nil, fmt.Errorf("did not find limit defined for quota %s", k)
-		}
-	}
-
-	h := &handler{
-		common: dedupUtil{
-			recentDedup: make(map[string]dedupState),
-			oldDedup:    make(map[string]dedupState),
-			ticker:      ticker,
-			getTime:     time.Now,
-			logger:      env.Logger(),
-		},
-		cells:   make(map[string]int64),
-		windows: make(map[string]*rollingWindow),
-		limits:  limits,
-	}
-
-	env.ScheduleDaemon(func() {
-		for range h.common.ticker.C {
-			h.common.Lock()
-			h.common.reapDedup()
-			h.common.Unlock()
-		}
-	})
-
-	return h, nil
-}
-
-func (b *builder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
-	b.types = types
-	return nil
-}
-
-////////////////// Runtime Methods //////////////////////////
 
 func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
 	q := h.limits[instance.Name]
@@ -218,10 +160,10 @@ func (h *handler) Close() error {
 	return nil
 }
 
-////////////////// Bootstrap //////////////////////////
+////////////////// Config //////////////////////////
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
@@ -232,16 +174,87 @@ func GetBuilderInfo() pkgHndlr.Info {
 		DefaultConfig: &config.Params{
 			MinDeduplicationDuration: 1 * time.Second,
 		},
+
+		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig:       validateConfig,
+		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
+			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+		},
+
+		ValidateConfig2: validateConfig,
+		NewHandler:      newHandler,
 	}
 }
 
-func validateConfig(cfg adapter.Config) (ce *adapter.ConfigErrors) {
-	c := cfg.(*config.Params)
+func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
+	ac := hc.AdapterConfig.(*config.Params)
 
-	if c.MinDeduplicationDuration <= 0 {
-		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", c.MinDeduplicationDuration)
+	if ac.MinDeduplicationDuration <= 0 {
+		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", ac.MinDeduplicationDuration)
 	}
 	return
+}
+
+func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+	ac := hc.AdapterConfig.(*config.Params)
+	return newHandlerWithDedup(context, env, hc, time.NewTicker(ac.MinDeduplicationDuration))
+}
+
+func newHandlerWithDedup(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig, ticker *time.Ticker) (*handler, error) {
+	ac := hc.AdapterConfig.(*config.Params)
+
+	limits := make(map[string]config.Params_Quota, len(ac.Quotas))
+	for _, l := range ac.Quotas {
+		limits[l.Name] = l
+	}
+
+	for k := range hc.QuotaTypes {
+		if _, ok := limits[k]; !ok {
+			return nil, fmt.Errorf("did not find limit defined for quota %s", k)
+		}
+	}
+
+	h := &handler{
+		common: dedupUtil{
+			recentDedup: make(map[string]dedupState),
+			oldDedup:    make(map[string]dedupState),
+			ticker:      ticker,
+			getTime:     time.Now,
+			logger:      env.Logger(),
+		},
+		cells:   make(map[string]int64),
+		windows: make(map[string]*rollingWindow),
+		limits:  limits,
+	}
+
+	env.ScheduleDaemon(func() {
+		for range h.common.ticker.C {
+			h.common.Lock()
+			h.common.reapDedup()
+			h.common.Unlock()
+		}
+	})
+
+	return h, nil
+}
+
+// EVERYTHING BELOW IS TO BE DELETED
+
+type builder struct {
+	QuotaTypes map[string]*quota.Type
+}
+
+// Build is to be deleted
+func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	hc := &pkgHndlr.HandlerConfig{
+		AdapterConfig: cfg,
+		QuotaTypes:    b.QuotaTypes,
+	}
+	return newHandler(context.Background(), env, hc)
+}
+
+// ConfigureQuotaHandler is to be deleted
+func (b *builder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
+	b.QuotaTypes = types
+	return nil
 }
