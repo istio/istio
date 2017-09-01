@@ -39,6 +39,9 @@ import (
 // The "retryTimeout" used by the test.
 const testingRetryTimeout = 10 * time.Millisecond
 
+// The timeout for "waitFor" function, waiting for the expected event to come.
+const waitForTimeout = time.Second
+
 func createFakeDiscovery(*rest.Config) (discovery.DiscoveryInterface, error) {
 	return &fake.FakeDiscovery{
 		Fake: &k8stesting.Fake{
@@ -140,10 +143,16 @@ func getTempClient() (*Store, string, *dummyListerWatcherBuilder) {
 	return client, ns, lw
 }
 
-func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) {
-	for ev := range wch {
-		if ev.Key == key && ev.Type == ct {
-			return
+func waitFor(wch <-chan store.BackendEvent, ct store.ChangeType, key store.Key) error {
+	timeout := time.After(waitForTimeout)
+	for {
+		select {
+		case ev := <-wch:
+			if ev.Key == key && ev.Type == ct {
+				return nil
+			}
+		case <-timeout:
+			return context.DeadlineExceeded
 		}
 	}
 }
@@ -168,7 +177,9 @@ func TestStore(t *testing.T) {
 	if err = lw.put(k, h); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	waitFor(wch, store.Update, k)
+	if err = waitFor(wch, store.Update, k); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
 	h2, err := s.Get(k)
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -192,7 +203,9 @@ func TestStore(t *testing.T) {
 		t.Errorf("Got %+v, Want %+v", h2, h)
 	}
 	lw.delete(k)
-	waitFor(wch, store.Delete, k)
+	if err = waitFor(wch, store.Delete, k); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
 	if _, err := s.Get(k); err != store.ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
@@ -343,7 +356,9 @@ func TestCrdsRetryAsynchronously(t *testing.T) {
 	if err = lw.put(k2, map[string]interface{}{"test": "value"}); err != nil {
 		t.Error(err)
 	}
-	waitFor(wch, store.Update, k2)
+	if err = waitFor(wch, store.Update, k2); err != nil {
+		t.Errorf("Got %v, Want nil", err)
+	}
 
 	after := time.After(time.Second / 10)
 	tick := time.Tick(time.Millisecond)
