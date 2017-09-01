@@ -101,22 +101,23 @@ func GetInfo() pkgHndlr.Info {
 			ServiceName: "library-example.sandbox.googleapis.com",
 		},
 
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
+		CreateBuilder: func() adapter.Builder2 { return &builder{} },
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	return
+type builder struct {
+	adapterConfig adapter.Config
 }
 
-func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
+func (*builder) SetMetricTypes(map[string]*metric.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)  { b.adapterConfig = cfg }
+func (*builder) Validate() (ce *adapter.ConfigErrors)   { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	client, err := createClient(env.Logger())
 	if err != nil {
 		return nil, err
@@ -125,23 +126,22 @@ func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) 
 	return &handler{
 		serviceControlClient: client,
 		env:                  env,
-		configParams:         hc.AdapterConfig.(*config.Params),
+		configParams:         b.adapterConfig.(*config.Params),
 	}, nil
 }
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct{}
+type obuilder struct {
+	b *builder
+}
 
-// Build is to be deleted
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig: cfg,
-	}
-	return newHandler(context.Background(), env, hc)
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
 }
 
 // ConfigureMetricHandler is to be deleted
-func (*builder) ConfigureMetricHandler(map[string]*metric.Type) error {
+func (*obuilder) ConfigureMetricHandler(map[string]*metric.Type) error {
 	return nil
 }

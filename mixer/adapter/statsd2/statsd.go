@@ -109,8 +109,8 @@ func (h *handler) Close() error { return h.client.Close() }
 
 ////////////////// Config //////////////////////////
 
-// GetBuilderInfo returns the Info associated with this adapter implementation.
-func GetBuilderInfo() pkgHndlr.Info {
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
 		Name:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",
@@ -125,19 +125,24 @@ func GetBuilderInfo() pkgHndlr.Info {
 			SamplingRate:  1.0,
 		},
 
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
+		CreateBuilder: func() adapter.Builder2 { return &builder{} },
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	ac := hc.AdapterConfig.(*config.Params)
+type builder struct {
+	adapterConfig adapter.Config
+	metricTypes   map[string]*metric.Type
+}
+
+func (b *builder) SetMetricTypes(types map[string]*metric.Type) { b.metricTypes = types }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)          { b.adapterConfig = cfg }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig.(*config.Params)
 	if ac.FlushDuration < 0 {
 		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
 	}
@@ -155,8 +160,8 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
-	ac := hc.AdapterConfig.(*config.Params)
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	ac := b.adapterConfig.(*config.Params)
 
 	flushBytes := int(ac.FlushBytes)
 	if flushBytes <= 0 {
@@ -169,7 +174,7 @@ func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) 
 
 	templates := make(map[string]info)
 	for metricName, s := range ac.Metrics {
-		def, found := hc.MetricEntryTypes[metricName]
+		def, found := b.metricTypes[metricName]
 		if !found {
 			env.Logger().Infof("template registered for nonexistent metric '%s'", metricName)
 			continue // we don't have a metric that corresponds to this template, skip processing it
@@ -192,21 +197,17 @@ func newHandler(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) 
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct {
-	MetricTypes map[string]*metric.Type
+type obuilder struct {
+	b *builder
 }
 
-// Build is to be deleted
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    cfg,
-		MetricEntryTypes: b.MetricTypes,
-	}
-	return newHandler(context.Background(), env, hc)
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
 }
 
 // ConfigureMetricHandler is to be deleted
-func (b *builder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	b.MetricTypes = types
+func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
+	o.b.SetMetricTypes(types)
 	return nil
 }

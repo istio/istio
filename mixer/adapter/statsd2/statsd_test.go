@@ -28,7 +28,6 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/statsd2/config"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/metric"
 )
 
@@ -46,8 +45,11 @@ func TestValidateConfig(t *testing.T) {
 	}
 	for idx, c := range cases {
 		errString := ""
-		hc := &pkgHndlr.HandlerConfig{AdapterConfig: c.conf}
-		if err := validateConfig(hc); err != nil {
+
+		info := GetInfo()
+		b := info.CreateBuilder()
+		b.SetAdapterConfig(c.conf)
+		if err := b.Validate(); err != nil {
 			errString = err.Error()
 		}
 		if !strings.Contains(errString, c.errString) {
@@ -65,9 +67,11 @@ func TestNewMetricsAspect(t *testing.T) {
 		SamplingRate:  1.0,
 		Metrics:       map[string]*config.Params_MetricInfo{"a": {NameTemplate: `{{(.apiMethod) "-" (.responseCode)}}`}},
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: conf}
+	info := GetInfo()
+	b := info.CreateBuilder()
+	b.SetAdapterConfig(conf)
 	env := test.NewEnv(t)
-	if _, err := newHandler(context.Background(), env, hc); err != nil {
+	if _, err := b.Build(context.Background(), env); err != nil {
 		t.Errorf("b.NewMetrics(test.NewEnv(t), &config.Params{}) = %s, wanted no err", err)
 	}
 
@@ -100,12 +104,12 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 	metrics := map[string]*metric.Type{
 		name: {Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64}},
 	}
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    conf,
-		MetricEntryTypes: metrics,
-	}
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(conf)
+	b.SetMetricTypes(metrics)
 	env := test.NewEnv(t)
-	if _, err := newHandler(context.Background(), env, hc); err != nil {
+	if _, err := b.Build(context.Background(), env); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), conf, metrics) = _, %s, wanted no error", err)
 	}
 
@@ -138,11 +142,11 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 		}
 	}()
 
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig:    conf,
-		MetricEntryTypes: metrics,
-	}
-	if _, err := newHandler(context.Background(), test.NewEnv(t), hc); err != nil {
+	info := GetInfo()
+	b := info.CreateBuilder().(*builder)
+	b.SetAdapterConfig(conf)
+	b.SetMetricTypes(metrics)
+	if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
 		t.Errorf("NewMetricsAspect(test.NewEnv(t), config, nil) = %v; wanted panic not err", err)
 	}
 	t.Fail()
@@ -229,12 +233,12 @@ func TestRecord(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			hc := &pkgHndlr.HandlerConfig{
-				AdapterConfig:    conf,
-				MetricEntryTypes: metrics,
-			}
+			info := GetInfo()
+			b := info.CreateBuilder().(*builder)
+			b.SetAdapterConfig(conf)
+			b.SetMetricTypes(metrics)
 
-			m, err := newHandler(context.Background(), test.NewEnv(t), hc)
+			m, err := b.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
 				t.Fatalf("newBuilder().NewMetrics(test.NewEnv(t), conf) = _, %s; wanted no err", err)
 			}

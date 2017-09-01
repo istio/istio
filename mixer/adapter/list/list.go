@@ -249,47 +249,52 @@ func GetInfo() pkgHndlr.Info {
 			EntryType:       config.STRINGS,
 			Blacklist:       false,
 		},
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	c := hc.AdapterConfig.(*config.Params)
+type builder struct {
+	adapterConfig adapter.Config
+}
 
-	if c.ProviderUrl != "" {
-		u, err := url.Parse(c.ProviderUrl)
+func (*builder) SetListEntryTypes(map[string]*listentry.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig.(*config.Params)
+
+	if ac.ProviderUrl != "" {
+		u, err := url.Parse(ac.ProviderUrl)
 		if err != nil {
 			ce = ce.Append("providerUrl", err)
 		} else if u.Scheme == "" || u.Host == "" {
 			ce = ce.Appendf("providerUrl", "URL scheme and host cannot be empty")
 		}
 
-		if c.RefreshInterval < 1*time.Second {
-			ce = ce.Appendf("refreshInterval", "refresh interval must be at least 1 second, it is %v", c.RefreshInterval)
+		if ac.RefreshInterval < 1*time.Second {
+			ce = ce.Appendf("refreshInterval", "refresh interval must be at least 1 second, it is %v", ac.RefreshInterval)
 		}
 
-		if c.Ttl < c.RefreshInterval {
-			ce = ce.Appendf("ttl", "ttl must be > refreshInterval, ttl is %v and refreshInterval is %v", c.Ttl, c.RefreshInterval)
+		if ac.Ttl < ac.RefreshInterval {
+			ce = ce.Appendf("ttl", "ttl must be > refreshInterval, ttl is %v and refreshInterval is %v", ac.Ttl, ac.RefreshInterval)
 		}
 	}
 
-	if c.CachingInterval < 0 {
-		ce = ce.Appendf("cachingInterval", "caching interval must be >= 0, it is %v", c.CachingInterval)
+	if ac.CachingInterval < 0 {
+		ce = ce.Appendf("cachingInterval", "caching interval must be >= 0, it is %v", ac.CachingInterval)
 	}
 
-	if c.CachingUseCount < 0 {
-		ce = ce.Appendf("cachingUseCount", "caching use count must be >= 0, it is %v", c.CachingUseCount)
+	if ac.CachingUseCount < 0 {
+		ce = ce.Appendf("cachingUseCount", "caching use count must be >= 0, it is %v", ac.CachingUseCount)
 	}
 
-	if c.EntryType == config.IP_ADDRESSES {
-		for _, ip := range c.Overrides {
+	if ac.EntryType == config.IP_ADDRESSES {
+		for _, ip := range ac.Overrides {
 			orig := ip
 			if !strings.Contains(ip, "/") {
 				ip += "/32"
@@ -305,8 +310,8 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
-	ac := hc.AdapterConfig.(*config.Params)
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	ac := b.adapterConfig.(*config.Params)
 
 	h := &handler{
 		log:     env.Logger(),
@@ -333,12 +338,17 @@ func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerCo
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct{}
-
-func (*builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return newHandler(context.Background(), env, &pkgHndlr.HandlerConfig{AdapterConfig: cfg})
+type obuilder struct {
+	b *builder
 }
 
-func (*builder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+// Build is to be deleted
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
+}
+
+// ConfigureListEntryHandler is to be deleted
+func (*obuilder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
 	return nil
 }
