@@ -40,35 +40,25 @@ type platformSpecificRequest interface {
 // CAGrpcClient is for implementing the GRPC client to talk to CA.
 type CAGrpcClient interface {
 	// Send CSR to the CA and gets the response or error.
-	SendCSR(*pb.Request) (*pb.Response, error)
-}
-
-// NewCAGrpcClient creates an implementation of CAGrpcClient.
-func NewCAGrpcClient(cfg *Config, pr platformSpecificRequest) (CAGrpcClient, error) {
-	if cfg.IstioCAAddress == "" {
-		return nil, fmt.Errorf("Istio CA address is empty")
-	}
-	dialOptions, optionErr := pr.GetDialOptions(cfg)
-	if optionErr != nil {
-		return nil, optionErr
-	}
-	return &cAGrpcClientImpl{
-		&cfg.IstioCAAddress,
-		dialOptions,
-	}, nil
+	SendCSR(*pb.Request, platformSpecificRequest, *Config) (*pb.Response, error)
 }
 
 // cAGrpcClientImpl is an implementation of GRPC client to talk to CA.
 type cAGrpcClientImpl struct {
-	cAAddress   *string
-	dialOptions []grpc.DialOption
 }
 
 // SendCSR sends CSR to CA through GRPC.
-func (c *cAGrpcClientImpl) SendCSR(req *pb.Request) (*pb.Response, error) {
-	conn, err := grpc.Dial(*c.cAAddress, c.dialOptions...)
+func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pr platformSpecificRequest, cfg *Config) (*pb.Response, error) {
+	if cfg.IstioCAAddress == "" {
+		return nil, fmt.Errorf("Istio CA address is empty")
+	}
+	dialOptions, err := pr.GetDialOptions(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to dial %s: %s", *c.cAAddress, err)
+		return nil, err
+	}
+	conn, err := grpc.Dial(cfg.IstioCAAddress, dialOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to dial %s: %s", cfg.IstioCAAddress, err)
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
@@ -121,7 +111,7 @@ func (na *nodeAgentInternal) Start() error {
 
 		glog.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := na.cAClient.SendCSR(req)
+		resp, err := na.cAClient.SendCSR(req, na.pr, na.config)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.getWaitTimeFromCert(
 				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)

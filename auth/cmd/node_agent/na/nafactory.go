@@ -45,11 +45,7 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 		glog.Fatalf("Invalid env %s specified", cfg.Env)
 	}
 
-	client, err := NewCAGrpcClient(cfg, na.pr)
-	if err != nil {
-		glog.Fatalf("CA GRPC client creation failure: %v", err)
-	}
-	na.cAClient = client
-
+	cAClient := &cAGrpcClientImpl{}
+	na.cAClient = cAClient
 	return na
 }
