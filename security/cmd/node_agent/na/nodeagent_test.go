@@ -70,7 +70,7 @@ type FakeCAClient struct {
 	err      error
 }
 
-func (f *FakeCAClient) SendCSR(req *pb.Request) (*pb.Response, error) {
+func (f *FakeCAClient) SendCSR(req *pb.Request, pr platformSpecificRequest, cfg *Config) (*pb.Response, error) {
 	f.Counter++
 	return f.response, f.err
 }
