@@ -24,6 +24,7 @@ import (
 	"istio.io/auth/pkg/pki"
 
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
 	"golang.org/x/net/context"
@@ -78,6 +79,52 @@ func TestAuthenticat(t *testing.T) {
 
 		if !reflect.DeepEqual(tc.user, result) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v", id, tc.user, result)
+		}
+	}
+}
+
+func TestExtractBearerToken(t *testing.T) {
+	testCases := map[string]struct {
+		metadata      metadata.MD
+		expectedToken string
+	}{
+		"No metadata": {
+			expectedToken: "",
+		},
+		"No auth header": {
+			metadata: metadata.MD{
+				"random": []string{},
+			},
+			expectedToken: "",
+		},
+		"No bearer token": {
+			metadata: metadata.MD{
+				"random": []string{},
+				"authorization": []string{
+					"Basic username",
+				},
+			},
+			expectedToken: "",
+		},
+		"With bearer token": {
+			metadata: metadata.MD{
+				"random": []string{},
+				"authorization": []string{
+					"Basic username",
+					"Bearer bearer-token",
+				},
+			},
+			expectedToken: "bearer-token",
+		},
+	}
+
+	for id, tc := range testCases {
+		ctx := context.Background()
+		if tc.metadata != nil {
+			ctx = metadata.NewContext(ctx, tc.metadata)
+		}
+		if actual := extractBearerToken(ctx); actual != tc.expectedToken {
+			t.Errorf("Case %q: unexpected token: want %s but got %s", id, tc.expectedToken, actual)
 		}
 	}
 }

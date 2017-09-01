@@ -15,11 +15,19 @@
 package na
 
 import (
+	"fmt"
+
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	cred "istio.io/auth/pkg/credential"
+)
+
+const (
+	bearerTokenScheme = "Bearer"
+	httpAuthHeader    = "authorization"
 )
 
 type jwtAccess struct {
@@ -28,7 +36,7 @@ type jwtAccess struct {
 
 func (j *jwtAccess) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	return map[string]string{
-		"authorization": j.token,
+		httpAuthHeader: fmt.Sprintf("%s %s", bearerTokenScheme, j.token),
 	}, nil
 }
 
@@ -50,7 +58,13 @@ func (na *gcpPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error
 		glog.Errorf("Failed to get instance from GCE metadata %s, please make sure this binary is running on a GCE VM", err)
 		return nil, err
 	}
-	options := []grpc.DialOption{grpc.WithPerRPCCredentials(&jwtAccess{jwtKey})}
+
+	creds, err := credentials.NewClientTLSFromFile(cfg.RootCACertFile, "")
+	if err != nil {
+		return nil, err
+	}
+
+	options := []grpc.DialOption{grpc.WithPerRPCCredentials(&jwtAccess{jwtKey}), grpc.WithTransportCredentials(creds)}
 	return options, nil
 }
 

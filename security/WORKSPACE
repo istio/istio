@@ -26,7 +26,7 @@ go_repository(
 
 go_repository(
     name = "com_github_coreos_go_oidc",
-    commit = "f828b1fc9b58b59bd70ace766bfc190216b58b01",
+    commit = "a4973d9a4225417aecf5d450a9522f00c1f7130f",  # Jul 11, 2017 (no release)
     importpath = "github.com/coreos/go-oidc",
 )
 
@@ -163,6 +163,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_pquerna_cachecontrol",
+    commit = "5475d973ea70916980bee28c2b674f3dc3eaed0a",  # Jul 5, 2017 (no release)
+    importpath = "github.com/pquerna/cachecontrol",
+)
+
+go_repository(
     name = "com_github_pborman_uuid",
     commit = "1b00554d822231195d1babd97ff4a781231955c9",
     importpath = "github.com/pborman/uuid",
@@ -190,6 +196,12 @@ go_repository(
     name = "com_google_cloud_go",
     commit = "1ed2f0abb2869a51b3a5b9daec801bf9791f95d0",
     importpath = "cloud.google.com/go",
+)
+
+go_repository(
+    name = "in_gopkg_square_go_jose_v2",
+    commit = "b25e6cab129e4a54675b42ea49d38e9c33ade9e6",  # Jun 7, 2017 (v2.1.2)
+    importpath = "gopkg.in/square/go-jose.v2",
 )
 
 go_repository(

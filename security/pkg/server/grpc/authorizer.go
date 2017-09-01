@@ -25,6 +25,14 @@ type authorizer interface {
 type simpleAuthorizer struct{}
 
 func (authZ *simpleAuthorizer) authorize(requester *user, requestedIDs []string) bool {
+	if requester.authSource == authSourceIDToken {
+		// TODO: currently the "sub" claim of an ID token returned by GCP
+		// metadata server contains obfuscated user ID, so we cannot do
+		// authorization upon that.
+
+		return true
+	}
+
 	idMap := make(map[string]bool, len(requester.identities))
 	for _, id := range requester.identities {
 		idMap[id] = true

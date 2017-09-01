@@ -36,7 +36,7 @@ func TestAuthroizer(t *testing.T) {
 
 	authz := &simpleAuthorizer{}
 	for id, tc := range testCases {
-		result := authz.authorize(&user{tc.userIDs}, tc.requestedIDs)
+		result := authz.authorize(&user{authSourceClientCertificate, tc.userIDs}, tc.requestedIDs)
 		if tc.authorized != result {
 			t.Errorf("Case %q: unexpected authorization result: want %t but got %t", id, tc.authorized, result)
 		}
