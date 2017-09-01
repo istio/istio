@@ -224,6 +224,7 @@ spec:
           mountPath: /etc/istio/config
         - name: ingress-certs
           mountPath: /etc/istio/ingress-certs
+          readOnly: true
       volumes:
       - name: ingress-certs
         secret:
