@@ -15,15 +15,35 @@
 package grpc
 
 import (
+	"strings"
+
+	oidc "github.com/coreos/go-oidc"
+
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
 	"istio.io/auth/pkg/pki"
 )
 
+const (
+	bearerTokenPrefix = "Bearer "
+	httpAuthHeader    = "authorization"
+	idTokenIssuer     = "https://accounts.google.com"
+)
+
+// authSource represents where authentication result is derived from.
+type authSource int
+
+const (
+	authSourceClientCertificate authSource = iota
+	authSourceIDToken
+)
+
 type user struct {
+	authSource authSource
 	identities []string
 }
 
@@ -31,7 +51,7 @@ type authenticator interface {
 	authenticate(ctx context.Context) *user
 }
 
-// A authenticator that extracts identities from client certificate.
+// An authenticator that extracts identities from client certificate.
 type clientCertAuthenticator struct{}
 
 // authenticate extracts identities from presented client certificates. This
@@ -58,5 +78,68 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) *user {
 	}
 
 	ids := pki.ExtractIDs(chains[0][0].Extensions)
-	return &user{ids}
+	return &user{
+		authSource: authSourceClientCertificate,
+		identities: ids,
+	}
+}
+
+// An authenticator that extracts identity from JWT. The JWT is requied to be
+// transmitted using the "Bearer" authencitation scheme.
+type idTokenAuthenticator struct {
+	verifier *oidc.IDTokenVerifier
+}
+
+func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
+	provider, err := oidc.NewProvider(context.Background(), idTokenIssuer)
+	if err != nil {
+		return nil, err
+	}
+
+	verifier := provider.Verifier(&oidc.Config{ClientID: aud})
+	return &idTokenAuthenticator{verifier}, nil
+}
+
+func (ja *idTokenAuthenticator) authenticate(ctx context.Context) *user {
+	bearerToken := extractBearerToken(ctx)
+	if bearerToken == "" {
+		glog.Warning("no bearer token exists")
+
+		return nil
+	}
+
+	idToken, err := ja.verifier.Verify(context.Background(), bearerToken)
+	if err != nil {
+		glog.Warningf("failed to verify the ID token (error %v)", err)
+
+		return nil
+	}
+
+	return &user{
+		authSource: authSourceIDToken,
+		identities: []string{idToken.Subject},
+	}
+}
+
+func extractBearerToken(ctx context.Context) string {
+	md, ok := metadata.FromContext(ctx)
+	if !ok {
+		glog.Warning("no metadata is attached")
+		return ""
+	}
+
+	authHeader, exists := md[httpAuthHeader]
+	if !exists {
+		glog.Warning("no HTTP authorization header exists")
+		return ""
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, bearerTokenPrefix) {
+			return strings.TrimPrefix(value, bearerTokenPrefix)
+		}
+	}
+
+	glog.Warning("no bearer token exists in HTTP authorization header")
+	return ""
 }

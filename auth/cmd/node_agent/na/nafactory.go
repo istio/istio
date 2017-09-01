@@ -15,6 +15,8 @@
 package na
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	cred "istio.io/auth/pkg/credential"
 )
@@ -38,7 +40,7 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 	case "onprem":
 		na.pr = &onPremPlatformImpl{cfg.CertChainFile}
 	case "gcp":
-		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{}}
+		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", cfg.IstioCAAddress)}}
 	default:
 		glog.Fatalf("Invalid env %s specified", cfg.Env)
 	}

@@ -117,11 +117,11 @@ func TestSign(t *testing.T) {
 
 	for id, c := range testCases {
 		server := &Server{
-			authenticator: &mockAuthenticator{c.authenticated},
-			authorizer:    &mockAuthorizer{c.authorized},
-			ca:            c.ca,
-			hostname:      "hostname",
-			port:          8080,
+			authenticators: []authenticator{&mockAuthenticator{c.authenticated}},
+			authorizer:     &mockAuthorizer{c.authorized},
+			ca:             c.ca,
+			hostname:       "hostname",
+			port:           8080,
 		}
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 

@@ -39,12 +39,12 @@ const certExpirationBuffer = time.Minute
 // Server implements pb.IstioCAService and provides the service on the
 // specified port.
 type Server struct {
-	authenticator authenticator
-	authorizer    authorizer
-	ca            ca.CertificateAuthority
-	certificate   *tls.Certificate
-	hostname      string
-	port          int
+	authenticators []authenticator
+	authorizer     authorizer
+	ca             ca.CertificateAuthority
+	certificate    *tls.Certificate
+	hostname       string
+	port           int
 }
 
 // HandleCSR handles an incoming certificate signing request (CSR). It does
@@ -52,9 +52,7 @@ type Server struct {
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
-	// TODO: handle authentication here
-
-	user := s.authenticator.authenticate(ctx)
+	user := s.authenticate(ctx)
 	if user == nil {
 		glog.Warning("failed to authenticate request")
 
@@ -117,12 +115,23 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+	authenticators := []authenticator{&clientCertAuthenticator{}}
+
+	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
+	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
+		glog.Errorf(
+			"failed to create JWT authenticator and JWT token will not be used for authentication (error %v)",
+			err)
+	} else {
+		authenticators = append(authenticators, jwtAuthenticator)
+	}
+
 	return &Server{
-		authenticator: &clientCertAuthenticator{},
-		authorizer:    &simpleAuthorizer{},
-		ca:            ca,
-		hostname:      hostname,
-		port:          port,
+		authenticators: authenticators,
+		authorizer:     &simpleAuthorizer{},
+		ca:             ca,
+		hostname:       hostname,
+		port:           port,
 	}
 }
 
@@ -169,6 +178,15 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 		return nil, err
 	}
 	return &cert, nil
+}
+
+func (s *Server) authenticate(ctx context.Context) *user {
+	for _, authn := range s.authenticators {
+		if u := authn.authenticate(ctx); u != nil {
+			return u
+		}
+	}
+	return nil
 }
 
 // shouldRefresh indicates whether the given certificate should be refreshed.
