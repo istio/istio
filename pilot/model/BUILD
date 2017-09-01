@@ -7,7 +7,6 @@ go_library(
         "controller.go",
         "conversion.go",
         "error.go",
-        "secret.go",
         "service.go",
         "validation.go",
     ],

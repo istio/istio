@@ -16,14 +16,11 @@
 package kube
 
 import (
-	"crypto/tls"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -31,8 +28,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-
-	"istio.io/pilot/model"
 )
 
 // ResolveConfig checks whether to use the in-cluster or out-of-cluster config
@@ -71,50 +66,4 @@ func CreateInterface(kubeconfig string) (*rest.Config, kubernetes.Interface, err
 
 	client, err := kubernetes.NewForConfig(config)
 	return config, client, err
-}
-
-const (
-	secretCert = "tls.crt"
-	secretKey  = "tls.key"
-)
-
-type kubeSecretRegistry struct {
-	client kubernetes.Interface
-}
-
-// MakeSecretRegistry creates an adaptor for secrets on Kubernetes.
-// The adaptor uses the following path for secrets: _name.namespace_ where
-// name and namespace correpond to the secret name and namespace.
-func MakeSecretRegistry(client kubernetes.Interface) model.SecretRegistry {
-	return &kubeSecretRegistry{client: client}
-}
-
-func (sr *kubeSecretRegistry) GetTLSSecret(uri string) (*model.TLSSecret, error) {
-
-	glog.V(5).Infof("Get TLS secrets for %s", uri)
-	parts := strings.Split(uri, ".")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("URI %q does not match <name>.<namespace>", uri)
-	}
-
-	secret, err := sr.client.CoreV1().Secrets(parts[1]).Get(parts[0], meta_v1.GetOptions{})
-	if err != nil {
-		return nil, multierror.Prefix(err, "failed to retrieve secret "+uri)
-	}
-
-	cert := secret.Data[secretCert]
-	key := secret.Data[secretKey]
-	if len(cert) == 0 || len(key) == 0 {
-		return nil, fmt.Errorf("Secret keys %q and/or %q are missing", secretCert, secretKey)
-	}
-
-	if _, err = tls.X509KeyPair(cert, key); err != nil {
-		return nil, err
-	}
-
-	glog.V(5).Infof("Get TLS secrets for %s SUCCESS", uri)
-	return &model.TLSSecret{
-		Certificate: cert,
-		PrivateKey:  key,
-	}, nil
 }

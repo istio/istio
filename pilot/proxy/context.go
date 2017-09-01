@@ -38,9 +38,6 @@ type Environment struct {
 	// Config interface for listing routing rules
 	model.IstioConfigStore
 
-	// Access to TLS secrets from ingress proxies
-	model.SecretRegistry
-
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *proxyconfig.ProxyMeshConfig
 }

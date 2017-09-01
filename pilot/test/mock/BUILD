@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
-        "secret.go",
         "service.go",
     ],
     visibility = ["//visibility:public"],
@@ -22,7 +21,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "secret_test.go",
         "service_test.go",
     ],
     library = ":go_default_library",

@@ -277,15 +277,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
-	// This route responds to secret requests. This is a temporary API due to lack of discovery API for TLS
-	// contexts
-	ws.Route(ws.
-		GET(fmt.Sprintf("/v1alpha/secret/{%s}/{%s}", ServiceCluster, ServiceNode)).
-		To(ds.ListSecret).
-		Doc("List TLS secret URI for a listener").
-		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
-		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
-
 	ws.Route(ws.
 		GET("/cache_stats").
 		To(ds.GetCacheStats).
@@ -491,47 +482,6 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 			return
 		}
 		ds.rdsCache.updateCachedDiscoveryResponse(key, out)
-	}
-	writeResponse(response, out)
-}
-
-// ListSecret responds to TLS secret registration
-func (ds *DiscoveryService) ListSecret(request *restful.Request, response *restful.Response) {
-	// caching is disabled due to lack of secret watch notifications
-
-	cluster, node, role, err := ds.parseDiscoveryRequest(request)
-
-	if err != nil {
-		errorResponse(response, http.StatusNotFound, "ListSecrets "+err.Error())
-		return
-	}
-
-	glog.V(5).Infof("ListSecrets Discovery request to ListSecret for service_cluster %s, service_node %s, role %s",
-		cluster, node, role.Type)
-
-	if role.Type != proxy.Ingress {
-		writeResponse(response, nil)
-		return
-	}
-
-	_, secret := buildIngressRoutes(ds.Mesh, ds, ds)
-
-	if secret == "" {
-		glog.V(5).Infof("Secret is not set")
-		writeResponse(response, nil)
-		return
-	}
-
-	tls, err := ds.GetTLSSecret(secret)
-	if err != nil {
-		errorResponse(response, http.StatusNotFound,
-			fmt.Sprintf("ListSecrets Failed to read the secret: %s", err))
-		return
-	}
-
-	out, err := json.Marshal(tls)
-	if err != nil {
-		errorResponse(response, http.StatusInternalServerError, "ListSecrets "+err.Error())
 	}
 	writeResponse(response, out)
 }

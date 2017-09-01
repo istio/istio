@@ -18,6 +18,17 @@ kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
 ---
+################################
+# Empty secret for Istio ingress controller proxy to mount
+################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: istio-ingress-certs
+data:
+  tls.key:
+  tls.crt:
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -57,6 +68,8 @@ spec:
           readOnly: true
         - mountPath: /etc/istio/proxy/
           name: istio-envoy
+        - mountPath: /etc/istio/ingress-certs
+          name: ingress-certs
 {{if eq .Auth 1}}
         - mountPath: /etc/certs
           name: istio-certs
@@ -66,6 +79,9 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
       - emptyDir:
           medium: Memory
         name: istio-envoy

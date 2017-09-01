@@ -130,7 +130,6 @@ var (
 				environment.ServiceDiscovery = kubeController
 				environment.ServiceAccounts = kubeController
 				environment.IstioConfigStore = model.MakeIstioStore(configController)
-				environment.SecretRegistry = kube.MakeSecretRegistry(client)
 				serviceController = kubeController
 				ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
 

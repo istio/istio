@@ -17,11 +17,8 @@ package envoy
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -31,7 +28,6 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
 )
 
@@ -99,23 +95,6 @@ func (w *watcher) Run(ctx context.Context) {
 	// monitor ingress certificates
 	if w.role.Type == proxy.Ingress {
 		go watchCerts(ctx, proxy.IngressCertsPath, w.Reload)
-
-		// update secrets with polling
-		go func() {
-			for {
-				err := w.UpdateIngressSecret(ctx)
-				if err != nil {
-					glog.Warning(err)
-				}
-
-				select {
-				case <-time.After(convertDuration(w.mesh.DiscoveryRefreshDelay)):
-					// try again
-				case <-ctx.Done():
-					return
-				}
-			}
-		}()
 	}
 
 	<-ctx.Done()
@@ -134,56 +113,6 @@ func (w *watcher) Reload() {
 	config.Hash = h.Sum(nil)
 
 	w.agent.ScheduleConfigUpdate(config)
-}
-
-// UpdateIngressSecret fetches the TLS secret from discovery and secret storage
-// and writes to well-known location
-func (w *watcher) UpdateIngressSecret(ctx context.Context) error {
-	client := &http.Client{Timeout: convertDuration(w.mesh.ConnectTimeout)}
-	url := fmt.Sprintf("http://%s/v1alpha/secret/%s/%s",
-		w.mesh.DiscoveryAddress, w.mesh.IstioServiceCluster, w.role.ServiceNode())
-	req, err := http.NewRequest("GET", url, nil)
-
-	if err != nil {
-		return multierror.Prefix(err, "failed to create a request to "+url)
-	}
-
-	resp, err := client.Do(req.WithContext(ctx))
-	if err != nil {
-		return multierror.Prefix(err, "failed to fetch "+url)
-	}
-
-	tlsData, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close() // nolint: errcheck
-	if err != nil {
-		return multierror.Prefix(err, "failed to read request body")
-	}
-	if len(tlsData) == 0 {
-		glog.Errorf("failed to get TLS data, zero data")
-		return nil
-	}
-
-	var tls model.TLSSecret
-	if err = json.Unmarshal(tlsData, &tls); err != nil {
-		glog.Errorf("failed to unmarshal TLS secret")
-		return err
-	}
-
-	if _, err := os.Stat(proxy.IngressCertsPath); os.IsNotExist(err) {
-		err = os.Mkdir(proxy.IngressCertsPath, 0755)
-		if err != nil {
-			return multierror.Prefix(err, "cannot create parent directory")
-		}
-	}
-
-	if err := ioutil.WriteFile(path.Join(proxy.IngressCertsPath, "tls.crt"), tls.Certificate, 0755); err != nil {
-		return multierror.Prefix(err, "failed to write cert file")
-	}
-	if err := ioutil.WriteFile(path.Join(proxy.IngressCertsPath, "tls.key"), tls.PrivateKey, 0755); err != nil {
-		return multierror.Prefix(err, "failed to write key file")
-	}
-
-	return nil
 }
 
 const (

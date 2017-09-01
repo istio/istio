@@ -42,7 +42,6 @@ go_test(
     size = "small",
     srcs = [
         "cache_test.go",
-        "client_test.go",
         "controller_test.go",
         "conversion_test.go",
         "queue_test.go",

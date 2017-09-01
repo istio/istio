@@ -18,12 +18,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
@@ -31,6 +33,10 @@ import (
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
+)
+
+const (
+	ingressSecretName = "istio-ingress-certs"
 )
 
 type infra struct {
@@ -185,6 +191,25 @@ func (infra *infra) setup() error {
 	}
 	if infra.Ingress {
 		if err := deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
+			return err
+		}
+		// Update ingress key/cert in secret
+		key, err := ioutil.ReadFile("docker/certs/cert.key")
+		if err != nil {
+			return err
+		}
+		crt, err := ioutil.ReadFile("docker/certs/cert.crt")
+		if err != nil {
+			return err
+		}
+		_, err = client.CoreV1().Secrets(infra.IstioNamespace).Update(&v1.Secret{
+			ObjectMeta: meta_v1.ObjectMeta{Name: ingressSecretName},
+			Data: map[string][]byte{
+				"tls.key": key,
+				"tls.crt": crt,
+			},
+		})
+		if err != nil {
 			return err
 		}
 	}

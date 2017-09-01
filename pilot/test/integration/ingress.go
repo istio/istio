@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,7 +30,6 @@ type ingress struct {
 
 const (
 	ingressServiceName = "istio-ingress"
-	ingressSecretName  = "ingress"
 )
 
 func (t *ingress) String() string {
@@ -43,26 +41,6 @@ func (t *ingress) setup() error {
 		return nil
 	}
 	t.logs = makeAccessLogs()
-
-	// send secrets
-	key, err := ioutil.ReadFile("docker/certs/cert.key")
-	if err != nil {
-		return err
-	}
-	crt, err := ioutil.ReadFile("docker/certs/cert.crt")
-	if err != nil {
-		return err
-	}
-	_, err = client.CoreV1().Secrets(t.Namespace).Create(&v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: ingressSecretName},
-		Data: map[string][]byte{
-			"tls.key": key,
-			"tls.crt": crt,
-		},
-	})
-	if err != nil {
-		return err
-	}
 
 	// parse and send yamls
 	yamlFile, err := ioutil.ReadFile("test/integration/testdata/ingress.yaml")
