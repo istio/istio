@@ -119,21 +119,25 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 
 func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmpl map[string]typeMap,
 	adapterCnfg interface{}, env adapter.Env) (handler adapter.Handler, err error) {
+	var ti template.Info
+	var typs typeMap
+
 	// calls into handler can panic. If that happens, we will log and return error with nil handler
 	defer func() {
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("handler panicked with '%v' when trying to configure the associated adapter."+
-				" Please remove the handler or fix the configuration.", r)
-			glog.Warningf(msg)
+				" Please remove the handler or fix the configuration. %v\nti=%v\ntype=%v", r, adapterCnfg, ti, typs)
+			glog.Error(msg)
 			handler = nil
 			err = fmt.Errorf(msg)
 			return
 		}
 	}()
 
-	for tmplName, typs := range infrdTypesByTmpl {
+	for tmplName := range infrdTypesByTmpl {
+		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
-		ti, _ := h.tmplRepo.GetTemplateInfo(tmplName)
+		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
 		if err := ti.ConfigureType(typs, &hndlrBldr); err != nil {
 			return nil, fmt.Errorf("cannot configure handler types %v for mesh function name '%s': %v", typs, tmplName, err)
 		}
