@@ -115,8 +115,10 @@ func (s *Server) Run() error {
 
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
+	// Notice that the order of authenticators matters, since at runtime
+	// authenticators are actived sequentially and the first successful attempt
+	// is used as the authentication result.
 	authenticators := []authenticator{&clientCertAuthenticator{}}
-
 	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
 	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
 		glog.Errorf(
