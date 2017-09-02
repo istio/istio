@@ -2,7 +2,7 @@
 # install/updateVersion.sh (see install/README.md)
 export CA_HUB="docker.io/istio"
 export CA_TAG="0.2.1"
-export MIXER_HUB=" gcr.io/istio-testing"
+export MIXER_HUB="gcr.io/istio-testing"
 export MIXER_TAG="f043c7ea6bf68cb1603a7e17e9e1b3ac8b568859"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-release/releases/0.2.1/istioctl"
 export PILOT_HUB="docker.io/istio"
