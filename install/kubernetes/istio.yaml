@@ -151,6 +151,17 @@ spec:
           name: istio
 ---
 ################################
+# Empty secret for Istio ingress controller
+################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: istio-ingress-certs
+data:
+  tls.key:
+  tls.crt:
+---
+################################
 # Istio ingress controller
 ################################
 apiVersion: v1
@@ -211,7 +222,13 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
       volumes:
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
       - name: config-volume
         configMap:
           name: istio
