@@ -17,11 +17,14 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
+	"istio.io/mixer/adapter"
 	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
+	generatedTemplate "istio.io/mixer/template"
 )
 
 var empty = ``
@@ -200,5 +203,21 @@ func TestListCrdsInstances(t *testing.T) {
 				t.Errorf("listCrdsInstances() = %v, want %v", gotOut, tt.wantOut)
 			}
 		})
+	}
+}
+
+func TestNameFormat(t *testing.T) {
+	validNamePattern := regexp.MustCompile(`^([a-z0-9]+-)*[a-z0-9]+$`)
+	for _, infoFn := range adapter.Inventory2() {
+		info := infoFn()
+		if !validNamePattern.MatchString(info.Name) {
+			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)
+		}
+	}
+
+	for _, info := range generatedTemplate.SupportedTmplInfo {
+		if !validNamePattern.MatchString(info.Name) {
+			t.Errorf("Name %s doesn't match the pattern %v", info.Name, validNamePattern)
+		}
 	}
 }

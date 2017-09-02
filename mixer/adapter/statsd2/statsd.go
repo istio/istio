@@ -112,7 +112,8 @@ func (h *handler) Close() error { return h.client.Close() }
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
-		Name:        "istio.io/mixer/adapter/statsd",
+		Name:        "statsd",
+		Impl:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,
