@@ -74,19 +74,22 @@ spec:
         configMap:
           name: istio-mixer
 ---
+# Mixer CRD definitions are generated using
+# mixs crd all
+
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: mixer-rules.config.istio.io
+  name: rules.config.istio.io
   labels:
     package: istio.io.mixer
     istio: core
 spec:
   group: config.istio.io
   names:
-    kind: mixer-rule
-    plural: mixer-rules
-    singular: mixer-rule
+    kind: rule
+    plural: rules
+    singular: rule
   scope: Namespaced
   version: v1alpha2
 ---
@@ -94,16 +97,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: attribute-manifests.config.istio.io
+  name: attributemanifests.config.istio.io
   labels:
     package: istio.io.mixer
     istio: core
 spec:
   group: config.istio.io
   names:
-    kind: attribute-manifest
-    plural: attribute-manifests
-    singular: attribute-manifest
+    kind: attributemanifest
+    plural: attributemanifests
+    singular: attributemanifest
   scope: Namespaced
   version: v1alpha2
 ---
@@ -128,16 +131,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: list-checkers.config.istio.io
+  name: listcheckers.config.istio.io
   labels:
-    package: list-checker
+    package: listchecker
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: list-checker
-    plural: list-checkers
-    singular: list-checker
+    kind: listchecker
+    plural: listcheckers
+    singular: listchecker
   scope: Namespaced
   version: v1alpha2
 ---
@@ -213,16 +216,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: istio.io/mixer/adapter/statsds.config.istio.io
+  name: statsds.config.istio.io
   labels:
-    package: istio.io/mixer/adapter/statsd
+    package: statsd
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: istio.io/mixer/adapter/statsd
-    plural: istio.io/mixer/adapter/statsds
-    singular: istio.io/mixer/adapter/statsd
+    kind: statsd
+    plural: statsds
+    singular: statsd
   scope: Namespaced
   version: v1alpha2
 ---
