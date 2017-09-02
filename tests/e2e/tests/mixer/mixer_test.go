@@ -308,7 +308,11 @@ func TestRateLimit(t *testing.T) {
 		RunnerOptions: fortio.RunnerOptions{
 			QPS:        100,
 			Duration:   1 * time.Minute,
+<<<<<<< HEAD
 			NumThreads: 8,
+=======
+			NumThreads: 10,
+>>>>>>> Update to HTTPRunner
 		},
 		URL: url,
 	}
@@ -362,6 +366,7 @@ func TestRateLimit(t *testing.T) {
 	}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
 	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
 
@@ -372,6 +377,14 @@ func TestRateLimit(t *testing.T) {
 	// check successes
 	if got < want {
 >>>>>>> simplify test condition
+=======
+	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
+	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
+
+	// check successes
+	if got < want {
+		t.Log(promDump(promAPI, "request_count"))
+>>>>>>> Update to HTTPRunner
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
