@@ -101,7 +101,7 @@ func GetInfo() pkgHndlr.Info {
 			ServiceName: "library-example.sandbox.googleapis.com",
 		},
 
-		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
@@ -110,11 +110,11 @@ func GetInfo() pkgHndlr.Info {
 }
 
 type builder struct {
-	adapterConfig adapter.Config
+	adapterConfig *config.Params
 }
 
 func (*builder) SetMetricTypes(map[string]*metric.Type) {}
-func (b *builder) SetAdapterConfig(cfg adapter.Config)  { b.adapterConfig = cfg }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)  { b.adapterConfig = cfg.(*config.Params) }
 func (*builder) Validate() (ce *adapter.ConfigErrors)   { return }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
@@ -126,7 +126,7 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 	return &handler{
 		serviceControlClient: client,
 		env:                  env,
-		configParams:         b.adapterConfig.(*config.Params),
+		configParams:         b.adapterConfig,
 	}, nil
 }
 

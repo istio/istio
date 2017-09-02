@@ -125,7 +125,7 @@ func GetInfo() pkgHndlr.Info {
 			SamplingRate:  1.0,
 		},
 
-		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
@@ -134,15 +134,15 @@ func GetInfo() pkgHndlr.Info {
 }
 
 type builder struct {
-	adapterConfig adapter.Config
+	adapterConfig *config.Params
 	metricTypes   map[string]*metric.Type
 }
 
 func (b *builder) SetMetricTypes(types map[string]*metric.Type) { b.metricTypes = types }
-func (b *builder) SetAdapterConfig(cfg adapter.Config)          { b.adapterConfig = cfg }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)          { b.adapterConfig = cfg.(*config.Params) }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	ac := b.adapterConfig.(*config.Params)
+	ac := b.adapterConfig
 	if ac.FlushDuration < 0 {
 		ce = ce.Appendf("flushDuration", "flush duration must be >= 0")
 	}
@@ -161,7 +161,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	ac := b.adapterConfig.(*config.Params)
+	ac := b.adapterConfig
 
 	flushBytes := int(ac.FlushBytes)
 	if flushBytes <= 0 {

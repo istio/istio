@@ -250,7 +250,7 @@ func GetInfo() pkgHndlr.Info {
 			Blacklist:       false,
 		},
 
-		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
@@ -259,14 +259,14 @@ func GetInfo() pkgHndlr.Info {
 }
 
 type builder struct {
-	adapterConfig adapter.Config
+	adapterConfig *config.Params
 }
 
 func (*builder) SetListEntryTypes(map[string]*listentry.Type) {}
-func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg.(*config.Params) }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	ac := b.adapterConfig.(*config.Params)
+	ac := b.adapterConfig
 
 	if ac.ProviderUrl != "" {
 		u, err := url.Parse(ac.ProviderUrl)
@@ -311,7 +311,7 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	ac := b.adapterConfig.(*config.Params)
+	ac := b.adapterConfig
 
 	h := &handler{
 		log:     env.Logger(),

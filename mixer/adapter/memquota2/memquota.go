@@ -175,19 +175,24 @@ func GetInfo() pkgHndlr.Info {
 			MinDeduplicationDuration: 1 * time.Second,
 		},
 
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	ac := hc.AdapterConfig.(*config.Params)
+type builder struct {
+	adapterConfig *config.Params
+	quotaTypes    map[string]*quota.Type
+}
+
+func (b *builder) SetQuotaTypes(types map[string]*quota.Type) { b.quotaTypes = types }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)        { b.adapterConfig = cfg.(*config.Params) }
+
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	ac := b.adapterConfig
 
 	if ac.MinDeduplicationDuration <= 0 {
 		ce = ce.Appendf("minDeduplicationDuration", "deduplication window of %v is invalid, must be > 0", ac.MinDeduplicationDuration)
@@ -195,20 +200,20 @@ func validateConfig(hc *pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
 	return
 }
 
-func newHandler(context context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
-	ac := hc.AdapterConfig.(*config.Params)
-	return newHandlerWithDedup(context, env, hc, time.NewTicker(ac.MinDeduplicationDuration))
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	ac := b.adapterConfig
+	return b.buildWithDedup(context, env, time.NewTicker(ac.MinDeduplicationDuration))
 }
 
-func newHandlerWithDedup(_ context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig, ticker *time.Ticker) (*handler, error) {
-	ac := hc.AdapterConfig.(*config.Params)
+func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *time.Ticker) (*handler, error) {
+	ac := b.adapterConfig
 
 	limits := make(map[string]config.Params_Quota, len(ac.Quotas))
 	for _, l := range ac.Quotas {
 		limits[l.Name] = l
 	}
 
-	for k := range hc.QuotaTypes {
+	for k := range b.quotaTypes {
 		if _, ok := limits[k]; !ok {
 			return nil, fmt.Errorf("did not find limit defined for quota %s", k)
 		}
@@ -240,21 +245,18 @@ func newHandlerWithDedup(_ context.Context, env adapter.Env, hc *pkgHndlr.Handle
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct {
-	QuotaTypes map[string]*quota.Type
+type obuilder struct {
+	b *builder
 }
 
 // Build is to be deleted
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig: cfg,
-		QuotaTypes:    b.QuotaTypes,
-	}
-	return newHandler(context.Background(), env, hc)
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
 }
 
 // ConfigureQuotaHandler is to be deleted
-func (b *builder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
-	b.QuotaTypes = types
+func (o *obuilder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
+	o.b.SetQuotaTypes(types)
 	return nil
 }

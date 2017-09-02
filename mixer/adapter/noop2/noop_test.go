@@ -48,7 +48,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
 
 	if err := b.Validate(); err != nil {
