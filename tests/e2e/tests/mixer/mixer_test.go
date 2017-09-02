@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -298,40 +297,30 @@ func TestRateLimit(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
-	opts := fortio.DefaultRunnerOptions
-	opts.Duration = 30 * time.Second
-	opts.QPS = 30
-	clients := make([]fortio.Fetcher, 0, opts.NumThreads)
-	for i := 0; i < opts.NumThreads; i++ {
-		clients = append(clients, fortio.NewBasicClient(url, "1.1", true))
+
+	opts := fortio.HTTPRunnerOptions{
+		RunnerOptions: fortio.RunnerOptions{
+			QPS:        100,
+			Duration:   1 * time.Minute,
+			NumThreads: 10,
+		},
+		URL: url,
 	}
 
-	var totalReqs, successReqs, errReqs int64
-
-	opts.Function = func(tid int) {
-		code, _, _ := clients[tid].Fetch()
-		atomic.AddInt64(&totalReqs, 1)
-
-		if code >= http.StatusOK && code < http.StatusMultipleChoices {
-			// [200, 300)
-			atomic.AddInt64(&successReqs, 1)
-			return
-		}
-		if code == http.StatusBadRequest || code < http.StatusInternalServerError {
-			// [400, 500)
-			atomic.AddInt64(&errReqs, 1)
-			return
-		}
+	res, err := fortio.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	runner := fortio.NewPeriodicRunner(&opts)
-	runner.Run()
+	totalReqs := res.DurationHistogram.Count
+	succReqs := res.RetCodes[http.StatusOK]
+	badReqs := res.RetCodes[http.StatusBadRequest]
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, successReqs, errReqs)
+	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
 
 	// consider only successful full requests
-	perSvc := float64(successReqs) / 3
+	perSvc := float64(succReqs) / 3
 
 	// must sleep to allow for prometheus scraping, etc.
 	time.Sleep(30 * time.Second)
@@ -362,11 +351,16 @@ func TestRateLimit(t *testing.T) {
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
+		t.Log(promDump(promAPI, "request_count"))
 		t.Errorf("Could not find successes value: %v", err)
 	}
 
+	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
+	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
+
 	// check successes
 	if got < want {
+		t.Log(promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
@@ -377,6 +371,13 @@ func promAPI() (v1.API, error) {
 		return nil, err
 	}
 	return v1.NewAPI(client), nil
+}
+
+func promDump(client v1.API, metric string) string {
+	if value, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
+		return value.String()
+	}
+	return ""
 }
 
 func vectorValue(val model.Value, labels map[string]string) (float64, error) {
