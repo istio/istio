@@ -289,6 +289,8 @@ func TestDenials(t *testing.T) {
 func TestRateLimit(t *testing.T) {
 	applyReviewsRoutingRules(t)
 
+	// the rate limit rule applies a max rate limit of 5 rps. Here we apply it
+	// to the "ratings" service (without a selector -- meaning for all versions).
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %got", err)
@@ -300,30 +302,34 @@ func TestRateLimit(t *testing.T) {
 	}()
 
 	// allow time for rule sync
-	time.Sleep(10 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
+	// run at a large QPS (here 100) for a minute to ensure that enough
+	// traffic is generated to trigger 429s from the rate limit rule
 	opts := fortio.HTTPRunnerOptions{
 		RunnerOptions: fortio.RunnerOptions{
 			QPS:        100,
 			Duration:   1 * time.Minute,
-<<<<<<< HEAD
-<<<<<<< HEAD
 			NumThreads: 8,
-=======
-			NumThreads: 10,
->>>>>>> Update to HTTPRunner
-=======
-			NumThreads: 8,
->>>>>>> prefer 8 to 10
 		},
 		URL: url,
 	}
 
+	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fortio.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+
+	// must sleep to allow for prometheus scraping, etc.
+	time.Sleep(30 * time.Second)
+
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
 	totalReqs := res.DurationHistogram.Count
@@ -333,16 +339,26 @@ func TestRateLimit(t *testing.T) {
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
 
-	// consider only successful full requests
-	perSvc := float64(succReqs) / 3
+	// consider only successful requests (as recorded at productpage service)
+	// and provide guess of spread across versions of reviews service (that calls ratings)
+	// as only two (of three) versions of reviews service call into ratings.
+	callsToRatings := float64(2*succReqs) / 3
 
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	// the rate-limit is 5 rps, but observed actuals are [4-5) in experimental
+	// testing. opt for leniency here to decrease flakiness of testing.
+	want200s := opts.Duration.Seconds() * 4
 
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
+	// everything in excess of 200s should be 429s (ideally)
+	want429s := callsToRatings - want200s
+
+	// if we received less traffic than the expected enforced limit to ratings
+	// then there is no way to determine if the rate limit was applied at all
+	// and for how much traffic. log all metrics and abort test.
+	if callsToRatings < want200s {
+		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
+
 	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -355,10 +371,10 @@ func TestRateLimit(t *testing.T) {
 		t.Errorf("Could not find rate limit value: %v", err)
 	}
 
-	// establish some baseline (40% of expected counts)
-	want := math.Floor(perSvc * .4)
+	// establish some baseline to protect against flakiness due to randomness in routing
+	want := math.Floor(want429s * .75)
 
-	// check rejections
+	// check resource exhausteds
 	if got < want {
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
@@ -369,26 +385,12 @@ func TestRateLimit(t *testing.T) {
 		t.Errorf("Could not find successes value: %v", err)
 	}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
-	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
+	// establish some baseline to protect against flakiness due to randomness in routing
+	want = math.Floor(want200s * .75)
 
 	// check successes
 	if got < want {
 		t.Log(promDump(promAPI, "request_count"))
-=======
-	// check successes
-	if got < want {
->>>>>>> simplify test condition
-=======
-	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
-	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
-
-	// check successes
-	if got < want {
-		t.Log(promDump(promAPI, "request_count"))
->>>>>>> Update to HTTPRunner
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
@@ -401,6 +403,8 @@ func promAPI() (v1.API, error) {
 	return v1.NewAPI(client), nil
 }
 
+// promDump gets all of the recorded values for a metric by name and generates a report of the values.
+// used for debugging of failures to provide a comprehensive view of traffic experienced.
 func promDump(client v1.API, metric string) string {
 	if value, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
 		return value.String()
