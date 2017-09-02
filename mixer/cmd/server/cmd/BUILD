@@ -51,5 +51,6 @@ go_test(
     deps = [
         "//pkg/adapter:go_default_library",
         "//pkg/template:go_default_library",
+        "//template:go_default_library",
     ],
 )
