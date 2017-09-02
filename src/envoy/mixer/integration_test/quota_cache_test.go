@@ -44,6 +44,7 @@ func TestQuotaCache(t *testing.T) {
 		Condition: mixerpb.EXACT,
 	}
 	s.mixer.check_referenced = &output
+	s.mixer.quota_referenced = &output
 
 	// Issues a GET echo request with 0 size body
 	tag := "OKGet"
