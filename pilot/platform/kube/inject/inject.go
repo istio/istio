@@ -29,7 +29,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +38,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
 	"istio.io/pilot/tools/version"
 )
 
@@ -172,32 +169,6 @@ type Config struct {
 
 	// Params specifies the parameters of the injected sidcar template
 	Params Params `json:"params"`
-}
-
-// GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
-func GetMeshConfig(kube kubernetes.Interface, namespace, name string) (*proxyconfig.ProxyMeshConfig, error) {
-	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// values in the data are strings, while proto might use a different data type.
-	// therefore, we have to get a value by a key
-	yaml, exists := config.Data[ConfigMapKey]
-	if !exists {
-		return nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
-	}
-
-	mesh := proxy.DefaultMeshConfig()
-	if err = model.ApplyYAML(yaml, &mesh); err != nil {
-		return nil, multierror.Prefix(err, "failed to convert to proto.")
-	}
-
-	if err = model.ValidateProxyMeshConfig(&mesh); err != nil {
-		return nil, err
-	}
-
-	return &mesh, nil
 }
 
 // GetInitializerConfig fetches the initializer configuration from a Kubernetes ConfigMap.

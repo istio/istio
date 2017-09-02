@@ -29,15 +29,15 @@ import (
 )
 
 var (
-	hub             string
-	tag             string
-	sidecarProxyUID int64
-	verbosity       int
-	versionStr      string // override build version
-	enableCoreDump  bool
-	meshConfig      string
-	imagePullPolicy string
-	includeIPRanges string
+	hub               string
+	tag               string
+	sidecarProxyUID   int64
+	verbosity         int
+	versionStr        string // override build version
+	enableCoreDump    bool
+	meshConfigMapName string
+	imagePullPolicy   string
+	includeIPRanges   string
 
 	inFilename  string
 	outFilename string
@@ -113,12 +113,25 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			mesh, err := inject.GetMeshConfig(client, namespace, meshConfig)
+			_, meshConfig, err := inject.GetMeshConfig(client, namespace, meshConfigMapName)
 			if err != nil {
-				return fmt.Errorf("Istio configuration not found. Verify istio configmap is "+
-					"installed in namespace %q with `kubectl get -n %s configmap istio`",
-					namespace, namespace)
+				// Temporary hack (few days), until this is properly implemented
+				// https://github.com/istio/pilot/issues/1153
+				istioMeshConfigMap, istioMeshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
+				if err != nil {
+					return fmt.Errorf("Istio configMap not found in namespace %q, nor in namespace %q."+
+						" Please run kube-inject with the argument `-i <istioSystemNamespace>`",
+						namespace, istioNamespace)
+				}
+
+				meshConfig = istioMeshConfig
+				_, err = inject.CreateMeshConfigMap(client, namespace, meshConfigMapName, istioMeshConfigMap)
+				if err != nil {
+					return fmt.Errorf("Cannot create Istio configuration map in namespace %s",
+						namespace)
+				}
 			}
+
 			config := &inject.Config{
 				Policy:     inject.DefaultInjectionPolicy,
 				Namespaces: []string{v1.NamespaceAll},
@@ -129,8 +142,8 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					SidecarProxyUID:   sidecarProxyUID,
 					Version:           versionStr,
 					EnableCoreDump:    enableCoreDump,
-					Mesh:              mesh,
-					MeshConfigMapName: meshConfig,
+					Mesh:              meshConfig,
+					MeshConfigMapName: meshConfigMapName,
 					ImagePullPolicy:   imagePullPolicy,
 					IncludeIPRanges:   includeIPRanges,
 				},
@@ -156,7 +169,7 @@ func init() {
 		inject.DefaultSidecarProxyUID, "Envoy sidecar UID")
 	injectCmd.PersistentFlags().StringVar(&versionStr, "setVersionString",
 		"", "Override version info injected into resource")
-	injectCmd.PersistentFlags().StringVar(&meshConfig, "meshConfig", "istio",
+	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", "istio",
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", inject.ConfigMapKey))
 
 	// Default --coreDump=true for pre-alpha development. Core dump

@@ -364,7 +364,7 @@ func TestGetMeshConfig(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: Create failed: %v", c.name, err)
 		}
-		got, err := GetMeshConfig(cl, ns, c.queryName)
+		_, got, err := GetMeshConfig(cl, ns, c.queryName)
 		gotErr := err != nil
 		if gotErr != c.wantErr {
 			t.Fatalf("%v: GetMeshConfig returned wrong error value: got %v want %v: err=%v", c.name, gotErr, c.wantErr, err)

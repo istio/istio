@@ -49,7 +49,7 @@ type cacheHandler struct {
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
 
 	glog.V(2).Infof("CRD controller running in namespace %s, watching app namespaces %s",
-		options.Namespace, options.AppNamespace)
+		options.Namespace, options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
@@ -60,7 +60,7 @@ func NewController(client *Client, options kube.ControllerOptions) model.ConfigS
 
 	// add stores for CRD kinds
 	for _, schema := range client.ConfigDescriptor() {
-		out.addInformer(schema, options.AppNamespace, options.ResyncPeriod)
+		out.addInformer(schema, options.WatchedNamespace, options.ResyncPeriod)
 	}
 
 	return out

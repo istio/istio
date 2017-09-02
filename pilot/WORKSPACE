@@ -365,7 +365,7 @@ go_repository(
 
 go_repository(
     name = "com_github_russross_blackfriday",
-    commit = "35eb537633d9950afc8ae7bdf0edb6134584e9fc",  # Mar 19, 2017 (no releases)
+    commit = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c",
     importpath = "github.com/russross/blackfriday",
 )
 

@@ -23,7 +23,6 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/aggregate"
 	"istio.io/pilot/adapter/config/crd"
@@ -36,6 +35,7 @@ import (
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ConsulArgs store the args related to Consul configuration
@@ -194,8 +194,9 @@ func init() {
 		fmt.Sprintf("File name for Istio mesh configuration"))
 	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.Namespace, "namespace", "n", "",
 		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
-	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.AppNamespace, "app namespace", "a", "",
-		"Restrict the applications namespace that controller manages, do n")
+	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.WatchedNamespace, "app namespace",
+		"a", metav1.NamespaceAll,
+		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
 	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domain", "cluster.local",

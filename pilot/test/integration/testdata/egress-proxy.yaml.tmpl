@@ -51,8 +51,8 @@ spec:
         - name: config-volume
           mountPath: /etc/istio/config
           readOnly: true
-        - mountPath: /etc/istio/proxy/
-          name: istio-envoy
+        - name: istio-envoy
+          mountPath: /etc/istio/proxy/
 {{if eq .Auth 1}}
         - mountPath: /etc/certs
           name: istio-certs

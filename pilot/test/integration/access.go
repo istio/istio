@@ -81,9 +81,9 @@ func (a *accessLogs) check(infra *infra) error {
 					container = "mixer"
 					ns = infra.IstioNamespace
 				case "ingress":
-					ns = infra.IstioNamespace
+					ns = infra.Namespace
 				case "egress":
-					ns = infra.IstioNamespace
+					ns = infra.Namespace
 				}
 				logs := util.FetchLogs(client, pod, ns, container)
 

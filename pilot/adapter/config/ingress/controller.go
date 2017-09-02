@@ -56,15 +56,16 @@ func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfi
 	// queue requires a time duration for a retry delay after a handler error
 	queue := kube.NewQueue(1 * time.Second)
 
-	glog.V(2).Infof("Ingress controller watching namespaces %s", options.AppNamespace)
+	glog.V(2).Infof("Ingress controller running in namespace %s, watching namespaces %s",
+		options.Namespace, options.WatchedNamespace)
 	// informer framework from Kubernetes
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts meta_v1.ListOptions) (runtime.Object, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.AppNamespace).List(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).List(opts)
 			},
 			WatchFunc: func(opts meta_v1.ListOptions) (watch.Interface, error) {
-				return client.ExtensionsV1beta1().Ingresses(options.AppNamespace).Watch(opts)
+				return client.ExtensionsV1beta1().Ingresses(options.WatchedNamespace).Watch(opts)
 			},
 		}, &v1beta1.Ingress{},
 		options.ResyncPeriod, cache.Indexers{})

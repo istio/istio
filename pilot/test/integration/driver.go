@@ -61,7 +61,7 @@ const (
 	caImage = "gcr.io/istio-testing/istio-ca:2baec6baacecbd516ea0880573b6fc3cd5736739"
 
 	// mixerImage specifies the default mixer docker image used for e2e testing *update manually*
-	mixerImage = "gcr.io/istio-testing/mixer:49e721e15d481cd5d92d9a2b30b5e8fcdcafdb63"
+	mixerImage = "gcr.io/istio-testing/mixer:986c6e1eb9c7dcff42e3df5aefa9ce858ece885e"
 
 	// retry budget
 	budget = 90
@@ -176,6 +176,10 @@ func runTests(envs ...infra) {
 
 		nslist := []string{istio.IstioNamespace, istio.Namespace}
 		istio.apps, errs = util.GetAppPods(client, nslist)
+		if errs != nil {
+			result = multierror.Append(result, errs)
+			break
+		}
 
 		tests := []test{
 			&http{infra: &istio},

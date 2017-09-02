@@ -118,7 +118,7 @@ func (infra *infra) setup() error {
 		return err
 	}
 
-	mesh, err := inject.GetMeshConfig(client, infra.IstioNamespace, "istio")
+	_, mesh, err := inject.GetMeshConfig(client, infra.IstioNamespace, "istio")
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (infra *infra) setup() error {
 		}
 	}
 	if infra.Ingress {
-		if err := deploy("ingress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err := deploy("ingress-proxy.yaml.tmpl", infra.Namespace); err != nil {
 			return err
 		}
 		// Update ingress key/cert in secret
@@ -202,7 +202,7 @@ func (infra *infra) setup() error {
 		if err != nil {
 			return err
 		}
-		_, err = client.CoreV1().Secrets(infra.IstioNamespace).Update(&v1.Secret{
+		_, err = client.CoreV1().Secrets(infra.Namespace).Update(&v1.Secret{
 			ObjectMeta: meta_v1.ObjectMeta{Name: ingressSecretName},
 			Data: map[string][]byte{
 				"tls.key": key,
@@ -214,7 +214,7 @@ func (infra *infra) setup() error {
 		}
 	}
 	if infra.Egress {
-		if err := deploy("egress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
+		if err := deploy("egress-proxy.yaml.tmpl", infra.Namespace); err != nil {
 			return err
 		}
 	}
@@ -391,7 +391,7 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	}
 
 	glog.Info("Sleeping for the config to propagate")
-	time.Sleep(3 * time.Second)
+	time.Sleep(20 * time.Second)
 	return nil
 }
 
