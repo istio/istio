@@ -1,0 +1,43 @@
+revision: "1"
+rules:
+- aspects:
+  - adapter: prometheus
+    kind: metrics
+    params:
+      metrics:
+      - descriptor_name: response_size
+        value: response.size | 0
+        labels:
+          source: source.labels["app"] | "unknown"
+          target: target.service | "unknown"
+          service: target.labels["app"] | "unknown"
+          method: request.path | "unknown"
+          version: target.labels["version"] | "unknown"
+          response_code: response.code | 200
+  - kind: access-logs
+    params:
+      logName: combined_log
+      log:
+        descriptor_name: accesslog.combined
+        template_expressions:
+          originIp: origin.ip
+          sourceUser: origin.user
+          timestamp: request.time
+          method: request.method
+          url: request.path
+          protocol: request.scheme
+          responseCode: response.code
+          responseSize: response.size
+          referer: request.referer
+          userAgent: request.headers["user-agent"]
+        labels:
+          originIp: origin.ip
+          sourceUser: origin.user
+          timestamp: request.time
+          method: request.method
+          url: request.path
+          protocol: request.scheme
+          responseCode: response.code
+          responseSize: response.size
+          referer: request.referer
+          userAgent: request.headers["user-agent"]
