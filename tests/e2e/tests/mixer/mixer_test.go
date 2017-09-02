@@ -302,7 +302,7 @@ func TestRateLimit(t *testing.T) {
 		RunnerOptions: fortio.RunnerOptions{
 			QPS:        100,
 			Duration:   1 * time.Minute,
-			NumThreads: 10,
+			NumThreads: 8,
 		},
 		URL: url,
 	}
