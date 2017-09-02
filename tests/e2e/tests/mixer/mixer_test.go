@@ -48,6 +48,7 @@ const (
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
+	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
 
 	prometheusPort = "9090"
@@ -67,7 +68,8 @@ type testConfig struct {
 var (
 	tc             *testConfig
 	testRetryTimes = 5
-	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
+	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule}
 )
 
 func (t *testConfig) Setup() error {
@@ -232,7 +234,11 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
-	applyReviewsRoutingRules(t)
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	}
+	// hope for stability
+	time.Sleep(30 * time.Second)
 
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, denialRule); err != nil {
