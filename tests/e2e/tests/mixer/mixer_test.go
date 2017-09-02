@@ -309,10 +309,14 @@ func TestRateLimit(t *testing.T) {
 			QPS:        100,
 			Duration:   1 * time.Minute,
 <<<<<<< HEAD
+<<<<<<< HEAD
 			NumThreads: 8,
 =======
 			NumThreads: 10,
 >>>>>>> Update to HTTPRunner
+=======
+			NumThreads: 8,
+>>>>>>> prefer 8 to 10
 		},
 		URL: url,
 	}
