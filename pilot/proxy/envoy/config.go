@@ -233,6 +233,7 @@ func buildRDSRoute(mesh *proxyconfig.ProxyMeshConfig, role proxy.Node, routeName
 		instances := discovery.HostInstances(map[string]bool{role.IPAddress: true})
 		services := discovery.Services()
 		configs = buildOutboundHTTPRoutes(mesh, role, instances, services, config)
+		configs = buildEgressFromSidecarHTTPRoutes(mesh, config.EgressRules(), configs)
 	default:
 		return nil
 	}
@@ -360,6 +361,8 @@ func buildOutboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Nod
 
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, sidecar, instances, services, config)
+	httpOutbound = buildEgressFromSidecarHTTPRoutes(mesh, config.EgressRules(), httpOutbound)
+
 	for port, routeConfig := range httpOutbound {
 		listeners = append(listeners,
 			buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port, fmt.Sprintf("%d", port), false))
@@ -605,6 +608,76 @@ func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node
 	}
 
 	return listeners, clusters
+}
+
+func appendPortToDomains(domains []string, port int) []string {
+	domainsWithPorts := make([]string, len(domains), 2*len(domains))
+	copy(domainsWithPorts, domains)
+
+	for _, domain := range domains {
+		domainsWithPorts = append(domainsWithPorts, domain+":"+strconv.Itoa(port))
+	}
+
+	return domainsWithPorts
+}
+
+func buildEgressFromSidecarVirtualHostOnPort(rule *proxyconfig.EgressRule, mesh *proxyconfig.ProxyMeshConfig,
+	port *model.Port) *VirtualHost {
+	var externalTrafficCluster *Cluster
+
+	protocolToHandle := port.Protocol
+	if protocolToHandle == model.ProtocolGRPC {
+		protocolToHandle = model.ProtocolHTTP2
+	}
+	protocolSuffix := "-" + strings.ToLower(string(protocolToHandle))
+
+	if rule.UseEgressProxy {
+		externalTrafficCluster = buildOutboundCluster("istio-egress", port, nil)
+		externalTrafficCluster.ServiceName = ""
+		externalTrafficCluster.Type = ClusterTypeStrictDNS
+		externalTrafficCluster.Hosts = []Host{{URL: fmt.Sprintf("tcp://%s", mesh.EgressProxyAddress)}}
+	} else {
+		externalTrafficCluster = buildOriginalDSTCluster("orig-dst-cluster"+protocolSuffix, mesh.ConnectTimeout)
+
+		if protocolToHandle == model.ProtocolHTTPS {
+			externalTrafficCluster.SSLContext = &SSLContextExternal{}
+		}
+
+		if protocolToHandle == model.ProtocolHTTP2 {
+			externalTrafficCluster.Features = ClusterFeatureHTTP2
+		}
+	}
+
+	externalTrafficRoute := buildDefaultRoute(externalTrafficCluster)
+
+	return &VirtualHost{
+		Name:    rule.Name + "-" + strconv.Itoa(port.Port),
+		Domains: appendPortToDomains(rule.Domains, port.Port),
+		Routes:  []*HTTPRoute{externalTrafficRoute},
+	}
+}
+
+func buildEgressFromSidecarHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, egressRules map[string]*proxyconfig.EgressRule,
+	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
+	for _, rule := range egressRules {
+		if len(rule.Domains) < 1 {
+			continue
+		}
+		for _, port := range rule.Ports {
+			protocol := model.Protocol(strings.ToUpper(port.Protocol))
+			if protocol != model.ProtocolHTTP && protocol != model.ProtocolHTTPS &&
+				protocol != model.ProtocolHTTP2 && protocol != model.ProtocolGRPC {
+				continue
+			}
+			intPort := int(port.Port)
+			modelPort := &model.Port{Name: "external-traffic-port", Port: intPort, Protocol: protocol}
+			httpConfig := httpConfigs.EnsurePort(intPort)
+			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
+				buildEgressFromSidecarVirtualHostOnPort(rule, mesh, modelPort))
+		}
+	}
+
+	return httpConfigs.normalize()
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on

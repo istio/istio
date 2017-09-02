@@ -104,6 +104,7 @@ var (
 
 				configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 					model.RouteRule,
+					model.EgressRule,
 					model.DestinationPolicy,
 				})
 				if err != nil {

@@ -754,6 +754,102 @@ func ValidateIngressRule(msg proto.Message) error {
 	return errs
 }
 
+// ValidateEgressRule checks egress rules
+func ValidateEgressRule(msg proto.Message) error {
+	rule, ok := msg.(*proxyconfig.EgressRule)
+	if !ok {
+		return fmt.Errorf("cannot cast to egress rule")
+	}
+
+	var errs error
+	if rule.Name == "" {
+		errs = multierror.Append(errs, fmt.Errorf("egress rule must have a name"))
+	}
+
+	if len(rule.Domains) == 0 {
+		return fmt.Errorf("egress rule must have a domains list")
+	}
+
+	domains := make(map[string]bool)
+	for _, domain := range rule.Domains {
+		if _, exists := domains[domain]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate domain: %s", domain))
+		}
+		domains[domain] = true
+
+		if err := ValidateEgressRuleDomain(domain); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if len(rule.Ports) == 0 {
+		errs = multierror.Append(errs, fmt.Errorf("egress rule must have a ports list"))
+	}
+
+	ports := make(map[int32]bool)
+	for _, port := range rule.Ports {
+		if _, exists := ports[port.Port]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate port: %d", port.Port))
+		}
+		ports[port.Port] = true
+
+		if err := ValidateEgressRulePort(port); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if rule.UseEgressProxy {
+		errs = multierror.Append(errs, fmt.Errorf("directing traffic through egress proxy is not implemented yet"))
+	}
+
+	return errs
+}
+
+// ValidateEgressRuleDomain validates domains in the egress rules
+// domains are according to the definion of Envoy's domain of virtual hosts.
+//
+// Wildcard hosts are supported in the form of “*.foo.com” or “*-bar.foo.com”.
+// Note that the wildcard will not match the empty string. e.g. “*-bar.foo.com” will match “baz-bar.foo.com”
+// but not “-bar.foo.com”.  Additionally, a special entry “*” is allowed which will match any host/authority header.
+func ValidateEgressRuleDomain(domain string) error {
+	if len(domain) < 1 {
+		return fmt.Errorf("domain must not be empty string")
+	}
+
+	if domain[0] == '*' {
+		domain = domain[1:]   // wildcard * is allowed only at the first position
+		if len(domain) == 0 { // the domain was just * and it is OK
+			return nil
+		}
+		if domain[0] == '.' || domain[0] == '-' {
+			// the domain started with '*.' or '*-' - the rest of the domain should be validate FDQN
+			domain = domain[1:]
+		}
+	}
+	if err := ValidateFQDN(domain); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
+func ValidateEgressRulePort(port *proxyconfig.EgressRule_Port) error {
+
+	if err := ValidatePort(int(port.Port)); err != nil {
+		return err
+	}
+
+	protocol := Protocol(strings.ToUpper(port.Protocol))
+	switch protocol {
+	case ProtocolHTTP, ProtocolHTTPS, ProtocolHTTP2, ProtocolGRPC:
+	default:
+		return fmt.Errorf("Support for non-HTTP protocols is not yet available")
+	}
+
+	return nil
+}
+
 // ValidateDestinationPolicy checks proxy policies
 func ValidateDestinationPolicy(msg proto.Message) error {
 	value, ok := msg.(*proxyconfig.DestinationPolicy)

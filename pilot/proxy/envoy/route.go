@@ -330,7 +330,6 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 	return route
 }
 
-// nolint: deadcode, megacheck
 func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 	return &Cluster{
 		Name:             OutboundClusterPrefix + name,

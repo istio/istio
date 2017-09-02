@@ -43,7 +43,7 @@ var knownTypes = map[string]struct {
 }{
 EOF
 
-CRDS="MockConfig RouteRule IngressRule DestinationPolicy"
+CRDS="MockConfig RouteRule IngressRule EgressRule DestinationPolicy"
 
 for crd in $CRDS; do
 cat << EOF

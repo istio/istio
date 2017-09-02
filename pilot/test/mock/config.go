@@ -51,6 +51,14 @@ var (
 		DestinationServicePort: &proxyconfig.IngressRule_DestinationPort{DestinationPort: 80},
 	}
 
+	// ExampleEgressRule is an example egress rule
+	ExampleEgressRule = &proxyconfig.EgressRule{
+		Name:           "sample-egress",
+		Domains:        []string{"*.cnn.com", "*.cnn.de"},
+		Ports:          []*proxyconfig.EgressRule_Port{{Port: 80, Protocol: "http"}},
+		UseEgressProxy: false,
+	}
+
 	// ExampleDestinationPolicy is an example destination policy
 	ExampleDestinationPolicy = &proxyconfig.DestinationPolicy{
 		Destination: WorldService.Hostname,
@@ -262,6 +270,16 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		Spec: ExampleIngressRule,
 	}); err != nil {
 		t.Errorf("Post(IngressRule) => got %v", err)
+	}
+	if _, err := store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.EgressRule.Type,
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: ExampleEgressRule,
+	}); err != nil {
+		t.Errorf("Post(EgressRule) => got %v", err)
 	}
 	if _, err := store.Create(model.Config{
 		ConfigMeta: model.ConfigMeta{

@@ -834,3 +834,140 @@ func TestValidateProxyMeshConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEgressRuleDomain(t *testing.T) {
+	domains := map[string]bool{
+		"cnn.com":    true,
+		"cnn..com":   false,
+		"10.0.0.100": true,
+		"cnn.com:80": false,
+		"*cnn.com":   true,
+		"*.cnn.com":  true,
+		"*-cnn.com":  true,
+		"*.0.0.100":  true,
+		"*0.0.100":   true,
+		"*cnn*.com":  false,
+		"cnn.*.com":  false,
+		"*com":       true,
+		"*0":         true,
+		"**com":      false,
+		"**0":        false,
+		"*":          true,
+		"":           false,
+		"*.":         false,
+	}
+
+	for domain, valid := range domains {
+		if got := ValidateEgressRuleDomain(domain); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s", got == nil, valid, got, domain)
+		}
+	}
+}
+
+func TestValidateEgressRulePort(t *testing.T) {
+	ports := map[*proxyconfig.EgressRule_Port]bool{
+		{Port: 80, Protocol: "http"}:    true,
+		{Port: 80, Protocol: "http2"}:   true,
+		{Port: 80, Protocol: "grpc"}:    true,
+		{Port: 443, Protocol: "https"}:  true,
+		{Port: 80, Protocol: "https"}:   true,
+		{Port: 443, Protocol: "http"}:   true,
+		{Port: 1, Protocol: "http"}:     true,
+		{Port: 2, Protocol: "https"}:    true,
+		{Port: 80, Protocol: "tcp"}:     false,
+		{Port: 0, Protocol: "http"}:     false,
+		{Port: 65536, Protocol: "http"}: false,
+		{Port: 65535, Protocol: "http"}: true,
+	}
+
+	for port, valid := range ports {
+		if got := ValidateEgressRulePort(port); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, valid, got, port)
+		}
+	}
+}
+
+func TestValidateEgressRule(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{name: "empty egress rule", in: &proxyconfig.EgressRule{}, valid: false},
+		{name: "valid egress rule",
+			in: &proxyconfig.EgressRule{
+				Name:    "cnn",
+				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+		{name: "egress rule with use_egress_proxy = true, not yet implemented",
+			in: &proxyconfig.EgressRule{
+				Name:    "cnn",
+				Domains: []string{"*cnn.com"},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 8080, Protocol: "http"},
+				},
+				UseEgressProxy: true},
+			valid: false},
+		{name: "empty name",
+			in: &proxyconfig.EgressRule{
+				Name:    "",
+				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: false},
+		{name: "empty domains",
+			in: &proxyconfig.EgressRule{
+				Name:    "cnn",
+				Domains: []string{},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: false},
+		{name: "empty ports",
+			in: &proxyconfig.EgressRule{
+				Name:           "cnn",
+				Domains:        []string{"*cnn.com", "*.cnn.com"},
+				Ports:          []*proxyconfig.EgressRule_Port{},
+				UseEgressProxy: false},
+			valid: false},
+		{name: "duplicate domain",
+			in: &proxyconfig.EgressRule{
+				Name:    "cnn",
+				Domains: []string{"*cnn.com", "*.cnn.com", "*cnn.com"},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: false},
+		{name: "duplicate port",
+			in: &proxyconfig.EgressRule{
+				Name:    "cnn",
+				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+					{Port: 80, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := ValidateEgressRule(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEgressRule failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
