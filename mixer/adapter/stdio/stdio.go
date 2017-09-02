@@ -126,30 +126,34 @@ func GetInfo() pkgHndlr.Info {
 			OutputAsJson: false,
 		},
 
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &builder{} },
-		ValidateConfig: func(cfg adapter.Config) *adapter.ConfigErrors {
-			return validateConfig(&pkgHndlr.HandlerConfig{AdapterConfig: cfg})
-		},
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
-		ValidateConfig2: validateConfig,
-		NewHandler:      newHandler,
+		// TO BE DELETED
+		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
+		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
 	}
 }
 
-func validateConfig(*pkgHndlr.HandlerConfig) (ce *adapter.ConfigErrors) {
-	return
+type builder struct {
+	adapterConfig *config.Params
+	logEntryTypes map[string]*logentry.Type
+	metricTypes   map[string]*metric.Type
 }
 
-func newHandler(ctx context.Context, env adapter.Env, hc *pkgHndlr.HandlerConfig) (adapter.Handler, error) {
-	return newHandlerWithZapBuilder(ctx, env, hc, newZapLogger)
+func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) { b.logEntryTypes = types }
+func (b *builder) SetMetricTypes(types map[string]*metric.Type)     { b.metricTypes = types }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg.(*config.Params) }
+func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	return b.buildWithZapBuilder(context, env, newZapLogger)
 }
 
-func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.HandlerConfig, zb zapBuilderFn) (adapter.Handler, error) {
+func (b *builder) buildWithZapBuilder(_ context.Context, _ adapter.Env, zb zapBuilderFn) (adapter.Handler, error) {
 	// We produce sorted tables of the variables we'll receive such that
 	// we send output to the zap logger in a consistent order at runtime
-	varLists := make(map[string][]string, len(hc.LogEntryTypes))
-	for tn, tv := range hc.LogEntryTypes {
+	varLists := make(map[string][]string, len(b.logEntryTypes))
+	for tn, tv := range b.logEntryTypes {
 		l := make([]string, 0, len(tv.Variables))
 		for v := range tv.Variables {
 			l = append(l, v)
@@ -161,8 +165,8 @@ func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.Han
 
 	// We produce sorted tables of the dimensions we'll receive such that
 	// we send output to the zap logger in a consistent order at runtime
-	dimLists := make(map[string][]string, len(hc.MetricEntryTypes))
-	for tn, tv := range hc.MetricEntryTypes {
+	dimLists := make(map[string][]string, len(b.metricTypes))
+	for tn, tv := range b.metricTypes {
 		l := make([]string, 0, len(tv.Dimensions))
 		for v := range tv.Dimensions {
 			l = append(l, v)
@@ -172,7 +176,7 @@ func newHandlerWithZapBuilder(_ context.Context, _ adapter.Env, hc *pkgHndlr.Han
 		dimLists[tn] = l
 	}
 
-	ac := hc.AdapterConfig.(*config.Params)
+	ac := b.adapterConfig
 
 	outputPath := "stdout"
 	if ac.LogStream == config.STDERR {
@@ -236,27 +240,24 @@ func newZapLogger(outputPath string, encoding string) (*zap.Logger, error) {
 
 // EVERYTHING BELOW IS TO BE DELETED
 
-type builder struct {
-	MetricTypes   map[string]*metric.Type
-	LogEntryTypes map[string]*logentry.Type
+type obuilder struct {
+	b *builder
 }
 
 // Build is to be deleted
-func (b *builder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	hc := &pkgHndlr.HandlerConfig{
-		AdapterConfig: cfg,
-	}
-	return newHandler(context.Background(), env, hc)
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
 }
 
 // ConfigureLogEntryHandler is to be deleted
-func (b *builder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
-	b.LogEntryTypes = types
+func (o *obuilder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
+	o.b.SetLogEntryTypes(types)
 	return nil
 }
 
 // ConfigureMetricHandler is to be deleted
-func (b *builder) ConfigureMetricHandler(types map[string]*metric.Type) error {
-	b.MetricTypes = types
+func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
+	o.b.SetMetricTypes(types)
 	return nil
 }

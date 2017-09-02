@@ -40,7 +40,7 @@ func TestBasic(t *testing.T) {
 		t.Error("Didn't find all expected supported templates")
 	}
 
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(info.DefaultConfig)
 
 	if err := b.Validate(); err != nil {

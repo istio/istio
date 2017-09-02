@@ -23,7 +23,6 @@ import (
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/quota"
 )
 
@@ -35,13 +34,14 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder()
+	b.SetAdapterConfig(cfg)
 
-	if err := validateConfig(hc); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -85,9 +85,11 @@ func TestAllocAndRelease(t *testing.T) {
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.NewBuilder()
+	b.SetAdapterConfig(&cfg)
 
-	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	hndlr, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Got error %v, expecting success", err)
 	}
@@ -196,15 +198,16 @@ func TestAllocAndRelease(t *testing.T) {
 func TestBadConfig(t *testing.T) {
 	info := GetInfo()
 	cfg := info.DefaultConfig.(*config.Params)
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
 	cfg.MinDeduplicationDuration = 0
-	if err := validateConfig(hc); err == nil {
+	if err := b.Validate; err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
 	cfg.MinDeduplicationDuration = -1
-	if err := validateConfig(hc); err == nil {
+	if err := b.Validate(); err == nil {
 		t.Error("Expecting failure, got success")
 	}
 
@@ -214,9 +217,9 @@ func TestBadConfig(t *testing.T) {
 		"Foo": {},
 	}
 
-	hc.QuotaTypes = types
+	b.SetQuotaTypes(types)
 
-	_, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	_, err := b.Build(context.Background(), test.NewEnv(t))
 	if err == nil {
 		t.Error("Expecting failure, got success")
 	}
@@ -235,9 +238,11 @@ func TestReaper(t *testing.T) {
 		MinDeduplicationDuration: 3600 * time.Second,
 		Quotas: limits,
 	}
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: &cfg}
+	info := GetInfo()
+	b := info.NewBuilder()
+	b.SetAdapterConfig(&cfg)
 
-	hndlr, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	hndlr, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}
@@ -313,9 +318,10 @@ func TestReaperTicker(t *testing.T) {
 	cfg := info.DefaultConfig.(*config.Params)
 	cfg.Quotas = limits
 
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 
-	h, err := newHandlerWithDedup(context.Background(), test.NewEnv(t), hc, testTicker)
+	h, err := b.buildWithDedup(context.Background(), test.NewEnv(t), testTicker)
 	if err != nil {
 		t.Errorf("Unable to create handler: %v", err)
 	}

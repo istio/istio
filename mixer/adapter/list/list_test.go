@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
 
 	if err := b.Validate(); err != nil {
@@ -92,7 +92,7 @@ func TestIPList(t *testing.T) {
 		EntryType:       config.IP_ADDRESSES,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -184,7 +184,7 @@ func TestStringList(t *testing.T) {
 		EntryType:       config.STRINGS,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -243,7 +243,7 @@ func TestBlackStringList(t *testing.T) {
 		Blacklist:       true,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -301,7 +301,7 @@ func TestCaseInsensitiveStringList(t *testing.T) {
 		EntryType:       config.CASE_INSENSITIVE_STRINGS,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -347,7 +347,7 @@ func TestNoUrlStringList(t *testing.T) {
 		EntryType: config.STRINGS,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -391,7 +391,7 @@ func TestBadUrl(t *testing.T) {
 		Ttl:             2 * time.Second,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	handler, err := b.Build(context.Background(), test.NewEnv(t))
@@ -425,7 +425,7 @@ func TestIOErrors(t *testing.T) {
 		Ttl:             20000 * time.Second,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -491,7 +491,7 @@ func TestRefreshAndPurge(t *testing.T) {
 		EntryType:       config.STRINGS,
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(&cfg)
 
 	h, err := b.Build(context.Background(), test.NewEnv(t))
@@ -587,7 +587,7 @@ func TestValidateConfig(t *testing.T) {
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			info := GetInfo()
-			b := info.CreateBuilder().(*builder)
+			b := info.NewBuilder().(*builder)
 			b.SetAdapterConfig(&c.cfg)
 
 			err := b.Validate()

@@ -28,7 +28,6 @@ import (
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter/test"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -42,13 +41,14 @@ func TestBasic(t *testing.T) {
 	}
 
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder()
+	b.SetAdapterConfig(cfg)
 
-	if err := validateConfig(hc); err != nil {
+	if err := b.Validate(); err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	handler, err := newHandler(context.Background(), test.NewEnv(t), hc)
+	handler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}
@@ -138,8 +138,10 @@ func TestBuilder(t *testing.T) {
 				return newZapLogger(outputPath, encoding)
 			}
 
-			hc := &pkgHndlr.HandlerConfig{AdapterConfig: &c.config}
-			h, err := newHandlerWithZapBuilder(context.Background(), env, hc, zb)
+			info := GetInfo()
+			b := info.NewBuilder().(*builder)
+			b.SetAdapterConfig(&c.config)
+			h, err := b.buildWithZapBuilder(context.Background(), env, zb)
 
 			if (err != nil) && c.success {
 				t.Errorf("Got %v, expecting success", err)
@@ -212,10 +214,11 @@ func TestLogEntry(t *testing.T) {
 
 	info := GetInfo()
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 	env := test.NewEnv(t)
-	hc.LogEntryTypes = types
-	h, _ := newHandler(context.Background(), env, hc)
+	b.SetLogEntryTypes(types)
+	h, _ := b.Build(context.Background(), env)
 	handler := h.(*handler)
 	tz := newTestZap()
 	handler.logger = zap.New(tz)
@@ -310,10 +313,11 @@ func TestMetricEntry(t *testing.T) {
 
 	info := GetInfo()
 	cfg := info.DefaultConfig
-	hc := &pkgHndlr.HandlerConfig{AdapterConfig: cfg}
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
 	env := test.NewEnv(t)
-	hc.MetricEntryTypes = types
-	h, _ := newHandler(context.Background(), env, hc)
+	b.SetMetricTypes(types)
+	h, _ := b.Build(context.Background(), env)
 	handler := h.(*handler)
 	tz := newTestZap()
 	handler.logger = zap.New(tz)

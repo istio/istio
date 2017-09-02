@@ -76,7 +76,7 @@ func GetInfo() pkgHndlr.Info {
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
 
-		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
@@ -85,17 +85,17 @@ func GetInfo() pkgHndlr.Info {
 }
 
 type builder struct {
-	adapterConfig adapter.Config
+	adapterConfig *config.Params
 }
 
 func (*builder) SetCheckNothingTypes(map[string]*checknothing.Type) {}
 func (*builder) SetListEntryTypes(map[string]*listentry.Type)       {}
 func (*builder) SetQuotaTypes(map[string]*quota.Type)               {}
-func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg }
+func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterConfig = cfg.(*config.Params) }
 func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	return &handler{status: b.adapterConfig.(*config.Params).Status}, nil
+	return &handler{status: b.adapterConfig.Status}, nil
 }
 
 // EVERYTHING BELOW IS TO BE DELETED

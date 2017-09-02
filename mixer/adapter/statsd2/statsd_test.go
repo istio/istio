@@ -47,7 +47,7 @@ func TestValidateConfig(t *testing.T) {
 		errString := ""
 
 		info := GetInfo()
-		b := info.CreateBuilder()
+		b := info.NewBuilder()
 		b.SetAdapterConfig(c.conf)
 		if err := b.Validate(); err != nil {
 			errString = err.Error()
@@ -68,7 +68,7 @@ func TestNewMetricsAspect(t *testing.T) {
 		Metrics:       map[string]*config.Params_MetricInfo{"a": {NameTemplate: `{{(.apiMethod) "-" (.responseCode)}}`}},
 	}
 	info := GetInfo()
-	b := info.CreateBuilder()
+	b := info.NewBuilder()
 	b.SetAdapterConfig(conf)
 	env := test.NewEnv(t)
 	if _, err := b.Build(context.Background(), env); err != nil {
@@ -105,7 +105,7 @@ func TestNewMetricsAspect_InvalidTemplate(t *testing.T) {
 		name: {Dimensions: map[string]descriptor.ValueType{"apiMethod": descriptor.STRING, "responseCode": descriptor.INT64}},
 	}
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(conf)
 	b.SetMetricTypes(metrics)
 	env := test.NewEnv(t)
@@ -143,7 +143,7 @@ func TestNewMetricsAspect_BadTemplate(t *testing.T) {
 	}()
 
 	info := GetInfo()
-	b := info.CreateBuilder().(*builder)
+	b := info.NewBuilder().(*builder)
 	b.SetAdapterConfig(conf)
 	b.SetMetricTypes(metrics)
 	if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
@@ -234,7 +234,7 @@ func TestRecord(t *testing.T) {
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
 			info := GetInfo()
-			b := info.CreateBuilder().(*builder)
+			b := info.NewBuilder().(*builder)
 			b.SetAdapterConfig(conf)
 			b.SetMetricTypes(metrics)
 

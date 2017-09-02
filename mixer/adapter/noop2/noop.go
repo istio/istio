@@ -90,7 +90,7 @@ func GetInfo() pkgHndlr.Info {
 		},
 		DefaultConfig: &types.Empty{},
 
-		CreateBuilder: func() adapter.Builder2 { return &builder{} },
+		NewBuilder: func() adapter.Builder2 { return &builder{} },
 
 		// TO BE DELETED
 		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
