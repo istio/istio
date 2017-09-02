@@ -22,7 +22,6 @@ TEAR_DOWN=true
 TEST_DIR="$(mktemp -d /tmp/kubetest.XXXXX)"
 ISTIO_INSTALL_DIR="${TEST_DIR}/istio"
 BOOKINFO_DIR="${TEST_DIR}/bookinfo"
-RULES_DIR="${BOOKINFO_DIR}/rules"
 WRK_URL="https://storage.googleapis.com/istio-build-deps/wrk-linux"
 
 # Import relevant utils
@@ -31,6 +30,8 @@ WRK_URL="https://storage.googleapis.com/istio-build-deps/wrk-linux"
 . ${SCRIPT_DIR}/istioUtils.sh || error_exit 'Could not load istio utilities'
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
+
+RULES_DIR="${ROOT}/samples/apps/bookinfo/rules"
 
 while getopts :c:i:sn:m:x: arg; do
   case ${arg} in
@@ -85,7 +86,6 @@ generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
 setup_mixer
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
-generate_rules_yaml "${RULES_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
 
 # Verify default routes
@@ -135,7 +135,7 @@ test_version_routing_response "test-user" "v2"
 # Test fault injection
 print_block_echo "Testing fault injection..."
 
-create_rule $RULES_DIR/route-rule-delay.yaml
+create_rule $RULES_DIR/route-rule-ratings-test-delay.yaml
 
 function test_fault_delay() {
     USER=$1
@@ -177,7 +177,7 @@ test_fault_delay "test-user" "v1" 5 8
 # Remove fault injection and verify
 print_block_echo "Deleting fault injection..."
 
-delete_rule $RULES_DIR/route-rule-delay.yaml
+delete_rule $RULES_DIR/route-rule-ratings-test-delay.yaml
 echo "Waiting for rule clean up to propagate..."
 sleep 30
 test_fault_delay "test-user" "v2" 0 2
