@@ -21,25 +21,25 @@ TESTS_DIR="${ROOT}/tests"
 LOGLEVEL=10
 
 function create_rule() {
-    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} create -f ${1} \
+    ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} create -f ${1} \
       || error_exit 'Could not create rule'
 }
 
 function replace_rule() {
-    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} replace -f ${1} \
+    ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} replace -f ${1} \
       || error_exit 'Could not replace rule'
 }
 
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    local rules=($(${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} get route-rule \
-      | grep "name:" | awk '{print $2}'))
+    local rules=($(${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} get RouteRule \
+      | awk '{print $1}'))
     for r in ${rules[@]}; do
-      ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete route-rule "${r}"
+      ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete RouteRule "${r}"
     done
 }
 
 function delete_rule() {
-    ${ISTIOCLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete -f ${1}
+    ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete -f ${1}
     return $?
 }

@@ -42,7 +42,7 @@ import (
 
 const (
 	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
-	rulesDir                 = "samples/apps/bookinfo"
+	rulesDir                 = "samples/apps/bookinfo/rules"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
@@ -443,17 +443,17 @@ func fqdn(service string) string {
 
 func createRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.CreateRule(rule)
+	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func replaceRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.ReplaceRule(rule)
+	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func deleteRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.DeleteRule(rule)
+	return util.KubeDelete(tc.Kube.Namespace, rule)
 }
 
 func createMixerRule(scope, subject, ruleName string) error {
