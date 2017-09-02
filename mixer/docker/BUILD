@@ -27,6 +27,7 @@ cacerts(
 mixer_docker_build(
     cmd = [
         "--configStoreURL=fs:///etc/opt/mixer/configroot",
+        "--configStore2URL=k8s://",
         "--logtostderr",
         "--v=2",
         "--traceOutput=http://zipkin:9411/api/v1/spans",

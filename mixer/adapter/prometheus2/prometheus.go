@@ -46,6 +46,7 @@ type (
 	}
 
 	builder struct {
+		// maps instance_name to collector.
 		metrics  map[string]*cinfo
 		registry *prometheus.Registry
 		srv      server
@@ -58,7 +59,7 @@ type (
 )
 
 var (
-	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_")
+	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
 
 	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
@@ -111,7 +112,7 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 	for _, m := range cfg.Metrics {
 		// metric is not found in the current metric table
 		// should be added.
-		if cl = b.metrics[m.Name]; cl == nil {
+		if cl = b.metrics[m.InstanceName]; cl == nil {
 			newMetrics = append(newMetrics, m)
 			continue
 		}
@@ -136,31 +137,35 @@ func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, err
 
 	var err error
 	for _, m := range newMetrics {
+		mname := m.InstanceName
+		if len(m.Name) != 0 {
+			mname = m.Name
+		}
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
 		switch m.Kind {
 		case config.GAUGE:
-			ci.c, err = registerOrGet(b.registry, newGaugeVec(m.Name, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			b.metrics[m.Name] = ci
+			b.metrics[m.InstanceName] = ci
 		case config.COUNTER:
-			ci.c, err = registerOrGet(b.registry, newCounterVec(m.Name, m.Description, m.LabelNames))
+			ci.c, err = registerOrGet(b.registry, newCounterVec(mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			b.metrics[m.Name] = ci
+			b.metrics[m.InstanceName] = ci
 		case config.DISTRIBUTION:
-			ci.c, err = registerOrGet(b.registry, newHistogramVec(m.Name, m.Description, m.LabelNames, m.Buckets))
+			ci.c, err = registerOrGet(b.registry, newHistogramVec(mname, m.Description, m.LabelNames, m.Buckets))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
 				continue
 			}
-			b.metrics[m.Name] = ci
+			b.metrics[m.InstanceName] = ci
 		default:
-			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric", m.Kind))
+			metricErr = multierror.Append(metricErr, fmt.Errorf("unknown metric kind (%d); could not register metric %v", m.Kind, m))
 		}
 	}
 

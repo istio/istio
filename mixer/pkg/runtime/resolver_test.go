@@ -188,6 +188,7 @@ func assertResolverError(t *testing.T, got error, want string) {
 
 func newFakeRule(vr adptTmpl.TemplateVariety, length int) *Rule {
 	return &Rule{
+		selector: "request.size=2000",
 		actions: map[adptTmpl.TemplateVariety][]*Action{
 			vr: make([]*Action, length),
 		},

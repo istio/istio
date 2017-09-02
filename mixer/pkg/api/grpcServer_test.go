@@ -179,12 +179,63 @@ func TestCheck(t *testing.T) {
 
 	response, err := ts.client.Check(context.Background(), &request)
 
+	// if precondition fails quota always fails.
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
 	} else if status.IsOK(response.Precondition.Status) {
 		t.Error("Got precondition success, expected error")
 	} else if !strings.Contains(response.Precondition.Status.Message, "Not Implemented") {
 		t.Errorf("'%s' doesn't contain 'Not Implemented'", response.Precondition.Status.Message)
+	} else if response.Quotas["RequestCount"].GrantedAmount != 0 {
+		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
+	}
+
+	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+		return nil, status.WithPermissionDenied("Not Implemented")
+	}
+
+	_, err = ts.client.Check(context.Background(), &request)
+
+	if err != nil {
+		t.Errorf("Got %v, expected success", err)
+	}
+}
+
+func TestCheckQuota(t *testing.T) {
+	ts, err := prepTestState()
+	if err != nil {
+		t.Fatalf("Unable to prep test state: %v", err)
+	}
+	defer ts.cleanupTestState()
+
+	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+		return status.OK
+	}
+
+	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+		qmr := &aspect.QuotaMethodResp{Amount: 42}
+		return qmr, status.OK
+	}
+
+	attr0 := mixerpb.Attributes{
+		Words: []string{"A1", "A2", "A3"},
+		Int64S: map[int32]int64{
+			-1: 25,
+			-2: 26,
+			-3: 27,
+		},
+	}
+
+	request := mixerpb.CheckRequest{Attributes: attr0}
+	request.Quotas = make(map[string]mixerpb.CheckRequest_QuotaParams)
+	request.Quotas["RequestCount"] = mixerpb.CheckRequest_QuotaParams{Amount: 42}
+
+	response, err := ts.client.Check(context.Background(), &request)
+
+	if err != nil {
+		t.Errorf("Got %v, expected success", err)
+	} else if !status.IsOK(response.Precondition.Status) {
+		t.Errorf("Got unexpected failure %s", response.Precondition.Status)
 	} else if response.Quotas["RequestCount"].GrantedAmount != 42 {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}

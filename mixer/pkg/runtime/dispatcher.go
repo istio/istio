@@ -220,10 +220,6 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 		},
 	)
 	res, _ := cres.(*adapter.CheckResult)
-	if res == nil { // There was nothing to do.
-		res = &adapter.CheckResult{}
-	}
-
 	if glog.V(3) {
 		glog.Infof("Check %s", res)
 	}
@@ -265,6 +261,9 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 		},
 	)
 	res, _ := qres.(*adapter.QuotaResult2)
+	if glog.V(3) {
+		glog.Infof("Quota %s", res)
+	}
 	return res, err
 }
 

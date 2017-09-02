@@ -113,7 +113,8 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
-		Name:        "istio.io/mixer/adapter/stdio",
+		Name:        "stdio",
+		Impl:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
 		SupportedTemplates: []string{
 			logentry.TemplateName,
