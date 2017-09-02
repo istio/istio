@@ -53,33 +53,23 @@ func buildIngressListeners(mesh *proxyconfig.ProxyMeshConfig,
 func buildIngressRoutes(mesh *proxyconfig.ProxyMeshConfig,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
-	ingressRules := config.IngressRules()
-	glog.V(5).Infof("buildIngressRoute from %d rules ", len(ingressRules))
-
 	// build vhosts
 	vhosts := make(map[string][]*HTTPRoute)
 	vhostsTLS := make(map[string][]*HTTPRoute)
 	tlsAll := ""
 
-	// skip over source-matched route rules
-	rules := config.RouteRulesBySource(nil)
-
-	for _, rule := range ingressRules {
-		glog.V(5).Infof("Process rule %s , destination %s", rule.Name, rule.Destination)
-		routes, tls, err := buildIngressRoute(mesh, rule, discovery, rules)
-		if tls != "" {
-			glog.V(5).Infof("TLS is set for rule %s , destination %s", rule.Name, rule.Destination)
-		} else {
-			glog.V(5).Infof("TLS is empty for rule %s , destination %s", rule.Name, rule.Destination)
-		}
+	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
+	for _, rule := range rules {
+		routes, tls, err := buildIngressRoute(mesh, rule, discovery, config)
 		if err != nil {
 			glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
 		}
 
 		host := "*"
-		if rule.Match != nil {
-			if authority, ok := rule.Match.HttpHeaders[model.HeaderAuthority]; ok {
+		ingress := rule.Spec.(*proxyconfig.IngressRule)
+		if ingress.Match != nil && ingress.Match.Request != nil {
+			if authority, ok := ingress.Match.Request.Headers[model.HeaderAuthority]; ok {
 				switch match := authority.GetMatchType().(type) {
 				case *proxyconfig.StringMatch_Exact:
 					host = match.Exact
@@ -130,11 +120,15 @@ func buildIngressRoutes(mesh *proxyconfig.ProxyMeshConfig,
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *proxyconfig.ProxyMeshConfig, ingress *proxyconfig.IngressRule,
-	discovery model.ServiceDiscovery, rules []*proxyconfig.RouteRule) ([]*HTTPRoute, string, error) {
-	service, exists := discovery.GetService(ingress.Destination)
+func buildIngressRoute(mesh *proxyconfig.ProxyMeshConfig,
+	rule model.Config,
+	discovery model.ServiceDiscovery,
+	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
+	ingress := rule.Spec.(*proxyconfig.IngressRule)
+	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
+	service, exists := discovery.GetService(destination)
 	if !exists {
-		return nil, "", fmt.Errorf("cannot find service %q", ingress.Destination)
+		return nil, "", fmt.Errorf("cannot find service %q", destination)
 	}
 	tls := ingress.TlsSecret
 	servicePort, err := extractPort(service, ingress)
@@ -146,7 +140,7 @@ func buildIngressRoute(mesh *proxyconfig.ProxyMeshConfig, ingress *proxyconfig.I
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(service, servicePort, rules)
+	routes := buildDestinationHTTPRoutes(service, servicePort, nil, config)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)

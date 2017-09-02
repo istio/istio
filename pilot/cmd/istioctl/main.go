@@ -97,10 +97,6 @@ istioctl mixer command documentation.
 					config.Namespace = namespace
 				}
 
-				if config.IstioNamespace == "" {
-					config.IstioNamespace = istioNamespace
-				}
-
 				configClient, err := newClient()
 				if err != nil {
 					return err
@@ -137,11 +133,6 @@ istioctl mixer command documentation.
 			for _, config := range varr {
 				if config.Namespace == "" {
 					config.Namespace = namespace
-				}
-
-				if config.IstioNamespace == "" {
-					config.IstioNamespace = istioNamespace
-
 				}
 
 				configClient, err := newClient()
@@ -284,10 +275,6 @@ istioctl mixer command documentation.
 					config.Namespace = namespace
 				}
 
-				if config.IstioNamespace == "" {
-					config.IstioNamespace = istioNamespace
-				}
-
 				// compute key if necessary
 				if err = configClient.Delete(config.Type, config.Name, config.Namespace); err != nil {
 					errs = multierror.Append(errs, fmt.Errorf("cannot delete %s: %v", config.Key(), err))
@@ -425,5 +412,5 @@ func newClient() (*crd.Client, error) {
 		model.RouteRule,
 		model.EgressRule,
 		model.DestinationPolicy,
-	})
+	}, "")
 }

@@ -18,6 +18,11 @@
     ],
     "routes": [
      {
+      "prefix": "/websocket",
+      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+      "use_websocket": true
+     },
+     {
       "prefix": "/",
       "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
      }
@@ -62,11 +67,6 @@
      "10.2.0.0"
     ],
     "routes": [
-     {
-      "prefix": "/websocket",
-      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
-      "use_websocket": true
-     },
      {
       "prefix": "/",
       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"

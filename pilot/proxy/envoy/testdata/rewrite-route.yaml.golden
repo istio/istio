@@ -1,12 +1,16 @@
 type: route-rule
 name: rewrite-route
+namespace: default
+domain: cluster.local
 spec:
-  destination: world.default.svc.cluster.local
+  destination:
+    name: world
   match:
-    httpHeaders:
-      uri:
-        prefix: /old/path
+    request:
+      headers:
+        uri:
+          prefix: /old/path
   rewrite:
-    uri: "/new/path"
-    authority: "foo.bar.com"
+    uri: /new/path
+    authority: foo.bar.com
 

@@ -34,8 +34,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/adapter/config/crd"
-	"istio.io/pilot/model"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
@@ -113,10 +111,6 @@ func main() {
 		params.Verbosity = 2
 	}
 
-	if err := setupClient(); err != nil {
-		glog.Fatal(err)
-	}
-
 	params.Name = "(default infra)"
 	params.Auth = proxyconfig.ProxyMeshConfig_NONE
 	params.Mixer = true
@@ -129,6 +123,13 @@ func main() {
 			params.Namespace, authmode)
 		return
 	}
+
+	var err error
+	_, client, err = kube.CreateInterface(kubeconfig)
+	if err != nil {
+		glog.Fatal(err)
+	}
+
 	switch authmode {
 	case "enable":
 		runTests(setAuth(params))
@@ -237,7 +238,7 @@ func runTests(envs ...infra) {
 		}
 
 		// always remove infra even if the tests fail
-		log("Tearing down infrastructure", spew.Sdump(istio))
+		log("Tearing down infrastructure", istio.Name)
 		istio.teardown()
 
 		if errs == nil {
@@ -316,15 +317,17 @@ func parallel(fs map[string]func() status) error {
 	return g.Wait()
 }
 
-// connect to K8S cluster and register TPRs
-func setupClient() error {
-	istioClient, err := crd.NewClient(kubeconfig, model.IstioConfigTypes)
-	if err != nil {
-		return err
+// repeat a check up to budget until it does not return an error
+func repeat(f func() error, budget int, delay time.Duration) error {
+	var errs error
+	for i := 0; i < budget; i++ {
+		err := f()
+		if err == nil {
+			return nil
+		}
+		errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("attempt %d", i)))
+		glog.Infof("attempt #%d failed with %v", i, err)
+		time.Sleep(delay)
 	}
-	_, client, err = kube.CreateInterface(kubeconfig)
-	if err != nil {
-		return err
-	}
-	return istioClient.RegisterResources()
+	return errs
 }

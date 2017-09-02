@@ -44,7 +44,7 @@ func kubeconfig(t *testing.T) string {
 
 func makeClient(t *testing.T) *Client {
 	desc := append(model.IstioConfigTypes, mock.Types...)
-	cl, err := NewClient(kubeconfig(t), desc)
+	cl, err := NewClient(kubeconfig(t), desc, "")
 	if err != nil {
 		t.Fatal(err)
 	}

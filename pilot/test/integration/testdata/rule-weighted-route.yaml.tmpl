@@ -1,13 +1,13 @@
 type: route-rule
 name: default-route
-namespace: {{.Namespace}}
 spec:
-  destination: "{{.Destination}}.{{.Namespace}}.svc.cluster.local"
+  destination:
+    name: c
   precedence: 1
   route:
-    - tags:
+    - labels:
          version: v1
       weight: 75
-    - tags:
+    - labels:
          version: v2
       weight: 25

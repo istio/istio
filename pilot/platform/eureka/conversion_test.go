@@ -206,32 +206,32 @@ func TestConvertProtocol(t *testing.T) {
 	}
 }
 
-func TestConvertTags(t *testing.T) {
+func TestConvertLabels(t *testing.T) {
 	md := metadata{
 		"@class":         "java.util.Collections$EmptyMap",
 		protocolMetadata: metadataHTTP2,
 		"kit":            "kat",
 		"spam":           "coolaid",
 	}
-	tags := convertTags(md)
+	labels := convertLabels(md)
 
 	for _, special := range []string{protocolMetadata, "@class"} {
-		if _, exists := tags[special]; exists {
-			t.Errorf("convertTags did not filter out special tag %q", special)
+		if _, exists := labels[special]; exists {
+			t.Errorf("convertLabels did not filter out special tag %q", special)
 		}
 	}
 
 	for _, tag := range []string{"kit", "spam"} {
-		_, exists := tags[tag]
+		_, exists := labels[tag]
 		if !exists {
-			t.Errorf("converted tags has missing key %q", tag)
-		} else if tags[tag] != md[tag] {
-			t.Errorf("converted tags has mismatch for key %q, %q want %q", tag, tags[tag], md[tag])
+			t.Errorf("converted labels has missing key %q", tag)
+		} else if labels[tag] != md[tag] {
+			t.Errorf("converted labels has mismatch for key %q, %q want %q", tag, labels[tag], md[tag])
 		}
 	}
 
-	if len(tags) != 2 {
-		t.Errorf("converted tags has length %d, want %d", len(tags), 2)
+	if len(labels) != 2 {
+		t.Errorf("converted labels has length %d, want %d", len(labels), 2)
 	}
 }
 
@@ -288,7 +288,7 @@ func makeService(hostname string, ports []int, protocols []model.Protocol) *mode
 	}
 }
 
-func makeServiceInstance(service *model.Service, ip string, port int, tags model.Tags) *model.ServiceInstance {
+func makeServiceInstance(service *model.Service, ip string, port int, labels model.Labels) *model.ServiceInstance {
 	servicePort, _ := service.Ports.GetByPort(port)
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
@@ -297,7 +297,7 @@ func makeServiceInstance(service *model.Service, ip string, port int, tags model
 			ServicePort: servicePort,
 		},
 		Service:          service,
-		Tags:             tags,
+		Labels:           labels,
 		AvailabilityZone: "",
 	}
 }

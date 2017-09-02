@@ -1,16 +1,25 @@
 type: destination-policy
-name: world
+name: circuit-breaker
 namespace: default
+domain: cluster.local
 spec:
-  destination: world.default.svc.cluster.local
-  policy:
-  - circuit_breaker:
-      simple_cb:
-        max_connections: 100
-        sleep_window: 15.5s
-        http_max_requests: 100
-        http_max_requests_per_connection: 100
-        http_max_pending_requests: 100
-        http_consecutive_errors: 10
-        http_detection_interval: 30s
-        http_max_ejection_percent: 100
+  source:
+    name: hello
+    labels:
+      version: v0
+  destination:
+    name: world
+    labels:
+      version: v0
+  circuitBreaker:
+    simpleCb:
+      maxConnections: 100
+      sleepWindow: 15.5s
+      httpMaxRequests: 100
+      httpMaxRequestsPerConnection: 100
+      httpMaxPendingRequests: 100
+      httpConsecutiveErrors: 10
+      httpDetectionInterval: 30s
+      httpMaxEjectionPercent: 100
+  loadBalancing:
+    name: RANDOM

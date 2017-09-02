@@ -12,25 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package model_test
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/mock/gomock"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/adapter/config/memory"
+	"istio.io/pilot/model"
+	"istio.io/pilot/test/mock"
 )
 
 func TestConfigDescriptor(t *testing.T) {
-	a := ProtoSchema{Type: "a", MessageName: "proxy.A"}
-	descriptor := ConfigDescriptor{
+	a := model.ProtoSchema{Type: "a", MessageName: "proxy.A"}
+	descriptor := model.ConfigDescriptor{
 		a,
-		ProtoSchema{Type: "b", MessageName: "proxy.B"},
-		ProtoSchema{Type: "c", MessageName: "proxy.C"},
+		model.ProtoSchema{Type: "b", MessageName: "proxy.B"},
+		model.ProtoSchema{Type: "c", MessageName: "proxy.C"},
 	}
 	want := []string{"a", "b", "c"}
 	got := descriptor.Types()
@@ -41,6 +42,9 @@ func TestConfigDescriptor(t *testing.T) {
 	aType, aExists := descriptor.GetByType(a.Type)
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
+	}
+	if _, exists := descriptor.GetByType("missing"); exists {
+		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
 	aSchema, aSchemaExists := descriptor.GetByMessageName(a.MessageName)
@@ -53,316 +57,14 @@ func TestConfigDescriptor(t *testing.T) {
 	}
 }
 
-type testRegistry struct {
-	ctrl     gomock.Controller
-	mock     *MockConfigStore
-	registry IstioConfigStore
-}
-
-func initTestRegistry(t *testing.T) *testRegistry {
-	ctrl := gomock.NewController(t)
-	mock := NewMockConfigStore(ctrl)
-	return &testRegistry{
-		mock:     mock,
-		registry: MakeIstioStore(mock),
-	}
-}
-
-func (r *testRegistry) shutdown() {
-	r.ctrl.Finish()
-}
-
-var (
-	endpoint1 = NetworkEndpoint{
-		Address:     "192.168.1.1",
-		Port:        10001,
-		ServicePort: &Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
-	}
-	endpoint2 = NetworkEndpoint{
-		Address:     "192.168.1.2",
-		Port:        10002,
-		ServicePort: &Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
-	}
-
-	service1 = &Service{
-		Hostname: "one.service.com",
-		Address:  "192.168.3.1", // VIP
-		Ports: PortList{
-			&Port{Name: "http", Port: 81, Protocol: ProtocolHTTP},
-			&Port{Name: "http-alt", Port: 8081, Protocol: ProtocolHTTP},
-		},
-	}
-	service2 = &Service{
-		Hostname: "two.service.com",
-		Address:  "192.168.3.2", // VIP
-		Ports: PortList{
-			&Port{Name: "http", Port: 82, Protocol: ProtocolHTTP},
-			&Port{Name: "http-alt", Port: 8282, Protocol: ProtocolHTTP},
-		},
-	}
-
-	serviceInstance1 = &ServiceInstance{
-		Endpoint: endpoint1,
-		Service:  service1,
-		Tags:     Tags{"a": "b", "c": "d"},
-	}
-	serviceInstance2 = &ServiceInstance{
-		Endpoint: endpoint2,
-
-		Service: service2,
-
-		Tags: Tags{"e": "f", "g": "h"},
-	}
-
-	routeRule1MatchNil = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Name:        "foo",
-		Precedence:  1,
-	}
-
-	routeRule2SourceEmpty = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  1,
-		Match:       &proxyconfig.MatchCondition{},
-	}
-	routeRule3SourceMismatch = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  3,
-		Match: &proxyconfig.MatchCondition{
-			Source: "three.service.com",
-		},
-	}
-	routeRule4SourceMatch = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  4,
-		Match: &proxyconfig.MatchCondition{
-			Source: "one.service.com",
-		},
-	}
-	routeRule5TagSubsetOfMismatch = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  5,
-		Match: &proxyconfig.MatchCondition{
-			Source:     "two.service.com",
-			SourceTags: map[string]string{"z": "y"},
-		},
-	}
-	routeRule6TagSubsetOfMatch = &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  5,
-		Match: &proxyconfig.MatchCondition{
-			Source:     "one.service.com",
-			SourceTags: map[string]string{"a": "b"},
-		},
-	}
-	routeRule7DestinationMatch = &proxyconfig.RouteRule{
-		Destination: "two.service.com",
-		Precedence:  1,
-		Match:       &proxyconfig.MatchCondition{},
-	}
-
-	dstTags0 = map[string]string{"a": "b"}
-	dstTags1 = map[string]string{"c": "d"}
-
-	dstPolicy1 = &proxyconfig.DestinationPolicy{
-		Destination: "foo",
-		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags0}},
-	}
-	dstPolicy2 = &proxyconfig.DestinationPolicy{
-		Destination: "bar",
-	}
-	dstPolicy3 = &proxyconfig.DestinationPolicy{
-		Destination: "baz",
-		Policy:      []*proxyconfig.DestinationVersionPolicy{{Tags: dstTags1}},
-	}
-)
-
-func TestIstioRegistryRouteRules(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	cases := []struct {
-		name      string
-		mockError error
-		mockObjs  []Config
-		want      map[string]*proxyconfig.RouteRule
-	}{
-		{
-			name:      "Empty object map with error",
-			mockObjs:  nil,
-			mockError: errors.New("foobar"),
-			want:      map[string]*proxyconfig.RouteRule{},
-		},
-		{
-			name: "Slice of unsorted RouteRules",
-			mockObjs: []Config{
-				{ConfigMeta: ConfigMeta{Name: "foo"}, Spec: routeRule1MatchNil},
-				{ConfigMeta: ConfigMeta{Name: "bar"}, Spec: routeRule3SourceMismatch},
-				{ConfigMeta: ConfigMeta{Name: "baz"}, Spec: routeRule2SourceEmpty},
-			},
-			want: map[string]*proxyconfig.RouteRule{
-				"//foo": routeRule1MatchNil,
-				"//bar": routeRule3SourceMismatch,
-				"//baz": routeRule2SourceEmpty,
-			},
-		},
-	}
-	for _, c := range cases {
-		r.mock.EXPECT().List(RouteRule.Type, "").Return(c.mockObjs, c.mockError)
-		if got := r.registry.RouteRules(); !reflect.DeepEqual(got, c.want) {
-			t.Errorf("%v with RouteRule failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
-		}
-	}
-}
-
-func TestIstioRegistryIngressRules(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	rule := &proxyconfig.IngressRule{
-		Name:        "sample-ingress",
-		Destination: "a.svc",
-	}
-
-	r.mock.EXPECT().List(IngressRule.Type, "").Return([]Config{{
-		ConfigMeta: ConfigMeta{
-			Name: rule.Name,
-		},
-		Spec: rule,
-	}}, nil)
-
-	if got := r.registry.IngressRules(); !reflect.DeepEqual(got, map[string]*proxyconfig.IngressRule{
-		"//" + rule.Name: rule,
-	}) {
-		t.Errorf("IngressRules failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(rule))
-	}
-
-	r.mock.EXPECT().List(IngressRule.Type, "").Return(nil, errors.New("cannot list"))
-	if got := r.registry.IngressRules(); len(got) > 0 {
-		t.Errorf("IngressRules failed: \ngot %+vwant empty", spew.Sdump(got))
-	}
-
-}
-
-func TestIstioRegistryRouteRulesBySource(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	instances := []*ServiceInstance{serviceInstance1, serviceInstance2}
-
-	mockObjs := []Config{
-		{ConfigMeta: ConfigMeta{Name: "match-nil"}, Spec: routeRule1MatchNil},
-		{ConfigMeta: ConfigMeta{Name: "source-empty"}, Spec: routeRule2SourceEmpty},
-		{ConfigMeta: ConfigMeta{Name: "source-mismatch"}, Spec: routeRule3SourceMismatch},
-		{ConfigMeta: ConfigMeta{Name: "source-match"}, Spec: routeRule4SourceMatch},
-		{ConfigMeta: ConfigMeta{Name: "tag-subset-of-mismatch"}, Spec: routeRule5TagSubsetOfMismatch},
-		{ConfigMeta: ConfigMeta{Name: "tag-subset-of-match"}, Spec: routeRule6TagSubsetOfMatch},
-	}
-	want := []*proxyconfig.RouteRule{
-		routeRule6TagSubsetOfMatch,
-		routeRule4SourceMatch,
-		routeRule1MatchNil,
-		routeRule2SourceEmpty,
-	}
-
-	r.mock.EXPECT().List(RouteRule.Type, "").Return(mockObjs, nil)
-	got := r.registry.RouteRulesBySource(instances)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Failed \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
-	}
-}
-
-func TestIstioRegistryRouteRulesByDestination(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	instances := []*ServiceInstance{serviceInstance2}
-
-	mockObjs := []Config{
-		{ConfigMeta: ConfigMeta{Name: "dest-foo"}, Spec: routeRule2SourceEmpty},
-		{ConfigMeta: ConfigMeta{Name: "dest-two"}, Spec: routeRule7DestinationMatch},
-	}
-	want := []*proxyconfig.RouteRule{
-		routeRule7DestinationMatch,
-	}
-
-	r.mock.EXPECT().List(RouteRule.Type, "").Return(mockObjs, nil)
-	got := r.registry.RouteRulesByDestination(instances)
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("Failed \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
-	}
-}
-
-func TestIstioRegistryPolicies(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	cases := []struct {
-		name      string
-		mockError error
-		mockObjs  []Config
-		want      []*proxyconfig.DestinationPolicy
-	}{
-		{
-			name:      "Empty object map with error",
-			mockObjs:  nil,
-			mockError: errors.New("foobar"),
-			want:      []*proxyconfig.DestinationPolicy{},
-		},
-		{
-			name: "Slice of unsorted DestinationPolicy",
-			mockObjs: []Config{
-				{ConfigMeta: ConfigMeta{Name: "foo"}, Spec: dstPolicy1},
-				{ConfigMeta: ConfigMeta{Name: "bar"}, Spec: dstPolicy2},
-				{ConfigMeta: ConfigMeta{Name: "baz"}, Spec: dstPolicy3},
-			},
-			want: []*proxyconfig.DestinationPolicy{
-				dstPolicy1, dstPolicy2, dstPolicy3,
-			},
-		},
-	}
-	makeSet := func(in []*proxyconfig.DestinationPolicy) map[*proxyconfig.DestinationPolicy]struct{} {
-		out := map[*proxyconfig.DestinationPolicy]struct{}{}
-		for _, c := range in {
-			out[c] = struct{}{}
-		}
-		return out
-	}
-
-	for _, c := range cases {
-		r.mock.EXPECT().List(DestinationPolicy.Type, "").Return(c.mockObjs, c.mockError)
-		if got := r.registry.DestinationPolicies(); !reflect.DeepEqual(makeSet(got), makeSet(c.want)) {
-			t.Errorf("%v failed: \ngot %+vwant %+v", c.name, spew.Sdump(got), spew.Sdump(c.want))
-		}
-	}
-}
-
-func TestIstioRegistryDestinationPolicies(t *testing.T) {
-	r := initTestRegistry(t)
-	defer r.shutdown()
-
-	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy1.Destination, "").Return(&Config{
-		Spec: dstPolicy1,
-	}, true)
-	want := dstPolicy1.Policy[0]
-	if got := r.registry.DestinationPolicy(dstPolicy1.Destination, want.Tags); !reflect.DeepEqual(got, want) {
-		t.Errorf("Failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
-	}
-
-	r.mock.EXPECT().Get(DestinationPolicy.Type, dstPolicy3.Destination, "").Return(nil, false)
-	if got := r.registry.DestinationPolicy(dstPolicy3.Destination, nil); got != nil {
-		t.Errorf("Failed: \ngot %+vwant nil", spew.Sdump(got))
-	}
-}
-
 func TestEventString(t *testing.T) {
 	cases := []struct {
-		in   Event
+		in   model.Event
 		want string
 	}{
-		{EventAdd, "add"},
-		{EventUpdate, "update"},
-		{EventDelete, "delete"},
+		{model.EventAdd, "add"},
+		{model.EventUpdate, "update"},
+		{model.EventDelete, "delete"},
 	}
 	for _, c := range cases {
 		if got := c.in.String(); got != c.want {
@@ -372,18 +74,21 @@ func TestEventString(t *testing.T) {
 }
 
 func TestProtoSchemaConversions(t *testing.T) {
-	routeRuleSchema := &ProtoSchema{MessageName: RouteRule.MessageName}
+	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
 
 	msg := &proxyconfig.RouteRule{
-		Destination: "foo",
-		Precedence:  5,
+		Destination: &proxyconfig.IstioService{
+			Name: "foo",
+		},
+		Precedence: 5,
 		Route: []*proxyconfig.DestinationWeight{
 			{Destination: "bar", Weight: 75},
 			{Destination: "baz", Weight: 25},
 		},
 	}
 
-	wantYAML := "destination: foo\n" +
+	wantYAML := "destination:\n" +
+		"  name: foo\n" +
 		"precedence: 5\n" +
 		"route:\n" +
 		"- destination: bar\n" +
@@ -392,8 +97,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"  weight: 25\n"
 
 	wantJSONMap := map[string]interface{}{
-		"destination": "foo",
-		"precedence":  5.0,
+		"destination": map[string]interface{}{
+			"name": "foo",
+		},
+		"precedence": 5.0,
 		"route": []interface{}{
 			map[string]interface{}{
 				"destination": "bar",
@@ -406,7 +113,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		},
 	}
 
-	badSchema := &ProtoSchema{MessageName: "bad-name"}
+	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
 	if _, err := badSchema.FromYAML(wantYAML); err == nil {
 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
 	}
@@ -443,9 +150,9 @@ func TestProtoSchemaConversions(t *testing.T) {
 }
 
 func TestPortList(t *testing.T) {
-	pl := PortList{
-		{Name: "http", Port: 80, Protocol: ProtocolHTTP},
-		{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
+	pl := model.PortList{
+		{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+		{Name: "http-alt", Port: 8080, Protocol: model.ProtocolHTTP},
 	}
 
 	gotNames := pl.GetNames()
@@ -456,7 +163,7 @@ func TestPortList(t *testing.T) {
 
 	cases := []struct {
 		name  string
-		port  *Port
+		port  *model.Port
 		found bool
 	}{
 		{name: pl[0].Name, port: pl[0], found: true},
@@ -473,88 +180,88 @@ func TestPortList(t *testing.T) {
 }
 
 func TestServiceKey(t *testing.T) {
-	svc := &Service{Hostname: "hostname"}
+	svc := &model.Service{Hostname: "hostname"}
 
 	// Verify Service.Key() delegates to ServiceKey()
 	{
 		want := "hostname|http|a=b,c=d"
-		port := &Port{Name: "http", Port: 80, Protocol: ProtocolHTTP}
-		tags := Tags{"a": "b", "c": "d"}
-		got := svc.Key(port, tags)
+		port := &model.Port{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}
+		labels := model.Labels{"a": "b", "c": "d"}
+		got := svc.Key(port, labels)
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("Service.Key() failed: got %v want %v", got, want)
 		}
 	}
 
 	cases := []struct {
-		port PortList
-		tags TagsList
-		want string
+		port   model.PortList
+		labels model.LabelsCollection
+		want   string
 	}{
 		{
-			port: PortList{
-				{Name: "http", Port: 80, Protocol: ProtocolHTTP},
-				{Name: "http-alt", Port: 8080, Protocol: ProtocolHTTP},
+			port: model.PortList{
+				{Name: "http", Port: 80, Protocol: model.ProtocolHTTP},
+				{Name: "http-alt", Port: 8080, Protocol: model.ProtocolHTTP},
 			},
-			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname|http,http-alt|a=b,c=d",
+			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
+			want:   "hostname|http,http-alt|a=b,c=d",
 		},
 		{
-			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
-			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname|http|a=b,c=d",
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
+			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
+			want:   "hostname|http|a=b,c=d",
 		},
 		{
-			port: PortList{{Port: 80, Protocol: ProtocolHTTP}},
-			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname||a=b,c=d",
+			port:   model.PortList{{Port: 80, Protocol: model.ProtocolHTTP}},
+			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
+			want:   "hostname||a=b,c=d",
 		},
 		{
-			port: PortList{},
-			tags: TagsList{{"a": "b", "c": "d"}},
-			want: "hostname||a=b,c=d",
+			port:   model.PortList{},
+			labels: model.LabelsCollection{{"a": "b", "c": "d"}},
+			want:   "hostname||a=b,c=d",
 		},
 		{
-			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
-			tags: TagsList{nil},
-			want: "hostname|http",
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
+			labels: model.LabelsCollection{nil},
+			want:   "hostname|http",
 		},
 		{
-			port: PortList{{Name: "http", Port: 80, Protocol: ProtocolHTTP}},
-			tags: TagsList{},
-			want: "hostname|http",
+			port:   model.PortList{{Name: "http", Port: 80, Protocol: model.ProtocolHTTP}},
+			labels: model.LabelsCollection{},
+			want:   "hostname|http",
 		},
 		{
-			port: PortList{},
-			tags: TagsList{},
-			want: "hostname",
+			port:   model.PortList{},
+			labels: model.LabelsCollection{},
+			want:   "hostname",
 		},
 	}
 
 	for _, c := range cases {
-		got := ServiceKey(svc.Hostname, c.port, c.tags)
+		got := model.ServiceKey(svc.Hostname, c.port, c.labels)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("Failed: got %q want %q", got, c.want)
 		}
 	}
 }
 
-func TestTagsEquals(t *testing.T) {
+func TestLabelsEquals(t *testing.T) {
 	cases := []struct {
-		a, b Tags
+		a, b model.Labels
 		want bool
 	}{
 		{
 			a: nil,
-			b: Tags{"a": "b"},
+			b: model.Labels{"a": "b"},
 		},
 		{
-			a: Tags{"a": "b"},
+			a: model.Labels{"a": "b"},
 			b: nil,
 		},
 		{
-			a:    Tags{"a": "b"},
-			b:    Tags{"a": "b"},
+			a:    model.Labels{"a": "b"},
+			b:    model.Labels{"a": "b"},
 			want: true,
 		},
 	}
@@ -562,5 +269,209 @@ func TestTagsEquals(t *testing.T) {
 		if got := c.a.Equals(c.b); got != c.want {
 			t.Errorf("Failed: got eq=%v want=%v for %q ?= %q", got, c.want, c.a, c.b)
 		}
+	}
+}
+
+func TestConfigKey(t *testing.T) {
+	config := mock.Make("ns", 2)
+	want := "mock-config/ns/mock-config2"
+	if key := config.ConfigMeta.Key(); key != want {
+		t.Errorf("config.Key() => got %q, want %q", key, want)
+	}
+}
+
+func TestResolveHostname(t *testing.T) {
+	cases := []struct {
+		meta model.ConfigMeta
+		svc  *proxyconfig.IstioService
+		want string
+	}{
+		{
+			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
+			svc:  &proxyconfig.IstioService{Name: "hello"},
+			want: "hello.default.svc.cluster.local",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
+			svc:  &proxyconfig.IstioService{Name: "hello", Namespace: "default", Domain: "svc.cluster.local"},
+			want: "hello.default.svc.cluster.local",
+		},
+		{
+			meta: model.ConfigMeta{},
+			svc:  &proxyconfig.IstioService{Name: "hello"},
+			want: "hello",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "default"},
+			svc:  &proxyconfig.IstioService{Name: "hello"},
+			want: "hello.default",
+		},
+	}
+
+	for _, test := range cases {
+		if got := model.ResolveHostname(test.meta, test.svc); got != test.want {
+			t.Errorf("ResolveHostname(%v, %v) => got %q, want %q", test.meta, test.svc, got, test.want)
+		}
+	}
+}
+
+func TestMatchSource(t *testing.T) {
+	cases := []struct {
+		meta      model.ConfigMeta
+		svc       *proxyconfig.IstioService
+		instances []*model.ServiceInstance
+		want      bool
+	}{
+		{
+			meta: model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
+			want: true,
+		},
+		{
+			meta: model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
+			svc:  &proxyconfig.IstioService{Name: "hello"},
+			want: false,
+		},
+		{
+			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
+			svc:       &proxyconfig.IstioService{Name: "world"},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
+			want:      false,
+		},
+		{
+			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
+			svc:       &proxyconfig.IstioService{Name: "hello"},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
+			want:      true,
+		},
+		{
+			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
+			svc:       &proxyconfig.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
+			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
+			want:      true,
+		},
+	}
+
+	for _, test := range cases {
+		if got := model.MatchSource(test.meta, test.svc, test.instances); got != test.want {
+			t.Errorf("MatchSource(%v) => got %q, want %q", test, got, test.want)
+		}
+	}
+}
+
+func TestSortRouteRules(t *testing.T) {
+	rules := []model.Config{
+		{
+			ConfigMeta: model.ConfigMeta{Name: "d"},
+			Spec:       &proxyconfig.RouteRule{Precedence: 2},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "b"},
+			Spec:       &proxyconfig.RouteRule{Precedence: 3},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "c"},
+			Spec:       &proxyconfig.RouteRule{Precedence: 2},
+		},
+		{
+			ConfigMeta: model.ConfigMeta{Name: "a"},
+		},
+	}
+	model.SortRouteRules(rules)
+	if !(rules[0].Name == "a" && rules[1].Name == "b" && rules[2].Name == "c" && rules[3].Name == "d") {
+		t.Errorf("SortRouteRules() => got %#v, want a, b, c, d", rules)
+	}
+}
+
+func TestRouteRules(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)
+
+	routerule1 := &proxyconfig.RouteRule{
+		Match: &proxyconfig.MatchCondition{
+			Source: &proxyconfig.IstioService{
+				Name:   "hello",
+				Labels: instance.Labels,
+			},
+		},
+		Destination: &proxyconfig.IstioService{
+			Name: "world",
+		},
+	}
+
+	config1 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.RouteRule.Type,
+			Name:      "example",
+			Namespace: "default",
+			Domain:    "cluster.local",
+		},
+		Spec: routerule1,
+	}
+
+	if _, err := store.Create(config1); err != nil {
+		t.Error(err)
+	}
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
+		!reflect.DeepEqual(routerule1, out[0].Spec) {
+		t.Errorf("RouteRules() => expected %#v but got %#v", routerule1, out)
+	}
+	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
+		t.Error("RouteRules() => expected no match for destination-matched rules")
+	}
+	if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
+		t.Error("RouteRules() => expected no match for source-matched rules")
+	}
+
+	world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0)
+	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
+		!reflect.DeepEqual(routerule1, out[0].Spec) {
+		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, routerule1)
+	}
+	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
+		t.Error("RouteRulesByDestination() => expected no match")
+	}
+}
+
+func TestPolicy(t *testing.T) {
+	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+	labels := map[string]string{"version": "v1"}
+	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)}
+
+	policy1 := &proxyconfig.DestinationPolicy{
+		Source: &proxyconfig.IstioService{
+			Name:   "hello",
+			Labels: map[string]string{"version": "v0"},
+		},
+		Destination: &proxyconfig.IstioService{
+			Name:   "world",
+			Labels: labels,
+		},
+	}
+
+	config1 := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:      model.DestinationPolicy.Type,
+			Name:      "example",
+			Namespace: "default",
+			Domain:    "cluster.local",
+		},
+		Spec: policy1,
+	}
+
+	if _, err := store.Create(config1); err != nil {
+		t.Error(err)
+	}
+	if out := store.Policy(instances, mock.WorldService.Hostname, labels); out == nil ||
+		!reflect.DeepEqual(policy1, out.Spec) {
+		t.Errorf("Policy() => expected %#v but got %#v", policy1, out)
+	}
+	if out := store.Policy(instances, mock.HelloService.Hostname, labels); out != nil {
+		t.Error("Policy() => expected no match for destination-matched policy")
+	}
+	if out := store.Policy(instances, mock.WorldService.Hostname, nil); out != nil {
+		t.Error("Policy() => expected no match for labels-matched policy")
+	}
+	if out := store.Policy(nil, mock.WorldService.Hostname, labels); out != nil {
+		t.Error("Policy() => expected no match for source-matched policy")
 	}
 }

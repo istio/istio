@@ -1,18 +1,20 @@
 type: route-rule
 name: fault-route
-namespace: {{.Namespace}}
 spec:
-  destination: {{.Destination}}.{{.Namespace}}.svc.cluster.local
+  destination:
+    name: c
   precedence: 3
   match:
-    source: {{.Source}}.{{.Namespace}}.svc.cluster.local
-    sourceTags:
-      version: v1
-    httpHeaders:
-      version:
-        exact: v2
+    source:
+      name: a
+      labels:
+        version: v1
+    request:
+      headers:
+        version:
+          exact: v2
   route:
-    - tags:
+    - labels:
          version: v2
   httpFault:
     delay:

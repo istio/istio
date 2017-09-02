@@ -29,7 +29,7 @@ func TestServiceNode(t *testing.T) {
 		out string
 	}{
 		{
-			in:  mock.ProxyV0,
+			in:  mock.HelloProxyV0,
 			out: "sidecar~10.1.1.0~v0.default~default.svc.cluster.local",
 		},
 		{

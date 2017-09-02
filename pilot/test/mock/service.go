@@ -24,8 +24,13 @@ import (
 
 // Mock values
 var (
-	HelloService   = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
-	WorldService   = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	PortHTTP     = &model.Port{
+		Name:     "http",
+		Port:     80, // target port 80
+		Protocol: model.ProtocolHTTP,
+	}
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
 	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
@@ -41,17 +46,17 @@ var (
 		},
 		versions: 2,
 	}
-	HostInstanceV0 = MakeIP(HelloService, 0)
-	HostInstanceV1 = MakeIP(HelloService, 1)
-	ProxyV0        = proxy.Node{
+	HelloInstanceV0 = MakeIP(HelloService, 0)
+	HelloInstanceV1 = MakeIP(HelloService, 1)
+	HelloProxyV0    = proxy.Node{
 		Type:      proxy.Sidecar,
-		IPAddress: HostInstanceV0,
+		IPAddress: HelloInstanceV0,
 		ID:        "v0.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	ProxyV1 = proxy.Node{
+	HelloProxyV1 = proxy.Node{
 		Type:      proxy.Sidecar,
-		IPAddress: HostInstanceV1,
+		IPAddress: HelloInstanceV1,
 		ID:        "v1.default",
 		Domain:    "default.svc.cluster.local",
 	}
@@ -74,19 +79,17 @@ func MakeService(hostname, address string) *model.Service {
 	return &model.Service{
 		Hostname: hostname,
 		Address:  address,
-		Ports: []*model.Port{{
-			Name:     "http",
-			Port:     80, // target port 80
-			Protocol: model.ProtocolHTTP,
-		}, {
-			Name:     "http-status",
-			Port:     81, // target port 1081
-			Protocol: model.ProtocolHTTP,
-		}, {
-			Name:     "custom",
-			Port:     90, // target port 1090
-			Protocol: model.ProtocolTCP,
-		}},
+		Ports: []*model.Port{
+			PortHTTP,
+			{
+				Name:     "http-status",
+				Port:     81, // target port 1081
+				Protocol: model.ProtocolHTTP,
+			}, {
+				Name:     "custom",
+				Port:     90, // target port 1090
+				Protocol: model.ProtocolTCP,
+			}},
 	}
 }
 
@@ -137,7 +140,7 @@ func MakeInstance(service *model.Service, port *model.Port, version int) *model.
 			ServicePort: port,
 		},
 		Service: service,
-		Tags:    map[string]string{"version": fmt.Sprintf("v%d", version)},
+		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
 	}
 }
 
@@ -175,7 +178,8 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, bool) {
 }
 
 // Instances implements discovery interface
-func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tags model.TagsList) []*model.ServiceInstance {
+func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
+	labels model.LabelsCollection) []*model.ServiceInstance {
 	service, ok := sd.services[hostname]
 	if !ok {
 		return nil
@@ -187,7 +191,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string, tags mode
 	for _, name := range ports {
 		if port, ok := service.Ports.Get(name); ok {
 			for v := 0; v < sd.versions; v++ {
-				if tags.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
+				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
 					out = append(out, MakeInstance(service, port, v))
 				}
 			}

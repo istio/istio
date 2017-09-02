@@ -31,7 +31,7 @@ func TestPodCache(t *testing.T) {
 		name         string
 		pods         []*v1.Pod
 		keys         map[string]string
-		wantTags     map[string]model.Tags
+		wantLabels   map[string]model.Labels
 		wantNotFound bool
 	}{
 		{
@@ -46,7 +46,7 @@ func TestPodCache(t *testing.T) {
 				"128.0.0.2": "nsA/pod2",
 				"128.0.0.3": "nsB/pod3",
 			},
-			wantTags: map[string]model.Tags{
+			wantLabels: map[string]model.Labels{
 				"128.0.0.1": {"app": "test-app"},
 				"128.0.0.2": {"app": "prod-app-1"},
 				"128.0.0.3": {"app": "prod-app-2"},
@@ -54,12 +54,12 @@ func TestPodCache(t *testing.T) {
 		},
 		{
 			name:         "Should fail if addr not in keys",
-			wantTags:     map[string]model.Tags{"128.0.0.1": nil},
+			wantLabels:   map[string]model.Labels{"128.0.0.1": nil},
 			wantNotFound: true,
 		},
 		{
 			name:         "Should fail if addr in keys but pod not in cache",
-			wantTags:     map[string]model.Tags{"128.0.0.1": nil},
+			wantLabels:   map[string]model.Labels{"128.0.0.1": nil},
 			keys:         map[string]string{"128.0.0.1": "nsA/pod1"},
 			wantNotFound: true,
 		},
@@ -85,8 +85,8 @@ func TestPodCache(t *testing.T) {
 			controller.pods.keys = c.keys
 
 			// Verify podCache
-			for addr, wantTag := range c.wantTags {
-				tag, found := controller.pods.tagsByIP(addr)
+			for addr, wantTag := range c.wantLabels {
+				tag, found := controller.pods.labelsByIP(addr)
 				if !reflect.DeepEqual(wantTag, tag) {
 					t.Errorf("Expected %v got %v", wantTag, tag)
 				}

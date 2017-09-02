@@ -45,8 +45,8 @@ const (
 	IstioURIPrefix = "spiffe"
 )
 
-func convertTags(obj meta_v1.ObjectMeta) model.Tags {
-	out := make(model.Tags, len(obj.Labels))
+func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
+	out := make(model.Labels, len(obj.Labels))
 	for k, v := range obj.Labels {
 		out[k] = v
 	}

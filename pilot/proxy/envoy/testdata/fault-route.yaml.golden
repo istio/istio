@@ -1,22 +1,27 @@
 type: route-rule
 name: fault-route
+namespace: default
+domain: cluster.local
 spec:
-  destination: world.default.svc.cluster.local
+  destination:
+    name: world
   match:
-    source: hello.default.svc.cluster.local
-    source_tags:
-      version: v0
-    httpHeaders:
-      scooby:
-        exact: doo
-      animal:
-        prefix: dog.cat
-      name:
-        regex: "sco+do+"
+    source:
+      name: hello
+      labels:
+        version: v0
+    request:
+      headers:
+        scooby:
+          exact: doo
+        animal:
+          prefix: dog.cat
+        name:
+          regex: "sco+do+"
   route:
-    - tags:
+    - labels:
          version: v1
-  http_fault:
+  httpFault:
     delay:
       percent: 100
       fixed_delay: 5s

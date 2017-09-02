@@ -52,10 +52,7 @@ func (t *ingress) setup() error {
 	}
 
 	// send route rules for "c" only
-	if err = t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
+	if err = t.applyConfig("rule-default-route.yaml.tmpl", nil); err != nil {
 		return err
 	}
 

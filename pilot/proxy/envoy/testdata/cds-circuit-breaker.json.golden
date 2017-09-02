@@ -71,7 +71,21 @@
     "service_name": "world.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.66fcc955b8875b19844f9eaf6cfda47c778c609e",
+    "service_name": "world.default.svc.cluster.local|http|version=v1",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.67589891daa7ce2b9c7c8a999885dd21c2a54e16",
+    "service_name": "world.default.svc.cluster.local|http-status|version=v0",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "random",
     "max_requests_per_connection": 100,
     "circuit_breakers": {
      "default": {
@@ -95,27 +109,6 @@
     "lb_type": "round_robin"
    },
    {
-    "name": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
-    "service_name": "world.default.svc.cluster.local|http",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin",
-    "max_requests_per_connection": 100,
-    "circuit_breakers": {
-     "default": {
-      "max_connections": 100,
-      "max_pending_requests": 100,
-      "max_requests": 100
-     }
-    },
-    "outlier_detection": {
-     "consecutive_5xx": 10,
-     "interval_ms": 30000,
-     "base_ejection_time_ms": 15500,
-     "max_ejection_percent": 100
-    }
-   },
-   {
     "name": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",
@@ -127,11 +120,18 @@
     ]
    },
    {
-    "name": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",
-    "service_name": "world.default.svc.cluster.local|http-status",
+    "name": "out.b9de37be5d0723747a2d3b5cc02f264049e666d6",
+    "service_name": "world.default.svc.cluster.local|http-status|version=v1",
     "connect_timeout_ms": 1000,
     "type": "sds",
-    "lb_type": "round_robin",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.c76febe0f151b2f8abe0f377d2052c0fbbfb959d",
+    "service_name": "world.default.svc.cluster.local|http|version=v0",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "random",
     "max_requests_per_connection": 100,
     "circuit_breakers": {
      "default": {

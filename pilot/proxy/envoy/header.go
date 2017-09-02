@@ -27,8 +27,8 @@ func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 	path := ""
 	prefix := "/"
 	var headers Headers
-	if matches != nil {
-		for name, match := range matches.HttpHeaders {
+	if matches != nil && matches.Request != nil {
+		for name, match := range matches.Request.Headers {
 			if name == model.HeaderURI {
 				// assumes `uri` condition is non-empty
 				switch m := match.MatchType.(type) {

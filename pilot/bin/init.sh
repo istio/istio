@@ -37,10 +37,6 @@ for f in $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/
   ln -sf $f vendor/github.com/googleapis/googleapis/google/rpc/
 done
 
-# Link mock gen files
-ln -sf "$(pwd)/bazel-genfiles/model/mock_config_gen_test.go" \
-  model/
-
 ln -sf "$(pwd)/bazel-genfiles/adapter/config/crd/types.go" \
   adapter/config/crd/
 

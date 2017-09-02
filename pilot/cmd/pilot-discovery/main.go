@@ -78,6 +78,8 @@ var (
 				glog.Warningf("failed to read mesh configuration, using default: %v", fail)
 			}
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
+			glog.V(2).Infof("version %s", version.Line())
+			glog.V(2).Infof("flags %s", spew.Sdump(flags))
 
 			var serviceController model.Controller
 			var configController model.ConfigStoreCache
@@ -87,32 +89,28 @@ var (
 
 			stop := make(chan struct{})
 
+			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+				model.RouteRule,
+				model.EgressRule,
+				model.DestinationPolicy,
+			}, flags.controllerOptions.DomainSuffix)
+			if err != nil {
+				return multierror.Prefix(err, "failed to open a config client.")
+			}
+
+			if err = configClient.RegisterResources(); err != nil {
+				return multierror.Prefix(err, "failed to register custom resources.")
+			}
+
 			// Set up values for input to discovery service in different platforms
 			if flags.serviceregistry == platform.KubernetesRegistry || flags.serviceregistry == "" {
-
-				_, client, err := kube.CreateInterface(flags.kubeconfig)
-				if err != nil {
-					return multierror.Prefix(err, "failed to connect to Kubernetes API.")
+				_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
+				if kuberr != nil {
+					return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 				}
 
 				if flags.controllerOptions.Namespace == "" {
 					flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
-				}
-
-				glog.V(2).Infof("version %s", version.Line())
-				glog.V(2).Infof("flags %s", spew.Sdump(flags))
-
-				configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-					model.RouteRule,
-					model.EgressRule,
-					model.DestinationPolicy,
-				})
-				if err != nil {
-					return multierror.Prefix(err, "failed to open a config client.")
-				}
-
-				if err = configClient.RegisterResources(); err != nil {
-					return multierror.Prefix(err, "failed to register custom resources.")
 				}
 
 				kubeController := kube.NewController(client, mesh, flags.controllerOptions)
@@ -138,22 +136,10 @@ var (
 			} else if flags.serviceregistry == platform.ConsulRegistry {
 				glog.V(2).Infof("Consul url: %v", flags.consulargs.serverURL)
 
-				consulController, err := consul.NewController(
+				consulController, conerr := consul.NewController(
 					flags.consulargs.serverURL, "dc1", 2*time.Second)
-				if err != nil {
-					return fmt.Errorf("failed to create Consul controller: %v", err)
-				}
-
-				configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-					model.RouteRule,
-					model.DestinationPolicy,
-				})
-				if err != nil {
-					return multierror.Prefix(err, "failed to open a config client.")
-				}
-
-				if err = configClient.RegisterResources(); err != nil {
-					return multierror.Prefix(err, "failed to register custom resources.")
+				if conerr != nil {
+					return fmt.Errorf("failed to create Consul controller: %v", conerr)
 				}
 
 				configController = crd.NewController(configClient, flags.controllerOptions)

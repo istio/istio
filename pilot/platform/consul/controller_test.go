@@ -104,7 +104,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances := controller.Instances(hostname, []string{}, model.TagsList{})
+	instances := controller.Instances(hostname, []string{}, model.LabelsCollection{})
 	if len(instances) != 3 {
 		t.Errorf("Instances() returned wrong # of service instances => %q, want 3", len(instances))
 	}
@@ -117,15 +117,15 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances = controller.Instances(hostname, []string{}, model.TagsList{
-		model.Tags{filterTagKey: filterTagVal},
+	instances = controller.Instances(hostname, []string{}, model.LabelsCollection{
+		model.Labels{filterTagKey: filterTagVal},
 	})
 	if len(instances) != 1 {
 		t.Errorf("Instances() did not filter by tags => %q, want 1", len(instances))
 	}
 	for _, inst := range instances {
 		found := false
-		for key, val := range inst.Tags {
+		for key, val := range inst.Labels {
 			if key == filterTagKey && val == filterTagVal {
 				found = true
 			}
@@ -137,7 +137,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := "http"
-	instances = controller.Instances(hostname, []string{filterPort}, model.TagsList{})
+	instances = controller.Instances(hostname, []string{filterPort}, model.LabelsCollection{})
 	if len(instances) != 2 {
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}

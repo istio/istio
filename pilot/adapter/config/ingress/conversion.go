@@ -64,11 +64,14 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 func createIngressRule(name, host, path, domainSuffix string,
 	ingress v1beta1.Ingress, backend v1beta1.IngressBackend, tlsSecret string) model.Config {
 	rule := &proxyconfig.IngressRule{
-		Name:        name,
-		Destination: serviceHostname(backend.ServiceName, ingress.Namespace, domainSuffix),
-		TlsSecret:   tlsSecret,
+		Destination: &proxyconfig.IstioService{
+			Name: backend.ServiceName,
+		},
+		TlsSecret: tlsSecret,
 		Match: &proxyconfig.MatchCondition{
-			HttpHeaders: make(map[string]*proxyconfig.StringMatch, 2),
+			Request: &proxyconfig.MatchRequest{
+				Headers: make(map[string]*proxyconfig.StringMatch, 2),
+			},
 		},
 	}
 	switch backend.ServicePort.Type {
@@ -83,7 +86,7 @@ func createIngressRule(name, host, path, domainSuffix string,
 	}
 
 	if host != "" {
-		rule.Match.HttpHeaders[model.HeaderAuthority] = &proxyconfig.StringMatch{
+		rule.Match.Request.Headers[model.HeaderAuthority] = &proxyconfig.StringMatch{
 			MatchType: &proxyconfig.StringMatch_Exact{Exact: host},
 		}
 	}
@@ -91,16 +94,16 @@ func createIngressRule(name, host, path, domainSuffix string,
 	if path != "" {
 		if isRegularExpression(path) {
 			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
+				rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
 					MatchType: &proxyconfig.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 				}
 			} else {
-				rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
+				rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
 					MatchType: &proxyconfig.StringMatch_Regex{Regex: path},
 				}
 			}
 		} else {
-			rule.Match.HttpHeaders[model.HeaderURI] = &proxyconfig.StringMatch{
+			rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
 				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
 			}
 		}
@@ -111,6 +114,7 @@ func createIngressRule(name, host, path, domainSuffix string,
 			Type:            model.IngressRule.Type,
 			Name:            name,
 			Namespace:       ingress.Namespace,
+			Domain:          domainSuffix,
 			Labels:          ingress.Labels,
 			Annotations:     ingress.Annotations,
 			ResourceVersion: ingress.ResourceVersion,
@@ -153,11 +157,6 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 // TODO: warning that Envoy regex language is not 1-1 with golang's regex language!
 func isRegularExpression(s string) bool {
 	return len(s) < len(regexp.QuoteMeta(s))
-}
-
-// serviceHostname produces FQDN for a k8s service
-func serviceHostname(name, namespace, domainSuffix string) string {
-	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, domainSuffix)
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed

@@ -23,8 +23,11 @@ import (
 )
 
 // applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
-func applyClusterPolicy(cluster *Cluster, config model.IstioConfigStore,
-	mesh *proxyconfig.ProxyMeshConfig, accounts model.ServiceAccounts) {
+func applyClusterPolicy(cluster *Cluster,
+	instances []*model.ServiceInstance,
+	config model.IstioConfigStore,
+	mesh *proxyconfig.ProxyMeshConfig,
+	accounts model.ServiceAccounts) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
 
@@ -45,11 +48,13 @@ func applyClusterPolicy(cluster *Cluster, config model.IstioConfigStore,
 	}
 
 	// apply destination policies
-	policy := config.DestinationPolicy(cluster.hostname, cluster.tags)
+	policyConfig := config.Policy(instances, cluster.hostname, cluster.tags)
 
-	if policy == nil {
+	if policyConfig == nil {
 		return
 	}
+
+	policy := policyConfig.Spec.(*proxyconfig.DestinationPolicy)
 
 	if policy.LoadBalancing != nil {
 		switch policy.LoadBalancing.GetName() {

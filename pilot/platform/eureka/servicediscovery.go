@@ -62,7 +62,7 @@ func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, bool) {
 
 // Instances implements a service catalog operation
 func (sd *serviceDiscovery) Instances(hostname string, ports []string,
-	tagsList model.TagsList) []*model.ServiceInstance {
+	tagsList model.LabelsCollection) []*model.ServiceInstance {
 
 	apps, err := sd.client.Applications()
 	if err != nil {
@@ -77,7 +77,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, instance := range convertServiceInstances(services, apps) {
-		if !tagsList.HasSubsetOf(instance.Tags) {
+		if !tagsList.HasSubsetOf(instance.Labels) {
 			continue
 		}
 

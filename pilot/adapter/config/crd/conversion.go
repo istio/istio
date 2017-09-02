@@ -23,7 +23,7 @@ import (
 	"istio.io/pilot/model"
 )
 
-func convertObject(schema model.ProtoSchema, object IstioObject) (*model.Config, error) {
+func convertObject(schema model.ProtoSchema, object IstioObject, domain string) (*model.Config, error) {
 	data, err := schema.FromJSONMap(object.GetSpec())
 	if err != nil {
 		return nil, err
@@ -34,6 +34,7 @@ func convertObject(schema model.ProtoSchema, object IstioObject) (*model.Config,
 			Type:            schema.Type,
 			Name:            meta.Name,
 			Namespace:       meta.Namespace,
+			Domain:          domain,
 			Labels:          meta.Labels,
 			Annotations:     meta.Annotations,
 			ResourceVersion: meta.ResourceVersion,
@@ -61,7 +62,13 @@ func convertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 	return out, nil
 }
 
-// camelCaseToKabobCase converts "my-name" to "MyName"
+// resourceName converts "my-name" to "myname".
+// This is needed by k8s API server as dashes prevent kubectl from accessing CRDs
+func resourceName(s string) string {
+	return strings.Replace(s, "-", "", -1)
+}
+
+// kabobCaseToCamelCase converts "my-name" to "MyName"
 func kabobCaseToCamelCase(s string) string {
 	words := strings.Split(s, "-")
 	out := ""

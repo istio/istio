@@ -40,126 +40,84 @@ func (t *routing) setup() error {
 
 // TODO: test negatives
 func (t *routing) run() error {
-	// First test default routing
-	glog.Info("Routing all traffic to c-v1 and verifying...")
-	if err := t.applyConfig("rule-default-route.yaml.tmpl", map[string]string{
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
+	cases := []struct {
+		description string
+		config      string
+		check       func() error
+	}{
+		{
+			// First test default routing
+			description: "routing all traffic to c-v1",
+			config:      "rule-default-route.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0})
+			},
+		},
+		{
+			description: "routing 75 percent to c-v1, 25 percent to c-v2",
+			config:      "rule-weighted-route.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 75, "v2": 25})
+			},
+		},
+		{
+			description: "routing 100 percent to c-v2 using header",
+			config:      "rule-content-route.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "version", "v2", 100, map[string]int{"v1": 0, "v2": 100})
+			},
+		},
+		{
+			description: "routing 100 percent to c-v2 using regex header",
+			config:      "rule-regex-route.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "foo", "bar", 100, map[string]int{"v1": 0, "v2": 100})
+			},
+		},
+		{
+			description: "fault injection",
+			config:      "rule-fault-injection.yaml.tmpl",
+			check: func() error {
+				return t.verifyFaultInjection("a", "c", "version", "v2", time.Second*5, 503)
+			},
+		},
+		{
+			description: "redirect injection",
+			config:      "rule-redirect-injection.yaml.tmpl",
+			check: func() error {
+				return t.verifyRedirect("a", "c", "b", "/new/path", "testredirect", "enabled", 200)
+			},
+		},
+		// In case of websockets, the server does not return headers as part of response.
+		// After upgrading to websocket connection, it waits for a dummy message from the
+		// client over the websocket connection. It then returns all the headers as
+		// part of the response message which is then printed out by the client.
+		// So the verify checks here are really parsing the output of a websocket message
+		// i.e., we are effectively checking websockets beyond just the upgrade.
+		{
+			description: "routing 100 percent to c-v1 with websocket upgrades",
+			config:      "rule-websocket-route.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("ws", "a", "c", "testwebsocket", "enabled", 100, map[string]int{"v1": 100, "v2": 0})
+			},
+		},
 	}
-	if err := t.verifyRouting("http", "a", "c", "", "",
-		100, map[string]int{
-			"v1": 100,
-			"v2": 0,
-		}); err != nil {
-		return err
-	}
-	glog.Info("Success!")
 
-	glog.Info("Routing 75 percent to c-v1, 25 percent to c-v2 and verifying...")
-	if err := t.applyConfig("rule-weighted-route.yaml.tmpl", map[string]string{
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
-	}
-	if err := t.verifyRouting("http", "a", "c", "", "",
-		100, map[string]int{
-			"v1": 75,
-			"v2": 25,
-		}); err != nil {
-		return err
-	}
-	glog.Info("Success!")
+	var errs error
+	for _, cs := range cases {
+		log("Checking routing test", cs.description)
+		if err := t.applyConfig(cs.config, nil); err != nil {
+			return err
+		}
 
-	glog.Info("Routing 100 percent to c-v2 using header based routing and verifying...")
-	if err := t.applyConfig("rule-content-route.yaml.tmpl", map[string]string{
-		"Source":      "a",
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
+		if err := repeat(cs.check, 3, time.Second); err != nil {
+			glog.Infof("Failed the test with %v", err)
+			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
+		} else {
+			glog.Info("Success!")
+		}
 	}
-	if err := t.verifyRouting("http", "a", "c", "version", "v2",
-		100, map[string]int{
-			"v1": 0,
-			"v2": 100,
-		}); err != nil {
-		return err
-	}
-	glog.Info("Success!")
-
-	glog.Info("Routing 100 percent to c-v2 using regex header based routing and verifying...")
-	if err := t.applyConfig("rule-regex-route.yaml.tmpl", map[string]string{
-		"Source":      "a",
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
-	}
-	if err := t.verifyRouting("http", "a", "c", "foo", "bar",
-		100, map[string]int{
-			"v1": 0,
-			"v2": 100,
-		}); err != nil {
-		return err
-	}
-	glog.Info("Success!")
-
-	glog.Info("Testing fault injection..")
-	if err := t.applyConfig("rule-fault-injection.yaml.tmpl", map[string]string{
-		"Source":      "a",
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
-	}
-	if err := t.verifyFaultInjection("a", "c", "version", "v2", time.Second*5, 503); err != nil {
-		return err
-	}
-	glog.Info("Success!")
-
-	glog.Info("Testing redirect..")
-	redirectHost := "b"
-	redirectPath := "/new/path"
-	if err := t.applyConfig("rule-redirect-injection.yaml.tmpl", map[string]string{
-		"Source":       "a",
-		"Destination":  "c",
-		"HostRedirect": redirectHost,
-		"Path":         redirectPath,
-		"Namespace":    t.Namespace,
-	}); err != nil {
-		return err
-	}
-	if err := t.verifyRedirect("a", "c", redirectHost, redirectPath, "testredirect", "enabled", 200); err != nil {
-		return err
-	}
-	glog.Info("Success!")
-
-	// In case of websockets, the server does not return headers as part of response.
-	// After upgrading to websocket connection, it waits for a dummy message from the
-	// client over the websocket connection. It then returns all the headers as
-	// part of the response message which is then printed out by the client.
-	// So the verify checks here are really parsing the output of a websocket message
-	// i.e., we are effectively checking websockets beyond just the upgrade.
-	glog.Info("Routing 100 percent to c-v1 with websocket upgrades and verifying...")
-	if err := t.applyConfig("rule-websocket-route.yaml.tmpl", map[string]string{
-		"Destination": "c",
-		"Namespace":   t.Namespace,
-	}); err != nil {
-		return err
-	}
-	if err := t.verifyRouting("ws", "a", "c", "testwebsocket", "enabled",
-		100, map[string]int{
-			"v1": 100,
-			"v2": 0,
-		}); err != nil {
-		return err
-	}
-	glog.Info("Success!")
-
-	return nil
+	return errs
 }
 
 func (t *routing) teardown() {

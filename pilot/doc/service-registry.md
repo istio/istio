@@ -71,26 +71,26 @@ resolve catalog.mystore.com:8080 resolves to all 10 backend IPs
 ### 3. Service versions
 
 Each version of a service can be differentiated by a unique set of
-tags associated with the version. Tags are simple key value pairs
+labels associated with the version. Labels are simple key value pairs
 assigned to the instances of a particular service version, i.e., all
 instances of same version must have same tag. For example, lets say
 catalog.mystore.com has 2 versions v1 and v2.
 
-Lets say v1 has tags gitCommit=aeiou234, region=us-east and v2 has tags
+Lets say v1 has labels gitCommit=aeiou234, region=us-east and v2 has labels
 name=kittyCat,region=us-east. And lets say instances 172.16.0.1
 .. 171.16.0.5 run version v1 of the service.
 
 These instances should register themselves with a service registry,
-using the tags gitCommit=aeiou234, region=us-east, while instances
+using the labels gitCommit=aeiou234, region=us-east, while instances
 172.16.0.6 .. 172.16.0.10 should register themselves with the service
-registry using the tags name=kittyCat,region=us-east
+registry using the labels name=kittyCat,region=us-east
 
 Istio expects that the underlying platform to provide a service registry
 and service discovery mechanism. Most container platforms come built in
 with a service registry (e.g., kubernetes, mesos) where a pod
-specification can contain all the version related tags. Upon launching
+specification can contain all the version related labels. Upon launching
 the pod, the platform automatically registers the pod with the registry
-along with the tags.  In other platforms, a dedicated service
+along with the labels.  In other platforms, a dedicated service
 registration agent might be needed to automatically register the service
 with a service registration/discovery solution like Consul, etc.
 
@@ -100,16 +100,16 @@ groups the pods into unique sets -- each set representing a service
 version. In future, Istio will add support for pulling in similar
 information from Mesos registry and *potentially* other registries.
 
-### 4. Service version tags
+### 4. Service version labels
 
-When listing the various instances of a service, the tags partition
-the set of instances into disjoint subsets.  E.g., grouping pods by tags
+When listing the various instances of a service, the labels partition
+the set of instances into disjoint subsets.  E.g., grouping pods by labels
 "gitCommit=aeiou234,region=us-east", will give all instances of v1 of
 service catalog.mystore.com
 
 In the absence of a multiple versions, each service has a
 default version that consists of all its instances. For e.g., if pods
-under catalog.mystore.com did not have any tags associated with them,
+under catalog.mystore.com did not have any labels associated with them,
 Istio would consider catalog.mystore.com as a service with just one
 default version, consisting of 10 VMs with IPs 172.16.0.1 .. 172.16.0.10
 
@@ -139,6 +139,6 @@ administrator. There are layer7 (http) and layer4 routing rules (see the
 proxy config proto definition for more details).
 
 Routing rules allow the proxy to select a version based on criterion
-such as (headers, url, etc.), tags associated with source/destination
+such as (headers, url, etc.), labels associated with source/destination
 and/or by weights assigned to each version.
 

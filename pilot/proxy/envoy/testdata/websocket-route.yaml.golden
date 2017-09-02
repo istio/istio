@@ -1,11 +1,13 @@
 type: route-rule
 name: websocket-route
+namespace: default
+domain: cluster.local
 spec:
-  destination: world.default.svc.cluster.local
+  destination:
+    name: hello
   match:
-    httpHeaders:
-      uri:
-        prefix: /websocket
-  route:
-    - weight: 100
-  websocket_upgrade: True
+    request:
+      headers:
+        uri:
+          prefix: /websocket
+  websocketUpgrade: True

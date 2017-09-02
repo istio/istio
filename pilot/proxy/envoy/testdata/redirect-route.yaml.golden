@@ -1,15 +1,19 @@
 type: route-rule
 name: redirect-route
+namespace: default
+domain: cluster.local
 spec:
-  destination: world.default.svc.cluster.local
+  destination:
+    name: world
   match:
-    httpHeaders:
-      scooby:
-        exact: doo
-      animal:
-        prefix: dog
-      name:
-        regex: "sco+do+"
+    request:
+      headers:
+        scooby:
+          exact: doo
+        animal:
+          prefix: dog
+        name:
+          regex: "sco+do+"
   redirect:
     uri: "/new/path"
     authority: "foo.bar.com"
