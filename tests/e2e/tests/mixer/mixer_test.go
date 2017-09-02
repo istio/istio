@@ -253,7 +253,7 @@ func TestDenials(t *testing.T) {
 	allowRuleSync()
 
 	// generate several calls to the product page
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		if err := visitProductPage(testRetryTimes); err != nil {
 			t.Fatalf("Test app setup failure: %v", err)
 		}
