@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -52,6 +53,18 @@ type (
 		globalDict     map[string]int32
 	}
 )
+
+const (
+	// defaultValidDuration is the default duration for which a check or quota result is valid.
+	defaultValidDuration = 10 * time.Second
+	// defaultValidUseCount is the default number of calls for which a check or quota result is valid.
+	defaultValidUseCount = 200
+)
+
+var checkOk = &adapter.CheckResult{
+	ValidDuration: defaultValidDuration,
+	ValidUseCount: defaultValidUseCount,
+}
 
 // NewGRPCServer creates a gRPC serving stack.
 func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
@@ -118,11 +131,19 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 		cr, err := s.dispatcher.Check(legacyCtx, requestBag)
 		if err != nil {
 			out2 = status.WithError(err)
+		}
+
+		if cr == nil {
+			// There were no checks performed for this request.
+			// return ok.
+			cr = checkOk
 		} else {
 			out2 = cr.Status
-			resp.Precondition.ValidDuration = cr.ValidDuration
-			resp.Precondition.ValidUseCount = cr.ValidUseCount
 		}
+
+		resp.Precondition.ValidDuration = cr.ValidDuration
+		resp.Precondition.ValidUseCount = cr.ValidUseCount
+
 		if status.IsOK(out2) {
 			glog.V(2).Info("Check2 returned with ok")
 		} else {
@@ -150,8 +171,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	resp.Precondition.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 	requestBag.ClearReferencedAttributes()
 
-	if len(req.Quotas) > 0 {
+	if status.IsOK(resp.Precondition.Status) && len(req.Quotas) > 0 {
 		resp.Quotas = make(map[string]mixerpb.CheckResponse_QuotaResult, len(req.Quotas))
+		var qr *mixerpb.CheckResponse_QuotaResult
 
 		// TODO: should dispatch this loop in parallel
 		// WARNING: if this is dispatched in parallel, then we need to do
@@ -164,24 +186,31 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				DeduplicationID: req.DeduplicationId + name,
 				BestEffort:      param.BestEffort,
 			}
+			var err error
 
-			glog.V(1).Info("Dispatching Quota")
-			qmr, out := s.aspectDispatcher.Quota(legacyCtx, preprocResponseBag, qma)
-			if status.IsOK(out) {
-				glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", status.String(out), qmr)
-			} else {
-				glog.Warningf("Quota returned with error '%s' and quota response '%v'", status.String(out), qmr)
-			}
-			if qmr == nil {
-				qmr = &aspect.QuotaMethodResp{}
+			qr, err = quota(legacyCtx, s.dispatcher, preprocResponseBag, qma)
+			// if quota check fails, set status for the entire request and stop processing.
+			if err != nil {
+				resp.Precondition.Status = status.WithError(err)
+				requestBag.ClearReferencedAttributes()
+				break
 			}
 
-			qr := mixerpb.CheckResponse_QuotaResult{
-				GrantedAmount:        qmr.Amount,
-				ValidDuration:        qmr.Expiration,
-				ReferencedAttributes: requestBag.GetReferencedAttributes(s.globalDict, globalWordCount),
+			if qr == nil {
+				//TODO remove
+				qr = quotaOld(legacyCtx, s.aspectDispatcher, preprocResponseBag, qma)
 			}
-			resp.Quotas[name] = qr
+
+			// If qma.Quota does not apply to this request give the client what it asked for.
+			// Effectively the quota is unlimited.
+			if qr == nil {
+				qr = &mixerpb.CheckResponse_QuotaResult{
+					ValidDuration: defaultValidDuration,
+					GrantedAmount: qma.Amount,
+				}
+			}
+			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
+			resp.Quotas[name] = *qr
 			requestBag.ClearReferencedAttributes()
 		}
 	}
@@ -190,6 +219,58 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	preprocResponseBag.Done()
 
 	return resp, nil
+}
+
+// quotaOld is to be removed.
+func quotaOld(legacyCtx legacyContext.Context, d adapterManager.AspectDispatcher, bag attribute.Bag,
+	qma *aspect.QuotaMethodArgs) *mixerpb.CheckResponse_QuotaResult {
+	glog.V(1).Info("Dispatching Quota")
+	qmr, out := d.Quota(legacyCtx, bag, qma)
+	if status.IsOK(out) {
+		glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", status.String(out), qmr)
+	} else {
+		glog.Warningf("Quota returned with error '%s' and quota response '%v'", status.String(out), qmr)
+
+		if out.Code == int32(rpc.RESOURCE_EXHAUSTED) {
+			qmr = &aspect.QuotaMethodResp{
+				Amount:     0,
+				Expiration: defaultValidDuration,
+			}
+		}
+	}
+	if qmr == nil {
+		return nil
+	}
+	return &mixerpb.CheckResponse_QuotaResult{
+		GrantedAmount: qmr.Amount,
+		ValidDuration: qmr.Expiration,
+	}
+}
+
+func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.Bag,
+	qma *aspect.QuotaMethodArgs) (*mixerpb.CheckResponse_QuotaResult, error) {
+	if d == nil {
+		return nil, nil
+	}
+	glog.V(1).Infof("Dispatching Quota2: %s", qma.Quota)
+	qmr, err := d.Quota(legacyCtx, bag, qma)
+	if err != nil {
+		// TODO record the error in the quota specific result
+		glog.Warningf("Quota2 %s returned error: %v", qma.Quota, err)
+		return nil, err
+	}
+
+	if qmr == nil { // no quota applied for the given request
+		return nil, nil
+	}
+
+	if glog.V(2) {
+		glog.Infof("Quota2 %s returned: %v", qma.Quota, qmr)
+	}
+	return &mixerpb.CheckResponse_QuotaResult{
+		GrantedAmount: qmr.Amount,
+		ValidDuration: qmr.ValidDuration,
+	}, nil
 }
 
 var reportResp = &mixerpb.ReportResponse{}
@@ -251,10 +332,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		if s.dispatcher != nil {
 			// dispatch check2 and set success messages.
-			glog.V(1).Info("Dispatching Report2")
+			glog.V(1).Infof("Dispatching Report2 %d out of %d", i, len(req.Attributes))
 			err := s.dispatcher.Report(legacyCtx, preprocResponseBag)
 			if err != nil {
 				out2 = status.WithError(err)
+				glog.Warningf("Report2 returned %v", err)
 			}
 		}
 

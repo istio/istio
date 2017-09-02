@@ -26,10 +26,17 @@ option (gogoproto.gostring_all) = false;
 message Params {
     // Describes how a metric should be represented in Prometheus.
     message MetricInfo {
-        // Required. The name of the Istio metric instance this MetricInfo describes the shape of.
+        // Recommended. The name is used to register the prometheus metric.
+        // It must be unique across all prometheus metrics as prometheus does not allow duplicate names.
+        // If name is not specified a sanitized version of instance_name is used.
         string name = 1;
+
+        // Required. The name is the fully qualified name of the Istio metric instance
+        // that this MetricInfo processes.
+        string instance_name = 2;
+
         // Optional. A human readable description of this metric.
-        string description = 2;
+        string description = 3;
 
         // Describes what kind of metric this is.
         enum Kind {
@@ -38,7 +45,7 @@ message Params {
             COUNTER = 2;
             DISTRIBUTION = 3;
         }
-        Kind kind = 3;
+        Kind kind = 4;
 
         // Describes buckets for DISTRIBUTION kind metrics.
         message BucketsDefinition {
@@ -119,11 +126,12 @@ message Params {
         // for configuring the buckets that will be used to store the aggregated values.
         // This field must be provided for metrics declared to be of type DISTRIBUTION.
         // This field will be ignored for non-distribution metric kinds.
-        BucketsDefinition buckets = 4;
+        BucketsDefinition buckets = 5;
 
         // The names of labels to use: these need to match the dimensions of the Istio metric.
         // TODO: see if we can remove this and rely on only the dimensions in the future.
-        repeated string label_names = 5;
+        repeated string label_names = 6;
+
     }
     // The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn't have a corresponding
     // shape here, it will not be populated at runtime.

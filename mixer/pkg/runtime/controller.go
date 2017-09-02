@@ -238,8 +238,9 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 		if _, found := c.templateInfo[k.Kind]; !found {
 			continue
 		}
+		// instances use their fully qualified names.
 		instanceConfig[k.String()] = &cpb.Instance{
-			Name:     k.Name,
+			Name:     k.String(),
 			Template: k.Kind,
 			Params:   cfg,
 		}
@@ -255,8 +256,9 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
+		// handlers use their fully qualified names.
 		handlerConfig[k.String()] = &cpb.Handler{
-			Name:    k.Name,
+			Name:    k.String(),
 			Adapter: k.Kind,
 			Params:  cfg,
 		}

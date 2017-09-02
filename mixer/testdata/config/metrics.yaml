@@ -1,14 +1,16 @@
 apiVersion: "config.istio.io/v1alpha2"
 kind: prometheus
 metadata:
-  name: prometheus
+  name: handler
   namespace: istio-config-default
 spec:
   metrics:
-  - name: requestcount
+  - name: request_count
+    instance_name: requestcount.metric.istio-config-default
     kind: COUNTER
     label_names: [ source, target, service, method, version,  response_code ]
-  - name: requestduration
+  - name: request_duration
+    instance_name: requestduration.metric.istio-config-default
     kind: COUNTER
     label_names: [ source, target, service, method, version,  response_code ]
 ---
@@ -50,7 +52,7 @@ metadata:
 spec:
   selector: "true"
   actions:
-  - handler: prometheus.prometheus.istio-config-default
+  - handler: handler.prometheus.istio-config-default
     instances:
     - requestcount.metric.istio-config-default
     - requestduration.metric.istio-config-default

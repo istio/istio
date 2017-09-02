@@ -593,6 +593,7 @@ func Aspects(inventory aspect.ManagerInventory) [config.NumKinds]aspect.Manager 
 
 // ConfigChange listens for config change notifications.
 func (m *Manager) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
+	glog.Infof("ConfigChange %v", cfg)
 	m.resolver.Store(cfg)
 	m.df.Store(df)
 	m.handlers.Store(handlers)

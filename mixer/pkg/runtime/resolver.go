@@ -174,11 +174,14 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			if act == nil { // do not evaluate selector if there is no variety specific action there.
 				continue
 			}
-			if selected, err = r.evaluator.EvalPredicate(rule.selector, attrs); err != nil {
-				return nil, 0, err
-			}
-			if !selected {
-				continue
+			// do not evaluate empty predicates.
+			if len(rule.selector) != 0 {
+				if selected, err = r.evaluator.EvalPredicate(rule.selector, attrs); err != nil {
+					return nil, 0, err
+				}
+				if !selected {
+					continue
+				}
 			}
 			if glog.V(3) {
 				glog.Infof("filterActions: rule %s selected", rule.name)

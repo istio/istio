@@ -175,7 +175,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 1 {
 		t.Fatalf("handler called: %d, want 1", fb.called)
 	}
-	hname := "a1"
+	hname := "a1.AA.istio-default-config"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}
@@ -217,7 +217,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 2 {
 		t.Fatalf("handler create called: %d, want 1", fb.called)
 	}
-	hname = "a1"
+	hname = "a1.AA.istio-default-config"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}
@@ -237,7 +237,7 @@ func TestController_workflow(t *testing.T) {
 	if fb.called != 2 {
 		t.Fatalf("handler create called: %d, want 1", fb.called)
 	}
-	hname = "a1"
+	hname = "a1.AA.istio-default-config"
 	if fb.h.Name != hname {
 		t.Fatalf("got %s, want %s handler", fb.h.Name, hname)
 	}

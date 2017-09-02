@@ -34,13 +34,13 @@ inventory_library(
     packages = {
         "denier": "istio.io/mixer/adapter/denier",
         "list": "istio.io/mixer/adapter/list",
-        "memquota2": "istio.io/mixer/adapter/memquota2",
         "noop2": "istio.io/mixer/adapter/noop2",
         "prometheus": "istio.io/mixer/adapter/prometheus2",
         "stackdriver": "istio.io/mixer/adapter/stackdriver",
         "statsd2": "istio.io/mixer/adapter/statsd2",
         "stdio": "istio.io/mixer/adapter/stdio",
         "svcctrl": "istio.io/mixer/adapter/svcctrl",
+        "memquota": "istio.io/mixer/adapter/memquota2",
     },
     deps = [
         "//adapter/denier:go_default_library",

@@ -1,0 +1,33 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: memquota
+metadata:
+  name: memquota
+  namespace: istio-config-default
+spec:
+  quotas:
+  - name: requestcount.quota.istio-config-default
+    max_amount: 5
+    valid_duration: 1s
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: quota
+metadata:
+  name: requestcount
+  namespace: istio-config-default
+spec:
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: mixer-rule
+metadata:
+  name: quota
+  namespace: istio-config-default
+spec:
+#  selector: request.headers["user"] != "admin"
+  actions:
+  - handler: memquota.memquota.istio-config-default
+    instances:
+    - requestcount.quota.istio-config-default
+---
