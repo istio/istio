@@ -85,7 +85,7 @@ func KubeApplyContents(namespace, yamlContents string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpfile)
+	defer removeFile(tmpfile)
 	return KubeApply(namespace, tmpfile)
 }
 
@@ -101,8 +101,15 @@ func KubeDeleteContents(namespace, yamlContents string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpfile)
+	defer removeFile(tmpfile)
 	return KubeDelete(namespace, tmpfile)
+}
+
+func removeFile(path string) {
+	err := os.Remove(path)
+	if err != nil {
+		glog.Errorf("Unable to remove %s: %v", path, err)
+	}
 }
 
 // KubeDelete kubectl delete from file

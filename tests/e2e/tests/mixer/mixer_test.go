@@ -538,7 +538,7 @@ func doMixerRule(ruleName string, do kubeDo) error {
 	}
 	contents := string(cb)
 	if !strings.Contains(contents, templateNamespace) {
-		return fmt.Errorf("%s must contain %s so the it can replaced.", rule, templateNamespace)
+		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
 	}
 	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
 	return do(tc.Kube.Namespace, contents)
