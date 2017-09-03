@@ -39,14 +39,16 @@ func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	var tmpName string
+	if tmpName, err = filepath.Abs(f.Name()); err != nil {
+		return "", err
+	}
+	glog.Infof("CreateTempfile created %v:%s in %s (%s, %s)", f, tmpName, tmpDir, prefix, suffix)
 	if err = f.Close(); err != nil {
 		return "", err
 	}
-	var tmpName string
-	if tmpName, err = filepath.Abs(filepath.Dir(f.Name())); err != nil {
-		return "", err
-	}
 	if err = os.Remove(tmpName); err != nil {
+		glog.Errorf("CreateTempfile unable to remove %s", tmpName)
 		return "", err
 	}
 	return tmpName + suffix, nil

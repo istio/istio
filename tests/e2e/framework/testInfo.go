@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/logging/apiv2"
+	logging "cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"

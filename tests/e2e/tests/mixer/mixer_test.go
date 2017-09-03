@@ -52,6 +52,7 @@ const (
 	emptyRule                = "mixer-rule-empty-rule.yaml"
 	preProcessOnlyRule       = "mixer-rule-preprocess-only.yaml"
 	standardMetrics          = "mixer-rule-standard-metrics.yaml"
+	standardAttributes       = "mixer-rule-standard-attributes.yaml"
 
 	prometheusPort = "9090"
 
@@ -75,7 +76,8 @@ var (
 	tc             *testConfig
 	testRetryTimes = 5
 	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule, preProcessOnlyRule,
+		standardAttributes, standardMetrics}
 )
 
 func (t *testConfig) Setup() error {
@@ -95,7 +97,7 @@ func (t *testConfig) Setup() error {
 		}
 	}
 
-	if err := setupMixerMetrics(); err != nil {
+	if err := setupMixerConfig(); err != nil {
 		glog.Errorf("Unable to setup mixer metrics: %v", err)
 		return err
 	}
@@ -103,10 +105,13 @@ func (t *testConfig) Setup() error {
 	return createDefaultRoutingRules()
 }
 
-func setupMixerMetrics() error {
+func setupMixerConfig() error {
 	// TODO mixer2 cleanup.
 	// The old style mixer rule will only keep k8s pre-processing
 	if err := createMixerRule(global, global, preProcessOnlyRule); err != nil {
+		return err
+	}
+	if err := applyMixerRule(standardAttributes); err != nil {
 		return err
 	}
 	return applyMixerRule(standardMetrics)
@@ -254,55 +259,6 @@ func TestNewMetrics(t *testing.T) {
 	want := float64(1)
 	if got < want {
 		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
-	}
-}
-
-func TestDenials(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
-		t.Fatalf("Could not create replace reviews routing rule: %v", err)
-	}
-	ratings := fqdn("ratings")
-	if err := createMixerRule(global, ratings, denialRule); err != nil {
-		t.Fatalf("Could not create required mixer rule: %v", err)
-	}
-	defer func() {
-		if err := createMixerRule(global, ratings, emptyRule); err != nil {
-			t.Logf("could not clear rule: %v", err)
-		}
-	}()
-	allowRuleSync()
-
-	// generate several calls to the product page
-	for i := 0; i < 10; i++ {
-		if err := visitProductPage(testRetryTimes); err != nil {
-			t.Fatalf("Test app setup failure: %v", err)
-		}
-	}
-
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	allowPrometheusSync()
-
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
-	}
-	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
-	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
-	}
-	glog.Infof("promvalue := %s", value.String())
-
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find metric value: %v", err)
-	}
-	want := float64(1)
-	if got < want {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
