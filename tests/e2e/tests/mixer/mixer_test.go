@@ -255,7 +255,7 @@ func TestDenials(t *testing.T) {
 		}
 	}()
 	// hope for stability in rules
-	time.Sleep(30 * time.Second)
+	time.Sleep(2 * time.Minute)
 
 	// generate several calls to the product page
 	for i := 0; i < 10; i++ {
@@ -309,7 +309,7 @@ func TestRateLimit(t *testing.T) {
 	}()
 
 	// allow time for rule sync
-	time.Sleep(30 * time.Second)
+	time.Sleep(2 * time.Minute)
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
