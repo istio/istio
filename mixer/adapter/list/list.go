@@ -236,7 +236,7 @@ func (h *handler) purgeList() {
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() pkgHndlr.Info {
 	return pkgHndlr.Info{
-		Name:               "list-checker",
+		Name:               "listchecker",
 		Impl:               "istio.io/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",
 		SupportedTemplates: []string{listentry.TemplateName},

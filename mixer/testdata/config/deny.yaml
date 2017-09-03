@@ -17,7 +17,7 @@ spec:
  
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: mixer-rule
+kind: rule
 metadata:
   name: mixerdenysome
   namespace: istio-config-default
