@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"text/template"
@@ -78,15 +79,35 @@ func NamespaceDeleted(n string) (bool, error) {
 	return false, err
 }
 
+// KubeApplyContents kubectl apply from contents
+func KubeApplyContents(namespace, yamlContents string) error {
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubeappy", ".yaml", yamlContents)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpfile)
+	return KubeApply(namespace, tmpfile)
+}
+
 // KubeApply kubectl apply from file
-func KubeApply(n, yaml string) error {
-	_, err := Shell("kubectl apply -n %s -f %s", n, yaml)
+func KubeApply(namespace, yamlFileName string) error {
+	_, err := Shell("kubectl apply -n %s -f %s", namespace, yamlFileName)
 	return err
 }
 
+// KubeDeleteContents kubectl apply from contents
+func KubeDeleteContents(namespace, yamlContents string) error {
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpfile)
+	return KubeDelete(namespace, tmpfile)
+}
+
 // KubeDelete kubectl delete from file
-func KubeDelete(n, yaml string) error {
-	_, err := Shell("kubectl delete -n %s -f %s", n, yaml)
+func KubeDelete(namespace, yamlFileName string) error {
+	_, err := Shell("kubectl delete -n %s -f %s", namespace, yamlFileName)
 	return err
 }
 

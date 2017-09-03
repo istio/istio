@@ -50,6 +50,8 @@ const (
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
+	preProcessOnlyRule       = "mixer-rule-preprocess-only.yaml"
+	standardMetrics          = "mixer-rule-standard-metrics.yaml"
 
 	prometheusPort = "9090"
 
@@ -57,6 +59,10 @@ const (
 	responseCodeLabel = "response_code"
 
 	global = "global"
+
+	// This namespace is used by default in all mixer config documents.
+	// It will be replaced with the test namespace.
+	templateNamespace = "istio-config-default"
 )
 
 type testConfig struct {
@@ -88,7 +94,22 @@ func (t *testConfig) Setup() error {
 			return err
 		}
 	}
+
+	if err := setupMixerMetrics(); err != nil {
+		glog.Errorf("Unable to setup mixer metrics: %v", err)
+		return err
+	}
+
 	return createDefaultRoutingRules()
+}
+
+func setupMixerMetrics() error {
+	// TODO mixer2 cleanup.
+	// The old style mixer rule will only keep k8s pre-processing
+	if err := createMixerRule(global, global, preProcessOnlyRule); err != nil {
+		return err
+	}
+	return applyMixerRule(standardMetrics)
 }
 
 func createDefaultRoutingRules() error {
@@ -138,7 +159,8 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 	glog.Infof("running prometheus port-forward in background, pid = %d", p.portFwdProcess.Pid)
-	return err
+
+	return nil
 }
 
 func (p *promProxy) Teardown() (err error) {
@@ -192,12 +214,12 @@ func TestGlobalCheckAndReport(t *testing.T) {
 }
 
 func TestNewMetrics(t *testing.T) {
-	productpage := fqdn("productpage")
-	if err := createMixerRule(global, productpage, newTelemetryRule); err != nil {
+	if err := applyMixerRule(newTelemetryRule); err != nil {
 		t.Fatalf("could not create required mixer rule: %v", err)
 	}
+
 	defer func() {
-		if err := createMixerRule(global, productpage, emptyRule); err != nil {
+		if err := deleteMixerRule(newTelemetryRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
@@ -253,7 +275,7 @@ func TestDenials(t *testing.T) {
 	allowRuleSync()
 
 	// generate several calls to the product page
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		if err := visitProductPage(testRetryTimes); err != nil {
 			t.Fatalf("Test app setup failure: %v", err)
 		}
@@ -492,6 +514,34 @@ func deleteRouteRule(ruleName string) error {
 func createMixerRule(scope, subject, ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
 	return tc.Kube.Istioctl.CreateMixerRule(scope, subject, rule)
+}
+
+func deleteMixerRule(ruleName string) error {
+	return doMixerRule(ruleName, util.KubeDeleteContents)
+}
+
+func applyMixerRule(ruleName string) error {
+	return doMixerRule(ruleName, util.KubeApplyContents)
+}
+
+type kubeDo func(namespace string, contents string) error
+
+// doMixerRule
+// New mixer rules contain fully qualified pointers to other
+// resources, they must be replaced by the current namespace.
+func doMixerRule(ruleName string, do kubeDo) error {
+	rule := filepath.Join(tc.rulesDir, ruleName)
+	cb, err := ioutil.ReadFile(rule)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", rule)
+		return err
+	}
+	contents := string(cb)
+	if !strings.Contains(contents, templateNamespace) {
+		return fmt.Errorf("%s must contain %s so the it can replaced.", rule, templateNamespace)
+	}
+	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
+	return do(tc.Kube.Namespace, contents)
 }
 
 func setTestConfig() error {
