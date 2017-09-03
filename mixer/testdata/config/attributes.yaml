@@ -1,5 +1,5 @@
 apiVersion: "config.istio.io/v1alpha2"
-kind: attribute-manifest
+kind: attributemanifest
 metadata:
   name: istio-proxy
   namespace: istio-config-default
@@ -54,7 +54,7 @@ spec:
         valueType: STRING
 ---
 apiVersion: "config.istio.io/v1alpha2"
-kind: attribute-manifest
+kind: attributemanifest
 metadata:
   name: kubernetes
   namespace: istio-config-default

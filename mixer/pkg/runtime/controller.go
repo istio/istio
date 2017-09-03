@@ -84,10 +84,10 @@ type Controller struct {
 }
 
 // RulesKind defines the config kind name of mixer rules.
-const RulesKind = "mixer-rule"
+const RulesKind = "rule"
 
 // AttributeManifestKind define the config kind name of attribute manifests.
-const AttributeManifestKind = "attribute-manifest"
+const AttributeManifestKind = "attributemanifest"
 
 // ResolverChangeListener is notified when a new resolver is created due to config change.
 type ResolverChangeListener interface {
