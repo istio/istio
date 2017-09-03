@@ -163,16 +163,17 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
+	// must sleep to allow for prometheus scraping, etc.
+	time.Sleep(30 * time.Second)
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -181,10 +182,12 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -202,7 +205,7 @@ func TestNewMetrics(t *testing.T) {
 
 	// allow time for configuration to go and be active.
 	// TODO: figure out a better way to confirm rule active
-	time.Sleep(5 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
@@ -210,13 +213,14 @@ func TestNewMetrics(t *testing.T) {
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -225,10 +229,14 @@ func TestNewMetrics(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -237,9 +245,6 @@ func TestDenials(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		t.Fatalf("Could not create replace reviews routing rule: %v", err)
 	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
-
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, denialRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %v", err)
@@ -249,10 +254,8 @@ func TestDenials(t *testing.T) {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
-
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(5 * time.Second)
+	// hope for stability in rules
+	time.Sleep(30 * time.Second)
 
 	// generate several calls to the product page
 	for i := 0; i < 10; i++ {
@@ -263,13 +266,14 @@ func TestDenials(t *testing.T) {
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -278,17 +282,20 @@ func TestDenials(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
 
 func TestRateLimit(t *testing.T) {
-	applyReviewsRoutingRules(t)
-
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	}
 	// the rate limit rule applies a max rate limit of 5 rps. Here we apply it
 	// to the "ratings" service (without a selector -- meaning for all versions).
 	ratings := fqdn("ratings")
@@ -340,9 +347,7 @@ func TestRateLimit(t *testing.T) {
 	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
 
 	// consider only successful requests (as recorded at productpage service)
-	// and provide guess of spread across versions of reviews service (that calls ratings)
-	// as only two (of three) versions of reviews service call into ratings.
-	callsToRatings := float64(2*succReqs) / 3
+	callsToRatings := float64(succReqs)
 
 	// the rate-limit is 5 rps, but observed actuals are [4-5) in experimental
 	// testing. opt for leniency here to decrease flakiness of testing.
@@ -360,6 +365,7 @@ func TestRateLimit(t *testing.T) {
 	}
 
 	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -368,7 +374,8 @@ func TestRateLimit(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
 	if err != nil {
-		t.Errorf("Could not find rate limit value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find rate limit value: %v", err)
 	}
 
 	// establish some baseline to protect against flakiness due to randomness in routing
@@ -381,8 +388,8 @@ func TestRateLimit(t *testing.T) {
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
-		t.Log(promDump(promAPI, "request_count"))
-		t.Errorf("Could not find successes value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find successes value: %v", err)
 	}
 
 	// establish some baseline to protect against flakiness due to randomness in routing
@@ -390,7 +397,7 @@ func TestRateLimit(t *testing.T) {
 
 	// check successes
 	if got < want {
-		t.Log(promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
@@ -431,14 +438,6 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 		}
 	}
 	return 0, fmt.Errorf("value not found for %#v", labels)
-}
-
-func applyReviewsRoutingRules(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
-		t.Fatalf("Could not create replace reviews routing rule: %v", err)
-	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
 }
 
 func visitProductPage(retries int) error {
