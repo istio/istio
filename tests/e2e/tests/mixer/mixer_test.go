@@ -515,7 +515,7 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, content
 	}
 	resp, err := clnt.Do(req)
 	if err != nil {
-		glog.Warningf("Error communicating with %s: %s", url, err)
+		glog.Warningf("Error communicating with %s: %v", url, err)
 	} else {
 		glog.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
 		var ba []byte
@@ -525,9 +525,10 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, content
 			return
 		}
 		contents = string(ba)
+		status = resp.StatusCode
 		closeResponseBody(resp)
 	}
-	return resp.StatusCode, contents, err
+	return
 }
 
 func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string) error {
