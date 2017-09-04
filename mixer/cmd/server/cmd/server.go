@@ -89,6 +89,13 @@ type serverArgs struct {
 	globalConfigFile string
 }
 
+// ServerContext exports Mixer Grpc server and internal GoroutinePools.
+type ServerContext struct {
+	GP        *pool.GoroutinePool
+	AdapterGP *pool.GoroutinePool
+	Server    *grpc.Server
+}
+
 func serverCmd(info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
@@ -196,9 +203,7 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) {
-	printf("Mixer started with args: %#v", sa)
-
+func setupServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *ServerContext {
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
@@ -206,11 +211,9 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 
 	gp := pool.NewGoroutinePool(apiPoolSize, sa.singleThreaded)
 	gp.AddWorkers(apiPoolSize)
-	defer gp.Close()
 
 	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
 	adapterGP.AddWorkers(adapterPoolSize)
-	defer adapterGP.Close()
 
 	var ilEval *evaluator.IL
 	var eval expr.Evaluator
@@ -280,12 +283,6 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 			}
 			clientCerts.AppendCertsFromPEM(pem)
 		}
-	}
-
-	var listener net.Listener
-	// get the network stuff setup
-	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
-		fatalf("Unable to listen on socket: %v", err)
 	}
 
 	// construct the gRPC options
@@ -392,11 +389,25 @@ func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler
 	// FIXME construct a runtime.New as dispatcher param
 	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
+	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
+}
+
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) {
+	printf("Mixer started with args: %#v", sa)
+	context := setupServer(sa, info, adapters, printf, fatalf)
+	defer context.GP.Close()
+	defer context.AdapterGP.Close()
 
 	printf("Istio Mixer: %s", version.Info)
 	printf("Starting gRPC server on port %v", sa.port)
+	var err error
+	var listener net.Listener
+	// get the network stuff setup
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", sa.port)); err != nil {
+		fatalf("Unable to listen on socket: %v", err)
+	}
 
-	if err = gs.Serve(listener); err != nil {
+	if err = context.Server.Serve(listener); err != nil {
 		fatalf("Failed serving gRPC server: %v", err)
 	}
 }

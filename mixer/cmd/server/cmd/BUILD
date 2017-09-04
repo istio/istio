@@ -9,8 +9,11 @@ go_library(
         "inventory.go",
         "root.go",
         "server.go",
+        "test_server.go",
     ],
-    visibility = ["//cmd:__subpackages__"],
+    visibility = [
+        "//cmd:__subpackages__",
+    ],
     deps = [
         "//adapter:go_default_library",
         "//cmd/shared:go_default_library",
