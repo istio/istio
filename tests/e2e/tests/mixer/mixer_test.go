@@ -498,7 +498,6 @@ func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string)
 		}
 		time.Sleep(3 * time.Second)
 	}
-	return nil
 }
 
 func fqdn(service string) string {
