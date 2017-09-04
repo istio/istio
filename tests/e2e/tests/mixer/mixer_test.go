@@ -505,7 +505,8 @@ func dumpURL(url string, dumpContents bool) {
 }
 
 func get(clnt *http.Client, url string, headerkv ...string) (status int, contents string, err error) {
-	req, err := http.NewRequest("GET", url, nil)
+	var req *http.Request
+	req, err = http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, "", err
 	}
@@ -518,7 +519,8 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, content
 		glog.Warningf("Error communicating with %s: %s", url, err)
 	} else {
 		glog.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
-		ba, err := ioutil.ReadAll(resp.Body)
+		var ba []byte
+		ba, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
 			glog.Warningf("Unable to connect to read from %s: %v", url, err)
 			return
