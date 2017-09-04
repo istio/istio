@@ -257,7 +257,6 @@ func TestNewMetrics(t *testing.T) {
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	allowPrometheusSync()
-
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
