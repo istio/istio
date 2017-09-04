@@ -53,7 +53,9 @@ const (
 	standardMetrics          = "mixer-rule-standard-metrics.yaml"
 	standardAttributes       = "mixer-rule-standard-attributes.yaml"
 
-	prometheusPort = "9090"
+	prometheusPort   = "9090"
+	mixerMetricsPort = "42422"
+	productPagePort  = "10000"
 
 	targetLabel       = "target"
 	responseCodeLabel = "response_code"
@@ -146,23 +148,42 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
-func (p *promProxy) Setup() error {
+// portForward sets up local port forward to the pod specified by the "app" label
+func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
 	var pod string
 	var err error
-	glog.Info("Setting up prometheus proxy")
-	getName := fmt.Sprintf("kubectl -n %s get pod -l app=prometheus -o jsonpath='{.items[0].metadata.name}'", p.namespace)
+
+	glog.Infof("Setting up %s proxy", labelSelector)
+	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
 	pod, err = util.Shell(getName)
 	if err != nil {
 		return err
 	}
-	glog.Info("prometheus pod name: ", pod)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), prometheusPort, prometheusPort, p.namespace)
+	glog.Infof("%s pod name: %s", labelSelector, pod)
+	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
 	glog.Info(portFwdCmd)
 	if p.portFwdProcess, err = util.RunBackground(portFwdCmd); err != nil {
 		glog.Errorf("Failed to port forward: %s", err)
 		return err
 	}
-	glog.Infof("running prometheus port-forward in background, pid = %d", p.portFwdProcess.Pid)
+	glog.Infof("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
+	return nil
+}
+
+func (p *promProxy) Setup() error {
+	var err error
+
+	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
+		return err
+	}
+
+	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+		return err
+	}
+
+	if err = p.portForward("app=productpage", productPagePort, "80"); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -460,12 +481,33 @@ func applyReviewsRoutingRules(t *testing.T) {
 	time.Sleep(30 * time.Second)
 }
 
-func get(clnt *http.Client, url string, headerkv ...string) (status int, err error) {
-	http.DefaultClient.Timeout = 1 * time.Minute
-	fullURL := fmt.Sprintf("%s%s", tc.gateway, url)
-	req, err := http.NewRequest("GET", fullURL, nil)
+// checkProductPageDirect
+func checkProductPageDirect() {
+	glog.Info("checkProductPageDirect")
+	dumpURL("http://localhost:"+productPagePort+"/productpage", false)
+}
+
+// dumpMixerMetrics fetch metrics directly from mixer and dump them
+func dumpMixerMetrics() {
+	glog.Info("dumpMixerMetrics")
+	dumpURL("http://localhost:"+mixerMetricsPort+"/metrics", true)
+}
+
+func dumpURL(url string, dumpContents bool) {
+	clnt := &http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	status, contents, err := get(clnt, url)
+	glog.Infof("%s ==> %d, error=<%v>", url, status, err)
+	if dumpContents {
+		glog.Infoln(contents)
+	}
+}
+
+func get(clnt *http.Client, url string, headerkv ...string) (status int, contents string, err error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	for i := 0; i < len(headerkv)/2; i++ {
@@ -475,10 +517,16 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, err err
 	if err != nil {
 		glog.Warningf("Error communicating with %s: %s", url, err)
 	} else {
-		glog.Infof("Get from %s: %s (%d)", fullURL, resp.Status, resp.StatusCode)
+		glog.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
+		ba, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			glog.Warningf("Unable to connect to read from %s: %v", url, err)
+			return
+		}
+		contents = string(ba)
 		closeResponseBody(resp)
 	}
-	return resp.StatusCode, err
+	return resp.StatusCode, contents, err
 }
 
 func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string) error {
@@ -486,8 +534,10 @@ func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string)
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
 	}
+	url := tc.gateway + "/productpage"
+
 	for {
-		status, err := get(clnt, "/productpage", headerkv...)
+		status, _, err := get(clnt, url, headerkv...)
 		if err != nil {
 			glog.Warningf("Unable to connect to product page: %v", err)
 		}
@@ -498,6 +548,8 @@ func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string)
 		}
 
 		if time.Since(start) > timeout {
+			dumpMixerMetrics()
+			checkProductPageDirect()
 			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
 		}
 		time.Sleep(3 * time.Second)
