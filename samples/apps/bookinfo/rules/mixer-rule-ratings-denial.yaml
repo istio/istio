@@ -22,7 +22,8 @@ metadata:
   name: denyreviewsv3
   namespace: istio-config-default
 spec:
-  selector: target.labels["app"]=="productpage" && request.headers["x-user"] == ""
+  #FIXME selector: target.labels["app"]=="productpage" && request.headers["x-user"] == ""
+  selector: request.headers["x-user"] == ""
   actions:
   - handler: handler.denier.istio-config-default
     instances: [ denyrequest.checknothing.istio-config-default ]

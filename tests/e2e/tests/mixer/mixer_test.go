@@ -270,6 +270,7 @@ func TestDenials(t *testing.T) {
 
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
+	glog.Infof("Denials: block productpage if x-user header is missing")
 	if err := applyMixerRule(denialRule); err != nil {
 		t.Fatalf("could not create required mixer rule: %v", err)
 	}
@@ -280,14 +281,16 @@ func TestDenials(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Product page should not be accessible anymore.
-	if err := visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
+	glog.Infof("Denials: ensure productpage is denied access")
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden, "x-user", ""); err != nil {
 		t.Fatalf("product page was not denied: %v", err)
 	}
 
 	// Product page *should be* accessible with x-user header.
+	glog.Infof("Denials: ensure productpage is accessible for testuser")
 	if err := visitProductPage(productPageTimeout, http.StatusOK, "x-user", "testuser"); err != nil {
 		t.Fatalf("product page was not denied: %v", err)
 	}
