@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: gcr.io/istio-testing/grafana:f043c7ea6bf68cb1603a7e17e9e1b3ac8b568859
+        image: gcr.io/istio-testing/grafana:25597f581a4dd42e095dcaf6d446ad6701bc1ed8
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000
