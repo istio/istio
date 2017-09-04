@@ -459,7 +459,8 @@ func applyReviewsRoutingRules(t *testing.T) {
 
 func get(clnt *http.Client, url string, headerkv ...string) (status int, err error) {
 	http.DefaultClient.Timeout = 1 * time.Minute
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", tc.gateway, url), nil)
+	fullUrl := fmt.Sprintf("%s%s", tc.gateway, url)
+	req, err := http.NewRequest("GET", fullUrl, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -471,7 +472,7 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, err err
 	if err != nil {
 		glog.Warningf("Error communicating with %s: %s", url, err)
 	} else {
-		glog.Infof("Get from page: %s (%d)", resp.Status, resp.StatusCode)
+		glog.Infof("Get from %s: %s (%d)", fullUrl, resp.Status, resp.StatusCode)
 		closeResponseBody(resp)
 	}
 	return resp.StatusCode, err
