@@ -95,7 +95,7 @@ func createDefaultRoutingRules() error {
 	if err := createRouteRule(routeAllRule); err != nil {
 		return fmt.Errorf("could not create base routing rules: %v", err)
 	}
-	time.Sleep(30 * time.Second)
+	allowRuleSync()
 	return nil
 }
 
@@ -163,8 +163,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	allowPrometheusSync()
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
@@ -203,17 +202,14 @@ func TestNewMetrics(t *testing.T) {
 		}
 	}()
 
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(30 * time.Second)
+	allowRuleSync()
 
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	allowPrometheusSync()
 
 	promAPI, err := promAPI()
 	if err != nil {
@@ -254,8 +250,7 @@ func TestDenials(t *testing.T) {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
-	// hope for stability in rules
-	time.Sleep(2 * time.Minute)
+	allowRuleSync()
 
 	// generate several calls to the product page
 	for i := 0; i < 10; i++ {
@@ -265,8 +260,7 @@ func TestDenials(t *testing.T) {
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	allowPrometheusSync()
 
 	promAPI, err := promAPI()
 	if err != nil {
@@ -308,8 +302,7 @@ func TestRateLimit(t *testing.T) {
 		}
 	}()
 
-	// allow time for rule sync
-	time.Sleep(2 * time.Minute)
+	allowRuleSync()
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
@@ -330,8 +323,7 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	allowPrometheusSync()
 
 	// setup prometheus API
 	promAPI, err := promAPI()
@@ -400,6 +392,16 @@ func TestRateLimit(t *testing.T) {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
+}
+
+func allowRuleSync() {
+	glog.Info("Sleeping to allow rules to take effect...")
+	time.Sleep(1 * time.Minute)
+}
+
+func allowPrometheusSync() {
+	glog.Info("Sleeping to allow prometheus to record metrics...")
+	time.Sleep(30 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
