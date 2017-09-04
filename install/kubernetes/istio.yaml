@@ -1,4 +1,4 @@
-# GENERATED FILE. Use with Kubernetes 1.5+
+# GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
 apiVersion: v1
@@ -126,7 +126,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/pilot:0.2.1
+        image: gcr.io/istio-testing/pilot:fb947d4c6d0902a841e0e82ffa3bee16786be0df
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -149,6 +149,17 @@ spec:
       - name: config-volume
         configMap:
           name: istio
+---
+################################
+# Empty secret for Istio ingress controller
+################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: istio-ingress-certs
+data:
+  tls.key:
+  tls.crt:
 ---
 ################################
 # Istio ingress controller
@@ -191,7 +202,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy_debug:0.2.1
+        image: gcr.io/istio-testing/proxy_debug:fb947d4c6d0902a841e0e82ffa3bee16786be0df
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: IfNotPresent
         ports:
@@ -211,7 +222,13 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
       volumes:
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
       - name: config-volume
         configMap:
           name: istio
@@ -249,7 +266,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: docker.io/istio/proxy_debug:0.2.1
+        image: gcr.io/istio-testing/proxy_debug:fb947d4c6d0902a841e0e82ffa3bee16786be0df
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
