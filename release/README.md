@@ -3,7 +3,7 @@
 - [Istio Release](#istio-release)
   * [Overview](#overview)
   * [Semi-automated release since 0.2](#semi-automated-release-since-02)
-  * [Manual release process](#manual-release-process)
+  * [Manual release process (DEPRECATED)](#manual-release-process-deprecated)
     + [Creating tags](#creating-tags)
     + [Rebuild artifacts to include the tags](#rebuild-artifacts-to-include-the-tags)
     + [Updating ```istio.VERSION```](#updating----istioversion---)
@@ -71,7 +71,7 @@ $ githubctl --token_file=<github token file> \
     --next_release=0.2.2
 ```
 
-## Manual release process
+## Manual release process (DEPRECATED)
 
 ### Creating tags
 
