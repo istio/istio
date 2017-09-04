@@ -53,6 +53,6 @@ kubectl get hpa
 ## Cleanup
 
 ```bash
-kubectl delete -f helloworld-istio.yaml
+kubectl delete -f helloworld.yaml
 kubectl delete hpa --all
 ```

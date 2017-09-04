@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,20 +35,21 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
+	"istio.io/istio/devel/fortio"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
 
 const (
 	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
-	rulesDir                 = "samples/apps/bookinfo"
+	rulesDir                 = "samples/apps/bookinfo/rules"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
+	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
-	luaTemplate              = "tests/e2e/tests/testdata/sample.lua.template"
 
 	prometheusPort = "9090"
 
@@ -61,46 +63,16 @@ type testConfig struct {
 	*framework.CommonConfig
 	gateway  string
 	rulesDir string
-	wrk      *util.Wrk
-}
-
-// Template for ../test/testdata/sample.lua.template
-type luaScriptTemplate struct {
-	JSONFile  string
-	ErrorFile string
-}
-
-// SampleResponseJSON for ../test/testdata/sample.lua.template
-type luaScriptResponseJSON struct {
-	CompletedRequests int64   `json:"completedRequests"`
-	FailedRequests    int64   `json:"failedRequests"`
-	TimeoutRequests   int64   `json:"timeoutRequests"`
-	Non2xxResponses   int64   `json:"non2xxResponses"`
-	KiloBytesPerSec   float64 `json:"KiloBytesPerSec"`
-	MaxLatencyMs      float64 `json:"maxLatencyMs"`
-	MeanLatencyMs     float64 `json:"meanLatencyMs"`
-	P50LatencyMs      float64 `json:"p50LatencyMs"`
-	P66LatencyMs      float64 `json:"p66LatencyMs"`
-	P75LatencyMs      float64 `json:"p75LatencyMs"`
-	P80LatencyMs      float64 `json:"p80LatencyMs"`
-	P90LatencyMs      float64 `json:"p90LatencyMs"`
-	P95LatencyMs      float64 `json:"p95LatencyMs"`
-	P98LatencyMs      float64 `json:"p98LatencyMs"`
-	P99LatencyMs      float64 `json:"p99LatencyMs"`
-	RequestsPerSecond float64 `json:"requestsPerSecond"`
 }
 
 var (
 	tc             *testConfig
 	testRetryTimes = 5
-	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule, routeReviewsVersionsRule, emptyRule}
+	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule}
 )
 
 func (t *testConfig) Setup() error {
-	if err := t.wrk.Install(); err != nil {
-		glog.Error("Failed to install wrk")
-		return err
-	}
 	t.gateway = "http://" + tc.Kube.Ingress
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
@@ -262,7 +234,11 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
-	applyReviewsRoutingRules(t)
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	}
+	// hope for stability
+	time.Sleep(30 * time.Second)
 
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, denialRule); err != nil {
@@ -323,53 +299,37 @@ func TestRateLimit(t *testing.T) {
 		}
 	}()
 
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(1 * time.Minute)
-	threads := 5
-	timeout := "10s"
-	connections := 15
-	duration := "2m"
-	errorFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.err")
-	JSONFile := filepath.Join(tc.Kube.TmpDir, "TestRateLimit.Json")
+	// allow time for rule sync
+	time.Sleep(10 * time.Second)
+
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
-	luaScript := &util.LuaTemplate{
-		TemplatePath: util.GetResourcePath(luaTemplate),
-		Template: &luaScriptTemplate{
-			ErrorFile: errorFile,
-			JSONFile:  JSONFile,
+	opts := fortio.HTTPRunnerOptions{
+		RunnerOptions: fortio.RunnerOptions{
+			QPS:        100,
+			Duration:   1 * time.Minute,
+			NumThreads: 8,
 		},
-	}
-	if err := luaScript.Generate(); err != nil {
-		t.Errorf("Failed to generate lua script. %v", err)
-		return
+		URL: url,
 	}
 
-	if err := tc.wrk.Run(
-		"-t %d --timeout %s -c %d -d %s -s %s %s",
-		threads, timeout, connections, duration, luaScript.Script, url); err != nil {
-		t.Errorf("Failed to run wrk %v", err)
-		return
+	res, err := fortio.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
 
-	// TODO: Use the JSON file to do more detailed checking
-	r := &luaScriptResponseJSON{}
-	if err := util.ReadJSON(JSONFile, r); err != nil {
-		t.Errorf("Could not parse json. %v", err)
-		return
-	}
-
-	glog.Infof("WRK stats: %#v", r)
-	// consider only successful full requests
-	perSvc := float64(r.CompletedRequests-r.FailedRequests-r.Non2xxResponses) / 3
-
-	// Allow full processing of metrics, etc.
-	time.Sleep(1 * time.Minute)
+	totalReqs := res.DurationHistogram.Count
+	succReqs := res.RetCodes[http.StatusOK]
+	badReqs := res.RetCodes[http.StatusBadRequest]
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
+
+	// consider only successful full requests
+	perSvc := float64(succReqs) / 3
+
 	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
@@ -383,30 +343,30 @@ func TestRateLimit(t *testing.T) {
 	glog.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
-	//rateLimited := got
 	if err != nil {
 		t.Errorf("Could not find rate limit value: %v", err)
 	}
 
-	// establish some baseline for rejections
-	want := perSvc / 2
-	// allow some leeway for rejections
-	if got <= (want * .9) {
+	// establish some baseline (40% of expected counts)
+	want := math.Floor(perSvc * .4)
+
+	// check rejections
+	if got < want {
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
+		t.Log(promDump(promAPI, "request_count"))
 		t.Errorf("Could not find successes value: %v", err)
 	}
 
-	// bare minimum of OKs, assuming 5qps for 2m
-	want = 600.0
-	if perSvc < 600 {
-		want = perSvc
-	}
-	// allow some leeway
-	if got < (want * .9) {
+	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
+	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
+
+	// check successes
+	if got < want {
+		t.Log(promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 }
@@ -417,6 +377,13 @@ func promAPI() (v1.API, error) {
 		return nil, err
 	}
 	return v1.NewAPI(client), nil
+}
+
+func promDump(client v1.API, metric string) string {
+	if value, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
+		return value.String()
+	}
+	return ""
 }
 
 func vectorValue(val model.Value, labels map[string]string) (float64, error) {
@@ -482,17 +449,17 @@ func fqdn(service string) string {
 
 func createRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.CreateRule(rule)
+	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func replaceRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.ReplaceRule(rule)
+	return util.KubeApply(tc.Kube.Namespace, rule)
 }
 
 func deleteRouteRule(ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.DeleteRule(rule)
+	return util.KubeDelete(tc.Kube.Namespace, rule)
 }
 
 func createMixerRule(scope, subject, ruleName string) error {
@@ -512,9 +479,6 @@ func setTestConfig() error {
 		return err
 	}
 	tc.rulesDir = tmpDir
-	tc.wrk = &util.Wrk{
-		TmpDir: tmpDir,
-	}
 	demoApp := &framework.App{
 		AppYaml:    util.GetResourcePath(bookinfoYaml),
 		KubeInject: true,
