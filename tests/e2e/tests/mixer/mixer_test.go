@@ -181,7 +181,7 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	if err = p.portForward("app=productpage", productPagePort, "80"); err != nil {
+	if err = p.portForward("app=productpage", productPagePort, "9080"); err != nil {
 		return err
 	}
 
