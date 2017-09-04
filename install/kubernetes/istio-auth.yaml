@@ -309,7 +309,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.2.1
+        image: gcr.io/istio-testing/istio-ca:678763110b0d49f0a1eb417c7313616f67cce1f0
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
