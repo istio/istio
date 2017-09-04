@@ -81,7 +81,7 @@ func NamespaceDeleted(n string) (bool, error) {
 
 // KubeApplyContents kubectl apply from contents
 func KubeApplyContents(namespace, yamlContents string) error {
-	tmpfile, err := WriteTempfile(os.TempDir(), "kubeappy", ".yaml", yamlContents)
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
 	if err != nil {
 		return err
 	}

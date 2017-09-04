@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -73,9 +72,9 @@ type testConfig struct {
 }
 
 var (
-	tc             *testConfig
-	testRetryTimes = 5
-	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+	tc                 *testConfig
+	productPageTimeout = 30 * time.Second
+	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
 		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule, preProcessOnlyRule,
 		standardAttributes, standardMetrics}
 )
@@ -187,7 +186,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestGlobalCheckAndReport(t *testing.T) {
-	if err := visitProductPage(testRetryTimes); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 	allowPrometheusSync()
@@ -231,7 +230,7 @@ func TestNewMetrics(t *testing.T) {
 
 	allowRuleSync()
 
-	if err := visitProductPage(testRetryTimes); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
@@ -261,6 +260,36 @@ func TestNewMetrics(t *testing.T) {
 		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+	}
+}
+
+func TestDenials(t *testing.T) {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		t.Fatalf("Test app setup failure: %v", err)
+	}
+
+	// deny rule will deny all requests to product page unless
+	// ["x-user"] header is set.
+	if err := applyMixerRule(denialRule); err != nil {
+		t.Fatalf("could not create required mixer rule: %v", err)
+	}
+
+	defer func() {
+		if err := deleteMixerRule(denialRule); err != nil {
+			t.Logf("could not clear rule: %v", err)
+		}
+	}()
+
+	time.Sleep(5 * time.Second)
+
+	// Product page should not be accessible anymore.
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden); err != nil {
+		t.Fatalf("product page was not denied: %v", err)
+	}
+
+	// Product page *should be* accessible with x-user header.
+	if err := visitProductPage(productPageTimeout, http.StatusOK, "x-user", "testuser"); err != nil {
+		t.Fatalf("product page was not denied: %v", err)
 	}
 }
 
@@ -420,30 +449,54 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	return 0, fmt.Errorf("value not found for %#v", labels)
 }
 
-func visitProductPage(retries int) error {
-	standby := 0
-	for i := 0; i <= retries; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		http.DefaultClient.Timeout = 1 * time.Minute
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
-		if err != nil {
-			glog.Infof("Error talking to productpage: %s", err)
-		} else {
-			glog.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				glog.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
-		}
-		if i == retries {
-			return errors.New("could not retrieve product page: default route Failed")
-		}
-		standby += 5
-		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+func applyReviewsRoutingRules(t *testing.T) {
+	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
 	}
-	if standby != 0 {
-		time.Sleep(time.Minute)
+	// hope for stability
+	time.Sleep(30 * time.Second)
+}
+
+func get(clnt *http.Client, url string, headerkv ...string) (status int, err error) {
+	http.DefaultClient.Timeout = 1 * time.Minute
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", tc.gateway, url), nil)
+	if err != nil {
+		return 0, err
+	}
+
+	for i := 0; i < len(headerkv)/2; i++ {
+		req.Header.Set(headerkv[2*i], headerkv[2*i+1])
+	}
+	resp, err := clnt.Do(req)
+	if err != nil {
+		glog.Warningf("Error communicating with %s: %s", url, err)
+	} else {
+		glog.Infof("Get from page: %s (%d)", resp.Status, resp.StatusCode)
+		closeResponseBody(resp)
+	}
+	return resp.StatusCode, err
+}
+
+func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string) error {
+	start := time.Now()
+	clnt := &http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	for {
+		status, err := get(clnt, "/productpage", headerkv...)
+		if err != nil {
+			glog.Warningf("Unable to connect to product page: %v", err)
+		}
+
+		if status == wantStatus {
+			glog.Infof("Got %d response from product page!", wantStatus)
+			return nil
+		}
+
+		if time.Since(start) > timeout {
+			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
+		}
+		time.Sleep(3 * time.Second)
 	}
 	return nil
 }

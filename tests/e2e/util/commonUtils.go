@@ -43,7 +43,6 @@ func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
 	if tmpName, err = filepath.Abs(f.Name()); err != nil {
 		return "", err
 	}
-	glog.Infof("CreateTempfile created %v:%s in %s (%s, %s)", f, tmpName, tmpDir, prefix, suffix)
 	if err = f.Close(); err != nil {
 		return "", err
 	}
