@@ -15,7 +15,6 @@
 package util
 
 import (
-	"cmd/pprof/internal/tempfile"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,14 +35,35 @@ const (
 
 // CreateTempfile creates a tempfile string.
 func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
-	f, err := tempfile.New(tmpDir, prefix, suffix)
+	f, err := ioutil.TempFile(tmpDir, prefix)
 	if err != nil {
+		return "", err
+	}
+	var tmpName string
+	if tmpName, err = filepath.Abs(f.Name()); err != nil {
 		return "", err
 	}
 	if err = f.Close(); err != nil {
 		return "", err
 	}
-	return f.Name(), nil
+	if err = os.Remove(tmpName); err != nil {
+		glog.Errorf("CreateTempfile unable to remove %s", tmpName)
+		return "", err
+	}
+	return tmpName + suffix, nil
+}
+
+// WriteTempfile creates a tempfile with the specified contents.
+func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
+	fname, err := CreateTempfile(tmpDir, prefix, suffix)
+	if err != nil {
+		return "", err
+	}
+
+	if err := ioutil.WriteFile(fname, []byte(contents), 0644); err != nil {
+		return "", err
+	}
+	return fname, nil
 }
 
 // Shell run command on shell and get back output and error if get one

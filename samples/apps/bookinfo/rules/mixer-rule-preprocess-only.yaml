@@ -1,0 +1,31 @@
+# This global rule set paves the way to gradually remove old config.
+# We are keeping K8s preprocessing filter.
+subject: namespace:ns
+revision: "2022"
+rules:
+- selector: # must be empty for preprocessing adapters
+  aspects:
+  # when running local without a kubeconfig file specified in globalconfig,
+  # this aspect should be commented out. It is only needed when the attributes
+  # it produces are needed elsewhere in the config.
+  - kind: attributes
+    params:
+      input_expressions:
+        sourceUID: source.uid | ""
+        sourceIP: source.ip | ip("0.0.0.0") # default to unspecified ip addr
+        targetUID: target.uid | ""
+        targetIP: target.ip | ip("0.0.0.0") # default to unspecified ip addr
+      attribute_bindings:
+        source.ip: sourcePodIp
+        source.labels: sourceLabels
+        source.name: sourcePodName
+        source.namespace: sourceNamespace
+        source.service: sourceService
+        source.serviceAccount: sourceServiceAccountName
+        target.ip: targetPodIp
+        target.labels: targetLabels
+        target.name: targetPodName
+        target.namespace: targetNamespace
+        target.service: targetService
+        target.serviceAccount: targetServiceAccountName
+
