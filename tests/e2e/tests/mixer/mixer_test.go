@@ -497,7 +497,7 @@ func dumpURL(url string, dumpContents bool) {
 		Timeout: 1 * time.Minute,
 	}
 	status, contents, err := get(clnt, url)
-	glog.Infof("%s ==> %d, error=<%v>", url, status, err)
+	glog.Infof("%s ==> %d, <%v>", url, status, err)
 	if dumpContents {
 		glog.Infoln(contents)
 	}
