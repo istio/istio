@@ -59,6 +59,7 @@ func (am *AppManager) generateAppYaml(a *App) error {
 	var err error
 	a.AppYaml, err = util.CreateTempfile(am.tmpDir, filepath.Base(a.AppYamlTemplate), yamlSuffix)
 	if err != nil {
+		glog.Errorf("Failed to generate yaml %s: %v", a.AppYamlTemplate, err)
 		return err
 	}
 	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a.Template); err != nil {
@@ -77,9 +78,11 @@ func (am *AppManager) deploy(a *App) error {
 		var err error
 		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {
+			glog.Errorf("CreateTempfile failed %v", err)
 			return err
 		}
 		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
+			glog.Errorf("KubeInject failed %v", err)
 			return err
 		}
 	}
@@ -94,7 +97,9 @@ func (am *AppManager) deploy(a *App) error {
 func (am *AppManager) Setup() error {
 	glog.Info("Setting up apps")
 	for _, a := range am.Apps {
+		glog.Infof("Setup %v", a)
 		if err := am.deploy(a); err != nil {
+			glog.Errorf("error deploying %v: %v", a, err)
 			return err
 		}
 	}
