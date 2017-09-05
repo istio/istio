@@ -1,1 +1,1 @@
-Istio node agent provides cert provision service used by the http://istio.io project.
+Istio auth node agent provides cert provision service used by the http://istio.io project.
