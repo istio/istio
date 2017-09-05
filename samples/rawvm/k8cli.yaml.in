@@ -30,3 +30,17 @@ spec:
       - "3600"
     imagePullPolicy: IfNotPresent
     name: shell
+---
+# Mysql (client) debug
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysqlclient-noistio
+spec:
+  containers:
+  - image: mysql
+    command:
+      - sleep
+      - "360000"
+    imagePullPolicy: IfNotPresent
+    name: mysqlclient-noistio

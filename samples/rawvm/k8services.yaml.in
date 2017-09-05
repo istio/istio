@@ -30,3 +30,35 @@ spec:
         image: FORTIO_IMAGE
         ports:
         - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqlclient-istio
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  selector:
+    app: mysqlclient-istio
+---
+apiVersion: apps/v1beta1
+# 1 pod, will get istio injected
+kind: Deployment
+metadata:
+  name: mysqlclient-istio
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysqlclient-istio
+    spec:
+      containers:
+      - name: mysqlclient
+        image: mysql
+        command: # don't actually try to start mysql server, just the client
+          - sleep
+          - "360000"
+        ports:
+        - containerPort: 3306
