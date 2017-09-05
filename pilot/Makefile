@@ -15,7 +15,7 @@
 SHELL := /bin/bash
 
 .PHONY: setup
-setup: kubeconfig
+setup: platform/kube/config
 	@bin/install-prereqs.sh
 	@bin/init.sh
 
@@ -51,6 +51,6 @@ gazelle:
 racetest:
 	@bazel test --features=race //...
 
-kubeconfig:
+platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
 
