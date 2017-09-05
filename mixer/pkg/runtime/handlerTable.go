@@ -17,9 +17,11 @@ package runtime
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/gob"
+	"fmt"
+	"io"
 	"sort"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
@@ -145,20 +147,33 @@ func (t *handlerTable) initHandler(he *HandlerEntry) {
 	he.Handler, he.HandlerCreateError = t.buildHandler(hc, insts)
 }
 
-func encode(enc *gob.Encoder, e interface{}) {
-	if err := enc.Encode(e); err != nil {
-		glog.Warningf("Unable to encode %v", e)
+func encode(w io.Writer, v interface{}) {
+	switch t := v.(type) {
+	case string:
+		if _, err := w.Write([]byte(t)); err != nil {
+			glog.Warningf("Failed to write %v to a buffer: %v", t, err)
+		}
+	case proto.Message:
+		if b, err := proto.Marshal(t); err != nil {
+			glog.Warningf("Failed to marshall %v into a proto: %v", t, err)
+		} else if _, err := w.Write(b); err != nil {
+			glog.Warningf("Failed to write %v to buffer: %v", b, err)
+		}
+	default:
+		glog.Warningf("Fell into default case for v.(type): %#v; falling back to fmt.Fprintf()", t)
+		if _, err := fmt.Fprintf(w, "%+v", t); err != nil {
+			glog.Warningf("Failed to write %v to buffer: %v", t, err)
+		}
 	}
 }
 
 // computeSha for individual handler entries
 func (t *handlerTable) computeSha() {
-	var buff bytes.Buffer
-	enc := gob.NewEncoder(&buff)
+	buf := new(bytes.Buffer)
 	for _, nh := range t.table {
 		h := t.handlerConfig[nh.Name]
-		encode(enc, h.Adapter)
-		encode(enc, h.Params)
+		encode(buf, h.Adapter)
+		encode(buf, h.Params)
 
 		// instances in alphabetical order
 		// TODO add instance details only if the handler cares about it.
@@ -169,10 +184,10 @@ func (t *handlerTable) computeSha() {
 		sort.Strings(insts)
 		for _, iname := range insts {
 			inst := t.instanceConfig[iname]
-			encode(enc, inst.Template)
-			encode(enc, inst.Params)
+			encode(buf, inst.Template)
+			encode(buf, inst.Params)
 		}
-		nh.sha = sha1.Sum(buff.Bytes())
-		buff.Reset()
+		nh.sha = sha1.Sum(buf.Bytes())
+		buf.Reset()
 	}
 }
