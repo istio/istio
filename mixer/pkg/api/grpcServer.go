@@ -128,7 +128,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	if s.dispatcher != nil {
 		// dispatch check2 and set success messages.
 		glog.V(1).Info("Dispatching Check2")
-		cr, err := s.dispatcher.Check(legacyCtx, requestBag)
+		cr, err := s.dispatcher.Check(legacyCtx, preprocResponseBag)
 		if err != nil {
 			out2 = status.WithError(err)
 		}
