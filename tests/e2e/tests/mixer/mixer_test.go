@@ -95,7 +95,7 @@ func createDefaultRoutingRules() error {
 	if err := createRouteRule(routeAllRule); err != nil {
 		return fmt.Errorf("could not create base routing rules: %v", err)
 	}
-	time.Sleep(30 * time.Second)
+	allowRuleSync()
 	return nil
 }
 
@@ -163,16 +163,16 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
+	allowPrometheusSync()
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -181,10 +181,12 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -200,23 +202,21 @@ func TestNewMetrics(t *testing.T) {
 		}
 	}()
 
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(5 * time.Second)
+	allowRuleSync()
 
 	if err := visitProductPage(testRetryTimes); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	allowPrometheusSync()
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -225,10 +225,14 @@ func TestNewMetrics(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -237,9 +241,6 @@ func TestDenials(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		t.Fatalf("Could not create replace reviews routing rule: %v", err)
 	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
-
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, denialRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %v", err)
@@ -249,10 +250,7 @@ func TestDenials(t *testing.T) {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
-
-	// allow time for configuration to go and be active.
-	// TODO: figure out a better way to confirm rule active
-	time.Sleep(5 * time.Second)
+	allowRuleSync()
 
 	// generate several calls to the product page
 	for i := 0; i < 10; i++ {
@@ -262,14 +260,14 @@ func TestDenials(t *testing.T) {
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(15 * time.Second)
+	allowPrometheusSync()
 
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -278,17 +276,22 @@ func TestDenials(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Errorf("Could not find value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
 	}
 }
 
 func TestRateLimit(t *testing.T) {
-	applyReviewsRoutingRules(t)
-
+	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
+		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	}
+	// the rate limit rule applies a max rate limit of 5 rps. Here we apply it
+	// to the "ratings" service (without a selector -- meaning for all versions).
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %got", err)
@@ -299,11 +302,12 @@ func TestRateLimit(t *testing.T) {
 		}
 	}()
 
-	// allow time for rule sync
-	time.Sleep(10 * time.Second)
+	allowRuleSync()
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
+	// run at a large QPS (here 100) for a minute to ensure that enough
+	// traffic is generated to trigger 429s from the rate limit rule
 	opts := fortio.HTTPRunnerOptions{
 		RunnerOptions: fortio.RunnerOptions{
 			QPS:        100,
@@ -313,9 +317,18 @@ func TestRateLimit(t *testing.T) {
 		URL: url,
 	}
 
+	// productpage should still return 200s when ratings is rate-limited.
 	res, err := fortio.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+
+	allowPrometheusSync()
+
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
 	}
 
 	totalReqs := res.DurationHistogram.Count
@@ -325,17 +338,26 @@ func TestRateLimit(t *testing.T) {
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
 
-	// consider only successful full requests
-	perSvc := float64(succReqs) / 3
+	// consider only successful requests (as recorded at productpage service)
+	callsToRatings := float64(succReqs)
 
-	// must sleep to allow for prometheus scraping, etc.
-	time.Sleep(30 * time.Second)
+	// the rate-limit is 5 rps, but observed actuals are [4-5) in experimental
+	// testing. opt for leniency here to decrease flakiness of testing.
+	want200s := opts.Duration.Seconds() * 4
 
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
+	// everything in excess of 200s should be 429s (ideally)
+	want429s := callsToRatings - want200s
+
+	// if we received less traffic than the expected enforced limit to ratings
+	// then there is no way to determine if the rate limit was applied at all
+	// and for how much traffic. log all metrics and abort test.
+	if callsToRatings < want200s {
+		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
+
 	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
@@ -344,31 +366,42 @@ func TestRateLimit(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
 	if err != nil {
-		t.Errorf("Could not find rate limit value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find rate limit value: %v", err)
 	}
 
-	// establish some baseline (40% of expected counts)
-	want := math.Floor(perSvc * .4)
+	// establish some baseline to protect against flakiness due to randomness in routing
+	want := math.Floor(want429s * .75)
 
-	// check rejections
+	// check resource exhausteds
 	if got < want {
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
-		t.Log(promDump(promAPI, "request_count"))
-		t.Errorf("Could not find successes value: %v", err)
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Fatalf("Could not find successes value: %v", err)
 	}
 
-	succWant := opts.Duration.Seconds() * 4 // really want 5 qps, but settle for 4
-	want = math.Min(want, succWant)         // use the smaller of the two to allow for traffic variations
+	// establish some baseline to protect against flakiness due to randomness in routing
+	want = math.Floor(want200s * .75)
 
 	// check successes
 	if got < want {
-		t.Log(promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
+}
+
+func allowRuleSync() {
+	glog.Info("Sleeping to allow rules to take effect...")
+	time.Sleep(1 * time.Minute)
+}
+
+func allowPrometheusSync() {
+	glog.Info("Sleeping to allow prometheus to record metrics...")
+	time.Sleep(30 * time.Second)
 }
 
 func promAPI() (v1.API, error) {
@@ -379,6 +412,8 @@ func promAPI() (v1.API, error) {
 	return v1.NewAPI(client), nil
 }
 
+// promDump gets all of the recorded values for a metric by name and generates a report of the values.
+// used for debugging of failures to provide a comprehensive view of traffic experienced.
 func promDump(client v1.API, metric string) string {
 	if value, err := client.Query(context.Background(), fmt.Sprintf("%s{}", metric), time.Now()); err == nil {
 		return value.String()
@@ -405,14 +440,6 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 		}
 	}
 	return 0, fmt.Errorf("value not found for %#v", labels)
-}
-
-func applyReviewsRoutingRules(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
-		t.Fatalf("Could not create replace reviews routing rule: %v", err)
-	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
 }
 
 func visitProductPage(retries int) error {
