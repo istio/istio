@@ -472,14 +472,6 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	return 0, fmt.Errorf("value not found for %#v", labels)
 }
 
-func applyReviewsRoutingRules(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsVersionsRule); err != nil {
-		t.Fatalf("Could not create replace reviews routing rule: %v", err)
-	}
-	// hope for stability
-	time.Sleep(30 * time.Second)
-}
-
 // checkProductPageDirect
 func checkProductPageDirect() {
 	glog.Info("checkProductPageDirect")
