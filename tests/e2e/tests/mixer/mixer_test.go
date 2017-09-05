@@ -305,13 +305,13 @@ func TestDenials(t *testing.T) {
 
 	// Product page should not be accessible anymore.
 	glog.Infof("Denials: ensure productpage is denied access")
-	if err := visitProductPage(productPageTimeout, http.StatusForbidden, "x-user", ""); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
 		t.Fatalf("product page was not denied: %v", err)
 	}
 
 	// Product page *should be* accessible with x-user header.
 	glog.Infof("Denials: ensure productpage is accessible for testuser")
-	if err := visitProductPage(productPageTimeout, http.StatusOK, "x-user", "testuser"); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
 		t.Fatalf("product page was not denied: %v", err)
 	}
 }
@@ -503,15 +503,20 @@ func dumpURL(url string, dumpContents bool) {
 	}
 }
 
-func get(clnt *http.Client, url string, headerkv ...string) (status int, contents string, err error) {
+type header struct {
+	name  string
+	value string
+}
+
+func get(clnt *http.Client, url string, headers ...*header) (status int, contents string, err error) {
 	var req *http.Request
 	req, err = http.NewRequest("GET", url, nil)
 	if err != nil {
 		return 0, "", err
 	}
 
-	for i := 0; i < len(headerkv)/2; i++ {
-		req.Header.Set(headerkv[2*i], headerkv[2*i+1])
+	for _, hdr := range headers {
+		req.Header.Set(hdr.name, hdr.value)
 	}
 	resp, err := clnt.Do(req)
 	if err != nil {
@@ -531,7 +536,7 @@ func get(clnt *http.Client, url string, headerkv ...string) (status int, content
 	return
 }
 
-func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string) error {
+func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
 	start := time.Now()
 	clnt := &http.Client{
 		Timeout: 1 * time.Minute,
@@ -539,7 +544,7 @@ func visitProductPage(timeout time.Duration, wantStatus int, headerkv ...string)
 	url := tc.gateway + "/productpage"
 
 	for {
-		status, _, err := get(clnt, url, headerkv...)
+		status, _, err := get(clnt, url, headers...)
 		if err != nil {
 			glog.Warningf("Unable to connect to product page: %v", err)
 		}
