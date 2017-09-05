@@ -51,7 +51,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
 
   discovery:
-    image: discovery:latest
+    image: gihanson/discovery:latest
     networks:
       envoymesh:
         aliases:
@@ -64,7 +64,7 @@ services:
       - ~/.kube/config:/istio/config
 
   details-v1:
-    image: details-v1:latest
+    image: gihanson/details-v1:latest
     networks:
       envoymesh:
     dns:
@@ -81,7 +81,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: ratings-v1:latest
+    image: gihanson/ratings-v1:latest
     networks:
       envoymesh:
     dns:
@@ -98,7 +98,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: reviews-v1:latest
+    image: gihanson/reviews-v1:latest
     networks:
       envoymesh:
     dns:
@@ -116,7 +116,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: reviews-v2:latest
+    image: gihanson/reviews-v2:latest
     networks:
       envoymesh:
     dns:
@@ -134,7 +134,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: reviews-v3:latest
+    image: gihanson/reviews-v3:latest
     networks:
       envoymesh:
     dns:
@@ -152,7 +152,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: productpage-v1:latest
+    image: gihanson/productpage-v1:latest
     networks:
       envoymesh:
         ipv4_address: 172.28.0.14

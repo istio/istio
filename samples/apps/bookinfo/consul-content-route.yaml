@@ -1,0 +1,16 @@
+type: route-rule
+name: content-route
+spec:
+  destination:
+    name: reviews
+    domain: consul
+    namespace: service
+  match:
+    request:
+      headers:
+        cookie:
+          regex: ^(.*?;)?(user=jason)(;.*)?$
+  precedence: 2
+  route:
+    - labels:
+        version: v2

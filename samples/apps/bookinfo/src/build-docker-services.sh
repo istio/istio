@@ -27,7 +27,7 @@ fi
 
 cd $DISCOVERYDIR
 rm -f pilot-discovery && cp $BINDIR/cmd/pilot-discovery/pilot-discovery $_
-docker build -t discovery:latest .
+docker build -t gihanson/discovery:latest .
 rm -f pilot-discovery
 
 cd $SCRIPTDIR
@@ -37,7 +37,7 @@ cd $SCRIPTDIR
 for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
   rm -f $APPSDIR/$app/prepare_proxy.sh && cp $SCRIPTDIR/prepare_proxy.sh $_
-  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "${app}-v1:latest" $app/
+  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "gihanson/${app}-v1:latest" $app/
   rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh
 done
 
@@ -50,12 +50,12 @@ popd
 rm -f REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
 rm -f REVIEWSDIR/prepare_proxy.sh && cp $SCRIPTDIR/prepare_proxy.sh $REVIEWSDIR
 #plain build -- no ratings
-docker build -t reviews-v1:latest --build-arg service_version=v1 \
+docker build -t gihanson/reviews-v1:latest --build-arg service_version=v1 \
     -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings black stars
-docker build -t reviews-v2:latest --build-arg service_version=v2 \
+docker build -t gihanson/reviews-v2:latest --build-arg service_version=v2 \
     --build-arg enable_ratings=true -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings red stars
-docker build -t reviews-v3:latest --build-arg service_version=v3 \
+docker build -t gihanson/reviews-v3:latest --build-arg service_version=v3 \
     --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh
