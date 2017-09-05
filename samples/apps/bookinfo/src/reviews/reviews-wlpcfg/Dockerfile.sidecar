@@ -1,0 +1,34 @@
+FROM websphere-liberty:latest
+
+ENV SERVERDIRNAME reviews
+
+RUN mkdir /opt/microservices
+RUN mkdir /opt/istio
+RUN mkdir /etc/istio
+RUN mkdir /etc/istio/proxy/
+RUN apt-get update && apt-get -y install iptables curl
+RUN adduser -disabled-password --gecos "" --uid 1337 istio
+RUN chown istio /etc/istio/proxy
+
+RUN set -ex \
+    && wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-62755c63d9c80c043ece26504c4288845a929cc4.tar.gz \
+    && tar -xzf envoy-debug-62755c63d9c80c043ece26504c4288845a929cc4.tar.gz
+ADD ./prepare_proxy.sh /opt/istio
+
+
+ADD ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
+
+RUN /opt/ibm/wlp/bin/installUtility install  --acceptLicense /opt/ibm/wlp/usr/servers/defaultServer/server.xml
+
+ARG service_version
+ARG enable_ratings
+ARG star_color
+ENV SERVICE_VERSION ${service_version:-v1}
+ENV ENABLE_RATINGS ${enable_ratings:-false}
+ENV STAR_COLOR ${star_color:-black}
+
+ADD ./start_service.sh /usr/local/bin/start_service.sh
+RUN chmod u+x /usr/local/bin/start_service.sh
+ADD ./pilot-agent /opt/istio
+
+ENTRYPOINT /usr/local/bin/start_service.sh
