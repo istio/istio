@@ -27,16 +27,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
-	logging "cloud.google.com/go/logging/apiv2"
 	"cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
-	"google.golang.org/api/iterator"
-	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 
 	"istio.io/istio/tests/e2e/util"
 )
@@ -50,39 +46,12 @@ var (
 		"ingress",
 	}
 	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
-	logIDs       = []string{
-		"app",
-		"autoscaler",
-		"calico-typha",
-		"details",
-		"discovery",
-		"dnsmasq",
-		"event-exporter",
-		"fluentd-gcp",
-		"heapster",
-		"heapster-nanny",
-		"istio-ca",
-		"istio-ca-container",
-		"istio-ingress",
-		"istio-proxy",
-		"mixer",
-		"kubedns",
-		"mongodb",
-		"mysqldb",
-		"proxy",
-		"ratings",
-		"reviews",
-		"sidecar",
-		"sidecar-initializer",
-		"zipkin",
-	}
 )
 
 const (
 	tmpPrefix            = "istio.e2e."
 	idMaxLength          = 36
-	pageSize             = 1000 // number of log entries for each paginated request to fetch logs
-	maxConcurrentWorkers = 2    //avoid overloading stackdriver api
+	maxConcurrentWorkers = 5
 )
 
 // TestInfo gathers Test Information
@@ -163,96 +132,58 @@ func (t testInfo) Update(r int) error {
 }
 
 func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
-	if *projectID == "" {
-		return nil
-	}
-	// connect to stackdriver
-	ctx := context.Background()
-	glog.Info("Fetching cluster logs")
-	loggingClient, err := logging.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	fetchAndWrite := func(logID string) error {
-		// fetch logs from pods created for this run only
-		filter := fmt.Sprintf(
-			`logName = "projects/%s/logs/%s" AND
-			resource.labels.namespace_id = "%s"`,
-			*projectID, logID, namespace)
-		req := &loggingpb.ListLogEntriesRequest{
-			ResourceNames: []string{"projects/" + *projectID},
-			Filter:        filter,
-		}
-		it := loggingClient.ListLogEntries(ctx, req)
-		// create log file in append mode
-		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.log", logID))
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+	glog.Infof("Fetching cluster logs of %s", *projectID)
+	var multiErr error
+	fetchAndWrite := func(pod string) error {
+		cmd := fmt.Sprintf(
+			"kubectl get pods -n %s %s -o jsonpath={.spec.containers[*].name}", namespace, pod)
+		containersString, err := util.Shell(cmd)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := f.Close(); err != nil {
-				glog.Warningf("Error during closing file: %v\n", err)
-			}
-		}()
-		// fetch log entries with pagination
-		var entries []*loggingpb.LogEntry
-		pager := iterator.NewPager(it, pageSize, "")
-		for page := 0; ; page++ {
-			pageToken, err := pager.NextPage(&entries)
+		containers := strings.Split(containersString, " ")
+		for _, container := range containers {
+			path := filepath.Join(t.LogsPath, fmt.Sprintf("%s_container:%s.log", pod, container))
+			f, err := os.Create(path)
 			if err != nil {
-				glog.Warningf("%s Iterator paging stops: %v", logID, err)
 				return err
 			}
-			// append logs to file
-			for _, logEntry := range entries {
-				fmtTime := time.Unix(logEntry.GetTimestamp().Seconds, 0)
-				timestamp := fmt.Sprintf("[%02d:%02d:%02d] ",
-					fmtTime.Hour(), fmtTime.Minute(), fmtTime.Second())
-				if _, err = f.WriteString(timestamp); err != nil {
-					return err
-				}
-				log := logEntry.GetTextPayload()
-				if _, err = f.WriteString(log); err != nil {
-					return err
-				}
-				if len(log) == 0 || log[len(log)-1] != '\n' {
-					if _, err = f.WriteString("\n"); err != nil {
-						return err
-					}
-				}
+			// TODO (chx) ShellMuteOutput
+			dump, err := util.Shell(fmt.Sprintf("kubectl logs %s -n %s", pod, namespace))
+			if err != nil {
+				return err
 			}
-			if pageToken == "" {
-				break
+			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
+				return err
+			}
+			if err := f.Close(); err != nil {
+				return err
 			}
 		}
+
 		return nil
 	}
 
-	var multiErr error
-	var wg sync.WaitGroup
 	// limit number of concurrent jobs to stay in stackdriver api quota
 	jobQue := make(chan string, maxConcurrentWorkers)
-	for _, logID := range logIDs {
-		wg.Add(1)
-		jobQue <- logID // blocked if jobQue channel is already filled
-		// fetch logs in another go routine
-		go func(logID string) {
-			glog.Infof("Fetching logs on %s", logID)
-			if err := fetchAndWrite(logID); err != nil {
-				multiErr = multierror.Append(multiErr, err)
-			}
-			<-jobQue
-			wg.Done()
-		}(logID)
+	lines, err := util.Shell("kubectl get pods -n " + namespace)
+	if err != nil {
+		return err
 	}
-	wg.Wait()
+	pods := strings.Split(lines, "\n")
+	for _, line := range pods[1:] {
+		pod := line[:strings.Index(line, " ")]
+		glog.Infof("Fetching logs on %s", pod)
+		if err := fetchAndWrite(pod); err != nil {
+			multiErr = multierror.Append(multiErr, err)
+		}
+	}
 
 	for _, resrc := range resources {
 		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
 		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
-		if yaml, err0 := util.Shell(fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
+		if yaml, err0 := util.ShellMuteOutput(
+			fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
 			multiErr = multierror.Append(multiErr, err0)
 		} else {
 			if f, err1 := os.Create(path); err1 != nil {

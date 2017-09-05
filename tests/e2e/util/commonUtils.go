@@ -68,16 +68,27 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
+	return sh(format, true, args)
+}
+
+// ShellMuteOutput run command on shell and get back output and error if get one
+// without logging the output
+func ShellMuteOutput(format string, args ...interface{}) (string, error) {
+	return sh(format, false, args)
+}
+
+func sh(format string, logOutput bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
 	parts := strings.Split(command, " ")
 	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
-	glog.V(2).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
+	if logOutput {
+		glog.V(2).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
+	}
 	if err != nil {
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
-
 	return string(bytes), nil
 }
 
