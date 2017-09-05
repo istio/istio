@@ -11,7 +11,7 @@ pkg_tar(
 
 pkg_tar(
     name = "istio-systemd",
-    files = ["istio.service"],
+    files = ["istio-auth-node-agent.service"],
     mode = "644",
     package_dir = "/lib/systemd/system",
 )
@@ -26,13 +26,13 @@ pkg_tar(
 )
 
 pkg_deb(
-    name = "istio-node-agent",
+    name = "istio-auth-node-agent",
     architecture = "amd64",
     built_using = "bazel",
     data = ":debian-data",
     description_file = "description",
     homepage = "http://istio.io",
     maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
-    package = "istio-node-agent",
+    package = "istio-auth-node-agent",
     version = "0.2.1",
 )
