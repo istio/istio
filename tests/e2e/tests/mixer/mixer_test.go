@@ -18,7 +18,6 @@ package mixer
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -50,13 +49,22 @@ const (
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
+	preProcessOnlyRule       = "mixer-rule-preprocess-only.yaml"
+	standardMetrics          = "mixer-rule-standard-metrics.yaml"
+	standardAttributes       = "mixer-rule-standard-attributes.yaml"
 
-	prometheusPort = "9090"
+	prometheusPort   = "9090"
+	mixerMetricsPort = "42422"
+	productPagePort  = "10000"
 
 	targetLabel       = "target"
 	responseCodeLabel = "response_code"
 
 	global = "global"
+
+	// This namespace is used by default in all mixer config documents.
+	// It will be replaced with the test namespace.
+	templateNamespace = "istio-config-default"
 )
 
 type testConfig struct {
@@ -66,10 +74,11 @@ type testConfig struct {
 }
 
 var (
-	tc             *testConfig
-	testRetryTimes = 5
-	rules          = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule}
+	tc                 *testConfig
+	productPageTimeout = 30 * time.Second
+	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
+		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule, preProcessOnlyRule,
+		standardAttributes, standardMetrics}
 )
 
 func (t *testConfig) Setup() error {
@@ -88,7 +97,25 @@ func (t *testConfig) Setup() error {
 			return err
 		}
 	}
+
+	if err := setupMixerConfig(); err != nil {
+		glog.Errorf("Unable to setup mixer metrics: %v", err)
+		return err
+	}
+
 	return createDefaultRoutingRules()
+}
+
+func setupMixerConfig() error {
+	// TODO mixer2 cleanup.
+	// The old style mixer rule will only keep k8s pre-processing
+	if err := createMixerRule(global, global, preProcessOnlyRule); err != nil {
+		return err
+	}
+	if err := applyMixerRule(standardAttributes); err != nil {
+		return err
+	}
+	return applyMixerRule(standardMetrics)
 }
 
 func createDefaultRoutingRules() error {
@@ -121,24 +148,44 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
-func (p *promProxy) Setup() error {
+// portForward sets up local port forward to the pod specified by the "app" label
+func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
 	var pod string
 	var err error
-	glog.Info("Setting up prometheus proxy")
-	getName := fmt.Sprintf("kubectl -n %s get pod -l app=prometheus -o jsonpath='{.items[0].metadata.name}'", p.namespace)
+
+	glog.Infof("Setting up %s proxy", labelSelector)
+	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
 	pod, err = util.Shell(getName)
 	if err != nil {
 		return err
 	}
-	glog.Info("prometheus pod name: ", pod)
-	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), prometheusPort, prometheusPort, p.namespace)
+	glog.Infof("%s pod name: %s", labelSelector, pod)
+	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
 	glog.Info(portFwdCmd)
 	if p.portFwdProcess, err = util.RunBackground(portFwdCmd); err != nil {
 		glog.Errorf("Failed to port forward: %s", err)
 		return err
 	}
-	glog.Infof("running prometheus port-forward in background, pid = %d", p.portFwdProcess.Pid)
-	return err
+	glog.Infof("running %s port-forward in background, pid = %d", labelSelector, p.portFwdProcess.Pid)
+	return nil
+}
+
+func (p *promProxy) Setup() error {
+	var err error
+
+	if err = p.portForward("app=prometheus", prometheusPort, prometheusPort); err != nil {
+		return err
+	}
+
+	if err = p.portForward("istio=mixer", mixerMetricsPort, mixerMetricsPort); err != nil {
+		return err
+	}
+
+	if err = p.portForward("app=productpage", productPagePort, "9080"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (p *promProxy) Teardown() (err error) {
@@ -160,7 +207,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestGlobalCheckAndReport(t *testing.T) {
-	if err := visitProductPage(testRetryTimes); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 	allowPrometheusSync()
@@ -192,25 +239,24 @@ func TestGlobalCheckAndReport(t *testing.T) {
 }
 
 func TestNewMetrics(t *testing.T) {
-	productpage := fqdn("productpage")
-	if err := createMixerRule(global, productpage, newTelemetryRule); err != nil {
+	if err := applyMixerRule(newTelemetryRule); err != nil {
 		t.Fatalf("could not create required mixer rule: %v", err)
 	}
+
 	defer func() {
-		if err := createMixerRule(global, productpage, emptyRule); err != nil {
+		if err := deleteMixerRule(newTelemetryRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
 
 	allowRuleSync()
 
-	if err := visitProductPage(testRetryTimes); err != nil {
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	allowPrometheusSync()
-
 	promAPI, err := promAPI()
 	if err != nil {
 		t.Fatalf("Could not build prometheus API client: %v", err)
@@ -238,51 +284,35 @@ func TestNewMetrics(t *testing.T) {
 }
 
 func TestDenials(t *testing.T) {
-	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
-		t.Fatalf("Could not create replace reviews routing rule: %v", err)
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		t.Fatalf("Test app setup failure: %v", err)
 	}
-	ratings := fqdn("ratings")
-	if err := createMixerRule(global, ratings, denialRule); err != nil {
-		t.Fatalf("Could not create required mixer rule: %v", err)
+
+	// deny rule will deny all requests to product page unless
+	// ["x-user"] header is set.
+	glog.Infof("Denials: block productpage if x-user header is missing")
+	if err := applyMixerRule(denialRule); err != nil {
+		t.Fatalf("could not create required mixer rule: %v", err)
 	}
+
 	defer func() {
-		if err := createMixerRule(global, ratings, emptyRule); err != nil {
+		if err := deleteMixerRule(denialRule); err != nil {
 			t.Logf("could not clear rule: %v", err)
 		}
 	}()
-	allowRuleSync()
 
-	// generate several calls to the product page
-	for i := 0; i < 10; i++ {
-		if err := visitProductPage(testRetryTimes); err != nil {
-			t.Fatalf("Test app setup failure: %v", err)
-		}
+	time.Sleep(10 * time.Second)
+
+	// Product page should not be accessible anymore.
+	glog.Infof("Denials: ensure productpage is denied access")
+	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
+		t.Fatalf("product page was not denied: %v", err)
 	}
 
-	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	allowPrometheusSync()
-
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
-	}
-	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"400\"}", targetLabel, fqdn("ratings"), responseCodeLabel)
-	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
-	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
-	}
-	glog.Infof("promvalue := %s", value.String())
-
-	got, err := vectorValue(value, map[string]string{})
-	if err != nil {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find metric value: %v", err)
-	}
-	want := float64(1)
-	if got < want {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+	// Product page *should be* accessible with x-user header.
+	glog.Infof("Denials: ensure productpage is accessible for testuser")
+	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
+		t.Fatalf("product page was not denied: %v", err)
 	}
 }
 
@@ -442,32 +472,87 @@ func vectorValue(val model.Value, labels map[string]string) (float64, error) {
 	return 0, fmt.Errorf("value not found for %#v", labels)
 }
 
-func visitProductPage(retries int) error {
-	standby := 0
-	for i := 0; i <= retries; i++ {
-		time.Sleep(time.Duration(standby) * time.Second)
-		http.DefaultClient.Timeout = 1 * time.Minute
-		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
+// checkProductPageDirect
+func checkProductPageDirect() {
+	glog.Info("checkProductPageDirect")
+	dumpURL("http://localhost:"+productPagePort+"/productpage", false)
+}
+
+// dumpMixerMetrics fetch metrics directly from mixer and dump them
+func dumpMixerMetrics() {
+	glog.Info("dumpMixerMetrics")
+	dumpURL("http://localhost:"+mixerMetricsPort+"/metrics", true)
+}
+
+func dumpURL(url string, dumpContents bool) {
+	clnt := &http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	status, contents, err := get(clnt, url)
+	glog.Infof("%s ==> %d, <%v>", url, status, err)
+	if dumpContents {
+		glog.Infoln(contents)
+	}
+}
+
+type header struct {
+	name  string
+	value string
+}
+
+func get(clnt *http.Client, url string, headers ...*header) (status int, contents string, err error) {
+	var req *http.Request
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
+		return 0, "", err
+	}
+
+	for _, hdr := range headers {
+		req.Header.Set(hdr.name, hdr.value)
+	}
+	resp, err := clnt.Do(req)
+	if err != nil {
+		glog.Warningf("Error communicating with %s: %v", url, err)
+	} else {
+		glog.Infof("Get from %s: %s (%d)", url, resp.Status, resp.StatusCode)
+		var ba []byte
+		ba, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			glog.Infof("Error talking to productpage: %s", err)
-		} else {
-			glog.Infof("Get from page: %d", resp.StatusCode)
-			if resp.StatusCode == http.StatusOK {
-				glog.Info("Get response from product page!")
-				break
-			}
-			closeResponseBody(resp)
+			glog.Warningf("Unable to connect to read from %s: %v", url, err)
+			return
 		}
-		if i == retries {
-			return errors.New("could not retrieve product page: default route Failed")
+		contents = string(ba)
+		status = resp.StatusCode
+		closeResponseBody(resp)
+	}
+	return
+}
+
+func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header) error {
+	start := time.Now()
+	clnt := &http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	url := tc.gateway + "/productpage"
+
+	for {
+		status, _, err := get(clnt, url, headers...)
+		if err != nil {
+			glog.Warningf("Unable to connect to product page: %v", err)
 		}
-		standby += 5
-		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+
+		if status == wantStatus {
+			glog.Infof("Got %d response from product page!", wantStatus)
+			return nil
+		}
+
+		if time.Since(start) > timeout {
+			dumpMixerMetrics()
+			checkProductPageDirect()
+			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
+		}
+		time.Sleep(3 * time.Second)
 	}
-	if standby != 0 {
-		time.Sleep(time.Minute)
-	}
-	return nil
 }
 
 func fqdn(service string) string {
@@ -492,6 +577,34 @@ func deleteRouteRule(ruleName string) error {
 func createMixerRule(scope, subject, ruleName string) error {
 	rule := filepath.Join(tc.rulesDir, ruleName)
 	return tc.Kube.Istioctl.CreateMixerRule(scope, subject, rule)
+}
+
+func deleteMixerRule(ruleName string) error {
+	return doMixerRule(ruleName, util.KubeDeleteContents)
+}
+
+func applyMixerRule(ruleName string) error {
+	return doMixerRule(ruleName, util.KubeApplyContents)
+}
+
+type kubeDo func(namespace string, contents string) error
+
+// doMixerRule
+// New mixer rules contain fully qualified pointers to other
+// resources, they must be replaced by the current namespace.
+func doMixerRule(ruleName string, do kubeDo) error {
+	rule := filepath.Join(tc.rulesDir, ruleName)
+	cb, err := ioutil.ReadFile(rule)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", rule)
+		return err
+	}
+	contents := string(cb)
+	if !strings.Contains(contents, templateNamespace) {
+		return fmt.Errorf("%s must contain %s so the it can replaced", rule, templateNamespace)
+	}
+	contents = strings.Replace(contents, templateNamespace, tc.Kube.Namespace, -1)
+	return do(tc.Kube.Namespace, contents)
 }
 
 func setTestConfig() error {
