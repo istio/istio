@@ -4,18 +4,18 @@ metadata:
   name: istio-inject
 data:
   config: |-
-    policy: {{.Policy}}
+    policy: "{{.Policy}}"
     namespaces:
 {{ range $namespace := .Namespaces}}
-    - {{$namespace}}
+    - "{{$namespace}}"
 {{ end }}
     params:
-      initImage: {{.Params.InitImage}}
-      proxyImage: {{.Params.ProxyImage}}
+      initImage: "{{.Params.InitImage}}"
+      proxyImage: "{{.Params.ProxyImage}}"
       verbosity: {{.Params.Verbosity}}
       SidecarProxyUID: {{.Params.SidecarProxyUID}}
-      Version: {{.Params.Version}}
+      Version: "{{.Params.Version}}"
       EnableCoreDump: {{.Params.EnableCoreDump}}
-      MeshConfigMapName: {{.Params.MeshConfigMapName}}
-      ImagePullPolicy: {{.Params.ImagePullPolicy}}
-      IncludeIPRanges: {{.Params.IncludeIPRanges}}
+      MeshConfigMapName: "{{.Params.MeshConfigMapName}}"
+      ImagePullPolicy: "{{.Params.ImagePullPolicy}}"
+      IncludeIPRanges: "{{.Params.IncludeIPRanges}}"
