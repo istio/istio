@@ -109,14 +109,17 @@ function check_git_status() {
 # Generated merge yaml files for easy installation
 function merge_files() {
   SRC=$TEMP_DIR/templates
+  DEST=$ROOT/install/kubernetes
   AUTH_SRC=$SRC/istio-auth
-  ISTIO=$ROOT/install/kubernetes/istio.yaml
-  ISTIO_AUTH=$ROOT/install/kubernetes/istio-auth.yaml
-  ISTIO_AUTH_WITH_CLUSTER_CA=$ROOT/install/kubernetes/istio-auth-with-cluster-ca.yaml
+  ISTIO=$DEST/istio.yaml
+  ISTIO_AUTH=$DEST/istio-auth.yaml
+  ISTIO_AUTH_WITH_CLUSTER_CA=$DEST/istio-auth-with-cluster-ca.yaml
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-rbac-beta.yaml.tmpl > $DEST/istio-rbac-beta.yaml
+  cat $SRC/istio-rbac-alpha.yaml.tmpl > $DEST/istio-rbac-alpha.yaml
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
@@ -150,6 +153,7 @@ function update_istio_install() {
   pushd $TEMP_DIR/templates
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-alpha.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
