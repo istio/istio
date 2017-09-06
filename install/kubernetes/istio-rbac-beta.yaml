@@ -87,20 +87,6 @@ roleRef:
   name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to Mixer.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-mixer-admin-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-mixer-service-account
-  namespace: default
-roleRef:
-  kind: ClusterRole
-  name: istio-mixer
-  apiGroup: rbac.authorization.k8s.io
----
 # Grant permissions to the CA.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -157,5 +143,19 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-sidecar
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to Mixer.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-mixer-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-mixer
   apiGroup: rbac.authorization.k8s.io
 ---
