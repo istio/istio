@@ -1,23 +1,19 @@
-# istio-system namespace for Istio CA.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
----
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ca-service-account
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 ---
-# Istio CA in istio-system namespace.
+# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
@@ -30,5 +26,11 @@ spec:
       - name: istio-ca
         image: {CA_HUB}/istio-ca:{CA_TAG}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
 

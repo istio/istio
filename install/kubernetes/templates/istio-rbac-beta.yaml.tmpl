@@ -63,7 +63,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-pilot-service-account
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -77,7 +77,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-ca
@@ -91,7 +91,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-mixer-service-account
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -105,7 +105,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -119,7 +119,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: istio-egress-service-account
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -135,7 +135,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
+  namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
   name: istio-sidecar

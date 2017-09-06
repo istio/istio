@@ -1,20 +1,28 @@
 ################################
-# Istio egress envoy with Istio auth
+# Istio egress envoy
 ################################
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-egress
+  namespace: {ISTIO_NAMESPACE}
 spec:
   ports:
   - port: 80
   selector:
     istio: egress
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-egress-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-egress
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
@@ -22,27 +30,27 @@ spec:
       labels:
         istio: egress
     spec:
+      serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
         - name: config-volume
           mountPath: /etc/istio/config
       volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
       - name: config-volume
         configMap:
           name: istio

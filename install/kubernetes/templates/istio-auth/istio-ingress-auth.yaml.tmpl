@@ -5,6 +5,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: istio-ingress-certs
+  namespace: {ISTIO_NAMESPACE}
 data:
   tls.key:
   tls.crt:
@@ -16,6 +17,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress
+  namespace: {ISTIO_NAMESPACE}
   labels:
     istio: ingress
 spec:
@@ -33,11 +35,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
+  namespace: {ISTIO_NAMESPACE}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-ingress
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:

@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
 data:
   mapping.conf: |-
 ---
@@ -10,6 +11,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
   labels:
     istio: mixer
 spec:
@@ -34,6 +36,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:

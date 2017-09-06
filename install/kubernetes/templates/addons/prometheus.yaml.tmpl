@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 data:
   prometheus.yml: |-
     global:
@@ -16,7 +16,7 @@ data:
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
       static_configs:
-      - targets: ['istio-mixer.istio-system:42422']
+      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:42422']
 
     - job_name: 'envoy'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -24,7 +24,7 @@ data:
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
       static_configs:
-      - targets: ['istio-mixer.istio-system:9102']
+      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:9102']
 
     - job_name: 'mixer'
       # Override the global default and scrape targets from this job every 5 seconds.
@@ -32,7 +32,7 @@ data:
       # metrics_path defaults to '/metrics'
       # scheme defaults to 'http'.
       static_configs:
-      - targets: ['istio-mixer.istio-system:9093']
+      - targets: ['istio-mixer.{ISTIO_NAMESPACE}:9093']
 ---
 apiVersion: v1
 kind: Service
@@ -42,7 +42,7 @@ metadata:
   labels:
     name: prometheus
   name: prometheus
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   selector:
     app: prometheus
@@ -55,7 +55,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   selector:
