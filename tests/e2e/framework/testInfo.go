@@ -51,12 +51,30 @@ var (
 	}
 	testLogsPath = flag.String("test_logs_path", "", "Local path to store logs in")
 	logIDs       = []string{
-		"apiserver",
+		"app",
+		"autoscaler",
+		"calico-typha",
+		"details",
 		"discovery",
+		"dnsmasq",
+		"event-exporter",
+		"fluentd-gcp",
+		"heapster",
+		"heapster-nanny",
+		"istio-ca",
+		"istio-ca-container",
 		"istio-ingress",
+		"istio-proxy",
 		"mixer",
-		"prometheus",
-		"statesd-to-prometheus",
+		"kubedns",
+		"mongodb",
+		"mysqldb",
+		"proxy",
+		"ratings",
+		"reviews",
+		"sidecar",
+		"sidecar-initializer",
+		"zipkin",
 	}
 )
 
