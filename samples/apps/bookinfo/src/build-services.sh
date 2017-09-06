@@ -47,3 +47,7 @@ popd
 pushd $SCRIPTDIR/mysql
   docker build -t istio/examples-bookinfo-mysqldb-v1 .
 popd
+
+pushd $SCRIPTDIR/mongodb
+  docker build -t istio/examples-bookinfo-mongodb-v1 .
+popd
