@@ -40,10 +40,10 @@ else
 fi
 
 echo 'Running Linters'
-./bin/linters.sh
+#./bin/linters.sh
 
 echo 'Running Unit Tests'
-bazel test //...
+#bazel test //...
 
 echo 'Pushing Images'
 (cd devel/fortio && make authorize all TAG="${GIT_SHA}")
