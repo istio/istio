@@ -37,14 +37,13 @@ import (
 const (
 	u1                    = "normal-user"
 	u2                    = "test-user"
-	create                = "create"
 	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
 	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml        = "samples/apps/bookinfo/bookinfo-db.yaml"
 	modelDir              = "tests/apps/bookinfo/output"
-	rulesDir              = "samples/apps/bookinfo"
+	rulesDir              = "samples/apps/bookinfo/rules"
 	allRule               = "route-rule-all-v1.yaml"
-	delayRule             = "route-rule-delay.yaml"
+	delayRule             = "route-rule-ratings-test-delay.yaml"
 	fiftyRule             = "route-rule-reviews-50-v3.yaml"
 	testRule              = "route-rule-reviews-test-v2.yaml"
 	testDbRule            = "route-rule-ratings-db.yaml"
@@ -88,7 +87,7 @@ func closeResponseBody(r *http.Response) {
 
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
-	//generate rule yaml files, replace with actual namespace and user
+	//generate rule yaml files, replace "jason" with actual user
 	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
@@ -98,7 +97,6 @@ func (t *testConfig) Setup() error {
 			return err
 		}
 		content := string(ori)
-		content = strings.Replace(content, "default", t.Kube.Namespace, -1)
 		content = strings.Replace(content, "jason", u2, -1)
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
@@ -137,7 +135,7 @@ func inspect(err error, fMsg, sMsg string, t *testing.T) {
 }
 
 func setUpDefaultRouting() error {
-	if err := applyRules(defaultRules, create); err != nil {
+	if err := applyRules(defaultRules); err != nil {
 		return fmt.Errorf("could not apply rule '%s': %v", allRule, err)
 	}
 	standby := 0
@@ -240,7 +238,7 @@ func deleteRules(ruleKeys []string) error {
 	var err error
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if e := tc.Kube.Istioctl.DeleteRule(rule); e != nil {
+		if e := util.KubeDelete(tc.Kube.Namespace, rule); e != nil {
 			err = multierror.Append(err, e)
 		}
 	}
@@ -249,19 +247,11 @@ func deleteRules(ruleKeys []string) error {
 	return err
 }
 
-func applyRules(ruleKeys []string, operation string) error {
-	var fn func(string) error
-	switch operation {
-	case "create":
-		fn = tc.Kube.Istioctl.CreateRule
-	case "replace":
-		fn = tc.Kube.Istioctl.ReplaceRule
-	default:
-		return fmt.Errorf("operation %s not supported", operation)
-	}
+func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
-		if err := fn(rule); err != nil {
+		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
+			//glog.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}
@@ -273,7 +263,7 @@ func applyRules(ruleKeys []string, operation string) error {
 func TestVersionRouting(t *testing.T) {
 	var err error
 	var rules = []string{testRule}
-	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()
@@ -293,7 +283,7 @@ func TestVersionRouting(t *testing.T) {
 
 func TestFaultDelay(t *testing.T) {
 	var rules = []string{testRule, delayRule}
-	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()
@@ -325,7 +315,7 @@ func TestFaultDelay(t *testing.T) {
 
 func TestVersionMigration(t *testing.T) {
 	var rules = []string{fiftyRule}
-	inspect(applyRules(rules, "replace"), "failed to apply rules", "", t)
+	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), fmt.Sprintf("failed to delete rules"), "", t)
 	}()
@@ -415,7 +405,7 @@ func setTestConfig() error {
 func TestDbRouting(t *testing.T) {
 	var err error
 	var rules = []string{testDbRule}
-	inspect(applyRules(rules, create), "failed to apply rules", "", t)
+	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()

@@ -10,6 +10,7 @@ go_test(
     ],
     tags = ["manual"],
     deps = [
+        "//devel/fortio:go_default_library",
         "//tests/e2e/framework:go_default_library",
         "//tests/e2e/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",

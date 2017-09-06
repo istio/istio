@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"text/template"
@@ -78,15 +79,42 @@ func NamespaceDeleted(n string) (bool, error) {
 	return false, err
 }
 
+// KubeApplyContents kubectl apply from contents
+func KubeApplyContents(namespace, yamlContents string) error {
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubeapply", ".yaml", yamlContents)
+	if err != nil {
+		return err
+	}
+	defer removeFile(tmpfile)
+	return KubeApply(namespace, tmpfile)
+}
+
 // KubeApply kubectl apply from file
-func KubeApply(n, yaml string) error {
-	_, err := Shell("kubectl apply -n %s -f %s", n, yaml)
+func KubeApply(namespace, yamlFileName string) error {
+	_, err := Shell("kubectl apply -n %s -f %s", namespace, yamlFileName)
 	return err
 }
 
+// KubeDeleteContents kubectl apply from contents
+func KubeDeleteContents(namespace, yamlContents string) error {
+	tmpfile, err := WriteTempfile(os.TempDir(), "kubedelete", ".yaml", yamlContents)
+	if err != nil {
+		return err
+	}
+	defer removeFile(tmpfile)
+	return KubeDelete(namespace, tmpfile)
+}
+
+func removeFile(path string) {
+	err := os.Remove(path)
+	if err != nil {
+		glog.Errorf("Unable to remove %s: %v", path, err)
+	}
+}
+
 // KubeDelete kubectl delete from file
-func KubeDelete(n, yaml string) error {
-	_, err := Shell("kubectl delete -n %s -f %s", n, yaml)
+func KubeDelete(namespace, yamlFileName string) error {
+	_, err := Shell("kubectl delete -n %s -f %s", namespace, yamlFileName)
 	return err
 }
 
@@ -97,21 +125,35 @@ func GetIngress(n string) (string, error) {
 		MaxDelay:  20 * time.Second,
 		Retries:   20,
 	}
-	r := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	ri := regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
+	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
 	retryFn := func(i int) error {
-		out, err := Shell("kubectl get svc istio-ingress -n %s "+
-			"-o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+		ip, err := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+		// For minikube, comment out the previous line and uncomment the following line
+		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
 			return err
 		}
-		out = strings.Trim(out, "'")
-		if r.FindString(out) == "" {
-			err = fmt.Errorf("unable to find ingress")
+		ip = strings.Trim(ip, "'")
+		if ri.FindString(ip) == "" {
+			err = fmt.Errorf("unable to find ingress ip")
 			glog.Warning(err)
 			return err
 		}
-		ingress = out
+		ingress = ip
+		// For minikube, comment out the previous line and uncomment the following lines
+		//port, e := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.spec.ports[0].nodePort}'", n)
+		//if e != nil {
+		//	return e
+		//}
+		//port = strings.Trim(port, "'")
+		//if rp.FindString(port) == "" {
+		//	err = fmt.Errorf("unable to find ingress port")
+		//	glog.Warning(err)
+		//	return err
+		//}
+		//ingress = ip + ":" + port
 		glog.Infof("Istio ingress: %s\n", ingress)
 		return nil
 	}
