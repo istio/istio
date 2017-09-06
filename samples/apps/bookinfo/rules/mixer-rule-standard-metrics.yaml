@@ -49,6 +49,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"empty_temporary"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -64,6 +65,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"empty_temporary"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -79,6 +81,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"empty_temporary"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -94,6 +97,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"empty_temporary"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
