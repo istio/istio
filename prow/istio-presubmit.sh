@@ -46,4 +46,4 @@ echo 'Running Unit Tests'
 #bazel test //...
 
 echo 'Pushing Images'
-(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
+#(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
