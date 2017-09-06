@@ -41,9 +41,5 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
-kubectl config get-contexts
-
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
-
-kubectl config get-contexts
