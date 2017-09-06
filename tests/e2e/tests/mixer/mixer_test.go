@@ -171,7 +171,7 @@ func podLogs(labelSelector string, container string) {
 	if err != nil {
 		return
 	}
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=25", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30", tc.Kube.Namespace, pod, container)
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label

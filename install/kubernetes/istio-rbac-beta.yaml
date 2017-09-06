@@ -42,7 +42,7 @@ rules:
   resources: ["customresourcedefinitions"]
   verbs: ["get", "list", "watch"]
 - apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "nodes", "secrets"]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets"]
   verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRole
