@@ -56,6 +56,8 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
+gcloud auth list
+
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version 1.7.4 --machine-type n1-standard-4 --num-nodes 2 --enable-kubernetes-alpha --quiet \
   || { echo "Failed to create a new cluster"; exit 1; }
 CLUSTER_CREATED=true
