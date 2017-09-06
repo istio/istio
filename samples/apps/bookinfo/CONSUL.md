@@ -9,9 +9,9 @@ This platform adapter uses Consul Server to help Istio monitor service instances
 When a service instance is brought up in docker, the [Registrator](http://gliderlabs.github.io/registrator/latest/)
 automatically registers the service in Consul.
 
-Noted that Istio pilot is running inside each app container so as to coordinate Envoy and the service mesh.
+Note that Istio pilot is running inside each app container so as to coordinate Envoy and the service mesh.
 
-## Prequisites
+## Prerequisites
 
  * Clone Istio Pilot [repo](https://github.com/istio/pilot) (required only if building images locally)
 
@@ -23,7 +23,7 @@ Noted that Istio pilot is running inside each app container so as to coordinate 
 
 ## Bookinfo Demo
 
-The ingress controller is still under construction, rounting functionalities can be tested by curling a service container directly.
+The ingress controller is still under construction, routing functionalities can be tested by curling a service container directly.
 
 First step is to configure kubectl to use the apiserver created in the steps below:
  

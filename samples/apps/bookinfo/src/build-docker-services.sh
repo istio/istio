@@ -5,6 +5,7 @@ APPSDIR=$SCRIPTDIR
 DISCOVERYDIR=$SCRIPTDIR/../../discovery
 PILOTAGENTPATH=$WORKSPACE/cmd/pilot-agent
 PILOTDISCOVERYPATH=$WORKSPACE/cmd/pilot-discovery
+PREPAREPROXYSCRIPT=$WORKSPACE/docker
 
 set -x
 set -o errexit
@@ -36,7 +37,7 @@ cd $SCRIPTDIR
 # Build the images and  push them to hub
 for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
-  rm -f $APPSDIR/$app/prepare_proxy.sh && cp $SCRIPTDIR/prepare_proxy.sh $_
+  rm -f $APPSDIR/$app/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $_
   docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "gihanson/${app}-v1:latest" $app/
   rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh
 done
@@ -48,7 +49,7 @@ pushd $SCRIPTDIR/reviews
 popd
 
 rm -f REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
-rm -f REVIEWSDIR/prepare_proxy.sh && cp $SCRIPTDIR/prepare_proxy.sh $REVIEWSDIR
+rm -f REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $REVIEWSDIR
 #plain build -- no ratings
 docker build -t gihanson/reviews-v1:latest --build-arg service_version=v1 \
     -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
