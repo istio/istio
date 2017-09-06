@@ -26,23 +26,6 @@ set -u
 # Print commands
 set -x
 
-PROJECT_NAME=istio-testing
-ZONE=us-east4-c
-CLUSTER_VERSION=1.7.4
-MACHINE_TYPE=n1-standard-4
-NUM_NODES=1
-CLUSTER_NAME=e2e-yutongz-$(uuidgen | cut -c1-6)
-
-CLUSTER_CREATED=false
-
-delete_cluster () {
-    if [ "${CLUSTER_CREATED}" = true ]; then
-        gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
-            || echo "Failed to delete cluster ${CLUSTER_CREATED}"
-    fi
-}
-trap delete_cluster EXIT
-
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
@@ -55,15 +38,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   PROJ_ID=${PROJECT_NAME}
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
-
-if [ -f /home/bootstrap/.kube/config ]; then
-  sudo chmod 666 /home/bootstrap/.kube/config
-fi
-
-gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
-  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --quiet \
-  || { echo "Failed to create a new cluster"; exit 1; }
-CLUSTER_CREATED=true
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
