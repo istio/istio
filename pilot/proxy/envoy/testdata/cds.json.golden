@@ -23,6 +23,17 @@
     ]
    },
    {
+    "name": "in.1100",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1100"
+     }
+    ]
+   },
+   {
     "name": "in.3333",
     "connect_timeout_ms": 1000,
     "type": "static",
@@ -56,6 +67,13 @@
     ]
    },
    {
+    "name": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+    "service_name": "world.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",
@@ -69,6 +87,13 @@
    {
     "name": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
     "service_name": "world.default.svc.cluster.local|custom",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+    "service_name": "hello.default.svc.cluster.local|mongo",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"

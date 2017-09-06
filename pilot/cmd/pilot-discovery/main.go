@@ -23,6 +23,8 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/adapter/config/aggregate"
 	"istio.io/pilot/adapter/config/crd"
@@ -35,7 +37,6 @@ import (
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ConsulArgs store the args related to Consul configuration

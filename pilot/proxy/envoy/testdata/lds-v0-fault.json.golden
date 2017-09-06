@@ -228,6 +228,37 @@
     "bind_to_port": false
    },
    {
+    "address": "tcp://10.1.0.0:100",
+    "name": "mongo_10.1.0.0_100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
     "address": "tcp://10.1.0.0:90",
     "name": "tcp_10.1.0.0_90",
     "filters": [
@@ -353,6 +384,47 @@
     "bind_to_port": false
    },
    {
+    "address": "tcp://10.1.1.0:1100",
+    "name": "mongo_10.1.1.0_1100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "target.ip": "10.1.1.0",
+        "target.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1100",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
     "address": "tcp://10.1.1.0:3333",
     "name": "tcp_10.1.1.0_3333",
     "filters": [
@@ -458,6 +530,37 @@
           "cluster": "in.9999",
           "destination_ip_list": [
            "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:100",
+    "name": "mongo_10.2.0.0_100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+          "destination_ip_list": [
+           "10.2.0.0/32"
           ]
          }
         ]

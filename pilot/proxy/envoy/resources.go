@@ -81,6 +81,9 @@ const (
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
+	// MONGOProxyFilter is the name of the MONGO Proxy network filter.
+	MONGOProxyFilter = "mongo_proxy"
+
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
 
@@ -498,6 +501,14 @@ func (*TCPProxyFilterConfig) isNetworkFilterConfig() {}
 type TCPRouteConfig struct {
 	Routes []*TCPRoute `json:"routes"`
 }
+
+// MONGOProxyFilterConfig definition
+type MONGOProxyFilterConfig struct {
+	StatPrefix string `json:"stat_prefix"`
+	// TODO: support fault filter
+}
+
+func (*MONGOProxyFilterConfig) isNetworkFilterConfig() {}
 
 // NetworkFilter definition
 type NetworkFilter struct {

@@ -89,6 +89,10 @@ func MakeService(hostname, address string) *model.Service {
 				Name:     "custom",
 				Port:     90, // target port 1090
 				Protocol: model.ProtocolTCP,
+			}, {
+				Name:     "mongo",
+				Port:     100, // target port 1100
+				Protocol: model.ProtocolMONGO,
 			}},
 	}
 }

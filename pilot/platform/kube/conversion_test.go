@@ -44,6 +44,8 @@ var (
 		{"http2-test", v1.ProtocolTCP, model.ProtocolHTTP2},
 		{"grpc", v1.ProtocolTCP, model.ProtocolGRPC},
 		{"grpc-test", v1.ProtocolTCP, model.ProtocolGRPC},
+		{"mongo", v1.ProtocolTCP, model.ProtocolMONGO},
+		{"mongo-test", v1.ProtocolTCP, model.ProtocolMONGO},
 	}
 )
 

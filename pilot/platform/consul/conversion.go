@@ -152,8 +152,12 @@ func convertProtocol(name string) model.Protocol {
 		return model.ProtocolHTTP2
 	case "https":
 		return model.ProtocolHTTPS
+	case "mongo":
+		return model.ProtocolMONGO
+	case "":
+		// fallthrough to default protocol
 	default:
-		return model.ProtocolHTTP
+		glog.Warningf("unsupported protocol value: %s", name)
 	}
-
+	return model.ProtocolTCP
 }

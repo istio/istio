@@ -23,6 +23,17 @@
     ]
    },
    {
+    "name": "in.1100",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1100"
+     }
+    ]
+   },
+   {
     "name": "in.3333",
     "connect_timeout_ms": 1000,
     "type": "static",
@@ -56,6 +67,22 @@
     ]
    },
    {
+    "name": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+    "service_name": "world.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": [
+      "spiffe://cluster.local/ns/default/sa/serviceaccount1",
+      "spiffe://cluster.local/ns/default/sa/serviceaccount2"
+     ]
+    }
+   },
+   {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
     "connect_timeout_ms": 1000,
     "type": "strict_dns",
@@ -86,6 +113,19 @@
       "spiffe://cluster.local/ns/default/sa/serviceaccount1",
       "spiffe://cluster.local/ns/default/sa/serviceaccount2"
      ]
+    }
+   },
+   {
+    "name": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+    "service_name": "hello.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
     }
    },
    {
