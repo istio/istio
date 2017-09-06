@@ -39,9 +39,9 @@ CLUSTER_CREATED=false
 
 delete_cluster () {
     if [ "${CLUSTER_CREATED}" = true ]; then
-        ll /home/bootstrap/.kube/
-        gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
-            || echo "Failed to delete cluster ${CLUSTER_NAME}"
+        ls -la /home/bootstrap/.kube/
+        #gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
+            #|| echo "Failed to delete cluster ${CLUSTER_NAME}"
     fi
 }
 trap delete_cluster EXIT
@@ -50,8 +50,12 @@ if [ -f /home/bootstrap/.kube/config ]; then
   sudo chmod 666 /home/bootstrap/.kube/config
 fi
 
-ll /home/bootstrap/.kube/
+ls -la /home/bootstrap/.kube/
 
+gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
+  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --no-enable-legacy-authorization --quiet \
+  || { echo "Failed to create a new cluster"; exit 1; }
+CLUSTER_CREATED=true
 
 RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
