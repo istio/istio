@@ -39,8 +39,9 @@ CLUSTER_CREATED=false
 
 delete_cluster () {
     if [ "${CLUSTER_CREATED}" = true ]; then
+        ll /home/bootstrap/.kube/
         gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
-            || echo "Failed to delete cluster ${CLUSTER_CREATED}"
+            || echo "Failed to delete cluster ${CLUSTER_NAME}"
     fi
 }
 trap delete_cluster EXIT
@@ -48,6 +49,8 @@ trap delete_cluster EXIT
 if [ -f /home/bootstrap/.kube/config ]; then
   sudo chmod 666 /home/bootstrap/.kube/config
 fi
+
+ll /home/bootstrap/.kube/
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --quiet \
