@@ -142,7 +142,7 @@ export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
-export ISTIO_NAMESPACE="istio-system"
+export ISTIO_NAMESPACE=${ISTIO_NAMESPACE}
 EOF
 }
 
