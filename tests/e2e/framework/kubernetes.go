@@ -51,6 +51,7 @@ var (
 
 	addons = []string{
 		"prometheus",
+		"zipkin",
 	}
 )
 
