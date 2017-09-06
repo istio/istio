@@ -141,6 +141,11 @@ def bazel_to_vendor(WKSPC):
     bysrc = {}
 
     for (target, linksrc) in links.items():
+        if linksrc.endswith("istio_mixer"):
+            # skip mixer as an external repo to avoid
+            # never ending loop
+            continue
+
         makelink(target, linksrc)
         #print "Vendored", linksrc, '-->', target
         bysrc[linksrc] = target
@@ -148,6 +153,11 @@ def bazel_to_vendor(WKSPC):
     # check other directories in external
     # and symlink ones that were not covered thru workspace
     for ext_target in get_external_links(external):
+        if ext_target.endswith("istio_mixer"):
+            # skip mixer as an external repo to avoid
+            # never ending loop
+            continue
+
         target = external + "/" + ext_target
         if target in links:
             continue
