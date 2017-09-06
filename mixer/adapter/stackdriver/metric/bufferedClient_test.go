@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package stackdriver
+package metric
 
 import (
 	"errors"
@@ -107,7 +107,7 @@ func TestBuffered_Close(t *testing.T) {
 	closeMe := &closeMe{}
 	b := &buffered{closeMe: closeMe, l: test.NewEnv(t).Logger()}
 	if err := b.Close(); err != nil {
-		t.Fatalf("Unexpected error calling buffered.Close(): %v", err)
+		t.Errorf("Unexpected error calling close on buffered client: %v", err)
 	}
 	if !closeMe.closed {
 		t.Fatalf("buffered.Close() did not call Close() on buffered.closeMe.")

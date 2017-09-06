@@ -148,6 +148,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		ci := &cinfo{kind: m.Kind, sha: computeSha(m, env.Logger())}
 		switch m.Kind {
 		case config.GAUGE:
+			// TODO: make prometheus use the keys of metric.Type.Dimensions as the label names and remove from config.
 			ci.c, err = registerOrGet(b.registry, newGaugeVec(mname, m.Description, m.LabelNames))
 			if err != nil {
 				metricErr = multierror.Append(metricErr, fmt.Errorf("could not register metric: %v", err))
