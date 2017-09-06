@@ -18,8 +18,10 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/golang/protobuf/proto"
+	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model/test"
@@ -472,4 +474,68 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	}
 
 	return out
+}
+
+// RejectConflictingEgressRules rejects rules that have a domain which is equal to
+// a domain of some other rule.
+// According to Envoy's virtual host specification, no virtual hosts can share the same domain.
+// The following code rejects conflicting rules deterministically, by a lexicographical order -
+// a rule with a smaller key lexicographically wins.
+// Here the key of the rule is the key of the Istio configuration objects - see
+// `func (meta *ConfigMeta) Key() string`
+func RejectConflictingEgressRules(egressRules map[string]*proxyconfig.EgressRule) ( // long line split
+	map[string]*proxyconfig.EgressRule, error) {
+	filteredEgressRules := make(map[string]*proxyconfig.EgressRule)
+	var errs error
+
+	var keys []string
+
+	// the key here is the key of the Istio configuration objects - see
+	// `func (meta *ConfigMeta) Key() string`
+	for key := range egressRules {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	// domains - a map where keys are of the form domain:port and values are the keys of
+	// egress-rule configuration objects
+	domains := make(map[string]string)
+	for _, egressRuleKey := range keys {
+		egressRule := egressRules[egressRuleKey]
+		conflictingRule := false
+
+	DomainsAndPortsLoop:
+		for _, domain := range egressRule.Domains {
+			for _, port := range egressRule.Ports {
+				portNumber := int(port.Port)
+				domainsKey := domain + ":" + strconv.Itoa(portNumber)
+
+				var keyOfAnEgressRuleWithTheSameDomain string
+				keyOfAnEgressRuleWithTheSameDomain, conflictingRule = domains[domainsKey]
+				if conflictingRule {
+					errs = multierror.Append(errs,
+						fmt.Errorf("rule %q conflicts with rule %q on domain "+
+							"%s and port %d, is rejected", egressRuleKey,
+							keyOfAnEgressRuleWithTheSameDomain, domain,
+							portNumber))
+					break DomainsAndPortsLoop
+				}
+			}
+		}
+
+		if conflictingRule {
+			continue
+		}
+
+		for _, domain := range egressRule.Domains {
+			for _, port := range egressRule.Ports {
+				portNumber := int(port.Port)
+				domainsKey := domain + ":" + strconv.Itoa(portNumber)
+				domains[domainsKey] = egressRuleKey
+			}
+		}
+		filteredEgressRules[egressRuleKey] = egressRule
+	}
+
+	return filteredEgressRules, errs
 }
