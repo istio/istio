@@ -50,6 +50,7 @@ type (
 		metrics  map[string]*cinfo
 		registry *prometheus.Registry
 		srv      server
+		cfg      *config.Params
 	}
 
 	handler struct {
@@ -61,7 +62,7 @@ type (
 var (
 	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
 
-	_ metric.HandlerBuilder = &builder{}
+	_ metric.HandlerBuilder = &obuilder{}
 	_ metric.Handler        = &handler{}
 )
 
@@ -81,11 +82,13 @@ func GetInfo() pkgHndlr.Info {
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return singletonBuilder
-		},
+		NewBuilder: func() adapter.Builder2 { return singletonBuilder },
+		// to be deleted
 		DefaultConfig:  &config.Params{},
 		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
+		CreateHandlerBuilder: func() adapter.HandlerBuilder {
+			return &obuilder{b: singletonBuilder}
+		},
 	}
 }
 
@@ -94,11 +97,12 @@ func (b *builder) clearState() {
 	b.metrics = make(map[string]*cinfo)
 }
 
-func (b *builder) ConfigureMetricHandler(map[string]*metric.Type) error { return nil }
+func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
+func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.cfg = cfg.(*config.Params) }
+func (b *builder) Validate() *adapter.ConfigErrors        { return nil }
+func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
-
-	cfg := c.(*config.Params)
+	cfg := b.cfg
 	var metricErr *multierror.Error
 
 	// newMetrics collects new metric configuration
@@ -340,4 +344,19 @@ func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte
 		log.Warningf("Unable to encode %v", err)
 	}
 	return sha1.Sum(ba)
+}
+
+type obuilder struct {
+	b *builder
+}
+
+func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
+	o.b.SetAdapterConfig(cfg)
+	return o.b.Build(context.Background(), env)
+}
+
+// ConfigureMetricHandler is to be deleted
+func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
+	o.b.SetMetricTypes(types)
+	return nil
 }

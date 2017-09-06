@@ -165,7 +165,8 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t)); err != nil {
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			if _, err := f.Build(context.Background(), test.NewEnv(t)); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
 			}
 		})
@@ -174,7 +175,8 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 
 func TestFactory_BuildServerFail(t *testing.T) {
 	f := newBuilder(&testServer{errOnStart: true})
-	if _, err := f.Build(makeConfig(), test.NewEnv(t)); err == nil {
+	f.SetAdapterConfig(makeConfig())
+	if _, err := f.Build(context.Background(), test.NewEnv(t)); err == nil {
 		t.Error("NewMetricsAspect() => expected error on server startup")
 	}
 }
@@ -189,7 +191,8 @@ func TestBuild_MetricDefinitionErrors(t *testing.T) {
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			if _, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t)); err == nil {
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			if _, err := f.Build(context.Background(), test.NewEnv(t)); err == nil {
 				t.Errorf("Expected error for Build(%#v)", v.metrics)
 			}
 		})
@@ -231,7 +234,8 @@ func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			_, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			_, err := f.Build(context.Background(), test.NewEnv(t))
 			if err == nil {
 				t.Error("Build() => expected error during metrics registration")
 			}
@@ -241,7 +245,8 @@ func TestFactory_Build_MetricDefinitionConflicts(t *testing.T) {
 
 func TestProm_Close(t *testing.T) {
 	f := newBuilder(&testServer{})
-	prom, _ := f.Build(&config.Params{}, test.NewEnv(t))
+	f.SetAdapterConfig(&config.Params{})
+	prom, _ := f.Build(context.Background(), test.NewEnv(t))
 	if err := prom.Close(); err != nil {
 		t.Errorf("Close() should not have returned an error: %v", err)
 	}
@@ -269,7 +274,8 @@ func TestProm_Record(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			a, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			a, err := f.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
 				t.Errorf("Build() => unexpected error: %v", err)
 			}
@@ -336,7 +342,8 @@ func TestProm_RecordFailures(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			a, err := f.Build(makeConfig(v.metrics...), test.NewEnv(t))
+			f.SetAdapterConfig(makeConfig(v.metrics...))
+			a, err := f.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
 				t.Errorf("Build() => unexpected error: %v", err)
 			}
