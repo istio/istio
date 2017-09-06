@@ -15,30 +15,61 @@
 
 #pragma once
 
-#include <string>
+#include "config.h"
 
+#include "common/common/logger.h"
 #include "server/config/network/http_connection_manager.h"
+
+#include <map>
+#include <memory>
+#include <string>
 
 namespace Envoy {
 namespace Http {
 
-class JwtVerificationFilter : public StreamDecoderFilter {
+class JwtVerificationFilter : public StreamDecoderFilter,
+                              public Logger::Loggable<Logger::Id::http> {
  public:
-  JwtVerificationFilter();
+  JwtVerificationFilter(std::shared_ptr<Auth::JwtAuthConfig> config);
   ~JwtVerificationFilter();
 
   // Http::StreamFilterBase
   void onDestroy() override;
 
   // Http::StreamDecoderFilter
-  FilterHeadersStatus decodeHeaders(HeaderMap&, bool) override;
+  FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override;
   FilterDataStatus decodeData(Buffer::Instance&, bool) override;
   FilterTrailersStatus decodeTrailers(HeaderMap&) override;
   void setDecoderFilterCallbacks(
       StreamDecoderFilterCallbacks& callbacks) override;
 
+  const LowerCaseString kAuthorizationHeaderKey =
+      LowerCaseString("Authorization");
+  const std::string kAuthorizationHeaderTokenPrefix = "Bearer ";
+  const LowerCaseString& AuthorizedHeaderKey();
+
  private:
   StreamDecoderFilterCallbacks* decoder_callbacks_;
+  std::shared_ptr<Auth::JwtAuthConfig> config_;
+
+  enum State { Calling, Responded, Complete };
+  State state_;
+  bool stopped_;
+  std::function<void(void)> cancel_verification_;
+
+  // Key: name of issuer the public key of which is being fetched
+  // Value: (IssuerInfo object with that name, AsyncClientCallbacks object to
+  // make the request for public key)
+  std::map<std::string,
+           std::pair<std::shared_ptr<Auth::IssuerInfo>,
+                     std::unique_ptr<Auth::AsyncClientCallbacks> > >
+      calling_issuers_;
+
+  void ReceivePubkey(HeaderMap& headers, std::string issuer_name, bool succeed,
+                     const std::string& pubkey);
+  void LoadPubkeys(HeaderMap& headers);
+  std::string Verify(HeaderMap& headers);
+  void CompleteVerification(HeaderMap& headers);
 };
 
 }  // Http

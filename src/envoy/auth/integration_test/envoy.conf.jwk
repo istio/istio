@@ -1,0 +1,101 @@
+{
+  "listeners": [
+    {
+      "address": "tcp://{{ ip_loopback_address }}:0",
+      "bind_to_port": true,
+      "filters": [
+        {
+          "type": "read",
+          "name": "http_connection_manager",
+          "config": {
+            "codec_type": "auto",
+            "stat_prefix": "ingress_http",
+            "route_config": {
+              "virtual_hosts": [
+                {
+                  "name": "backend",
+                  "domains": ["*"],
+                  "routes": [
+                    {
+                      "prefix": "/",
+                      "cluster": "service1"
+                    }
+                  ]
+                }
+              ]
+            },
+            "access_log": [
+              {
+                "path": "/dev/stdout"
+              }
+            ],
+            "filters": [
+              {
+                "type": "decoder",
+                "name": "jwt-auth",
+                "config": {
+                  "userinfo_type": "payload_base64url",
+                  "pubkey_cache_expiration_sec": 100,
+                  "audience": [
+                    "example_service"
+                  ],
+                  "issuers": [
+                    {
+                      "name": "https://example.com",
+                      "pubkey": {
+                        "type": "jwks",
+                        "uri": "http://example.com/foobar_cert",
+                        "cluster": "example_issuer"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "decoder",
+                "name": "router",
+                "config": {}
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": "tcp://{{ ip_loopback_address }}:0"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "service1",
+        "connect_timeout_ms": 5000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://{{ ip_loopback_address }}:{{ upstream_0 }}"
+          }
+        ]
+      },
+      {
+        "name": "example_issuer",
+        "connect_timeout_ms": 5000,
+        "type": "static",
+      	"circuit_breakers": {
+         "default": {
+          "max_pending_requests": 10000,
+          "max_requests": 10000
+         }
+      	},
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://{{ ip_loopback_address }}:{{ upstream_1 }}"
+          }
+        ]
+      }
+    ]
+  }
+}

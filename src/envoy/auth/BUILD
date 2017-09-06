@@ -56,6 +56,7 @@ envoy_cc_library(
     repository = "@envoy",
     deps = [
         ":jwt_lib",
+        ":config_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )
@@ -73,10 +74,13 @@ envoy_cc_library(
 envoy_cc_test(
     name = "http_filter_integration_test",
     srcs = [":integration_test/http_filter_integration_test.cc"],
-    data = [":integration_test/envoy.conf"],
+    data = [
+        ":integration_test/envoy.conf.jwk",
+    ],
     repository = "@envoy",
     deps = [
         ":http_filter_config",
+        ":jwt_lib",
         "@envoy//test/integration:integration_lib",
     ],
 )
@@ -92,5 +96,20 @@ envoy_cc_test(
         ":jwt_lib",
         "@envoy//source/exe:envoy_common_lib",
         "@envoy//test/test_common:utility_lib",
+    ],
+)
+
+envoy_cc_library(
+    name = "config_lib",
+    srcs = [
+        "config.cc",
+    ],
+    hdrs = [
+        "config.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        ":jwt_lib",
+        "@envoy//source/exe:envoy_common_lib",
     ],
 )
