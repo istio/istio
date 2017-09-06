@@ -34,16 +34,11 @@ NUM_NODES=1
 CLUSTER_NAME=e2e-yutongz-$(uuidgen | cut -c1-6)
 
 CLUSTER_CREATED=false
-CLUSTER_FETECTED=false
 
 delete_cluster () {
     if [ "${CLUSTER_CREATED}" = true ]; then
         gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
             || echo "Failed to delete cluster ${CLUSTER_CREATED}"
-    fi
-    if [ "${CLUSTER_FETECTED}" = true ]; then
-        kubectl config delete-context gke_${PROJECT_NAME}_${ZONE}_CLUSTER_NAME \
-            || echo "Failed to delete cluster context ${CLUSTER_CREATED}"
     fi
 }
 trap delete_cluster EXIT
@@ -61,19 +56,14 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
 fi
 
-gcloud auth list
+if [ -f /home/bootstrap/.kube/config ]; then
+  sudo chmod 666 .kube/config
+fi
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --quiet \
-  || { echo "Failed to create a new cluster"; sleep 200; exit 1; }
+  || { echo "Failed to create a new cluster"; exit 1; }
 CLUSTER_CREATED=true
-
-# Give some time for cluster to be ready
-sleep 5
-
-gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} \
-  || { echo "Failed to get credentials"; exit 1; }
-CLUSTER_FETECTED=true
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
