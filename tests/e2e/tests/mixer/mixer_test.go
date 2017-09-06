@@ -172,6 +172,8 @@ func podLogs(labelSelector string, container string) {
 	if err != nil {
 		return
 	}
+
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30 -p", tc.Kube.Namespace, pod, container)
 	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30", tc.Kube.Namespace, pod, container)
 }
 
