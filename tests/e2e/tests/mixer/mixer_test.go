@@ -320,8 +320,8 @@ func TestRateLimit(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		t.Fatalf("Could not create replace reviews routing rule: %v", err)
 	}
-	// the rate limit rule applies a max rate limit of 5 rps. Here we apply it
-	// to the "ratings" service (without a selector -- meaning for all versions).
+	// the rate limit rule applies a max rate limit of 1 rps. Here we apply it
+	// to the "ratings" service (without a selector).
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %got", err)
@@ -340,7 +340,7 @@ func TestRateLimit(t *testing.T) {
 	// traffic is generated to trigger 429s from the rate limit rule
 	opts := fortio.HTTPRunnerOptions{
 		RunnerOptions: fortio.RunnerOptions{
-			QPS:        100,
+			QPS:        10,
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
 		},
@@ -371,9 +371,8 @@ func TestRateLimit(t *testing.T) {
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := float64(succReqs)
 
-	// the rate-limit is 5 rps, but observed actuals are [4-5) in experimental
-	// testing. opt for leniency here to decrease flakiness of testing.
-	want200s := opts.Duration.Seconds() * 4
+	// the rate-limit is 1 rps
+	want200s := opts.Duration.Seconds()
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
