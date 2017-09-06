@@ -75,7 +75,7 @@ type testConfig struct {
 
 var (
 	tc                 *testConfig
-	productPageTimeout = 30 * time.Second
+	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
 		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule, preProcessOnlyRule,
 		standardAttributes, standardMetrics}
