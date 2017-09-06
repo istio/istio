@@ -26,9 +26,6 @@ set -u
 # Print commands
 set -x
 
-# Avoid wasting time on getting external IP
-E2E_ARGS=(--use_local_cluster)
-
 if [ "${CI:-}" == 'bootstrap' ]; then
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
