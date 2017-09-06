@@ -87,8 +87,8 @@ const (
 // NewAgent creates a new proxy agent for the proxy start-up and clean-up functions.
 func NewAgent(proxy Proxy, retry Retry) Agent {
 	return &agent{
-		proxy:    &proxy,
-		retry:    &retry,
+		proxy:    proxy,
+		retry:    retry,
 		epochs:   make(map[int]interface{}),
 		configCh: make(chan interface{}),
 		statusCh: make(chan exitStatus),
@@ -113,24 +113,24 @@ type Retry struct {
 }
 
 // Proxy defines command interface for a proxy
-type Proxy struct {
+type Proxy interface {
 	// Run command for a config, epoch, and abort channel
-	Run func(interface{}, int, <-chan error) error
+	Run(interface{}, int, <-chan error) error
 
 	// Cleanup command for an epoch
-	Cleanup func(int)
+	Cleanup(int)
 
 	// Panic command is invoked with the desired config when all retries to
 	// start the proxy fail just before the agent terminating
-	Panic func(interface{})
+	Panic(interface{})
 }
 
 type agent struct {
 	// proxy commands
-	proxy *Proxy
+	proxy Proxy
 
 	// retry configuration
-	retry *Retry
+	retry Retry
 
 	// desired configuration state
 	desiredConfig interface{}
@@ -224,9 +224,7 @@ func (a *agent) Run(ctx context.Context) {
 					glog.V(2).Infof("Updated retry delay to %v, budget to %d", delayDuration, a.retry.budget)
 				} else {
 					glog.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
-					if a.proxy.Panic != nil {
-						a.proxy.Panic(a.desiredConfig)
-					}
+					a.proxy.Panic(a.desiredConfig)
 					return
 				}
 			}

@@ -34,7 +34,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//model/test:go_default_library",
-        "@com_github_golang_mock//gomock:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
