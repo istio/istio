@@ -162,6 +162,7 @@ func podID(labelSelector string) (pod string, err error) {
 		glog.Warningf("could not get %s pod: %v", labelSelector, err)
 		return
 	}
+	pod = strings.Trim(pod, "'")
 	glog.Infof("%s pod name: %s", labelSelector, pod)
 	return
 }
