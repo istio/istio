@@ -57,7 +57,7 @@ message Params {
         string service_account_path = 6;
     }
 
-    // Information about how to represent an Istio metric in Stackdriver.
+    // Describes how to represent an Istio metric in Stackdriver.
     // See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
     message MetricInfo {
         google.api.MetricDescriptor.MetricKind kind = 1;
@@ -65,4 +65,37 @@ message Params {
     }
     // A map of Istio metric name to Stackdriver metric info.
     map<string, MetricInfo> metric_info = 8;
+
+    // Describes how to represent an Istio Log in Stackdriver.
+    message LogInfo {
+        // The logging template provides a set of variables; these list the subset of variables that should be used to
+        // form Stackdriver labels for the log entry.
+        repeated string label_names = 1;
+
+        // A golang text/template template that will be executed to construct the payload for this log entry.
+        // It will be given the full set of variables for the log to use to construct its result.
+        string payload_template = 2;
+
+        // Maps from template variable names to the various fields of Stackdriver's HTTP request struct.
+        // See https://godoc.org/cloud.google.com/go/logging#HTTPRequest
+        message HttpRequestMapping {
+            // template variable name to map into HTTPRequest.Status
+            string status = 1;
+            // template variable name to map into HTTPRequest.RequestSize
+            string request_size = 2;
+            // template variable name to map into HTTPRequest.ResponseSize
+            string response_size = 3;
+            // template variable name to map into HTTPRequest.Latency
+            string latency = 4;
+            // template variable name to map into HTTPRequest.LocalIP
+            string local_ip = 5;
+            // template variable name to map into HTTPRequest.RemoteIP
+            string remote_ip = 6;
+        }
+        // If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
+        // variables named in the mapping to populate the fields of the request struct from the instance's variables.
+        HttpRequestMapping http_mapping = 3;
+    }
+    // A map of Istio LogEntry name to Stackdriver log info.
+    map<string, LogInfo> log_info = 9;
 }

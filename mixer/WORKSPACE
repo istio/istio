@@ -540,6 +540,12 @@ go_repository(
     importpath = "github.com/openzipkin/zipkin-go-opentracing",
 )
 
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
+)
+
 ##
 ## Docker image build deps
 ##
