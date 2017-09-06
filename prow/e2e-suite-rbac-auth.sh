@@ -57,6 +57,8 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
   || { echo "Failed to create a new cluster"; exit 1; }
 CLUSTER_CREATED=true
 
+kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=cluster-admin --user=istio-prow-test-job@istio-testing.iam.gserviceaccount.com
+
 RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
 echo 'Running e2e with rbac, with auth Tests'

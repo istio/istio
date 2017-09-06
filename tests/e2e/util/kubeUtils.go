@@ -135,6 +135,7 @@ func GetIngress(n string) (string, error) {
 		if err != nil {
 			return err
 		}
+		glog.Infof("Get String: %s", ip)
 		ip = strings.Trim(ip, "'")
 		if ri.FindString(ip) == "" {
 			err = fmt.Errorf("unable to find ingress ip")
