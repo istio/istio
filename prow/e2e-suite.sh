@@ -57,7 +57,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 fi
 
 if [ -f /home/bootstrap/.kube/config ]; then
-  sudo chmod 666 .kube/config
+  sudo chmod 666 /home/bootstrap/.kube/config
 fi
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
