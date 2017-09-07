@@ -84,7 +84,7 @@ trap tear_down EXIT
 create_namespace
 generate_istio_yaml "${ISTIO_INSTALL_DIR}"
 deploy_istio "${ISTIO_INSTALL_DIR}"
-setup_mixer
+#setup_mixer
 generate_bookinfo_yaml "${BOOKINFO_DIR}"
 deploy_bookinfo "${BOOKINFO_DIR}"; URL=$GATEWAY_URL
 
@@ -197,7 +197,7 @@ print_block_echo "Testing gradual migration..."
 COMMAND_INPUT="curl -s -b 'foo=bar;user=normal-user;' ${URL}/productpage"
 EXPECTED_OUTPUT1="$EXAMPLES_DIR/productpage-normal-user-v1.html"
 EXPECTED_OUTPUT2="$EXAMPLES_DIR/productpage-normal-user-v3.html"
-replace_rule $RULES_DIR/route-rule-reviews-50-v3.yaml
+create_rule $RULES_DIR/route-rule-reviews-50-v3.yaml
 echo "Waiting for rules to propagate..."
 sleep 30
 echo "Expected percentage based routing is 50% to v1 and 50% to v3."
@@ -211,12 +211,12 @@ then
     dump_debug
 fi
 # mixer tests
-METRICS_URL=${ISTIO_MIXER_METRICS}/metrics
-curl --connect-timeout 5 ${METRICS_URL}
-${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
-curl --connect-timeout 5 ${METRICS_URL}
-${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
-curl --connect-timeout 5 ${METRICS_URL}
+#METRICS_URL=${ISTIO_MIXER_METRICS}/metrics
+#curl --connect-timeout 5 ${METRICS_URL}
+#${WRK} -t1 -c1 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
+#curl --connect-timeout 5 ${METRICS_URL}
+#${WRK} -t2 -c2 -d10s --latency -s ${SCRIPT_DIR}/wrk.lua ${URL}/productpage
+#curl --connect-timeout 5 ${METRICS_URL}
 
 
 if [ ${FAILURE_COUNT} -gt 0 ]
@@ -227,4 +227,4 @@ else
     echo "TESTS HAVE PASSED"
 fi
 
-cleanup_istioctl
+#cleanup_istioctl
