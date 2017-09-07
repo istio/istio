@@ -47,12 +47,12 @@ package adapter
 
 import(
 		{{range .}}{{.Package}} "{{.Path}}"; {{end}}
-        pkgHndlr "istio.io/mixer/pkg/handler"
+        adptr "istio.io/mixer/pkg/adapter"
 )
 
 // Inventory2 returns the inventory of all available adapters.
-func Inventory2() []pkgHndlr.InfoFn {
-	return []pkgHndlr.InfoFn{
+func Inventory2() []adptr.InfoFn {
+	return []adptr.InfoFn{
 {{range .}}{{.Package}}.GetInfo,
 {{end}}
 	}

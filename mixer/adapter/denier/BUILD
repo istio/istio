@@ -9,7 +9,6 @@ go_library(
     deps = [
         "//adapter/denier/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/handler:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/quota:go_default_library",

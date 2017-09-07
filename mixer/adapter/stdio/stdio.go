@@ -26,7 +26,6 @@ import (
 
 	"istio.io/mixer/adapter/stdio/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/logentry"
 	"istio.io/mixer/template/metric"
 )
@@ -110,9 +109,9 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "stdio",
 		Impl:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",
@@ -251,13 +250,13 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 }
 
 // ConfigureLogEntryHandler is to be deleted
-func (o *obuilder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
+func (o *obuilder) SetLogEntryTypes(types map[string]*logentry.Type) error {
 	o.b.SetLogEntryTypes(types)
 	return nil
 }
 
 // ConfigureMetricHandler is to be deleted
-func (o *obuilder) ConfigureMetricHandler(types map[string]*metric.Type) error {
+func (o *obuilder) SetMetricTypes(types map[string]*metric.Type) error {
 	o.b.SetMetricTypes(types)
 	return nil
 }

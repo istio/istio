@@ -71,7 +71,7 @@ func NewBuilder() logentry.HandlerBuilder {
 	return &builder{makeClient: logging.NewClient}
 }
 
-func (b *builder) ConfigureLogEntryHandler(types map[string]*logentry.Type) error {
+func (b *builder) SetLogEntryTypes(types map[string]*logentry.Type) error {
 	b.types = types
 	return nil
 }

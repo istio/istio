@@ -72,7 +72,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(checknothing.HandlerBuilder)
 				castedTypes := make(map[string]*checknothing.Type, len(types))
@@ -81,7 +81,7 @@ var (
 					v1 := v.(*checknothing.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureCheckNothingHandler(castedTypes)
+				return castedBuilder.SetCheckNothingTypes(castedTypes)
 			},
 
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
@@ -130,7 +130,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(listentry.HandlerBuilder)
 				castedTypes := make(map[string]*listentry.Type, len(types))
@@ -139,7 +139,7 @@ var (
 					v1 := v.(*listentry.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureListEntryHandler(castedTypes)
+				return castedBuilder.SetListEntryTypes(castedTypes)
 			},
 
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
@@ -212,10 +212,27 @@ var (
 					return nil, fmt.Errorf("error type checking for field Severity: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
 				}
 
+				if cpb.MonitoredResourceType == "" {
+					return nil, errors.New("expression for field MonitoredResourceType cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field MonitoredResourceType: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field MonitoredResourceType: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				infrdType.MonitoredResourceDimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.MonitoredResourceDimensions))
+				for k, v := range cpb.MonitoredResourceDimensions {
+					if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(logentry.HandlerBuilder)
 				castedTypes := make(map[string]*logentry.Type, len(types))
@@ -224,7 +241,7 @@ var (
 					v1 := v.(*logentry.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureLogEntryHandler(castedTypes)
+				return castedBuilder.SetLogEntryTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -256,6 +273,22 @@ var (
 						return errors.New(msg)
 					}
 
+					MonitoredResourceType, err := mapper.Eval(md.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceType for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(md.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceDimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
 					instances = append(instances, &logentry.Instance{
 						Name: name,
 
@@ -264,6 +297,10 @@ var (
 						Timestamp: Timestamp.(time.Time),
 
 						Severity: Severity.(string),
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
 					})
 					_ = md
 				}
@@ -309,10 +346,27 @@ var (
 					}
 				}
 
+				if cpb.MonitoredResourceType == "" {
+					return nil, errors.New("expression for field MonitoredResourceType cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field MonitoredResourceType: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field MonitoredResourceType: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				infrdType.MonitoredResourceDimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.MonitoredResourceDimensions))
+				for k, v := range cpb.MonitoredResourceDimensions {
+					if infrdType.MonitoredResourceDimensions[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(metric.HandlerBuilder)
 				castedTypes := make(map[string]*metric.Type, len(types))
@@ -321,7 +375,7 @@ var (
 					v1 := v.(*metric.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureMetricHandler(castedTypes)
+				return castedBuilder.SetMetricTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -345,12 +399,32 @@ var (
 						return errors.New(msg)
 					}
 
+					MonitoredResourceType, err := mapper.Eval(md.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceType for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(md.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval MonitoredResourceDimensions for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
 					instances = append(instances, &metric.Instance{
 						Name: name,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
 					})
 					_ = md
 				}
@@ -392,7 +466,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(quota.HandlerBuilder)
 				castedTypes := make(map[string]*quota.Type, len(types))
@@ -401,7 +475,7 @@ var (
 					v1 := v.(*quota.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureQuotaHandler(castedTypes)
+				return castedBuilder.SetQuotaTypes(castedTypes)
 			},
 
 			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
@@ -449,7 +523,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(reportnothing.HandlerBuilder)
 				castedTypes := make(map[string]*reportnothing.Type, len(types))
@@ -458,7 +532,7 @@ var (
 					v1 := v.(*reportnothing.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureReportNothingHandler(castedTypes)
+				return castedBuilder.SetReportNothingTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {

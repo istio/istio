@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/mixer/cmd/shared"
-	"istio.io/mixer/pkg/handler"
+	"istio.io/mixer/pkg/adapter"
 	mixerRuntime "istio.io/mixer/pkg/runtime"
 	"istio.io/mixer/pkg/template"
 )
@@ -33,7 +33,7 @@ const Group = "config.istio.io"
 // Version is the K8s API version.
 const Version = "v1alpha2"
 
-func crdCmd(tmplInfos map[string]template.Info, adapters []handler.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "crd",
 		Short: "CRDs (CustomResourceDefinition) available in Mixer",
@@ -69,7 +69,7 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []handler.InfoFn, print
 	return &adapterCmd
 }
 
-func listCrdsAdapters(printf, fatalf shared.FormatFn, infoFns []handler.InfoFn) {
+func listCrdsAdapters(printf, fatalf shared.FormatFn, infoFns []adapter.InfoFn) {
 	for _, infoFn := range infoFns {
 		info := infoFn()
 		shrtName := info.Name /* TODO make this info.shortName when related PR is in. */

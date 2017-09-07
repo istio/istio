@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/monitoring/apiv3"
+	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
@@ -77,7 +77,7 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 			}
 			env := test.NewEnv(t)
 			b := &builder{createClient: clientFunc(nil)}
-			_ = b.ConfigureMetricHandler(metrics)
+			_ = b.SetMetricTypes(metrics)
 			_, err := b.Build(tt.cfg, env)
 			if err != nil || tt.err != "" {
 				if tt.err == "" {

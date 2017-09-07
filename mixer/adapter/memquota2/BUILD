@@ -14,7 +14,6 @@ go_library(
     deps = [
         "//adapter/memquota2/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/handler:go_default_library",
         "//pkg/pool:go_default_library",
         "//pkg/status:go_default_library",
         "//template/quota:go_default_library",

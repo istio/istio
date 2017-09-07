@@ -85,7 +85,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_check.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_check.Type, len(types))
@@ -94,7 +94,7 @@ var (
 					v1 := v.(*istio_mixer_adapter_sample_check.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureSampleHandler(castedTypes)
+				return castedBuilder.SetSampleTypes(castedTypes)
 			},
 
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
@@ -175,7 +175,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_quota.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_quota.Type, len(types))
@@ -184,7 +184,7 @@ var (
 					v1 := v.(*istio_mixer_adapter_sample_quota.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureQuotaHandler(castedTypes)
+				return castedBuilder.SetQuotaTypes(castedTypes)
 			},
 
 			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
@@ -331,7 +331,7 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := (*builder).(istio_mixer_adapter_sample_report.HandlerBuilder)
 				castedTypes := make(map[string]*istio_mixer_adapter_sample_report.Type, len(types))
@@ -340,7 +340,7 @@ var (
 					v1 := v.(*istio_mixer_adapter_sample_report.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.ConfigureSampleHandler(castedTypes)
+				return castedBuilder.SetSampleTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {

@@ -25,13 +25,12 @@ import (
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
 type (
 	// BuilderInfoFinder is used to find specific handlers BuilderInfo for configuration.
-	BuilderInfoFinder func(name string) (*handler.Info, bool)
+	BuilderInfoFinder func(name string) (*adapter.BuilderInfo, bool)
 
 	// TemplateFinder finds a template by name.
 	TemplateFinder interface {
@@ -67,10 +66,10 @@ func (t *templateFinder) GetTemplateInfo(template string) (template.Info, bool) 
 }
 
 func newHandlerFactory(templateInfo map[string]template.Info, expr expr.TypeChecker,
-	df expr.AttributeDescriptorFinder, builderInfo map[string]*handler.Info) HandlerFactory {
+	df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.BuilderInfo) HandlerFactory {
 	return NewHandlerFactory(&templateFinder{
 		templateInfo: templateInfo,
-	}, expr, df, func(name string) (*handler.Info, bool) {
+	}, expr, df, func(name string) (*adapter.BuilderInfo, bool) {
 		i, found := builderInfo[name]
 		return i, found
 	})
@@ -138,7 +137,7 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
-		if err := ti.ConfigureType(typs, &hndlrBldr); err != nil {
+		if err := ti.SetType(typs, &hndlrBldr); err != nil {
 			return nil, fmt.Errorf("cannot configure handler types %v for mesh function name '%s': %v", typs, tmplName, err)
 		}
 	}

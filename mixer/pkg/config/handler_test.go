@@ -68,7 +68,7 @@ func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstances
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
-		ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+		SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 			instances := make([]string, 0)
 			for instance := range types {
 				instances = append(instances, instance)

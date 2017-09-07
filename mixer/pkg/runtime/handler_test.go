@@ -26,7 +26,6 @@ import (
 
 	"istio.io/mixer/pkg/adapter"
 	pb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/handler"
 	tmpl "istio.io/mixer/pkg/template"
 )
 
@@ -44,7 +43,7 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 		InferType: func(proto.Message, tmpl.TypeEvalFn) (proto.Message, error) {
 			return t.typeResult, t.infrErr
 		},
-		ConfigureType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+		SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
 			if t.cnfgrPanic != "" {
 				panic(t.cnfgrPanic)
 			}
@@ -156,8 +155,8 @@ func TestBuild_Error(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			bldrInfoFinder := func(name string) (*handler.Info, bool) {
-				return &handler.Info{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
+			bldrInfoFinder := func(name string) (*adapter.BuilderInfo, bool) {
+				return &adapter.BuilderInfo{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
@@ -273,8 +272,8 @@ func TestBuild_Valid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			bldrInfoFinder := func(name string) (*handler.Info, bool) {
-				return &handler.Info{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
+			bldrInfoFinder := func(name string) (*adapter.BuilderInfo, bool) {
+				return &adapter.BuilderInfo{CreateHandlerBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
