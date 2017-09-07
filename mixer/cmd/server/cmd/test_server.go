@@ -16,8 +16,8 @@ package cmd
 
 import (
 	"istio.io/mixer/cmd/shared"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -45,7 +45,7 @@ var defaultSeverArgs = serverArgs{
 }
 
 // SetupTestServer sets up a test server environment
-func SetupTestServer(info map[string]template.Info, adapters []handler.InfoFn, configStoreURL string, configStore2URL string,
+func SetupTestServer(info map[string]template.Info, adapters []adapter.InfoFn, configStoreURL string, configStore2URL string,
 	configDefaultNamespace string, configIdentityAttributeDomain string) *ServerContext {
 	sa := defaultSeverArgs
 	sa.configStoreURL = configStoreURL

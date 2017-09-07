@@ -25,7 +25,6 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/template/checknothing"
 	"istio.io/mixer/template/listentry"
 	"istio.io/mixer/template/logentry"
@@ -74,9 +73,9 @@ func (*handler) Close() error { return nil }
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "noop",
 		Impl:        "istio.io/mixer/adapter/noop",
 		Description: "Does nothing (useful for testing)",
@@ -123,32 +122,32 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-// ConfigureCheckNothingHandler is to be deleted
-func (*obuilder) ConfigureCheckNothingHandler(map[string]*checknothing.Type) error {
+// SetCheckNothingTypes is to be deleted
+func (*obuilder) SetCheckNothingTypes(map[string]*checknothing.Type) error {
 	return nil
 }
 
 // ConfigureReportNothingHandler is to be deleted
-func (*obuilder) ConfigureReportNothingHandler(map[string]*reportnothing.Type) error {
+func (*obuilder) SetReportNothingTypes(map[string]*reportnothing.Type) error {
 	return nil
 }
 
-// ConfigureListEntryHandler is to be deleted
-func (*obuilder) ConfigureListEntryHandler(map[string]*listentry.Type) error {
+// SetListEntryTypes is to be deleted
+func (*obuilder) SetListEntryTypes(map[string]*listentry.Type) error {
 	return nil
 }
 
-// ConfigureLogEntryHandler is to be deleted
-func (*obuilder) ConfigureLogEntryHandler(map[string]*logentry.Type) error {
+// SetLogEntryTypes is to be deleted
+func (*obuilder) SetLogEntryTypes(map[string]*logentry.Type) error {
 	return nil
 }
 
-// ConfigureMetricHandler is to be deleted
-func (*obuilder) ConfigureMetricHandler(map[string]*metric.Type) error {
+// SetMetricTypes is to be deleted
+func (*obuilder) SetMetricTypes(map[string]*metric.Type) error {
 	return nil
 }
 
-// ConfigureQuotaHandler is to be deleted
-func (*obuilder) ConfigureQuotaHandler(map[string]*quota.Type) error {
+// SetQuotaTypes is to be deleted
+func (*obuilder) SetQuotaTypes(map[string]*quota.Type) error {
 	return nil
 }

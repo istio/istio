@@ -59,6 +59,8 @@ func TestGenerator_Generate(t *testing.T) {
 					if removeErr := os.RemoveAll(testTmpDir); removeErr != nil {
 						t.Logf("Could not remove temporary folder %s: %v", testTmpDir, removeErr)
 					}
+				} else {
+					t.Logf("Generated data is located at '%s'", testTmpDir)
 				}
 			}()
 

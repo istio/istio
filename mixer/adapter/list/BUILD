@@ -13,7 +13,6 @@ go_library(
     deps = [
         "//adapter/list/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/handler:go_default_library",
         "//template/listentry:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

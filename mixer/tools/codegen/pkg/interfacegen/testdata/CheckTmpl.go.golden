@@ -61,9 +61,9 @@ type Instance struct {
 type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
-	// ConfigureListHandler is invoked by Mixer to pass all possible Types for instances that an adapter
+	// SetListTypes is invoked by Mixer to pass all possible Types for instances that an adapter
 	// may receive at runtime. Each type holds information about the shape of the instances.
-	ConfigureListHandler(map[string]*Type /*Instance name -> Type*/) error
+	SetListTypes(map[string]*Type /*Instance name -> Type*/) error
 }
 
 // Handler must be implemented by adapter code if it wants to

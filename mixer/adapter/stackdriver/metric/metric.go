@@ -22,7 +22,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/googleapis/gax-go"
+	gax "github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
@@ -112,7 +112,7 @@ func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
 }
 
-func (b *builder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) error {
 	b.metrics = metrics
 	return nil
 }

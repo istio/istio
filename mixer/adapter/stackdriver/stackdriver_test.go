@@ -42,12 +42,12 @@ func (f *fakeBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error
 	return f.instance, nil
 }
 
-func (f *fakeBuilder) ConfigureMetricHandler(metrics map[string]*metric.Type) error {
+func (f *fakeBuilder) SetMetricTypes(metrics map[string]*metric.Type) error {
 	f.calledConfigure = true
 	return nil
 }
 
-func (f *fakeBuilder) ConfigureLogEntryHandler(entries map[string]*logentry.Type) error {
+func (f *fakeBuilder) SetLogEntryTypes(entries map[string]*logentry.Type) error {
 	f.calledConfigure = true
 	return nil
 }
@@ -71,17 +71,17 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	m := &fakeBuilder{}
 	l := &fakeBuilder{}
 	b := &builder{m, l}
-	if err := b.ConfigureMetricHandler(make(map[string]*metric.Type)); err != nil {
+	if err := b.SetMetricTypes(make(map[string]*metric.Type)); err != nil {
 		t.Errorf("Unexpected error configuring metric handler: %v", err)
 	}
 	if !m.calledConfigure {
-		t.Error("Expected m.ConfigureMetricHandler to be called, wasn't.")
+		t.Error("Expected m.SetMetricTypes to be called, wasn't.")
 	}
-	if err := b.ConfigureLogEntryHandler(make(map[string]*logentry.Type)); err != nil {
+	if err := b.SetLogEntryTypes(make(map[string]*logentry.Type)); err != nil {
 		t.Errorf("Unexpected error configuring log handler: %v", err)
 	}
 	if !l.calledConfigure {
-		t.Error("Expected l.ConfigureLogEntryHandler to be called, wasn't.")
+		t.Error("Expected l.SetLogEntryTypes to be called, wasn't.")
 	}
 
 	if l.calledBuild || m.calledBuild {

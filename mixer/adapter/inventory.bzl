@@ -14,7 +14,7 @@ def _inventory_gen(name, packages, out):
 
 DEPS = [
     "//pkg/adapter:go_default_library",
-    "//pkg/handler:go_default_library",
+
 ]
 
 def inventory_library(name, packages, deps):

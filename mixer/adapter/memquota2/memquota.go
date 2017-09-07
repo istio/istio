@@ -33,7 +33,6 @@ import (
 
 	"istio.io/mixer/adapter/memquota2/config"
 	"istio.io/mixer/pkg/adapter"
-	pkgHndlr "istio.io/mixer/pkg/handler"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
 )
@@ -162,9 +161,9 @@ func (h *handler) Close() error {
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() pkgHndlr.Info {
-	return pkgHndlr.Info{
+// GetInfo returns the BuilderInfo associated with this adapter implementation.
+func GetInfo() adapter.BuilderInfo {
+	return adapter.BuilderInfo{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
@@ -255,8 +254,8 @@ func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, 
 	return o.b.Build(context.Background(), env)
 }
 
-// ConfigureQuotaHandler is to be deleted
-func (o *obuilder) ConfigureQuotaHandler(types map[string]*quota.Type) error {
+// SetQuotaTypes is to be deleted
+func (o *obuilder) SetQuotaTypes(types map[string]*quota.Type) error {
 	o.b.SetQuotaTypes(types)
 	return nil
 }

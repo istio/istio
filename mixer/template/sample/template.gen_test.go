@@ -65,7 +65,7 @@ func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sampl
 func (h *fakeReportHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeReportHandler) ConfigureSampleHandler(t map[string]*sample_report.Type) error {
+func (h *fakeReportHandler) SetSampleTypes(t map[string]*sample_report.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -86,7 +86,7 @@ func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_ch
 func (h *fakeCheckHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) ConfigureSampleHandler(t map[string]*sample_check.Type) error {
+func (h *fakeCheckHandler) SetSampleTypes(t map[string]*sample_check.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -107,7 +107,7 @@ func (h *fakeQuotaHandler) HandleQuota(ctx context.Context, instance *sample_quo
 func (h *fakeQuotaHandler) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeQuotaHandler) ConfigureQuotaHandler(t map[string]*sample_quota.Type) error {
+func (h *fakeQuotaHandler) SetQuotaTypes(t map[string]*sample_quota.Type) error {
 	h.cnfgCallInput = t
 	return nil
 }
@@ -552,7 +552,7 @@ dimensions:
 	}
 }
 
-type ConfigureTypeTest struct {
+type SetTypeTest struct {
 	name     string
 	tmpl     string
 	types    map[string]proto.Message
@@ -560,8 +560,8 @@ type ConfigureTypeTest struct {
 	want     interface{}
 }
 
-func TestConfigureType(t *testing.T) {
-	for _, tst := range []ConfigureTypeTest{
+func TestSetType(t *testing.T) {
+	for _, tst := range []SetTypeTest{
 		{
 			name:     "SimpleReport",
 			tmpl:     sample_report.TemplateName,
@@ -586,7 +586,7 @@ func TestConfigureType(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			hb := &tst.hdlrBldr
-			_ = SupportedTmplInfo[tst.tmpl].ConfigureType(tst.types, hb)
+			_ = SupportedTmplInfo[tst.tmpl].SetType(tst.types, hb)
 
 			var c interface{}
 			if tst.tmpl == sample_report.TemplateName {
@@ -597,7 +597,7 @@ func TestConfigureType(t *testing.T) {
 				c = tst.hdlrBldr.(*fakeQuotaHandler).cnfgCallInput
 			}
 			if !reflect.DeepEqual(c, tst.want) {
-				t.Errorf("SupportedTmplInfo[%s].ConfigureType(%v) handler invoked value = %v, want %v", tst.tmpl, tst.types, c, tst.want)
+				t.Errorf("SupportedTmplInfo[%s].SetType(%v) handler invoked value = %v, want %v", tst.tmpl, tst.types, c, tst.want)
 			}
 		})
 	}

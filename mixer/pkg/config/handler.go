@@ -80,7 +80,7 @@ func (h *handlerFactory) dispatch(types map[string]proto.Message,
 // But when the adapter crashes, we log that we cannot configure the handler, mark it as broken but continue to
 // accept the config.
 func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler string, ibt instancesByTemplate, types map[string]proto.Message) error {
-	// ConfigureTypeFn calls into handler's configure code which can panic. If that happens, we will
+	// SetTypeFn calls into handler's configure code which can panic. If that happens, we will
 	// remove the handler from the list of handlers to configure.
 	defer func() {
 		if r := recover(); r != nil {
@@ -101,7 +101,7 @@ func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler strin
 			typsToCnfgr[inst] = v
 		}
 
-		if err := ti.ConfigureType(typsToCnfgr, hb.handlerBuilder); err != nil {
+		if err := ti.SetType(typsToCnfgr, hb.handlerBuilder); err != nil {
 			glog.Warningf("Cannot configure handler %s with types %v: %v", handler, typsToCnfgr, err)
 			return err
 		}

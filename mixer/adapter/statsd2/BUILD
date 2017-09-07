@@ -11,7 +11,6 @@ go_library(
     deps = [
         "//adapter/statsd2/config:go_default_library",
         "//pkg/adapter:go_default_library",
-        "//pkg/handler:go_default_library",
         "//pkg/pool:go_default_library",
         "//template/metric:go_default_library",
         "@com_github_cactus_go_statsd_client//statsd:go_default_library",
