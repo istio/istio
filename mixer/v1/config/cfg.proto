@@ -304,33 +304,28 @@ message EmailAddress {
 // instance constructed using the 'RequestCountByService' instance.
 //
 // ```yaml
-// actionRules:
-// - selector: destination.service == "*"
+// - match: destination.service == "*"
 //   actions:
 //   - handler: prometheus-handler
 //     instances:
 //     - RequestCountByService
 // ```
 message Rule {
-  // Required. Selector is an attribute based predicate. When Mixer receives a
-  // request it evaluates all selectors in scope and executes the `actions` for all
-  // selectors that evaluated to true.
+  // Required. Match is an attribute based predicate. When Mixer receives a
+  // request it evaluates the match expression and executes all the associated `actions` 
+  // if the match evaluates to true.
   //
-  // A few example selectors:
+  // A few example match:
   //
-  // * an empty selector evaluates to `true`
-  // * `true`, a boolean literal; a rule with this selector will always be executed
+  // * an empty match evaluates to `true`
+  // * `true`, a boolean literal; a rule with this match will always be executed
   // * `destination.service == ratings*` selects any request targeting a service whose
   // name starts with "ratings"
   // * `attr1 == "20" && attr2 == "30"` logical AND, OR, and NOT are also available
-  string selector = 1;
+  string match = 1;
 
-  // Optional. The actions that will be executed when selector evaluates to `true`.
+  // Optional. The actions that will be executed when match evaluates to `true`.
   repeated Action actions = 2;
-
-  // Optional. Nested action rules; their selectors are evaluated if this selector
-  // predicate evaluates to `true`.
-  repeated Rule rules = 3;
 }
 
 // Action describes which [Handler][istio.mixer.v1.config.Handler] to invoke and what data to pass to it for processing.
@@ -339,16 +334,17 @@ message Rule {
 // constructed using the instance 'RequestCountByService'
 //
 // ```yaml
-// - handler: prometheus-handler
+//   handler: prometheus-handler
 //   instances:
 //   - RequestCountByService
 // ```
 message Action {
-  // Required. The handler to invoke. Must match the `name` of a [Handler][istio.mixer.v1.config.Handler.name] in scope.
+  // Required. Fully qualified name of the handler to invoke.
+  // Must match the `name` of a [Handler][istio.mixer.v1.config.Handler.name].
   string handler = 2;
 
-  // Required. Each value must match the `name` of the
-  // [Instance][istio.mixer.v1.config.Instance.name]s in scope.
+  // Required. Each value must match the fully qualified name of the
+  // [Instance][istio.mixer.v1.config.Instance.name]s.
   // Referenced instances are evaluated by resolving the attributes/literals for all the fields.
   // The constructed objects are then passed to the `handler` referenced within this action.
   repeated string instances = 3;
