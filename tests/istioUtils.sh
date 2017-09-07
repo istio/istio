@@ -21,7 +21,7 @@ TESTS_DIR="${ROOT}/tests"
 LOGLEVEL=10
 
 function create_rule() {
-    ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} create -f ${1} \
+    sed "s/jason/test-user/" ${1} | ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} create -f - \
       || error_exit 'Could not create rule'
 }
 
@@ -32,7 +32,7 @@ function replace_rule() {
 
 function cleanup_all_rules() {
     print_block_echo "Cleaning up rules"
-    local rules=($(${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} get RouteRule \
+    local rules=($(${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} get RouteRule --no-headers \
       | awk '{print $1}'))
     for r in ${rules[@]}; do
       ${K8CLI} -v=${LOGLEVEL} -n ${NAMESPACE} delete RouteRule "${r}"
