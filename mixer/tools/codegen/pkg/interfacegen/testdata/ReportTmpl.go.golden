@@ -73,7 +73,7 @@ type HandlerBuilder interface {
 
 	// SetMetricTypes is invoked by Mixer to pass all possible Types for instances that an adapter
 	// may receive at runtime. Each type holds information about the shape of the instances.
-	SetMetricTypes(map[string]*Type /*Instance name -> Type*/) error
+	SetMetricTypes(map[string]*Type /*Instance name -> Type*/)
 }
 
 // Handler must be implemented by adapter code if it wants to

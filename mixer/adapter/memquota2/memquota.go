@@ -174,11 +174,7 @@ func GetInfo() adapter.BuilderInfo {
 			MinDeduplicationDuration: 1 * time.Second,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -240,22 +236,4 @@ func (b *builder) buildWithDedup(_ context.Context, env adapter.Env, ticker *tim
 	})
 
 	return h, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-// Build is to be deleted
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// SetQuotaTypes is to be deleted
-func (o *obuilder) SetQuotaTypes(types map[string]*quota.Type) error {
-	o.b.SetQuotaTypes(types)
-	return nil
 }

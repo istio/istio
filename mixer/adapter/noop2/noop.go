@@ -89,11 +89,7 @@ func GetInfo() adapter.BuilderInfo {
 		},
 		DefaultConfig: &types.Empty{},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -110,44 +106,4 @@ func (*builder) Validate() (ce *adapter.ConfigErrors)                 { return }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	return &handler{}, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	return o.b.Build(context.Background(), env)
-}
-
-// SetCheckNothingTypes is to be deleted
-func (*obuilder) SetCheckNothingTypes(map[string]*checknothing.Type) error {
-	return nil
-}
-
-// ConfigureReportNothingHandler is to be deleted
-func (*obuilder) SetReportNothingTypes(map[string]*reportnothing.Type) error {
-	return nil
-}
-
-// SetListEntryTypes is to be deleted
-func (*obuilder) SetListEntryTypes(map[string]*listentry.Type) error {
-	return nil
-}
-
-// SetLogEntryTypes is to be deleted
-func (*obuilder) SetLogEntryTypes(map[string]*logentry.Type) error {
-	return nil
-}
-
-// SetMetricTypes is to be deleted
-func (*obuilder) SetMetricTypes(map[string]*metric.Type) error {
-	return nil
-}
-
-// SetQuotaTypes is to be deleted
-func (*obuilder) SetQuotaTypes(map[string]*quota.Type) error {
-	return nil
 }

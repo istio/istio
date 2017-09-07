@@ -101,10 +101,7 @@ func (h *handlerFactory) dispatchToHandler(hb *HandlerBuilderInfo, handler strin
 			typsToCnfgr[inst] = v
 		}
 
-		if err := ti.SetType(typsToCnfgr, hb.handlerBuilder); err != nil {
-			glog.Warningf("Cannot configure handler %s with types %v: %v", handler, typsToCnfgr, err)
-			return err
-		}
+		ti.SetType(typsToCnfgr, hb.b)
 	}
 	return nil
 }

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"context"
 	"crypto/sha1"
 	"errors"
 	"fmt"
@@ -644,19 +645,17 @@ quotas:
 
 func TestConvertHandlerParamsErrors(t *testing.T) {
 	tTable := []struct {
-		params            interface{}
-		defaultCnfg       proto.Message
-		hndlrValidateCnfg adapter.ValidateConfigFn
-		errorStr          string
+		params      interface{}
+		defaultCnfg proto.Message
+		errorStr    string
 	}{
 		{
 			params: map[string]interface{}{
 				"check_expression": "src.ip",
 				"blacklist":        "true (this should be bool)",
 			},
-			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			errorStr:          "failed to decode",
+			defaultCnfg: &listcheckerpb.ListsParams{},
+			errorStr:    "failed to decode",
 		},
 		{
 			params: map[string]interface{}{
@@ -664,20 +663,8 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 				"blacklist":        true,
 				"wrongextrafield":  true,
 			},
-			defaultCnfg:       &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			errorStr:          "failed to unmarshal",
-		},
-		{
-			params: map[string]interface{}{
-				"check_expression": "src.ip",
-				"blacklist":        true,
-			},
 			defaultCnfg: &listcheckerpb.ListsParams{},
-			hndlrValidateCnfg: func(c adapter.Config) (ce *adapter.ConfigErrors) {
-				return ce.Appendf("foo", "handler config validation failed")
-			},
-			errorStr: "handler config validation failed",
+			errorStr:    "failed to unmarshal",
 		},
 	}
 
@@ -685,12 +672,12 @@ func TestConvertHandlerParamsErrors(t *testing.T) {
 		t.Run(tt.errorStr, func(t *testing.T) {
 			_, ce := convertHandlerParams(
 				&adapter.BuilderInfo{
-					DefaultConfig:  tt.defaultCnfg,
-					ValidateConfig: tt.hndlrValidateCnfg,
+					DefaultConfig: tt.defaultCnfg,
+					NewBuilder:    func() adapter.HandlerBuilder { return fakeGoodHndlrBldr{} },
 				}, "TestConvertHandlerParamsErrors", tt.params, true)
 
 			if !strings.Contains(ce.Error(), tt.errorStr) {
-				t.Errorf("got %s, want %s\n", ce.Error(), tt.errorStr)
+				t.Errorf("got '%s', want '%s'\n", ce.Error(), tt.errorStr)
 			}
 		})
 	}
@@ -705,9 +692,8 @@ func TestValidateHandlers(t *testing.T) {
 			nil,
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig: &types.Empty{},
+					NewBuilder:    func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 0, "service.name == “*”", false, ConstGlobalConfig,
@@ -723,9 +709,8 @@ func TestValidateHandlers(t *testing.T) {
 			nil,
 			map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
+					DefaultConfig: &types.Empty{},
+					NewBuilder:    func() adapter.HandlerBuilder { return nil },
 				},
 			},
 			nil, 1, "service.name == “*”", false, duplicateCnstrs,
@@ -773,10 +758,9 @@ handlers:
 		{
 			hbi: map[string]*adapter.BuilderInfo{
 				"fooHandlerAdapter": {
-					DefaultConfig:        &types.Empty{},
-					ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-					CreateHandlerBuilder: func() adapter.HandlerBuilder { return nil },
-					SupportedTemplates:   []string{testSupportedTemplate},
+					DefaultConfig:      &types.Empty{},
+					NewBuilder:         func() adapter.HandlerBuilder { return nil },
+					SupportedTemplates: []string{testSupportedTemplate},
 				},
 			},
 			cfg:     globalConfig,
@@ -823,21 +807,44 @@ func (f *fakeGoodHndlr) Close() error {
 	return nil
 }
 
-func (f fakeGoodHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakeGoodHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return &fakeGoodHndlr{}, nil
 }
+func (f fakeGoodHndlrBldr) Validate() *adapter.ConfigErrors   { return nil }
+func (f fakeGoodHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
 
 type fakeErrRetrningHndlrBldr struct{}
 
-func (f fakeErrRetrningHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakeErrRetrningHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, errors.New("build failed")
 }
+func (f fakeErrRetrningHndlrBldr) Validate() *adapter.ConfigErrors {
+	return nil
+}
+func (f fakeErrRetrningHndlrBldr) SetAdapterConfig(config adapter.Config) {}
 
 type fakePanicHndlrBldr struct{}
 
-func (f fakePanicHndlrBldr) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f fakePanicHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	panic("panic from handler Build method")
 }
+func (f fakePanicHndlrBldr) Validate() *adapter.ConfigErrors   { return nil }
+func (f fakePanicHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
+
+type fakeHndlrBldr struct {
+	validationError string
+}
+
+func (f fakeHndlrBldr) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+	return &fakeGoodHndlr{}, nil
+}
+func (f fakeHndlrBldr) Validate() (ce *adapter.ConfigErrors) {
+	if f.validationError == "" {
+		return nil
+	}
+	return ce.Append("foo", errors.New(f.validationError))
+}
+func (f fakeHndlrBldr) SetAdapterConfig(_ adapter.Config) {}
 
 func getSetupHandlerFn(err error) SetupHandlerFn {
 	return func(actions []*pb.Action, instances map[string]*pb.Instance,
@@ -847,11 +854,6 @@ func getSetupHandlerFn(err error) SetupHandlerFn {
 }
 
 func TestBuildHandlers(t *testing.T) {
-	var hbgood adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbgood2 adapter.HandlerBuilder = fakeGoodHndlrBldr{}
-	var hbb adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hbb2 adapter.HandlerBuilder = fakeErrRetrningHndlrBldr{}
-	var hpb adapter.HandlerBuilder = fakePanicHndlrBldr{}
 	const handlerName = "foo"
 	const handlerName2 = "bar"
 	tests := []struct {
@@ -867,10 +869,22 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
+			false,
+			false,
+		},
+		{
+			"ErrorFromValidateMtd",
+			getSetupHandlerFn(nil),
+			map[string]*HandlerBuilderInfo{
+				handlerName: {
+					b: fakeHndlrBldr{validationError: "Validation failed"}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+				},
+			},
+			"Validation failed",
 			false,
 			false,
 		},
@@ -879,7 +893,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(errors.New("some error during configuration")),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"some error during configuration",
@@ -891,7 +905,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",
@@ -903,7 +917,7 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hpb, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakePanicHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"",
@@ -915,10 +929,10 @@ func TestBuildHandlers(t *testing.T) {
 			getSetupHandlerFn(nil),
 			map[string]*HandlerBuilderInfo{
 				handlerName: {
-					handlerBuilder: &hbgood2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeGoodHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 				handlerName2: {
-					handlerBuilder: &hbb2, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
+					b: fakeErrRetrningHndlrBldr{}, handlerCnfg: &pb.Handler{Params: &types.Empty{}},
 				},
 			},
 			"failed to build a handler instance",

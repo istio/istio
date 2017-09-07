@@ -15,6 +15,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -98,7 +99,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	// HandlerBuilder should always be present for a valid configuration (reference integrity should already be checked).
 	hndlrBldrInfo, _ := h.builderInfoFinder(handler.Adapter)
 
-	hndlrBldr := hndlrBldrInfo.CreateHandlerBuilder()
+	hndlrBldr := hndlrBldrInfo.NewBuilder()
 	if hndlrBldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
 		glog.Warning(msg)
@@ -137,12 +138,11 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
-		if err := ti.SetType(typs, &hndlrBldr); err != nil {
-			return nil, fmt.Errorf("cannot configure handler types %v for mesh function name '%s': %v", typs, tmplName, err)
-		}
+		ti.SetType(typs, hndlrBldr)
 	}
-
-	return hndlrBldr.Build(adapterCnfg.(proto.Message), env)
+	hndlrBldr.SetAdapterConfig(adapterCnfg.(proto.Message))
+	// TODO call validate. hndlrBldr.Validate
+	return hndlrBldr.Build(context.Background(), env)
 }
 
 func (h *handlerFactory) inferTypesGrpdByTmpl(instances []*pb.Instance) (map[string]typeMap, error) {

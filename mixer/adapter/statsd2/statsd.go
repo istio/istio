@@ -125,11 +125,7 @@ func GetInfo() adapter.BuilderInfo {
 			SamplingRate:  1.0,
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -193,21 +189,4 @@ func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handl
 		templates[metricName] = info{mtype: s.Type, tmpl: t}
 	}
 	return &handler{ac.SamplingRate, client, templates}, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// SetMetricTypes is to be deleted
-func (o *obuilder) SetMetricTypes(types map[string]*metric.Type) error {
-	o.b.SetMetricTypes(types)
-	return nil
 }

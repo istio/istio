@@ -33,7 +33,7 @@ type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string)
 func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
 	r := &adapterInfoRegistry{make(map[string]*adapter.BuilderInfo)}
 	for idx, info := range infos {
-		glog.V(3).Infof("Registering [%d] %#v", idx, info)
+		glog.V(3).Infof("registering [%d] %#v", idx, info)
 		adptInfo := info()
 		if a, ok := r.adapterInfosByName[adptInfo.Name]; ok {
 			// panic only if 2 different adapter.BuilderInfo objects are trying to identify by the
@@ -42,23 +42,21 @@ func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValid
 			glog.Error(msg)
 			panic(msg)
 		} else {
-			if adptInfo.ValidateConfig == nil {
-				// panic if adapter has not provided the ValidateConfig func.
-				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for ValidateConfig"+
-					" function field.", adptInfo, adptInfo.Name)
+			if adptInfo.NewBuilder == nil {
+				// panic if adapter has not provided the NewBuilder func.
+				msg := fmt.Errorf("adapter info %v from adapter %s has nil NewBuilder", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
 			if adptInfo.DefaultConfig == nil {
 				// panic if adapter has not provided the DefaultConfig func.
-				msg := fmt.Errorf("Adapter info %v from adapter %s does not contain value for DefaultConfig "+
-					"field.", adptInfo, adptInfo.Name)
+				msg := fmt.Errorf("adapter info %v from adapter %s has nil DefaultConfig", adptInfo, adptInfo.Name)
 				glog.Error(msg)
 				panic(msg)
 			}
 			if ok, errMsg := doesBuilderSupportsTemplates(adptInfo, hndlrBldrValidator); !ok {
 				// panic if an Adapter's HandlerBuilder does not implement interfaces that it says it wants to support.
-				msg := fmt.Errorf("HandlerBuilder from adapter %s does not implement the required interfaces"+
+				msg := fmt.Errorf("handlerBuilder from adapter %s does not implement the required interfaces"+
 					" for the templates it supports: %s", adptInfo.Name, errMsg)
 				glog.Error(msg)
 				panic(msg)
@@ -86,7 +84,7 @@ func (r *adapterInfoRegistry) FindAdapterInfo(name string) (b *adapter.BuilderIn
 }
 
 func doesBuilderSupportsTemplates(info adapter.BuilderInfo, hndlrBldrValidator handlerBuilderValidator) (bool, string) {
-	handlerBuilder := info.CreateHandlerBuilder()
+	handlerBuilder := info.NewBuilder()
 	resultMsgs := make([]string, 0)
 	for _, t := range info.SupportedTemplates {
 		if ok, errMsg := hndlrBldrValidator(handlerBuilder, t); !ok {

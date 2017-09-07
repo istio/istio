@@ -57,18 +57,17 @@ func (t fakeTmplRepo) SupportsTemplate(hndlrBuilder adapter.HandlerBuilder, s st
 
 type instancesPerCall [][]string
 type fakeTmplRepo2 struct {
-	err       error
 	panicTmpl string
 	// used to track what is called and later verify in the test.
 	trace *instancesPerCall
 }
 
-func newFakeTmplRepo2(retErr error, cnfgTypePanicsForTmpl string, trackInstancesPerCall *instancesPerCall) fakeTmplRepo2 {
-	return fakeTmplRepo2{err: retErr, panicTmpl: cnfgTypePanicsForTmpl, trace: trackInstancesPerCall}
+func newFakeTmplRepo2(cnfgTypePanicsForTmpl string, trackInstancesPerCall *instancesPerCall) fakeTmplRepo2 {
+	return fakeTmplRepo2{panicTmpl: cnfgTypePanicsForTmpl, trace: trackInstancesPerCall}
 }
 func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 	return tmpl.Info{
-		SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+		SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 			instances := make([]string, 0)
 			for instance := range types {
 				instances = append(instances, instance)
@@ -77,7 +76,6 @@ func (t fakeTmplRepo2) GetTemplateInfo(template string) (tmpl.Info, bool) {
 			if t.panicTmpl == template {
 				panic("Panic from handler code")
 			}
-			return t.err
 		},
 	}, true
 }
@@ -94,40 +92,29 @@ func TestDispatchToHandlers(t *testing.T) {
 		instancesByTemplate map[string]instancesByTemplate
 		infrdTyps           map[string]proto.Message
 
-		cnfgTypeErr               error
 		wantErr                   string
 		wantTrackInstancesPerCall [][]string
 	}{
 		{
 			name:                      "simple",
-			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {b: nil}},
 			infrdTyps:                 map[string]proto.Message{"inst1": nil},
 			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
-			cnfgTypeErr:               nil,
 			wantTrackInstancesPerCall: [][]string{{"inst1"}},
 		},
 		{
 			name:                      "MultiHandlerAndInsts",
-			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}, "hndlr2": {handlerBuilder: nil}},
+			handlers:                  map[string]*HandlerBuilderInfo{"hndlr": {b: nil}, "hndlr2": {b: nil}},
 			infrdTyps:                 map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil},
 			instancesByTemplate:       map[string]instancesByTemplate{"hndlr": map[string][]string{"any1": {"inst1", "inst2"}, "any2": {"inst3"}}},
-			cnfgTypeErr:               nil,
 			wantTrackInstancesPerCall: [][]string{{"inst1", "inst2"}, {"inst3"}},
-		},
-		{
-			name:                "ErrorFromAdapterCode",
-			handlers:            map[string]*HandlerBuilderInfo{"hndlr": {handlerBuilder: nil}},
-			infrdTyps:           map[string]proto.Message{"inst1": nil},
-			instancesByTemplate: map[string]instancesByTemplate{"hndlr": map[string][]string{"any": {"inst1"}}},
-			cnfgTypeErr:         fmt.Errorf("error from adapter configure code"),
-			wantErr:             "error from adapter configure code",
 		},
 	}
 
 	ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 	for _, tt := range tests {
 		actualCallTrackInfo := make(instancesPerCall, 0)
-		tmplRepo := newFakeTmplRepo2(tt.cnfgTypeErr, "", &actualCallTrackInfo)
+		tmplRepo := newFakeTmplRepo2("", &actualCallTrackInfo)
 		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
 
 		err := hc.dispatch(tt.infrdTyps, tt.instancesByTemplate, tt.handlers)
@@ -164,9 +151,9 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 	goodHndlr2 := "goodHndlr2"
 
 	handlers := map[string]*HandlerBuilderInfo{
-		badHndlr:   {handlerBuilder: nil},
-		goodHndlr1: {handlerBuilder: nil},
-		goodHndlr2: {handlerBuilder: nil},
+		badHndlr:   {b: nil},
+		goodHndlr1: {b: nil},
+		goodHndlr2: {b: nil},
 	}
 	infrdTypes := map[string]proto.Message{"inst1": nil, "inst2": nil, "inst3": nil}
 
@@ -187,22 +174,12 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 			wantCallTrackInfo:     wantcallTrackInfo,
 			cnfgTypeErr:           nil,
 		},
-		{
-			name:                  "PanicAfterError",
-			handlers:              handlers,
-			infrdTyps:             infrdTypes,
-			instancesByTemplate:   instancesByTemplate,
-			cnfgTypePanicsForTmpl: tmpCausingPanic,
-			wantCallTrackInfo:     wantcallTrackInfo,
-			cnfgTypeErr:           fmt.Errorf("error from configure-type"),
-			wantErr:               "error from configure-type",
-		},
 	}
 
 	for _, tt := range tests {
 		ex, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
 		actualCallTrackInfo := make(instancesPerCall, 0)
-		tmplRepo := newFakeTmplRepo2(tt.cnfgTypeErr, tt.cnfgTypePanicsForTmpl, &actualCallTrackInfo)
+		tmplRepo := newFakeTmplRepo2(tt.cnfgTypePanicsForTmpl, &actualCallTrackInfo)
 		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
 
 		err := hc.dispatch(tt.infrdTyps, tt.instancesByTemplate, tt.handlers)
