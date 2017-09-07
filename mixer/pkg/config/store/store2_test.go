@@ -28,7 +28,7 @@ import (
 )
 
 type memstore struct {
-	data     map[Key]map[string]interface{}
+	data     map[Key]*BackEndResource
 	ch       chan BackendEvent
 	initErr  error
 	watchErr error
@@ -46,7 +46,7 @@ func (m *memstore) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 	return m.ch, nil
 }
 
-func (m *memstore) Get(key Key) (map[string]interface{}, error) {
+func (m *memstore) Get(key Key) (*BackEndResource, error) {
 	v, ok := m.data[key]
 	if !ok {
 		return nil, ErrNotFound
@@ -54,13 +54,13 @@ func (m *memstore) Get(key Key) (map[string]interface{}, error) {
 	return v, nil
 }
 
-func (m *memstore) List() map[Key]map[string]interface{} {
+func (m *memstore) List() map[Key]*BackEndResource {
 	return m.data
 }
 
 func registerMemstore(builders map[string]Store2Builder) {
 	builders["memstore"] = func(*url.URL) (Store2Backend, error) {
-		return &memstore{data: map[Key]map[string]interface{}{}}, nil
+		return &memstore{data: map[Key]*BackEndResource{}}, nil
 	}
 }
 
@@ -80,7 +80,9 @@ func TestStore2(t *testing.T) {
 	if err = s.Get(k, h1); err != ErrNotFound {
 		t.Errorf("Got %v, Want ErrNotFound", err)
 	}
-	m.data[k] = map[string]interface{}{"name": "default", "adapter": "noop"}
+	m.data[k] = &BackEndResource{
+		Spec: map[string]interface{}{"name": "default", "adapter": "noop"},
+	}
 	if err = s.Get(k, h1); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
@@ -89,8 +91,15 @@ func TestStore2(t *testing.T) {
 		t.Errorf("Got %v, Want %v", h1, want)
 	}
 	wantList := map[Key]proto.Message{k: want}
-	if lst := s.List(); !reflect.DeepEqual(lst, wantList) {
-		t.Errorf("Got %+v, Want %+v", lst, wantList)
+
+	for k, v := range s.List() {
+		vwant := wantList[k]
+		if vwant == nil {
+			t.Fatalf("Did not get key for %s", k)
+		}
+		if !reflect.DeepEqual(v.Spec, vwant) {
+			t.Errorf("Got %+v, Want %+v", v, vwant)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -100,11 +109,18 @@ func TestStore2(t *testing.T) {
 		t.Error(err)
 	}
 	m.ch <- BackendEvent{
-		Key:   k,
-		Type:  Update,
-		Value: map[string]interface{}{"name": "default", "adapter": "noop"},
+		Key:  k,
+		Type: Update,
+		Value: &BackEndResource{
+			Spec: map[string]interface{}{"name": "default", "adapter": "noop"},
+		},
 	}
-	wantEv := Event{Key: k, Type: Update, Value: want}
+	wantEv := Event{Key: k, Type: Update,
+		Value: &Resource{
+			Spec: want,
+		},
+	}
+
 	if ev := <-ch; !reflect.DeepEqual(ev, wantEv) {
 		t.Errorf("Got %+v, Want %+v", ev, wantEv)
 	}
@@ -157,12 +173,14 @@ func TestStore2Fail(t *testing.T) {
 		t.Errorf("Got %v, Want watch error", err)
 	}
 
-	m.data[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = map[string]interface{}{
-		"foo": 1,
-	}
-	m.data[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = map[string]interface{}{
-		"unknown": "unknown",
-	}
+	m.data[Key{Kind: "Handler", Name: "name", Namespace: "ns"}] = &BackEndResource{
+		Spec: map[string]interface{}{
+			"foo": 1,
+		}}
+	m.data[Key{Kind: "Unknown", Name: "unknown", Namespace: "ns"}] = &BackEndResource{
+		Spec: map[string]interface{}{
+			"unknown": "unknown",
+		}}
 	if lst := s.List(); len(lst) != 0 {
 		t.Errorf("Got %v, Want empty", lst)
 	}

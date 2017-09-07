@@ -48,7 +48,7 @@ func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.Goroutin
 
 // startWatch registers with store, initiates a watch, and returns the current config state.
 func startWatch(s store.Store2, adapterInfo map[string]*adapter.BuilderInfo,
-	templateInfo map[string]template.Info) (map[store.Key]proto.Message, <-chan store.Event, error) {
+	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
 	ctx := context.Background()
 	kindMap := kindMap(adapterInfo, templateInfo)
 	if err := s.Init(ctx, kindMap); err != nil {

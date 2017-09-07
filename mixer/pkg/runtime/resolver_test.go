@@ -96,6 +96,17 @@ func TestResolver_Resolve(t *testing.T) {
 			nactions: 5,
 		},
 		{
+			desc: "success no namespace config tcp",
+			bag: map[string]interface{}{
+				ia: "myservice.myns",
+				ContextProtocolAttributeName: "tcp",
+			},
+			rules: []fakeRuleCfg{
+				{ns, 5},
+			},
+			nactions: 0,
+		},
+		{
 			desc: "success no config rules",
 			bag: map[string]interface{}{
 				ia: "myservice.myns",

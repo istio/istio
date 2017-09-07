@@ -56,7 +56,7 @@ func waitFor(wch <-chan BackendEvent, ct ChangeType, key Key) {
 
 func write(fsroot string, k Key, data map[string]interface{}) error {
 	path := filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")
-	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: resourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
+	bytes, err := yaml.Marshal(&resource{Kind: k.Kind, Metadata: ResourceMeta{Namespace: k.Namespace, Name: k.Name}, Spec: data})
 	if err != nil {
 		return err
 	}
@@ -93,10 +93,10 @@ func TestFSStore2(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
-	want := map[Key]map[string]interface{}{k: h2}
+	want := map[Key]*BackEndResource{k: h2}
 	if lst := s.List(); !reflect.DeepEqual(lst, want) {
 		t.Errorf("Got %+v, Want %+v", lst, want)
 	}
@@ -108,8 +108,8 @@ func TestFSStore2(t *testing.T) {
 	if h2, err = s.Get(k); err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
 	if err = os.Remove(filepath.Join(fsroot, k.Kind, k.Namespace, k.Name+".yaml")); err != nil {
 		t.Errorf("Got %v, Want nil", err)
@@ -328,9 +328,19 @@ spec:
 			if err := s.Init(ctx, []string{"Handler"}); err != nil {
 				tt.Fatalf("Init failed: %v", err)
 			}
-			want := map[Key]map[string]interface{}{k: data}
-			if lst := s.List(); len(lst) != 1 || !reflect.DeepEqual(lst, want) {
-				tt.Errorf("Got %+v, Want %+v", lst, want)
+			want := map[Key]*BackEndResource{k: {Spec: data}}
+			got := s.List()
+			if len(got) != len(want) {
+				tt.Fatalf("data length does not match, want %d, got %d", len(got), len(want))
+			}
+			for k, v := range got {
+				vwant := want[k]
+				if vwant == nil {
+					tt.Fatalf("Did not get key for %s", k)
+				}
+				if !reflect.DeepEqual(v.Spec, vwant.Spec) {
+					tt.Fatalf("Got %+v, Want %+v", v, vwant)
+				}
 			}
 		})
 	}

@@ -16,10 +16,10 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
 	"istio.io/mixer/pkg/adapter"
@@ -46,7 +46,7 @@ type Controller struct {
 
 	// configState is the current (potentially inconsistent) view of config.
 	// It receives updates from the underlying config store.
-	configState map[store.Key]proto.Message
+	configState map[store.Key]*store.Resource
 
 	// currently deployed resolver
 	resolver *resolver
@@ -241,7 +241,7 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 		instanceConfig[k.String()] = &cpb.Instance{
 			Name:     k.String(),
 			Template: k.Kind,
-			Params:   cfg,
+			Params:   cfg.Spec,
 		}
 	}
 	return instanceConfig
@@ -259,7 +259,7 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 		handlerConfig[k.String()] = &cpb.Handler{
 			Name:    k.String(),
 			Adapter: k.Kind,
-			Params:  cfg,
+			Params:  cfg.Spec,
 		}
 	}
 	if glog.V(3) {
@@ -275,10 +275,11 @@ func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder 
 		return c.df
 	}
 	attrs := make(map[string]*cpb.AttributeManifest_AttributeInfo)
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != AttributeManifestKind {
 			continue
 		}
+		cfg := obj.Spec
 		for an, at := range cfg.(*cpb.AttributeManifest).Attributes {
 			attrs[an] = at
 		}
@@ -326,6 +327,20 @@ func convertToRuntimeRules(ruleConfig rulesMapByNamespace) (rulesListByNamespace
 	return rules, nrules
 }
 
+const (
+	istioProtocol = "istio-protocol"
+)
+
+// resourceType maps labels to rule types.
+func resourceType(labels map[string]string) ResourceType {
+	ip := labels[istioProtocol]
+	rt := defaultResourcetype()
+	if ip == "tcp" {
+		rt.protocol = protocolTCP
+	}
+	return rt
+}
+
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
@@ -336,16 +351,19 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 	// check rules and ensure only good handlers and instances are used.
 	// record handler - instance associations
-	for k, cfg := range c.configState {
+	for k, obj := range c.configState {
 		if k.Kind != RulesKind {
 			continue
 		}
+
+		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
 		rule := &Rule{
 			selector: rulec.Selector,
 			name:     k.Name,
+			rtype:    resourceType(obj.Metadata.Labels),
 		}
-		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht)
+		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
@@ -368,14 +386,41 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 
 var cleanupSleepTime = 500 * time.Millisecond
 
+// isFQN returns true if the name is fully qualified.
+// every resource name is defined by Key.String()
+// shortname.kind.namespace
+func isFQN(name string) bool {
+	return len(strings.Split(name, ".")) == 3
+}
+
+// canonicalizeHandlerNames ensures that all handler names are fully qualified.
+func canonicalizeHandlerNames(acts []*cpb.Action, namespace string) []*cpb.Action {
+	for _, ic := range acts {
+		if !isFQN(ic.Handler) {
+			ic.Handler = ic.Handler + "." + namespace
+		}
+	}
+	return acts
+}
+
+// canonicalizeInstanceNames ensures that all instance names are fully qualified.
+func canonicalizeInstanceNames(instances []string, namespace string) []string {
+	for i := range instances {
+		if !isFQN(instances[i]) {
+			instances[i] = instances[i] + "." + namespace
+		}
+	}
+	return instances
+}
+
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) map[adptTmpl.TemplateVariety]map[string]*Action {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string) map[adptTmpl.TemplateVariety]map[string]*Action {
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
-	for _, ic := range acts {
+	for _, ic := range canonicalizeHandlerNames(acts, namespace) {
 		var hc *cpb.Handler
 		if hc = handlerConfig[ic.Handler]; hc == nil {
 			if glog.V(3) {
@@ -384,7 +429,7 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			continue
 		}
 
-		for _, instName := range ic.Instances {
+		for _, instName := range canonicalizeInstanceNames(ic.Instances, namespace) {
 			inst := instanceConfig[instName]
 			if inst == nil {
 				if glog.V(3) {

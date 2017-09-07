@@ -193,7 +193,7 @@ func (s *Store) Watch(ctx context.Context) (<-chan store.BackendEvent, error) {
 }
 
 // Get implements store.Store2Backend interface.
-func (s *Store) Get(key store.Key) (map[string]interface{}, error) {
+func (s *Store) Get(key store.Key) (*store.BackEndResource, error) {
 	s.cacheMutex.Lock()
 	c, ok := s.caches[key.Kind]
 	s.cacheMutex.Unlock()
@@ -210,20 +210,33 @@ func (s *Store) Get(key store.Key) (map[string]interface{}, error) {
 	if !exists {
 		return nil, store.ErrNotFound
 	}
-	val, _ := obj.(*unstructured.Unstructured).UnstructuredContent()["spec"].(map[string]interface{})
-	return val, nil
+	uns, _ := obj.(*unstructured.Unstructured)
+	return backEndResource(uns), nil
+}
+
+func backEndResource(uns *unstructured.Unstructured) *store.BackEndResource {
+	spec, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
+	return &store.BackEndResource{
+		Metadata: store.ResourceMeta{
+			Name:        uns.GetName(),
+			Namespace:   uns.GetNamespace(),
+			Labels:      uns.GetLabels(),
+			Annotations: uns.GetAnnotations(),
+			Revision:    uns.GetResourceVersion(),
+		},
+		Spec: spec,
+	}
 }
 
 // List implements store.Store2Backend interface.
-func (s *Store) List() map[store.Key]map[string]interface{} {
-	result := map[store.Key]map[string]interface{}{}
+func (s *Store) List() map[store.Key]*store.BackEndResource {
+	result := make(map[store.Key]*store.BackEndResource)
 	s.cacheMutex.Lock()
 	for kind, c := range s.caches {
 		for _, obj := range c.List() {
 			uns := obj.(*unstructured.Unstructured)
-			val, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
 			key := store.Key{Kind: kind, Name: uns.GetName(), Namespace: uns.GetNamespace()}
-			result[key] = val
+			result[key] = backEndResource(uns)
 		}
 	}
 	s.cacheMutex.Unlock()
@@ -232,11 +245,11 @@ func (s *Store) List() map[store.Key]map[string]interface{} {
 
 func toEvent(t store.ChangeType, obj interface{}) store.BackendEvent {
 	uns := obj.(*unstructured.Unstructured)
-	val, _ := uns.UnstructuredContent()["spec"].(map[string]interface{})
+	key := store.Key{Kind: uns.GetKind(), Namespace: uns.GetNamespace(), Name: uns.GetName()}
 	return store.BackendEvent{
 		Type:  t,
-		Key:   store.Key{Kind: uns.GetKind(), Namespace: uns.GetNamespace(), Name: uns.GetName()},
-		Value: val,
+		Key:   key,
+		Value: backEndResource(uns),
 	}
 }
 

@@ -39,6 +39,8 @@ type Rule struct {
 	// Rule is a top level config object and it has a unique name.
 	// It is used here for informational purposes.
 	name string
+	// rtype is gathered from labels.
+	rtype ResourceType
 }
 
 // resolver is the runtime view of the configuration database.
@@ -84,6 +86,9 @@ const DefaultConfigNamespace = "istio-default-config"
 
 // DefaultIdentityAttribute is attribute that defines config scopes.
 const DefaultIdentityAttribute = "target.service"
+
+// ContextProtocolAttributeName is the attribute that defines the protocol context.
+const ContextProtocolAttributeName = "context.protocol"
 
 // expectedResolvedActionsCount is used to preallocate slice for actions.
 const expectedResolvedActionsCount = 10
@@ -168,12 +173,23 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 	var selected bool
 	nselected := 0
 	var err error
+	ctxProtocol, _ := attrs.Get(ContextProtocolAttributeName)
+	tcp := ctxProtocol == "tcp"
+
 	for _, rules := range rulesArr {
 		for _, rule := range rules {
 			act := rule.actions[variety]
 			if act == nil { // do not evaluate selector if there is no variety specific action there.
 				continue
 			}
+			// default rtype is HTTP + Check|Report|Preprocess
+			if tcp != rule.rtype.IsTCP() {
+				if glog.V(4) {
+					glog.Infof("filterActions: rule %s removed ctxProtocol=%s, type %s", rule.name, ctxProtocol, rule.rtype)
+				}
+				continue
+			}
+
 			// do not evaluate empty predicates.
 			if len(rule.selector) != 0 {
 				if selected, err = r.evaluator.EvalPredicate(rule.selector, attrs); err != nil {
@@ -184,7 +200,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 				}
 			}
 			if glog.V(3) {
-				glog.Infof("filterActions: rule %s selected", rule.name)
+				glog.Infof("filterActions: rule %s selected %v", rule.name, rule.rtype)
 			}
 			nselected++
 			res = append(res, act...)
