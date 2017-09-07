@@ -124,11 +124,7 @@ void JwtVerificationFilter::ReceivePubkey(HeaderMap& headers,
   auto& iss = iss_it->second.first;
   iss->failed_ = !succeed;
   if (succeed) {
-    if (iss->pkey_type_ == "pem") {
-      iss->pkey_ = Auth::Pubkeys::CreateFromPem(pubkey);
-    } else if (iss->pkey_type_ == "jwks") {
-      iss->pkey_ = Auth::Pubkeys::CreateFromJwks(pubkey);
-    }
+    iss->pkey_ = Auth::Pubkeys::CreateFrom(pubkey, iss->pkey_type_);
   }
   iss->loaded_ = true;
   calling_issuers_.erase(iss_it);

@@ -108,14 +108,15 @@ IssuerInfo::IssuerInfo(Json::Object *json) {
     return;
   }
   // Check "type"
-  pkey_type_ = json_pubkey->getString("type", "");
-  if (pkey_type_ == "") {
-    ENVOY_LOG(debug, "IssuerInfo [name = {}]: Public key type missing", name_);
-    failed_ = true;
-    return;
-  }
-  if (pkey_type_ != "pem" && pkey_type_ != "jwks") {
-    ENVOY_LOG(debug, "IssuerInfo [name = {}]: Public key type invalid", name_);
+  std::string pkey_type_str = json_pubkey->getString("type", "");
+  if (pkey_type_str == "pem") {
+    pkey_type_ = Pubkeys::PEM;
+  } else if (pkey_type_str == "jwks") {
+    pkey_type_ = Pubkeys::JWKS;
+  } else {
+    ENVOY_LOG(debug,
+              "IssuerInfo [name = {}]: Public key type missing or invalid",
+              name_);
     failed_ = true;
     return;
   }
@@ -123,11 +124,7 @@ IssuerInfo::IssuerInfo(Json::Object *json) {
   std::string value = json_pubkey->getString("value", "");
   if (value != "") {
     // Public key is written in this JSON.
-    if (pkey_type_ == "pem") {
-      pkey_ = Pubkeys::CreateFromPem(value);
-    } else if (pkey_type_ == "jwks") {
-      pkey_ = Pubkeys::CreateFromJwks(value);
-    }
+    pkey_ = Pubkeys::CreateFrom(value, pkey_type_);
     loaded_ = true;
     return;
   }
@@ -135,11 +132,7 @@ IssuerInfo::IssuerInfo(Json::Object *json) {
   std::string path = json_pubkey->getString("file", "");
   if (path != "") {
     // Public key is loaded from the specified file.
-    if (pkey_type_ == "pem") {
-      pkey_ = Pubkeys::CreateFromPem(Filesystem::fileReadToEnd(path));
-    } else if (pkey_type_ == "jwks") {
-      pkey_ = Pubkeys::CreateFromJwks(Filesystem::fileReadToEnd(path));
-    }
+    pkey_ = Pubkeys::CreateFrom(Filesystem::fileReadToEnd(path), pkey_type_);
     loaded_ = true;
     return;
   }

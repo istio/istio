@@ -210,9 +210,12 @@ class JwtVerifier : public WithStatus {
 //   if(keys->GetStatus() == Status::OK) { ... }
 class Pubkeys : public WithStatus {
  public:
+  // Format of public key.
+  enum Type { PEM, JWKS };
+
   Pubkeys(){};
-  static std::unique_ptr<Pubkeys> CreateFromPem(const std::string& pkey_pem);
-  static std::unique_ptr<Pubkeys> CreateFromJwks(const std::string& pkey_jwks);
+  static std::unique_ptr<Pubkeys> CreateFrom(const std::string& pkey,
+                                             Type type);
 
  private:
   void CreateFromPemCore(const std::string& pkey_pem);

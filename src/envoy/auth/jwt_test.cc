@@ -330,9 +330,9 @@ class JwtTest : public testing::Test {
     JwtVerifier v = JwtVerifier(jwt);
     std::unique_ptr<Pubkeys> key;
     if (pkey_type == "pem") {
-      key = Pubkeys::CreateFromPem(pkey);
+      key = Pubkeys::CreateFrom(pkey, Pubkeys::Type::PEM);
     } else if (pkey_type == "jwks") {
-      key = Pubkeys::CreateFromJwks(pkey);
+      key = Pubkeys::CreateFrom(pkey, Pubkeys::Type::JWKS);
     } else {
       ASSERT_TRUE(0);
     }
