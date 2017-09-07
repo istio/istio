@@ -78,7 +78,7 @@ class TcpInstance : public Network::Filter,
     ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
   }
 
-  ~TcpInstance() {
+  void cancelCheck() {
     if (state_ != State::Calling) {
       cancel_check_ = nullptr;
     }
@@ -86,7 +86,12 @@ class TcpInstance : public Network::Filter,
     if (cancel_check_) {
       ENVOY_LOG(debug, "Cancelling check call");
       cancel_check_();
+      cancel_check_ = nullptr;
     }
+  }
+
+  ~TcpInstance() {
+    cancelCheck();
     ENVOY_LOG(debug, "Called TcpInstance : {}", __func__);
   }
 
@@ -149,6 +154,7 @@ class TcpInstance : public Network::Filter,
 
   void completeCheck(const Status& status) {
     ENVOY_LOG(debug, "Called TcpInstance completeCheck: {}", status.ToString());
+    cancel_check_ = nullptr;
     if (state_ == State::Closed) {
       return;
     }
@@ -186,7 +192,7 @@ class TcpInstance : public Network::Filter,
             filter_callbacks_->upstreamHost());
         mixer_control_.SendReport(request_data_);
       }
-      state_ = State::Closed;
+      cancelCheck();
     }
   }
 
