@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: quay.io/saurabh/examples-bookinfo-ratings-alldb:v1
+        image: istio/examples-bookinfo-ratings-v2
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.
