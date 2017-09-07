@@ -28,7 +28,7 @@ namespace Envoy {
 namespace Http {
 
 const LowerCaseString& JwtVerificationFilter::AuthorizedHeaderKey() {
-  static LowerCaseString* key = new LowerCaseString("Istio-Auth-UserInfo");
+  static LowerCaseString* key = new LowerCaseString("sec-istio-auth-userinfo");
   return *key;
 }
 

@@ -222,7 +222,7 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "EX_pmQAHA5ZjPVCAw";
 
   auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy("Istio-Auth-UserInfo",
+  expected_headers.addCopy("sec-istio-auth-userinfo",
                            "{\"iss\":\"https://"
                            "example.com\",\"sub\":\"test@example.com\","
                            "\"exp\":1501281058}");
