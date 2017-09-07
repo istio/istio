@@ -35,11 +35,6 @@ var supportedExtensions = map[string]bool{
 	".yml":  true,
 }
 
-type resourceMeta struct {
-	Name      string
-	Namespace string
-}
-
 // resource is almost identical to crd/resource.go. This is defined here
 // separately because:
 // - no dependencies on actual k8s libraries
@@ -47,7 +42,7 @@ type resourceMeta struct {
 type resource struct {
 	Kind       string
 	APIVersion string `json:"apiVersion"`
-	Metadata   resourceMeta
+	Metadata   ResourceMeta
 	Spec       map[string]interface{}
 	sha        [sha1.Size]byte
 }
@@ -166,7 +161,11 @@ func (s *fsStore2) checkAndUpdate() {
 	}
 	evs := make([]BackendEvent, 0, len(updated)+len(removed))
 	for _, key := range updated {
-		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: s.data[key].Spec})
+		br := &BackEndResource{
+			Metadata: s.data[key].Metadata,
+			Spec:     s.data[key].Spec,
+		}
+		evs = append(evs, BackendEvent{Key: key, Type: Update, Value: br})
 	}
 	for key := range removed {
 		evs = append(evs, BackendEvent{Key: key, Type: Delete})
@@ -221,22 +220,28 @@ func (s *fsStore2) Watch(ctx context.Context) (<-chan BackendEvent, error) {
 }
 
 // Get implements Store2Backend interface.
-func (s *fsStore2) Get(key Key) (map[string]interface{}, error) {
+func (s *fsStore2) Get(key Key) (*BackEndResource, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	r, ok := s.data[key]
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return r.Spec, nil
+	return &BackEndResource{
+		Metadata: r.Metadata,
+		Spec:     r.Spec,
+	}, nil
 }
 
 // List implements Store2Backend interface.
-func (s *fsStore2) List() map[Key]map[string]interface{} {
+func (s *fsStore2) List() map[Key]*BackEndResource {
 	s.mu.RLock()
-	result := make(map[Key]map[string]interface{}, len(s.data))
+	result := make(map[Key]*BackEndResource, len(s.data))
 	for k, r := range s.data {
-		result[k] = r.Spec
+		result[k] = &BackEndResource{
+			Metadata: r.Metadata,
+			Spec:     r.Spec,
+		}
 	}
 	s.mu.RUnlock()
 	return result

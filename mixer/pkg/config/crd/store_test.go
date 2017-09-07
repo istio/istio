@@ -186,10 +186,10 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
-	want := map[store.Key]map[string]interface{}{k: h2}
+	want := map[store.Key]*store.BackEndResource{k: h2}
 	if lst := s.List(); !reflect.DeepEqual(lst, want) {
 		t.Errorf("Got %+v, Want %+v", lst, want)
 	}
@@ -201,8 +201,8 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, Want nil", err)
 	}
-	if !reflect.DeepEqual(h, h2) {
-		t.Errorf("Got %+v, Want %+v", h2, h)
+	if !reflect.DeepEqual(h, h2.Spec) {
+		t.Errorf("Got %+v, Want %+v", h2.Spec, h)
 	}
 	lw.delete(k)
 	if err = waitFor(wch, store.Delete, k); err != nil {

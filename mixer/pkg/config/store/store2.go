@@ -42,7 +42,28 @@ type Key struct {
 type BackendEvent struct {
 	Key
 	Type  ChangeType
-	Value map[string]interface{}
+	Value *BackEndResource
+}
+
+// ResourceMeta is the standard metadata associated with a resource.
+type ResourceMeta struct {
+	Name        string
+	Namespace   string
+	Labels      map[string]string
+	Annotations map[string]string
+	Revision    string
+}
+
+// BackEndResource represents a resources with a raw spec
+type BackEndResource struct {
+	Metadata ResourceMeta
+	Spec     map[string]interface{}
+}
+
+// Resource represents a resources with converted spec.
+type Resource struct {
+	Metadata ResourceMeta
+	Spec     proto.Message
 }
 
 // String is the Istio compatible string representation of the resource.
@@ -59,7 +80,7 @@ type Event struct {
 	Type ChangeType
 
 	// Value refers the new value in the updated event. nil if the event type is delete.
-	Value proto.Message
+	Value *Resource
 }
 
 // Validator defines the interface to validate a new change.
@@ -76,10 +97,10 @@ type Store2Backend interface {
 	Watch(ctx context.Context) (<-chan BackendEvent, error)
 
 	// Get returns a resource's spec to the key.
-	Get(key Key) (map[string]interface{}, error)
+	Get(key Key) (*BackEndResource, error)
 
 	// List returns the whole mapping from key to resource specs in the store.
-	List() map[Key]map[string]interface{}
+	List() map[Key]*BackEndResource
 }
 
 // Store2 defines the access to the storage for mixer.
@@ -95,7 +116,7 @@ type Store2 interface {
 	Get(key Key, spec proto.Message) error
 
 	// List returns the whole mapping from key to resource specs in the store.
-	List() map[Key]proto.Message
+	List() map[Key]*Resource
 }
 
 // store2 is the implementation of Store2 interface.
@@ -150,25 +171,27 @@ func (s *store2) Get(key Key, spec proto.Message) error {
 	if err != nil {
 		return err
 	}
-
-	return convert(obj, spec)
+	return convert(obj.Spec, spec)
 }
 
 // List returns the whole mapping from key to resource specs in the store.
-func (s *store2) List() map[Key]proto.Message {
+func (s *store2) List() map[Key]*Resource {
 	data := s.backend.List()
-	result := make(map[Key]proto.Message, len(data))
-	for k, spec := range data {
+	result := make(map[Key]*Resource, len(data))
+	for k, d := range data {
 		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
 			glog.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
-		if err = convert(spec, pbSpec); err != nil {
+		if err = convert(d.Spec, pbSpec); err != nil {
 			glog.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
-		result[k] = pbSpec
+		result[k] = &Resource{
+			Metadata: d.Metadata,
+			Spec:     pbSpec,
+		}
 	}
 	return result
 }

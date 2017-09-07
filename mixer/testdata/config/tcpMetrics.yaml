@@ -1,0 +1,30 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: bytessent
+  namespace: istio-config-default
+spec:
+  value: connection.sent.bytes
+  dimensions:
+    source: source.labels["app"] | "unknown"
+    target: target.service | "unknown"
+    service: target.labels["app"] | "unknown"
+    method: request.path | "unknown"
+    version: target.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: tcpmetrics
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - bytessent.metric
+
