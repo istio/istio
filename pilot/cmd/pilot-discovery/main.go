@@ -184,7 +184,7 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.WatchedNamespace, "app namespace",
 		"a", metav1.NamespaceAll,
 		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
-	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", time.Second,
+	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", 60*time.Second,
 		"Controller resync interval")
 	discoveryCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
