@@ -52,8 +52,8 @@ if [[ ${1-} != "debug" ]] ; then
 fi
 
 echo Publishing debug docker image
+rm -f ${BAZEL_TARGET_DIR}/envoy
 bazel build -c dbg //src/envoy/mixer:envoy
-rm -f docker/envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/envoy.json ${BAZEL_TARGET_DIR}
@@ -71,6 +71,7 @@ if [[ ${1-} == "debug" ]] ; then
 fi
 
 echo Publishing release docker image
+rm -f ${BAZEL_TARGET_DIR}/envoy
 bazel build --config=release //src/envoy/mixer:envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
