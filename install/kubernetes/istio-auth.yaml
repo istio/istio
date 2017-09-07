@@ -1,153 +1,3 @@
-# GENERATED FILE. Use with Kubernetes 1.7+
-# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
-# Permissions and roles for istio
-# To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
-# Also helps to enable logging on apiserver 'wrap' to see the URLs.
-# Each RBAC deny needs to be mapped into a rule for the role.
-# If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-pilot
-rules:
-- apiGroups: ["config.istio.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["apiextensions.k8s.io"]
-  resources: ["customresourcedefinitions"]
-  verbs: ["*"]
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs", "istioconfigs.istio.io"]
-  verbs: ["*"]
-- apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services"]
-  verbs: ["*"]
-- apiGroups: [""]
-  resources: ["namespaces", "nodes", "secrets"]
-  verbs: ["get", "list", "watch"]
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-ca
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["create", "get", "watch", "list", "update"]
-- apiGroups: [""]
-  resources: ["serviceaccounts"]
-  verbs: ["get", "watch", "list"]
----
-# Permissions for the sidecar proxy.
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-sidecar
-rules:
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["extensions"]
-  resources: ["thirdpartyresources", "ingresses"]
-  verbs: ["get", "watch", "list", "update"]
-- apiGroups: [""]
-  resources: ["configmaps", "pods", "endpoints", "services"]
-  verbs: ["get", "watch", "list"]
----
-# Grant permissions to the Pilot/discovery.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-pilot-admin-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-pilot-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot
-  apiGroup: rbac.authorization.k8s.io
----
-# Grant permissions to the CA.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-ca-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-ca-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-ca
-  apiGroup: rbac.authorization.k8s.io
----
-# Grant permissions to mixer.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-mixer-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-mixer-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot
-  apiGroup: rbac.authorization.k8s.io
----
-# Grant permissions to the Ingress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-ingress-admin-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-ingress-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot
-  apiGroup: rbac.authorization.k8s.io
----
-# Grant permissions to the Egress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-egress-admin-role-binding
-subjects:
-- kind: ServiceAccount
-  name: istio-egress-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot
-  apiGroup: rbac.authorization.k8s.io
----
-# Grant permissions to the sidecar.
-# TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
-# granted only to that account !
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-sidecar-role-binding
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-sidecar
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
----
 # Mixer
 apiVersion: v1
 kind: ConfigMap
@@ -740,6 +590,8 @@ spec:
           name: istio
 ---
 
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
 apiVersion: v1
 kind: ServiceAccount
@@ -747,7 +599,7 @@ metadata:
   name: istio-ca-service-account
   namespace: istio-system
 ---
-# Istio CA watching all namespaces
+# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -766,5 +618,11 @@ spec:
       - name: istio-ca
         image: docker.io/istio/istio-ca:0.2.1
         imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
 

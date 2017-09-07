@@ -112,17 +112,18 @@ function merge_files() {
   DEST=$ROOT/install/kubernetes
   AUTH_SRC=$SRC/istio-auth
   ISTIO=$DEST/istio.yaml
+  ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
   ISTIO_AUTH=$DEST/istio-auth.yaml
-  ISTIO_AUTH_WITH_CLUSTER_CA=$DEST/istio-auth-with-cluster-ca.yaml
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-rbac-beta.yaml.tmpl > $DEST/istio-rbac-beta.yaml
-  cat $SRC/istio-rbac-alpha.yaml.tmpl > $DEST/istio-rbac-alpha.yaml
-  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+
+  cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
+  cp $SRC/istio-rbac-alpha.yaml.tmpl $DEST/istio-rbac-alpha.yaml
+
+  cp $SRC/istio-mixer.yaml.tmpl $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
+
   cp $ISTIO $ISTIO_AUTH
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
@@ -130,8 +131,13 @@ function merge_files() {
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   cat $AUTH_SRC/istio-ingress-auth.yaml.tmpl >> $ISTIO_AUTH
   cat $AUTH_SRC/istio-egress-auth.yaml.tmpl >> $ISTIO_AUTH
-  cp $ISTIO_AUTH $ISTIO_AUTH_WITH_CLUSTER_CA
-  cat $AUTH_SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_AUTH
+
+  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
+  cat $AUTH_SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
+
+  cat $AUTH_SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 }
 
 function update_version_file() {
