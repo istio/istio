@@ -3,14 +3,17 @@
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
 # Each RBAC deny needs to be mapped into a rule for the role.
 # If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
-#
-# NOTE: If deploying istio to a namespace other than 'default' then change the
-# ClusterRoleBinding namspace target appropriately.
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
   name: istio-pilot
 rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs", "istioconfigs.istio.io"]
   verbs: ["*"]
@@ -22,6 +25,24 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+# Mixer CRD needs to watch and list CRDs
+# It also uses discovery API to discover Kinds of config.istio.io
+# K8s adapter needs to list pods, services etc.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: istio-mixer
+rules:
+- apiGroups: ["config.istio.io"] # Istio CRD watcher
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets"]
   verbs: ["get", "list", "watch"]
 ---
 kind: ClusterRole
@@ -66,7 +87,21 @@ roleRef:
   name: istio-pilot
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Pilot/discovery.
+# Grant permissions to Mixer.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1alpha1
+metadata:
+  name: istio-mixer-admin-role-binding
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-mixer
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the CA.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
