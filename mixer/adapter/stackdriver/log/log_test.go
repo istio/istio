@@ -38,8 +38,9 @@ func TestBuild(t *testing.T) {
 	b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
 		return nil, errors.New("expected")
 	}}
-	_ = b.SetLogEntryTypes(map[string]*logentry.Type{})
-	if _, err := b.Build(&config.Params{}, test.NewEnv(t)); err == nil {
+	b.SetLogEntryTypes(map[string]*logentry.Type{})
+	b.SetAdapterConfig(&config.Params{})
+	if _, err := b.Build(context.Background(), test.NewEnv(t)); err == nil {
 		t.Error("Expected error, got none.")
 	}
 
@@ -71,8 +72,9 @@ func TestBuild(t *testing.T) {
 			b := &builder{makeClient: func(context.Context, string, ...option.ClientOption) (*logging.Client, error) {
 				return &logging.Client{}, nil
 			}}
-			_ = b.SetLogEntryTypes(tt.types)
-			if _, err := b.Build(tt.cfg, env); err != nil {
+			b.SetLogEntryTypes(tt.types)
+			b.SetAdapterConfig(tt.cfg)
+			if _, err := b.Build(context.Background(), env); err != nil {
 				t.Fatalf("Unexpected error building the handler: %v", err)
 			}
 

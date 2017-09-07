@@ -262,7 +262,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 	)
 	res, _ := qres.(*adapter.QuotaResult2)
 	if glog.V(3) {
-		glog.Infof("Quota %s", res)
+		glog.Infof("Quota %v", res)
 	}
 	return res, err
 }

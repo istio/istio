@@ -33,9 +33,6 @@ type BuilderInfo struct {
 	Impl string
 	// Description returns a user-friendly description of the adapter.
 	Description string
-	// CreateHandlerBuilder is a function that creates a HandlerBuilder which implements Builders associated
-	// with the SupportedTemplates.
-	CreateHandlerBuilder CreateHandlerBuilderFn // DEPRECATED
 	// NewBuilder is a function that creates a Builder which implements Builders associated
 	// with the SupportedTemplates.
 	NewBuilder NewBuilderFn
@@ -45,20 +42,10 @@ type BuilderInfo struct {
 	// adapter. This will be used by the configuration system to establish
 	// the shape of the block of configuration state passed to the HandlerBuilder.Build method.
 	DefaultConfig proto.Message
-	// ValidateConfig is a function that determines whether the given handler configuration meets all
-	// correctness requirements.
-	ValidateConfig ValidateConfigFn
 }
 
-// CreateHandlerBuilderFn is a function that creates a HandlerBuilder.
-type CreateHandlerBuilderFn func() HandlerBuilder
-
 // NewBuilderFn is a function that creates a Builder.
-type NewBuilderFn func() Builder2
-
-// ValidateConfigFn is a function that determines whether the given handler configuration meets all
-// correctness requirements.
-type ValidateConfigFn func(Config) *ConfigErrors
+type NewBuilderFn func() HandlerBuilder
 
 // InfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
 type InfoFn func() BuilderInfo

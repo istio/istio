@@ -39,7 +39,7 @@ type (
 	// InferTypeFn does Type inference from the Instance.params proto message.
 	InferTypeFn func(proto.Message, TypeEvalFn) (proto.Message, error)
 	// SetTypeFn dispatches the inferred types to handlers
-	SetTypeFn func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error
+	SetTypeFn func(types map[string]proto.Message, builder adapter.HandlerBuilder)
 
 	// ProcessCheckFn instantiates the instance object and dispatches them to the handler.
 	ProcessCheckFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,

@@ -75,11 +75,7 @@ func GetInfo() adapter.BuilderInfo {
 			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
 		},
 
-		NewBuilder: func() adapter.Builder2 { return &builder{} },
-
-		// TO BE DELETED
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return &obuilder{&builder{}} },
-		ValidateConfig:       func(cfg adapter.Config) *adapter.ConfigErrors { return nil },
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -95,31 +91,4 @@ func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	return &handler{status: b.adapterConfig.Status}, nil
-}
-
-// EVERYTHING BELOW IS TO BE DELETED
-
-type obuilder struct {
-	b *builder
-}
-
-// Build is to be deleted
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// SetCheckNothingTypes is to be deleted
-func (*obuilder) SetCheckNothingTypes(map[string]*checknothing.Type) error {
-	return nil
-}
-
-// SetListEntryTypes is to be deleted
-func (*obuilder) SetListEntryTypes(map[string]*listentry.Type) error {
-	return nil
-}
-
-// SetQuotaTypes is to be deleted
-func (*obuilder) SetQuotaTypes(map[string]*quota.Type) error {
-	return nil
 }

@@ -120,16 +120,16 @@ var (
 				_ = cpb
 				return infrdType, err
 			},
-			SetType: func(types map[string]proto.Message, builder *adapter.HandlerBuilder) error {
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := (*builder).({{.GoPackageName}}.HandlerBuilder)
+				castedBuilder := builder.({{.GoPackageName}}.HandlerBuilder)
 				castedTypes := make(map[string]*{{.GoPackageName}}.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
 					v1 := v.(*{{.GoPackageName}}.Type)
 					castedTypes[k] = v1
 				}
-				return castedBuilder.Set{{.Name}}Types(castedTypes)
+				castedBuilder.Set{{.Name}}Types(castedTypes)
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 				ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {

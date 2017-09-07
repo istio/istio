@@ -77,8 +77,9 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 			}
 			env := test.NewEnv(t)
 			b := &builder{createClient: clientFunc(nil)}
-			_ = b.SetMetricTypes(metrics)
-			_, err := b.Build(tt.cfg, env)
+			b.SetMetricTypes(metrics)
+			b.SetAdapterConfig(tt.cfg)
+			_, err := b.Build(context.Background(), env)
 			if err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("factory{}.NewMetricsAspect(test.NewEnv(t), nil, nil) = '%s', wanted no err", err.Error())
@@ -111,7 +112,8 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 func TestFactory_NewMetricsAspect_Errs(t *testing.T) {
 	err := fmt.Errorf("expected")
 	b := &builder{createClient: clientFunc(err)}
-	res, e := b.Build(&config.Params{}, test.NewEnv(t))
+	b.SetAdapterConfig(&config.Params{})
+	res, e := b.Build(context.Background(), test.NewEnv(t))
 	if e != nil && !strings.Contains(e.Error(), err.Error()) {
 		t.Fatalf("Expected error from factory.createClient to be propagated, got %v, %v", res, e)
 	} else if e == nil {

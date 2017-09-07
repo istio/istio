@@ -55,6 +55,7 @@ type (
 	builder struct {
 		createClient createClientFunc
 		metrics      map[string]*metric.Type
+		cfg          *config.Params
 	}
 
 	info struct {
@@ -112,14 +113,20 @@ func createClient(cfg *config.Params) (*monitoring.MetricClient, error) {
 	return monitoring.NewMetricClient(context.Background(), helper.ToOpts(cfg)...)
 }
 
-func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) error {
+func (b *builder) SetMetricTypes(metrics map[string]*metric.Type) {
 	b.metrics = metrics
+}
+
+func (b *builder) SetAdapterConfig(cfg adapter.Config) {
+	b.cfg = cfg.(*config.Params)
+}
+func (b *builder) Validate() *adapter.ConfigErrors {
 	return nil
 }
 
 // NewMetricsAspect provides an implementation for adapter.MetricsBuilder.
-func (b *builder) Build(c adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	cfg := c.(*config.Params)
+func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	cfg := b.cfg
 	types := make(map[string]info, len(b.metrics))
 	for name, t := range b.metrics {
 		i, found := cfg.MetricInfo[name]

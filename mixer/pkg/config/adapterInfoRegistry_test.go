@@ -15,6 +15,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -32,12 +33,11 @@ type TestBuilderInfoInventory struct {
 
 func createBuilderInfo(name string) adapter.BuilderInfo {
 	return adapter.BuilderInfo{
-		Name:                 name,
-		Description:          "mock adapter for testing",
-		CreateHandlerBuilder: func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
-		SupportedTemplates:   []string{sample_report.TemplateName},
-		DefaultConfig:        &types.Empty{},
-		ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
+		Name:               name,
+		Description:        "mock adapter for testing",
+		SupportedTemplates: []string{sample_report.TemplateName},
+		DefaultConfig:      &types.Empty{},
+		NewBuilder:         func() adapter.HandlerBuilder { return fakeHandlerBuilder{} },
 	}
 }
 
@@ -47,10 +47,12 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo 
 
 type fakeHandlerBuilder struct{}
 
-func (fakeHandlerBuilder) SetSampleTypes(map[string]*sample_report.Type) error { return nil }
-func (fakeHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (fakeHandlerBuilder) SetSampleTypes(map[string]*sample_report.Type) {}
+func (fakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
+func (fakeHandlerBuilder) SetAdapterConfig(config adapter.Config) {}
+func (fakeHandlerBuilder) Validate() *adapter.ConfigErrors        { return nil }
 
 type fakeHandler struct{}
 
@@ -115,23 +117,6 @@ func TestMissingDefaultValue(t *testing.T) {
 	t.Error("Should not reach this statement due to panic.")
 }
 
-func TestMissingValidateConfigFn(t *testing.T) {
-	builderCreatorInventory := TestBuilderInfoInventory{"foo"}
-	builderInfo := builderCreatorInventory.getNewGetBuilderInfoFn()
-	builderInfo.ValidateConfig = nil
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic due to missing ValidateConfig in BuilderInfo, " +
-				"but recover was nil.")
-		}
-	}()
-
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
-
-	t.Error("Should not reach this statement due to panic.")
-}
-
 func TestHandlerMap(t *testing.T) {
 	testBuilderInfoInventory := TestBuilderInfoInventory{"foo"}
 	testBuilderInfoInventory2 := TestBuilderInfoInventory{"bar"}
@@ -154,33 +139,31 @@ type badHandlerBuilder struct{}
 func (badHandlerBuilder) DefaultConfig() adapter.Config                       { return nil }
 func (badHandlerBuilder) ValidateConfig(adapter.Config) *adapter.ConfigErrors { return nil }
 
-// This misspelled function cause the Builder to not implement SampleProcessorBuilder
-func (fakeHandlerBuilder) MisspelledXXConfigureSample(map[string]*sample_report.Type) error {
-	return nil
-}
-func (badHandlerBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (badHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
+func (badHandlerBuilder) Validate() *adapter.ConfigErrors {
+	return nil
+}
+func (badHandlerBuilder) SetAdapterConfig(_ adapter.Config) {}
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+			Name:               "badAdapter1",
+			Description:        "mock adapter for testing",
+			DefaultConfig:      &types.Empty{},
+			NewBuilder:         func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates: []string{sample_report.TemplateName},
 		}
 	}
 	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
 		return adapter.BuilderInfo{
-			Name:                 "badAdapter1",
-			Description:          "mock adapter for testing",
-			DefaultConfig:        &types.Empty{},
-			ValidateConfig:       func(c adapter.Config) *adapter.ConfigErrors { return nil },
-			CreateHandlerBuilder: func() adapter.HandlerBuilder { return badHandlerBuilder{} },
-			SupportedTemplates:   []string{sample_report.TemplateName},
+			Name:               "badAdapter1",
+			Description:        "mock adapter for testing",
+			DefaultConfig:      &types.Empty{},
+			NewBuilder:         func() adapter.HandlerBuilder { return badHandlerBuilder{} },
+			SupportedTemplates: []string{sample_report.TemplateName},
 		}
 	}
 

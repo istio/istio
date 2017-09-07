@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/logentry"
@@ -28,6 +29,8 @@ type (
 	fakeBuilder struct {
 		calledConfigure bool
 		calledBuild     bool
+		calledValidate  bool
+		calledAdptCfg   bool
 		instance        *fakeAspect
 	}
 
@@ -37,19 +40,25 @@ type (
 	}
 )
 
-func (f *fakeBuilder) Build(adapter.Config, adapter.Env) (adapter.Handler, error) {
+func (f *fakeBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	f.calledBuild = true
 	return f.instance, nil
 }
 
-func (f *fakeBuilder) SetMetricTypes(metrics map[string]*metric.Type) error {
+func (f *fakeBuilder) SetMetricTypes(metrics map[string]*metric.Type) {
 	f.calledConfigure = true
+}
+
+func (f *fakeBuilder) SetLogEntryTypes(entries map[string]*logentry.Type) {
+	f.calledConfigure = true
+}
+func (f *fakeBuilder) Validate() *adapter.ConfigErrors {
+	f.calledValidate = true
 	return nil
 }
 
-func (f *fakeBuilder) SetLogEntryTypes(entries map[string]*logentry.Type) error {
-	f.calledConfigure = true
-	return nil
+func (f *fakeBuilder) SetAdapterConfig(cfg adapter.Config) {
+	f.calledAdptCfg = true
 }
 
 func (f *fakeAspect) Close() error {
@@ -71,23 +80,36 @@ func TestDispatchConfigureAndBuild(t *testing.T) {
 	m := &fakeBuilder{}
 	l := &fakeBuilder{}
 	b := &builder{m, l}
-	if err := b.SetMetricTypes(make(map[string]*metric.Type)); err != nil {
-		t.Errorf("Unexpected error configuring metric handler: %v", err)
-	}
+	b.SetMetricTypes(make(map[string]*metric.Type))
+
 	if !m.calledConfigure {
 		t.Error("Expected m.SetMetricTypes to be called, wasn't.")
 	}
-	if err := b.SetLogEntryTypes(make(map[string]*logentry.Type)); err != nil {
-		t.Errorf("Unexpected error configuring log handler: %v", err)
-	}
+	b.SetLogEntryTypes(make(map[string]*logentry.Type))
 	if !l.calledConfigure {
 		t.Error("Expected l.SetLogEntryTypes to be called, wasn't.")
+	}
+
+	b.SetAdapterConfig(&config.Params{})
+	if !l.calledAdptCfg {
+		t.Error("Expected l.calledAdptCfg to be called, wasn't.")
+	}
+	if !m.calledAdptCfg {
+		t.Error("Expected m.calledAdptCfg to be called, wasn't.")
+	}
+
+	_ = b.Validate()
+	if !l.calledValidate {
+		t.Error("Expected l.calledValidate to be called, wasn't.")
+	}
+	if !m.calledValidate {
+		t.Error("Expected m.calledValidate to be called, wasn't.")
 	}
 
 	if l.calledBuild || m.calledBuild {
 		t.Fatalf("Build called on builders before calling b.Build")
 	}
-	if _, err := b.Build(nil, test.NewEnv(t)); err != nil {
+	if _, err := b.Build(context.Background(), test.NewEnv(t)); err != nil {
 		t.Errorf("Exepected err calling builder.Build: %v", err)
 	}
 	if !m.calledBuild {
@@ -105,7 +127,7 @@ func TestDispatchHandleAndClose(t *testing.T) {
 	mb := &fakeBuilder{instance: ma}
 	b := &builder{mb, lb}
 
-	superHandler, err := b.Build(nil, test.NewEnv(t))
+	superHandler, err := b.Build(context.Background(), test.NewEnv(t))
 	if err != nil {
 		t.Fatalf("Unexpected error calling builder.Build: %v", err)
 	}

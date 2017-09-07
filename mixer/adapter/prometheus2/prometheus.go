@@ -61,7 +61,7 @@ type (
 var (
 	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
 
-	_ metric.HandlerBuilder = &obuilder{}
+	_ metric.HandlerBuilder = &builder{}
 	_ metric.Handler        = &handler{}
 )
 
@@ -81,13 +81,8 @@ func GetInfo() adapter.BuilderInfo {
 		SupportedTemplates: []string{
 			metric.TemplateName,
 		},
-		NewBuilder: func() adapter.Builder2 { return singletonBuilder },
-		// to be deleted
-		DefaultConfig:  &config.Params{},
-		ValidateConfig: func(msg adapter.Config) *adapter.ConfigErrors { return nil },
-		CreateHandlerBuilder: func() adapter.HandlerBuilder {
-			return &obuilder{b: singletonBuilder}
-		},
+		NewBuilder:    func() adapter.HandlerBuilder { return singletonBuilder },
+		DefaultConfig: &config.Params{},
 	}
 }
 
@@ -344,19 +339,4 @@ func computeSha(m *config.Params_MetricInfo, log adapter.Logger) [sha1.Size]byte
 		log.Warningf("Unable to encode %v", err)
 	}
 	return sha1.Sum(ba)
-}
-
-type obuilder struct {
-	b *builder
-}
-
-func (o *obuilder) Build(cfg adapter.Config, env adapter.Env) (adapter.Handler, error) {
-	o.b.SetAdapterConfig(cfg)
-	return o.b.Build(context.Background(), env)
-}
-
-// SetMetricTypes is to be deleted
-func (o *obuilder) SetMetricTypes(types map[string]*metric.Type) error {
-	o.b.SetMetricTypes(types)
-	return nil
 }
