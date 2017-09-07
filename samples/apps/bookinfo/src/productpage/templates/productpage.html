@@ -92,29 +92,65 @@ $('#login-modal').on('shown.bs.modal', function () {
 </div>
 
 <div class="container-fluid">
-<div class="row">
-<div class="col-md-12">
-    <h3 class="text-center text-primary">The Comedy of Errors</h3>
-    <p> <a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia
-    Summary</a>: The Comedy of Errors is one of <b>William
-    Shakespeare's</b> early plays. It is his shortest and one of his
-    most farcical comedies, with a major part of the humour coming
-    from slapstick and mistaken identity, in addition to puns and word
-    play.</p>
-</div>
-</div>
+  <div class="row">
+    <div class="col-md-12">
+      <h3 class="text-center text-primary">{{ product.title }}</h3>
+      {% autoescape false %}
+        <p>Summary: {{ product.descriptionHtml }}</p>
+      {% endautoescape %}
+    </div>
+  </div>
 
-<div class="row">
-<div class="col-md-6">
-{% autoescape false %}
-{{ details }}
-{% endautoescape %}
-</div>
-<div class="col-md-6">
-{% autoescape false %}
-{{ reviews }}
-{% endautoescape %}
-</div>
-</div>
+  <div class="row">
+    <div class="col-md-6">
+      {% if detailsStatus == 200: %}
+        <h4 class="text-center text-primary">Book Details</h4>
+        <dl>
+          <dt>Type:</dt>{{ details.type }}
+          <dt>Pages:</dt>{{ details.pages }}
+          <dt>Publisher:</dt>{{ details.publisher }}
+          <dt>Language:</dt>{{ details.language }}
+          <dt>ISBN-10:</dt>{{ details['ISBN-10'] }}
+          <dt>ISBN-13:</dt>{{ details['ISBN-13'] }}
+        </dl>
+      {% else %}
+        <h4 class="text-center text-primary">Error fetching product details!</h4>
+        {% if details: %}
+          <p>{{ details.error }}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="col-md-6">
+      {% if reviewsStatus == 200: %}
+        <h4 class="text-center text-primary">Book Reviews</h4>
+        {% for review in reviews.reviews %}
+          <blockquote>
+            <p>{{ review.text }}</p>
+            <small>{{ review.reviewer }}</small>
+            {% if review.rating: %}
+              <font color="{{ review.rating.color }}">
+                <!-- full stars: -->
+                {% for n in range(review.rating.stars)  %}
+                  <span class="glyphicon glyphicon-star"></span>
+                {% endfor %}
+                <!-- empty stars: -->
+                {% for n in range(5 - review.rating.stars) %}
+                  <span class="glyphicon glyphicon-star-empty"></span>
+                {% endfor %}
+              </font>
+            {% else %}
+              <span class="bg-warning">product ratings not available</span>
+            {% endif %}
+          </blockquote>
+        {% endfor %}
+      {% else %}
+        <h4 class="text-center text-primary">Error fetching product reviews!</h4>
+        {% if reviews: %}
+          <p>{{ reviews.error }}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
 </div>
 {% endblock %}

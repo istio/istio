@@ -15,6 +15,7 @@
 #   limitations under the License.
 
 require 'webrick'
+require 'json'
 
 if ARGV.length < 1 then
     puts "usage: #{$PROGRAM_NAME} port"
@@ -27,26 +28,49 @@ server = WEBrick::HTTPServer.new :BindAddress => '0.0.0.0', :Port => port
 
 trap 'INT' do server.shutdown end
 
-details_resp = '
-<h4 class="text-center text-primary">Book Details</h4>
-<dl>
-<dt>Paperback:</dt>200 pages
-<dt>Publisher:</dt> PublisherA
-<dt>Language:</dt>English
-<dt>ISBN-10:</dt>1234567890
-<dt>ISBN-13:</dt>123-1234567980
-</dl>
-'
-
 server.mount_proc '/health' do |req, res|
     res.status = 200
-    res.body = 'Details is healthy'
-    res['Content-Type'] = 'text/html'
+    res.body = {'status' => 'Details is healthy'}.to_json
+    res['Content-Type'] = 'application/json'
 end
 
 server.mount_proc '/details' do |req, res|
-    res.body = details_resp
-    res['Content-Type'] = 'text/html'
+    pathParts = req.path.split('/')
+    begin
+        id = Integer(pathParts[-1])
+        details = get_book_details(id)
+        res.body = details.to_json
+        res['Content-Type'] = 'application/json'
+    rescue
+        res.body = {'error' => 'please provide numeric product id'}.to_json
+        res['Content-Type'] = 'application/json'
+        res.status = 400
+    end
+end
+
+# TODO: provide details on different books.
+def get_book_details(id)
+    return {
+        'id' => id,
+        'author': 'William Shakespeare',
+        'year': 1595,
+        'type' => 'paperback',
+        'pages' => 200,
+        'publisher' => 'PublisherA',
+        'language' => 'English',
+        'ISBN-10' => '1234567890',
+        'ISBN-13' => '123-1234567890'
+    }
+end
+
+def get_book_deatils_html(id)
+    details = get_book_details(id)
+    html = '<dl>'
+    details.each do |k, v|
+        html += '<dt>%s:</dt>%s' % [k.capitalize, v]
+    end
+    html += '</dl>'
+    return html
 end
 
 server.mount_proc '/' do |req, res|
@@ -73,10 +97,13 @@ server.mount_proc '/' do |req, res|
     <title>Book details service</title>
     <body>
     <p><h2>Hello! This is the book details service. My content is</h2></p>
-    <div>%s</div>
+    <div>
+    <h4 class="text-center text-primary">Book Details</h4>
+    %s
+    </div>
     </body>
     </html>
-  ' % [details_resp]
+  ' % [get_book_deatils_html(1)]
   res['Content-Type'] = 'text/html'
 end
 
