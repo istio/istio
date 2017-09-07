@@ -33,7 +33,7 @@ ZONE=us-central1-f
 CLUSTER_VERSION=1.7.4
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
-CLUSTER_NAME=rbac_n_auth-$(uuidgen | cut -c1-8)
+CLUSTER_NAME=rbac-n-auth-$(uuidgen | cut -c1-8)
 
 CLUSTER_CREATED=false
 
