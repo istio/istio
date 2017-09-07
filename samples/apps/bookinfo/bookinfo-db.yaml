@@ -21,7 +21,7 @@ metadata:
 spec:
   ports:
   - port: 27017
-    name: mongodb
+    name: mongo
   selector:
     app: mongodb
 ---
