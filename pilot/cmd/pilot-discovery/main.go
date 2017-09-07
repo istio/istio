@@ -26,22 +26,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/adapter/config/aggregate"
+	configaggregate "istio.io/pilot/adapter/config/aggregate"
 	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/adapter/config/ingress"
+	"istio.io/pilot/adapter/serviceregistry/aggregate"
 	"istio.io/pilot/cmd"
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform"
 	"istio.io/pilot/platform/consul"
+	"istio.io/pilot/platform/eureka"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
 )
 
-// ConsulArgs store the args related to Consul configuration
-type ConsulArgs struct {
+type consulArgs struct {
 	config    string
+	serverURL string
+}
+
+type eurekaArgs struct {
 	serverURL string
 }
 
@@ -53,8 +58,9 @@ type args struct {
 	controllerOptions kube.ControllerOptions
 	discoveryOptions  envoy.DiscoveryServiceOptions
 
-	serviceregistry platform.ServiceRegistry
-	consulargs      ConsulArgs
+	registries []string
+	consul     consulArgs
+	eureka     eurekaArgs
 }
 
 var (
@@ -63,7 +69,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "pilot",
 		Short: "Istio Pilot",
-		Long:  "Istio Pilot provides management plane functionality to the Istio service mesh and Istio Mixer.",
+		Long:  "Istio Pilot provides fleet-wide traffic management capabilities in the Istio Service Mesh.",
 	}
 
 	discoveryCmd = &cobra.Command{
@@ -78,15 +84,10 @@ var (
 				mesh = &defaultMesh
 				glog.Warningf("failed to read mesh configuration, using default: %v", fail)
 			}
+
 			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
 			glog.V(2).Infof("version %s", version.Line())
 			glog.V(2).Infof("flags %s", spew.Sdump(flags))
-
-			var serviceController model.Controller
-			var configController model.ConfigStoreCache
-			environment := proxy.Environment{
-				Mesh: mesh,
-			}
 
 			stop := make(chan struct{})
 
@@ -103,57 +104,91 @@ var (
 				return multierror.Prefix(err, "failed to register custom resources.")
 			}
 
-			// Set up values for input to discovery service in different platforms
-			if flags.serviceregistry == platform.KubernetesRegistry || flags.serviceregistry == "" {
-				_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
-				if kuberr != nil {
-					return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
+			configController := crd.NewController(configClient, flags.controllerOptions)
+			serviceControllers := aggregate.NewController()
+			registered := make(map[platform.ServiceRegistry]bool)
+			for _, r := range flags.registries {
+				serviceRegistry := platform.ServiceRegistry(r)
+				if _, exists := registered[serviceRegistry]; exists {
+					return multierror.Prefix(err, r+" registry specified multiple times.")
 				}
-
-				if flags.controllerOptions.Namespace == "" {
-					flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
-				}
-
-				kubeController := kube.NewController(client, mesh, flags.controllerOptions)
-				if mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-					configController = crd.NewController(configClient, flags.controllerOptions)
-				} else {
-					configController, err = aggregate.MakeCache([]model.ConfigStoreCache{
-						crd.NewController(configClient, flags.controllerOptions),
-						ingress.NewController(client, mesh, flags.controllerOptions),
-					})
-					if err != nil {
-						return err
+				registered[serviceRegistry] = true
+				glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
+				switch serviceRegistry {
+				case platform.KubernetesRegistry:
+					_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
+					if kuberr != nil {
+						return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 					}
+
+					if flags.controllerOptions.Namespace == "" {
+						flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
+					}
+
+					kubectl := kube.NewController(client, mesh, flags.controllerOptions)
+					serviceControllers.AddRegistry(
+						aggregate.Registry{
+							Name:             serviceRegistry,
+							ServiceDiscovery: kubectl,
+							ServiceAccounts:  kubectl,
+							Controller:       kubectl,
+						})
+					if mesh.IngressControllerMode != proxyconfig.ProxyMeshConfig_OFF {
+						configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
+							configController,
+							ingress.NewController(client, mesh, flags.controllerOptions),
+						})
+						if err != nil {
+							return err
+						}
+					}
+
+					ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
+
+					go ingressSyncer.Run(stop)
+
+				case platform.ConsulRegistry:
+					glog.V(2).Infof("Consul url: %v", flags.consul.serverURL)
+					conctl, conerr := consul.NewController(
+						// TODO: Remove this hardcoding!
+						flags.consul.serverURL, "dc1", 2*time.Second)
+					if conerr != nil {
+						return fmt.Errorf("failed to create Consul controller: %v", conerr)
+					}
+
+					serviceControllers.AddRegistry(
+						aggregate.Registry{
+							Name:             serviceRegistry,
+							ServiceDiscovery: conctl,
+							ServiceAccounts:  conctl,
+							Controller:       conctl,
+						})
+				case platform.EurekaRegistry:
+					glog.V(2).Infof("Eureka url: %v", flags.eureka.serverURL)
+					client := eureka.NewClient(flags.eureka.serverURL)
+					serviceControllers.AddRegistry(
+						aggregate.Registry{
+							Name: serviceRegistry,
+							// TODO: Remove sync time hardcoding!
+							Controller:       eureka.NewController(client, 2*time.Second),
+							ServiceDiscovery: eureka.NewServiceDiscovery(client),
+							ServiceAccounts:  eureka.NewServiceAccounts(),
+						})
+				default:
+					return multierror.Prefix(err, "Service registry "+r+" is not supported.")
 				}
+			}
 
-				environment.ServiceDiscovery = kubeController
-				environment.ServiceAccounts = kubeController
-				environment.IstioConfigStore = model.MakeIstioStore(configController)
-				serviceController = kubeController
-				ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
-
-				go ingressSyncer.Run(stop)
-			} else if flags.serviceregistry == platform.ConsulRegistry {
-				glog.V(2).Infof("Consul url: %v", flags.consulargs.serverURL)
-
-				consulController, conerr := consul.NewController(
-					flags.consulargs.serverURL, "dc1", 2*time.Second)
-				if conerr != nil {
-					return fmt.Errorf("failed to create Consul controller: %v", conerr)
-				}
-
-				configController = crd.NewController(configClient, flags.controllerOptions)
-
-				environment.ServiceDiscovery = consulController
-				environment.ServiceAccounts = consulController
-				environment.IstioConfigStore = model.MakeIstioStore(configController)
-				serviceController = consulController
+			environment := proxy.Environment{
+				Mesh:             mesh,
+				IstioConfigStore: model.MakeIstioStore(configController),
+				ServiceDiscovery: serviceControllers,
+				ServiceAccounts:  serviceControllers,
 			}
 
 			// Set up discovery service
 			discovery, err := envoy.NewDiscoveryService(
-				serviceController,
+				serviceControllers,
 				configController,
 				environment,
 				flags.discoveryOptions)
@@ -161,7 +196,7 @@ var (
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
 
-			go serviceController.Run(stop)
+			go serviceControllers.Run(stop)
 			go configController.Run(stop)
 			go discovery.Run()
 			cmd.WaitSignal(stop)
@@ -171,10 +206,10 @@ var (
 )
 
 func init() {
-	discoveryCmd.PersistentFlags().StringVar((*string)(&flags.serviceregistry), "serviceregistry",
-		string(platform.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
-			string(platform.KubernetesRegistry), string(platform.ConsulRegistry)))
+	discoveryCmd.PersistentFlags().StringSliceVar(&flags.registries, "registries",
+		[]string{string(platform.KubernetesRegistry)},
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
+			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
 	discoveryCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
@@ -195,13 +230,15 @@ func init() {
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
-	discoveryCmd.PersistentFlags().StringVar(&flags.consulargs.config, "consulconfig", "",
+
+	discoveryCmd.PersistentFlags().StringVar(&flags.consul.config, "consulconfig", "",
 		"Consul Config file for discovery")
-	discoveryCmd.PersistentFlags().StringVar(&flags.consulargs.serverURL, "consulserverURL", "",
-		"URL for the consul server")
+	discoveryCmd.PersistentFlags().StringVar(&flags.consul.serverURL, "consulserverURL", "",
+		"URL for the Consul server")
+	discoveryCmd.PersistentFlags().StringVar(&flags.eureka.serverURL, "eurekaserverURL", "",
+		"URL for the Eureka server")
 
 	cmd.AddFlags(rootCmd)
-
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 }

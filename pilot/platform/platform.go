@@ -14,7 +14,7 @@
 
 package platform
 
-// ServiceRegistry defines underlying platform supporting service regisgtry
+// ServiceRegistry defines underlying platform supporting service registry
 type ServiceRegistry string
 
 const (
@@ -22,4 +22,6 @@ const (
 	KubernetesRegistry ServiceRegistry = "Kubernetes"
 	// ConsulRegistry environment flag
 	ConsulRegistry ServiceRegistry = "Consul"
+	// EurekaRegistry environment flag
+	EurekaRegistry ServiceRegistry = "Eureka"
 )

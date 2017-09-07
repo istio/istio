@@ -74,6 +74,14 @@ var (
 	}
 )
 
+// NewDiscovery builds a mock ServiceDiscovery
+func NewDiscovery(services map[string]*model.Service, versions int) *ServiceDiscovery {
+	return &ServiceDiscovery{
+		services: services,
+		versions: versions,
+	}
+}
+
 // MakeService creates a mock service
 func MakeService(hostname, address string) *model.Service {
 	return &model.Service{
