@@ -18,3 +18,4 @@ The working groups generate design docs which are kept in a [shared drive](https
 | Environments | Costin Manolache (Google), Laurent Demailly (Google), Jose Ortiz (IBM) | [istio-environments@](https://groups.google.com/forum/#!forum/istio-environments) | Raw VM support, Hybrid Mesh, Mac/Windows support, Cloud Foundry integration |
 | Integrations | Martin Taillefer (Google), Todd Kaplinger (IBM) | [istio-integrations@](https://groups.google.com/forum/#!forum/istio-integrations) | Mixer Adapter Model, Rate Limiting, Tracing, Monitoring, Logging |
 | API Management | Martin Taillefer (Google), Jason Allor (Google), Tony Ffrench (IBM) | [istio-api-management@](https://groups.google.com/forum/#!forum/istio-api-management) | API Keys, Content Mediation, Content Translation, OpenAPI Ingestion |
+| Test & Release | Andy Lai (Google), Vicky Xu (Google), Lin Sun (IBM) | [istio-test-release@](https://groups.google.com/forum/#!forum/istio-test-release) | Build, test, release |
