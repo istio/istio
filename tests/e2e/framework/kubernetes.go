@@ -248,6 +248,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
 
+	content = []byte(strings.Replace(string(content), "args: [\"discovery\", \"-v\", \"2\"]",
+		"args: [\"discovery\", \"-v\", \"2\", \"-a\", \""+k.Namespace+"\"]", -1))
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generated yaml file %s", dst)

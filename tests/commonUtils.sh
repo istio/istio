@@ -65,6 +65,7 @@ function generate_istio_yaml() {
     mkdir -p ${dest_dir}
     cp ${src_dir}/* ${dest_dir}
     sed -i "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-pilot.yaml
+    sed -i "s|args: [\"discovery\", \"-v\", \"2\"]|args: ["discovery", "-v", "2", \"-a\", $NAMESPACE]|" istio-pilot.yaml
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-ingress.yaml
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-egress.yaml
     sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" ${dest_dir}/istio-mixer.yaml
