@@ -33,10 +33,9 @@ set -o pipefail
 
 PROJECT=${PROJECT:-istio-testing}
 
-DATE_PART=$(date +"%Y%m%d")
-SHA_PART=$(git show -q HEAD --pretty=format:%h)
+SHA=$(git rev-parse HEAD)
 
-DOCKER_TAG="${DATE_PART}-${SHA_PART}"
+DOCKER_TAG="${SHA}"
 
 REPO=${REPO:-gcr.io}
 
