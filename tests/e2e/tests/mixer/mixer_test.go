@@ -148,18 +148,48 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
+func dumpK8Env() {
+	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
+
+	podLogs("istio=ingress", "istio-ingress")
+	podLogs("app=productpage", "istio-proxy")
+
+}
+
+func podID(labelSelector string) (pod string, err error) {
+	pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		glog.Warningf("could not get %s pod: %v", labelSelector, err)
+		return
+	}
+	pod = strings.Trim(pod, "'")
+	glog.Infof("%s pod name: %s", labelSelector, pod)
+	return
+}
+
+func podLogs(labelSelector string, container string) {
+	pod, err := podID(labelSelector)
+	if err != nil {
+		return
+	}
+
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30 -p", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30", tc.Kube.Namespace, pod, container)
+}
+
 // portForward sets up local port forward to the pod specified by the "app" label
 func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
 	var pod string
 	var err error
 
-	glog.Infof("Setting up %s proxy", labelSelector)
 	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
 	pod, err = util.Shell(getName)
 	if err != nil {
 		return err
 	}
 	glog.Infof("%s pod name: %s", labelSelector, pod)
+
+	glog.Infof("Setting up %s proxy", labelSelector)
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
 	glog.Info(portFwdCmd)
 	if p.portFwdProcess, err = util.RunBackground(portFwdCmd); err != nil {
@@ -550,6 +580,10 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 			checkProductPageDirect()
 			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
 		}
+
+		// see what is happening
+		dumpK8Env()
+
 		time.Sleep(3 * time.Second)
 	}
 }
