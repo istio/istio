@@ -51,7 +51,7 @@ spec:
     spec:
       containers:
       - name: mysqldb
-        image: quay.io/saurabh/mysqldb:v5
+        image: istio/examples-bookinfo-mysqldb
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3306
