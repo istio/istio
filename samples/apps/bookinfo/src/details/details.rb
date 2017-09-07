@@ -63,48 +63,4 @@ def get_book_details(id)
     }
 end
 
-def get_book_deatils_html(id)
-    details = get_book_details(id)
-    html = '<dl>'
-    details.each do |k, v|
-        html += '<dt>%s:</dt>%s' % [k.capitalize, v]
-    end
-    html += '</dl>'
-    return html
-end
-
-server.mount_proc '/' do |req, res|
-  res.body = '
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
-
-    <!-- Optional theme -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
-
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-
-    <!-- Latest compiled and minified JavaScript -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-
-    </head>
-    <title>Book details service</title>
-    <body>
-    <p><h2>Hello! This is the book details service. My content is</h2></p>
-    <div>
-    <h4 class="text-center text-primary">Book Details</h4>
-    %s
-    </div>
-    </body>
-    </html>
-  ' % [get_book_deatils_html(1)]
-  res['Content-Type'] = 'text/html'
-end
-
 server.start

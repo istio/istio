@@ -22,32 +22,6 @@ if (process.env.SERVICE_VERSION === 'v2') {
   var url = process.env.MONGO_DB_URL
 }
 
-dispatcher.onGet('/', function (req, res) {
-  res.writeHead(200)
-  res.end(
-    '<html>' +
-    '<head>' +
-    '<meta charset="utf-8">' +
-    '<meta http-equiv="X-UA-Compatible" content="IE=edge">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<!-- Latest compiled and minified CSS -->' +
-    '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">' +
-    '<!-- Optional theme -->' +
-    '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">' +
-    '<!-- Latest compiled and minified JavaScript -->' +
-    '<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>' +
-    '<!-- Latest compiled and minified JavaScript -->' +
-    '<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>' +
-    '</head>' +
-    '<title>Book ratings service</title>' +
-    '<body>' +
-    '<p><h2>Hello! This is the book ratings service. My content is</h2></p>' +
-    '<div>' + JSON.stringify(getLocalReviews(1)) + '</div>' +
-    '</body>' +
-    '</html>',
-    {'Content-type': 'text/html'})
-})
-
 dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
   var productIdStr = req.url.split('/').pop()
   var productId = parseInt(productIdStr)
@@ -92,8 +66,8 @@ dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
 })
 
 dispatcher.onGet('/health', function (req, res) {
-  res.writeHead(200, {'Content-type': 'text/plain'})
-  res.end('Ratings is healthy')
+  res.writeHead(200, {'Content-type': 'application/json'})
+  res.end(JSON.stringify({status: 'Ratings is healthy'}))
 })
 
 function getLocalReviews (productId) {
