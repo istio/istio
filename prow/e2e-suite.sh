@@ -27,10 +27,15 @@ set -u
 set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  # Make sure we are in the right directory
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-  cd ${GOPATH}/src/istio.io/istio
+  if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
+    # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
+    # but we depend on being at path $GOPATH/src/istio.io/istio for imports
+    ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+    cd ${GOPATH}/src/istio.io/istio
+  fi
 
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
