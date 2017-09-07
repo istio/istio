@@ -35,7 +35,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const integrationTestNamespacePrefix = "istio-ca-integration-"
+const (
+	integrationTestNamespacePrefix = "istio-ca-integration-"
+	// Specifies how long we wait before a secret becomes existent.
+	secretWaitTime = 20 * time.Second
+)
 
 var (
 	rootCmd = &cobra.Command{
@@ -86,14 +90,29 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) {
 }
 
 func runTests(cmd *cobra.Command, args []string) {
-	// Test the existence of istio.default.secret.
-	if s, err := waitForSecretExist("istio.default", 20*time.Second); err != nil {
+	// Test the existence of istio.default secret.
+	if s, err := waitForSecretExist("istio.default", secretWaitTime); err != nil {
 		glog.Fatal(err)
 	} else {
 		glog.Infof(`Secret "istio.default" is correctly created`)
 
 		expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", s.GetNamespace())
 		examineSecret(s, expectedID)
+	}
+
+	// Delete the secret.
+	do := &metav1.DeleteOptions{}
+	if err := opts.clientset.Core().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
+		glog.Fatal(err)
+	} else {
+		glog.Info(`Secret "istio.default" has been deleted`)
+	}
+
+	// Test that the deleted secret is re-created properly.
+	if _, err := waitForSecretExist("istio.default", secretWaitTime); err != nil {
+		glog.Fatal(err)
+	} else {
+		glog.Infof(`Secret "istio.default" is correctly re-created`)
 	}
 }
 
