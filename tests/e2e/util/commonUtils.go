@@ -73,7 +73,7 @@ func Shell(format string, args ...interface{}) (string, error) {
 	glog.V(2).Infof("Running command %s", command)
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	bytes, err := c.CombinedOutput()
-	glog.V(3).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
+	glog.V(2).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
 	if err != nil {
 		return string(bytes), fmt.Errorf("command failed: %q %v", string(bytes), err)
 	}
@@ -84,6 +84,7 @@ func Shell(format string, args ...interface{}) (string, error) {
 // RunBackground starts a background process and return the Process if succeed
 func RunBackground(format string, args ...interface{}) (*os.Process, error) {
 	command := fmt.Sprintf(format, args...)
+	glog.Info("RunBackground: ", command)
 	parts := strings.Split(command, " ")
 	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()
