@@ -785,20 +785,9 @@ func ValidateEgressRule(msg proto.Message) error {
 	}
 
 	var errs error
-	if len(rule.Domains) == 0 {
-		return fmt.Errorf("egress rule must have a domains list")
-	}
 
-	domains := make(map[string]bool)
-	for _, domain := range rule.Domains {
-		if _, exists := domains[domain]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate domain: %s", domain))
-		}
-		domains[domain] = true
-
-		if err := ValidateEgressRuleDomain(domain); err != nil {
-			errs = multierror.Append(errs, err)
-		}
+	if err := ValidateEgressRuleDestination(rule.Destination); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	if len(rule.Ports) == 0 {
@@ -821,6 +810,37 @@ func ValidateEgressRule(msg proto.Message) error {
 		errs = multierror.Append(errs, fmt.Errorf("directing traffic through egress proxy is not implemented yet"))
 	}
 
+	return errs
+}
+
+//ValidateEgressRuleDestination checks that valid destination is used for an egress-rule
+// only service field is allowed, all other fields are forbidden
+func ValidateEgressRuleDestination(destination *proxyconfig.IstioService) error {
+	if destination == nil {
+		return fmt.Errorf("destination of egress rule must have destination field")
+	}
+
+	var errs error
+	if destination.Name != "" {
+		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have name field"))
+	}
+
+	if destination.Namespace != "" {
+		errs = multierror.Append(errs,
+			fmt.Errorf("destination of egress rule must not have namespace field"))
+	}
+
+	if destination.Domain != "" {
+		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have domain field"))
+	}
+
+	if len(destination.Labels) > 0 {
+		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have labels field"))
+	}
+
+	if err := ValidateEgressRuleDomain(destination.Service); err != nil {
+		errs = multierror.Append(errs, err)
+	}
 	return errs
 }
 

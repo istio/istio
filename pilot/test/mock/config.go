@@ -55,7 +55,9 @@ var (
 
 	// ExampleEgressRule is an example egress rule
 	ExampleEgressRule = &proxyconfig.EgressRule{
-		Domains:        []string{"*.cnn.com", "*.cnn.de"},
+		Destination: &proxyconfig.IstioService{
+			Service: "*cnn.com",
+		},
 		Ports:          []*proxyconfig.EgressRule_Port{{Port: 80, Protocol: "http"}},
 		UseEgressProxy: false,
 	}

@@ -485,14 +485,19 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 	}{
 		{name: "no conflicts",
 			in: map[string]*proxyconfig.EgressRule{"cnn": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
-					Domains: []string{"*bbc.com", "*.bbc.com"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*bbc.com",
+					},
+
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
@@ -500,14 +505,18 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				},
 			},
 			out: map[string]*proxyconfig.EgressRule{"cnn": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
-					Domains: []string{"*bbc.com", "*.bbc.com"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*bbc.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
@@ -517,14 +526,18 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			valid: true},
 		{name: "a conflict in a domain",
 			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
@@ -533,7 +546,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			},
 			out: map[string]*proxyconfig.EgressRule{
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
@@ -543,93 +558,59 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			valid: false},
 		{name: "a conflict in a domain, different ports",
 			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 8080, Protocol: "http"},
 						{Port: 8081, Protocol: "https"},
-					},
-				},
-			},
-			out: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 8080, Protocol: "http"},
-						{Port: 8081, Protocol: "https"},
-					},
-				},
-			},
-			valid: true},
-		{name: "two conflicts, one rule rejected",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-				"cnn3": {
-					Domains: []string{"*.cnn.com", "edition.cnn.com"},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
 					},
 				},
 			},
 			out: map[string]*proxyconfig.EgressRule{
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
 					},
-				},
-				"cnn3": {
-					Domains: []string{"*.cnn.com", "edition.cnn.com"},
 					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+						{Port: 8080, Protocol: "http"},
+						{Port: 8081, Protocol: "https"},
 					},
 				},
 			},
 			valid: false},
 		{name: "two conflicts, two rules rejected",
 			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
 				},
 				"cnn3": {
-					Domains: []string{"*.cnn.de", "edition.cnn.com"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
@@ -638,7 +619,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			},
 			out: map[string]*proxyconfig.EgressRule{
 				"cnn1": {
-					Domains: []string{"*cnn.com", "*.cnn.de"},
+					Destination: &proxyconfig.IstioService{
+						Service: "*cnn.com",
+					},
 					Ports: []*proxyconfig.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},

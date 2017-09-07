@@ -206,6 +206,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
+		t.Log("running case " + c.name)
 		if got := c.instance.Validate(); (got == nil) != c.valid {
 			t.Errorf("%s failed: got valid=%v but wanted valid=%v: %v", c.name, got == nil, c.valid, got)
 		}
@@ -847,7 +848,9 @@ func TestValidateEgressRule(t *testing.T) {
 		{name: "empty egress rule", in: &proxyconfig.EgressRule{}, valid: false},
 		{name: "valid egress rule",
 			in: &proxyconfig.EgressRule{
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
@@ -856,16 +859,18 @@ func TestValidateEgressRule(t *testing.T) {
 			valid: true},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
 			in: &proxyconfig.EgressRule{
-				Domains: []string{"*cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 8080, Protocol: "http"},
 				},
 				UseEgressProxy: true},
 			valid: false},
-		{name: "empty domains",
+		{name: "empty destination",
 			in: &proxyconfig.EgressRule{
-				Domains: []string{},
+				Destination: &proxyconfig.IstioService{},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
@@ -874,22 +879,17 @@ func TestValidateEgressRule(t *testing.T) {
 			valid: false},
 		{name: "empty ports",
 			in: &proxyconfig.EgressRule{
-				Domains:        []string{"*cnn.com", "*.cnn.com"},
-				Ports:          []*proxyconfig.EgressRule_Port{},
-				UseEgressProxy: false},
-			valid: false},
-		{name: "duplicate domain",
-			in: &proxyconfig.EgressRule{
-				Domains: []string{"*cnn.com", "*.cnn.com", "*cnn.com"},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
 				},
+				Ports:          []*proxyconfig.EgressRule_Port{},
 				UseEgressProxy: false},
 			valid: false},
 		{name: "duplicate port",
 			in: &proxyconfig.EgressRule{
-				Domains: []string{"*cnn.com", "*.cnn.com"},
+				Destination: &proxyconfig.IstioService{
+					Service: "*cnn.com",
+				},
 				Ports: []*proxyconfig.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
