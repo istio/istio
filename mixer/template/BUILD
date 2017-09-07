@@ -1,27 +1,23 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//tools/codegen:generate.bzl", "mixer_supported_template_library")
 
-go_library(
+mixer_supported_template_library(
     name = "go_default_library",
-    srcs = [
-        "template.gen.go",
-    ],
-    visibility = ["//visibility:public"],
+    packages = {
+        "//template/listentry:go_default_library_proto.descriptor_set": "istio.io/mixer/template/listentry",
+        "//template/logentry:go_default_library_proto.descriptor_set": "istio.io/mixer/template/logentry",
+        "//template/metric:go_default_library_proto.descriptor_set": "istio.io/mixer/template/metric",
+        "//template/quota:go_default_library_proto.descriptor_set": "istio.io/mixer/template/quota",
+        "//template/reportnothing:go_default_library_proto.descriptor_set": "istio.io/mixer/template/reportnothing",
+        "//template/checknothing:go_default_library_proto.descriptor_set": "istio.io/mixer/template/checknothing",
+    },
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/adapter/template:go_default_library",
-        "//pkg/attribute:go_default_library",
-        "//pkg/expr:go_default_library",
-        "//pkg/template:go_default_library",
         "//template/checknothing:go_default_library",
         "//template/listentry:go_default_library",
         "//template/logentry:go_default_library",
         "//template/metric:go_default_library",
         "//template/quota:go_default_library",
         "//template/reportnothing:go_default_library",
-        "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )
