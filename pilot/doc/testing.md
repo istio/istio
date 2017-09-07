@@ -5,10 +5,60 @@ We strive to improve and maintain quality of the code with up-to-date samples, g
 
 ## Getting started
 
-Pilot tests require access to a Kubernetes cluster (version 1.5.2 or higher). Please
-configure your `kubectl` to point to a development cluster (e.g. minikube)
-before building or invoking the tests and add a symbolic link to your
-repository pointing to Kubernetes cluster credentials:
+### Create development cluster
+
+Pilot tests require access to a Kubernetes cluster (version 1.7.3 or higher). 
+
+Kubernetes [DynamicAdmissionControl](https://kubernetes.io/docs/admin/extensible-admission-controllers/#external-admission-webhooks) is required for transparent proxy injection (via initializer) and configuration validation. This is an alpha feature that must be explicitly enabled.
+
+[Role-Based Access Control (RBAC)](https://cloud.google.com/container-engine/docs/role-based-access-control) is optional. It must be explicitly enabled.
+
+* GKE
+
+```bash
+gcloud container clusters create NAME \               
+    --cluster-version=1.7.3 \
+    --enable-kubernetes-alpha \ 
+    --machine-type=n1-standard-2 \
+    --num-nodes=4 \
+    --zone=ZONE
+```
+
+Add `--no-enable-legacy-authorization` to the list of gcloud flags to fully enable RBAC in GKE. 
+
+Updates your kubeconfig file with appropriate credentials to point kubectl to the cluster created in GKE.
+
+```
+gcloud container clusters get-credentials NAME --zone=ZONE
+```
+
+Make sure you are using static client certificates before fetching cluster credentials:
+
+```
+gcloud config set container/use_client_certificate True
+```
+
+If RBAC was enabled, you must grant your user the ability to create authorization roles by running the following Kubernetes command:
+
+```bash
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin [--user=<user-name>]
+```
+
+* Minikube
+
+```bash
+minikube start \
+    --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota,GenericAdmissionWebhook" \
+    --kubernetes-version=v1.7.3
+```
+
+Add `--extra-config=apiserver.Authorization.Mode=RBAC` to the list of minikube flags to enable RBAC in minikube.
+
+### Using development cluster
+
+Once your cluster is created please configure your `kubectl` to point to your development cluster (e.g. GKE, minikube)
+before building or invoking the tests and add a symbolic link to your repository 
+pointing to Kubernetes cluster credentials:
 
     ln -s ~/.kube/config platform/kube/
 
@@ -27,12 +77,7 @@ and change the paths to minikube certs.
 Also, copy the same file to `/home/ubuntu/.kube/config` in the VM, and make
 sure that the file is readable to user `ubuntu`.
 
-_Note2_: If you are using GKE, please make sure you are using static client
-certificates before fetching cluster credentials:
-
-    gcloud config set container/use_client_certificate True
-
-_Note3_: The optional `-h` flag should point to a Docker registry that you have access to push images.
+_Note2_: The optional `-h` flag should point to a Docker registry that you have access to push images.
 
 ## Code linters
 
