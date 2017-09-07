@@ -211,10 +211,12 @@ def template_protos(WKSPC):
         if file.endswith(".pb.go"):
             makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
     for template in os.listdir(WKSPC + "/bazel-genfiles/template"):
+        if template.endswith(".gen.go"):
+            makelink(WKSPC + "/bazel-genfiles/template/" + template, WKSPC + "/template/" + template)
         if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template):
             for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
                 # check if there are files under /template/<some template dir>
-                if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
+                if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go") or file.endswith("template.gen.go"):
                     makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file, WKSPC + "/template/" +template + "/" + file)
                 if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
                     for file2 in os.listdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):

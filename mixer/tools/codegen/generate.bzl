@@ -111,3 +111,41 @@ def mixer_proto_library(
       srcs = [name + "_handler.gen.go"],
       library = ":" + name + "_gogo_proto",
       deps = deps + MIXER_DEPS)
+
+###############
+
+def _mixer_supported_template_gen(name, packages, out):
+  args = ""
+  descriptors = []
+  for k1, v in packages.items():
+    l = "$(location %s)" % (k1)
+    args += " %s:%s " % (l, v)
+    descriptors.append(k1)
+
+  native.genrule(
+      name = name+"_gen",
+      srcs = descriptors,
+      outs = [out],
+      cmd = "$(location //tools/codegen/cmd/mixgenbootstrap) " + args + " -o $(location %s)" % (out),
+      tools = ["//tools/codegen/cmd/mixgenbootstrap"],
+  )
+
+DEPS_FOR_ALL_TMPLS = [
+    "//pkg/adapter:go_default_library",
+    "//pkg/adapter/template:go_default_library",
+    "//pkg/attribute:go_default_library",
+    "//pkg/expr:go_default_library",
+    "//pkg/template:go_default_library",
+    "@com_github_gogo_protobuf//proto:go_default_library",
+    "@com_github_golang_glog//:go_default_library",
+    "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+]
+
+def mixer_supported_template_library(name, packages, deps):
+  _mixer_supported_template_gen("mixer_supported_template_file_gen", packages, "template.gen.go")
+
+  go_library(
+      name = name,
+      srcs = ["template.gen.go"],
+      deps = deps + DEPS_FOR_ALL_TMPLS,
+  )
