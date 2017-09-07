@@ -39,8 +39,8 @@ spec:
     spec:
       containers:
       - name: mongodb 
-        image: quay.io/saurabh/mongodb:v1
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-mongodb
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017
 ---
