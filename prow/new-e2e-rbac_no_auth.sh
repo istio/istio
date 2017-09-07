@@ -32,16 +32,16 @@ PROJECT_NAME=istio-testing
 ZONE=us-central1-f
 CLUSTER_VERSION=1.7.4
 MACHINE_TYPE=n1-standard-4
-NUM_NODES=2
-CLUSTER_NAME=e2e-yutongz-$(uuidgen | cut -c1-8)
+NUM_NODES=1
+CLUSTER_NAME=new-e2e-rbac_n_auth-$(uuidgen | cut -c1-8)
 
 CLUSTER_CREATED=false
 
 delete_cluster () {
     if [ "${CLUSTER_CREATED}" = true ]; then
         ls -la /home/bootstrap/.kube/
-        #gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
-            #|| echo "Failed to delete cluster ${CLUSTER_NAME}"
+        gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
+          || echo "Failed to delete cluster ${CLUSTER_NAME}"
     fi
 }
 trap delete_cluster EXIT
@@ -54,9 +54,9 @@ mkdir /home/bootstrap/.kube
 touch /home/bootstrap/.kube/config
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
-  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --quiet \
+  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --no-enable-legacy-authorization --enable-kubernetes-alpha --quiet \
   || { echo "Failed to create a new cluster"; exit 1; }
 CLUSTER_CREATED=true
 
-echo 'Running e2e no rbac, no auth Tests'
+echo 'Running e2e rbac, no auth Tests'
 ./prow/e2e-suite.sh
