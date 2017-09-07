@@ -45,6 +45,9 @@
 - source.namespace
 - source.labels
 - source.user
+
+# target.* attributes have been renamed to destination.*
+# They cannot be removed from this append only dictionary.
 - target.ip
 - target.port
 - target.service
@@ -205,3 +208,13 @@
 - 502
 - 503
 - 504
+
+- destination.ip
+- destination.port
+- destination.service
+- destination.name
+- destination.uid
+- destination.namespace
+- destination.labels
+- destination.user
+
