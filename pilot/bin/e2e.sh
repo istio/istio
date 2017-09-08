@@ -31,7 +31,7 @@ set -o pipefail
 
 args=""
 hub="gcr.io/istio-testing"
-tag=$(whoami)_$(date +%y%m%d_%h%m%s)
+tag=$(whoami)_$(date +%y%m%d_%H%M%S)
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
