@@ -164,6 +164,7 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
     return "JWT_EXPIRED";
   }
 
+  bool iss_aud_matched = false;
   for (const auto& iss : config_->issuers_) {
     if (iss->failed_ || iss->pkey_->GetStatus() != Auth::Status::OK) {
       continue;
@@ -172,9 +173,10 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
     if (jwt.Iss() != iss->name_) {
       continue;
     }
-    /*
-     * TODO: check aud claim
-     */
+    if (!iss->IsAudienceAllowed(jwt.Aud())) {
+      continue;
+    }
+    iss_aud_matched = true;
 
     if (jwt.Verify(*iss->pkey_)) {
       // verification succeeded
@@ -188,7 +190,7 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
       return "OK";
     }
   }
-  return "INVALID_SIGNATURE";
+  return iss_aud_matched ? "INVALID_SIGNATURE" : "ISS_AUD_UNMATCH";
 }
 
 void JwtVerificationFilter::CompleteVerification(HeaderMap& headers) {

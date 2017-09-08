@@ -251,6 +251,25 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, JwtExpired) {
       Http::TestHeaderMapImpl{{":status", "401"}}, "Verification Failed");
 }
 
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, AudInvalid) {
+  // Payload:
+  // {"iss":"https://example.com","sub":"test@example.com","aud":"invalid_service","exp":2001001001}
+  const std::string jwt =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImludmFsaWRfc2VydmljZSIsImV4cCI6MjAwMTAwMTAwMX0."
+      "gEWnuqtEdVzC94lVbuClaVLoxs-w-_uKJRbAYwAKRulE-"
+      "ZhxG9VtKCd8i90xEuk9txB3tT8VGjdZKs5Hf5LjF4ebobV3M9ya6mZvq1MdcUHYiUtQhJe3M"
+      "t_2sxRmogK-QZ7HcuA9hpFO4HHVypnMDr4WHgxx2op1vhKU7NDlL-"
+      "38Dpf6uKEevxi0Xpids9pSST4YEQjReTXJDJECT5dhk8ZQ_lcS-pujgn7kiY99bTf6j4U-"
+      "ajIcWwtQtogYx4bcmHBUvEjcYOC86TRrnArZSk1mnO7OGq4KrSrqhXnvqDmc14LfldyWqEks"
+      "X5FkM94prXPK0iN-pPVhRjNZ4xvR-w";
+
+  TestVerification(createHeaders(jwt), "", createIssuerHeaders(), kPublicKey,
+                   false, Http::TestHeaderMapImpl{{":status", "401"}},
+                   "Verification Failed");
+}
+
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
   std::string token = "invalidToken";
   std::string pubkey = "weirdKey";
