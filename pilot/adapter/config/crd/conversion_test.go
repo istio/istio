@@ -26,9 +26,9 @@ var (
 
 func TestCamelKabob(t *testing.T) {
 	for _, tt := range camelKabobs {
-		s := camelCaseToKabobCase(tt.in)
+		s := CamelCaseToKabobCase(tt.in)
 		if s != tt.out {
-			t.Errorf("camelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
+			t.Errorf("CamelCaseToKabobCase(%q) => %q, want %q", tt.in, s, tt.out)
 		}
 		u := kabobCaseToCamelCase(tt.out)
 		if u != tt.in {

@@ -48,6 +48,10 @@ spec:
   - port: {{.DebugPort}}
     name: tcp-debug
 {{end}}
+{{if .UseAdmissionWebhook}}
+  - port: 443
+    name: webhook
+{{end}}
   selector:
     infra: pilot
 ---
@@ -74,7 +78,14 @@ spec:
       - name: discovery
         image: {{.Hub}}/pilot:{{.Tag}}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "{{.Verbosity}}", "-a", "{{.Namespace}}"]
+        args:
+        - discovery
+        - --v={{.Verbosity}}
+        - -a
+        - {{.Namespace}}
+{{if .UseAdmissionWebhook}}
+        - --admission-service={{.AdmissionServiceName}}
+{{end}}
         ports:
         - containerPort: 8080
 {{if .DebugPort}}
@@ -82,6 +93,9 @@ spec:
         volumeMounts:
           - mountPath: "/data/debug"
             name: debug
+{{end}}
+{{if .UseAdmissionWebhook}}
+        - containerPort: 443
 {{end}}
         env:
         - name: POD_NAME

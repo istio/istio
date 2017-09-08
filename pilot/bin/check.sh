@@ -1,7 +1,7 @@
 #!/bin/bash
 set -ex
 
-buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel' -or -wholename '.*bzl' \) -print )
+buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel$' -or -wholename '.*bzl$' \) -print )
 
 NUM_CPU=$(getconf _NPROCESSORS_ONLN)
 

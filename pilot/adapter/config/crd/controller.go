@@ -72,7 +72,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			result = knownTypes[schema.Type].collection.DeepCopyObject()
 			err = c.client.dynamic.Get().
 				Namespace(namespace).
-				Resource(resourceName(schema.Plural)).
+				Resource(ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Do().
 				Into(result)
@@ -82,7 +82,7 @@ func (c *controller) addInformer(schema model.ProtoSchema, namespace string, res
 			return c.client.dynamic.Get().
 				Prefix("watch").
 				Namespace(namespace).
-				Resource(resourceName(schema.Plural)).
+				Resource(ResourceName(schema.Plural)).
 				VersionedParams(&opts, meta_v1.ParameterCodec).
 				Watch()
 		})
@@ -141,7 +141,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 	c.kinds[typ].handler.Append(func(object interface{}, ev model.Event) error {
 		item, ok := object.(IstioObject)
 		if ok {
-			config, err := convertObject(schema, item, c.client.domainSuffix)
+			config, err := ConvertObject(schema, item, c.client.domainSuffix)
 			if err != nil {
 				glog.Warningf("error translating object %#v", object)
 			} else {
@@ -199,7 +199,7 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 
-	config, err := convertObject(schema, obj, c.client.domainSuffix)
+	config, err := ConvertObject(schema, obj, c.client.domainSuffix)
 	if err != nil {
 		return nil, false
 	}
@@ -237,7 +237,7 @@ func (c *controller) List(typ, namespace string) ([]model.Config, error) {
 			continue
 		}
 
-		config, err := convertObject(schema, item, c.client.domainSuffix)
+		config, err := ConvertObject(schema, item, c.client.domainSuffix)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		} else {

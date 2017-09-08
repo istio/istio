@@ -275,7 +275,7 @@ go_repository(
     name = "io_k8s_apiserver",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
-    commit = "ab57ed5a72c3b67058f665d660e23bae18339fc2",
+    commit = "149fc2228647cea28b0670c240ec582e985e8eda",  # Jul Aug 1, 2017
     importpath = "k8s.io/apiserver",
 )
 

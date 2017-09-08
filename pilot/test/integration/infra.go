@@ -39,7 +39,7 @@ const (
 	ingressSecretName = "istio-ingress-certs"
 )
 
-type infra struct {
+type infra struct { // nolint: aligncheck
 	Name string
 
 	// docker tags
@@ -73,6 +73,10 @@ type infra struct {
 	// sidecar initializer
 	UseInitializer bool
 	InjectConfig   *inject.Config
+
+	// External Admission Webhook for validation
+	UseAdmissionWebhook  bool
+	AdmissionServiceName string
 
 	config model.IstioConfigStore
 }

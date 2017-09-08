@@ -36,6 +36,7 @@ import (
 	"istio.io/pilot/platform/consul"
 	"istio.io/pilot/platform/eureka"
 	"istio.io/pilot/platform/kube"
+	"istio.io/pilot/platform/kube/admit"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
 	"istio.io/pilot/tools/version"
@@ -58,9 +59,10 @@ type args struct {
 	controllerOptions kube.ControllerOptions
 	discoveryOptions  envoy.DiscoveryServiceOptions
 
-	registries []string
-	consul     consulArgs
-	eureka     eurekaArgs
+	registries    []string
+	consul        consulArgs
+	eureka        eurekaArgs
+	admissionArgs admit.ControllerOptions
 }
 
 var (
@@ -91,6 +93,15 @@ var (
 
 			stop := make(chan struct{})
 
+			if flags.controllerOptions.Namespace == "" {
+				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
+			}
+
+			_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
+			if kuberr != nil {
+				return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
+			}
+
 			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 				model.RouteRule,
 				model.EgressRule,
@@ -116,15 +127,6 @@ var (
 				glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
 				switch serviceRegistry {
 				case platform.KubernetesRegistry:
-					_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
-					if kuberr != nil {
-						return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
-					}
-
-					if flags.controllerOptions.Namespace == "" {
-						flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
-					}
-
 					kubectl := kube.NewController(client, mesh, flags.controllerOptions)
 					serviceControllers.AddRegistry(
 						aggregate.Registry{
@@ -196,6 +198,22 @@ var (
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
 
+			// Set up configuration validation admission
+			// controller. Fill in remaining admission controller
+			// options
+			flags.admissionArgs.Descriptor = configClient.ConfigDescriptor()
+			flags.admissionArgs.ServiceNamespace = flags.controllerOptions.Namespace
+			flags.admissionArgs.DomainSuffix = flags.controllerOptions.DomainSuffix
+			flags.admissionArgs.ValidateNamespaces = []string{
+				flags.controllerOptions.Namespace,
+				flags.controllerOptions.WatchedNamespace,
+			}
+			admissionController, err := admit.NewController(client, flags.admissionArgs)
+			if err != nil {
+				return fmt.Errorf("failed to create validation admission controller: %v", err)
+			}
+
+			go admissionController.Run(stop)
 			go serviceControllers.Run(stop)
 			go configController.Run(stop)
 			go discovery.Run()
@@ -237,6 +255,19 @@ func init() {
 		"URL for the Consul server")
 	discoveryCmd.PersistentFlags().StringVar(&flags.eureka.serverURL, "eurekaserverURL", "",
 		"URL for the Eureka server")
+
+	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ExternalAdmissionWebhookName,
+		"admission-webhook-name", "pilot-webhook.istio.io", "Webhook name for Pilot admission controller")
+	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ServiceName,
+		"admission-service", "istio-pilot-external",
+		"Service name the admission controller uses during registration")
+	discoveryCmd.PersistentFlags().IntVar(&flags.admissionArgs.Port, "admission-service-port", 443,
+		"HTTPS port of the admission service. Must be 443 if service has more than one port ")
+	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.SecretName, "admission-secret", "pilot-webhook",
+		"Name of k8s secret for pilot webhook certs")
+	discoveryCmd.PersistentFlags().DurationVar(&flags.admissionArgs.RegistrationDelay,
+		"admission-registration-delay", 5*time.Second,
+		"Time to delay webhook registration after starting webhook server")
 
 	cmd.AddFlags(rootCmd)
 	rootCmd.AddCommand(discoveryCmd)
