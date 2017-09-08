@@ -68,13 +68,13 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
-	return sh(format, true, args)
+	return sh(format, true, args...)
 }
 
 // ShellMuteOutput run command on shell and get back output and error if get one
 // without logging the output
 func ShellMuteOutput(format string, args ...interface{}) (string, error) {
-	return sh(format, false, args)
+	return sh(format, false, args...)
 }
 
 func sh(format string, logOutput bool, args ...interface{}) (string, error) {

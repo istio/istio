@@ -39,7 +39,6 @@ import (
 
 var (
 	logsBucketPath = flag.String("logs_bucket_path", "", "Cloud Storage Bucket path to use to store logs")
-	projectID      = flag.String("project_id", "", "Project ID")
 	resources      = []string{
 		"pod",
 		"service",
@@ -49,9 +48,8 @@ var (
 )
 
 const (
-	tmpPrefix            = "istio.e2e."
-	idMaxLength          = 36
-	maxConcurrentWorkers = 5
+	tmpPrefix   = "istio.e2e."
+	idMaxLength = 36
 )
 
 // TestInfo gathers Test Information
@@ -132,7 +130,6 @@ func (t testInfo) Update(r int) error {
 }
 
 func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
-	glog.Infof("Fetching cluster logs of %s", *projectID)
 	var multiErr error
 	fetchAndWrite := func(pod string) error {
 		cmd := fmt.Sprintf(
@@ -148,24 +145,23 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 			if err != nil {
 				return err
 			}
-			// TODO (chx) ShellMuteOutput
-			dump, err := util.Shell(fmt.Sprintf("kubectl logs %s -n %s", pod, namespace))
+			defer func() {
+				if err = f.Close(); err != nil {
+					glog.Warningf("Error during closing file: %v\n", err)
+				}
+			}()
+			dump, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s", pod, namespace))
 			if err != nil {
 				return err
 			}
 			if _, err = f.WriteString(fmt.Sprintf("%s\n", dump)); err != nil {
 				return err
 			}
-			if err := f.Close(); err != nil {
-				return err
-			}
 		}
-
 		return nil
 	}
 
 	// limit number of concurrent jobs to stay in stackdriver api quota
-	jobQue := make(chan string, maxConcurrentWorkers)
 	lines, err := util.Shell("kubectl get pods -n " + namespace)
 	if err != nil {
 		return err

@@ -53,8 +53,13 @@ func newCommonConfig(testID string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	k, err := newKubeInfo(t.LogsPath, t.RunID)
+	if err != nil {
+		return nil, err
+	}
 	c := &CommonConfig{
 		Info:    t,
+		Kube:    k,
 		Cleanup: new(testCleanup),
 	}
 	c.Cleanup.RegisterCleanable(c.Info)
