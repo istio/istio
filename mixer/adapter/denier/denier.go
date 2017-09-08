@@ -52,17 +52,17 @@ func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter
 	}, nil
 }
 
-func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
-	return adapter.QuotaResult2{}, nil
+func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	return adapter.QuotaResult{}, nil
 }
 
 func (*handler) Close() error { return nil }
 
 ////////////////// Bootstrap //////////////////////////
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "denier",
 		Impl:        "istio.io/mixer/adapter/denier",
 		Description: "Rejects any check and quota request with a configurable error",

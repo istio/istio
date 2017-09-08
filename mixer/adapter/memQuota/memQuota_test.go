@@ -98,7 +98,7 @@ func TestAllocAndRelease(t *testing.T) {
 	now := time.Now()
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			qa := adapter.QuotaArgs{
+			qa := adapter.QuotaArgsLegacy{
 				Definition:      definitions[c.name],
 				DeduplicationID: "A" + c.dedup,
 				QuotaAmount:     c.allocAmount,
@@ -109,7 +109,7 @@ func TestAllocAndRelease(t *testing.T) {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
-			var qr adapter.QuotaResult
+			var qr adapter.QuotaResultLegacy
 			var err error
 
 			if c.allocBestEffort {
@@ -130,7 +130,7 @@ func TestAllocAndRelease(t *testing.T) {
 				t.Errorf("Expecting %v, got %v", c.exp, qr.Expiration)
 			}
 
-			qa = adapter.QuotaArgs{
+			qa = adapter.QuotaArgsLegacy{
 				Definition:      definitions[c.name],
 				DeduplicationID: "R" + c.dedup,
 				QuotaAmount:     c.releaseAmount,
@@ -187,7 +187,7 @@ func TestBadAmount(t *testing.T) {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
-	qa := adapter.QuotaArgs{Definition: definitions["Q1"], QuotaAmount: -1}
+	qa := adapter.QuotaArgsLegacy{Definition: definitions["Q1"], QuotaAmount: -1}
 
 	qr, err := a.Alloc(qa)
 	if qr.Amount != 0 {
@@ -264,7 +264,7 @@ func TestReaper(t *testing.T) {
 		return now
 	}
 
-	qa := adapter.QuotaArgs{
+	qa := adapter.QuotaArgsLegacy{
 		Definition:  definitions["Q1"],
 		QuotaAmount: 10,
 	}
@@ -327,7 +327,7 @@ func TestReaperTicker(t *testing.T) {
 		t.Errorf("Unable to create aspect: %v", err)
 	}
 
-	qa := adapter.QuotaArgs{
+	qa := adapter.QuotaArgsLegacy{
 		Definition:      definitions["Q1"],
 		QuotaAmount:     10,
 		DeduplicationID: "0",

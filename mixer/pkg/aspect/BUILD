@@ -53,7 +53,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/noop:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
         "//pkg/aspect/config:go_default_library",

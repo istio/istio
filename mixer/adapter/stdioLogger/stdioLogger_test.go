@@ -101,10 +101,10 @@ func TestLogger_Close(t *testing.T) {
 func TestLogger_Log(t *testing.T) {
 	structPayload := map[string]interface{}{"val": 42, "obj": map[string]interface{}{"val": false}}
 
-	noPayloadEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.Info}
-	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	noPayloadEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{}, Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
+	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
+	jsonPayloadEntry := adapter.LogEntry{LogName: "istio_log", StructPayload: structPayload, Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
+	labelEntry := adapter.LogEntry{LogName: "istio_log", Labels: map[string]interface{}{"label": 42}, Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
 
 	omitAll := "{}"
 	noOmitAll := `{"logName":"","timestamp":"","severity":"DEFAULT","labels":null,"textPayload":"","structPayload":null}`
@@ -143,7 +143,7 @@ func TestLogger_Log(t *testing.T) {
 }
 
 func TestLogger_LogFailure(t *testing.T) {
-	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	textPayloadEntry := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
 	cases := []struct {
 		name string
 		core zapcore.Core

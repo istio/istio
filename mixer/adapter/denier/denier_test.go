@@ -89,7 +89,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	quotaHandler := handler.(quota.Handler)
-	qr, err := quotaHandler.HandleQuota(context.Background(), nil, adapter.QuotaRequestArgs{QuotaAmount: 100})
+	qr, err := quotaHandler.HandleQuota(context.Background(), nil, adapter.QuotaArgs{QuotaAmount: 100})
 	if err != nil {
 		t.Errorf("Got error %v, expecting success", err)
 	}

@@ -67,7 +67,7 @@ var keyWorkspacePool = sync.Pool{New: func() interface{} { return &keyWorkspace{
 type quotaFunc func(d *adapter.QuotaDefinition, key string, currentTime time.Time, currentTick int64) (int64, time.Time, time.Duration)
 
 // CommonWrapper is a wrapper function to generate useful quota info.
-func (qu *QuotaUtil) CommonWrapper(args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
+func (qu *QuotaUtil) CommonWrapper(args adapter.QuotaArgsLegacy, qf quotaFunc) (int64, time.Duration, error) {
 	d := args.Definition
 	if args.QuotaAmount < 0 {
 		return 0, 0, fmt.Errorf("negative quota amount %d received", args.QuotaAmount)

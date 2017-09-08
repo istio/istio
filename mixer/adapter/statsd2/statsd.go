@@ -108,9 +108,9 @@ func (h *handler) Close() error { return h.client.Close() }
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "statsd",
 		Impl:        "istio.io/mixer/adapter/statsd",
 		Description: "Produces statsd metrics",

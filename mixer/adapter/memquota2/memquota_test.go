@@ -142,7 +142,7 @@ func TestAllocAndRelease(t *testing.T) {
 	now := time.Now()
 	for i, c := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			qa := adapter.QuotaRequestArgs{
+			qa := adapter.QuotaArgs{
 				DeduplicationID: "A" + c.dedup,
 				QuotaAmount:     c.allocAmount,
 				BestEffort:      c.allocBestEffort,
@@ -157,7 +157,7 @@ func TestAllocAndRelease(t *testing.T) {
 				return now.Add(time.Duration(c.seconds) * time.Second)
 			}
 
-			var qr adapter.QuotaResult2
+			var qr adapter.QuotaResult
 			var err error
 
 			qr, err = h.HandleQuota(context.Background(), &instance, qa)
@@ -174,7 +174,7 @@ func TestAllocAndRelease(t *testing.T) {
 				t.Errorf("Expecting %v, got %v", c.exp, qr.ValidDuration)
 			}
 
-			qa = adapter.QuotaRequestArgs{
+			qa = adapter.QuotaArgs{
 				DeduplicationID: "R" + c.dedup,
 				QuotaAmount:     -c.releaseAmount,
 			}
@@ -254,7 +254,7 @@ func TestReaper(t *testing.T) {
 		return now
 	}
 
-	qa := adapter.QuotaRequestArgs{
+	qa := adapter.QuotaArgs{
 		QuotaAmount: 10,
 	}
 
@@ -326,7 +326,7 @@ func TestReaperTicker(t *testing.T) {
 		t.Errorf("Unable to create handler: %v", err)
 	}
 
-	qa := adapter.QuotaRequestArgs{
+	qa := adapter.QuotaArgs{
 		QuotaAmount:     10,
 		DeduplicationID: "0",
 	}

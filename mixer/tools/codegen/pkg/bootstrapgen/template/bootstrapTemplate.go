@@ -219,7 +219,7 @@ var (
 				},
 			{{else}}
 				ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
-				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
 					{{range .TemplateMessage.Fields}}
 						{{if .GoType.IsMap}}
@@ -230,7 +230,7 @@ var (
 							if err != nil {
 								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
 								glog.Error(msg)
-								return adapter.QuotaResult2{}, errors.New(msg)
+								return adapter.QuotaResult{}, errors.New(msg)
 							}
 					{{end}}
 

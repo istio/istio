@@ -29,7 +29,7 @@ import (
 
 {{.Comment}}
 
-// Fully qualified name of this template
+// Fully qualified name of the template
 const TemplateName = "{{.PackageName}}"
 
 // Instance is constructed by Mixer for the '{{.PackageName}}.{{.Name}}' template.{{if ne .TemplateMessage.Comment ""}}
@@ -48,13 +48,12 @@ type Instance struct {
 // process data associated with the {{.Name}} template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
-// it with adapter-specific configuration as well as all inferred types the adapter is expected
-// to handle.
+// it with adapter-specific configuration as well as all template-specific type information.
 type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
-	// Set{{.Name}}Types is invoked by Mixer to pass all possible Types for instances that an adapter
-	// may receive at runtime. Each type holds information about the shape of the instances.
+	// Set{{.Name}}Types is invoked by Mixer to pass the template-specific Type information for instances that an adapter
+	// may receive at runtime. The type information describes the shape of the instance.
 	Set{{.Name}}Types(map[string]*Type /*Instance name -> Type*/)
 }
 
@@ -66,7 +65,8 @@ type HandlerBuilder interface {
 // need to achieve their primary function.
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
-// at configuration time. These types provide descriptions of each specific instances.
+// at configuration time via the method 'Set{{.Name}}Types'.
+// These Type associated with an instance describes the shape of the instance
 type Handler interface {
   adapter.Handler
 
@@ -75,7 +75,7 @@ type Handler interface {
   {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK" -}}
     Handle{{.Name}}(context.Context, *Instance) (adapter.CheckResult, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
-    Handle{{.Name}}(context.Context, *Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
+    Handle{{.Name}}(context.Context, *Instance, adapter.QuotaArgs) (adapter.QuotaResult, error)
   {{else -}}
     Handle{{.Name}}(context.Context, []*Instance) error
   {{end}}

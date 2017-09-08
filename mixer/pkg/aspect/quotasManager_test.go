@@ -39,7 +39,7 @@ import (
 type fakeQuotaAspect struct {
 	adapter.Aspect
 	closed bool
-	body   func(adapter.QuotaArgs) (adapter.QuotaResult, error)
+	body   func(adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error)
 }
 
 func (a *fakeQuotaAspect) Close() error {
@@ -47,15 +47,15 @@ func (a *fakeQuotaAspect) Close() error {
 	return nil
 }
 
-func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (a fakeQuotaAspect) Alloc(qa adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
 	return a.body(qa)
 }
 
-func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (a fakeQuotaAspect) AllocBestEffort(qa adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
 	return a.body(qa)
 }
 
-func (a fakeQuotaAspect) ReleaseBestEffort(adapter.QuotaArgs) (int64, error) {
+func (a fakeQuotaAspect) ReleaseBestEffort(adapter.QuotaArgsLegacy) (int64, error) {
 	return 0, nil
 }
 
@@ -310,11 +310,11 @@ func TestQuotaExecutor_Execute(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			var receivedArgs adapter.QuotaArgs
+			var receivedArgs adapter.QuotaArgsLegacy
 			executor := &quotasExecutor{
-				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgs) (adapter.QuotaResult, error) {
+				aspect: &fakeQuotaAspect{body: func(qa adapter.QuotaArgsLegacy) (adapter.QuotaResultLegacy, error) {
 					receivedArgs = qa
-					return adapter.QuotaResult{Amount: c.allocAmount, Expiration: 0}, c.allocErr
+					return adapter.QuotaResultLegacy{Amount: c.allocAmount, Expiration: 0}, c.allocErr
 				}},
 				metadata: c.mdin,
 			}

@@ -109,9 +109,9 @@ func (h *handler) mapSeverityLevel(severity string) zapcore.Level {
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "stdio",
 		Impl:        "istio.io/mixer/adapter/stdio",
 		Description: "Writes logs and metrics to a standard I/O stream",

@@ -51,7 +51,7 @@ type handler struct {
 	limits map[string]config.Params_Quota
 }
 
-func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+func (h *handler) HandleQuota(context context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	q := h.limits[instance.Name]
 
 	if args.QuotaAmount > 0 {
@@ -60,10 +60,10 @@ func (h *handler) HandleQuota(context context.Context, instance *quota.Instance,
 		args.QuotaAmount = -args.QuotaAmount
 		return h.free(instance, args, q)
 	}
-	return adapter.QuotaResult2{}, nil
+	return adapter.QuotaResult{}, nil
 }
 
-func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
 	amount, exp, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -104,14 +104,14 @@ func (h *handler) alloc(instance *quota.Instance, args adapter.QuotaRequestArgs,
 		return result, currentTime.Add(q.ValidDuration), q.ValidDuration
 	})
 
-	return adapter.QuotaResult2{
+	return adapter.QuotaResult{
 		Status:        status.OK,
 		Amount:        amount,
 		ValidDuration: exp,
 	}, err
 }
 
-func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, q config.Params_Quota) (adapter.QuotaResult2, error) {
+func (h *handler) free(instance *quota.Instance, args adapter.QuotaArgs, q config.Params_Quota) (adapter.QuotaResult, error) {
 	amount, _, err := h.common.handleDedup(instance, args, func(key string, currentTime time.Time, currentTick int64) (int64, time.Time,
 		time.Duration) {
 		result := args.QuotaAmount
@@ -148,7 +148,7 @@ func (h *handler) free(instance *quota.Instance, args adapter.QuotaRequestArgs, 
 		return result, time.Time{}, 0
 	})
 
-	return adapter.QuotaResult2{
+	return adapter.QuotaResult{
 		Status: status.OK,
 		Amount: amount,
 	}, err
@@ -161,9 +161,9 @@ func (h *handler) Close() error {
 
 ////////////////// Config //////////////////////////
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "memquota",
 		Impl:        "istio.io/mixer/adapter/memquota",
 		Description: "Volatile memory-based quota tracking",
