@@ -232,6 +232,50 @@ func TestStoreWrongKind(t *testing.T) {
 	}
 }
 
+func TestStoreNamespaces(t *testing.T) {
+	s, ns, lw := getTempClient()
+	otherNS := "other-namespace"
+	s.ns = map[string]bool{ns: true, otherNS: true}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Init(ctx, []string{"Action", "Handler"}); err != nil {
+		t.Fatal(err)
+	}
+
+	wch, err := s.Watch(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k1 := store.Key{Kind: "Handler", Namespace: ns, Name: "default"}
+	k2 := store.Key{Kind: "Handler", Namespace: otherNS, Name: "default"}
+	k3 := store.Key{Kind: "Handler", Namespace: "irrelevant-namespace", Name: "default"}
+	h := map[string]interface{}{"name": "default", "adapter": "noop"}
+	for _, k := range []store.Key{k1, k2, k3} {
+		if err = lw.put(k, h); err != nil {
+			t.Errorf("Got %v, Want nil", err)
+		}
+	}
+	if err = waitFor(wch, store.Update, k3); err == nil {
+		t.Error("Got nil, Want error")
+	}
+	list := s.List()
+	for _, c := range []struct {
+		key store.Key
+		ok  bool
+	}{
+		{k1, true},
+		{k2, true},
+		{k3, false},
+	} {
+		if _, ok := list[c.key]; ok != c.ok {
+			t.Errorf("For key %s, Got %v, Want %v", c.key, ok, c.ok)
+		}
+		if _, err = s.Get(c.key); (err == nil) != c.ok {
+			t.Errorf("For key %s, Got %v error, Want %v", c.key, err, c.ok)
+		}
+	}
+}
+
 func TestStoreFailToInit(t *testing.T) {
 	s, _, _ := getTempClient()
 	ctx, cancel := context.WithCancel(context.Background())
