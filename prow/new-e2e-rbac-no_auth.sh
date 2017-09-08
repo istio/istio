@@ -29,8 +29,8 @@ set -u
 set -x
 
 PROJECT_NAME=istio-testing
-ZONE=us-central1-a
-CLUSTER_VERSION=1.7.4
+ZONE=us-east4-a
+CLUSTER_VERSION=1.7.5
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
 CLUSTER_NAME=rbac-n-auth-$(uuidgen | cut -c1-8)
@@ -39,7 +39,6 @@ CLUSTER_CREATED=false
 
 delete_cluster () {
     if [ "${CLUSTER_CREATED}" = true ]; then
-        ls -la /home/bootstrap/.kube/
         gcloud container clusters delete ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --quiet \
           || echo "Failed to delete cluster ${CLUSTER_NAME}"
     fi
@@ -50,8 +49,8 @@ if [ -f /home/bootstrap/.kube/config ]; then
   sudo rm /home/bootstrap/.kube/config
 fi
 
-#mkdir /home/bootstrap/.kube
-#touch /home/bootstrap/.kube/config
+mkdir /home/bootstrap/.kube
+touch /home/bootstrap/.kube/config
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --no-enable-legacy-authorization --enable-kubernetes-alpha --quiet \
@@ -59,5 +58,5 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
 CLUSTER_CREATED=true
 
 echo 'Running e2e rbac, no auth Tests'
-./prow/e2e-suite.sh
+./prow/e2e-suite-rbac-no_auth.sh
 
