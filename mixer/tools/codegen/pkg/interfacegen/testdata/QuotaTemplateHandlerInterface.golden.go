@@ -62,5 +62,5 @@ type QuotaHandler interface {
 
 	// HandleQuota is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleQuota(*Instance, adapter.QuotaRequestArgs) (adapter.QuotaResult, adapter.CacheabilityInfo, error)
+	HandleQuota(*Instance, adapter.QuotaArgs) (adapter.QuotaResultLegacy, adapter.CacheabilityInfo, error)
 }

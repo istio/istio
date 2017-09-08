@@ -18,9 +18,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// BuilderInfo describes the Adapter and provides a function to a Handler Builder method.
+// Info describes the Adapter and provides a function to a Handler Builder method.
 // TODO change this to Info when we delete the ApplicationLog.Info enum.
-type BuilderInfo struct {
+type Info struct {
 	// Name returns the official name of the adapter, it must be RFC 1035 compatible DNS label.
 	// Regex: "^[a-z]([-a-z0-9]*[a-z0-9])?$"
 	// Name is used in Istio configuration, therefore it should be descriptive but short.
@@ -48,4 +48,4 @@ type BuilderInfo struct {
 type NewBuilderFn func() HandlerBuilder
 
 // InfoFn returns an AdapterInfo object that Mixer will use to create HandlerBuilder
-type InfoFn func() BuilderInfo
+type InfoFn func() Info

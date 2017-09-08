@@ -58,7 +58,7 @@ const (
 )
 
 // handleDedup is a wrapper function that handles dedupping semantics.
-func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaRequestArgs, qf quotaFunc) (int64, time.Duration, error) {
+func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
 	key := makeKey(instance.Name, instance.Dimensions)
 
 	du.Lock()

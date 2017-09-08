@@ -24,7 +24,7 @@ import (
 
 	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/adapter/noop"
+	"istio.io/mixer/adapter/noopLegacy"
 	pkgAdapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -179,7 +179,7 @@ func benchmarkAdapterManagerDispatch(b *testing.B, declarativeSrvcCnfgFilePath s
 		b.Errorf("Failed to create expression evaluator: %v", err)
 	}
 	adapterMgr := NewManager([]pkgAdapter.RegisterFn{
-		noop.Register,
+		noopLegacy.Register,
 	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, err := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)
 	if err != nil {

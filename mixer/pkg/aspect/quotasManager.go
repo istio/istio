@@ -139,14 +139,14 @@ func (w *quotasExecutor) Execute(attrs attribute.Bag, mapper expr.Evaluator, qma
 		return status.WithInvalidArgument(msg), nil
 	}
 
-	qa := adapter.QuotaArgs{
+	qa := adapter.QuotaArgsLegacy{
 		Definition:      info.definition,
 		Labels:          labels,
 		QuotaAmount:     qma.Amount,
 		DeduplicationID: qma.DeduplicationID,
 	}
 
-	var qr adapter.QuotaResult
+	var qr adapter.QuotaResultLegacy
 
 	if glog.V(2) {
 		glog.Infof("Invoking adapter %s for quota %s with amount %d, labels %v", w.adapter, qa.Definition.Name, qa.QuotaAmount, qa.Labels)

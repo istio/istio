@@ -12,82 +12,98 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package noop is an empty adapter implementing every aspect.
-// WARNING: Not intended for actual use. This is a stand-in adapter used in benchmarking Mixer's adapter framework.
-package noop
+package noop // import "istio.io/mixer/adapter/noop"
+
+// NOTE: This adapter will eventually be auto-generated so that it automatically supports all templates
+//       known to Mixer. For now, it's manually curated.
 
 import (
+	"context"
+	"time"
+
+	"github.com/gogo/protobuf/types"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/status"
+	"istio.io/mixer/template/checknothing"
+	"istio.io/mixer/template/listentry"
+	"istio.io/mixer/template/logentry"
+	"istio.io/mixer/template/metric"
+	"istio.io/mixer/template/quota"
+	"istio.io/mixer/template/reportnothing"
 )
 
-type (
-	// Builder implements all adapter.*Builder interfaces
-	Builder struct{ adapter.DefaultBuilder }
-	aspect  struct{}
-)
+type handler struct{}
 
-// Register registers the no-op adapter as every aspect.
-func Register(r adapter.Registrar) {
-	b := Builder{adapter.NewDefaultBuilder("noop builder", "", nil)}
-	r.RegisterAccessLogsBuilder(b)
-	r.RegisterApplicationLogsBuilder(b)
-	r.RegisterAttributesGeneratorBuilder(b)
-	r.RegisterDenialsBuilder(b)
-	r.RegisterListsBuilder(b)
-	r.RegisterMetricsBuilder(b)
-	r.RegisterQuotasBuilder(b)
+var checkResult = adapter.CheckResult{
+	Status:        rpc.Status{Code: int32(rpc.OK)},
+	ValidDuration: 1000000000 * time.Second,
+	ValidUseCount: 1000000000,
 }
 
-// BuildAttributesGenerator creates an adapter.AttributesGenerator instance
-func (Builder) BuildAttributesGenerator(adapter.Env, adapter.Config) (adapter.AttributesGenerator, error) {
-	return &aspect{}, nil
+func (*handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
-func (aspect) Generate(map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
-}
-func (aspect) Close() error { return nil }
 
-// NewAccessLogsAspect creates an adapter.AccessLogsAspect instance
-func (Builder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
-	return &aspect{}, nil
+func (*handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
+	return nil
 }
-func (aspect) LogAccess([]adapter.LogEntry) error { return nil }
 
-// NewApplicationLogsAspect creates an adapter.ApplicationLogsAspect instance
-func (Builder) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return &aspect{}, nil
+func (*handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+	return checkResult, nil
 }
-func (aspect) Log([]adapter.LogEntry) error { return nil }
 
-// NewDenialsAspect creates an adapter.DenialsAspect instance
-func (Builder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return &aspect{}, nil
+func (*handler) HandleLogEntry(context.Context, []*logentry.Instance) error {
+	return nil
 }
-func (aspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
 
-// NewListsAspect creates an adapter.ListsAspect instance
-func (Builder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
-	return &aspect{}, nil
+func (*handler) HandleMetric(context.Context, []*metric.Instance) error {
+	return nil
 }
-func (aspect) CheckList(symbol string) (bool, error) { return false, nil }
 
-// NewMetricsAspect creates an adapter.MetricsAspect instance
-func (Builder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return &aspect{}, nil
+func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	return adapter.QuotaResult{
+			ValidDuration: 1000000000 * time.Second,
+			Amount:        args.QuotaAmount,
+		},
+		nil
 }
-func (aspect) Record([]adapter.Value) error { return nil }
 
-// NewQuotasAspect creates an adapter.QuotasAspect instance
-func (Builder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
-	return &aspect{}, nil
+func (*handler) Close() error { return nil }
+
+////////////////// Config //////////////////////////
+
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
+		Name:        "noop",
+		Impl:        "istio.io/mixer/adapter/noop",
+		Description: "Does nothing (useful for testing)",
+		SupportedTemplates: []string{
+			checknothing.TemplateName,
+			reportnothing.TemplateName,
+			listentry.TemplateName,
+			logentry.TemplateName,
+			metric.TemplateName,
+			quota.TemplateName,
+		},
+		DefaultConfig: &types.Empty{},
+
+		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
+	}
 }
-func (aspect) Alloc(adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	return adapter.QuotaResult{}, nil
+
+type builder struct{}
+
+func (*builder) SetCheckNothingTypes(map[string]*checknothing.Type)   {}
+func (*builder) SetReportNothingTypes(map[string]*reportnothing.Type) {}
+func (*builder) SetListEntryTypes(map[string]*listentry.Type)         {}
+func (*builder) SetLogEntryTypes(map[string]*logentry.Type)           {}
+func (*builder) SetMetricTypes(map[string]*metric.Type)               {}
+func (*builder) SetQuotaTypes(map[string]*quota.Type)                 {}
+func (*builder) SetAdapterConfig(adapter.Config)                      {}
+func (*builder) Validate() (ce *adapter.ConfigErrors)                 { return }
+
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	return &handler{}, nil
 }
-func (aspect) AllocBestEffort(adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	return adapter.QuotaResult{}, nil
-}
-func (aspect) ReleaseBestEffort(adapter.QuotaArgs) (int64, error) { return 0, nil }

@@ -8,7 +8,13 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/status:go_default_library",
+        "//template/checknothing:go_default_library",
+        "//template/listentry:go_default_library",
+        "//template/logentry:go_default_library",
+        "//template/metric:go_default_library",
+        "//template/quota:go_default_library",
+        "//template/reportnothing:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
@@ -20,7 +26,13 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/adapter:go_default_library",
-        "//pkg/adapterManager:go_default_library",
-        "//pkg/config:go_default_library",
+        "//pkg/adapter/test:go_default_library",
+        "//template/checknothing:go_default_library",
+        "//template/listentry:go_default_library",
+        "//template/logentry:go_default_library",
+        "//template/metric:go_default_library",
+        "//template/quota:go_default_library",
+        "//template/reportnothing:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )

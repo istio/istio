@@ -50,8 +50,8 @@ import(
         adptr "istio.io/mixer/pkg/adapter"
 )
 
-// Inventory2 returns the inventory of all available adapters.
-func Inventory2() []adptr.InfoFn {
+// Inventory returns the inventory of all available adapters.
+func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 {{range .}}{{.Package}}.GetInfo,
 {{end}}

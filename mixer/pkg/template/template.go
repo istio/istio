@@ -47,7 +47,7 @@ type (
 
 	// ProcessQuotaFn instantiates the instance object and dispatches them to the handler.
 	ProcessQuotaFn func(ctx context.Context, quotaName string, quotaCfg proto.Message, attrs attribute.Bag,
-		mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaRequestArgs) (adapter.QuotaResult2, error)
+		mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error)
 
 	// ProcessReportFn instantiates the instance object and dispatches them to the handler.
 	ProcessReportFn func(ctx context.Context, instCfg map[string]proto.Message, attrs attribute.Bag,

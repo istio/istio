@@ -98,7 +98,7 @@ func TestAspect_Log(t *testing.T) {
 		test.NewEnv(t).Logger(),
 	}
 
-	l := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.Info}
+	l := adapter.LogEntry{LogName: "istio_log", TextPayload: "text payload", Timestamp: "2017-Jan-09", Severity: adapter.InfoLegacy}
 
 	tests := []struct {
 		input []adapter.LogEntry

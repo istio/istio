@@ -26,13 +26,13 @@ type (
 		Aspect
 
 		// Alloc allocates the specified amount or fails when not available.
-		Alloc(QuotaArgs) (QuotaResult, error)
+		Alloc(QuotaArgsLegacy) (QuotaResultLegacy, error)
 
 		// AllocBestEffort allocates from 0 to the specified amount, based on availability.
-		AllocBestEffort(QuotaArgs) (QuotaResult, error)
+		AllocBestEffort(QuotaArgsLegacy) (QuotaResultLegacy, error)
 
 		// ReleaseBestEffort releases from 0 to the specified amount, based on current usage.
-		ReleaseBestEffort(QuotaArgs) (int64, error)
+		ReleaseBestEffort(QuotaArgsLegacy) (int64, error)
 	}
 
 	// QuotasBuilder builds new instances of the Quota aspect.
@@ -66,8 +66,8 @@ type (
 		Labels map[string]LabelType
 	}
 
-	// QuotaArgs supplies the arguments for quota operations.
-	QuotaArgs struct {
+	// QuotaArgsLegacy supplies the arguments for quota operations.
+	QuotaArgsLegacy struct {
 		// The metadata describing the quota.
 		Definition *QuotaDefinition
 
@@ -83,8 +83,8 @@ type (
 		Labels map[string]interface{}
 	}
 
-	// QuotaRequestArgs supplies the arguments for quota operations.
-	QuotaRequestArgs struct {
+	// QuotaArgs supplies the arguments for quota operations.
+	QuotaArgs struct {
 		// DeduplicationID is used for deduplicating quota allocation/free calls in the case of
 		// failed RPCs and retries. This should be a UUID per call, where the same
 		// UUID is used for retries of the same quota allocation or release call.
@@ -99,8 +99,8 @@ type (
 		BestEffort bool
 	}
 
-	// QuotaResult provides return values from quota allocation calls
-	QuotaResult struct {
+	// QuotaResultLegacy provides return values from quota allocation calls
+	QuotaResultLegacy struct {
 		// The amount of time until which the returned quota expires, this is 0 for non-expiring quotas.
 		Expiration time.Duration
 
@@ -108,8 +108,8 @@ type (
 		Amount int64
 	}
 
-	// QuotaResult2 provides return values from quota allocation calls on the handler
-	QuotaResult2 struct {
+	// QuotaResult provides return values from quota allocation calls on the handler
+	QuotaResult struct {
 		// The outcome status of the operation.
 		Status rpc.Status
 
@@ -122,7 +122,7 @@ type (
 )
 
 // GetStatus gets status embedded in the result.
-func (r QuotaResult2) GetStatus() rpc.Status { return r.Status }
+func (r QuotaResult) GetStatus() rpc.Status { return r.Status }
 
 // SetStatus embeds status in result.
-func (r *QuotaResult2) SetStatus(s rpc.Status) { r.Status = s }
+func (r *QuotaResult) SetStatus(s rpc.Status) { r.Status = s }

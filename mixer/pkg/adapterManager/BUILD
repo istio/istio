@@ -42,7 +42,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/noop:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/template:go_default_library",
@@ -62,7 +62,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/noop:go_default_library",
+        "//adapter/noopLegacy:go_default_library",
         "//pkg/config/descriptor:go_default_library",
         "//pkg/template:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",

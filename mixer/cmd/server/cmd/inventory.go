@@ -31,7 +31,7 @@ import (
 func adapterCmd(printf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
-		Short: "Inventory of available adapters and aspects in Mixer",
+		Short: "InventoryLegacy of available adapters and aspects in Mixer",
 	}
 
 	adapterCmd.AddCommand(&cobra.Command{
@@ -71,7 +71,7 @@ func listAspects(printf shared.FormatFn) {
 }
 
 func listBuilders(printf shared.FormatFn) {
-	builderMap := adapterManager.BuilderMap(adapter.Inventory())
+	builderMap := adapterManager.BuilderMap(adapter.InventoryLegacy())
 	keys := []string{}
 	for k := range builderMap {
 		keys = append(keys, k)

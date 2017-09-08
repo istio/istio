@@ -31,8 +31,8 @@ type TestBuilderInfoInventory struct {
 	name string
 }
 
-func createBuilderInfo(name string) adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func createBuilderInfo(name string) adapter.Info {
+	return adapter.Info{
 		Name:               name,
 		Description:        "mock adapter for testing",
 		SupportedTemplates: []string{sample_report.TemplateName},
@@ -41,7 +41,7 @@ func createBuilderInfo(name string) adapter.BuilderInfo {
 	}
 }
 
-func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.BuilderInfo {
+func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.Info {
 	return createBuilderInfo(t.name)
 }
 
@@ -107,12 +107,12 @@ func TestMissingDefaultValue(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Error("Expected to recover from panic due to missing DefaultValue in BuilderInfo, " +
+			t.Error("Expected to recover from panic due to missing DefaultValue in Info, " +
 				"but recover was nil.")
 		}
 	}()
 
-	_ = newRegistry2([]adapter.InfoFn{func() adapter.BuilderInfo { return builderInfo }}, fakeValidateSupportedTmpl)
+	_ = newRegistry2([]adapter.InfoFn{func() adapter.Info { return builderInfo }}, fakeValidateSupportedTmpl)
 
 	t.Error("Should not reach this statement due to panic.")
 }
@@ -148,8 +148,8 @@ func (badHandlerBuilder) Validate() *adapter.ConfigErrors {
 func (badHandlerBuilder) SetAdapterConfig(_ adapter.Config) {}
 
 func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
-	badHandlerBuilderBuilderInfo1 := func() adapter.BuilderInfo {
-		return adapter.BuilderInfo{
+	badHandlerBuilderBuilderInfo1 := func() adapter.Info {
+		return adapter.Info{
 			Name:               "badAdapter1",
 			Description:        "mock adapter for testing",
 			DefaultConfig:      &types.Empty{},
@@ -157,8 +157,8 @@ func TestBuilderNotImplementRightTemplateInterface(t *testing.T) {
 			SupportedTemplates: []string{sample_report.TemplateName},
 		}
 	}
-	badHandlerBuilderBuilderInfo2 := func() adapter.BuilderInfo {
-		return adapter.BuilderInfo{
+	badHandlerBuilderBuilderInfo2 := func() adapter.Info {
+		return adapter.Info{
 			Name:               "badAdapter1",
 			Description:        "mock adapter for testing",
 			DefaultConfig:      &types.Empty{},

@@ -24,7 +24,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	"istio.io/mixer/adapter/noop"
+	"istio.io/mixer/adapter/noopLegacy"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/config"
@@ -67,8 +67,8 @@ func (fakeHndlr) Close() error {
 	globalActualHandlerCallInfoToValidate["Close"] = nil
 	return nil
 }
-func GetFakeHndlrBuilderInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func GetFakeHndlrBuilderInfo() adapter.Info {
+	return adapter.Info{
 		Name:               "fakeHandler",
 		Description:        "",
 		SupportedTemplates: []string{sample_report.TemplateName},
@@ -175,7 +175,7 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 		t.Errorf("Failed to create expression evaluator: %v", err)
 	}
 	adapterMgr := NewManager([]adapter.RegisterFn{
-		noop.Register,
+		noopLegacy.Register,
 	}, aspect.Inventory(), eval, gp, adapterGP)
 	store, err := config.NewCompatFSStore(declaredGlobalCnfgFilePath, declarativeSrvcCnfgFilePath)
 	if err != nil {

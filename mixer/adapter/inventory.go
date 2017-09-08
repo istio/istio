@@ -20,7 +20,7 @@ import (
 	"istio.io/mixer/adapter/ipListChecker"
 	"istio.io/mixer/adapter/kubernetes"
 	"istio.io/mixer/adapter/memQuota"
-	"istio.io/mixer/adapter/noop"
+	"istio.io/mixer/adapter/noopLegacy"
 	"istio.io/mixer/adapter/prometheus"
 	"istio.io/mixer/adapter/redisquota"
 	"istio.io/mixer/adapter/serviceControl"
@@ -29,8 +29,8 @@ import (
 	"istio.io/mixer/pkg/adapter"
 )
 
-// Inventory returns the inventory of all available adapters.
-func Inventory() []adapter.RegisterFn {
+// InventoryLegacy returns the inventory of all available adapters.
+func InventoryLegacy() []adapter.RegisterFn {
 	return []adapter.RegisterFn{
 		denyChecker.Register,
 		genericListChecker.Register,
@@ -42,6 +42,6 @@ func Inventory() []adapter.RegisterFn {
 		statsd.Register,
 		stdioLogger.Register,
 		kubernetes.Register,
-		noop.Register,
+		noopLegacy.Register,
 	}
 }

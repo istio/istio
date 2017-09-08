@@ -88,8 +88,8 @@ func (h *handler) Close() error {
 ////////////////// Config //////////////////////////
 
 // GetInfo registers Adapter with Mixer.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "svcctrl",
 		Impl:        "istio.io/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",

@@ -30,7 +30,7 @@ func supportedTemplates() map[string]template.Info {
 }
 
 func supportedAdapters() []adptr.InfoFn {
-	return adapter.Inventory2()
+	return adapter.Inventory()
 }
 
 func main() {

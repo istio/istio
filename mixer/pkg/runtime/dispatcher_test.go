@@ -172,14 +172,14 @@ func TestQuota(t *testing.T) {
 		callErr     error
 		resolveErr  bool
 		ncalled     int
-		cr          adapter.QuotaResult2
+		cr          adapter.QuotaResult
 		emptyResult bool
 	}{{tn: tname, ncalled: 1},
-		{tn: tname, ncalled: 1, cr: adapter.QuotaResult2{Amount: 200}},
-		{tn: tname, ncalled: 1, cr: adapter.QuotaResult2{Amount: 200, Status: status.WithPermissionDenied("bad user")}},
+		{tn: tname, ncalled: 1, cr: adapter.QuotaResult{Amount: 200}},
+		{tn: tname, ncalled: 1, cr: adapter.QuotaResult{Amount: 200, Status: status.WithPermissionDenied("bad user")}},
 		{tn: tname, callErr: err1},
 		{tn: tname, callErr: err1, resolveErr: true},
-		{tn: tname, ncalled: 0, cr: adapter.QuotaResult2{Amount: 200}, emptyResult: true},
+		{tn: tname, ncalled: 0, cr: adapter.QuotaResult{Amount: 200}, emptyResult: true},
 	} {
 		t.Run(fmt.Sprintf("%#v", s), func(t *testing.T) {
 			fp := &fakeProc{
@@ -352,7 +352,7 @@ type fakeProc struct {
 	called      int
 	err         error
 	checkResult adapter.CheckResult
-	quotaResult adapter.QuotaResult2
+	quotaResult adapter.QuotaResult
 }
 
 func (f *fakeProc) ProcessReport(_ context.Context, _ map[string]proto.Message,
@@ -367,7 +367,7 @@ func (f *fakeProc) ProcessCheck(_ context.Context, _ string, _ proto.Message, _ 
 }
 
 func (f *fakeProc) ProcessQuota(_ context.Context, _ string, _ proto.Message, _ attribute.Bag,
-	_ expr.Evaluator, _ adapter.Handler, _ adapter.QuotaRequestArgs) (adapter.QuotaResult2, error) {
+	_ expr.Evaluator, _ adapter.Handler, _ adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	f.called++
 	return f.quotaResult, f.err
 }

@@ -69,8 +69,8 @@ const (
 	Default Severity = iota
 	// Debug indicates that the log entry has debug or trace information.
 	Debug
-	// Info indicates that the log entry has routine info, including rpc or performance data
-	Info
+	// InfoLegacy indicates that the log entry has routine info, including rpc or performance data
+	InfoLegacy
 	// Notice indicates that the log entry has normal, but significant events, such as config changes.
 	Notice
 	// Warning indicates that the log entry has data on events that might cause issues.
@@ -87,15 +87,15 @@ const (
 
 var (
 	severityMap = map[Severity]string{
-		Default:   "DEFAULT",
-		Debug:     "DEBUG",
-		Info:      "INFO",
-		Notice:    "NOTICE",
-		Warning:   "WARNING",
-		Error:     "ERROR",
-		Critical:  "CRITICAL",
-		Alert:     "ALERT",
-		Emergency: "EMERGENCY",
+		Default:    "DEFAULT",
+		Debug:      "DEBUG",
+		InfoLegacy: "INFO",
+		Notice:     "NOTICE",
+		Warning:    "WARNING",
+		Error:      "ERROR",
+		Critical:   "CRITICAL",
+		Alert:      "ALERT",
+		Emergency:  "EMERGENCY",
 	}
 
 	severityReverseMap = map[string]Severity{}

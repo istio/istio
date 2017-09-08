@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/adapter/noop"
+	"istio.io/mixer/adapter/noopLegacy"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect/test"
 	"istio.io/mixer/pkg/attribute"
@@ -202,7 +202,7 @@ func TestFromBuilder(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			f, err := FromBuilder(noop.Builder{}, tt.kind)
+			f, err := FromBuilder(noopLegacy.Builder{}, tt.kind)
 			if err != nil {
 				t.Fatalf("failed to construct CreateAspectFunc from builder unexpectedly")
 			}

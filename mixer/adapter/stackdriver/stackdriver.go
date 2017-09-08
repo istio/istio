@@ -47,9 +47,9 @@ var (
 	_ logentry.Handler        = &handler{}
 )
 
-// GetInfo returns the BuilderInfo associated with this adapter implementation.
-func GetInfo() adapter.BuilderInfo {
-	return adapter.BuilderInfo{
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
 		Name:        "stackdriver",
 		Impl:        "istio.io/mixer/adapte/stackdriver",
 		Description: "Publishes StackDriver metrics and logs.",

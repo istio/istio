@@ -273,7 +273,7 @@ var (
 			Name:               istio_mixer_template_quota.TemplateName,
 			Impl:               "istio.mixer.template.quota",
 			CtrCfg:             &istio_mixer_template_quota.InstanceParam{},
-			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			Variety:            adptTmpl.TEMPLATE_VARIETY_QUOTA,
 			BldrInterfaceName:  istio_mixer_template_quota.TemplateName + "." + "HandlerBuilder",
 			HndlrInterfaceName: istio_mixer_template_quota.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
@@ -374,107 +374,101 @@ var (
 				castedBuilder.SetQuotaTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-				var instances []*istio_mixer_template_quota.Instance
-				for name, inst := range insts {
-					md := inst.(*istio_mixer_template_quota.InstanceParam)
+			ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+				castedInst := inst.(*istio_mixer_template_quota.InstanceParam)
 
-					Value, err := mapper.Eval(md.Value, attrs)
+				Value, err := mapper.Eval(castedInst.Value, attrs)
 
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					Int64Primitive, err := mapper.Eval(md.Int64Primitive, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					BoolPrimitive, err := mapper.Eval(md.BoolPrimitive, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					DoublePrimitive, err := mapper.Eval(md.DoublePrimitive, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					StringPrimitive, err := mapper.Eval(md.StringPrimitive, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					AnotherValueType, err := mapper.Eval(md.AnotherValueType, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					DimensionsFixedInt64ValueDType, err := template.EvalAll(md.DimensionsFixedInt64ValueDType, attrs, mapper)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", name, err)
-						glog.Error(msg)
-						return errors.New(msg)
-					}
-
-					instances = append(instances, &istio_mixer_template_quota.Instance{
-						Name: name,
-
-						Value: Value,
-
-						Dimensions: Dimensions,
-
-						Int64Primitive: Int64Primitive.(int64),
-
-						BoolPrimitive: BoolPrimitive.(bool),
-
-						DoublePrimitive: DoublePrimitive.(float64),
-
-						StringPrimitive: StringPrimitive.(string),
-
-						AnotherValueType: AnotherValueType,
-
-						DimensionsFixedInt64ValueDType: func(m map[string]interface{}) map[string]int64 {
-							res := make(map[string]int64, len(m))
-							for k, v := range m {
-								res[k] = v.(int64)
-							}
-							return res
-						}(DimensionsFixedInt64ValueDType),
-					})
-					_ = md
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
 
-				if err := handler.(istio_mixer_template_quota.Handler).HandleQuota(ctx, instances); err != nil {
-					return fmt.Errorf("failed to report all values: %v", err)
+				Dimensions, err := template.EvalAll(castedInst.Dimensions, attrs, mapper)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
 				}
-				return nil
+
+				Int64Primitive, err := mapper.Eval(castedInst.Int64Primitive, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Int64Primitive for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				BoolPrimitive, err := mapper.Eval(castedInst.BoolPrimitive, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval BoolPrimitive for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				DoublePrimitive, err := mapper.Eval(castedInst.DoublePrimitive, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval DoublePrimitive for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				StringPrimitive, err := mapper.Eval(castedInst.StringPrimitive, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval StringPrimitive for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				AnotherValueType, err := mapper.Eval(castedInst.AnotherValueType, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval AnotherValueType for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				DimensionsFixedInt64ValueDType, err := template.EvalAll(castedInst.DimensionsFixedInt64ValueDType, attrs, mapper)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval DimensionsFixedInt64ValueDType for instance '%s': %v", quotaName, err)
+					glog.Error(msg)
+					return adapter.QuotaResult{}, errors.New(msg)
+				}
+
+				instance := &istio_mixer_template_quota.Instance{
+					Name: quotaName,
+
+					Value: Value,
+
+					Dimensions: Dimensions,
+
+					Int64Primitive: Int64Primitive.(int64),
+
+					BoolPrimitive: BoolPrimitive.(bool),
+
+					DoublePrimitive: DoublePrimitive.(float64),
+
+					StringPrimitive: StringPrimitive.(string),
+
+					AnotherValueType: AnotherValueType,
+
+					DimensionsFixedInt64ValueDType: func(m map[string]interface{}) map[string]int64 {
+						res := make(map[string]int64, len(m))
+						for k, v := range m {
+							res[k] = v.(int64)
+						}
+						return res
+					}(DimensionsFixedInt64ValueDType),
+				}
+
+				return handler.(istio_mixer_template_quota.Handler).HandleQuota(ctx, instance, args)
 			},
 		},
 
