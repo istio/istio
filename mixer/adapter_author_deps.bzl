@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 def mixer_adapter_repositories():
     native.git_repository(
         name = "org_pubref_rules_protobuf",
-        commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31, 2017 (gogo* support)
+        commit = "439c57e42dd4edf488644871ee0e0ec3b7c83b6e",  # Sept 1, 2017 (genfiles fix)
         remote = "https://github.com/pubref/rules_protobuf",
     )
 
