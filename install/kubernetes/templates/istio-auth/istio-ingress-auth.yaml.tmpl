@@ -61,6 +61,11 @@ spec:
         - containerPort: 80
         - containerPort: 443
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
