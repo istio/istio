@@ -55,6 +55,9 @@ spec:
           readOnly: true
         - mountPath: /etc/istio/proxy
           name: istio-envoy
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
       initContainers:
       - args:
         - -p
@@ -79,5 +82,9 @@ spec:
           medium: Memory
           sizeLimit: "0"
         name: istio-envoy
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.default
 status: {}
 ---

@@ -53,11 +53,9 @@ spec:
           readOnly: true
         - name: istio-envoy
           mountPath: /etc/istio/proxy/
-{{if eq .Auth 1}}
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
-{{end}}
       volumes:
       - name: config-volume
         configMap:
@@ -65,9 +63,8 @@ spec:
       - emptyDir:
           medium: Memory
         name: istio-envoy
-{{if eq .Auth 1}}
       - name: istio-certs
         secret:
           secretName: istio.default
-{{end}}
+          optional: true
 ---

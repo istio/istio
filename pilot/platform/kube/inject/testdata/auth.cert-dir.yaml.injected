@@ -86,6 +86,7 @@ spec:
         name: istio-envoy
       - name: istio-certs
         secret:
+          optional: true
           secretName: istio.default
 status: {}
 ---
