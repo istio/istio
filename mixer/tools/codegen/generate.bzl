@@ -98,7 +98,6 @@ def mixer_proto_library(
       "imports": imports + MIXER_IMPORTS + PROTO_IMPORTS,
       "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
       "inputs": inputs + MIXER_INPUTS + PROTO_INPUTS,
-      "output_to_workspace": True, # TODO: Remove when an appropriate fix/workaround exists.
       "verbose": verbose,
    }
 
