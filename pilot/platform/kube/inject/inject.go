@@ -129,6 +129,9 @@ const (
 	// DefaultResyncPeriod specifies how frequently to retrieve the
 	// full list of watched resources for initialization.
 	DefaultResyncPeriod = 30 * time.Second
+
+	// DefaultInitializerName specifies the name of the initializer.
+	DefaultInitializerName = "sidecar.initializer.istio.io"
 )
 
 // InitImageName returns the fully qualified image name for the istio
@@ -177,14 +180,17 @@ type Config struct {
 
 	// Params specifies the parameters of the injected sidcar template
 	Params Params `json:"params"`
+
+	// InitializerName specifies the name of the initializer.
+	InitializerName string `json:"initializerName"`
 }
 
 // GetInitializerConfig fetches the initializer configuration from a Kubernetes ConfigMap.
-func GetInitializerConfig(kube kubernetes.Interface, namespace, name string) (*Config, error) {
+func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName string) (*Config, error) {
 	var configMap *v1.ConfigMap
 	var err error
 	if errPoll := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		if configMap, err = kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{}); err != nil {
+		if configMap, err = kube.CoreV1().ConfigMaps(namespace).Get(injectConfigName, metav1.GetOptions{}); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -221,6 +227,9 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, name string) (*C
 	}
 	if c.Params.ImagePullPolicy == "" {
 		c.Params.ImagePullPolicy = DefaultImagePullPolicy
+	}
+	if c.InitializerName == "" {
+		c.InitializerName = DefaultInitializerName
 	}
 
 	return &c, nil

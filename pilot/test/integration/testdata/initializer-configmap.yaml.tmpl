@@ -9,6 +9,7 @@ data:
 {{ range $namespace := .Namespaces}}
     - "{{$namespace}}"
 {{ end }}
+    initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: "{{.Params.InitImage}}"
       proxyImage: "{{.Params.ProxyImage}}"
