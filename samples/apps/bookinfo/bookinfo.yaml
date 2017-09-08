@@ -215,4 +215,12 @@ spec:
         backend:
           serviceName: productpage
           servicePort: 9080
+      - path: /api/v1/products
+        backend:
+          serviceName: productpage
+          servicePort: 9080
+      - path: /api/v1/products/.*
+        backend:
+          serviceName: productpage
+          servicePort: 9080
 ---
