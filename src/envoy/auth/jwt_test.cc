@@ -344,9 +344,10 @@ bool EqJson(Json::ObjectSharedPtr p1, Json::ObjectSharedPtr p2) {
 
 class JwtTest : public testing::Test {
  protected:
-  void DoTest(std::string jwt, std::string pkey, std::string pkey_type,
+  void DoTest(std::string jwt_str, std::string pkey, std::string pkey_type,
               bool verified, Status status, Json::ObjectSharedPtr payload) {
-    JwtVerifier v = JwtVerifier(jwt);
+    Jwt jwt(jwt_str);
+    Verifier v;
     std::unique_ptr<Pubkeys> key;
     if (pkey_type == "pem") {
       key = Pubkeys::CreateFrom(pkey, Pubkeys::Type::PEM);
@@ -355,11 +356,11 @@ class JwtTest : public testing::Test {
     } else {
       ASSERT_TRUE(0);
     }
-    EXPECT_EQ(verified, v.Verify(*key));
+    EXPECT_EQ(verified, v.Verify(jwt, *key));
     EXPECT_EQ(status, v.GetStatus());
     if (verified) {
-      ASSERT_TRUE(v.Payload());
-      EXPECT_TRUE(EqJson(payload, v.Payload()));
+      ASSERT_TRUE(jwt.Payload());
+      EXPECT_TRUE(EqJson(payload, jwt.Payload()));
     }
   }
 };

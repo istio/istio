@@ -105,33 +105,56 @@ class WithStatus {
 };
 
 class Pubkeys;
+class Jwt;
 
 // JWT Verifier class.
 //
 // Usage example:
-//   JwtVerifier v(jwt);
+//   Verifier v;
+//   Jwt jwt(jwt_string);
 //   std::unique_ptr<Pubkeys> pubkey = ...
-//   if (v.Verify(*pubkey)) {
-//     auto payload = v.Payload();
+//   if (v.Verify(jwt, *pubkey)) {
+//     auto payload = jwt.Payload();
 //     ...
 //   } else {
 //     Status s = v.GetStatus();
 //     ...
 //   }
-class JwtVerifier : public WithStatus {
+class Verifier : public WithStatus {
+ public:
+  // This function verifies JWT signature.
+  // If verification failed, GetStatus() returns the failture reason.
+  // When the given JWT has a format error, this verification always fails and
+  // the JWT's status is handed over to Verifier.
+  // When pubkeys.GetStatus() is not equal to Status::OK, this verification
+  // always fails and the public key's status is handed over to Verifier.
+  bool Verify(const Jwt& jwt, const Pubkeys& pubkeys);
+
+ private:
+  // Functions to verify with single public key.
+  // (Note: Pubkeys object passed to Verify() may contains multiple public keys)
+  // When verification fails, UpdateStatus() is NOT called.
+  bool VerifySignature(EVP_PKEY* key, const EVP_MD* md,
+                       const uint8_t* signature, size_t signature_len,
+                       const uint8_t* signed_data, size_t signed_data_len);
+  bool VerifySignature(EVP_PKEY* key, const EVP_MD* md,
+                       const std::string& signature,
+                       const std::string& signed_data);
+};
+
+// Class to parse and a hold a JWT.
+// It also holds the failure reason if parse failed.
+//
+// Usage example:
+//   Jwt jwt(jwt_string);
+//   if(jwt.GetStatus() == Status::OK) { ... }
+class Jwt : public WithStatus {
  public:
   // This constructor parses the given JWT and prepares for verification.
   // You can check if the setup was successfully done by seeing if GetStatus()
   // == Status::OK. When the given JWT has a format error, GetStatus() returns
   // the error detail.
-  JwtVerifier(const std::string& jwt);
-
-  // This function verifies JWT signature.
-  // If verification failed, GetStatus() returns the failture reason.
-  // When the given JWT has a format error, this verification always fails.
-  // When pubkeys.GetStatus() is not equal to Status::OK, this verification
-  // always fails and the public key's status is handed over to JwtVerifier.
-  bool Verify(const Pubkeys& pubkeys);
+  Jwt(const std::string& jwt);
 
   // It returns a pointer to a JSON object of the header of the given JWT.
   // When the given JWT has a format error, it returns nullptr.
@@ -173,19 +196,7 @@ class JwtVerifier : public WithStatus {
   int64_t Exp();
 
  private:
-  const EVP_MD* EvpMdFromAlg(const std::string& alg);
-
-  // Functions to verify with single public key.
-  // (Note: Pubkeys object passed to Verify() may contains multiple public keys)
-  // When verification fails, UpdateStatus(Status::JWT_INVALID_SIGNATURE) is NOT
-  // called.
-  bool VerifySignature(EVP_PKEY* key);
-  bool VerifySignature(EVP_PKEY* key, const std::string& alg,
-                       const uint8_t* signature, size_t signature_len,
-                       const uint8_t* signed_data, size_t signed_data_len);
-  bool VerifySignature(EVP_PKEY* key, const std::string& alg,
-                       const std::string& signature,
-                       const std::string& signed_data);
+  const EVP_MD* md_;
 
   std::vector<std::string> jwt_split;
   Json::ObjectSharedPtr header_;
@@ -200,6 +211,11 @@ class JwtVerifier : public WithStatus {
   std::string iss_;
   std::string aud_;
   int64_t exp_;
+
+  /*
+   * TODO: try not to use friend function
+   */
+  friend bool Verifier::Verify(const Jwt& jwt, const Pubkeys& pubkeys);
 };
 
 // Class to parse and a hold public key(s).
@@ -231,7 +247,10 @@ class Pubkeys : public WithStatus {
   };
   std::vector<std::unique_ptr<Pubkey> > keys_;
 
-  friend bool JwtVerifier::Verify(const Pubkeys& pubkeys);
+  /*
+   * TODO: try not to use friend function
+   */
+  friend bool Verifier::Verify(const Jwt& jwt, const Pubkeys& pubkeys);
 };
 
 }  // Auth
