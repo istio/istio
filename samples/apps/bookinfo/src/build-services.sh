@@ -45,5 +45,9 @@ pushd $SCRIPTDIR/ratings
 popd
 
 pushd $SCRIPTDIR/mysql
-  docker build -t istio/examples-bookinfo-mysqldb-v1 .
+  docker build -t istio/examples-bookinfo-mysqldb .
+popd
+
+pushd $SCRIPTDIR/mongodb
+  docker build -t istio/examples-bookinfo-mongodb .
 popd
