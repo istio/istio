@@ -81,12 +81,19 @@ var (
 		standardAttributes, standardMetrics}
 )
 
-func (t *testConfig) Setup() error {
+func (t *testConfig) Setup() (err error) {
+	defer func() {
+		if err != nil {
+			dumpK8Env()
+		}
+	}()
+
 	t.gateway = "http://" + tc.Kube.Ingress
+	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
-		srcBytes, err := ioutil.ReadFile(src)
+		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
 			glog.Errorf("Failed to read original rule file %s", src)
 			return err
@@ -98,12 +105,13 @@ func (t *testConfig) Setup() error {
 		}
 	}
 
-	if err := setupMixerConfig(); err != nil {
+	if err = setupMixerConfig(); err != nil {
 		glog.Errorf("Unable to setup mixer metrics: %v", err)
 		return err
 	}
 
-	return createDefaultRoutingRules()
+	err = createDefaultRoutingRules()
+	return
 }
 
 func setupMixerConfig() error {
