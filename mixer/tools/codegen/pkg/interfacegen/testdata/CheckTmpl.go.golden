@@ -24,9 +24,9 @@ import (
 )
 
 // Fully qualified name of the template
-const TemplateName = "foo.bar.mylistchecker"
+const TemplateName = "mylistchecker"
 
-// Instance is constructed by Mixer for the 'foo.bar.mylistchecker.List' template.
+// Instance is constructed by Mixer for the 'mylistchecker' template.
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
@@ -53,32 +53,32 @@ type Instance struct {
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
-// process data associated with the List template.
+// process data associated with the 'mylistchecker' template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
 // it with adapter-specific configuration as well as all template-specific type information.
 type HandlerBuilder interface {
 	adapter.HandlerBuilder
 
-	// SetListTypes is invoked by Mixer to pass the template-specific Type information for instances that an adapter
+	// SetMylistCheckerTypes is invoked by Mixer to pass the template-specific Type information for instances that an adapter
 	// may receive at runtime. The type information describes the shape of the instance.
-	SetListTypes(map[string]*Type /*Instance name -> Type*/)
+	SetMylistCheckerTypes(map[string]*Type /*Instance name -> Type*/)
 }
 
 // Handler must be implemented by adapter code if it wants to
-// process data associated with the List template.
+// process data associated with the 'mylistchecker' template.
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
 // created instances to the adapter. Adapters take the incoming instances and do what they
 // need to achieve their primary function.
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
-// at configuration time via the method 'SetListTypes'.
+// at configuration time via the method 'SetMylistCheckerTypes'.
 // These Type associated with an instance describes the shape of the instance
 type Handler interface {
 	adapter.Handler
 
-	// HandleList is called by Mixer at request time to deliver instances to
+	// HandleMylistChecker is called by Mixer at request time to deliver instances to
 	// to an adapter.
-	HandleList(context.Context, *Instance) (adapter.CheckResult, error)
+	HandleMylistChecker(context.Context, *Instance) (adapter.CheckResult, error)
 }

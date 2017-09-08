@@ -29,9 +29,9 @@ import (
 // Additional overview of what metric is etc..
 
 // Fully qualified name of the template
-const TemplateName = "istio.mixer.adapter.metric"
+const TemplateName = "metric"
 
-// Instance is constructed by Mixer for the 'istio.mixer.adapter.metric.Metric' template.
+// Instance is constructed by Mixer for the 'metric' template.
 //
 // metric template is ..
 // aso it is...
@@ -63,7 +63,7 @@ type Instance struct {
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
-// process data associated with the Metric template.
+// process data associated with the 'metric' template.
 //
 // Mixer uses this interface to call into the adapter at configuration time to configure
 // it with adapter-specific configuration as well as all template-specific type information.
@@ -76,7 +76,7 @@ type HandlerBuilder interface {
 }
 
 // Handler must be implemented by adapter code if it wants to
-// process data associated with the Metric template.
+// process data associated with the 'metric' template.
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
 // created instances to the adapter. Adapters take the incoming instances and do what they

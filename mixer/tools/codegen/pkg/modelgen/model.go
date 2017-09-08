@@ -53,9 +53,10 @@ var customMessageTypeMetadata = map[string]typeMetadata{
 type (
 	// Model represents the object used to code generate mixer artifacts.
 	Model struct {
-		Name        string
-		VarietyName string
+		TemplateName string
+		VarietyName  string
 
+		InterfaceName     string
 		PackageImportPath string
 
 		Comment string
@@ -99,6 +100,11 @@ type (
 		Fields  []FieldInfo
 	}
 )
+
+// Last segment of package name after the '.' must match the following regex
+const pkgLaskSeg = "^[a-zA-Z]+$"
+
+var pkgLaskSegRegex = regexp.MustCompile(pkgLaskSeg)
 
 // Create creates a Model object.
 func Create(parser *FileDescriptorSetParser) (*Model, error) {
@@ -182,21 +188,14 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 		if fd.GetOptions() == nil {
 			continue
 		}
-		if !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateName) && !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
-			continue
-		}
-
-		if !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateName) || !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
-			diags = append(diags, createError(fd.GetName(), unknownLine,
-				"Contains only one of the following two options %s and %s. Both options are required.",
-				[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
+		if !proto.HasExtension(fd.GetOptions(), tmpl.E_TemplateVariety) {
 			continue
 		}
 
 		if templateDescriptorProto != nil {
 			diags = append(diags, createError(fd.GetName(), unknownLine,
-				"Proto files %s and %s, both have the options %s and %s. Only one proto file is allowed with those options",
-				[]interface{}{fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name, tmpl.E_TemplateName.Name}))
+				"Proto files %s and %s, both have the option %s. Only one proto file is allowed with this options",
+				[]interface{}{fd.GetName(), templateDescriptorProto.Name, tmpl.E_TemplateVariety.Name}))
 			continue
 		}
 
@@ -204,8 +203,8 @@ func getTmplFileDesc(fds []*FileDescriptor) (*FileDescriptor, []diag) {
 	}
 
 	if templateDescriptorProto == nil {
-		diags = append(diags, createError(unknownFile, unknownLine, "There has to be one proto file that has both extensions %s and %s",
-			[]interface{}{tmpl.E_TemplateVariety.Name, tmpl.E_TemplateVariety.Name}))
+		diags = append(diags, createError(unknownFile, unknownLine, "There has to be one proto file that has the extension %s",
+			[]interface{}{tmpl.E_TemplateVariety.Name}))
 	}
 
 	if len(diags) != 0 {
@@ -222,26 +221,18 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	}
 
 	if fd.Package != nil {
-		m.PackageName = strings.TrimSpace(*fd.Package)
+		m.PackageName = strings.ToLower(strings.TrimSpace(*fd.Package))
 		m.GoPackageName = goPackageName(m.PackageName)
-	} else {
-		m.addError(fd.GetName(), unknownLine, "package name missing")
-	}
 
-	if tmplName, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateName); err == nil {
-		if _, ok := tmplName.(*string); !ok {
-			// protoc should mandate the type. It is impossible to get to this state.
-			m.addError(fd.GetName(), unknownLine, "%s should be of type string", tmpl.E_TemplateName.Name)
+		if lastSeg, err := getLastSegment(strings.TrimSpace(*fd.Package)); err != nil {
+			m.addError(fd.GetName(), fd.getLineNumber(packagePath), err.Error())
 		} else {
-			m.Name = *tmplName.(*string)
-			if err := validateTmplName(m.Name); err != nil {
-				m.addError(fd.GetName(), unknownLine, err.Error())
-			}
+			// capitalize the first character since this string is used to create function names.
+			m.InterfaceName = strings.Title(lastSeg)
+			m.TemplateName = strings.ToLower(lastSeg)
 		}
 	} else {
-		// This func should only get called for FileDescriptor that has this attribute,
-		// therefore it is impossible to get to this state.
-		m.addError(fd.GetName(), unknownLine, "file option %s is required", tmpl.E_TemplateName.Name)
+		m.addError(fd.GetName(), unknownLine, "package name missing")
 	}
 
 	if tmplVariety, err := proto.GetExtension(fd.GetOptions(), tmpl.E_TemplateVariety); err == nil {
@@ -256,16 +247,13 @@ func (m *Model) addTopLevelFields(fd *FileDescriptor) {
 	m.Comment = fmt.Sprintf("%s\n%s", fd.getComment(syntaxPath), fd.getComment(packagePath))
 }
 
-// Template name must contain only alphanumerics with underscore. First character must be a capital alphabet.
-const tmplNamePattern = "^[A-Z][a-zA-Z0-9_]+$"
-
-func validateTmplName(name string) error {
-	if b, err := regexp.Match(tmplNamePattern, []byte(name)); err != nil {
-		return fmt.Errorf("template name '%s' cannot be validated: %v", name, err)
-	} else if !b {
-		return fmt.Errorf("template name '%s' does not match the pattern %s", name, tmplNamePattern)
+func getLastSegment(pkg string) (string, error) {
+	segs := strings.Split(pkg, ".")
+	last := segs[len(segs)-1]
+	if pkgLaskSegRegex.MatchString(last) {
+		return last, nil
 	}
-	return nil
+	return "", fmt.Errorf("the last segment of package name '%s' must match the reges '%s'", pkg, pkgLaskSeg)
 }
 
 func getRequiredTmplMsg(fdp *FileDescriptor) (*Descriptor, bool) {

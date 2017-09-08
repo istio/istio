@@ -8,7 +8,6 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
-option (istio.mixer.v1.config.template.template_name) = "Sample";
 
 message Template {
     istio.mixer.v1.config.descriptor.ValueType value = 1;
