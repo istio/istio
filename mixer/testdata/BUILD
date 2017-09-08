@@ -14,3 +14,9 @@ pkg_tar(
     tags = ["manual"],
     visibility = ["//docker:__pkg__"],
 )
+
+filegroup(
+    name = "testdata",
+    srcs = glob(["**/*.yml"]) + glob(["**/*.yaml"]),
+    visibility = ["//test/testenv:__subpackages__"],
+)

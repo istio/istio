@@ -13,6 +13,7 @@ go_library(
     ],
     visibility = [
         "//cmd:__subpackages__",
+        "//test/testenv:__subpackages__",
     ],
     deps = [
         "//adapter:go_default_library",
