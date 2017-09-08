@@ -12,134 +12,85 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 
-var http = require('http');
-var dispatcher = require('httpdispatcher');
+var http = require('http')
+var dispatcher = require('httpdispatcher')
 
-port = parseInt(process.argv[2]);
+var port = parseInt(process.argv[2])
 
-if (process.env.SERVICE_VERSION == "v2") {
-  if (process.env.DB_TYPE == "mysql") {
-    var mysql = require('mysql');
-    var hostName = process.env.MYSQL_DB_HOST;
-    var portNumber = process.env.MYSQL_DB_PORT;
-    var username = process.env.MYSQL_DB_USER;
-    var password = process.env.MYSQL_DB_PASSWORD;
-  } else {
-    var MongoClient = require('mongodb').MongoClient
-    var url = process.env.MONGO_DB_URL
-  }
+if (process.env.SERVICE_VERSION === 'v2') {
+  var MongoClient = require('mongodb').MongoClient
+  var url = process.env.MONGO_DB_URL
 }
 
-var ratingsResponse = {"Reviewer1": 5, "Reviewer2": 4}
+dispatcher.onGet(/^\/ratings\/[0-9]*/, function (req, res) {
+  var productIdStr = req.url.split('/').pop()
+  var productId = parseInt(productIdStr)
 
-dispatcher.onGet("/", function(req, res) {
-    res.writeHead(200)
-    res.end(
-        '<html>' +
-        '<head>' +
-        '<meta charset="utf-8">' +
-        '<meta http-equiv="X-UA-Compatible" content="IE=edge">' +
-        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-        '<!-- Latest compiled and minified CSS -->' +
-        '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">' +
-        '<!-- Optional theme -->' +
-        '<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">' +
-        '<!-- Latest compiled and minified JavaScript -->' +
-        '<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>' +
-        '<!-- Latest compiled and minified JavaScript -->' +
-        '<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>' +
-        '</head>' +
-        '<title>Book ratings service</title>' +
-        '<body>' +
-        '<p><h2>Hello! This is the book ratings service. My content is</h2></p>' +
-        '<div>' + JSON.stringify(ratingsResponse) + '</div>' +
-        '</body>' +
-        '</html>',
-        {"Content-type": "text/html"})
-})
-
-dispatcher.onGet("/ratings", function(req, res) {
-  if (process.env.SERVICE_VERSION == "v2") {
-    var first_rating = 0;
-    var second_rating = 0;
-    if (process.env.DB_TYPE == "mysql") {
-      var connection = mysql.createConnection({
-      	  host: hostName,
-          port: portNumber,
-          user: username,
-          password: password,
-          database : 'test'
-      });
-
-      connection.connect();
-      connection.query('SELECT Rating FROM ratings', function (error, results, fields) {
-          if (error) throw error;
-          if (results[0]) {
-              first_rating = results[0].Rating;
-          }
-          if (results[1]) {
-              second_rating = results[1].Rating;
-          }
-          var result = {
-            Reviewer1: first_rating,
-            Reviewer2: second_rating
-          }
-          console.log(result)
-          res.writeHead(200, {"Content-type": "application/json"})
-          res.end(JSON.stringify(result))
-      });
-      connection.end();
-    } else {
-      MongoClient.connect(url, function (err, db) {
-        if (err) {
-          res.writeHead(500, {"Content-type": "application/json"})
-          res.end(JSON.stringify(err))
-        } else {
-          db.collection('ratings').find({}).toArray(function (err, data) {
-            if (err) {
-              res.writeHead(500, {"Content-type": "application/json"})
-              res.end(JSON.stringify(err))
-            } else {
-              first_rating = data[0].rating
-              second_rating = data[1].rating
-              var result = {
-                Reviewer1: first_rating,
-                Reviewer2: second_rating
+  if (Number.isNaN(productId)) {
+    res.writeHead(400, {'Content-type': 'application/json'})
+    res.end(JSON.stringify({error: 'please provide numeric product ID'}))
+  } else if (process.env.SERVICE_VERSION === 'v2') {
+    var firstRating = 0
+    var secondRating = 0
+    MongoClient.connect(url, function (err, db) {
+      if (err) {
+        res.writeHead(500, {'Content-type': 'application/json'})
+        res.end(JSON.stringify({error: 'could not connect to ratings database'}))
+      } else {
+        db.collection('ratings').find({}).toArray(function (err, data) {
+          if (err) {
+            res.writeHead(500, {'Content-type': 'application/json'})
+            res.end(JSON.stringify({error: 'could not load ratings from database'}))
+          } else {
+            firstRating = data[0].rating
+            secondRating = data[1].rating
+            var result = {
+              id: productId,
+              ratings: {
+                Reviewer1: firstRating,
+                Reviewer2: secondRating
               }
-              console.log(result)
-              res.writeHead(200, {"Content-type": "application/json"})
-              res.end(JSON.stringify(result))
             }
-            // close DB in any case:
-            db.close()
-          })
-        }
-      })
-    }
-  }
-  else {
-    var json = JSON.stringify(ratingsResponse)
-    res.writeHead(200, {"Content-type": "application/json"})
-    res.end(json)
+            res.writeHead(200, {'Content-type': 'application/json'})
+            res.end(JSON.stringify(result))
+          }
+          // close DB in any case:
+          db.close()
+        })
+      }
+    })
+  } else {
+    res.writeHead(200, {'Content-type': 'application/json'})
+    res.end(JSON.stringify(getLocalReviews(productId)))
   }
 })
 
-dispatcher.onGet("/health", function(req, res) {
-    res.writeHead(200, {"Content-type": "text/plain"})
-    res.end("Ratings is healthy")
+dispatcher.onGet('/health', function (req, res) {
+  res.writeHead(200, {'Content-type': 'application/json'})
+  res.end(JSON.stringify({status: 'Ratings is healthy'}))
 })
 
-function handleRequest(request, response){
-    try {
-        console.log(request.method + " " + request.url);
-        dispatcher.dispatch(request, response);
-    } catch(err) {
-        console.log(err);
+function getLocalReviews (productId) {
+  return {
+    id: productId,
+    ratings: {
+      'Reviewer1': 5,
+      'Reviewer2': 4
     }
+  }
 }
 
-var server = http.createServer(handleRequest);
+function handleRequest (request, response) {
+  try {
+    console.log(request.method + ' ' + request.url)
+    dispatcher.dispatch(request, response)
+  } catch (err) {
+    console.log(err)
+  }
+}
 
-server.listen(port, function(){
-    console.log("Server listening on: http://0.0.0.0:%s", port);
-});
+var server = http.createServer(handleRequest)
+
+server.listen(port, function () {
+  console.log('Server listening on: http://0.0.0.0:%s', port)
+})
