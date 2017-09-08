@@ -47,6 +47,8 @@ spec:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
+      source.user:
+        valueType: STRING
       target.uid:
         valueType: STRING
       connection.id:
