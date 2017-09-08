@@ -54,7 +54,7 @@ echo "=== Smoke Test ==="
 #
 # In the future, this should be parameterized similarly to the integration tests, with the kubeconfig
 # location specified explicitly.
-./prow/e2e.sh \
+./prow/e2e-suite-rbac-no_auth.sh \
     --pilot_hub="${HUB}" \
     --pilot_tag="${GIT_SHA}" \
     --istioctl_url="${ISTIOCTL_URL}"
