@@ -15,6 +15,8 @@
 package helper
 
 import (
+	"fmt"
+
 	gapiopts "google.golang.org/api/option"
 
 	"istio.io/mixer/adapter/stackdriver/config"
@@ -34,4 +36,13 @@ func ToOpts(cfg *config.Params) (opts []gapiopts.ClientOption) {
 		opts = append(opts, gapiopts.WithEndpoint(cfg.Endpoint))
 	}
 	return
+}
+
+// ToStringMap converts a map[string]interface{} to a map[string]string using fmt.Sprintf(%v)
+func ToStringMap(in map[string]interface{}) map[string]string {
+	out := make(map[string]string, len(in))
+	for key, val := range in {
+		out[key] = fmt.Sprintf("%v", val)
+	}
+	return out
 }

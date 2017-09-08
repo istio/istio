@@ -22,7 +22,7 @@ import (
 
 	monitoring "cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
-	gax "github.com/googleapis/gax-go"
+	"github.com/googleapis/gax-go"
 	xcontext "golang.org/x/net/context"
 	labelpb "google.golang.org/genproto/googleapis/api/label"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
@@ -196,17 +196,10 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 		start, _ := ptypes.TimestampProto(h.now())
 		end, _ := ptypes.TimestampProto(h.now())
 
-		data = append(data, &monitoringpb.TimeSeries{
+		ts := &monitoringpb.TimeSeries{
 			Metric: &metricpb.Metric{
 				Type:   minfo.ttype,
-				Labels: toStringMap(val.Dimensions),
-			},
-			// TODO: handle MRs; today we publish all metrics to SD'h global MR because it'h easy.
-			Resource: &monitoredres.MonitoredResource{
-				Type: "global",
-				Labels: map[string]string{
-					"project_id": h.projectID,
-				},
+				Labels: helper.ToStringMap(val.Dimensions),
 			},
 			MetricKind: minfo.kind,
 			ValueType:  minfo.value,
@@ -219,7 +212,25 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 				},
 				Value: toTypedVal(val.Value, minfo.vtype)},
 			},
-		})
+		}
+
+		// The logging SDK has logic built in that does this for us: if a resource is not provided it fills in the global
+		// resource as a default. Since we don't have equivalent behavior for monitoring, we do it ourselves.
+		if val.MonitoredResourceType != "" {
+			ts.Resource = &monitoredres.MonitoredResource{
+				Type:   val.MonitoredResourceType,
+				Labels: helper.ToStringMap(val.MonitoredResourceDimensions),
+			}
+		} else {
+			ts.Resource = &monitoredres.MonitoredResource{
+				Type: "global",
+				Labels: map[string]string{
+					"project_id": h.projectID,
+				},
+			}
+		}
+
+		data = append(data, ts)
 	}
 	h.client.Record(data)
 	return nil
@@ -228,14 +239,6 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 func (h *handler) Close() error {
 	h.ticker.Stop()
 	return h.client.Close()
-}
-
-func toStringMap(in map[string]interface{}) map[string]string {
-	out := make(map[string]string, len(in))
-	for key, val := range in {
-		out[key] = fmt.Sprintf("%v", val)
-	}
-	return out
 }
 
 func toTypedVal(val interface{}, t descriptor.ValueType) *monitoringpb.TypedValue {

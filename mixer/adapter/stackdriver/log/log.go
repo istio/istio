@@ -26,6 +26,7 @@ import (
 	"cloud.google.com/go/logging"
 	xctx "golang.org/x/net/context"
 	"google.golang.org/api/option"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/adapter/stackdriver/helper"
@@ -112,7 +113,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 			log:    client.Logger(name).Log,
 		}
 	}
-	return &handler{client: client, now: time.Now, l: logger}, nil
+	return &handler{client: client, now: time.Now, l: logger, info: infos}, nil
 }
 
 func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance) error {
@@ -131,13 +132,22 @@ func (h *handler) HandleLogEntry(_ context.Context, values []*logentry.Instance)
 		payload := buf.String()
 		pool.PutBuffer(buf)
 
-		linfo.log(logging.Entry{
+		e := logging.Entry{
 			Timestamp:   h.now(), // TODO: use timestamp on Instance when timestamps work
 			Severity:    logging.ParseSeverity(v.Severity),
 			Labels:      toLabelMap(linfo.labels, v.Variables),
 			Payload:     payload,
 			HTTPRequest: toReq(linfo.req, v.Variables),
-		})
+		}
+
+		// If we don't set a resource the SDK will populate a global resource for us.
+		if v.MonitoredResourceType != "" {
+			e.Resource = &monitoredres.MonitoredResource{
+				Type:   v.MonitoredResourceType,
+				Labels: helper.ToStringMap(v.MonitoredResourceDimensions),
+			}
+		}
+		linfo.log(e)
 	}
 	return nil
 }
