@@ -183,13 +183,8 @@ class JwtVerificationFilterIntegrationTestWithJwks
   std::string ConfigPath() override {
     return "src/envoy/auth/integration_test/envoy.conf.jwk";
   }
-};
 
-INSTANTIATE_TEST_CASE_P(
-    IpVersions, JwtVerificationFilterIntegrationTestWithJwks,
-    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
-
-TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
+ protected:
   const std::string kPublicKey =
       "{\"keys\": [{\"kty\": \"RSA\",\"alg\": \"RS256\",\"use\": "
       "\"sig\",\"kid\": \"62a93512c9ee4c7f8067b5a216dade2763d32a47\",\"n\": "
@@ -210,6 +205,36 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "74kRBVZbk2wnmmb7IhP9OoLc1-7-9qU1uhpDxmE6JwBau0mDSwMnYDS4G_ML17dC-"
       "ZDtLd1i24STUw39KH0pcSdfFbL2NtEZdNeam1DDdk0iUtJSPZliUHJBI_pj8M-2Mn_"
       "oA8jBuI8YKwBqYkZCN1I95Q\",\"e\": \"AQAB\"}]}";
+};
+
+INSTANTIATE_TEST_CASE_P(
+    IpVersions, JwtVerificationFilterIntegrationTestWithJwks,
+    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
+  const std::string kJwtNoKid =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImV4YW1wbGVfc2VydmljZSIsImV4cCI6MjAwMTAwMTAwMX0."
+      "n45uWZfIBZwCIPiL0K8Ca3tmm-ZlsDrC79_"
+      "vXCspPwk5oxdSn983tuC9GfVWKXWUMHe11DsB02b19Ow-"
+      "fmoEzooTFn65Ml7G34nW07amyM6lETiMhNzyiunctplOr6xKKJHmzTUhfTirvDeG-q9n24-"
+      "8lH7GP8GgHvDlgSM9OY7TGp81bRcnZBmxim_UzHoYO3_"
+      "c8OP4ZX3xG5PfihVk5G0g6wcHrO70w0_64JgkKRCrLHMJSrhIgp9NHel_"
+      "CNOnL0AjQKe9IGblJrMuouqYYS0zEWwmOVUWUSxQkoLpldQUVefcfjQeGjz8IlvktRa77FYe"
+      "xfP590ACPyXrivtsxg";
+
+  auto expected_headers = BaseRequestHeaders();
+  expected_headers.addCopy("sec-istio-auth-userinfo",
+                           "{\"iss\":\"https://"
+                           "example.com\",\"sub\":\"test@example.com\",\"aud\":"
+                           "\"example_service\",\"exp\":2001001001}");
+
+  TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
+                   kPublicKey, true, expected_headers, "");
+}
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, JwtExpired) {
   const std::string kJwtNoKid =
       "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
@@ -221,14 +246,9 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "qS7Wwf8C0V9o2KZu0KDV0j0c9nZPWTv3IMlaGZAtQgJUeyemzRDtf4g2yG3xBZrLm3AzDUj_"
       "EX_pmQAHA5ZjPVCAw";
 
-  auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy("sec-istio-auth-userinfo",
-                           "{\"iss\":\"https://"
-                           "example.com\",\"sub\":\"test@example.com\","
-                           "\"exp\":1501281058}");
-
-  TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
-                   kPublicKey, true, expected_headers, "");
+  TestVerification(
+      createHeaders(kJwtNoKid), "", createIssuerHeaders(), kPublicKey, false,
+      Http::TestHeaderMapImpl{{":status", "401"}}, "Verification Failed");
 }
 
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {

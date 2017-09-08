@@ -253,6 +253,25 @@ class DatasetJwk {
       "qS7Wwf8C0V9o2KZu0KDV0j0c9nZPWTv3IMlaGZAtQgJUeyemzRDtf4g2yG3xBZrLm3AzDUj_"
       "EX_pmQAHA5ZjPVCAw";
 
+  // JWT payload JSON with long exp
+  const std::string kJwtPayloadLongExp =
+      R"EOF({"iss":"https://example.com","sub":"test@example.com","aud":"example_service","exp":2001001001})EOF";
+
+  // JWT without kid with long exp
+  // Header:  {"alg":"RS256","typ":"JWT"}
+  // Payload:
+  // {"iss":"https://example.com","sub":"test@example.com","aud":"example_service","exp":2001001001}
+  const std::string kJwtNoKidLongExp =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImV4YW1wbGVfc2VydmljZSIsImV4cCI6MjAwMTAwMTAwMX0."
+      "n45uWZfIBZwCIPiL0K8Ca3tmm-ZlsDrC79_"
+      "vXCspPwk5oxdSn983tuC9GfVWKXWUMHe11DsB02b19Ow-"
+      "fmoEzooTFn65Ml7G34nW07amyM6lETiMhNzyiunctplOr6xKKJHmzTUhfTirvDeG-q9n24-"
+      "8lH7GP8GgHvDlgSM9OY7TGp81bRcnZBmxim_UzHoYO3_"
+      "c8OP4ZX3xG5PfihVk5G0g6wcHrO70w0_64JgkKRCrLHMJSrhIgp9NHel_"
+      "CNOnL0AjQKe9IGblJrMuouqYYS0zEWwmOVUWUSxQkoLpldQUVefcfjQeGjz8IlvktRa77FYe"
+      "xfP590ACPyXrivtsxg";
   // JWT with correct kid
   // Header:
   // {"alg":"RS256","typ":"JWT","kid":"b3319a147514df7ee5e4bcdee51350cc890cc89e"}
@@ -449,6 +468,11 @@ class JwtTestJwks : public JwtTest {
 TEST_F(JwtTestJwks, OkNoKid) {
   auto payload = Json::Factory::loadFromString(ds.kJwtPayload);
   DoTest(ds.kJwtNoKid, ds.kPublicKey, "jwks", true, Status::OK, payload);
+}
+
+TEST_F(JwtTestJwks, OkNoKidLogExp) {
+  auto payload = Json::Factory::loadFromString(ds.kJwtPayloadLongExp);
+  DoTest(ds.kJwtNoKidLongExp, ds.kPublicKey, "jwks", true, Status::OK, payload);
 }
 
 TEST_F(JwtTestJwks, OkCorrectKid) {

@@ -22,6 +22,7 @@
 #include "envoy/http/async_client.h"
 #include "server/config/network/http_connection_manager.h"
 
+#include <chrono>
 #include <string>
 
 namespace Envoy {
@@ -154,9 +155,14 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
     // Invalid JWT
     return Auth::StatusToString(jwt.GetStatus());
   }
-  /*
-   * TODO: check exp claim
-   */
+
+  // Check "exp" claim.
+  auto unix_timestamp = std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+  if (jwt.Exp() < unix_timestamp) {
+    return "JWT_EXPIRED";
+  }
 
   for (const auto& iss : config_->issuers_) {
     if (iss->failed_ || iss->pkey_->GetStatus() != Auth::Status::OK) {
