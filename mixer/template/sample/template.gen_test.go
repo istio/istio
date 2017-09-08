@@ -57,14 +57,14 @@ type fakeReportHandler struct {
 }
 
 func (h *fakeReportHandler) Close() error { return nil }
-func (h *fakeReportHandler) HandleSample(ctx context.Context, instances []*sample_report.Instance) error {
+func (h *fakeReportHandler) HandleReport(ctx context.Context, instances []*sample_report.Instance) error {
 	h.procCallInput = instances
 	return h.retError
 }
 func (h *fakeReportHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeReportHandler) SetSampleTypes(t map[string]*sample_report.Type) {
+func (h *fakeReportHandler) SetReportTypes(t map[string]*sample_report.Type) {
 	h.cnfgCallInput = t
 }
 func (h *fakeReportHandler) Validate() *adapter.ConfigErrors     { return nil }
@@ -79,16 +79,16 @@ type fakeCheckHandler struct {
 }
 
 func (h *fakeCheckHandler) Close() error { return nil }
-func (h *fakeCheckHandler) HandleSample(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
+func (h *fakeCheckHandler) HandleCheck(ctx context.Context, instance *sample_check.Instance) (adapter.CheckResult, error) {
 	h.procCallInput = instance
 	return h.retResult, h.retError
 }
 func (h *fakeCheckHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return nil, nil
 }
-func (h *fakeCheckHandler) SetSampleTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
-func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors                { return nil }
-func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)            {}
+func (h *fakeCheckHandler) SetCheckTypes(t map[string]*sample_check.Type) { h.cnfgCallInput = t }
+func (h *fakeCheckHandler) Validate() *adapter.ConfigErrors               { return nil }
+func (h *fakeCheckHandler) SetAdapterConfig(cfg adapter.Config)           {}
 
 type fakeQuotaHandler struct {
 	adapter.Handler

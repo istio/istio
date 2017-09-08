@@ -5,5 +5,4 @@ package foo.bar;
 import "pkg/adapter/template/TemplateExtensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
-option (istio.mixer.v1.config.template.template_name) = "List";
 

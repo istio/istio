@@ -47,7 +47,7 @@ func (t *TestBuilderInfoInventory) getNewGetBuilderInfoFn() adapter.Info {
 
 type fakeHandlerBuilder struct{}
 
-func (fakeHandlerBuilder) SetSampleTypes(map[string]*sample_report.Type) {}
+func (fakeHandlerBuilder) SetReportTypes(map[string]*sample_report.Type) {}
 func (fakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	return fakeHandler{}, nil
 }
@@ -57,7 +57,7 @@ func (fakeHandlerBuilder) Validate() *adapter.ConfigErrors        { return nil }
 type fakeHandler struct{}
 
 func (fakeHandler) Close() error { return nil }
-func (fakeHandler) HandleSample([]*sample_report.Instance) error {
+func (fakeHandler) HandleReport([]*sample_report.Instance) error {
 	return errors.New("not implemented")
 }
 

@@ -31,19 +31,19 @@ func TestErrorInTemplate(t *testing.T) {
 		expectedError string
 	}{
 		{"testdata/missing_package_name.descriptor_set", "package name missing"},
-		{"testdata/missing_template_name.descriptor_set", "Contains only one of the following two options"},
-		{"testdata/missing_template_variety.descriptor_set", "Contains only one of the following two options"},
-		{"testdata/missing_both_required.descriptor_set", "one proto file that has both extensions"},
+		{"testdata/missing_both_required.descriptor_set", "There has to be one proto file that has the " +
+			"extension istio.mixer.v1.config.template.template_variety"},
 		{"testdata/missing_template_message.descriptor_set", "message 'Template' not defined"},
-		{"testdata/reserved_field_in_template.descriptor_set", "proto:15: Template message must not contain the reserved filed name 'Name'"},
+		{"testdata/reserved_field_in_template.descriptor_set", "proto:14: Template message must not contain the reserved filed name 'Name'"},
 		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
-		{"testdata/unsupported_field_type_message.descriptor_set", "UnsupportedFieldTypeMessage.proto:13: " +
+		{"testdata/unsupported_field_type_message.descriptor_set", "UnsupportedFieldTypeMessage.proto:12: " +
 			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, istio.mixer.v1.config.descriptor.ValueType, map<string, " +
 			"istio.mixer.v1.config.descriptor.ValueType | string | int64 | double | bool>'"},
 		{"testdata/unsupported_field_type_primitive.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_as_map.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_enum.descriptor_set", "unsupported type for field 'o'."},
-		{"testdata/wrong_case_tmpl_name.descriptor_set", "does not match the pattern"},
+		{"testdata/wrong_pkg_name.descriptor_set", "WrongPkgName.proto:2: the last segment of package " +
+			"name 'foo.badStrNumbersNotAllowed123' must match the reges '^[a-zA-Z]+$'"},
 	}
 
 	for idx, tt := range tests {
@@ -63,23 +63,29 @@ func TestErrorInTemplate(t *testing.T) {
 
 func TestBasicTopLevelFields(t *testing.T) {
 	testFilename := "testdata/basic_top_level_fields.descriptor_set"
-	model, _ := createTestModel(t,
+	model, err := createTestModel(t,
 		testFilename)
-	if model.GoPackageName != "foo_bar" {
-		t.Fatalf("CreateModel(%s).PackageName = %v, wanted %s", testFilename, model.GoPackageName, "foo_bar")
+	if err != nil {
+		t.Fatalf("model creation failed %v", err)
 	}
-	if model.Name != "List" {
-		t.Fatalf("CreateModel(%s).Name = %v, wanted %s", testFilename, model.Name, "List")
+	if model.GoPackageName != "foo_listchecker" {
+		t.Errorf("CreateModel(%s).PackageName = %v, wanted %s", testFilename, model.GoPackageName, "foo_listchecker")
+	}
+	if model.InterfaceName != "ListChecker" {
+		t.Errorf("CreateModel(%s).Name = %v, wanted %s", testFilename, model.InterfaceName, "ListChecker")
+	}
+	if model.TemplateName != "listchecker" {
+		t.Errorf("CreateModel(%s).Name = %v, wanted %s", testFilename, model.InterfaceName, "listchecker")
 	}
 	if model.VarietyName != "TEMPLATE_VARIETY_CHECK" {
-		t.Fatalf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
+		t.Errorf("CreateModel(%s).VarietyName = %v, wanted %s", testFilename, model.VarietyName, "TEMPLATE_VARIETY_CHECK")
 	}
 	if model.TemplateMessage.Comment != "// My Template comment" {
-		t.Fatalf("CreateModel(%s).TemplateMessage.Comment = %s, wanted %s", testFilename, model.TemplateMessage.Comment, "// My Template comment")
+		t.Errorf("CreateModel(%s).TemplateMessage.Comment = %s, wanted %s", testFilename, model.TemplateMessage.Comment, "// My Template comment")
 	}
 
 	if model.Comment != "// comment for syntax\n// comment for package" {
-		t.Fatalf("CreateModel(%s).Comment = %s, wanted %s", testFilename, model.Comment, "// comment for syntax\n// comment for package")
+		t.Errorf("CreateModel(%s).Comment = %s, wanted %s", testFilename, model.Comment, "// comment for syntax\n// comment for package")
 	}
 }
 

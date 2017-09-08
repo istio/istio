@@ -129,7 +129,7 @@ var (
 					v1 := v.(*{{.GoPackageName}}.Type)
 					castedTypes[k] = v1
 				}
-				castedBuilder.Set{{.Name}}Types(castedTypes)
+				castedBuilder.Set{{.InterfaceName}}Types(castedTypes)
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 				ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
@@ -172,7 +172,7 @@ var (
 						_ = md
 					}
 
-					if err := handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instances); err != nil {
+					if err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instances); err != nil {
 						return fmt.Errorf("failed to report all values: %v", err)
 					}
 					return nil
@@ -215,7 +215,7 @@ var (
 							{{end}}
 						{{end}}
 					}
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance)
+					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
 				},
 			{{else}}
 				ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
@@ -255,7 +255,7 @@ var (
 						{{end}}
 					}
 
-					return handler.({{.GoPackageName}}.Handler).Handle{{.Name}}(ctx, instance, args)
+					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance, args)
 				},
 			{{end}}
 

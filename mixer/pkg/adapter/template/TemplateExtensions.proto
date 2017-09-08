@@ -13,11 +13,6 @@ extend google.protobuf.FileOptions {
     TemplateVariety template_variety = 72295727;
 }
 
-
-extend google.protobuf.FileOptions {
-    string template_name = 72295729;
-}
-
 message Expr {
     // This will be deleted in the next PR once the initial codegen implementation is fixed to not use it. Curren plan
     // is to treate field of type ValueType as expressions.

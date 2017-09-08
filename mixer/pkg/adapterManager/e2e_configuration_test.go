@@ -48,8 +48,8 @@ func (fakeHndlrBldr) Build(_ context.Context, _ adapter.Env) (adapter.Handler, e
 	fakeHndlrObj := fakeHndlr{}
 	return fakeHndlrObj, nil
 }
-func (fakeHndlrBldr) SetSampleTypes(typeParams map[string]*sample_report.Type) {
-	globalActualHandlerCallInfoToValidate["SetSampleTypes"] = typeParams
+func (fakeHndlrBldr) SetReportTypes(typeParams map[string]*sample_report.Type) {
+	globalActualHandlerCallInfoToValidate["SetReportTypes"] = typeParams
 }
 func (fakeHndlrBldr) SetAdapterConfig(config adapter.Config) {
 	globalActualHandlerCallInfoToValidate["SetAdapterConfig"] = config
@@ -59,7 +59,7 @@ func (fakeHndlrBldr) Validate() *adapter.ConfigErrors {
 	return nil
 }
 
-func (fakeHndlr) HandleSample(instances []*sample_report.Instance) error {
+func (fakeHndlr) HandleReport(instances []*sample_report.Instance) error {
 	globalActualHandlerCallInfoToValidate["ReportSample"] = instances
 	return nil
 }
@@ -121,7 +121,7 @@ action_rules:
 
 instances:
 - name: fooInstance
-  template: "istio.mixer.adapter.sample.report"
+  template: "report"
   params:
     value: "2"
     int64Primitive: attr.int64 | 2
@@ -195,8 +195,8 @@ func testConfigFlow(t *testing.T, declarativeSrvcCnfgFilePath string, declaredGl
 		t.Errorf("got call count %d\nwant %d", len(globalActualHandlerCallInfoToValidate), 2)
 	}
 
-	if globalActualHandlerCallInfoToValidate["SetSampleTypes"] == nil || globalActualHandlerCallInfoToValidate["SetAdapterConfig"] == nil {
-		t.Errorf("got call info as : %v. \nwant calls %s and %s to have been called", globalActualHandlerCallInfoToValidate, "SetSampleTypes", "SetAdapterConfig")
+	if globalActualHandlerCallInfoToValidate["SetReportTypes"] == nil || globalActualHandlerCallInfoToValidate["SetAdapterConfig"] == nil {
+		t.Errorf("got call info as : %v. \nwant calls %s and %s to have been called", globalActualHandlerCallInfoToValidate, "SetReportTypes", "SetAdapterConfig")
 	}
 }
 
