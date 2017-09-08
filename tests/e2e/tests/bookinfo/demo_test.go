@@ -39,14 +39,14 @@ const (
 	u2                    = "test-user"
 	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
 	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoMysqlYaml     = "samples/apps/bookinfo/bookinfo-mysql.yaml"
+	bookinfoDbYaml        = "samples/apps/bookinfo/bookinfo-db.yaml"
 	modelDir              = "tests/apps/bookinfo/output"
 	rulesDir              = "samples/apps/bookinfo/rules"
 	allRule               = "route-rule-all-v1.yaml"
 	delayRule             = "route-rule-ratings-test-delay.yaml"
 	fiftyRule             = "route-rule-reviews-50-v3.yaml"
 	testRule              = "route-rule-reviews-test-v2.yaml"
-	testDbRule            = "route-rule-ratings-mysql.yaml"
+	testDbRule            = "route-rule-ratings-db.yaml"
 )
 
 var (
@@ -392,7 +392,7 @@ func setTestConfig() error {
 		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
+		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
 			KubeInject: false,
 		},
 	}
