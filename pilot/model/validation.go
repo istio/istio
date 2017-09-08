@@ -235,9 +235,9 @@ func ValidateFQDN(fqdn string) error {
 
 // ValidateIstioService checks for validity of a service reference
 func ValidateIstioService(svc *proxyconfig.IstioService) (errs error) {
-	if svc.Name == "" {
-		errs = multierror.Append(errs, errors.New("name is mandatory for a service reference"))
-	} else if !IsDNS1123Label(svc.Name) {
+	if svc.Name == "" && svc.Service == "" {
+		errs = multierror.Append(errs, errors.New("name or service is mandatory for a service reference"))
+	} else if svc.Name != "" && !IsDNS1123Label(svc.Name) {
 		errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
 	}
 

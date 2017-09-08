@@ -321,16 +321,22 @@ var (
 // fallback values to fill up the complete name.
 func ResolveHostname(meta ConfigMeta, svc *proxyconfig.IstioService) string {
 	out := svc.Name
-	if svc.Namespace != "" {
-		out = out + "." + svc.Namespace
-	} else if meta.Namespace != "" {
-		out = out + "." + meta.Namespace
-	}
+	// if FQDN is specified, do not append domain or namespace to hostname
+	// Service field has precedence over Name
+	if svc.Service != "" {
+		out = svc.Service
+	} else {
+		if svc.Namespace != "" {
+			out = out + "." + svc.Namespace
+		} else if meta.Namespace != "" {
+			out = out + "." + meta.Namespace
+		}
 
-	if svc.Domain != "" {
-		out = out + "." + svc.Domain
-	} else if meta.Domain != "" {
-		out = out + ".svc." + meta.Domain
+		if svc.Domain != "" {
+			out = out + "." + svc.Domain
+		} else if meta.Domain != "" {
+			out = out + ".svc." + meta.Domain
+		}
 	}
 
 	return out

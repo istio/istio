@@ -293,7 +293,8 @@ func TestResolveHostname(t *testing.T) {
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc:  &proxyconfig.IstioService{Name: "hello", Namespace: "default", Domain: "svc.cluster.local"},
+			svc: &proxyconfig.IstioService{Name: "hello",
+				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "hello.default.svc.cluster.local",
 		},
 		{
@@ -305,6 +306,28 @@ func TestResolveHostname(t *testing.T) {
 			meta: model.ConfigMeta{Namespace: "default"},
 			svc:  &proxyconfig.IstioService{Name: "hello"},
 			want: "hello.default",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
+			svc:  &proxyconfig.IstioService{Service: "reviews.service.consul"},
+			want: "reviews.service.consul",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
+			svc: &proxyconfig.IstioService{Name: "hello", Service: "reviews.service.consul",
+				Namespace: "default", Domain: "svc.cluster.local"},
+			want: "reviews.service.consul",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
+			svc:  &proxyconfig.IstioService{Service: "*cnn.com"},
+			want: "*cnn.com",
+		},
+		{
+			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
+			svc: &proxyconfig.IstioService{Name: "hello", Service: "*cnn.com",
+				Namespace: "default", Domain: "svc.cluster.local"},
+			want: "*cnn.com",
 		},
 	}
 
