@@ -30,7 +30,7 @@ function get_branch() {
     fi
 }
 
-BUILD_GIT_REVISION=$(git rev-parse --short HEAD 2> /dev/null)
+BUILD_GIT_REVISION=$(git rev-parse HEAD 2> /dev/null)
 if [[  $? == 0 ]]; then
     BRANCH="$(get_branch)"
     git diff-index --quiet HEAD
