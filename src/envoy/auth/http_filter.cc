@@ -180,10 +180,19 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
 
     if (jwt.Verify(*iss->pkey_)) {
       // verification succeeded
-      /*
-       * TODO: change what to add according to config_->user_info_type_
-       */
-      headers.addReferenceKey(AuthorizedHeaderKey(), jwt.PayloadStr());
+      std::string str_to_add;
+      switch (config_->user_info_type_) {
+        case Auth::JwtAuthConfig::UserInfoType::kPayload:
+          str_to_add = jwt.PayloadStr();
+          break;
+        case Auth::JwtAuthConfig::UserInfoType::kPayloadBase64Url:
+          str_to_add = jwt.PayloadStrBase64Url();
+          break;
+        case Auth::JwtAuthConfig::UserInfoType::kHeaderPayloadBase64Url:
+          str_to_add =
+              jwt.HeaderStrBase64Url() + "." + jwt.PayloadStrBase64Url();
+      }
+      headers.addReferenceKey(AuthorizedHeaderKey(), str_to_add);
 
       // Remove JWT from headers.
       headers.remove(kAuthorizationHeaderKey);

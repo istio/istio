@@ -34,7 +34,7 @@
                 "type": "decoder",
                 "name": "jwt-auth",
                 "config": {
-                  "userinfo_type": "payload_base64url",
+                  "userinfo_type": "payload",
                   "pubkey_cache_expiration_sec": 100,
                   "issuers": [
                     {
