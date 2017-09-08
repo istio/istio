@@ -384,10 +384,11 @@ data:
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
     mixerAddress: istio-mixer:9091
-    discoveryAddress: istio-pilot:8080
+    defaultConfig:
+      discoveryAddress: istio-pilot:8080
+      zipkinAddress: zipkin:9411
     ingressService: istio-ingress
     statsdUdpAddress: istio-mixer:9125
-    zipkinAddress: zipkin:9411
 ---
 apiVersion: v1
 kind: Service
@@ -425,7 +426,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:4f34dbbd7e052d6f51689b301ea244588a01a73a
+        image: gcr.io/istio-testing/pilot:b133d9280cb3fd40436380de6b1a5b2631b304dd
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -501,7 +502,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:4f34dbbd7e052d6f51689b301ea244588a01a73a
+        image: gcr.io/istio-testing/proxy_debug:b133d9280cb3fd40436380de6b1a5b2631b304dd
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: IfNotPresent
         ports:
@@ -565,7 +566,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:4f34dbbd7e052d6f51689b301ea244588a01a73a
+        image: gcr.io/istio-testing/proxy_debug:b133d9280cb3fd40436380de6b1a5b2631b304dd
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
