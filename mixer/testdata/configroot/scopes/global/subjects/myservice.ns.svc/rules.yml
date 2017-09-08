@@ -1,6 +1,0 @@
-subject: namespace:ns
-revision: "2022"
-rules:
-- aspects:
-  - kind: denials
- 

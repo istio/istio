@@ -25,7 +25,7 @@ metadata:
   name: quota
   namespace: istio-config-default
 spec:
-#  selector: request.headers["user"] != "admin"
+#  match: source.user  != "admin"
   actions:
   - handler: handler.memquota
     instances:

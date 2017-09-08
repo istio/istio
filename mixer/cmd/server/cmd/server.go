@@ -159,7 +159,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, f
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
 	// Rules selection is based on scopes.
-	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "target.service",
+	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "destination.service",
 		"Attribute that is used to identify applicable scopes.")
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
 		fatalf("unable to hide: %v", err)

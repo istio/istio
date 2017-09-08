@@ -51,6 +51,8 @@ spec:
         valueType: STRING
       target.uid:
         valueType: STRING
+      destination.uid:
+        valueType: STRING
       connection.id:
         valueType: STRING
       connection.received.bytes:
@@ -103,5 +105,17 @@ spec:
       target.service:
         valueType: STRING
       target.serviceAccount:
+        valueType: STRING
+      destination.ip:
+        valueType: IP_ADDRESS
+      destination.labels:
+        valueType: STRING_MAP
+      destination.name:
+        valueType: STRING
+      destination.namespace:
+        valueType: STRING
+      destination.service:
+        valueType: STRING
+      destination.serviceAccount:
         valueType: STRING
 

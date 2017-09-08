@@ -51,7 +51,7 @@ metadata:
   name: stackdriver
   namespace: istio-config-default
 spec:
-  selector: "true"
+  match: "true" # If omitted match is true.
   actions:
   - handler: stackdriver.stackdriver.istio-config-default
     instances:

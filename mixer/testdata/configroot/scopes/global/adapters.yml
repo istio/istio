@@ -5,16 +5,6 @@ adapters:
     impl: memQuota
     params:
   - name: default
-    impl: stdioLogger
-    params:
-      logStream: STDERR
-      omitEmptyFields: true
-  - name: prometheus
-    kind: metrics
-    impl: prometheus
-  - name: default
-    impl: denyChecker
-  - name: default
     kind: attributes
     impl: kubernetes
     params:

@@ -28,6 +28,20 @@ manifests:
         valueType: STRING
       target.serviceAccount:
         valueType: STRING
+      destination.ip:
+        valueType: IP_ADDRESS
+      destination.labels:
+        valueType: STRING_MAP
+      destination.name:
+        valueType: STRING
+      destination.namespace:
+        valueType: STRING
+      destination.service:
+        valueType: STRING
+      destination.serviceAccount:
+        valueType: STRING
+      destination.uid:
+        valueType: STRING
   - name: istio-proxy
     revision: "1"
     attributes:
@@ -98,118 +112,6 @@ manifests:
       # DEPRECATED, to be removed. Use request.useragent instead.
       request.user-agent:
         valueType: STRING
-# Enums as struct fields can be symbolic names.
-# However enums inside maps *cannot* be symbolic names.
-metrics:
-  - name: request_count
-    kind: COUNTER
-    value: INT64
-    description: request count by source, target, service, and code
-    labels:
-      source: 1 # STRING
-      target: 1 # STRING
-      service: 1 # STRING
-      method: 1 # STRING
-      version: 1 # STRING
-      response_code: 2 # INT64
-  - name: request_duration
-    kind: DISTRIBUTION
-    value: DURATION
-    description: request duration by source, target, and service
-    buckets:
-      explicit_buckets:
-        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-    # Examples of other possible bucket configurations:
-    #      linear_buckets:
-    #         num_finite_buckets: 10
-    #         offset: 0.001
-    #         width: 0.1
-    #      exponential_buckets:
-    #        num_finite_buckets: 15
-    #        scale: 0.001
-    #        growth_factor: 4
-    labels:
-      source: 1 # STRING
-      target: 1 # STRING
-      service: 1 # STRING
-      method: 1 # STRING
-      version: 1 # STRING
-      response_code: 2 # INT64
-  - name: request_size
-    kind: DISTRIBUTION
-    value: INT64
-    description: request size by source, target, and service
-    buckets:
-      exponentialBuckets:
-        numFiniteBuckets: 8
-        scale: 1
-        growthFactor: 10
-    # Examples of other possible bucket configurations:
-    #      explicit_buckets:
-    #         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-    #      linear_buckets:
-    #         num_finite_buckets: 10
-    #         offset: 0.001
-    #         width: 0.1
-    labels:
-      source: 1 # STRING
-      target: 1 # STRING
-      service: 1 # STRING
-      method: 1 # STRING
-      version: 1 # STRING
-      response_code: 2 # INT64
-  - name: response_size
-    kind: DISTRIBUTION
-    value: INT64
-    description: response size by source, target, and service
-    buckets:
-      exponentialBuckets:
-        numFiniteBuckets: 8
-        scale: 1
-        growthFactor: 10
-    # Examples of other possible bucket configurations:
-    #      explicitBuckets:
-    #         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-    #      linearBuckets:
-    #         numFiniteBuckets: 10
-    #         offset: 0.001
-    #         width: 0.1
-    labels:
-      source: 1 # STRING
-      target: 1 # STRING
-      service: 1 # STRING
-      method: 1 # STRING
-      version: 1 # STRING
-      response_code: 2 # INT64
 quotas:
   - name: RequestCount
     rate_limit: true
-logs:
-  - name: accesslog.common
-    display_name: Apache Common Log Format
-    payload_format: TEXT
-    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
-    labels:
-      originIp: 6 # IP_ADDRESS
-      sourceUser: 1 # STRING
-      timestamp: 5 # TIMESTAMP
-      method: 1 # STRING
-      url: 1 # STRING
-      protocol: 1 # STRING
-      responseCode: 2 # INT64
-      responseSize: 2 # INT64
-  - name: accesslog.combined
-    display_name: Apache Combined Log Format
-    payload_format: TEXT
-    log_template: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}} {{or (.referer) "-"}} {{or (.userAgent) "-"}}'
-    labels:
-      originIp: 6 # IP_ADDRESS
-      sourceUser: 1 # STRING
-      timestamp: 5 # TIMESTAMP
-      method: 1 # STRING
-      url: 1 # STRING
-      protocol: 1 # STRING
-      responseCode: 2 # INT64
-      responseSize: 2 # INT64
-      referer: 1 # STRING
-      userAgent: 1 # STRING
