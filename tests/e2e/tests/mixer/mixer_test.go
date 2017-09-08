@@ -148,18 +148,48 @@ func newPromProxy(namespace string) *promProxy {
 	}
 }
 
+func dumpK8Env() {
+	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
+
+	podLogs("istio=ingress", "istio-ingress")
+	podLogs("app=productpage", "istio-proxy")
+
+}
+
+func podID(labelSelector string) (pod string, err error) {
+	pod, err = util.Shell("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", tc.Kube.Namespace, labelSelector)
+	if err != nil {
+		glog.Warningf("could not get %s pod: %v", labelSelector, err)
+		return
+	}
+	pod = strings.Trim(pod, "'")
+	glog.Infof("%s pod name: %s", labelSelector, pod)
+	return
+}
+
+func podLogs(labelSelector string, container string) {
+	pod, err := podID(labelSelector)
+	if err != nil {
+		return
+	}
+
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30 -p", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30", tc.Kube.Namespace, pod, container)
+}
+
 // portForward sets up local port forward to the pod specified by the "app" label
 func (p *promProxy) portForward(labelSelector string, localPort string, remotePort string) error {
 	var pod string
 	var err error
 
-	glog.Infof("Setting up %s proxy", labelSelector)
 	getName := fmt.Sprintf("kubectl -n %s get pod -l %s -o jsonpath='{.items[0].metadata.name}'", p.namespace, labelSelector)
 	pod, err = util.Shell(getName)
 	if err != nil {
 		return err
 	}
 	glog.Infof("%s pod name: %s", labelSelector, pod)
+
+	glog.Infof("Setting up %s proxy", labelSelector)
 	portFwdCmd := fmt.Sprintf("kubectl port-forward %s %s:%s -n %s", strings.Trim(pod, "'"), localPort, remotePort, p.namespace)
 	glog.Info(portFwdCmd)
 	if p.portFwdProcess, err = util.RunBackground(portFwdCmd); err != nil {
@@ -320,8 +350,8 @@ func TestRateLimit(t *testing.T) {
 	if err := replaceRouteRule(routeReviewsV3Rule); err != nil {
 		t.Fatalf("Could not create replace reviews routing rule: %v", err)
 	}
-	// the rate limit rule applies a max rate limit of 5 rps. Here we apply it
-	// to the "ratings" service (without a selector -- meaning for all versions).
+	// the rate limit rule applies a max rate limit of 1 rps. Here we apply it
+	// to the "ratings" service (without a selector).
 	ratings := fqdn("ratings")
 	if err := createMixerRule(global, ratings, rateLimitRule); err != nil {
 		t.Fatalf("Could not create required mixer rule: %got", err)
@@ -340,7 +370,7 @@ func TestRateLimit(t *testing.T) {
 	// traffic is generated to trigger 429s from the rate limit rule
 	opts := fortio.HTTPRunnerOptions{
 		RunnerOptions: fortio.RunnerOptions{
-			QPS:        100,
+			QPS:        10,
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
 		},
@@ -371,9 +401,8 @@ func TestRateLimit(t *testing.T) {
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := float64(succReqs)
 
-	// the rate-limit is 5 rps, but observed actuals are [4-5) in experimental
-	// testing. opt for leniency here to decrease flakiness of testing.
-	want200s := opts.Duration.Seconds() * 4
+	// the rate-limit is 1 rps
+	want200s := opts.Duration.Seconds()
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
@@ -551,6 +580,10 @@ func visitProductPage(timeout time.Duration, wantStatus int, headers ...*header)
 			checkProductPageDirect()
 			return fmt.Errorf("could not retrieve product page in %v: Last status: %v", timeout, status)
 		}
+
+		// see what is happening
+		dumpK8Env()
+
 		time.Sleep(3 * time.Second)
 	}
 }

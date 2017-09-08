@@ -78,7 +78,7 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 func (i *Istioctl) Setup() error {
 	glog.Info("Setting up istioctl")
 	if err := i.Install(); err != nil {
-		glog.Error("Failed to download istioclt")
+		glog.Error("Failed to download istioctl")
 		return err
 	}
 	return nil
@@ -111,7 +111,7 @@ func (i *Istioctl) Install() error {
 		}
 
 		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
-			glog.Error("Failed to download istioclt")
+			glog.Error("Failed to download istioctl")
 			return err
 		}
 		err = os.Chmod(i.binaryPath, 0755) // #nosec
