@@ -3,8 +3,6 @@
  * mysql -h 127.0.0.1 -ppassword < mysqldb-init.sql
  */
 USE test;
-CREATE TABLE price (name VARCHAR(20), price INT);
-INSERT INTO price VALUES('comedy', 20);
 
 CREATE TABLE `ratings` (
   `ReviewID` INT NOT NULL,
