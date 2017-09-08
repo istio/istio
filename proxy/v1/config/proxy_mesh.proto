@@ -18,54 +18,20 @@ import "google/protobuf/duration.proto";
 
 package istio.proxy.v1.config;
 
-// ProxyMeshConfig defines variables shared by all Envoy instances in the
-// Istio service mesh.
-message ProxyMeshConfig {
-  // Address of the egress Envoy service (e.g. _istio-egress:80_).
-  string egress_proxy_address = 1;
+// ProxyConfig defines variables for individual Envoy instances.
+message ProxyConfig {
+  // Path to the generated configuration file directory.
+  // Proxy agent generates the actual configuration and stores it in this directory.
+  string config_path = 1;
 
-  // Address of the discovery service exposing SDS, CDS, RDS (e.g. _istio-manager:8080_).
-  string discovery_address = 2;
+  // Path to the proxy binary
+  string binary_path = 2;
 
-  // Address of the mixer service (e.g. _istio-mixer:9090_).
-  string mixer_address = 3;
-
-  // Disable policy checks by the mixer service. Metrics will still be
-  // reported to the mixer for HTTP requests and TCP connections. Default
-  // is false, i.e. mixer policy check is enabled by default.
-  bool disable_policy_checks = 25;
-  
-  // Address of the Zipkin service (e.g. _zipkin:9411_).
-  string zipkin_address = 4;
-
-  // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
-  string statsd_udp_address = 12;
-
-  // Port on which Envoy should listen for incoming connections from
-  // other services.
-  int32 proxy_listen_port = 5;
-
-  // Port on which Envoy should listen for administrative commands.
-  int32 proxy_admin_port = 6;
-
-  // Port on which Envoy should listen for HTTP PROXY requests if set.
-  int32 proxy_http_port = 16;
-
-  // The time in seconds that Envoy will drain connections during a hot
-  // restart. MUST be >=1s (e.g., _1s/1m/1h_)
-  google.protobuf.Duration drain_duration = 7;
-
-  // The time in seconds that Envoy will wait before shutting down the
-  // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
-  // MUST BE greater than _drain_duration_ parameter.
-  google.protobuf.Duration parent_shutdown_duration = 8;
-
-  // istio_service_cluster defines the name for the service_cluster that is
+  // Service cluster defines the name for the service_cluster that is
   // shared by all Envoy instances. This setting corresponds to
   // _--service-cluster_ flag in Envoy.  In a typical Envoy deployment, the
   // _service-cluster_ flag is used to identify the caller, for
   // source-based routing scenarios.
-  //
   //
   // Since Istio does not assign a local service/service version to each
   // Envoy instance, the name is same for all of them.  However, the
@@ -74,33 +40,69 @@ message ProxyMeshConfig {
   // receives API calls from Envoy, it uses the value of the _service-node_
   // flag to compute routes that are relative to the service instances
   // located at that IP address.
-  string istio_service_cluster = 9;
+  string service_cluster = 3;
 
-  // Polling interval for service discovery. (MUST BE >=1ms)
-  google.protobuf.Duration discovery_refresh_delay = 10;
+  // The time in seconds that Envoy will drain connections during a hot
+  // restart. MUST be >=1s (e.g., _1s/1m/1h_)
+  google.protobuf.Duration drain_duration = 4;
+
+  // The time in seconds that Envoy will wait before shutting down the
+  // parent process during a hot restart. MUST be >=1s (e.g., _1s/1m/1h_).
+  // MUST BE greater than _drain_duration_ parameter.
+  google.protobuf.Duration parent_shutdown_duration = 5;
+
+  // Address of the discovery service exposing xDS (e.g. _istio-pilot:8080_).
+  string discovery_address = 6;
+
+  // Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS). (MUST BE >=1ms)
+  google.protobuf.Duration discovery_refresh_delay = 7;
+
+  // Address of the Zipkin service (e.g. _zipkin:9411_).
+  string zipkin_address = 8;
+
+  // Connection timeout used by Envoy for supporting services. (MUST BE >=1ms)
+  google.protobuf.Duration connect_timeout = 9;
+
+  // IP Address and Port of a statsd UDP listener (e.g. _10.75.241.127:9125_).
+  string statsd_udp_address = 10;
+
+  // Port on which Envoy should listen for administrative commands.
+  int32 proxy_admin_port = 11;
+}
+
+
+// MeshConfig defines mesh-wide variables shared by all Envoy instances in the
+// Istio service mesh.
+message MeshConfig {
+  // Address of the egress Envoy service (e.g. _istio-egress:80_).
+  string egress_proxy_address = 1;
+
+  // Address of the mixer service (e.g. _istio-mixer:9090_).
+  // Empty value disables Mixer checks and telemetry.
+  string mixer_address = 2;
+
+  // Disable policy checks by the mixer service. Metrics will still be
+  // reported to the mixer for HTTP requests and TCP connections. Default
+  // is false, i.e. mixer policy check is enabled by default.
+  bool disable_policy_checks = 3;
+
+  // Port on which Envoy should listen for incoming connections from
+  // other services.
+  int32 proxy_listen_port = 4;
+
+  // Port on which Envoy should listen for HTTP PROXY requests if set.
+  int32 proxy_http_port = 5;
 
   // Connection timeout used by Envoy. (MUST BE >=1ms)
-  google.protobuf.Duration connect_timeout = 11;
-
-  // Kubernetes namespace to be monitored by Istio control plane.
-  // This can be a single application namespace (e.g. "bookinfo") or
-  // left unspecified, in which case all Kubernetes namespaces are
-  // observed.
-  string application_namespace = 13;
-
-  // File address for the proxy access log (e.g. /dev/stdout)
-  string access_log_file = 14;
-
-  // File address for the proxy error and debug log (e.g. /dev/stderr)
-  string error_log_file = 15;
+  google.protobuf.Duration connect_timeout = 6;
 
   // Class of ingress resources to be processed by Istio ingress
   // controller.  This corresponds to the value of
   // "kubernetes.io/ingress.class" annotation.
-  string ingress_class = 20;
+  string ingress_class = 7;
 
   // Name of the kubernetes service used for the istio ingress controller.
-  string ingress_service = 21;
+  string ingress_service = 8;
 
   enum IngressControllerMode {
     // Disables Istio ingress controller.
@@ -122,7 +124,7 @@ message ProxyMeshConfig {
   }
 
   // Defines whether to use Istio ingress controller for annotated or all ingress resources.
-  IngressControllerMode ingress_controller_mode = 22;
+  IngressControllerMode ingress_controller_mode = 9;
 
   enum AuthPolicy {
     // Do not encrypt Envoy to Envoy traffic.
@@ -134,8 +136,23 @@ message ProxyMeshConfig {
 
   // Authentication policy defines the global switch to control authentication
   // for Envoy-to-Envoy communication.
-  AuthPolicy auth_policy = 100;
+  AuthPolicy auth_policy = 10;
 
-  // Path to the secrets used by the authentication policy.
-  string auth_certs_path = 101;
+  // Polling interval for RDS (MUST BE >=1ms)
+  google.protobuf.Duration rds_refresh_delay = 11;
+
+  // Flag to control generation of trace spans and request IDs.
+  // Requires a trace span collector defined in the proxy configuration.
+  bool enable_tracing = 12;
+
+  // File address for the proxy access log (e.g. /dev/stdout).
+  // Empty value disables access logging.
+  string access_log_file = 13;
+
+  // Default proxy config used by the proxy injection mechanism operating in the mesh
+  // (e.g. Kubernetes admission controller)
+  // In case of Kubernetes, the proxy config is applied once during the injection process,
+  // and remain constant for the duration of the pod. The rest of the mesh config can be changed
+  // at runtime and config gets distributed dynamically.
+  ProxyConfig default_config = 14;
 }
