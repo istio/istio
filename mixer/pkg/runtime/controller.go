@@ -359,7 +359,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
 		rule := &Rule{
-			selector: rulec.Selector,
+			selector: rulec.Match,
 			name:     k.Name,
 			rtype:    resourceType(obj.Metadata.Labels),
 		}

@@ -22,7 +22,7 @@ metadata:
   name: mixerdenysome
   namespace: istio-config-default
 spec:
-  selector: request.headers["clnt"] == "abc"
+  match: request.headers["clnt"] == "abc"
   actions:
   # handler and instance names default to the rule's namespace.
   - handler: denyall.denier

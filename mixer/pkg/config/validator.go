@@ -411,11 +411,11 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 
 func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.ConfigErrors) {
 	for _, rule := range rules {
-		if err := p.validateSelector(rule.GetSelector(), p.descriptorFinder); err != nil {
-			ce = ce.Append(path+":Selector "+rule.GetSelector(), err)
+		if err := p.validateSelector(rule.GetMatch(), p.descriptorFinder); err != nil {
+			ce = ce.Append(path+":Selector "+rule.GetMatch(), err)
 		}
 
-		path = path + "/" + rule.GetSelector()
+		path = path + "/" + rule.GetMatch()
 		for idx, aa := range rule.GetActions() {
 			hasError := false
 
@@ -448,13 +448,6 @@ func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.Co
 			if !hasError {
 				p.actions = append(p.actions, aa)
 			}
-		}
-		rs := rule.GetRules()
-		if len(rs) == 0 {
-			continue
-		}
-		if verr := p.validateRules(rs, path); verr != nil {
-			ce = ce.Extend(verr)
 		}
 	}
 	return ce

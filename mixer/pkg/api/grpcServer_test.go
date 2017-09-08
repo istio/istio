@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
@@ -33,15 +35,33 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
-type preprocCallback func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
-type checkCallback func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
-type reportCallback func(requestBag attribute.Bag) rpc.Status
-type quotaCallback func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
+type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
+type checkCallback func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error)
+type reportCallback func(ctx context.Context, requestBag attribute.Bag) error
+type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
+	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
+
+type preprocCallbackLegacy func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
+type quotaCallbackLegacy func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
 	rpc.Status)
 
-type testState struct {
+type legacyDispatcher struct {
 	adapterManager.AspectDispatcher
+	quota   quotaCallbackLegacy
+	preproc preprocCallbackLegacy
+}
 
+func (l *legacyDispatcher) Preprocess(_ context.Context, requestBag attribute.Bag,
+	responseBag *attribute.MutableBag) rpc.Status {
+	return l.preproc(requestBag, responseBag)
+}
+
+func (l *legacyDispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
+	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+	return l.quota(requestBag, qma)
+}
+
+type testState struct {
 	client     mixerpb.MixerClient
 	connection *grpc.ClientConn
 	gs         *grpc.Server
@@ -52,6 +72,8 @@ type testState struct {
 	report  reportCallback
 	quota   quotaCallback
 	preproc preprocCallback
+
+	legacy *legacyDispatcher
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -71,7 +93,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(ts, nil, ts.gp)
+	ms := NewGRPCServer(ts.legacy, ts, ts.gp)
 	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
@@ -107,7 +129,9 @@ func (ts *testState) deleteAPIClient() {
 }
 
 func prepTestState() (*testState, error) {
-	ts := &testState{}
+	ts := &testState{
+		legacy: &legacyDispatcher{},
+	}
 	dial, err := ts.createGRPCServer()
 	if err != nil {
 		return nil, err
@@ -118,10 +142,13 @@ func prepTestState() (*testState, error) {
 		return nil, err
 	}
 
-	ts.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return status.OK
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		return nil
 	}
 
+	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+		return status.OK
+	}
 	return ts, nil
 }
 
@@ -130,22 +157,22 @@ func (ts *testState) cleanupTestState() {
 	ts.deleteGRPCServer()
 }
 
-func (ts *testState) Check(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
-	return ts.check(bag, output)
+func (ts *testState) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+	return ts.check(ctx, bag)
 }
 
-func (ts *testState) Report(ctx context.Context, bag attribute.Bag) rpc.Status {
-	return ts.report(bag)
+func (ts *testState) Report(ctx context.Context, bag attribute.Bag) error {
+	return ts.report(ctx, bag)
 }
 
 func (ts *testState) Quota(ctx context.Context, bag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
-	return ts.quota(bag, qma)
+	return ts.quota(ctx, bag, qma)
 }
 
-func (ts *testState) Preprocess(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
-	return ts.preproc(bag, output)
+func (ts *testState) Preprocess(ctx context.Context, req attribute.Bag, resp *attribute.MutableBag) error {
+	return ts.preproc(ctx, req, resp)
 }
 
 func TestCheck(t *testing.T) {
@@ -155,13 +182,16 @@ func TestCheck(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return status.WithPermissionDenied("Not Implemented")
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		return &adapter.CheckResult{
+			Status: status.WithPermissionDenied("Not Implemented"),
+		}, nil
 	}
 
-	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-		qmr := &aspect.QuotaMethodResp{Amount: 42}
-		return qmr, status.OK
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		return &adapter.QuotaResult{
+			Amount: 42,
+		}, nil
 	}
 
 	attr0 := mixerpb.Attributes{
@@ -190,8 +220,10 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 0", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-		return nil, status.WithPermissionDenied("Not Implemented")
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		return &adapter.QuotaResult{
+			Status: status.WithPermissionDenied("Not Implemented"),
+		}, nil
 	}
 
 	_, err = ts.client.Check(context.Background(), &request)
@@ -208,13 +240,16 @@ func TestCheckQuota(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return status.OK
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		return &adapter.CheckResult{
+			Status: status.OK,
+		}, nil
 	}
 
-	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-		qmr := &aspect.QuotaMethodResp{Amount: 42}
-		return qmr, status.OK
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		return &adapter.QuotaResult{
+			Amount: 42,
+		}, nil
 	}
 
 	attr0 := mixerpb.Attributes{
@@ -240,8 +275,10 @@ func TestCheckQuota(t *testing.T) {
 		t.Errorf("Got %v granted amount, expecting 42", response.Quotas["RequestCount"].GrantedAmount)
 	}
 
-	ts.quota = func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-		return nil, status.WithPermissionDenied("Not Implemented")
+	ts.quota = func(ctx context.Context, requestBag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
+		return &adapter.QuotaResult{
+			Status: status.WithPermissionDenied("Not Implemented"),
+		}, nil
 	}
 
 	_, err = ts.client.Check(context.Background(), &request)
@@ -258,8 +295,8 @@ func TestReport(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.report = func(requestBag attribute.Bag) rpc.Status {
-		return status.OK
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		return nil
 	}
 
 	request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{{}}}
@@ -268,8 +305,8 @@ func TestReport(t *testing.T) {
 		t.Errorf("Expected success, got error: %v", err)
 	}
 
-	ts.report = func(requestBag attribute.Bag) rpc.Status {
-		return status.WithPermissionDenied("Not Implemented")
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		return errors.New("not Implemented")
 	}
 
 	_, err = ts.client.Report(context.Background(), &request)
@@ -295,7 +332,7 @@ func TestReport(t *testing.T) {
 	}
 
 	callCount := 0
-	ts.report = func(requestBag attribute.Bag) rpc.Status {
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		v1, _ := requestBag.Get("A1")
 		v2, _ := requestBag.Get("A2")
 		v3, _ := requestBag.Get("A3")
@@ -317,7 +354,7 @@ func TestReport(t *testing.T) {
 			t.Errorf("Dispatched to Report method more than twice")
 		}
 		callCount++
-		return status.OK
+		return nil
 	}
 
 	request = mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{attr0, attr1}}
@@ -335,13 +372,14 @@ func TestUnknownStatus(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.check = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return rpc.Status{
-			Code:    12345678,
-			Message: "DEADBEEF!",
-		}
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		return &adapter.CheckResult{
+			Status: rpc.Status{
+				Code:    12345678,
+				Message: "DEADBEEF!",
+			},
+		}, nil
 	}
-
 	request := mixerpb.CheckRequest{}
 	resp, err := ts.client.Check(context.Background(), &request)
 	if err != nil {
@@ -358,7 +396,7 @@ func TestFailingPreproc(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		return rpc.Status{
 			Code:    12345678,
 			Message: "DEADBEEF!",

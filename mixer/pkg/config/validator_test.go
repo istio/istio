@@ -253,7 +253,7 @@ func TestFullConfigValidator(tt *testing.T) {
 			cok := ce == nil
 			ok := ctx.cerr == nil
 			if ok != cok {
-				t.Fatalf("%d got %t, want %t ", idx, cok, ok)
+				t.Fatalf("%d ok:= got %t, want %t ", idx, cok, ok)
 			}
 			if ce == nil {
 				return
@@ -412,7 +412,7 @@ rules:
       blacklist: true
       unknown_field: true
   rules:
-  - selector: src.name == "abc"
+  - match: src.name == "abc"
     aspects:
     - kind: quotas
       adapter: ""
@@ -1015,22 +1015,6 @@ action_rules:
     instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedValid = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.service == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: target.service == "*"
-    actions:
-    - handler: somehandler
-      instances:
-      - RequestCountByService
-`
 	const sSvcConfigMissingHandler = `
 subject: namespace:ns
 revision: "2022"
@@ -1040,26 +1024,11 @@ action_rules:
   - instances:
     - RequestCountByService
 `
-	const sSvcConfigNestedMissingHandler = `
-subject: namespace:ns
-revision: "2022"
-action_rules:
-- selector: target.ip == "*"
-  actions:
-  - handler: somehandler
-    instances:
-    - RequestCountByService
-  rules:
-  - selector: source.ip == "*"
-    actions:
-    - instances:
-      - RequestCountByService
-`
 	const sSvcConfigInvalidSelector = `
 subject: namespace:ns
 revision: "2022"
 action_rules:
-- selector: == * == invalid
+- match: == * == invalid
   actions:
   - handler: somehandler
     instances:
@@ -1089,16 +1058,6 @@ action_rules:
 			evaluator,
 		},
 		{
-			"Nested Rule",
-			sSvcConfigNestedValid,
-			0,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			nil,
-			2,
-			evaluator,
-		},
-		{
 			"HandlerNotFoundInstanceNotFound",
 			sSvcConfigValid,
 			2,
@@ -1116,16 +1075,6 @@ action_rules:
 			map[string]*HandlerBuilderInfo{"somehandler": {}},
 			[]string{"handler not specified or is invalid"},
 			0,
-			evaluator,
-		},
-		{
-			"MissingHandlerNestedCnfg",
-			sSvcConfigNestedMissingHandler,
-			1,
-			map[string]*pb.Instance{"RequestCountByService": {Template: "tmp1"}},
-			map[string]*HandlerBuilderInfo{"somehandler": {supportedTemplates: []string{tmpl1}}},
-			[]string{"handler not specified or is invalid"},
-			1,
 			evaluator,
 		},
 		{

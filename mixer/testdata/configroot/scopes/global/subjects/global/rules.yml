@@ -11,8 +11,8 @@ rules:
       input_expressions:
         sourceUID: source.uid | ""
         sourceIP: source.ip | ip("0.0.0.0") # default to unspecified ip addr
-        targetUID: target.uid | ""
-        targetIP: target.ip | ip("0.0.0.0") # default to unspecified ip addr
+        targetUID: destination.uid | ""
+        targetIP: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels
@@ -20,61 +20,16 @@ rules:
         source.namespace: sourceNamespace
         source.service: sourceService
         source.serviceAccount: sourceServiceAccountName
-        target.ip: targetPodIp
-        target.labels: targetLabels
-        target.name: targetPodName
-        target.namespace: targetNamespace
-        target.service: targetService
-        target.serviceAccount: targetServiceAccountName
+        destination.ip: targetPodIp
+        destination.labels: targetLabels
+        destination.name: targetPodName
+        destination.namespace: targetNamespace
+        destination.service: targetService
+        destination.serviceAccount: targetServiceAccountName
   - kind: quotas
     params:
       quotas:
       - descriptorName: RequestCount
         maxAmount: 5000
         expiration: 1s
-  - kind: metrics
-    adapter: prometheus
-    params:
-      metrics:
-      - descriptor_name: request_count
-        # we want to increment this counter by 1 for each unique (source, target, service, method, response_code) tuple
-        value: "1"
-        labels:
-          source: source.labels["app"] | "unknown"
-          target: target.service | "unknown"
-          service: target.labels["app"] | "unknown"
-          method: request.path | "unknown"
-          version: target.labels["version"] | "unknown"
-          response_code: response.code | 200
-      - descriptor_name:  request_duration
-        value: response.latency | response.duration | "0ms"
-        labels:
-          source: source.labels["app"] | "unknown"
-          target: target.service | "unknown"
-          service: target.labels["app"] | "unknown"
-          method: request.path | "unknown"
-          version: target.labels["version"] | "unknown"
-          response_code: response.code | 200
-  - kind: access-logs
-    params:
-      logName: access_log
-      log:
-        descriptor_name: accesslog.common
-        template_expressions:
-           originIp: origin.ip
-           sourceUser: origin.user
-           timestamp: request.time
-           method: request.method
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
-        labels:
-           originIp: origin.ip
-           sourceUser: origin.user
-           timestamp: request.time
-           method: request.method
-           url: request.path
-           protocol: request.scheme
-           responseCode: response.code
-           responseSize: response.size
+
