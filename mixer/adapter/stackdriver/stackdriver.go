@@ -75,12 +75,7 @@ func (b *builder) SetAdapterConfig(c adapter.Config) {
 }
 
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	mce := b.m.Validate()
-	lce := b.l.Validate()
-
-	ce = ce.Extend(mce)
-	ce = ce.Extend(lce)
-	return
+	return ce.Extend(b.m.Validate()).Extend(b.l.Validate())
 }
 
 // Build creates a stack driver handler object.

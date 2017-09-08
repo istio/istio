@@ -28,6 +28,7 @@ import (
 	"cloud.google.com/go/logging"
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
+	"google.golang.org/genproto/googleapis/api/monitoredres"
 
 	"istio.io/mixer/adapter/stackdriver/config"
 	"istio.io/mixer/pkg/adapter/test"
@@ -193,6 +194,18 @@ func TestHandleLogEntry(t *testing.T) {
 					Severity:  logging.Default,
 					Labels:    map[string]string{},
 					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
+				},
+			}},
+		{"resource",
+			map[string]info{"resource": {tmpl: template.Must(template.New("").Parse("{{.a}}-{{.b}}-{{.c}}")), log: log}},
+			[]*logentry.Instance{{Name: "resource", Variables: map[string]interface{}{"a": 1, "b": "foo", "c": now}, MonitoredResourceType: "mr-type"}},
+			[]logging.Entry{
+				{
+					Timestamp: now,
+					Severity:  logging.Default,
+					Labels:    map[string]string{},
+					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
+					Resource:  &monitoredres.MonitoredResource{Type: "mr-type", Labels: map[string]string{}},
 				},
 			}},
 	}

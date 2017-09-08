@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	monitoring "cloud.google.com/go/monitoring/apiv3"
+	"cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
