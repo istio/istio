@@ -720,6 +720,18 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			t3 = strings.GetID(tStr)
 			STACK_PUSH(t3)
 
+		case il.NLookup:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
 		case il.ALookup:
 			STACK_UNDERFLOW_GUARD(1)
 			LOAD_OP_CODE(t1)
@@ -729,6 +741,19 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			tStr, tFound = tVal.(map[string]string)[tStr]
 			if !tFound {
 				ERRF("member lookup failed: '%v'", strings.GetString(t1))
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
+		case il.ANLookup:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
 			}
 			t3 = strings.GetID(tStr)
 			STACK_PUSH(t3)

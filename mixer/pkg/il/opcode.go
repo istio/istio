@@ -296,6 +296,16 @@ const (
 	// parameter as the name. If a value is found, then the value is pushed into the stack
 	// Otherwise raises an error.
 	ALookup Opcode = 212
+
+	// NLookup pops a string, then a stringmap from the stack and perform a lookup on the stringmap
+	// using the string as the name. If a value is found, then the value is pushed into the
+	// stack.  Otherwise empty string is pushed onto the stack.
+	NLookup Opcode = 213
+
+	// ANLookup pops a stringmap from the stack and perform a lookup on the stringmap using the string
+	// parameter as the name. If a value is found, then the value is pushed into the stack
+	// Otherwise empty string is pushed onto the stack.
+	ANLookup Opcode = 214
 )
 
 const (
@@ -727,6 +737,11 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 	// stack.  Otherwise raises an error.
 	Lookup: {name: "Lookup", keyword: "lookup"},
 
+	// NLookup pops a string, then a stringmap from the stack and perform a lookup on the stringmap
+	// using the string as the name. If a value is found, then the value is pushed into the
+	// stack.  Otherwise empty string is pushed ono the stack.
+	NLookup: {name: "NLookup", keyword: "nlookup"},
+
 	// TLookup pops a string, then a stringmap from the stack and perform a lookup on the stringmap
 	// using the string as the name. If a value is found, then the value is pushed into the
 	// stack, then 1.  Otherwise 0 is pushed to into the stack.
@@ -736,6 +751,14 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 	// parameter as the name. If a value is found, then the value is pushed into the stack
 	// Otherwise raises an error.
 	ALookup: {name: "ALookup", keyword: "alookup", args: []OpcodeArg{
+		// The name of the attribute.
+		OpcodeArgString,
+	}},
+
+	// ANLookup pops a stringmap from the stack and perform a lookup on the stringmap using the string
+	// parameter as the name. If a value is found, then the value is pushed into the stack
+	// Otherwise empty string is pushed onto the stack.
+	ANLookup: {name: "ANLookup", keyword: "anlookup", args: []OpcodeArg{
 		// The name of the attribute.
 		OpcodeArgString,
 	}},

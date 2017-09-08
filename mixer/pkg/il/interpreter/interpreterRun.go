@@ -936,6 +936,26 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			opstack[sp] = t3
 			sp++
 
+		case il.NLookup:
+			if sp < 2 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = opstack[sp-1]
+			t2 = opstack[sp-2]
+			sp = sp - 2
+			tStr = strings.GetString(t1)
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tVal = heap[t2]
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
+			}
+			t3 = strings.GetID(tStr)
+			opstack[sp] = t3
+			sp++
+
 		case il.ALookup:
 			if sp < 1 {
 				goto STACK_UNDERFLOW
@@ -953,6 +973,27 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
+			}
+			t3 = strings.GetID(tStr)
+			opstack[sp] = t3
+			sp++
+
+		case il.ANLookup:
+			if sp < 1 {
+				goto STACK_UNDERFLOW
+			}
+			t1 = body[ip]
+			ip++
+			tStr = strings.GetString(t1)
+			sp--
+			t2 = opstack[sp]
+			if t2 >= hp {
+				goto INVALID_HEAP_ACCESS
+			}
+			tVal = heap[t2]
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
 			}
 			t3 = strings.GetID(tStr)
 			opstack[sp] = t3

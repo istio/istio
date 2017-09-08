@@ -202,6 +202,11 @@ func (f *Builder) Lookup() {
 	f.op0(Lookup)
 }
 
+// NLookup appends the "nlookup" instruction to the byte code.
+func (f *Builder) NLookup() {
+	f.op0(NLookup)
+}
+
 // TLookup appends the "tlookup" instruction to the byte code.
 func (f *Builder) TLookup() {
 	f.op0(TLookup)
@@ -210,6 +215,11 @@ func (f *Builder) TLookup() {
 // ALookup appends the "alookup" instruction to the byte code.
 func (f *Builder) ALookup(v string) {
 	f.op1(ALookup, f.id(v))
+}
+
+// ANLookup appends the "anlookup" instruction to the byte code.
+func (f *Builder) ANLookup(v string) {
+	f.op1(ANLookup, f.id(v))
 }
 
 // AllocateLabel allocates a new label value for use within the code.

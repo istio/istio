@@ -310,12 +310,31 @@ var builderTests = []builderTest{
 		},
 	},
 	{
+		n: "nlookup",
+		i: func(b *Builder) {
+			b.NLookup()
+		},
+		e: []uint32{
+			uint32(NLookup),
+		},
+	},
+	{
 		n: "alookup",
 		i: func(b *Builder) {
 			b.ALookup("abc")
 		},
 		e: []uint32{
 			uint32(ALookup),
+			1, //str index
+		},
+	},
+	{
+		n: "anlookup",
+		i: func(b *Builder) {
+			b.ANLookup("abc")
+		},
+		e: []uint32{
+			uint32(ANLookup),
 			1, //str index
 		},
 	},
