@@ -364,6 +364,36 @@ func TestRateLimit(t *testing.T) {
 
 	allowRuleSync()
 
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// establish baseline
+	t.Log("Establishing metrics baseline for test...")
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	prior429s, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	if err != nil {
+		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
+		prior429s = 0
+	}
+
+	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
+		prior200s = 0
+	}
+	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
+
+	t.Log("Sending traffic...")
+
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
 	// run at a large QPS (here 100) for a minute to ensure that enough
@@ -385,27 +415,23 @@ func TestRateLimit(t *testing.T) {
 
 	allowPrometheusSync()
 
-	// setup prometheus API
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
-	}
-
 	totalReqs := res.DurationHistogram.Count
-	succReqs := res.RetCodes[http.StatusOK]
+	succReqs := float64(res.RetCodes[http.StatusOK])
 	badReqs := res.RetCodes[http.StatusBadRequest]
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
+	t.Logf("Fortio Summary: %d reqs (%f 200s (%f rps), %d 400s)", totalReqs, succReqs, succReqs/opts.Duration.Seconds(), badReqs)
 
 	// consider only successful requests (as recorded at productpage service)
-	callsToRatings := float64(succReqs)
+	callsToRatings := succReqs
 
 	// the rate-limit is 1 rps
 	want200s := opts.Duration.Seconds()
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
+
+	t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/opts.Duration.Seconds(), want429s, want429s/opts.Duration.Seconds())
 
 	// if we received less traffic than the expected enforced limit to ratings
 	// then there is no way to determine if the rate limit was applied at all
@@ -415,9 +441,9 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	query = fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
 	}
@@ -432,8 +458,13 @@ func TestRateLimit(t *testing.T) {
 	// establish some baseline to protect against flakiness due to randomness in routing
 	want := math.Floor(want429s * .75)
 
+	got = got - prior429s
+
+	t.Logf("Actual 429s: %f (%f rps)", got, got/opts.Duration.Seconds())
+
 	// check resource exhausteds
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
@@ -443,13 +474,24 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("Could not find successes value: %v", err)
 	}
 
+	got = got - prior200s
+
+	t.Logf("Actual 200s: %f (%f rps)", got, got/opts.Duration.Seconds())
+
 	// establish some baseline to protect against flakiness due to randomness in routing
-	want = math.Floor(want200s * .75)
+	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
+	// less than 10, don't fail this test).
+	want = math.Floor(want200s * .5)
 
 	// check successes
 	if got < want {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
+	}
+
+	if got > want200s {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Errorf("Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
 }
 
