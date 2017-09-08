@@ -153,6 +153,7 @@ func dumpK8Env() {
 
 	podLogs("istio=ingress", "istio-ingress")
 	podLogs("istio=mixer", "mixer")
+	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
 
 }
