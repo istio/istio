@@ -9,7 +9,7 @@ kind: Deployment
 metadata:
   name: istio-sidecar-initializer
   annotations:
-    policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+    sidecar.istio.io/inject: "false"
 {{if .UseInitializer }}
   initializers:
     pending: []
@@ -24,7 +24,7 @@ spec:
       labels:
         istio: sidecar-initializer
       annotations:
-        policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+        sidecar.istio.io/inject: "false"
     spec:
       serviceAccountName: istio-sidecar-initializer-service-account
       containers:

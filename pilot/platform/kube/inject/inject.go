@@ -25,6 +25,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -41,25 +42,14 @@ import (
 	"istio.io/pilot/tools/version"
 )
 
-// TODO - Temporally retain the deprecated alpha annotations to ease
-// migration to k8s sidecar initializer.
-var (
-	insertDeprecatedAlphaAnnotation = true
-	checkDeprecatedAlphaAnnotation  = true
-)
-
-const istioSidecarAnnotationStatusKey = "status.sidecar.istio.io"
-
-// per-sidecar policy (deployment, job, statefulset, pod, etc)
+// per-sidecar policy and status (deployment, job, statefulset, pod, etc)
 const (
-	istioSidecarAnnotationPolicyKey           = "policy.sidecar.istio.io"
-	istioSidecarAnnotationPolicyValueDefault  = "policy.sidecar.istio.io/default"
-	istioSidecarAnnotationPolicyValueForceOn  = "policy.sidecar.istio.io/force-on"
-	istioSidecarAnnotationPolicyValueForceOff = "policy.sidecar.istio.io/force-off"
+	istioSidecarAnnotationPolicyKey = "sidecar.istio.io/inject"
+	istioSidecarAnnotationStatusKey = "sidecar.istio.io/status"
 )
 
-// InjectionPolicy determines the policy for injecting the sidecar
-// proxy into the watched namespace(s).
+// InjectionPolicy determines the policy for injecting the
+// sidecar proxy into the watched namespace(s).
 type InjectionPolicy string
 
 const (
@@ -69,22 +59,22 @@ const (
 	// resources.
 	InjectionPolicyOff InjectionPolicy = "off"
 
-	// InjectionPolicyOptIn specifies that the initializer will not
+	// InjectionPolicyDisabled specifies that the initializer will not
 	// inject the sidecar into resources by default for the
-	// namespace(s) being watched. Resources can opt-in using the
-	// "policy.sidecar.istio.io" annotation with value of
-	// policy.sidecar.istio.io/force-on.
-	InjectionPolicyOptIn InjectionPolicy = "opt-in"
+	// namespace(s) being watched. Resources can enable injection
+	// using the "sidecar.istio.io/inject" annotation with value of
+	// true.
+	InjectionPolicyDisabled InjectionPolicy = "disabled"
 
-	// InjectionPolicyOptOut specifies that the initializer will
+	// InjectionPolicyEnabled specifies that the initializer will
 	// inject the sidecar into resources by default for the
-	// namespace(s) being watched. Resources can opt-out using the
-	// "policy.sidecar.istio.io" annotation with value of
-	// policy.sidecar.istio.io/force-off.
-	InjectionPolicyOptOut InjectionPolicy = "opt-out"
+	// namespace(s) being watched. Resources can disable injection
+	// using the "sidecar.istio.io/inject" annotation with value of
+	// false.
+	InjectionPolicyEnabled InjectionPolicy = "enabled"
 
 	// DefaultInjectionPolicy is the default injection policy.
-	DefaultInjectionPolicy = InjectionPolicyOptOut
+	DefaultInjectionPolicy = InjectionPolicyEnabled
 )
 
 // Defaults values for injecting istio proxy into kubernetes
@@ -98,10 +88,6 @@ const (
 )
 
 const (
-	// deprecated - remove after istio/istio is updated to use new templates
-	deprecatedIstioSidecarAnnotationSidecarKey   = "alpha.istio.io/sidecar"
-	deprecatedIstioSidecarAnnotationSidecarValue = "injected(deprecated)"
-
 	// InitContainerName is the name for init container
 	InitContainerName = "istio-init"
 
@@ -209,7 +195,7 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 
 	// apply safe defaults if not specified
 	switch c.Policy {
-	case InjectionPolicyOff, InjectionPolicyOptIn, InjectionPolicyOptOut:
+	case InjectionPolicyOff, InjectionPolicyDisabled, InjectionPolicyEnabled:
 	default:
 		c.Policy = DefaultInjectionPolicy
 	}
@@ -236,41 +222,47 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 }
 
 func injectRequired(namespacePolicy InjectionPolicy, obj metav1.Object) bool {
-	var resourcePolicy string
+	var useDefault bool
+	var inject bool
 
 	annotations := obj.GetAnnotations()
 	if annotations == nil {
-		resourcePolicy = istioSidecarAnnotationPolicyValueDefault
+		useDefault = true
 	} else {
-		var ok bool
-		if resourcePolicy, ok = annotations[istioSidecarAnnotationPolicyKey]; !ok {
-			resourcePolicy = istioSidecarAnnotationPolicyValueDefault
+		if value, ok := annotations[istioSidecarAnnotationPolicyKey]; !ok {
+			useDefault = true
+		} else {
+			// http://yaml.org/type/bool.html
+			switch strings.ToLower(value) {
+			case "y", "yes", "true", "on":
+				inject = true
+			}
 		}
 	}
 
 	var required bool
+
 	switch namespacePolicy {
-	case InjectionPolicyOptIn:
-		if resourcePolicy == istioSidecarAnnotationPolicyValueForceOn {
-			required = true
+	default: // InjectionPolicyOff
+		required = false
+	case InjectionPolicyDisabled:
+		if useDefault {
+			required = false
+		} else {
+			required = inject
 		}
-	case InjectionPolicyOptOut:
-		if resourcePolicy != istioSidecarAnnotationPolicyValueForceOff {
+	case InjectionPolicyEnabled:
+		if useDefault {
 			required = true
+		} else {
+			required = inject
 		}
 	}
 
 	status, ok := annotations[istioSidecarAnnotationStatusKey]
 
-	// avoid injecting sidecar to resources previously modified with kube-inject
-	if annotations != nil && checkDeprecatedAlphaAnnotation {
-		if _, ok = annotations[deprecatedIstioSidecarAnnotationSidecarKey]; ok {
-			required = false
-		}
-	}
-
-	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespace:%v resource:%v status:%q required:%v",
-		obj.GetNamespace(), obj.GetName(), namespacePolicy, resourcePolicy, status, required)
+	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespace:%v useDefault:%v inject:%v status:%q required:%v",
+		obj.GetNamespace(), obj.GetName(), namespacePolicy, useDefault, inject, status, required)
 
 	if !required {
 		return false
@@ -477,11 +469,6 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 			m.Annotations = make(map[string]string)
 		}
 		m.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-" + c.Params.Version
-
-		if insertDeprecatedAlphaAnnotation {
-			m.Annotations[deprecatedIstioSidecarAnnotationSidecarKey] =
-				deprecatedIstioSidecarAnnotationSidecarValue
-		}
 	}
 
 	injectIntoSpec(&c.Params, templatePodSpec)

@@ -8,7 +8,7 @@ kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
   annotations:
-    policy.sidecar.istio.io: "policy.sidecar.istio.io/force-off"
+    sidecar.istio.io/inject: "false"
   name: istio-ca
 spec:
   replicas: 1

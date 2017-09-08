@@ -2,16 +2,14 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   annotations:
-    alpha.istio.io/sidecar: injected(deprecated)
-    status.sidecar.istio.io: injected-version-12345678
+    sidecar.istio.io/status: injected-version-12345678
   creationTimestamp: null
   name: pi
 spec:
   template:
     metadata:
       annotations:
-        alpha.istio.io/sidecar: injected(deprecated)
-        status.sidecar.istio.io: injected-version-12345678
+        sidecar.istio.io/status: injected-version-12345678
       creationTimestamp: null
       name: pi
     spec:

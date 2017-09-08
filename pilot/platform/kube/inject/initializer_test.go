@@ -104,7 +104,7 @@ func TestInitialize(t *testing.T) {
 		{
 			name:                   "initializer not configured",
 			in:                     "testdata/hello.yaml",
-			policy:                 InjectionPolicyOptOut,
+			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceAll,
 			wantPatchBytesFilename: "testdata/hello.yaml.patch",
@@ -112,7 +112,7 @@ func TestInitialize(t *testing.T) {
 		{
 			name:                   "required with NamespaceAll",
 			in:                     "testdata/required.yaml",
-			policy:                 InjectionPolicyOptOut,
+			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceAll,
 			wantPatchBytesFilename: "testdata/required.yaml.patch",
@@ -121,7 +121,7 @@ func TestInitialize(t *testing.T) {
 		{
 			name:                   "required with default namespace",
 			in:                     "testdata/required.yaml",
-			policy:                 InjectionPolicyOptOut,
+			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceDefault,
 			wantPatchBytesFilename: "testdata/required.yaml.patch",
@@ -130,7 +130,7 @@ func TestInitialize(t *testing.T) {
 		{
 			name:                   "first initializer",
 			in:                     "testdata/first-initializer.yaml",
-			policy:                 InjectionPolicyOptOut,
+			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceDefault,
 			wantPatchBytesFilename: "testdata/first-initializer.yaml.patch",
@@ -139,7 +139,7 @@ func TestInitialize(t *testing.T) {
 		{
 			name:                   "second initializer",
 			in:                     "testdata/second-initializer.yaml",
-			policy:                 InjectionPolicyOptOut,
+			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceDefault,
 			wantPatchBytesFilename: "testdata/second-initializer.yaml.patch",
@@ -161,6 +161,7 @@ func TestInitialize(t *testing.T) {
 				Mesh:              &mesh,
 				MeshConfigMapName: "istio",
 			},
+			InitializerName: DefaultInitializerName,
 		}
 		i, err := NewInitializer(restConfig, config, cl)
 		if err != nil {

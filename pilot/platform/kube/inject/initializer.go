@@ -39,10 +39,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	initializerName = "sidecar.initializer.istio.io"
-)
-
 var ignoredNamespaces = []string{
 	metav1.NamespaceSystem,
 	metav1.NamespacePublic,
@@ -218,7 +214,7 @@ namespaceSearch:
 	if len(pendingInitializers) == 0 {
 		return nil
 	}
-	if initializerName != pendingInitializers[0].Name {
+	if i.config.InitializerName != pendingInitializers[0].Name {
 		return nil
 	}
 
@@ -261,7 +257,7 @@ namespaceSearch:
 // Run runs the Initializer controller.
 func (i *Initializer) Run(stopCh <-chan struct{}) {
 	glog.Info("Starting Istio sidecar initializer...")
-	glog.Infof("Initializer name set to: %s", initializerName)
+	glog.Infof("Initializer name set to: %s", i.config.InitializerName)
 	glog.Infof("Options: %v", spew.Sdump(i.config))
 
 	glog.Infof("Supported kinds:")

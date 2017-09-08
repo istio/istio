@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   annotations:
-    policy.sidecar.istio.io: policy.sidecar.istio.io/force-off
+    sidecar.istio.io/inject: "false"
   creationTimestamp: null
   name: hello
 spec:
