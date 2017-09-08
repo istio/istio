@@ -200,6 +200,7 @@ func runTests(envs ...infra) {
 			&http{infra: &istio},
 			&grpc{infra: &istio},
 			&tcp{infra: &istio},
+			&headless{infra: &istio},
 			&ingress{infra: &istio},
 			&egress{infra: &istio},
 			&routing{infra: &istio},

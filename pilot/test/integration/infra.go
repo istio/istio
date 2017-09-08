@@ -207,6 +207,9 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
+	if err := deploy("headless.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 	if infra.Ingress {
 		if err := deploy("ingress-proxy.yaml.tmpl", infra.Namespace); err != nil {
 			return err
@@ -236,6 +239,7 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
+
 	if infra.Zipkin {
 		if err := deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
 			return err

@@ -7,6 +7,7 @@ go_library(
         "driver.go",
         "egress.go",
         "grpc.go",
+        "headless.go",
         "http.go",
         "infra.go",
         "ingress.go",

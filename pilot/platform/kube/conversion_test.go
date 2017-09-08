@@ -215,62 +215,6 @@ func TestExternalServiceConversion(t *testing.T) {
 	}
 }
 
-func TestInvalidServiceConversion(t *testing.T) {
-	serviceName := "service1"
-	namespace := "default"
-
-	localSvc := v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:     "http",
-					Port:     8080,
-					Protocol: v1.ProtocolTCP,
-				},
-				{
-					Name:     "https",
-					Protocol: v1.ProtocolTCP,
-					Port:     443,
-				},
-			},
-		},
-	}
-
-	if svc := convertService(localSvc, domainSuffix); svc != nil {
-		t.Errorf("converted a service without a cluster IP")
-	}
-}
-
-func TestInvalidExternalServiceConversion(t *testing.T) {
-	serviceName := "service1"
-	namespace := "default"
-
-	extSvc := v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: namespace,
-		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:     "http",
-					Port:     80,
-					Protocol: v1.ProtocolTCP,
-				},
-			},
-			Type: v1.ServiceTypeExternalName,
-		},
-	}
-
-	if svc := convertService(extSvc, domainSuffix); svc != nil {
-		t.Errorf("converted a service without an external name")
-	}
-}
-
 func TestProbesToPortsConversion(t *testing.T) {
 
 	expected := model.PortList{

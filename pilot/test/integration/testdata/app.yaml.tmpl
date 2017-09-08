@@ -62,6 +62,10 @@ spec:
           - --grpc
           - "{{.port6}}"
           - --port
+          - "10090"
+          - --port
+          - "19090"
+          - --port
           - "3333"
           - --version
           - "{{.version}}"
@@ -70,6 +74,8 @@ spec:
         - containerPort: {{.port2}}
         - containerPort: {{.port3}}
         - containerPort: {{.port4}}
+        - containerPort: 10090
+        - containerPort: 19090
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:

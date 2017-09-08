@@ -170,6 +170,10 @@ func buildSidecarListenersClusters(
 	managementPorts model.PortList,
 	node proxy.Node,
 	config model.IstioConfigStore) (Listeners, Clusters) {
+
+	// ensure services are ordered to simplify generation logic
+	sort.Slice(services, func(i, j int) bool { return services[i].Hostname < services[j].Hostname })
+
 	listeners := make(Listeners, 0)
 	clusters := make(Clusters, 0)
 
@@ -524,9 +528,16 @@ func buildOutboundHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.No
 //
 // Temporary workaround is to add a listener for each service IP that requires
 // TCP routing
+//
+// Connections to the ports of non-load balanced services are directed to
+// the connection's original destination. This avoids costly queries of instance
+// IPs and ports, but requires that ports of non-load balanced service be unique.
 func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*model.Service) (Listeners, Clusters) {
 	tcpListeners := make(Listeners, 0)
 	tcpClusters := make(Clusters, 0)
+
+	var originalDstCluster *Cluster
+	wildcardListenerPorts := make(map[int]bool)
 	for _, service := range services {
 		if service.External() {
 			continue // TODO TCP external services not currently supported
@@ -534,15 +545,39 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 		for _, servicePort := range service.Ports {
 			switch servicePort.Protocol {
 			case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMONGO:
-				cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
-				route := buildTCPRoute(cluster, []string{service.Address})
-				config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
-				listener := buildTCPListener(config, service.Address, servicePort.Port, servicePort.Protocol)
-				tcpClusters = append(tcpClusters, cluster)
-				tcpListeners = append(tcpListeners, listener)
+				if service.Address != "" {
+					cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+					route := buildTCPRoute(cluster, []string{service.Address})
+					config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
+					listener := buildTCPListener(
+						config, service.Address, servicePort.Port, servicePort.Protocol)
+					tcpClusters = append(tcpClusters, cluster)
+					tcpListeners = append(tcpListeners, listener)
+				} else {
+					// ensure only one wildcard listener is created per port
+					if wildcardListenerPorts[servicePort.Port] {
+						glog.V(4).Infof("Multiple definitions for passthrough port %d",
+							servicePort.Port)
+						continue
+					}
+					wildcardListenerPorts[servicePort.Port] = true
+
+					if originalDstCluster == nil {
+						originalDstCluster = buildOriginalDSTCluster(
+							"orig-dst-cluster-tcp", mesh.ConnectTimeout)
+						tcpClusters = append(tcpClusters, originalDstCluster)
+					}
+
+					route := buildTCPRoute(originalDstCluster, nil)
+					config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
+					listener := buildTCPListener(
+						config, WildcardAddress, servicePort.Port, servicePort.Protocol)
+					tcpListeners = append(tcpListeners, listener)
+				}
 			}
 		}
 	}
+
 	return tcpListeners, tcpClusters
 }
 

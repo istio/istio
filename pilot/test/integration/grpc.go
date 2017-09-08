@@ -48,14 +48,18 @@ func (t *grpc) run() error {
 }
 
 func (t *grpc) makeRequests() error {
-	testPods := []string{"a", "b"}
+	srcPods := []string{"a", "b"}
+	dstPods := []string{"a", "b"}
 	if t.Auth == proxyconfig.ProxyMeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
-		testPods = append(testPods, "t")
+		srcPods = append(srcPods, "t")
+		dstPods = append(dstPods, "t")
+		// mTLS is not supported for headless services
+		dstPods = append(dstPods, "headless")
 	}
 	funcs := make(map[string]func() status)
-	for _, src := range testPods {
-		for _, dst := range testPods {
+	for _, src := range srcPods {
+		for _, dst := range dstPods {
 			for _, port := range []string{":70", ":7070"} {
 				for _, domain := range []string{"", "." + t.Namespace} {
 					name := fmt.Sprintf("GRPC request from %s to %s%s%s", src, dst, domain, port)
@@ -69,7 +73,13 @@ func (t *grpc) makeRequests() error {
 									t.logs.add(src, id, name)
 								}
 								if dst != "t" {
-									t.logs.add(dst, id, name)
+									if dst == "headless" { // headless points to b
+										if src != "b" {
+											t.logs.add("b", id, name)
+										}
+									} else {
+										t.logs.add(dst, id, name)
+									}
 								}
 								// mixer filter is invoked on the server side, that is when dst is not "t"
 								if t.Mixer && dst != "t" {
