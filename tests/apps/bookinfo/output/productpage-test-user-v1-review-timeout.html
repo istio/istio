@@ -1,33 +1,33 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Simple Bookstore App</title>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- Latest compiled and minified CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
 
-    <!-- Optional theme -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
 
-</head>
-<body>
-
-
+  </head>
+  <body>
+    
+    
 
 <nav class="navbar navbar-inverse navbar-static-top">
     <div class="container">
         <div class="navbar-header">
             <a class="navbar-brand" href="#">BookInfo Sample</a>
         </div>
-
+        
         <p class="navbar-text navbar-right">
             <i class="glyphicon glyphicon-user" aria-hidden="true"></i>
             <span style="padding-left: 5px;">test-user  ( <a href="logout">sign out</a> )</span>
         </p>
-
+        
     </div>
 </nav>
 
@@ -53,67 +53,67 @@
   </div>
 </div>
 -->
-
+    
 <div id="login-modal" class="modal fade" role="dialog">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title">Please sign in</h4>
-            </div>
-            <div class="modal-body">
-                <form method="post" action='login' name="login_form">
-                    <p><input type="text" class="form-control" name="username" id="username" placeholder="User Name"></p>
-                    <p><input type="password" class="form-control" name="passwd" placeholder="Password"></p>
-                    <p>
-                        <button type="submit" class="btn btn-primary">Sign in</button>
-                        <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
-                    </p>
-                </form>
-            </div>
-        </div>
-
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title">Please sign in</h4>
+      </div>
+      <div class="modal-body">
+        <form method="post" action='login' name="login_form">
+          <p><input type="text" class="form-control" name="username" id="username" placeholder="User Name"></p>
+          <p><input type="password" class="form-control" name="passwd" placeholder="Password"></p>
+          <p>
+             <button type="submit" class="btn btn-primary">Sign in</button>
+             <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          </p>
+        </form>
+      </div>
     </div>
+
+  </div>
 </div>
 
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <h3 class="text-center text-primary">The Comedy of Errors</h3>
+  <div class="row">
+    <div class="col-md-12">
+      <h3 class="text-center text-primary">The Comedy of Errors</h3>
+      
+        <p>Summary: <a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.</p>
+      
+    </div>
+  </div>
 
-            <p>Summary: <a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare's</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.</p>
-
-        </div>
+  <div class="row">
+    <div class="col-md-6">
+      
+        <h4 class="text-center text-primary">Book Details</h4>
+        <dl>
+          <dt>Type:</dt>paperback
+          <dt>Pages:</dt>200
+          <dt>Publisher:</dt>PublisherA
+          <dt>Language:</dt>English
+          <dt>ISBN-10:</dt>1234567890
+          <dt>ISBN-13:</dt>123-1234567890
+        </dl>
+      
     </div>
 
-    <div class="row">
-        <div class="col-md-6">
-
-            <h4 class="text-center text-primary">Book Details</h4>
-            <dl>
-                <dt>Type:</dt>paperback
-                <dt>Pages:</dt>200
-                <dt>Publisher:</dt>PublisherA
-                <dt>Language:</dt>English
-                <dt>ISBN-10:</dt>1234567890
-                <dt>ISBN-13:</dt>123-1234567890
-            </dl>
-
-        </div>
-
-        <div class="col-md-6">
-
-            <h4 class="text-center text-primary">Error fetching product reviews!</h4>
-
-            <p>Sorry, product reviews are currently unavailable for this book.</p>
-
-
-        </div>
+    <div class="col-md-6">
+      
+        <h4 class="text-center text-primary">Error fetching product reviews!</h4>
+        
+          <p>Sorry, product reviews are currently unavailable for this book.</p>
+        
+      
     </div>
+  </div>
 </div>
 
 
-
+    
 <!-- Latest compiled and minified JavaScript -->
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
 
@@ -121,10 +121,10 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
 
 <script type="text/javascript">
-    $('#login-modal').on('shown.bs.modal', function () {
-        $('#username').focus();
-    });
+$('#login-modal').on('shown.bs.modal', function () {
+     $('#username').focus();
+});
 </script>
 
-</body>
+  </body>
 </html>
