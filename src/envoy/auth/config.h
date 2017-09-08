@@ -76,6 +76,11 @@ struct IssuerInfo : public Logger::Loggable<Logger::Id::http> {
   std::string name_;               // e.g. "https://accounts.example.com"
   Pubkeys::Type pkey_type_;        // Format of public key.
   std::unique_ptr<Pubkeys> pkey_;  // Public key
+
+  // If audiences is an empty array or not specified, any "aud" claim will be
+  // accepted.
+  std::vector<std::string> audiences_;
+  bool IsAudienceAllowed(const std::string &aud);
 };
 
 // A config for Jwt auth filter
@@ -96,9 +101,6 @@ struct JwtAuthConfig : public Logger::Loggable<Logger::Id::http> {
 
   // Time to expire a cached public key (sec).
   int64_t pubkey_cache_expiration_sec_;
-
-  // Audiences
-  std::vector<std::string> audiences_;
 
   // Each element corresponds to an issuer
   std::vector<std::shared_ptr<IssuerInfo> > issuers_;

@@ -36,12 +36,12 @@
                 "config": {
                   "userinfo_type": "payload_base64url",
                   "pubkey_cache_expiration_sec": 100,
-                  "audience": [
-                    "example_service"
-                  ],
                   "issuers": [
                     {
                       "name": "https://example.com",
+                      "audiences": [
+                        "example_service"
+                      ],
                       "pubkey": {
                         "type": "jwks",
                         "uri": "http://example.com/foobar_cert",
