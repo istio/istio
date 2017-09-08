@@ -49,8 +49,8 @@ if [ -f /home/bootstrap/.kube/config ]; then
   sudo rm /home/bootstrap/.kube/config
 fi
 
-mkdir /home/bootstrap/.kube
-touch /home/bootstrap/.kube/config
+#mkdir /home/bootstrap/.kube
+#touch /home/bootstrap/.kube/config
 
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --no-enable-legacy-authorization --enable-kubernetes-alpha --quiet \
