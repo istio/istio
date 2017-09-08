@@ -50,7 +50,8 @@ spec:
         name: istio-proxy
         resources: {}
         securityContext:
-          readOnlyRootFilesystem: true
+          privileged: true
+          readOnlyRootFilesystem: false
           runAsUser: 1337
         volumeMounts:
         - mountPath: /etc/istio/config

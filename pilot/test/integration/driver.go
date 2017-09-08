@@ -90,6 +90,9 @@ func init() {
 	flag.BoolVar(&params.UseInitializer, "use-initializer", false, "Use k8s sidecar initializer")
 
 	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
+
+	flag.BoolVar(&params.debugImagesAndMode, "debug", true, "Use debug images and mode (false for prod)")
+
 }
 
 type test interface {

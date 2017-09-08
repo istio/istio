@@ -45,11 +45,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: docker.io/istio/proxy_debug:unittest
+        image: docker.io/istio/proxy:unittest
         imagePullPolicy: Always
         name: istio-proxy
         resources: {}
         securityContext:
+          privileged: false
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:

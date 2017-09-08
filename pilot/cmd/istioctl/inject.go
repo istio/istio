@@ -38,6 +38,7 @@ var (
 	meshConfigMapName string
 	imagePullPolicy   string
 	includeIPRanges   string
+	debugMode         bool
 
 	inFilename  string
 	outFilename string
@@ -136,8 +137,8 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				Policy:     inject.DefaultInjectionPolicy,
 				Namespaces: []string{v1.NamespaceAll},
 				Params: inject.Params{
-					InitImage:         inject.InitImageName(hub, tag),
-					ProxyImage:        inject.ProxyImageName(hub, tag),
+					InitImage:         inject.InitImageName(hub, tag, debugMode),
+					ProxyImage:        inject.ProxyImageName(hub, tag, debugMode),
 					Verbosity:         verbosity,
 					SidecarProxyUID:   sidecarProxyUID,
 					Version:           versionStr,
@@ -146,6 +147,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 					MeshConfigMapName: meshConfigMapName,
 					ImagePullPolicy:   imagePullPolicy,
 					IncludeIPRanges:   includeIPRanges,
+					DebugMode:         debugMode,
 				},
 			}
 			return inject.IntoResourceFile(config, reader, writer)
@@ -185,4 +187,5 @@ func init() {
 	injectCmd.PersistentFlags().StringVar(&includeIPRanges, "includeIPRanges", "",
 		"Comma separated list of IP ranges in CIDR form. If set, only redirect outbound "+
 			"traffic to Envoy for IP ranges. Otherwise all outbound traffic is redirected")
+	injectCmd.PersistentFlags().BoolVar(&debugMode, "debug", true, "Use debug images and settings for the sidecar")
 }

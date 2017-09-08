@@ -32,12 +32,16 @@ import (
 
 func TestImageName(t *testing.T) {
 	want := "docker.io/istio/proxy_init:latest"
-	if got := InitImageName("docker.io/istio", "latest"); got != want {
+	if got := InitImageName("docker.io/istio", "latest", true); got != want {
 		t.Errorf("InitImageName() failed: got %q want %q", got, want)
 	}
 	want = "docker.io/istio/proxy_debug:latest"
-	if got := ProxyImageName("docker.io/istio", "latest"); got != want {
+	if got := ProxyImageName("docker.io/istio", "latest", true); got != want {
 		t.Errorf("ProxyImageName() failed: got %q want %q", got, want)
+	}
+	want = "docker.io/istio/proxy:latest"
+	if got := ProxyImageName("docker.io/istio", "latest", false); got != want {
+		t.Errorf("ProxyImageName(debug:false) failed: got %q want %q", got, want)
 	}
 }
 
@@ -48,6 +52,9 @@ const unitTestTag = "unittest"
 // and the other .injected "want" YAMLs
 const unitTestHub = "docker.io/istio"
 
+// Default unit test DebugMode parameter
+const unitTestDebugMode = true
+
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		authConfigPath  string
@@ -57,10 +64,13 @@ func TestIntoResourceFile(t *testing.T) {
 		want            string
 		imagePullPolicy string
 		enableCoreDump  bool
+		debugMode       bool
 	}{
+		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
-			in:   "testdata/hello.yaml",
-			want: "testdata/hello.yaml.injected",
+			in:        "testdata/hello.yaml",
+			want:      "testdata/hello.yaml.injected",
+			debugMode: true,
 		},
 		{
 			in:   "testdata/hello-probes.yaml",
@@ -157,8 +167,8 @@ func TestIntoResourceFile(t *testing.T) {
 			Policy:     InjectionPolicyOptOut,
 			Namespaces: []string{v1.NamespaceAll},
 			Params: Params{
-				InitImage:         InitImageName(unitTestHub, unitTestTag),
-				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+				InitImage:         InitImageName(unitTestHub, unitTestTag, c.debugMode),
+				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
 				ImagePullPolicy:   "IfNotPresent",
 				Verbosity:         DefaultVerbosity,
 				SidecarProxyUID:   DefaultSidecarProxyUID,
@@ -166,6 +176,7 @@ func TestIntoResourceFile(t *testing.T) {
 				EnableCoreDump:    c.enableCoreDump,
 				Mesh:              &mesh,
 				MeshConfigMapName: "istio",
+				DebugMode:         c.debugMode,
 			},
 		}
 
@@ -393,8 +404,8 @@ func TestGetInitializerConfig(t *testing.T) {
 	goodConfig := Config{
 		Policy: InjectionPolicyOptIn,
 		Params: Params{
-			InitImage:         InitImageName(unitTestHub, unitTestTag),
-			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+			InitImage:         InitImageName(unitTestHub, unitTestTag, false),
+			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, false),
 			SidecarProxyUID:   1234,
 			MeshConfigMapName: "something",
 			ImagePullPolicy:   "Always",
@@ -446,8 +457,8 @@ func TestGetInitializerConfig(t *testing.T) {
 			want: Config{
 				Policy: DefaultInjectionPolicy,
 				Params: Params{
-					InitImage:         InitImageName(DefaultHub, version.Info.Version),
-					ProxyImage:        ProxyImageName(DefaultHub, version.Info.Version),
+					InitImage:         InitImageName(DefaultHub, version.Info.Version, false),
+					ProxyImage:        ProxyImageName(DefaultHub, version.Info.Version, false),
 					SidecarProxyUID:   DefaultSidecarProxyUID,
 					MeshConfigMapName: DefaultMeshConfigMapName,
 					ImagePullPolicy:   DefaultImagePullPolicy,

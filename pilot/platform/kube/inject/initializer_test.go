@@ -99,6 +99,7 @@ func TestInitialize(t *testing.T) {
 		managedNamespace       string
 		objNamespace           string
 		wantPatched            bool
+		wantDebug              bool
 	}{
 		{
 			name:                   "initializer not configured",
@@ -142,6 +143,7 @@ func TestInitialize(t *testing.T) {
 			objNamespace:           v1.NamespaceDefault,
 			managedNamespace:       v1.NamespaceDefault,
 			wantPatchBytesFilename: "testdata/second-initializer.yaml.patch",
+			wantDebug:              true,
 		},
 	}
 
@@ -150,8 +152,8 @@ func TestInitialize(t *testing.T) {
 			Policy:     c.policy,
 			Namespaces: []string{c.managedNamespace},
 			Params: Params{
-				InitImage:         InitImageName(unitTestHub, unitTestTag),
-				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+				InitImage:         InitImageName(unitTestHub, unitTestTag, c.wantDebug),
+				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, c.wantDebug),
 				ImagePullPolicy:   "IfNotPresent",
 				Verbosity:         DefaultVerbosity,
 				SidecarProxyUID:   DefaultSidecarProxyUID,

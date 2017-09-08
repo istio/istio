@@ -132,12 +132,19 @@ const (
 )
 
 // InitImageName returns the fully qualified image name for the istio
-// init image given a docker hub and tag
-func InitImageName(hub, tag string) string { return hub + "/proxy_init:" + tag }
+// init image given a docker hub and tag and debug flag
+func InitImageName(hub string, tag string, _ bool) string {
+	return hub + "/proxy_init:" + tag
+}
 
 // ProxyImageName returns the fully qualified image name for the istio
-// proxy image given a docker hub and tag.
-func ProxyImageName(hub, tag string) string { return hub + "/proxy_debug:" + tag }
+// proxy image given a docker hub and tag and whether to use debug or not.
+func ProxyImageName(hub string, tag string, debug bool) string {
+	if debug {
+		return hub + "/proxy_debug:" + tag
+	}
+	return hub + "/proxy:" + tag
+}
 
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
@@ -148,6 +155,7 @@ type Params struct {
 	SidecarProxyUID   int64                        `json:"sidecarProxyUID"`
 	Version           string                       `json:"version"`
 	EnableCoreDump    bool                         `json:"enableCoreDump"`
+	DebugMode         bool                         `json:"debugMode"`
 	Mesh              *proxyconfig.ProxyMeshConfig `json:"-"`
 	MeshConfigMapName string                       `json:"meshConfigMapName"`
 	ImagePullPolicy   string                       `json:"imagePullPolicy"`
@@ -200,10 +208,10 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, name string) (*C
 		c.Policy = DefaultInjectionPolicy
 	}
 	if c.Params.InitImage == "" {
-		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version)
+		c.Params.InitImage = InitImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.ProxyImage == "" {
-		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version)
+		c.Params.ProxyImage = ProxyImageName(DefaultHub, version.Info.Version, c.Params.DebugMode)
 	}
 	if c.Params.SidecarProxyUID == 0 {
 		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
@@ -382,7 +390,11 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		},
 	})
 
-	readOnly := true
+	// In debug mode we need to be able to write in the proxy container
+	// and change the iptables.
+	readOnly := !p.DebugMode
+	priviledged := p.DebugMode
+
 	sidecar := v1.Container{
 		Name:  ProxyContainerName,
 		Image: p.ProxyImage,
@@ -413,6 +425,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		SecurityContext: &v1.SecurityContext{
 			RunAsUser:              &p.SidecarProxyUID,
 			ReadOnlyRootFilesystem: &readOnly,
+			Privileged:             &priviledged,
 		},
 		VolumeMounts: volumeMounts,
 	}

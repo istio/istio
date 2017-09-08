@@ -32,20 +32,20 @@ import (
 )
 
 var (
-	mesh = proxy.DefaultMeshConfig()
-
+	mesh           = proxy.DefaultMeshConfig()
 	httpTestConfig = &Config{
 		Policy:     InjectionPolicyOptOut,
 		Namespaces: []string{v1.NamespaceAll},
 		Params: Params{
-			InitImage:         InitImageName(unitTestHub, unitTestTag),
-			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag),
+			InitImage:         InitImageName(unitTestHub, unitTestTag, unitTestDebugMode),
+			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, unitTestDebugMode),
 			ImagePullPolicy:   "IfNotPresent",
 			Verbosity:         DefaultVerbosity,
 			SidecarProxyUID:   DefaultSidecarProxyUID,
 			Version:           "12345678",
 			Mesh:              &mesh,
 			MeshConfigMapName: "istio",
+			DebugMode:         unitTestDebugMode,
 		},
 	}
 )
