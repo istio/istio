@@ -303,10 +303,9 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, insta
 	}
 
 	config := &HTTPFilterConfig{
-		CodecType:         auto,
-		GenerateRequestID: true,
-		UseRemoteAddress:  useRemoteAddress,
-		StatPrefix:        "http",
+		CodecType:        auto,
+		UseRemoteAddress: useRemoteAddress,
+		StatPrefix:       "http",
 		AccessLog: []AccessLog{{
 			Path: DefaultAccessLog,
 		}},
@@ -314,6 +313,7 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, insta
 	}
 
 	if mesh.ZipkinAddress != "" {
+		config.GenerateRequestID = true
 		config.Tracing = &HTTPFilterTraceConfig{
 			OperationName: IngressTraceOperation,
 		}
