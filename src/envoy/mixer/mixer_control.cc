@@ -56,8 +56,8 @@ const std::string kResponseTime = "response.time";
 const std::string kSourceIp = "source.ip";
 const std::string kSourcePort = "source.port";
 // Upstream tcp connection: destionation ip/port.
-const std::string kTargetIp = "target.ip";
-const std::string kTargetPort = "target.port";
+const std::string kDestinationIp = "destination.ip";
+const std::string kDestinationPort = "destination.port";
 const std::string kConnectionReceviedBytes = "connection.received.bytes";
 const std::string kConnectionReceviedTotalBytes =
     "connection.received.bytes_total";
@@ -369,10 +369,11 @@ void MixerControl::BuildTcpReport(
                     &request_data->attributes);
 
   if (upstreamHost && upstreamHost->address()) {
-    const Network::Address::Ip* target_ip = upstreamHost->address()->ip();
-    if (target_ip) {
-      SetIPAttribute(kTargetIp, *target_ip, &request_data->attributes);
-      SetInt64Attribute(kTargetPort, target_ip->port(),
+    const Network::Address::Ip* destination_ip = upstreamHost->address()->ip();
+    if (destination_ip) {
+      SetIPAttribute(kDestinationIp, *destination_ip,
+                     &request_data->attributes);
+      SetInt64Attribute(kDestinationPort, destination_ip->port(),
                         &request_data->attributes);
     }
   }

@@ -215,8 +215,8 @@ Here is its sample config:
           "name": "mixer",
           "config": {
               "mixer_attributes": {
-                  "target.uid": "POD222",
-                  "target.service": "foo.svc.cluster.local"
+                  "destination.uid": "POD222",
+                  "destination.service": "foo.svc.cluster.local"
                },
                "quota_name": "RequestCount"
           }
