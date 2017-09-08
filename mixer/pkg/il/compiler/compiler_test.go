@@ -379,7 +379,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   ret
 end
 `,
@@ -402,7 +402,7 @@ fn eval() bool
   ret
 L0:
   resolve_f "ar"
-  alookup "b"
+  anlookup "b"
   aeq_s "c"
   ret
 end`,
@@ -630,7 +630,7 @@ fn eval() string
   jnz L0
   resolve_f "br"
 L0:
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -748,7 +748,7 @@ end`,
 		code: `
 fn eval() string
   resolve_f "sm"
-  alookup "foo"
+  anlookup "foo"
   ret
 end`,
 	},
@@ -763,7 +763,7 @@ end`,
 fn eval() string
   resolve_f "sm"
   resolve_s "as"
-  lookup
+  nlookup
   ret
 end`,
 	},

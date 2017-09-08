@@ -301,10 +301,10 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 
 		if f.Args[1].Const != nil {
 			str := f.Args[1].Const.Value.(string)
-			g.builder.ALookup(str)
+			g.builder.ANLookup(str)
 		} else {
 			g.generate(f.Args[1], depth+1, nmNone, "")
-			g.builder.Lookup()
+			g.builder.NLookup()
 		}
 
 	case nmJmpOnValue:

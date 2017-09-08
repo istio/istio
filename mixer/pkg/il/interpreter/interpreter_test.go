@@ -1141,6 +1141,32 @@ func TestInterpreter_Eval(t *testing.T) {
 			},
 			err: "member lookup failed: 'q'",
 		},
+		"nlookup/success": {
+			code: `
+		fn main () string
+			resolve_f "a"
+			apush_s "b"
+			nlookup
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": map[string]string{"b": "c"},
+			},
+			expected: "c",
+		},
+		"nlookup/not found": {
+			code: `
+		fn main () string
+			resolve_f "a"
+			apush_s "q"
+			nlookup
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": map[string]string{"b": "c"},
+			},
+			expected: nil,
+		},
 		"alookup/success": {
 			code: `
 		fn main () string
@@ -1164,6 +1190,30 @@ func TestInterpreter_Eval(t *testing.T) {
 				"a": map[string]string{"b": "c"},
 			},
 			err: "member lookup failed: 'q'",
+		},
+		"anlookup/success": {
+			code: `
+		fn main () string
+			resolve_f "a"
+			anlookup "b"
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": map[string]string{"b": "c"},
+			},
+			expected: "c",
+		},
+		"alookup/not found": {
+			code: `
+		fn main () string
+			resolve_f "a"
+			anlookup "q"
+			ret
+		end`,
+			input: map[string]interface{}{
+				"a": map[string]string{"b": "c"},
+			},
+			expected: nil,
 		},
 		"tlookup/success": {
 			code: `
@@ -1951,11 +2001,28 @@ fn main () void
 end`,
 			err: "invalid heap access",
 		},
+		"nlookup/invalid heap access": {
+			code: `
+fn main () void
+	apush_b true // Prime the operand stack with "1"
+	apush_s "foo"
+	nlookup
+end`,
+			err: "invalid heap access",
+		},
 		"alookup/invalid heap access": {
 			code: `
 fn main () void
 	apush_b true // Prime the operand stack with "1"
 	alookup "foo"
+end`,
+			err: "invalid heap access",
+		},
+		"anlookup/invalid heap access": {
+			code: `
+fn main () void
+	apush_b true // Prime the operand stack with "1"
+	anlookup "foo"
 end`,
 			err: "invalid heap access",
 		},
@@ -2121,11 +2188,17 @@ L0:
 		"lookup": {
 			code: `lookup`,
 		},
+		"nlookup": {
+			code: `nlookup`,
+		},
 		"tlookup": {
 			code: `tlookup`,
 		},
 		"alookup": {
 			code: `alookup "a"`,
+		},
+		"anlookup": {
+			code: `anlookup "a"`,
 		},
 	}
 
