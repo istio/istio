@@ -1,0 +1,24 @@
+[
+	{
+		"_comment": "The script to update dependency is at https://github.com/istio/test-infra/blob/master/toolbox/deps_update/main.go",
+		"name": "ISTIO_PROXY_BUCKET",
+		"repoName": "proxy",
+		"prodBranch": "stable",
+		"file": "WORKSPACE",
+		"lastStableSHA": "62755c63d9c80c043ece26504c4288845a929cc4"
+	},
+	{
+		"name": "/envoy",
+		"repoName": "proxy",
+		"prodBranch": "stable",
+		"file": "docker/Dockerfile.proxy",
+		"lastStableSHA": "62755c63d9c80c043ece26504c4288845a929cc4"
+	},
+	{
+		"name": "/envoy-debug",
+		"repoName": "proxy",
+		"prodBranch": "stable",
+		"file": "docker/Dockerfile.proxy_debug",
+		"lastStableSHA": "62755c63d9c80c043ece26504c4288845a929cc4"
+	}
+]
