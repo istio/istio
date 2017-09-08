@@ -1,4 +1,6 @@
+# Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+DOCKER_REPO_ID=linsun
 WORKSPACE=$GOPATH/src/istio.io/pilot
 BINDIR=$WORKSPACE/bazel-bin
 APPSDIR=$SCRIPTDIR
@@ -6,6 +8,13 @@ DISCOVERYDIR=$SCRIPTDIR/../../discovery
 PILOTAGENTPATH=$WORKSPACE/cmd/pilot-agent
 PILOTDISCOVERYPATH=$WORKSPACE/cmd/pilot-discovery
 PREPAREPROXYSCRIPT=$WORKSPACE/docker
+
+# grab ISTIO_PROXY_BUCKET from pilot/WORKSPACE
+ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $WORKSPACE/WORKSPACE))
+PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+# configure whether you want debug or not
+PROXY=debug-$PROXYVERSION
+echo Using proxy version $PROXY
 
 set -x
 set -o errexit
@@ -28,7 +37,7 @@ fi
 
 cd $DISCOVERYDIR
 rm -f pilot-discovery && cp $BINDIR/cmd/pilot-discovery/pilot-discovery $_
-docker build -t gihanson/discovery:latest .
+docker build -t $DOCKER_REPO_ID/discovery:latest .
 rm -f pilot-discovery
 
 cd $SCRIPTDIR
@@ -38,7 +47,7 @@ cd $SCRIPTDIR
 for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
   rm -f $APPSDIR/$app/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $_
-  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "gihanson/${app}-v1:latest" $app/
+  docker build --build-arg PROXY=$PROXY -f $APPSDIR/$app/Dockerfile.sidecar -t "$DOCKER_REPO_ID/${app}-v1:latest" $app/
   rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh
 done
 
@@ -48,15 +57,15 @@ pushd $SCRIPTDIR/reviews
     docker run --rm -v `pwd`:/usr/bin/app:rw niaquinto/gradle clean build
 popd
 
-rm -f REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
-rm -f REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $REVIEWSDIR
+rm -f $REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
+rm -f $REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $REVIEWSDIR
 #plain build -- no ratings
-docker build -t gihanson/reviews-v1:latest --build-arg service_version=v1 \
+docker build --build-arg PROXY=$PROXY -t $DOCKER_REPO_ID/reviews-v1:latest --build-arg service_version=v1 \
     -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings black stars
-docker build -t gihanson/reviews-v2:latest --build-arg service_version=v2 \
+docker build --build-arg PROXY=$PROXY -t $DOCKER_REPO_ID/reviews-v2:latest --build-arg service_version=v2 \
     --build-arg enable_ratings=true -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings red stars
-docker build -t gihanson/reviews-v3:latest --build-arg service_version=v3 \
+docker build --build-arg PROXY=$PROXY -t $DOCKER_REPO_ID/reviews-v3:latest --build-arg service_version=v3 \
     --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh

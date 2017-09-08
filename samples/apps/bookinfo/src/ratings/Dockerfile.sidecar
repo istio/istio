@@ -14,26 +14,24 @@
 
 FROM node:4-onbuild
 
-RUN mkdir /opt/microservices
-RUN mkdir /opt/istio
-RUN mkdir /etc/istio
-RUN mkdir /etc/istio/proxy/
+ARG PROXY
+
+RUN mkdir -p /etc/istio/proxy/
 RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio
 RUN chown istio /etc/istio/proxy
 
-RUN set -ex \
-    && wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-62755c63d9c80c043ece26504c4288845a929cc4.tar.gz \
-    && tar -xzf envoy-debug-62755c63d9c80c043ece26504c4288845a929cc4.tar.gz \
-    && cp usr/local/bin/envoy /usr/local/bin
-ADD ./prepare_proxy.sh /opt/istio
+RUN echo "download and extract the proxy: https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz"
+RUN wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+RUN cp usr/local/bin/envoy /usr/local/bin/
+COPY ./prepare_proxy.sh /opt/istio/
 
 COPY . /opt/microservices/
 RUN cd /opt/microservices; npm install
 EXPOSE 9080
 
-ADD ./start_service.sh /usr/local/bin/start_service.sh
+COPY ./start_service.sh /usr/local/bin/
 RUN chmod u+x /usr/local/bin/start_service.sh
-ADD ./pilot-agent /opt/istio
+COPY ./pilot-agent /opt/istio/
 
 ENTRYPOINT /usr/local/bin/start_service.sh
