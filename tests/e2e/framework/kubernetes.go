@@ -215,14 +215,37 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	namespace := []byte(fmt.Sprintf("namespace: %s", k.Namespace))
-	r := regexp.MustCompile("namespace: default")
-	content = r.ReplaceAllLiteral(content, namespace)
+
+	content = replacePattern(k, content, "namespace: default",
+		"namespace: "+k.Namespace)
+
+	content = replacePattern(k, content, "istio-pilot-admin-role-binding",
+		"istio-pilot-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-mixer-admin-role-binding",
+		"istio-mixer-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-ca-admin-role-binding",
+		"istio-ca-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-ingress-admin-role-binding",
+		"istio-ingress-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-egress-admin-role-binding",
+		"istio-egress-admin-role-binding-"+k.Namespace)
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate rbac file %s", dst)
 	}
 	return err
+}
+
+func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
+	r := []byte(fmt.Sprintf("%s", dest))
+	p := regexp.MustCompile(src)
+	content = p.ReplaceAllLiteral(content, r)
+	return content
 }
 
 func (k *KubeInfo) generateIstio(src, dst string) error {
