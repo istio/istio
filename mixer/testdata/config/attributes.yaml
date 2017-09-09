@@ -65,11 +65,11 @@ spec:
         valueType: INT64
       connection.duration:
         valueType: DURATION
-      connection.protocol:
+      context.protocol:
         valueType: STRING
-      connection.timestamp:
+      context.timestamp:
         valueType: TIMESTAMP
-      connection.time:
+      context.time:
         valueType: TIMESTAMP
       # DEPRECATED, to be removed. Use request.useragent instead.
       request.user-agent:
