@@ -114,16 +114,14 @@ function merge_files() {
   ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
   ISTIO_AUTH=$DEST/istio-auth.yaml
 
+#TODO remove 2 lines below once the e2e tests no longer look for this file
   cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
   cp $SRC/istio-rbac-alpha.yaml.tmpl $DEST/istio-rbac-alpha.yaml
 
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CLUSTER_WIDE
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CLUSTER_WIDE
-  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
-
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
@@ -132,9 +130,14 @@ function merge_files() {
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
 
-  cat $ISTIO_AUTH >> $ISTIO_CLUSTER_WIDE
+  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
+#TODO the CA templates can be combines
   cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
   cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+
+  #TODO remove once e2e tests are updated
+  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
+  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO_AUTH
 }
 
 function update_version_file() {

@@ -36,6 +36,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
+  namespace: {ISTIO_NAMESPACE}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment

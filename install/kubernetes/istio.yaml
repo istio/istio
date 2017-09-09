@@ -1,11 +1,177 @@
 # GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: default
+---
+# Permissions and roles for istio
+# To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
+# Also helps to enable logging on apiserver 'wrap' to see the URLs.
+# Each RBAC deny needs to be mapped into a rule for the role.
+# If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-pilot
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["istio.io"]
+  resources: ["istioconfigs", "istioconfigs.istio.io"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+# Mixer CRD needs to watch and list CRDs
+# It also uses discovery API to discover Kinds of config.istio.io
+# K8s adapter needs to list pods, services etc.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-mixer
+rules:
+- apiGroups: ["config.istio.io"] # Istio CRD watcher
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps", "endpoints", "pods", "services", "namespaces", "secrets"]
+  verbs: ["get", "list", "watch"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list", "update"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "watch", "list"]
+---
+# Permissions for the sidecar proxy.
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar
+rules:
+- apiGroups: ["istio.io"]
+  resources: ["istioconfigs"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["extensions"]
+  resources: ["thirdpartyresources", "ingresses"]
+  verbs: ["get", "watch", "list", "update"]
+- apiGroups: [""]
+  resources: ["configmaps", "pods", "endpoints", "services"]
+  verbs: ["get", "watch", "list"]
+---
+# Grant permissions to the Pilot/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-pilot-admin-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: istio-pilot-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the CA.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: istio-ca-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-ca
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Ingress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ingress-admin-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: istio-ingress-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Egress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-egress-admin-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: istio-egress-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the sidecar.
+# TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
+# granted only to that account !
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-sidecar
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to Mixer.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-mixer-admin-role-binding-default
+subjects:
+- kind: ServiceAccount
+  name: istio-mixer-service-account
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: istio-mixer
+  apiGroup: rbac.authorization.k8s.io
+---
 # Mixer
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
-  namespace: istio-system
+  namespace: default
 data:
   mapping.conf: |-
 ---
@@ -13,7 +179,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
-  namespace: istio-system
+  namespace: default
   labels:
     istio: mixer
 spec:
@@ -38,12 +204,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
+  namespace: default
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-mixer
-  namespace: istio-system
+  namespace: default
 spec:
   replicas: 1
   template:
@@ -382,23 +549,23 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: istio-system
+  namespace: default
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
-    mixerAddress: istio-mixer.istio-system:9091
-    discoveryAddress: istio-pilot.istio-system:8080
-    ingressService: istio-ingress.istio-system
-    egressProxyAddress: istio-egress.istio-system:80
-    statsdUdpAddress: istio-mixer.istio-system:9125
-    zipkinAddress: zipkin.istio-system:9411
+    mixerAddress: istio-mixer.default:9091
+    discoveryAddress: istio-pilot.default:8080
+    ingressService: istio-ingress.default
+    egressProxyAddress: istio-egress.default:80
+    statsdUdpAddress: istio-mixer.default:9125
+    zipkinAddress: zipkin.default:9411
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: default
   labels:
     istio: pilot
 spec:
@@ -414,13 +581,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: istio-system
+  namespace: default
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-pilot
-  namespace: istio-system
+  namespace: default
 spec:
   replicas: 1
   template:
@@ -464,7 +631,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: istio-ingress-certs
-  namespace: istio-system
+  namespace: default
 data:
   tls.key:
   tls.crt:
@@ -476,7 +643,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress
-  namespace: istio-system
+  namespace: default
   labels:
     istio: ingress
 spec:
@@ -494,13 +661,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
-  namespace: istio-system
+  namespace: default
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-ingress
-  namespace: istio-system
+  namespace: default
   annotations:
     sidecar.istio.io/inject: "false"
 spec:
@@ -561,7 +728,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-egress
-  namespace: istio-system
+  namespace: default
 spec:
   ports:
   - port: 80
@@ -572,13 +739,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-egress-service-account
-  namespace: istio-system
+  namespace: default
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-egress
-  namespace: istio-system
+  namespace: default
   annotations:
     sidecar.istio.io/inject: "false"
 spec:

@@ -166,8 +166,6 @@ roleRef:
   name: istio-mixer
   apiGroup: rbac.authorization.k8s.io
 ---
-# GENERATED FILE. Use with Kubernetes 1.7+
-# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
 apiVersion: v1
 kind: ConfigMap
@@ -206,6 +204,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
+  namespace: istio-system
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
