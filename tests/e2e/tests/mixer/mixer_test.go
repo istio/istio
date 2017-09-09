@@ -81,12 +81,19 @@ var (
 		standardAttributes, standardMetrics}
 )
 
-func (t *testConfig) Setup() error {
+func (t *testConfig) Setup() (err error) {
+	defer func() {
+		if err != nil {
+			dumpK8Env()
+		}
+	}()
+
 	t.gateway = "http://" + tc.Kube.Ingress
+	var srcBytes []byte
 	for _, rule := range rules {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
-		srcBytes, err := ioutil.ReadFile(src)
+		srcBytes, err = ioutil.ReadFile(src)
 		if err != nil {
 			glog.Errorf("Failed to read original rule file %s", src)
 			return err
@@ -98,12 +105,13 @@ func (t *testConfig) Setup() error {
 		}
 	}
 
-	if err := setupMixerConfig(); err != nil {
+	if err = setupMixerConfig(); err != nil {
 		glog.Errorf("Unable to setup mixer metrics: %v", err)
 		return err
 	}
 
-	return createDefaultRoutingRules()
+	err = createDefaultRoutingRules()
+	return
 }
 
 func setupMixerConfig() error {
@@ -152,6 +160,8 @@ func dumpK8Env() {
 	_, _ = util.Shell("kubectl --namespace %s get pods -o wide", tc.Kube.Namespace)
 
 	podLogs("istio=ingress", "istio-ingress")
+	podLogs("istio=mixer", "mixer")
+	podLogs("istio=pilot", "discovery")
 	podLogs("app=productpage", "istio-proxy")
 
 }
@@ -173,8 +183,8 @@ func podLogs(labelSelector string, container string) {
 		return
 	}
 
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30 -p", tc.Kube.Namespace, pod, container)
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=30", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p", tc.Kube.Namespace, pod, container)
+	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40", tc.Kube.Namespace, pod, container)
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label
@@ -236,41 +246,53 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
+func fatalf(t *testing.T, format string, args ...interface{}) {
+	dumpK8Env()
+	t.Fatalf(format, args...)
+}
+
+func errorf(t *testing.T, format string, args ...interface{}) {
+	dumpK8Env()
+	t.Errorf(format, args...)
+}
+
 func TestGlobalCheckAndReport(t *testing.T) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
+	dumpK8Env()
 	allowPrometheusSync()
 
+	dumpK8Env()
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
 	promAPI, err := promAPI()
 	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
+		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 	glog.Infof("promvalue := %s", value.String())
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find metric value: %v", err)
+		fatalf(t, "Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
 
 func TestNewMetrics(t *testing.T) {
 	if err := applyMixerRule(newTelemetryRule); err != nil {
-		t.Fatalf("could not create required mixer rule: %v", err)
+		fatalf(t, "could not create required mixer rule: %v", err)
 	}
 
 	defer func() {
@@ -279,23 +301,24 @@ func TestNewMetrics(t *testing.T) {
 		}
 	}()
 
+	dumpK8Env()
 	allowRuleSync()
 
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
-		t.Fatalf("Test app setup failure: %v", err)
+		fatalf(t, "Test app setup failure: %v", err)
 	}
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 	allowPrometheusSync()
 	promAPI, err := promAPI()
 	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
+		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
 	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
-		t.Fatalf("Could not get metrics from prometheus: %v", err)
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
 	glog.Infof("promvalue := %s", value.String())
 
@@ -303,26 +326,26 @@ func TestNewMetrics(t *testing.T) {
 	if err != nil {
 		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find metric value: %v", err)
+		fatalf(t, "Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
 		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Bad metric value: got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
 
 func TestDenials(t *testing.T) {
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
-		t.Fatalf("Test app setup failure: %v", err)
+		fatalf(t, "Test app setup failure: %v", err)
 	}
 
 	// deny rule will deny all requests to product page unless
 	// ["x-user"] header is set.
 	glog.Infof("Denials: block productpage if x-user header is missing")
 	if err := applyMixerRule(denialRule); err != nil {
-		t.Fatalf("could not create required mixer rule: %v", err)
+		fatalf(t, "could not create required mixer rule: %v", err)
 	}
 
 	defer func() {
@@ -336,13 +359,13 @@ func TestDenials(t *testing.T) {
 	// Product page should not be accessible anymore.
 	glog.Infof("Denials: ensure productpage is denied access")
 	if err := visitProductPage(productPageTimeout, http.StatusForbidden, &header{"x-user", ""}); err != nil {
-		t.Fatalf("product page was not denied: %v", err)
+		fatalf(t, "product page was not denied: %v", err)
 	}
 
 	// Product page *should be* accessible with x-user header.
 	glog.Infof("Denials: ensure productpage is accessible for testuser")
 	if err := visitProductPage(productPageTimeout, http.StatusOK, &header{"x-user", "testuser"}); err != nil {
-		t.Fatalf("product page was not denied: %v", err)
+		fatalf(t, "product page was not denied: %v", err)
 	}
 }
 
@@ -363,6 +386,36 @@ func TestRateLimit(t *testing.T) {
 	}()
 
 	allowRuleSync()
+
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// establish baseline
+	t.Log("Establishing metrics baseline for test...")
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	prior429s, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	if err != nil {
+		t.Logf("error getting prior 429s, using 0 as value (msg: %v)", err)
+		prior429s = 0
+	}
+
+	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
+		prior200s = 0
+	}
+	t.Logf("Baseline established: prior200s = %f, prior429s = %f", prior200s, prior429s)
+
+	t.Log("Sending traffic...")
 
 	url := fmt.Sprintf("%s/productpage", tc.gateway)
 
@@ -385,27 +438,23 @@ func TestRateLimit(t *testing.T) {
 
 	allowPrometheusSync()
 
-	// setup prometheus API
-	promAPI, err := promAPI()
-	if err != nil {
-		t.Fatalf("Could not build prometheus API client: %v", err)
-	}
-
 	totalReqs := res.DurationHistogram.Count
-	succReqs := res.RetCodes[http.StatusOK]
+	succReqs := float64(res.RetCodes[http.StatusOK])
 	badReqs := res.RetCodes[http.StatusBadRequest]
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	glog.Infof("Summary: %d reqs (%d 200s, %d 400s)", totalReqs, succReqs, badReqs)
+	t.Logf("Fortio Summary: %d reqs (%f 200s (%f rps), %d 400s)", totalReqs, succReqs, succReqs/opts.Duration.Seconds(), badReqs)
 
 	// consider only successful requests (as recorded at productpage service)
-	callsToRatings := float64(succReqs)
+	callsToRatings := succReqs
 
 	// the rate-limit is 1 rps
 	want200s := opts.Duration.Seconds()
 
 	// everything in excess of 200s should be 429s (ideally)
 	want429s := callsToRatings - want200s
+
+	t.Logf("Expected Totals: 200s: %f (%f rps), 429s: %f (%f rps)", want200s, want200s/opts.Duration.Seconds(), want429s, want429s/opts.Duration.Seconds())
 
 	// if we received less traffic than the expected enforced limit to ratings
 	// then there is no way to determine if the rate limit was applied at all
@@ -415,9 +464,9 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	query = fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		t.Fatalf("Could not get metrics from prometheus: %v", err)
 	}
@@ -432,8 +481,13 @@ func TestRateLimit(t *testing.T) {
 	// establish some baseline to protect against flakiness due to randomness in routing
 	want := math.Floor(want429s * .75)
 
+	got = got - prior429s
+
+	t.Logf("Actual 429s: %f (%f rps)", got, got/opts.Duration.Seconds())
+
 	// check resource exhausteds
 	if got < want {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
@@ -443,13 +497,24 @@ func TestRateLimit(t *testing.T) {
 		t.Fatalf("Could not find successes value: %v", err)
 	}
 
+	got = got - prior200s
+
+	t.Logf("Actual 200s: %f (%f rps)", got, got/opts.Duration.Seconds())
+
 	// establish some baseline to protect against flakiness due to randomness in routing
-	want = math.Floor(want200s * .75)
+	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
+	// less than 10, don't fail this test).
+	want = math.Floor(want200s * .5)
 
 	// check successes
 	if got < want {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		t.Errorf("Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
+	}
+
+	if got > want200s {
+		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Errorf("Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
 }
 
