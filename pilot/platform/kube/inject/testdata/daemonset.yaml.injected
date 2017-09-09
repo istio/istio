@@ -28,6 +28,28 @@ spec:
         - sidecar
         - -v
         - "2"
+        - --configPath
+        - /etc/istio/proxy
+        - --binaryPath
+        - /usr/local/bin/envoy
+        - --serviceCluster
+        - istio-proxy
+        - --drainDuration
+        - 2s
+        - --parentShutdownDuration
+        - 3s
+        - --discoveryAddress
+        - istio-pilot:8080
+        - --discoveryRefreshDelay
+        - 1s
+        - --zipkinAddress
+        - ""
+        - --connectTimeout
+        - 1s
+        - --statsdUdpAddress
+        - ""
+        - --proxyAdminPort
+        - "15000"
         env:
         - name: POD_NAME
           valueFrom:
@@ -55,7 +77,7 @@ spec:
           readOnly: true
         - mountPath: /etc/istio/proxy
           name: istio-envoy
-        - mountPath: /etc/certs
+        - mountPath: /etc/certs/
           name: istio-certs
           readOnly: true
       initContainers:

@@ -126,7 +126,7 @@ func main() {
 	}
 
 	params.Name = "(default infra)"
-	params.Auth = proxyconfig.ProxyMeshConfig_NONE
+	params.Auth = proxyconfig.MeshConfig_NONE
 	params.Mixer = true
 	params.Ingress = true
 	params.Egress = true
@@ -159,7 +159,7 @@ func main() {
 func setAuth(params infra) infra {
 	out := params
 	out.Name = "(auth infra)"
-	out.Auth = proxyconfig.ProxyMeshConfig_MUTUAL_TLS
+	out.Auth = proxyconfig.MeshConfig_MUTUAL_TLS
 	return out
 }
 

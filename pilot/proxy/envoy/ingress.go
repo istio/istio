@@ -27,7 +27,7 @@ import (
 	"istio.io/pilot/proxy"
 )
 
-func buildIngressListeners(mesh *proxyconfig.ProxyMeshConfig,
+func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress proxy.Node) Listeners {
@@ -41,8 +41,8 @@ func buildIngressListeners(mesh *proxyconfig.ProxyMeshConfig,
 	if secret != "" {
 		listener := buildHTTPListener(mesh, ingress, nil, nil, WildcardAddress, 443, "443", true)
 		listener.SSLContext = &SSLContext{
-			CertChainFile:  path.Join(proxy.IngressCertsPath, "tls.crt"),
-			PrivateKeyFile: path.Join(proxy.IngressCertsPath, "tls.key"),
+			CertChainFile:  path.Join(proxy.IngressCertsPath, proxy.IngressCertFilename),
+			PrivateKeyFile: path.Join(proxy.IngressCertsPath, proxy.IngressKeyFilename),
 		}
 		listeners = append(listeners, listener)
 	}
@@ -50,7 +50,7 @@ func buildIngressListeners(mesh *proxyconfig.ProxyMeshConfig,
 	return listeners
 }
 
-func buildIngressRoutes(mesh *proxyconfig.ProxyMeshConfig,
+func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
 	// build vhosts
@@ -120,7 +120,7 @@ func buildIngressRoutes(mesh *proxyconfig.ProxyMeshConfig,
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *proxyconfig.ProxyMeshConfig,
+func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {

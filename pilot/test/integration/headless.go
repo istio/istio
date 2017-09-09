@@ -36,7 +36,7 @@ func (t *headless) teardown() {
 }
 
 func (t *headless) run() error {
-	if t.Auth == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
+	if t.Auth == proxyconfig.MeshConfig_MUTUAL_TLS {
 		return nil // TODO: mTLS
 	}
 

@@ -6,6 +6,7 @@ go_library(
         "agent.go",
         "context.go",
         "net.go",
+        "resolve.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

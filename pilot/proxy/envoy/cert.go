@@ -25,16 +25,6 @@ import (
 	"github.com/howeyc/fsnotify"
 )
 
-const (
-	certChainFilename = "cert-chain.pem"
-	keyFilename       = "key.pem"
-	rootCertFilename  = "root-cert.pem"
-)
-
-var (
-	authFiles = []string{certChainFilename, keyFilename, rootCertFilename}
-)
-
 // watchCerts watches a certificate directory and calls the provided
 // `updateFunc` method when changes are detected. This method is blocking
 // so should be run as a goroutine.

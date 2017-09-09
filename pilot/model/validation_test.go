@@ -754,31 +754,55 @@ func TestValidateConnectTimeout(t *testing.T) {
 	}
 }
 
-func TestValidateProxyMeshConfig(t *testing.T) {
-	invalid := proxyconfig.ProxyMeshConfig{
-		EgressProxyAddress:     "10.0.0.100",
-		DiscoveryAddress:       "10.0.0.100",
-		MixerAddress:           "10.0.0.100",
-		ProxyListenPort:        0,
-		ProxyAdminPort:         0,
-		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
-		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),
-		DiscoveryRefreshDelay:  ptypes.DurationProto(-1 * time.Second),
-		ConnectTimeout:         ptypes.DurationProto(-1 * time.Second),
-		IstioServiceCluster:    "",
-		AuthPolicy:             -1,
-		AuthCertsPath:          "",
-		StatsdUdpAddress:       "10.0.0.100",
+func TestValidateMeshConfig(t *testing.T) {
+	invalid := proxyconfig.MeshConfig{
+		EgressProxyAddress: "10.0.0.100",
+		MixerAddress:       "10.0.0.100",
+		ProxyListenPort:    0,
+		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
+		AuthPolicy:         -1,
+		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
 	}
 
-	err := ValidateProxyMeshConfig(&invalid)
+	err := ValidateMeshConfig(&invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
 		switch err.(type) {
 		case *multierror.Error:
 			// each field must cause an error in the field
-			if len(err.(*multierror.Error).Errors) < 13 {
+			if len(err.(*multierror.Error).Errors) < 6 {
+				t.Errorf("expected an error for each field %v", err)
+			}
+		default:
+			t.Errorf("expected a multi error as output")
+		}
+	}
+}
+
+func TestValidateProxyConfig(t *testing.T) {
+	invalid := proxyconfig.ProxyConfig{
+		ConfigPath:             "",
+		BinaryPath:             "",
+		DiscoveryAddress:       "10.0.0.100",
+		ProxyAdminPort:         0,
+		DrainDuration:          ptypes.DurationProto(-1 * time.Second),
+		ParentShutdownDuration: ptypes.DurationProto(-1 * time.Second),
+		DiscoveryRefreshDelay:  ptypes.DurationProto(-1 * time.Second),
+		ConnectTimeout:         ptypes.DurationProto(-1 * time.Second),
+		ServiceCluster:         "",
+		StatsdUdpAddress:       "10.0.0.100",
+		ZipkinAddress:          "10.0.0.100",
+	}
+
+	err := ValidateProxyConfig(&invalid)
+	if err == nil {
+		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
+	} else {
+		switch err.(type) {
+		case *multierror.Error:
+			// each field must cause an error in the field
+			if len(err.(*multierror.Error).Errors) < 11 {
 				t.Errorf("expected an error for each field %v", err)
 			}
 		default:

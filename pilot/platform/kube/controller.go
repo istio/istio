@@ -54,7 +54,7 @@ type ControllerOptions struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	mesh         *proxyconfig.ProxyMeshConfig
+	mesh         *proxyconfig.MeshConfig
 	domainSuffix string
 
 	client    kubernetes.Interface
@@ -72,7 +72,7 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfig,
+func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
 	options ControllerOptions) *Controller {
 
 	glog.V(2).Infof("New kube controller running in namespace %s, watching namespace %s",

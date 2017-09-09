@@ -162,18 +162,18 @@ func isRegularExpression(s string) bool {
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(mesh *proxyconfig.ProxyMeshConfig, ingress *v1beta1.Ingress) bool {
+func shouldProcessIngress(mesh *proxyconfig.MeshConfig, ingress *v1beta1.Ingress) bool {
 	class, exists := "", false
 	if ingress.Annotations != nil {
 		class, exists = ingress.Annotations[kube.IngressClassAnnotation]
 	}
 
 	switch mesh.IngressControllerMode {
-	case proxyconfig.ProxyMeshConfig_OFF:
+	case proxyconfig.MeshConfig_OFF:
 		return false
-	case proxyconfig.ProxyMeshConfig_STRICT:
+	case proxyconfig.MeshConfig_STRICT:
 		return exists && class == mesh.IngressClass
-	case proxyconfig.ProxyMeshConfig_DEFAULT:
+	case proxyconfig.MeshConfig_DEFAULT:
 		return !exists || class == mesh.IngressClass
 	default:
 		glog.Warningf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)

@@ -118,7 +118,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
 	}
 
-	gotYAML, err := routeRuleSchema.ToYAML(msg)
+	gotYAML, err := model.ToYAML(msg)
 	if err != nil {
 		t.Errorf("ToYAML failed: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
 	}
 
-	gotJSONMap, err := routeRuleSchema.ToJSONMap(msg)
+	gotJSONMap, err := model.ToJSONMap(msg)
 	if err != nil {
 		t.Errorf("ToJSONMap failed: %v", err)
 	}

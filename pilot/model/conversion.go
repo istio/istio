@@ -36,7 +36,7 @@ func (ps *ProtoSchema) Make() (proto.Message, error) {
 }
 
 // ToJSON marshals a proto to canonical JSON
-func (ps *ProtoSchema) ToJSON(msg proto.Message) (string, error) {
+func ToJSON(msg proto.Message) (string, error) {
 	// Marshal from proto to json bytes
 	m := jsonpb.Marshaler{}
 	out, err := m.MarshalToString(msg)
@@ -47,8 +47,8 @@ func (ps *ProtoSchema) ToJSON(msg proto.Message) (string, error) {
 }
 
 // ToYAML marshals a proto to canonical YAML
-func (ps *ProtoSchema) ToYAML(msg proto.Message) (string, error) {
-	js, err := ps.ToJSON(msg)
+func ToYAML(msg proto.Message) (string, error) {
+	js, err := ToJSON(msg)
 	if err != nil {
 		return "", err
 	}
@@ -58,8 +58,8 @@ func (ps *ProtoSchema) ToYAML(msg proto.Message) (string, error) {
 
 // ToJSONMap converts a proto message to a generic map using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func (ps *ProtoSchema) ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
-	js, err := ps.ToJSON(msg)
+func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
+	js, err := ToJSON(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -168,12 +168,12 @@ func (descriptor ConfigDescriptor) FromYAML(content []byte) (*Config, error) {
 
 // ToYAML serializes a config into a YAML form
 func (descriptor ConfigDescriptor) ToYAML(config Config) (string, error) {
-	schema, exists := descriptor.GetByType(config.Type)
+	_, exists := descriptor.GetByType(config.Type)
 	if !exists {
 		return "", fmt.Errorf("missing type %q", config.Type)
 	}
 
-	spec, err := schema.ToJSONMap(config.Spec)
+	spec, err := ToJSONMap(config.Spec)
 	if err != nil {
 		return "", err
 	}

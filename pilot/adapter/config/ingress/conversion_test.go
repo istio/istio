@@ -92,17 +92,17 @@ func TestIsRegularExpression(t *testing.T) {
 func TestIngressClass(t *testing.T) {
 	istio := proxy.DefaultMeshConfig().IngressClass
 	cases := []struct {
-		ingressMode   proxyconfig.ProxyMeshConfig_IngressControllerMode
+		ingressMode   proxyconfig.MeshConfig_IngressControllerMode
 		ingressClass  string
 		shouldProcess bool
 	}{
-		{ingressMode: proxyconfig.ProxyMeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: proxyconfig.ProxyMeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
-		{ingressMode: proxyconfig.ProxyMeshConfig_OFF, ingressClass: istio, shouldProcess: false},
-		{ingressMode: proxyconfig.ProxyMeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: proxyconfig.ProxyMeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
-		{ingressMode: proxyconfig.ProxyMeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
-		{ingressMode: proxyconfig.ProxyMeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: "nginx", shouldProcess: false},
+		{ingressMode: proxyconfig.MeshConfig_OFF, ingressClass: istio, shouldProcess: false},
+		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
+		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
+		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
 	}
 
 	for _, c := range cases {

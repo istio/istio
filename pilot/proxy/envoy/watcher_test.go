@@ -22,12 +22,10 @@ import (
 )
 
 func TestEnvoyArgs(t *testing.T) {
-	mesh := proxy.DefaultMeshConfig()
-	test := envoy{
-		mesh:           &mesh,
-		serviceCluster: "my-cluster",
-		serviceNode:    "my-node",
-	}
+	config := proxy.DefaultProxyConfig()
+	config.ServiceCluster = "my-cluster"
+
+	test := envoy{config: config, node: "my-node"}
 	got := test.args("test.json", 5)
 	want := []string{
 		"-c", "test.json",

@@ -47,7 +47,7 @@ func ConvertObject(schema model.ProtoSchema, object IstioObject, domain string) 
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, error) {
-	spec, err := schema.ToJSONMap(config.Spec)
+	spec, err := model.ToJSONMap(config.Spec)
 	if err != nil {
 		return nil, err
 	}

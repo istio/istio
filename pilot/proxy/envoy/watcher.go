@@ -17,7 +17,6 @@ package envoy
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/proxy"
@@ -39,37 +39,30 @@ type Watcher interface {
 	Reload()
 }
 
-type watcher struct {
-	agent proxy.Agent
-	role  proxy.Node
-	mesh  *proxyconfig.ProxyMeshConfig
+// CertSource is file source for certificates
+type CertSource struct {
+	// Directory containing certificates
+	Directory string
+	// Files for certificates
+	Files []string
 }
 
-// NewWatcher creates a new watcher instance with an agent
-func NewWatcher(mesh *proxyconfig.ProxyMeshConfig, agent proxy.Agent, role proxy.Node) (Watcher, error) {
-	if mesh.StatsdUdpAddress != "" {
-		if addr, err := resolveStatsdAddr(mesh.StatsdUdpAddress); err == nil {
-			mesh.StatsdUdpAddress = addr
-		} else {
-			return nil, err
-		}
-	}
+type watcher struct {
+	agent  proxy.Agent
+	role   proxy.Node
+	config proxyconfig.ProxyConfig
+	certs  []CertSource
+}
 
-	if role.Type == proxy.Egress && mesh.EgressProxyAddress == "" {
-		return nil, errors.New("egress proxy requires address configuration")
+// NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
+// (directories with files in them)
+func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.Node, certs []CertSource) Watcher {
+	return &watcher{
+		agent:  agent,
+		role:   role,
+		config: config,
+		certs:  certs,
 	}
-
-	if role.Type == proxy.Ingress && mesh.IngressControllerMode == proxyconfig.ProxyMeshConfig_OFF {
-		return nil, errors.New("ingress proxy is disabled")
-	}
-
-	out := &watcher{
-		agent: agent,
-		role:  role,
-		mesh:  mesh,
-	}
-
-	return out, nil
 }
 
 func (w *watcher) Run(ctx context.Context) {
@@ -79,14 +72,9 @@ func (w *watcher) Run(ctx context.Context) {
 	// kickstart the proxy with partial state (in case there are no notifications coming)
 	w.Reload()
 
-	// monitor auth certificates
-	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
-		go watchCerts(ctx, w.mesh.AuthCertsPath, w.Reload)
-	}
-
-	// monitor ingress certificates
-	if w.role.Type == proxy.Ingress {
-		go watchCerts(ctx, proxy.IngressCertsPath, w.Reload)
+	// monitor certificates
+	for _, cert := range w.certs {
+		go watchCerts(ctx, cert.Directory, w.Reload)
 	}
 
 	<-ctx.Done()
@@ -94,14 +82,12 @@ func (w *watcher) Run(ctx context.Context) {
 
 func (w *watcher) Reload() {
 	// use LDS instead of static listeners and clusters
-	config := buildConfig(Listeners{}, Clusters{}, true, w.mesh)
+	config := buildConfig(Listeners{}, Clusters{}, true, w.config)
 
+	// compute hash of dependent certificates
 	h := sha256.New()
-	if w.mesh.AuthPolicy == proxyconfig.ProxyMeshConfig_MUTUAL_TLS {
-		generateCertHash(h, w.mesh.AuthCertsPath, authFiles)
-	}
-	if w.role.Type == proxy.Ingress {
-		generateCertHash(h, proxy.IngressCertsPath, []string{"tls.crt", "tls.key"})
+	for _, cert := range w.certs {
+		generateCertHash(h, cert.Directory, cert.Files)
 	}
 	config.Hash = h.Sum(nil)
 
@@ -118,32 +104,25 @@ func configFile(config string, epoch int) string {
 }
 
 type envoy struct {
-	mesh           *proxyconfig.ProxyMeshConfig
-	serviceCluster string
-	serviceNode    string
-	configpath     string
-	binarypath     string
+	config proxyconfig.ProxyConfig
+	node   string
 }
 
-// MakeProxy creates an instance of the proxy control commands
-func MakeProxy(mesh *proxyconfig.ProxyMeshConfig,
-	serviceCluster, serviceNode, configPath, binaryPath string) proxy.Proxy {
+// NewProxy creates an instance of the proxy control commands
+func NewProxy(config proxyconfig.ProxyConfig, node string) proxy.Proxy {
 	return envoy{
-		mesh:           mesh,
-		serviceCluster: serviceCluster,
-		serviceNode:    serviceNode,
-		configpath:     configPath,
-		binarypath:     binaryPath,
+		config: config,
+		node:   node,
 	}
 }
 
 func (proxy envoy) args(fname string, epoch int) []string {
 	return []string{"-c", fname,
 		"--restart-epoch", fmt.Sprint(epoch),
-		"--drain-time-s", fmt.Sprint(int(convertDuration(proxy.mesh.DrainDuration) / time.Second)),
-		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.mesh.ParentShutdownDuration) / time.Second)),
-		"--service-cluster", proxy.serviceCluster,
-		"--service-node", proxy.serviceNode,
+		"--drain-time-s", fmt.Sprint(int(convertDuration(proxy.config.DrainDuration) / time.Second)),
+		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(proxy.config.ParentShutdownDuration) / time.Second)),
+		"--service-cluster", proxy.config.ServiceCluster,
+		"--service-node", proxy.node,
 	}
 }
 
@@ -153,8 +132,13 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		return fmt.Errorf("Unexpected config type: %#v", config)
 	}
 
+	// create parent directories if necessary
+	if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
+		return multierror.Prefix(err, "failed to create directory for proxy configuration")
+	}
+
 	// attempt to write file
-	fname := configFile(proxy.configpath, epoch)
+	fname := configFile(proxy.config.ConfigPath, epoch)
 	if err := envoyConfig.WriteFile(fname); err != nil {
 		return err
 	}
@@ -172,7 +156,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	glog.V(2).Infof("Envoy command: %v", args)
 
 	/* #nosec */
-	cmd := exec.Command(proxy.binarypath, args...)
+	cmd := exec.Command(proxy.config.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
@@ -197,7 +181,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 }
 
 func (proxy envoy) Cleanup(epoch int) {
-	path := configFile(proxy.configpath, epoch)
+	path := configFile(proxy.config.ConfigPath, epoch)
 	if err := os.Remove(path); err != nil {
 		glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
 	}

@@ -52,7 +52,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interface,
+func NewStatusSyncer(mesh *proxyconfig.MeshConfig, client kubernetes.Interface,
 	options kube.ControllerOptions) *StatusSyncer {
 
 	informer := cache.NewSharedIndexInformer(
@@ -97,14 +97,14 @@ func NewStatusSyncer(mesh *proxyconfig.ProxyMeshConfig, client kubernetes.Interf
 // convertIngressControllerMode converts Ingress controller mode into k8s ingress status syncer ingress class and
 // default ingress class. Ingress class and default ingress class are used by the syncer to determine whether or not to
 // update the IP of a ingress resource.
-func convertIngressControllerMode(mode proxyconfig.ProxyMeshConfig_IngressControllerMode,
+func convertIngressControllerMode(mode proxyconfig.MeshConfig_IngressControllerMode,
 	class string) (string, string) {
 	var ingressClass, defaultIngressClass string
 	switch mode {
-	case proxyconfig.ProxyMeshConfig_DEFAULT:
+	case proxyconfig.MeshConfig_DEFAULT:
 		defaultIngressClass = class
 		ingressClass = class
-	case proxyconfig.ProxyMeshConfig_STRICT:
+	case proxyconfig.MeshConfig_STRICT:
 		ingressClass = class
 	}
 	return ingressClass, defaultIngressClass

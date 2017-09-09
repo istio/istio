@@ -34,7 +34,7 @@ import (
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.
 func GetMeshConfig(kube kubernetes.Interface, namespace,
-	name string) (*v1.ConfigMap, *proxyconfig.ProxyMeshConfig, error) {
+	name string) (*v1.ConfigMap, *proxyconfig.MeshConfig, error) {
 
 	config, err := kube.CoreV1().ConfigMaps(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
@@ -53,7 +53,7 @@ func GetMeshConfig(kube kubernetes.Interface, namespace,
 		return nil, nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
 
-	if err = model.ValidateProxyMeshConfig(&mesh); err != nil {
+	if err = model.ValidateMeshConfig(&mesh); err != nil {
 		return nil, nil, err
 	}
 

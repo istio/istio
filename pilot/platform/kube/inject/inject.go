@@ -30,6 +30,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +41,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/proxy"
 	"istio.io/pilot/tools/version"
 )
 
@@ -138,16 +141,16 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage         string                       `json:"initImage"`
-	ProxyImage        string                       `json:"proxyImage"`
-	Verbosity         int                          `json:"verbosity"`
-	SidecarProxyUID   int64                        `json:"sidecarProxyUID"`
-	Version           string                       `json:"version"`
-	EnableCoreDump    bool                         `json:"enableCoreDump"`
-	DebugMode         bool                         `json:"debugMode"`
-	Mesh              *proxyconfig.ProxyMeshConfig `json:"-"`
-	MeshConfigMapName string                       `json:"meshConfigMapName"`
-	ImagePullPolicy   string                       `json:"imagePullPolicy"`
+	InitImage         string                  `json:"initImage"`
+	ProxyImage        string                  `json:"proxyImage"`
+	Verbosity         int                     `json:"verbosity"`
+	SidecarProxyUID   int64                   `json:"sidecarProxyUID"`
+	Version           string                  `json:"version"`
+	EnableCoreDump    bool                    `json:"enableCoreDump"`
+	DebugMode         bool                    `json:"debugMode"`
+	Mesh              *proxyconfig.MeshConfig `json:"-"`
+	MeshConfigMapName string                  `json:"meshConfigMapName"`
+	ImagePullPolicy   string                  `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
@@ -273,6 +276,14 @@ func injectRequired(namespacePolicy InjectionPolicy, obj metav1.Object) bool {
 	return !ok
 }
 
+func timeString(dur *duration.Duration) string {
+	out, err := ptypes.Duration(dur)
+	if err != nil {
+		glog.Warning(err)
+	}
+	return out.String()
+}
+
 func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 	// proxy initContainer 1.6 spec
 	initArgs := []string{
@@ -339,6 +350,19 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		args = append(args, "-v", strconv.Itoa(p.Verbosity))
 	}
 
+	// set all proxy config flags
+	args = append(args, "--configPath", p.Mesh.DefaultConfig.ConfigPath)
+	args = append(args, "--binaryPath", p.Mesh.DefaultConfig.BinaryPath)
+	args = append(args, "--serviceCluster", p.Mesh.DefaultConfig.ServiceCluster)
+	args = append(args, "--drainDuration", timeString(p.Mesh.DefaultConfig.DrainDuration))
+	args = append(args, "--parentShutdownDuration", timeString(p.Mesh.DefaultConfig.ParentShutdownDuration))
+	args = append(args, "--discoveryAddress", p.Mesh.DefaultConfig.DiscoveryAddress)
+	args = append(args, "--discoveryRefreshDelay", timeString(p.Mesh.DefaultConfig.DiscoveryRefreshDelay))
+	args = append(args, "--zipkinAddress", p.Mesh.DefaultConfig.ZipkinAddress)
+	args = append(args, "--connectTimeout", timeString(p.Mesh.DefaultConfig.ConnectTimeout))
+	args = append(args, "--statsdUdpAddress", p.Mesh.DefaultConfig.StatsdUdpAddress)
+	args = append(args, "--proxyAdminPort", fmt.Sprintf("%d", p.Mesh.DefaultConfig.ProxyAdminPort))
+
 	volumeMounts := []v1.VolumeMount{
 		{
 			Name:      istioConfigVolumeName,
@@ -374,7 +398,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 	volumeMounts = append(volumeMounts, v1.VolumeMount{
 		Name:      istioCertVolumeName,
 		ReadOnly:  true,
-		MountPath: p.Mesh.AuthCertsPath,
+		MountPath: proxy.AuthCertsPath,
 	})
 
 	sa := spec.ServiceAccountName

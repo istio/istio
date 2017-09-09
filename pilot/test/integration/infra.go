@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +55,7 @@ type infra struct { // nolint: aligncheck
 	// map from app to pods
 	apps map[string][]string
 
-	Auth proxyconfig.ProxyMeshConfig_AuthPolicy
+	Auth proxyconfig.MeshConfig_AuthPolicy
 
 	// switches for infrastructure components
 	Mixer     bool
@@ -140,6 +141,7 @@ func (infra *infra) setup() error {
 		return err
 	}
 	debugMode := infra.debugImagesAndMode
+	glog.Infof("mesh %s", spew.Sdump(mesh))
 	infra.InjectConfig = &inject.Config{
 		Policy:     inject.InjectionPolicyEnabled,
 		Namespaces: []string{infra.Namespace, infra.IstioNamespace},
@@ -202,7 +204,7 @@ func (infra *infra) setup() error {
 		return err
 	}
 
-	if infra.Auth != proxyconfig.ProxyMeshConfig_NONE {
+	if infra.Auth != proxyconfig.MeshConfig_NONE {
 		if err := deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}

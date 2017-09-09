@@ -135,7 +135,7 @@ var (
 							ServiceAccounts:  kubectl,
 							Controller:       kubectl,
 						})
-					if mesh.IngressControllerMode != proxyconfig.ProxyMeshConfig_OFF {
+					if mesh.IngressControllerMode != proxyconfig.MeshConfig_OFF {
 						configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
 							configController,
 							ingress.NewController(client, mesh, flags.controllerOptions),

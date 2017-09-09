@@ -72,41 +72,41 @@ func (conf *Config) Write(w io.Writer) error {
 }
 
 // buildConfig creates a proxy config with discovery services and admin port
-func buildConfig(listeners Listeners, clusters Clusters, lds bool, mesh *proxyconfig.ProxyMeshConfig) *Config {
+func buildConfig(listeners Listeners, clusters Clusters, lds bool, config proxyconfig.ProxyConfig) *Config {
 	out := &Config{
 		Listeners: listeners,
 		Admin: Admin{
 			AccessLogPath: DefaultAccessLog,
-			Address:       fmt.Sprintf("tcp://%s:%d", LocalhostAddress, mesh.ProxyAdminPort),
+			Address:       fmt.Sprintf("tcp://%s:%d", LocalhostAddress, config.ProxyAdminPort),
 		},
 		ClusterManager: ClusterManager{
 			Clusters: append(clusters,
-				buildCluster(mesh.DiscoveryAddress, RDSName, mesh.ConnectTimeout)),
+				buildCluster(config.DiscoveryAddress, RDSName, config.ConnectTimeout)),
 			SDS: &DiscoveryCluster{
-				Cluster:        buildCluster(mesh.DiscoveryAddress, SDSName, mesh.ConnectTimeout),
-				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
+				Cluster:        buildCluster(config.DiscoveryAddress, SDSName, config.ConnectTimeout),
+				RefreshDelayMs: protoDurationToMS(config.DiscoveryRefreshDelay),
 			},
 			CDS: &DiscoveryCluster{
-				Cluster:        buildCluster(mesh.DiscoveryAddress, CDSName, mesh.ConnectTimeout),
-				RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
+				Cluster:        buildCluster(config.DiscoveryAddress, CDSName, config.ConnectTimeout),
+				RefreshDelayMs: protoDurationToMS(config.DiscoveryRefreshDelay),
 			},
 		},
-		StatsdUDPIPAddress: mesh.StatsdUdpAddress,
+		StatsdUDPIPAddress: config.StatsdUdpAddress,
 	}
 
 	if lds {
 		out.LDS = &LDSCluster{
 			Cluster:        LDSName,
-			RefreshDelayMs: protoDurationToMS(mesh.DiscoveryRefreshDelay),
+			RefreshDelayMs: protoDurationToMS(config.DiscoveryRefreshDelay),
 		}
 		out.ClusterManager.Clusters = append(out.ClusterManager.Clusters,
-			buildCluster(mesh.DiscoveryAddress, LDSName, mesh.ConnectTimeout))
+			buildCluster(config.DiscoveryAddress, LDSName, config.ConnectTimeout))
 	}
 
-	if mesh.ZipkinAddress != "" {
+	if config.ZipkinAddress != "" {
 		out.ClusterManager.Clusters = append(out.ClusterManager.Clusters,
-			buildCluster(mesh.ZipkinAddress, ZipkinCollectorCluster, mesh.ConnectTimeout))
-		out.Tracing = buildZipkinTracing(mesh)
+			buildCluster(config.ZipkinAddress, ZipkinCollectorCluster, config.ConnectTimeout))
+		out.Tracing = buildZipkinTracing()
 	}
 
 	return out
@@ -164,7 +164,7 @@ func buildClusters(env proxy.Environment, node proxy.Node) Clusters {
 // There is a lot of potential to cache and reuse cluster definitions across proxies and also
 // skip computing the actual HTTP routes
 func buildSidecarListenersClusters(
-	mesh *proxyconfig.ProxyMeshConfig,
+	mesh *proxyconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	services []*model.Service,
 	managementPorts model.PortList,
@@ -236,7 +236,7 @@ func buildSidecarListenersClusters(
 // The route name is assumed to be the port number used by the route in the
 // listener, or the special value for _all routes_.
 // TODO: this can be optimized by querying for a specific HTTP port in the table
-func buildRDSRoute(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, routeName string,
+func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName string,
 	discovery model.ServiceDiscovery, config model.IstioConfigStore) *HTTPRouteConfig {
 	var configs HTTPRouteConfigs
 	switch node.Type {
@@ -267,7 +267,7 @@ func buildRDSRoute(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, routeName
 
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
-func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, instances []*model.ServiceInstance,
+func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances []*model.ServiceInstance,
 	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool) *Listener {
 	filters := buildFaultFilters(routeConfig)
 
@@ -310,13 +310,16 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, insta
 		CodecType:        auto,
 		UseRemoteAddress: useRemoteAddress,
 		StatPrefix:       "http",
-		AccessLog: []AccessLog{{
-			Path: DefaultAccessLog,
-		}},
-		Filters: filters,
+		Filters:          filters,
 	}
 
-	if mesh.ZipkinAddress != "" {
+	if mesh.AccessLogFile != "" {
+		config.AccessLog = []AccessLog{{
+			Path: mesh.AccessLogFile,
+		}}
+	}
+
+	if mesh.EnableTracing {
 		config.GenerateRequestID = true
 		config.Tracing = &HTTPFilterTraceConfig{
 			OperationName: IngressTraceOperation,
@@ -327,7 +330,7 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, insta
 		config.RDS = &RDS{
 			Cluster:         RDSName,
 			RouteConfigName: rds,
-			RefreshDelayMs:  protoDurationToMS(mesh.DiscoveryRefreshDelay),
+			RefreshDelayMs:  protoDurationToMS(mesh.RdsRefreshDelay),
 		}
 	} else {
 		config.RouteConfig = routeConfig
@@ -345,11 +348,11 @@ func buildHTTPListener(mesh *proxyconfig.ProxyMeshConfig, node proxy.Node, insta
 	}
 }
 
-func applyInboundAuth(listener *Listener, mesh *proxyconfig.ProxyMeshConfig) {
+func applyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig) {
 	switch mesh.AuthPolicy {
-	case proxyconfig.ProxyMeshConfig_NONE:
-	case proxyconfig.ProxyMeshConfig_MUTUAL_TLS:
-		listener.SSLContext = buildListenerSSLContext(mesh.AuthCertsPath)
+	case proxyconfig.MeshConfig_NONE:
+	case proxyconfig.MeshConfig_MUTUAL_TLS:
+		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
 
@@ -394,7 +397,7 @@ func buildTCPListener(tcpConfig *TCPRouteConfig, ip string, port int, protocol m
 }
 
 // buildOutboundListeners combines HTTP routes and TCP listeners
-func buildOutboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node, instances []*model.ServiceInstance,
+func buildOutboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node, instances []*model.ServiceInstance,
 	services []*model.Service, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners, clusters := buildOutboundTCPListeners(mesh, services)
 
@@ -470,7 +473,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 
 // buildOutboundHTTPRoutes creates HTTP route configs indexed by ports for the
 // traffic outbound from the proxy instance
-func buildOutboundHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node,
+func buildOutboundHTTPRoutes(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 	instances []*model.ServiceInstance, services []*model.Service, config model.IstioConfigStore) HTTPRouteConfigs {
 	httpConfigs := make(HTTPRouteConfigs)
 	suffix := strings.Split(sidecar.Domain, ".")
@@ -532,7 +535,7 @@ func buildOutboundHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.No
 // Connections to the ports of non-load balanced services are directed to
 // the connection's original destination. This avoids costly queries of instance
 // IPs and ports, but requires that ports of non-load balanced service be unique.
-func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*model.Service) (Listeners, Clusters) {
+func buildOutboundTCPListeners(mesh *proxyconfig.MeshConfig, services []*model.Service) (Listeners, Clusters) {
 	tcpListeners := make(Listeners, 0)
 	tcpClusters := make(Clusters, 0)
 
@@ -585,7 +588,7 @@ func buildOutboundTCPListeners(mesh *proxyconfig.ProxyMeshConfig, services []*mo
 // configuration for co-located service instances. The function also returns
 // all inbound clusters since they are statically declared in the proxy
 // configuration and do not utilize CDS.
-func buildInboundListeners(mesh *proxyconfig.ProxyMeshConfig, sidecar proxy.Node,
+func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 	instances []*model.ServiceInstance, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners := make(Listeners, 0, len(instances))
 	clusters := make(Clusters, 0, len(instances))
@@ -694,7 +697,7 @@ func appendPortToDomains(domains []string, port int) []string {
 }
 
 func buildEgressFromSidecarVirtualHostOnPort(rule *proxyconfig.EgressRule,
-	mesh *proxyconfig.ProxyMeshConfig, port *model.Port) *VirtualHost {
+	mesh *proxyconfig.MeshConfig, port *model.Port) *VirtualHost {
 	var externalTrafficCluster *Cluster
 
 	protocolToHandle := port.Protocol
@@ -731,7 +734,7 @@ func buildEgressFromSidecarVirtualHostOnPort(rule *proxyconfig.EgressRule,
 	}
 }
 
-func buildEgressFromSidecarHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, egressRules map[string]*proxyconfig.EgressRule,
+func buildEgressFromSidecarHTTPRoutes(mesh *proxyconfig.MeshConfig, egressRules map[string]*proxyconfig.EgressRule,
 	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
 
 	egressRules, errs := model.RejectConflictingEgressRules(egressRules)
@@ -774,7 +777,7 @@ func buildEgressFromSidecarHTTPRoutes(mesh *proxyconfig.ProxyMeshConfig, egressR
 // the pod.
 // So, if a user wants to use kubernetes probes with Istio, she should ensure
 // that the health check ports are distinct from the service ports.
-func buildMgmtPortListeners(mesh *proxyconfig.ProxyMeshConfig, managementPorts model.PortList,
+func buildMgmtPortListeners(mesh *proxyconfig.MeshConfig, managementPorts model.PortList,
 	managementIP string) (Listeners, Clusters) {
 	listeners := make(Listeners, 0, len(managementPorts))
 	clusters := make(Clusters, 0, len(managementPorts))

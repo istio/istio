@@ -25,7 +25,7 @@ import (
 	"istio.io/pilot/proxy"
 )
 
-func buildEgressListeners(mesh *proxyconfig.ProxyMeshConfig, egress proxy.Node) Listeners {
+func buildEgressListeners(mesh *proxyconfig.MeshConfig, egress proxy.Node) Listeners {
 	port := proxy.ParsePort(mesh.EgressProxyAddress)
 	listener := buildHTTPListener(mesh, egress, nil, nil, WildcardAddress, port, fmt.Sprintf("%d", port), false)
 	applyInboundAuth(listener, mesh)
@@ -33,7 +33,7 @@ func buildEgressListeners(mesh *proxyconfig.ProxyMeshConfig, egress proxy.Node) 
 }
 
 // buildEgressRoutes lists all HTTP route configs on the egress proxy
-func buildEgressRoutes(mesh *proxyconfig.ProxyMeshConfig, services model.ServiceDiscovery) HTTPRouteConfigs {
+func buildEgressRoutes(mesh *proxyconfig.MeshConfig, services model.ServiceDiscovery) HTTPRouteConfigs {
 	// Create a VirtualHost for each external service
 	vhosts := make([]*VirtualHost, 0)
 	for _, service := range services.Services() {
@@ -49,7 +49,7 @@ func buildEgressRoutes(mesh *proxyconfig.ProxyMeshConfig, services model.Service
 }
 
 // buildEgressRoute translates an egress rule to an Envoy route
-func buildEgressHTTPRoute(mesh *proxyconfig.ProxyMeshConfig, svc *model.Service) *VirtualHost {
+func buildEgressHTTPRoute(mesh *proxyconfig.MeshConfig, svc *model.Service) *VirtualHost {
 	var host *VirtualHost
 
 	for _, servicePort := range svc.Ports {

@@ -35,7 +35,17 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
-        args: ["proxy", "egress", "-v", "{{.Verbosity}}"]
+        args:
+        - proxy
+        - egress
+        - -v
+        - "{{.Verbosity}}"
+        - --discoveryAddress
+        - istio-pilot.{{.IstioNamespace}}:8080
+{{if .Zipkin}}
+        - --zipkinAddress
+        - zipkin.{{.IstioNamespace}}:9411
+{{end}}
         env:
         - name: POD_NAME
           valueFrom:
@@ -48,18 +58,12 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
-          readOnly: true
         - name: istio-envoy
           mountPath: /etc/istio/proxy/
         - mountPath: /etc/certs
           name: istio-certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - emptyDir:
           medium: Memory
         name: istio-envoy

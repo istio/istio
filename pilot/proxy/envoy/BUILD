@@ -12,7 +12,6 @@ go_library(
         "ingress.go",
         "mixer.go",
         "policy.go",
-        "resolve.go",
         "resources.go",
         "route.go",
         "watcher.go",

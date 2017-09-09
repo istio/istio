@@ -35,7 +35,7 @@ import (
 )
 
 type controller struct {
-	mesh         *proxyconfig.ProxyMeshConfig
+	mesh         *proxyconfig.MeshConfig
 	domainSuffix string
 
 	client   kubernetes.Interface
@@ -49,7 +49,7 @@ var (
 )
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *proxyconfig.ProxyMeshConfig,
+func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
 	options kube.ControllerOptions) model.ConfigStoreCache {
 	handler := &kube.ChainHandler{}
 

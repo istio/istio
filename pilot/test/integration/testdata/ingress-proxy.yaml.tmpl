@@ -35,7 +35,17 @@ spec:
       containers:
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
-        args: ["proxy", "ingress", "-v", "{{.Verbosity}}"]
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "{{.Verbosity}}"
+        - --discoveryAddress
+        - istio-pilot.{{.IstioNamespace}}:8080
+{{if .Zipkin}}
+        - --zipkinAddress
+        - zipkin.{{.IstioNamespace}}:9411
+{{end}}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 443
@@ -52,9 +62,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
-          readOnly: true
         - mountPath: /etc/istio/proxy/
           name: istio-envoy
         - mountPath: /etc/istio/ingress-certs
@@ -63,9 +70,6 @@ spec:
           name: istio-certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: ingress-certs
         secret:
           secretName: istio-ingress-certs

@@ -70,7 +70,7 @@ type FilterMixerConfig struct {
 
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
-func buildMixerCluster(mesh *proxyconfig.ProxyMeshConfig) *Cluster {
+func buildMixerCluster(mesh *proxyconfig.MeshConfig) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{

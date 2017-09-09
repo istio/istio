@@ -18,12 +18,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/cmd"
+	"istio.io/pilot/model"
 	"istio.io/pilot/platform"
 	"istio.io/pilot/proxy"
 	"istio.io/pilot/proxy/envoy"
@@ -31,12 +35,21 @@ import (
 )
 
 var (
-	configpath      string
-	binarypath      string
-	meshconfig      string
-	servicecluster  string
 	role            proxy.Node
 	serviceregistry platform.ServiceRegistry
+
+	// proxy config flags (named identically)
+	configPath             string
+	binaryPath             string
+	serviceCluster         string
+	drainDuration          time.Duration
+	parentShutdownDuration time.Duration
+	discoveryAddress       string
+	discoveryRefreshDelay  time.Duration
+	zipkinAddress          string
+	connectTimeout         time.Duration
+	statsdUdpAddress       string // nolint: golint
+	proxyAdminPort         int
 
 	rootCmd = &cobra.Command{
 		Use:   "agent",
@@ -48,24 +61,10 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
+			glog.V(2).Infof("Version %s", version.Line())
 			role.Type = proxy.Sidecar
 			if len(args) > 0 {
 				role.Type = proxy.NodeType(args[0])
-			}
-
-			// receive mesh configuration
-			mesh, err := cmd.ReadMeshConfig(meshconfig)
-			if err != nil {
-				defaultMesh := proxy.DefaultMeshConfig()
-				mesh = &defaultMesh
-				glog.Warningf("failed to read mesh configuration, using default: %v", err)
-			}
-
-			glog.V(2).Infof("version %s", version.Line())
-			glog.V(2).Infof("mesh configuration %#v", mesh)
-
-			if err = os.MkdirAll(configpath, 0700); err != nil {
-				return multierror.Prefix(err, "failed to create directory for proxy configuration")
 			}
 
 			// set values from registry platform
@@ -97,14 +96,61 @@ var (
 				}
 			}
 
-			glog.V(2).Infof("proxy role: %#v", role)
+			glog.V(2).Infof("Proxy role: %#v", role)
 
-			envoyProxy := envoy.MakeProxy(mesh, servicecluster, role.ServiceNode(), configpath, binarypath)
-			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher, err := envoy.NewWatcher(mesh, agent, role)
-			if err != nil {
+			proxyConfig := proxyconfig.ProxyConfig{}
+
+			// set all flags
+			proxyConfig.ConfigPath = configPath
+			proxyConfig.BinaryPath = binaryPath
+			proxyConfig.ServiceCluster = serviceCluster
+			proxyConfig.DrainDuration = ptypes.DurationProto(drainDuration)
+			proxyConfig.ParentShutdownDuration = ptypes.DurationProto(parentShutdownDuration)
+			proxyConfig.DiscoveryAddress = discoveryAddress
+			proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(discoveryRefreshDelay)
+			proxyConfig.ZipkinAddress = zipkinAddress
+			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
+			proxyConfig.StatsdUdpAddress = statsdUdpAddress
+			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+
+			// resolve statsd address
+			if proxyConfig.StatsdUdpAddress != "" {
+				if addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress); err == nil {
+					proxyConfig.StatsdUdpAddress = addr
+				} else {
+					return err
+				}
+			}
+
+			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
 				return err
 			}
+
+			if out, err := model.ToYAML(&proxyConfig); err == nil {
+				glog.V(2).Infof("Effective config: %s", out)
+			} else {
+				glog.V(2).Infof("Failed to serialize to YAML: %v", err)
+			}
+
+			certs := []envoy.CertSource{
+				{
+					Directory: proxy.AuthCertsPath,
+					Files:     []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename},
+				},
+			}
+
+			if role.Type == proxy.Ingress {
+				certs = append(certs, envoy.CertSource{
+					Directory: proxy.IngressCertsPath,
+					Files:     []string{proxy.IngressCertFilename, proxy.IngressKeyFilename},
+				})
+			}
+
+			glog.V(2).Infof("Monitored certs: %#v", certs)
+
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode())
+			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
+			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs)
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
@@ -117,25 +163,54 @@ var (
 	}
 )
 
+func timeDuration(dur *duration.Duration) time.Duration {
+	out, err := ptypes.Duration(dur)
+	if err != nil {
+		glog.Warning(err)
+	}
+	return out
+}
+
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
 		string(platform.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
 			string(platform.KubernetesRegistry), string(platform.ConsulRegistry)))
-	proxyCmd.PersistentFlags().StringVar(&meshconfig, "meshconfig", "/etc/istio/config/mesh",
-		"File name for Istio mesh configuration")
-	proxyCmd.PersistentFlags().StringVar(&configpath, "configpath", "/etc/istio/proxy",
-		"Path to generated proxy configuration directory")
-	proxyCmd.PersistentFlags().StringVar(&binarypath, "binarypath", "/usr/local/bin/envoy",
-		"Path to Envoy binary")
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.Domain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&servicecluster, "servicecluster", "istio-proxy",
-		"Service cluster value")
+
+	// Flags for proxy configuration
+	values := proxy.DefaultProxyConfig()
+	proxyCmd.PersistentFlags().StringVar(&configPath, "configPath", values.ConfigPath,
+		"Path to the generated configuration file directory")
+	proxyCmd.PersistentFlags().StringVar(&binaryPath, "binaryPath", values.BinaryPath,
+		"Path to the proxy binary")
+	proxyCmd.PersistentFlags().StringVar(&serviceCluster, "serviceCluster", values.ServiceCluster,
+		"Service cluster")
+	proxyCmd.PersistentFlags().DurationVar(&drainDuration, "drainDuration",
+		timeDuration(values.DrainDuration),
+		"The time in seconds that Envoy will drain connections during a hot restart")
+	proxyCmd.PersistentFlags().DurationVar(&parentShutdownDuration, "parentShutdownDuration",
+		timeDuration(values.ParentShutdownDuration),
+		"The time in seconds that Envoy will wait before shutting down the parent process during a hot restart")
+	proxyCmd.PersistentFlags().StringVar(&discoveryAddress, "discoveryAddress", values.DiscoveryAddress,
+		"Address of the discovery service exposing xDS (e.g. istio-pilot:8080)")
+	proxyCmd.PersistentFlags().DurationVar(&discoveryRefreshDelay, "discoveryRefreshDelay",
+		timeDuration(values.DiscoveryRefreshDelay),
+		"Polling interval for service discovery (used by EDS, CDS, LDS, but not RDS)")
+	proxyCmd.PersistentFlags().StringVar(&zipkinAddress, "zipkinAddress", values.ZipkinAddress,
+		"Address of the Zipkin service (e.g. zipkin:9411)")
+	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
+		timeDuration(values.ConnectTimeout),
+		"Connection timeout used by Envoy for supporting services")
+	proxyCmd.PersistentFlags().StringVar(&statsdUdpAddress, "statsdUdpAddress", values.StatsdUdpAddress,
+		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
+	proxyCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", int(values.ProxyAdminPort),
+		"Port on which Envoy should listen for administrative commands")
 
 	cmd.AddFlags(rootCmd)
 

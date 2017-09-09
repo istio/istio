@@ -43,37 +43,37 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 // representation correctly.
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
-		Mode       proxyconfig.ProxyMeshConfig_IngressControllerMode
+		Mode       proxyconfig.MeshConfig_IngressControllerMode
 		Annotation string
 		Ignore     bool
 	}{
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_DEFAULT,
+			Mode:       proxyconfig.MeshConfig_DEFAULT,
 			Annotation: "",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_DEFAULT,
+			Mode:       proxyconfig.MeshConfig_DEFAULT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_DEFAULT,
+			Mode:       proxyconfig.MeshConfig_DEFAULT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_STRICT,
+			Mode:       proxyconfig.MeshConfig_STRICT,
 			Annotation: "",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_STRICT,
+			Mode:       proxyconfig.MeshConfig_STRICT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.ProxyMeshConfig_STRICT,
+			Mode:       proxyconfig.MeshConfig_STRICT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},

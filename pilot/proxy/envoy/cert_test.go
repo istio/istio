@@ -23,6 +23,8 @@ import (
 	"path"
 	"testing"
 	"time"
+
+	"istio.io/pilot/proxy"
 )
 
 func TestWatchCerts(t *testing.T) {
@@ -71,6 +73,7 @@ func TestGenerateCertHash(t *testing.T) {
 	}()
 
 	h := sha256.New()
+	authFiles := []string{proxy.CertChainFilename, proxy.KeyFilename, proxy.RootCertFilename}
 	for _, file := range authFiles {
 		content := []byte(file)
 		if err := ioutil.WriteFile(path.Join(name, file), content, 0644); err != nil {

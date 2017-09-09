@@ -243,20 +243,25 @@ func addConfig(r model.ConfigStore, file string, t *testing.T) {
 	}
 }
 
-func makeMeshConfig() proxyconfig.ProxyMeshConfig {
-	mesh := proxy.DefaultMeshConfig()
-	mesh.MixerAddress = "localhost:9091"
+func makeProxyConfig() proxyconfig.ProxyConfig {
+	mesh := proxy.DefaultProxyConfig()
+	mesh.ZipkinAddress = "localhost:6000"
+	mesh.StatsdUdpAddress = "10.1.1.10:9125"
 	mesh.DiscoveryAddress = "localhost:8080"
 	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
+	return mesh
+}
+
+func makeMeshConfig() proxyconfig.MeshConfig {
+	mesh := proxy.DefaultMeshConfig()
+	mesh.MixerAddress = "localhost:9091"
 	mesh.EgressProxyAddress = "localhost:8888"
-	mesh.StatsdUdpAddress = "10.1.1.10:9125"
-	mesh.ZipkinAddress = "localhost:6000"
+	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }
 
 func TestSidecarConfig(t *testing.T) {
-	mesh := makeMeshConfig()
-	config := buildConfig(Listeners{}, Clusters{}, true, &mesh)
+	config := buildConfig(Listeners{}, Clusters{}, true, makeProxyConfig())
 	if config == nil {
 		t.Fatal("Failed to generate config")
 	}
