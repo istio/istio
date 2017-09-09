@@ -1,8 +1,0 @@
-4c4
-<   destination: reviews._CHANGEME_.svc.cluster.local
----
->   destination: reviews.default.svc.cluster.local
-9c9
-<         regex: "^(.*?;)?(user=test-user)(;.*)?$"
----
->         regex: "^(.*?;)?(user=jason)(;.*)?$"
