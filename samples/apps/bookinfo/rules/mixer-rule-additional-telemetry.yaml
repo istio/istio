@@ -4,7 +4,6 @@ metadata:
   name: prommetricsresponse
   namespace: istio-config-default
 spec:
-  selector: "true"
   actions:
   - handler: handler.prometheus.istio-config-default
     instances:
