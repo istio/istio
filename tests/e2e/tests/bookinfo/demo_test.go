@@ -70,11 +70,9 @@ func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cookies != nil {
-		for _, c := range cookies {
-			// Set cookie
-			req.AddCookie(&c)
-		}
+	for _, c := range cookies {
+		// Set cookie
+		req.AddCookie(&c)
 	}
 	return client.Do(req)
 }
