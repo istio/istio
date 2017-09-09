@@ -42,8 +42,8 @@ spec:
     spec:
       containers:
       - name: details
-        image: erikwittern/examples-bookinfo-details-v1
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-details-v1:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
@@ -77,8 +77,8 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: erikwittern/examples-bookinfo-ratings-v1
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-ratings-v1:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
@@ -112,8 +112,8 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: erikwittern/examples-bookinfo-reviews-v1
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-reviews-v1:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
@@ -131,8 +131,8 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: erikwittern/examples-bookinfo-reviews-v2
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-reviews-v2:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
@@ -150,8 +150,8 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: erikwittern/examples-bookinfo-reviews-v3
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-reviews-v3:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
@@ -185,8 +185,8 @@ spec:
     spec:
       containers:
       - name: productpage
-        image: erikwittern/examples-bookinfo-productpage-v1
-        imagePullPolicy: Always
+        image: istio/examples-bookinfo-productpage-v1:0.2.2
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
 ---
