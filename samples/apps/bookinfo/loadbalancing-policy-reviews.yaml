@@ -1,7 +1,0 @@
-type: destination-policy
-name: reviews-random
-spec:
-  destination: reviews.default.svc.cluster.local
-  policy:
-  - loadBalancing: 
-      name: RANDOM
