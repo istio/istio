@@ -16,6 +16,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -103,7 +104,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	if hndlrBldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
 		glog.Warning(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	var hndlr adapter.Handler
@@ -111,7 +112,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	if err != nil {
 		msg := fmt.Sprintf("cannot configure adapter '%s' in handler config '%s': %v", handler.Adapter, handler.Name, err)
 		glog.Warning(msg)
-		return nil, fmt.Errorf(msg)
+		return nil, errors.New(msg)
 	}
 
 	return hndlr, err
@@ -129,7 +130,7 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 				" Please remove the handler or fix the configuration. %v\nti=%v\ntype=%v", r, adapterCnfg, ti, typs)
 			glog.Error(msg)
 			handler = nil
-			err = fmt.Errorf(msg)
+			err = errors.New(msg)
 			return
 		}
 	}()
@@ -141,7 +142,15 @@ func (h *handlerFactory) build(hndlrBldr adapter.HandlerBuilder, infrdTypesByTmp
 		ti.SetType(typs, hndlrBldr)
 	}
 	hndlrBldr.SetAdapterConfig(adapterCnfg.(proto.Message))
-	// TODO call validate. hndlrBldr.Validate
+	// validate and only construct if the validation passes.
+	if ce := hndlrBldr.Validate(); ce != nil {
+		msg := fmt.Sprintf("handler validation failed: %s", ce.Error())
+		glog.Error(msg)
+		handler = nil
+		err = errors.New(msg)
+		return
+	}
+
 	return hndlrBldr.Build(context.Background(), env)
 }
 
