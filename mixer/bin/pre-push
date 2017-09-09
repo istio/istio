@@ -29,4 +29,4 @@ if ! [[ -f WORKSPACE ]]; then
 fi
 
 bazel test --features=race //...
-bin/linters.sh
+bin/linters.sh -c upstream/master

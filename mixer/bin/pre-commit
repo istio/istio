@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run local pre-commit hook
 #
 # If called directly install pre-commit hook
@@ -29,6 +29,9 @@ fi
 BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
 if [ $BRANCH_NAME != '(no branch)' ]; then
   cd $ROOT
+
+  echo "ensuring go environment setup for fmt..."
+  bin/bazel_to_go.py
 
   echo "formatting..."
   bin/fmt.sh
