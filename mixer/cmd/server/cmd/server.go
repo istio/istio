@@ -153,7 +153,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, f
 	serverCmd.PersistentFlags().StringVarP(&sa.configStore2URL, "configStore2URL", "", "",
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.configDefaultNamespace, "configDefaultNamespace", "", "istio-config-default",
+	serverCmd.PersistentFlags().StringVarP(&sa.configDefaultNamespace, "configDefaultNamespace", "", mixerRuntime.DefaultConfigNamespace,
 		"Namespace used to store mesh wide configuration.")
 
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.

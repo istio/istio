@@ -34,12 +34,22 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
+  - name: tcp_bytes_sent
+    instance_name: tcpbytesent.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
+  - name: tcp_bytes_received
+    instance_name: tcpbytereceived.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: prommetrics
+  name: promhttp
   namespace: istio-config-default
+  labels:
+    istio-protocol: http
 spec:
   actions:
   - handler: handler.prometheus.istio-config-default
@@ -48,4 +58,18 @@ spec:
     - requestduration.metric.istio-config-default
     - requestsize.metric.istio-config-default
     - responsesize.metric.istio-config-default
-
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP 
+spec:
+  actions:
+  - handler: handler.prometheus.istio-config-default
+    instances:    
+    - tcpbytesent.metric.istio-config-default
+    - tcpbytereceived.metric.istio-config-default
+---
