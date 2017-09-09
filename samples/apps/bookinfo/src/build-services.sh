@@ -17,13 +17,14 @@
 set -o errexit
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+ISTIO_VERSION=$(cat ../../../../istio.RELEASE)
 
 pushd $SCRIPTDIR/productpage
-  docker build -t istio/examples-bookinfo-productpage-v1 .
+  docker build -t istio/examples-bookinfo-productpage-v1:${ISTIO_VERSION} .
 popd
 
 pushd $SCRIPTDIR/details
-  docker build -t istio/examples-bookinfo-details-v1 .
+  docker build -t istio/examples-bookinfo-details-v1:${ISTIO_VERSION} .
 popd
 
 pushd $SCRIPTDIR/reviews
@@ -31,23 +32,23 @@ pushd $SCRIPTDIR/reviews
   docker run --rm -v `pwd`:/usr/bin/app:rw niaquinto/gradle clean build
   pushd reviews-wlpcfg
     #plain build -- no ratings
-    docker build -t istio/examples-bookinfo-reviews-v1 --build-arg service_version=v1 .
+    docker build -t istio/examples-bookinfo-reviews-v1:${ISTIO_VERSION} --build-arg service_version=v1 .
     #with ratings black stars
-    docker build -t istio/examples-bookinfo-reviews-v2 --build-arg service_version=v2 --build-arg enable_ratings=true .
+    docker build -t istio/examples-bookinfo-reviews-v2:${ISTIO_VERSION} --build-arg service_version=v2 --build-arg enable_ratings=true .
     #with ratings red stars
-    docker build -t istio/examples-bookinfo-reviews-v3 --build-arg service_version=v3 --build-arg enable_ratings=true --build-arg star_color=red .
+    docker build -t istio/examples-bookinfo-reviews-v3:${ISTIO_VERSION} --build-arg service_version=v3 --build-arg enable_ratings=true --build-arg star_color=red .
   popd
 popd
 
 pushd $SCRIPTDIR/ratings
-  docker build -t istio/examples-bookinfo-ratings-v1 --build-arg service_version=v1 .
-  docker build -t istio/examples-bookinfo-ratings-v2 --build-arg service_version=v2 .
+  docker build -t istio/examples-bookinfo-ratings-v1:${ISTIO_VERSION} --build-arg service_version=v1 .
+  docker build -t istio/examples-bookinfo-ratings-v2:${ISTIO_VERSION} --build-arg service_version=v2 .
 popd
 
 pushd $SCRIPTDIR/mysql
-  docker build -t istio/examples-bookinfo-mysqldb .
+  docker build -t istio/examples-bookinfo-mysqldb:${ISTIO_VERSION} .
 popd
 
 pushd $SCRIPTDIR/mongodb
-  docker build -t istio/examples-bookinfo-mongodb .
+  docker build -t istio/examples-bookinfo-mongodb:${ISTIO_VERSION} .
 popd
