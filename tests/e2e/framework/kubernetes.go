@@ -225,14 +225,17 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	content = replacePattern(k, content, "istio-mixer-admin-role-binding",
 		"istio-mixer-admin-role-binding-"+k.Namespace)
 
-	content = replacePattern(k, content, "istio-ca-admin-role-binding",
-		"istio-ca-admin-role-binding-"+k.Namespace)
+	content = replacePattern(k, content, "istio-ca-role-binding",
+		"istio-ca-role-binding-"+k.Namespace)
 
 	content = replacePattern(k, content, "istio-ingress-admin-role-binding",
 		"istio-ingress-admin-role-binding-"+k.Namespace)
 
 	content = replacePattern(k, content, "istio-egress-admin-role-binding",
 		"istio-egress-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-sidecar-role-binding",
+		"istio-sidecar-role-binding-"+k.Namespace)
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
