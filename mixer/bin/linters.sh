@@ -25,6 +25,7 @@ prep_linters() {
 
 go_metalinter() {
     local parent_branch="${PARENT_BRANCH}"
+    echo parent_branch = "${parent_branch}"
     if [[ ! -z ${TRAVIS_PULL_REQUEST} ]];then
         # if travis pull request only lint changed code.
         if [[ ${TRAVIS_PULL_REQUEST} != "false" ]]; then
@@ -47,9 +48,18 @@ go_metalinter() {
         # convert LAST_GOOD_GITSHA to list of packages.
         if [[ ! -z ${LAST_GOOD_GITSHA} ]];then
             echo "Using ${LAST_GOOD_GITSHA} to compare files to."
-            PKGS=$(for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do fd="${fn%/*}"; [ -d ${fd} ] && echo $fd; done | sort | uniq)
+            list=""
+            for fn in $(git diff --name-only ${LAST_GOOD_GITSHA}); do
+                # Always skip testdata and bin
+                case ${fn} in
+                    testdata/* | bin/*) : ;;
+                    *) { fd="${fn%/*}"; if [[ -d ${fd} ]]; then list="${list}\n${fd}"; fi; } ;;
+                esac
+            done
+            PKGS=$(echo -e "${list}" | sort | uniq)
+            echo -e "Running linters on: ${PKGS}\n"
         else
-            echo 'Running linters on all files.'
+            echo "Running linters on all files."
         fi
     fi
 
