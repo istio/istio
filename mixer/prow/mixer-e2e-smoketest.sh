@@ -53,7 +53,7 @@ echo "=== Smoke Test ==="
 #
 # In the future, this should be parameterized similarly to the integration tests, with the kubeconfig
 # location specified explicitly.
-./prow/e2e-suite-rbac-no_auth.sh \
+./prow/e2e-suite-rbac-auth.sh \
     --mixer_hub="${HUB}" \
     --mixer_tag="${GIT_SHA}"
 
