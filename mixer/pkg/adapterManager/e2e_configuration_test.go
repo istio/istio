@@ -129,7 +129,7 @@ instances:
     duration: attr.duration
     boolPrimitive: attr.bool | true
     doublePrimitive: attr.double | 12.4
-    stringPrimitive: "\"\""
+    stringPrimitive: '"SomeString"'
     dimensions:
       source: source.name
       target_ip: target.name

@@ -338,12 +338,10 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "expression for field Int64Primitive cannot be empty",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field Int64Primitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name: "InferredTypeNotMatchStaticTypeFromTemplate",
@@ -359,12 +357,29 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			willPanic:     false,
+		},
+		{
+			name: "EmptyString",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: '""'
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field StringPrimitive cannot be empty",
+			willPanic:     false,
 		},
 		{
 			name:      "NotValidInstanceParam",
