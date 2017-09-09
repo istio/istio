@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: default
+  name: istio-system
 ---
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
@@ -84,11 +84,11 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-pilot-admin-role-binding-default
+  name: istio-pilot-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-pilot-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -98,11 +98,11 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca-role-binding-default
+  name: istio-ca-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-ca
@@ -112,11 +112,11 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ingress-admin-role-binding-default
+  name: istio-ingress-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -126,11 +126,11 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-egress-admin-role-binding-default
+  name: istio-egress-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-egress-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-pilot
@@ -142,11 +142,11 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-role-binding-default
+  name: istio-sidecar-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-sidecar
@@ -156,11 +156,11 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-mixer-admin-role-binding-default
+  name: istio-mixer-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-mixer-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
   name: istio-mixer
@@ -171,7 +171,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
-  namespace: default
+  namespace: istio-system
 data:
   mapping.conf: |-
 ---
@@ -179,7 +179,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
-  namespace: default
+  namespace: istio-system
   labels:
     istio: mixer
 spec:
@@ -204,13 +204,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
-  namespace: default
+  namespace: istio-system
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-mixer
-  namespace: default
+  namespace: istio-system
 spec:
   replicas: 1
   template:
@@ -549,23 +549,23 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: default
+  namespace: istio-system
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
-    mixerAddress: istio-mixer.default:9091
-    discoveryAddress: istio-pilot.default:8080
-    ingressService: istio-ingress.default
-    egressProxyAddress: istio-egress.default:80
-    statsdUdpAddress: istio-mixer.default:9125
-    zipkinAddress: zipkin.default:9411
+    mixerAddress: istio-mixer.istio-system:9091
+    discoveryAddress: istio-pilot.istio-system:8080
+    ingressService: istio-ingress.istio-system
+    egressProxyAddress: istio-egress.istio-system:80
+    statsdUdpAddress: istio-mixer.istio-system:9125
+    zipkinAddress: zipkin.istio-system:9411
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
-  namespace: default
+  namespace: istio-system
   labels:
     istio: pilot
 spec:
@@ -581,13 +581,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
-  namespace: default
+  namespace: istio-system
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-pilot
-  namespace: default
+  namespace: istio-system
 spec:
   replicas: 1
   template:
@@ -631,7 +631,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: istio-ingress-certs
-  namespace: default
+  namespace: istio-system
 data:
   tls.key:
   tls.crt:
@@ -643,7 +643,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress
-  namespace: default
+  namespace: istio-system
   labels:
     istio: ingress
 spec:
@@ -661,13 +661,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
-  namespace: default
+  namespace: istio-system
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-ingress
-  namespace: default
+  namespace: istio-system
   annotations:
     sidecar.istio.io/inject: "false"
 spec:
@@ -728,7 +728,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-egress
-  namespace: default
+  namespace: istio-system
 spec:
   ports:
   - port: 80
@@ -739,13 +739,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-egress-service-account
-  namespace: default
+  namespace: istio-system
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-egress
-  namespace: default
+  namespace: istio-system
   annotations:
     sidecar.istio.io/inject: "false"
 spec:

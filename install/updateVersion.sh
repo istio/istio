@@ -136,8 +136,8 @@ function merge_files() {
   cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 
   #TODO remove once e2e tests are updated
-  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
-  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO_AUTH
+#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
+#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO_AUTH
 }
 
 function update_version_file() {
