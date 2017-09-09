@@ -6,5 +6,6 @@ filegroup(
         "istio-cluster-wide.yaml",
         "istio-rbac-alpha.yaml",
         "istio-rbac-beta.yaml",
+    ],
     visibility = ["//visibility:public"],
 )
