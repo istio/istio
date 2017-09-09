@@ -245,7 +245,7 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 }
 
 func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
-	r := []byte(fmt.Sprintf("%s", dest))
+	r := []byte(dest)
 	p := regexp.MustCompile(src)
 	content = p.ReplaceAllLiteral(content, r)
 	return content
