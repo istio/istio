@@ -141,7 +141,14 @@ func TestBuild_Error(t *testing.T) {
 			tmplRepo:  fakeTmplRepo{},
 			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
 		},
-
+		{
+			name:         "ErrorBuilderValidate",
+			tmplRepo:     fakeTmplRepo{},
+			wantError:    "Adapter's builder says I don't like the config",
+			hndlrBuilder: &fakeHndlrBldr{validateErr: "Adapter's builder says I don't like the config"},
+			instsCnfg:    []*pb.Instance{{"inst1", "tpml1", &empty.Empty{}}},
+			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+		},
 		{
 			name:      "ErrorTypeInferError",
 			tmplRepo:  fakeTmplRepo{infrErr: fmt.Errorf("FOOBAR ERROR")},
