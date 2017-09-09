@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "5eca337930080b44b9b23c1c1e2cca14e12969ba"  # Sep 7, 2017 (no release)
+ISTIO_API_SHA = "0ab63a64b7ce7900de2a95160c13dcf781d04d07"
 
 def go_istio_api_repositories(use_local=False):
     ISTIO_API_BUILD_FILE = """
