@@ -70,12 +70,10 @@ func NewHop(d, s, v string, h, g int) *framework.App {
 func newHopMessage(u []string) *config.HopMessage {
 	r := new(config.HopMessage)
 	r.Id = uuid.New().String()
-	if u != nil {
-		for _, d := range u {
-			dest := new(config.Remote)
-			dest.Destination = d
-			r.RemoteDests = append(r.RemoteDests, dest)
-		}
+	for _, d := range u {
+		dest := new(config.Remote)
+		dest.Destination = d
+		r.RemoteDests = append(r.RemoteDests, dest)
 	}
 	glog.Infof("Created Request\n%s", proto.MarshalTextString(r))
 	return r
