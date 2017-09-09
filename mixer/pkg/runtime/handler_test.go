@@ -36,7 +36,9 @@ type fakeTmplRepo struct {
 	cnfgrPanic string
 	typeResult proto.Message
 
-	cnfgMtdCallInfo map[string]map[string]proto.Message // templateName - > map[instName]InferredType (proto.Message)
+	cnfgMtdCallInfo          map[string]map[string]proto.Message // templateName - > map[instName]InferredType (proto.Message)
+	bldrDoesNotImplTemplate  bool
+	hndlrDoesNotImplTemplate bool
 }
 
 func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
@@ -52,6 +54,10 @@ func (t fakeTmplRepo) GetTemplateInfo(template string) (tmpl.Info, bool) {
 				t.cnfgMtdCallInfo[template] = types
 			}
 		},
+		BldrInterfaceName:       "mybuilder",
+		HndlrInterfaceName:      "myhandler",
+		BuilderSupportsTemplate: func(_ adapter.HandlerBuilder) bool { return !t.bldrDoesNotImplTemplate },
+		HandlerSupportsTemplate: func(_ adapter.Handler) bool { return !t.hndlrDoesNotImplTemplate },
 	}, true
 }
 
@@ -158,12 +164,28 @@ func TestBuild_Error(t *testing.T) {
 			hndlrCnfg:    &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
 			hndlrBuilder: &fakeHndlrBldr{},
 		},
+		{
+			name:         "BuilderNotImplInterface",
+			hndlrBuilder: &fakeHndlrBldr{},
+			wantError:    "cannot support template 'fakeTmpl'",
+
+			tmplRepo:  fakeTmplRepo{bldrDoesNotImplTemplate: true},
+			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+		},
+		{
+			name:         "HandlerNotImplInterface",
+			hndlrBuilder: &fakeHndlrBldr{},
+			wantError:    "cannot support template 'fakeTmpl'",
+
+			tmplRepo:  fakeTmplRepo{hndlrDoesNotImplTemplate: true},
+			hndlrCnfg: &pb.Handler{Name: "h1", Adapter: "a1", Params: &empty.Empty{}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
 			bldrInfoFinder := func(name string) (*adapter.Info, bool) {
-				return &adapter.Info{NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }}, true
+				return &adapter.Info{NewBuilder: func() adapter.HandlerBuilder { return tt.hndlrBuilder }, SupportedTemplates: []string{"fakeTmpl"}}, true
 			}
 
 			hf := NewHandlerFactory(tt.tmplRepo, nil, nil, bldrInfoFinder)
