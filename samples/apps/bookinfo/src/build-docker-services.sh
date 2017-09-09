@@ -14,6 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# This script builds docker images for book info microservices.
+# It's different from build-services.sh because it builds all
+# services with the envoy proxy and pilot agent in the images.
 # Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 HUB=${whichhub}
