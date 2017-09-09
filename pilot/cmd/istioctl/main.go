@@ -15,9 +15,11 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -353,25 +355,78 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 // readInputs reads multiple documents from the input and checks with the schema
 func readInputs() ([]model.Config, error) {
 	var reader io.Reader
-	var err error
-
 	if file == "" {
 		reader = os.Stdin
 	} else {
+		var err error
 		reader, err = os.Open(file)
 		if err != nil {
 			return nil, err
 		}
 	}
+	input, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if out, err := readInputsLegacy(bytes.NewReader(input)); err == nil {
+		return out, nil
+	}
+	return readInputsKubectl(bytes.NewReader(input))
+}
 
+// readInputsKubectl reads multiple documents from the input and checks with
+// the schema.
+//
+// NOTE: This function only decodes a subset of the complete k8s
+// ObjectMeta as identified by the fields in model.ConfigMeta. This
+// would typically only be a problem if a user dumps an configuration
+// object with kubectl and then re-ingests it through istioctl.
+func readInputsKubectl(reader io.Reader) ([]model.Config, error) {
+	var varr []model.Config
+
+	// We store route-rules as a YaML stream; there may be more than one decoder.
+	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+	for {
+		obj := crd.IstioKind{}
+		err := yamlDecoder.Decode(&obj)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		schema, exists := model.IstioConfigTypes.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
+		if !exists {
+			return nil, fmt.Errorf("unrecognized type %v", obj.Kind)
+		}
+
+		config, err := crd.ConvertObject(schema, &obj, "")
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		if err := schema.Validate(config.Spec); err != nil {
+			return nil, fmt.Errorf("configuration is invalid: %v", err)
+		}
+
+		varr = append(varr, *config)
+	}
+	glog.V(2).Infof("parsed %d inputs", len(varr))
+
+	return varr, nil
+}
+
+// readInputsLegacy reads multiple documents from the input and checks
+// with the schema.
+func readInputsLegacy(reader io.Reader) ([]model.Config, error) {
 	var varr []model.Config
 
 	// We store route-rules as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
 		v := model.JSONConfig{}
-		err = yamlDecoder.Decode(&v)
-
+		err := yamlDecoder.Decode(&v)
 		if err == io.EOF {
 			break
 		}
