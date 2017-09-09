@@ -1,4 +1,0 @@
-rules:
-  - selector: source.labels["app"]=="reviews" && source.labels["version"] == "v3"
-    aspects:
-    - kind: denials
