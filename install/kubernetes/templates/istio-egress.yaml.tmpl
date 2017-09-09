@@ -23,6 +23,8 @@ kind: Deployment
 metadata:
   name: istio-egress
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -50,9 +52,16 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
 ---
 

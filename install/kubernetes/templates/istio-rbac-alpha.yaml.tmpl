@@ -80,7 +80,7 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-pilot-admin-role-binding
+  name: istio-pilot-admin-role-binding-{ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
   name: istio-pilot-service-account
@@ -94,7 +94,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-ca-role-binding
+  name: istio-ca-role-binding-{ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
@@ -108,7 +108,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-ingress-admin-role-binding
+  name: istio-ingress-admin-role-binding-{ISTIO_NAMESPACE}
   namespace: {ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
@@ -123,7 +123,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-egress-admin-role-binding
+  name: istio-egress-admin-role-binding-{ISTIO_NAMESPACE}
   namespace: {ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
@@ -140,7 +140,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-sidecar-role-binding
+  name: istio-sidecar-role-binding-{ISTIO_NAMESPACE}
   namespace: {ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
@@ -155,7 +155,7 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1alpha1
 metadata:
-  name: istio-mixer-admin-role-binding
+  name: istio-mixer-admin-role-binding-{ISTIO_NAMESPACE}
 subjects:
 - kind: ServiceAccount
   name: istio-mixer-service-account

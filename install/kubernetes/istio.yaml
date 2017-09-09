@@ -1,3 +1,5 @@
+# GENERATED FILE. Use with Kubernetes 1.7+
+# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
 apiVersion: v1
 kind: ConfigMap
@@ -499,6 +501,8 @@ kind: Deployment
 metadata:
   name: istio-ingress
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -531,18 +535,25 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
         - name: ingress-certs
           mountPath: /etc/istio/ingress-certs
           readOnly: true
       volumes:
-      - name: ingress-certs
-        secret:
-          secretName: istio-ingress-certs
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
 ---
-
 ################################
 # Istio egress envoy
 ################################
@@ -568,6 +579,8 @@ kind: Deployment
 metadata:
   name: istio-egress
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -595,9 +608,16 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
 ---
 

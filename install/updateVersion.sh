@@ -110,34 +110,31 @@ function check_git_status() {
 function merge_files() {
   SRC=$TEMP_DIR/templates
   DEST=$ROOT/install/kubernetes
-  AUTH_SRC=$SRC/istio-auth
   ISTIO=$DEST/istio.yaml
   ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
   ISTIO_AUTH=$DEST/istio-auth.yaml
 
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
-
   cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
   cp $SRC/istio-rbac-alpha.yaml.tmpl $DEST/istio-rbac-alpha.yaml
 
-  cp $SRC/istio-mixer.yaml.tmpl $ISTIO
-  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_CLUSTER_WIDE
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_CLUSTER_WIDE
+  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 
-  cp $ISTIO $ISTIO_AUTH
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
+  cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-  cat $AUTH_SRC/istio-ingress-auth.yaml.tmpl >> $ISTIO_AUTH
-  cat $AUTH_SRC/istio-egress-auth.yaml.tmpl >> $ISTIO_AUTH
 
-  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
-  cat $AUTH_SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
-
-  cat $AUTH_SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
-  cat $SRC/istio-ns.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+  cat $ISTIO_AUTH >> $ISTIO_CLUSTER_WIDE
+  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
+  cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 }
 
 function update_version_file() {
@@ -164,10 +161,17 @@ function update_istio_install() {
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
+
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml.tmpl
+
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml.tmpl
-  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+
   popd
 }
 
@@ -183,19 +187,6 @@ function update_istio_addons() {
   popd
 }
 
-function update_istio_auth() {
-  pushd $TEMP_DIR/templates/istio-auth
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress-auth.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress-auth.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress-auth.yaml.tmpl
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress-auth.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml.tmpl
-  popd
-}
-
 if [[ ${GIT_COMMIT} == true ]]; then
     check_git_status \
       || error_exit "You have modified files. Please commit or reset your workspace."
@@ -205,7 +196,6 @@ cp -R $ROOT/install/kubernetes/templates $TEMP_DIR/templates
 update_version_file
 update_istio_install
 update_istio_addons
-update_istio_auth
 merge_files
 rm -R $TEMP_DIR/templates
 
