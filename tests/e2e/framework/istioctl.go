@@ -137,8 +137,8 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s",
-		src, dest, i.proxyHub, i.proxyTag, i.namespace)
+	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s",
+		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
 }
 
 // CreateRule create new rule(s)
