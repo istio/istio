@@ -129,9 +129,9 @@ func GetIngress(n string) (string, error) {
 	//rp := regexp.MustCompile(`^[0-9]{1,5}$`) # Uncomment for minikube
 	var ingress string
 	retryFn := func(i int) error {
-		//ip, err := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
+		ip, err := Shell("kubectl get svc istio-ingress -n %s -o jsonpath='{.status.loadBalancer.ingress[*].ip}'", n)
 		// For minikube, comment out the previous line and uncomment the following line
-		ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
+		//ip, err := Shell("kubectl get po -l istio=ingress -n %s -o jsonpath='{.items[0].status.hostIP}'", n)
 		if err != nil {
 			return err
 		}
