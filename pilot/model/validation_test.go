@@ -811,6 +811,55 @@ func TestValidateProxyConfig(t *testing.T) {
 	}
 }
 
+func TestValidateIstioService(t *testing.T) {
+	type IstioService struct {
+		Service proxyconfig.IstioService
+		Valid   bool
+	}
+
+	services := []IstioService{
+		{
+			Service: proxyconfig.IstioService{Name: "", Service: "", Domain: "", Namespace: ""},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Service: "*cnn.com", Domain: "domain", Namespace: "namespace"},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Service: "*cnn.com", Namespace: "namespace"},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Service: "*cnn.com", Domain: "domain"},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Name: "name", Service: "*cnn.com"},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Service: "*cnn.com"},
+			Valid:   true,
+		},
+		{
+			Service: proxyconfig.IstioService{Name: "reviews", Domain: "svc.local", Namespace: "default"},
+			Valid:   true,
+		},
+		{
+			Service: proxyconfig.IstioService{Name: "reviews", Domain: "default", Namespace: "svc.local"},
+			Valid:   false,
+		},
+	}
+
+	for _, svc := range services {
+		if got := ValidateIstioService(&svc.Service); (got == nil) != svc.Valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s",
+				got == nil, svc.Valid, got, svc.Service)
+		}
+	}
+}
+
 func TestValidateEgressRuleDomain(t *testing.T) {
 	domains := map[string]bool{
 		"cnn.com":    true,

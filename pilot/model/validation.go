@@ -237,8 +237,22 @@ func ValidateFQDN(fqdn string) error {
 func ValidateIstioService(svc *proxyconfig.IstioService) (errs error) {
 	if svc.Name == "" && svc.Service == "" {
 		errs = multierror.Append(errs, errors.New("name or service is mandatory for a service reference"))
-	} else if svc.Name != "" && !IsDNS1123Label(svc.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
+	} else if svc.Service != "" && svc.Name != "" {
+		errs = multierror.Append(errs, errors.New("specify either name or service, not both"))
+	} else if svc.Service != "" {
+		if err := ValidateEgressRuleDomain(svc.Service); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if svc.Namespace != "" {
+			errs = multierror.Append(errs, errors.New("namespace is not valid when service is provided"))
+		}
+		if svc.Domain != "" {
+			errs = multierror.Append(errs, errors.New("domain is not valid when service is provided"))
+		}
+	} else if svc.Name != "" {
+		if !IsDNS1123Label(svc.Name) {
+			errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
+		}
 	}
 
 	if svc.Namespace != "" && !IsDNS1123Label(svc.Namespace) {
@@ -250,8 +264,6 @@ func ValidateIstioService(svc *proxyconfig.IstioService) (errs error) {
 			errs = multierror.Append(errs, err)
 		}
 	}
-
-	// TODO: handle service reference
 
 	if err := Labels(svc.Labels).Validate(); err != nil {
 		errs = multierror.Append(errs, err)
