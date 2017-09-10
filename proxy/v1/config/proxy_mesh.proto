@@ -68,6 +68,11 @@ message ProxyConfig {
 
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
+  
+  // The availability zone where this Envoy instance is running. When running
+  // Envoy as a sidecar in Kubernetes, this flag must be one of the availability
+  // zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation.
+  string availability_zone = 12;
 }
 
 
