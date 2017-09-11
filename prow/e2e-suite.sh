@@ -20,13 +20,11 @@
 #######################################################
 
 # Exit immediately for non zero status
-#set -e
+set -e
 # Check unset variables
 set -u
 # Print commands
 set -x
-
-E2E_ARGS=( --skip_cleanup)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Make sure we are in the right directory
