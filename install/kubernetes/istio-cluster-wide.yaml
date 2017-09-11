@@ -235,7 +235,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:83a710c25803d8ce9dfd236f3e49151283fc477f
+        image: gcr.io/istio-testing/mixer:543c458e509f4074c4efaa415164274dccceebcf
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
