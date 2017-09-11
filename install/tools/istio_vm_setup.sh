@@ -59,7 +59,7 @@ function istioInstall() {
   # Install istio binaries
   dpkg -i ${ISTIO_FILES}/istio-proxy-envoy.deb
   dpkg -i ${ISTIO_FILES}/istio-agent.deb
-  dpkg -i ${ISTIO_FILES}/istio-node-agent.deb
+  dpkg -i ${ISTIO_FILES}/istio-auth-node-agent.deb
 }
 
 function istioRestart() {

@@ -182,7 +182,8 @@ function istioCopyBuildFiles() {
      $ISTIO_IO/auth/bazel-bin/tools/deb/istio-auth-node-agent.deb \
      $ISTIO_IO/istio/install/tools/istio_vm_setup.sh \
      $ISTIO_FILES
-
+  # For override to work
+  chmod +w *.deb
 }
 
 # Copy files to the VM
@@ -201,7 +202,7 @@ function istioRun() {
   local NAME=$1
   local CMD=$2
 
-  gcloud compute ssh $(_istioGcloudOpt) --command "$CMD"
+  gcloud compute ssh $(_istioGcloudOpt) $NAME --command "$CMD"
 }
 
 # Helper to generate options for gcloud compute.
