@@ -259,6 +259,15 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 			g.builder.EQDouble()
 		}
 
+	case il.Interface:
+		dvt, _ := f.Args[0].EvalType(g.finder, expr.FuncMap())
+		switch dvt {
+		case dpb.IP_ADDRESS:
+			g.builder.Call("ip_equal")
+		default:
+			g.internalError("equality for type not yet implemented: %v", exprType)
+		}
+
 	default:
 		g.internalError("equality for type not yet implemented: %v", exprType)
 	}

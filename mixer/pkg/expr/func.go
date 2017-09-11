@@ -15,6 +15,7 @@
 package expr
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -124,6 +125,14 @@ func (f *eqFunc) call(args0 interface{}, args1 interface{}) bool {
 			return false
 		}
 		return matchWithWildcards(s0, s1)
+	case []byte:
+		if len(args0.([]byte)) == net.IPv4len || len(args0.([]byte)) == net.IPv6len {
+			// TODO: have the types be net.IP earlier, so this hack isn't necessary
+			ip1 := net.IP(args0.([]byte))
+			ip2 := net.IP(args1.([]byte))
+			return ip1.Equal(ip2)
+		}
+		return bytes.Equal(args0.([]byte), args1.([]byte))
 	}
 }
 
