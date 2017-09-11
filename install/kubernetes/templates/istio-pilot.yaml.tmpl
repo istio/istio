@@ -22,20 +22,20 @@ data:
 
     ingressService: istio-ingress.{ISTIO_NAMESPACE}
     egressProxyAddress: istio-egress.{ISTIO_NAMESPACE}:80
-    statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
+
+    # Along with discoveryRefreshDelay, this setting determines how
+    # frequently should Envoy fetch and update its internal configuration
+    # from Istio Pilot. Lower refresh delay results in higher CPU
+    # utilization and potential performance loss in exchange for faster
+    # convergence. Tweak this value according to your setup.
+    rdsRefreshDelay: 30s
 
     defaultConfig:
-      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
-      # This setting determines how frequently should Envoy fetch and update
-      # its internal configuration from Istio Pilot. Lower refresh delay
-      # results in higher CPU utilization and potential performance loss in
-      # exchange for faster convergence. Tweak this value according to your setup.
+      # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 30s
 
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
-
-      zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411
 
       # These are advanced settings that determine how long an old Envoy
       # process should be kept alive after an occasional reload.
@@ -49,6 +49,16 @@ data:
       # https://lyft.github.io/envoy/docs/operations/admin.html
       # for more details
       proxyAdminPort: 15000
+
+      # Address where Istio Pilot service is running
+      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
+
+      # Zipkin trace collector
+      zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411
+
+      # Statsd metrics collector. Istio mixer exposes a UDP endpoint
+      # to collect and convert statsd metrics into Prometheus metrics.
+      statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
 ---
 apiVersion: v1
 kind: Service
