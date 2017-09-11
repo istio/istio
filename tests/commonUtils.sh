@@ -54,21 +54,37 @@ function kube_inject() {
 		-o ${after} \
 		--hub ${PILOT_HUB} \
 		--tag ${PILOT_TAG} \
+		-i {NAMESPACE}
 		-n ${NAMESPACE}
 }
 
 function generate_istio_yaml() {
-    print_block_echo "Generating istio yaml in ${1}"
+    print_block_echo "Generating istio yaml in ${1} for ISTIO_NAMESPACE ${ISTIO_NAMESPACE}"
     local src_dir="${ROOT}/install/kubernetes/templates"
     local dest_dir="${1}"
 
     mkdir -p ${dest_dir}
-    cp ${src_dir}/* ${dest_dir}
+    cp -r ${src_dir}/* ${dest_dir}
     sed -i "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-pilot.yaml
-    sed -i "s|args: [\"discovery\", \"-v\", \"2\"]|args: ["discovery", "-v", "2", \"-a\", $NAMESPACE]|" istio-pilot.yaml
+    sed -i "s|args: [\"discovery\", \"-v\", \"2\"]|args: ["discovery", "-v", "2", \"-a\", $NAMESPACE]|" ${dest_dir}/istio-pilot.yaml
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-ingress.yaml
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-egress.yaml
     sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" ${dest_dir}/istio-mixer.yaml
+
+    sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" ${dest_dir}/istio-cluster-ca.yaml.tmpl
+    sed -i "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" ${dest_dir}/istio-namespace-ca.yaml.tmpl
+
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-ns.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-rbac-beta.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-rbac-alpha.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-pilot.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-ingress.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-egress.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-mixer.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-cluster-ca.yaml.tmpl
+    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-namespace-ca.yaml.tmpl
+
+    sed -i "s|istio-system|${NAMESPACE}|" ${dest_dir}/istio.yaml
 }
 
 function generate_bookinfo_yaml() {
