@@ -88,3 +88,6 @@ docker build --build-arg PROXY=$PROXY -t $HUB/reviews-v2:latest --build-arg serv
 docker build --build-arg PROXY=$PROXY -t $HUB/reviews-v3:latest --build-arg service_version=v3 \
     --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh
+
+# update the docker-compose.yaml file
+sed -i.bak "s/image:\ \$HUB/image:\ $HUB/" docker-compose.yaml
