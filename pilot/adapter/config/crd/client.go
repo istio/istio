@@ -194,7 +194,7 @@ func (cl *Client) RegisterResources() error {
 				}
 			}
 			glog.V(2).Infof("missing status condition for %q", name)
-			return false, err
+			return false, nil
 		}
 		return true, nil
 	})
@@ -202,9 +202,9 @@ func (cl *Client) RegisterResources() error {
 	if errPoll != nil {
 		deleteErr := cl.DeregisterResources()
 		if deleteErr != nil {
-			return multierror.Append(err, deleteErr)
+			return multierror.Append(errPoll, deleteErr)
 		}
-		return err
+		return errPoll
 	}
 
 	return nil
