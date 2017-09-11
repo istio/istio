@@ -140,10 +140,10 @@ func (k *KubeInfo) Teardown() error {
 	var err error
 
 	if *rbacfile != "" {
-		baseRbacYaml := util.GetResourcePath(*rbacfile)
+
 		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
-		if err = k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
-			glog.Errorf("Generating rbac yaml failed")
+		if _, err = os.Stat(testRbacYaml); os.IsNotExist(err) {
+			glog.Errorf("%s File does not exist", testRbacYaml)
 		} else if err = util.KubeDelete(k.Namespace, testRbacYaml); err != nil {
 			glog.Errorf("Rbac deletion failed, please remove stale ClusterRoleBindings")
 		}
