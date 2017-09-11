@@ -204,7 +204,7 @@ func TestHandleLogEntry(t *testing.T) {
 					Timestamp: now,
 					Severity:  logging.Default,
 					Labels:    map[string]string{},
-					Payload:   fmt.Sprintf("%d-%s-%v", 1, "foo", now),
+					Payload:   fmt.Sprintf("1-foo-%v", now),
 					Resource:  &monitoredres.MonitoredResource{Type: "mr-type", Labels: map[string]string{}},
 				},
 			}},
