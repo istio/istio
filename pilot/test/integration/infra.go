@@ -308,6 +308,14 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 }
 
 func (infra *infra) teardown() {
+
+	if yaml, err := fill("rbac-beta.yaml.tmpl", infra); err != nil {
+		glog.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
+			err)
+	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
+		glog.Infof("RBAC config could could not be deleted: %v", err)
+	}
+
 	if infra.namespaceCreated {
 		util.DeleteNamespace(client, infra.Namespace)
 		infra.Namespace = ""
