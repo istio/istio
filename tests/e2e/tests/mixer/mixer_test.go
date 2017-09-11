@@ -182,9 +182,17 @@ func podLogs(labelSelector string, container string) {
 	if err != nil {
 		return
 	}
-	glog.Info("Expect and ignore an error getting crash logs when there are no crash (-p invocation)")
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p", tc.Kube.Namespace, pod, container)
-	_, _ = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40", tc.Kube.Namespace, pod, container)
+	str, err := util.Shell("kubectl --namespace %s logs %s -c %s --tail=40 -p", tc.Kube.Namespace, pod, container)
+	// This command can result in the following error.
+	// Error from server (BadRequest): previous terminated container "istio-ingress" in pod "istio-ingress-4149475009-xqhzh" not found
+	// "-p" tries to fetch logs for a previously dead container, however if no container has died, the command returns an error.
+	if err != nil && !strings.Contains(err.Error(), "previous terminated container") {
+		glog.Warningf("error: %s\n%v", str, err)
+	}
+	str, err = util.Shell("kubectl --namespace %s logs %s -c %s --tail=40", tc.Kube.Namespace, pod, container)
+	if err != nil {
+		glog.Warningf("error: %s\n%v", str, err)
+	}
 }
 
 // portForward sets up local port forward to the pod specified by the "app" label
