@@ -5,17 +5,19 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: istio-ingress-certs
+  namespace: {ISTIO_NAMESPACE}
 data:
   tls.key:
   tls.crt:
 ---
 ################################
-# Istio ingress controller with Istio auth
+# Istio ingress controller
 ################################
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress
+  namespace: {ISTIO_NAMESPACE}
   labels:
     istio: ingress
 spec:
@@ -33,11 +35,15 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-ingress-service-account
+  namespace: {ISTIO_NAMESPACE}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-ingress
+  namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -68,23 +74,24 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-        - mountPath: /etc/istio/ingress-certs
-          name: ingress-certs
-          readOnly: true
         - name: config-volume
           mountPath: /etc/istio/config
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
       volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-      - name: ingress-certs
-        secret:
-          secretName: istio-ingress-certs
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
 ---
-
