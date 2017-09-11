@@ -80,7 +80,7 @@ If tests ran in presubmit on Jenkins, you can easily access to logs and temp fil
 ## demo_test.go
 
 [demo_test.go](tests/bookinfo/demo_test.go) is a sample test.
-It's based on the shell script version of demo test [kubeTest.sh](../kubeTest.sh). It has four test cases: default routing, version routing, fault delay and version migration. Each test case applies specific rules for itself and clean them up after finishing.
+It's based on the shell script version of demo test. It has four test cases: default routing, version routing, fault delay and version migration. Each test case applies specific rules for itself and clean them up after finishing.
 
 You can build and run this or any single test manually with the same options as e2e.sh when testing specific version of master, mixer or istioctl
 
