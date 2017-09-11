@@ -16,6 +16,7 @@ package expr
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
 
@@ -49,6 +50,10 @@ func TestEQFunc(tt *testing.T) {
 		{"ns1.svc.local", "ns2.*", false},
 		{"svc1.ns1.cluster", "*.ns1.cluster", true},
 		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
+		{net.ParseIP("10.3.25.1"), net.ParseIP("10.3.25.1"), true},
+		{net.ParseIP("10.3.25.1"), net.ParseIP("103.4.15.3"), false},
+		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e'}, true},
+		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e', 'z', 'z', 'z'}, false},
 	}
 	for idx, tst := range tbl {
 		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.val), func(t *testing.T) {
@@ -56,7 +61,6 @@ func TestEQFunc(tt *testing.T) {
 			if rv != tst.equal {
 				tt.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tst.val, tst.match, rv, tst.equal)
 			}
-
 		})
 	}
 

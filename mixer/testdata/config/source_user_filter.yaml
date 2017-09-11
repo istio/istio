@@ -1,0 +1,16 @@
+# This rule denies all TCP traffic sent to the  
+# destination service of "bar.default.svc.cluster.local"
+# that is NOT from a source user of "tcp-test-user"
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: mixerdenyuser
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp
+spec:
+  match: destination.service == "bar.default.svc.cluster.local" && source.user != "tcp-test-user"
+  actions:
+  - handler: denyall.denier
+    instances: [ denyrequest.checknothing ]
+---

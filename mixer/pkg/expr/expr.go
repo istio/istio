@@ -380,7 +380,7 @@ func Parse(src string) (ex *Expression, err error) {
 		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
 	if glog.V(4) {
-		glog.Infof("Parsed expression '%s' into '%s'", src, a)
+		glog.Infof("Parsed expression '%s' into '%v'", src, a)
 	}
 
 	ex = &Expression{}

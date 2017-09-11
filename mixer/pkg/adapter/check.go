@@ -58,5 +58,5 @@ func (r *CheckResult) Combine(otherPtr interface{}) interface{} {
 }
 
 func (r *CheckResult) String() string {
-	return fmt.Sprintf("CheckResult: status:%d, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidDuration)
+	return fmt.Sprintf("CheckResult: status:%s, duration:%d, usecount:%d", status.String(r.Status), r.ValidDuration, r.ValidDuration)
 }
