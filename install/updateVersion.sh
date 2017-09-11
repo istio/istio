@@ -68,10 +68,6 @@ if [[ -n ${CA_HUB_TAG} ]]; then
     CA_TAG="$(echo ${CA_HUB_TAG}|cut -f2 -d,)"
 fi
 
-if [[ -n ${ISTIO_NAMESPACE} ]]; then
-    ISTIO_NAMESPACE="$(echo ${ISTIO_NAMESPACE}|cut -f1 -d,)"
-fi
-
 function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
