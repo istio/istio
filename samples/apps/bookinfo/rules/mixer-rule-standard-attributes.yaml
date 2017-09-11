@@ -99,4 +99,18 @@ spec:
         valueType: STRING
       destination.serviceAccount:
         valueType: STRING
+      destination.ip:
+        valueType: IP_ADDRESS
+      destination.port:
+        valueType: INT64
+      destination.labels:
+        valueType: STRING_MAP
+      destination.name:
+        valueType: STRING
+      destination.namespace:
+        valueType: STRING
+      destination.service:
+        valueType: STRING
+      destination.serviceAccount:
+        valueType: STRING
 

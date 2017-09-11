@@ -34,6 +34,14 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
+  - name: tcp_bytes_sent
+    instance_name: tcpbytesent.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
+  - name: tcp_bytes_received
+    instance_name: tcpbytereceived.metric.istio-config-default
+    kind: COUNTER
+    label_names: [ source_service, source_version, destination_service, destination_version ]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -100,10 +108,44 @@ spec:
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpbytesent
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+spec:
+  value: connection.sent.bytes | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: target.service | "unknown"
+    destination_version: target.labels["version"] | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpbytereceived
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
+spec:
+  value: connection.received.bytes | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: target.service | "unknown"
+    destination_version: target.labels["version"] | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: prommetrics
   namespace: istio-config-default
+  labels:
+    istio-protocol: http
 spec:
   actions:
   - handler: handler.prometheus.istio-config-default
@@ -117,8 +159,25 @@ kind: rule
 metadata:
   name: prommetricsresponse
   namespace: istio-config-default
+  labels:
+    istio-protocol: http
 spec:
   actions:
   - handler: handler.prometheus.istio-config-default
     instances:
     - responsesize.metric.istio-config-default
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-config-default
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
+spec:
+  actions:
+  - handler: handler.prometheus.istio-config-default
+    instances:
+    - tcpbytesent.metric.istio-config-default
+    - tcpbytereceived.metric.istio-config-default
+---
