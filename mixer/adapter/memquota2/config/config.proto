@@ -26,8 +26,28 @@ option (gogoproto.gostring_all) = false;
 
 message Params {
 	message Quota {
+		option (gogoproto.goproto_getters) = true;
 		// The name of the quota
 		string name = 1;
+
+		// The upper limit for this quota.
+		int64 max_amount = 2;
+
+		// The amount of time allocated quota remains valid before it is
+		// automatically released. This is only meaningful for rate limit
+		// quotas, otherwise the value must be zero.
+		google.protobuf.Duration valid_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+		// Overrides associated with this quota.
+		// The first matching override is applied.
+		repeated Override overrides = 4 [(gogoproto.nullable) = false];
+	}
+	message Override {
+		option (gogoproto.goproto_getters) = true;
+
+		// The specific dimensions for which this override applies.
+		// String representation of instance dimensions is used to check against configured dimensions.
+		map <string, string> dimensions = 1;
 
 		// The upper limit for this quota.
 		int64 max_amount = 2;

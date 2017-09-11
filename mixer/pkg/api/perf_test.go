@@ -138,8 +138,8 @@ func (bs *benchState) Check(ctx context.Context, bag attribute.Bag, output *attr
 	return status.OK
 }
 
-func (bs *benchState) Report(ctx context.Context, bag attribute.Bag) rpc.Status {
-	return status.WithPermissionDenied("Not Implementd")
+func (bs *benchState) Report(_ context.Context, _ attribute.Bag) rpc.Status {
+	return status.WithPermissionDenied("Not Implemented")
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,

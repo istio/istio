@@ -16,6 +16,7 @@ package memquota
 
 import (
 	"context"
+	"net"
 	"strconv"
 	"testing"
 	"time"
@@ -364,5 +365,119 @@ func TestReaperTicker(t *testing.T) {
 
 	if err := h.Close(); err != nil {
 		t.Errorf("Unable to close handler: %v", err)
+	}
+}
+
+func TestHandler_Limit(t *testing.T) {
+	var limit1 int64 = 42
+	var limit2 int64 = 75
+
+	cfgDim1 := map[string]string{
+		"destination": "dest1",
+	}
+	cfgDimIP := map[string]string{
+		"source.ip": "192.10.1.118",
+	}
+	instIP := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"source.ip": net.ParseIP("192.10.1.118"),
+		},
+	}
+
+	inst1 := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"destination": "dest1",
+			"source":      "src1",
+		},
+	}
+
+	inst2 := quota.Instance{
+		Dimensions: map[string]interface{}{
+			"destination": "dest2",
+		},
+	}
+
+	for _, tc := range []struct {
+		desc  string
+		cfg   config.Params_Quota
+		inst  quota.Instance
+		limit int64
+	}{
+		{
+			desc: "no override",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+			},
+			inst:  inst1,
+			limit: limit1,
+		},
+		{
+			desc: "override no match",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDim1,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst2,
+			limit: limit1,
+		},
+		{
+			desc: "override match",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDim1,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst1,
+			limit: limit2,
+		},
+		{
+			desc: "override match ip",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						Dimensions: cfgDimIP,
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  instIP,
+			limit: limit2,
+		},
+		{
+			desc: "override no dim",
+			cfg: config.Params_Quota{
+				MaxAmount: limit1,
+				Overrides: []config.Params_Override{
+					{
+						// Empty dimensions match everything.
+						MaxAmount: limit2,
+					},
+				},
+			},
+			inst:  inst2,
+			limit: limit2,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			env := test.NewEnv(t)
+			l := limit(&tc.cfg, &tc.inst, env.Logger())
+
+			if l.GetMaxAmount() != tc.limit {
+				t.Fatalf("got %v, want %v\n", l.GetMaxAmount(), tc.limit)
+			}
+		})
 	}
 }

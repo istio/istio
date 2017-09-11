@@ -200,7 +200,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		return entry.(cacheEntry), nil
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("expression cache miss for '%s'", expr)
 	}
 
@@ -211,7 +211,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		return cacheEntry{}, err
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 

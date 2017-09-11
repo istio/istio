@@ -33,7 +33,7 @@ type handlerBuilderValidator func(hndlrBuilder adapter.HandlerBuilder, t string)
 func newRegistry2(infos []adapter.InfoFn, hndlrBldrValidator handlerBuilderValidator) *adapterInfoRegistry {
 	r := &adapterInfoRegistry{make(map[string]*adapter.Info)}
 	for idx, info := range infos {
-		glog.V(3).Infof("registering [%d] %#v", idx, info)
+		glog.V(6).Infof("registering [%d] %#v", idx, info)
 		adptInfo := info()
 		if a, ok := r.adapterInfosByName[adptInfo.Name]; ok {
 			// panic only if 2 different adapter.Info objects are trying to identify by the

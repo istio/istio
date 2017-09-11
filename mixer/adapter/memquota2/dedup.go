@@ -58,7 +58,7 @@ const (
 )
 
 // handleDedup is a wrapper function that handles dedupping semantics.
-func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, error) {
+func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArgs, qf quotaFunc) (int64, time.Duration, string, error) {
 	key := makeKey(instance.Name, instance.Dimensions)
 
 	du.Lock()
@@ -92,7 +92,7 @@ func (du *dedupUtil) handleDedup(instance *quota.Instance, args adapter.QuotaArg
 		du.logger.Infof("Quota operation satisfied through deduplication: dedupID %v, amount %v", args.DeduplicationID, result.amount)
 	}
 
-	return amount, exp, nil
+	return amount, exp, key, nil
 }
 
 // reapDedup cleans up dedup entries from the oldDedup map and moves all entries from
