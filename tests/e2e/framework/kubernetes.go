@@ -138,6 +138,19 @@ func (k *KubeInfo) Setup() error {
 func (k *KubeInfo) Teardown() error {
 	glog.Info("Cleaning up kubeInfo")
 	var err error
+
+	if *rbacfile != "" {
+		baseRbacYaml := util.GetResourcePath(*rbacfile)
+		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
+		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
+			glog.Errorf("Generating rbac yaml failed")
+		}
+		if err := util.KubeDelete(k.Namespace, testRbacYaml); err != nil {
+			glog.Errorf("Rbac deployment deletion failed")
+			return err
+		}
+	}
+
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
 			glog.Errorf("Failed to delete namespace %s", k.Namespace)
