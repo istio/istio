@@ -1,10 +1,9 @@
-# GENERATED FILE. Use with Kubernetes 1.7+
-# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 # Mixer
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
 data:
   mapping.conf: |-
 ---
@@ -12,6 +11,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
   labels:
     istio: mixer
 spec:
@@ -36,11 +36,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-mixer-service-account
+  namespace: {ISTIO_NAMESPACE}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
@@ -65,7 +67,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:4eade72dc5a4cb0b6e4353031d10dfd1d51e8e77
+        image: {MIXER_HUB}/mixer:{MIXER_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -372,220 +374,5 @@ spec:
     singular: reportnothing
   scope: Namespaced
   version: v1alpha2
----
-
-# Pilot service for discovery
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio
-data:
-  mesh: |-
-    # Uncomment the following line to enable mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-    mixerAddress: istio-mixer:9091
-    discoveryAddress: istio-pilot:8080
-    ingressService: istio-ingress
-    statsdUdpAddress: istio-mixer:9125
-    zipkinAddress: zipkin:9411
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot
-  labels:
-    istio: pilot
-spec:
-  ports:
-  - port: 8080
-    name: http-discovery
-  - port: 8081
-    name: http-apiserver
-  selector:
-    istio: pilot
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-pilot-service-account
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-pilot
-spec:
-  replicas: 1
-  template:
-    metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
-      labels:
-        istio: pilot
-    spec:
-      serviceAccountName: istio-pilot-service-account
-      containers:
-      - name: discovery
-        image: gcr.io/istio-testing/pilot:4f34dbbd7e052d6f51689b301ea244588a01a73a
-        imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2"]
-        ports:
-        - containerPort: 8080
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
-      volumes:
-      - name: config-volume
-        configMap:
-          name: istio
----
-################################
-# Empty secret for Istio ingress controller
-################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-ingress-certs
-data:
-  tls.key:
-  tls.crt:
----
-################################
-# Istio ingress controller with Istio auth
-################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-ingress
-  labels:
-    istio: ingress
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-#   nodePort: 32000
-    name: http
-  - port: 443
-    name: https
-  selector:
-    istio: ingress
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ingress-service-account
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-ingress
-spec:
-  replicas: 1
-  template:
-    metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
-      labels:
-        istio: ingress
-    spec:
-      serviceAccountName: istio-ingress-service-account
-      containers:
-      - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:4f34dbbd7e052d6f51689b301ea244588a01a73a
-        args: ["proxy", "ingress", "-v", "2"]
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 80
-        - containerPort: 443
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-        - mountPath: /etc/istio/ingress-certs
-          name: ingress-certs
-          readOnly: true
-        - name: config-volume
-          mountPath: /etc/istio/config
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-      - name: ingress-certs
-        secret:
-          secretName: istio-ingress-certs
-      - name: config-volume
-        configMap:
-          name: istio
----
-
-################################
-# Istio egress envoy with Istio auth
-################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-egress
-spec:
-  ports:
-  - port: 80
-  selector:
-    istio: egress
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-egress
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        istio: egress
-    spec:
-      containers:
-      - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:4f34dbbd7e052d6f51689b301ea244588a01a73a
-        imagePullPolicy: IfNotPresent
-        args: ["proxy", "egress", "-v", "2"]
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        volumeMounts:
-        - mountPath: /etc/certs
-          name: istio-certs
-          readOnly: true
-        - name: config-volume
-          mountPath: /etc/istio/config
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
-      - name: config-volume
-        configMap:
-          name: istio
 ---
 

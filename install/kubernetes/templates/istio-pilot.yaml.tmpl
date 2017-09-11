@@ -3,20 +3,23 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
+  namespace: {ISTIO_NAMESPACE}
 data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
-    mixerAddress: istio-mixer:9091
-    discoveryAddress: istio-pilot:8080
-    ingressService: istio-ingress
-    statsdUdpAddress: istio-mixer:9125
-    zipkinAddress: zipkin:9411
+    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
+    discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
+    ingressService: istio-ingress.{ISTIO_NAMESPACE}
+    egressProxyAddress: istio-egress.{ISTIO_NAMESPACE}:80
+    statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
+    zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
+  namespace: {ISTIO_NAMESPACE}
   labels:
     istio: pilot
 spec:
@@ -32,11 +35,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: istio-pilot-service-account
+  namespace: {ISTIO_NAMESPACE}
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: istio-pilot
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
