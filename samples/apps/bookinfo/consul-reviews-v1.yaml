@@ -2,9 +2,7 @@ type: route-rule
 name: reviews-default
 spec:
   destination:
-    name: reviews
-    domain: consul
-    namespace: service
+    service: reviews.service.consul
   precedence: 1
   route:
     - labels:

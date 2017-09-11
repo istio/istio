@@ -2,9 +2,7 @@ type: route-rule
 name: content-route
 spec:
   destination:
-    name: reviews
-    domain: consul
-    namespace: service
+    service: reviews.service.consul
   match:
     request:
       headers:
