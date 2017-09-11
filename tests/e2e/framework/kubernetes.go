@@ -35,6 +35,7 @@ const (
 	istioAddonsDir     = "install/kubernetes/addons"
 	nonAuthInstallFile = "istio.yaml"
 	authInstallFile    = "istio-auth.yaml"
+	istioSystem        = "istio-system"
 )
 
 var (
@@ -168,7 +169,23 @@ func (k *KubeInfo) Teardown() error {
 
 func (k *KubeInfo) deployAddons() error {
 	for _, addon := range addons {
-		yamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
+
+		baseYamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
+
+		content, err := ioutil.ReadFile(baseYamlFile)
+		if err != nil {
+			glog.Errorf("Cannot read file %s", baseYamlFile)
+			return err
+		}
+
+		content = replacePattern(k, content, istioSystem, k.Namespace)
+
+		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
+		err = ioutil.WriteFile(yamlFile, content, 0600)
+		if err != nil {
+			glog.Errorf("Cannot write into file %s", yamlFile)
+		}
+
 		if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
 			glog.Errorf("Kubectl apply %s failed", yamlFile)
 			return err
@@ -216,6 +233,8 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 		return err
 	}
 
+	content = replacePattern(k, content, istioSystem, k.Namespace)
+
 	content = replacePattern(k, content, "namespace: default",
 		"namespace: "+k.Namespace)
 
@@ -257,6 +276,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
 
 	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
