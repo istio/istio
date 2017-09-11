@@ -14,8 +14,6 @@
 
 FROM websphere-liberty:latest
 
-ARG PROXY
-
 ENV SERVERDIRNAME reviews
 
 RUN mkdir /opt/microservices
@@ -24,9 +22,7 @@ RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
 RUN chown istio-proxy /etc/istio/proxy
 
-RUN echo "download and extract the proxy: https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz"
-RUN wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
-
+COPY ./envoy /usr/local/bin/
 COPY ./prepare_proxy.sh /opt/istio/
 COPY ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
 

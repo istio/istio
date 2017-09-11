@@ -19,7 +19,7 @@
 # services with the envoy proxy and pilot agent in the images.
 # Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-HUB=${whichhub}
+HUB=istio
 WORKSPACE=$GOPATH/src/istio.io/pilot
 BINDIR=$WORKSPACE/bazel-bin
 APPSDIR=$SCRIPTDIR
@@ -33,7 +33,6 @@ ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $WORKSPA
 PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
 # configure whether you want debug or not
 PROXY=debug-$PROXYVERSION
-echo Using proxy version $PROXY
 
 set -x
 set -o errexit
@@ -61,13 +60,19 @@ rm -f pilot-discovery
 
 cd $SCRIPTDIR
 
+# Download the envoy proxy
+echo "Download and extract the proxy: https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz"
+wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+cp usr/local/bin/envoy $APPSDIR/
+
 # Copy the pilot agent binary to each app dir
 # Build the images and  push them to hub
 for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
   rm -f $APPSDIR/$app/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $_
-  docker build --build-arg PROXY=$PROXY -f $APPSDIR/$app/Dockerfile.sidecar -t "$HUB/${app}-v1:latest" $app/
-  rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh
+  rm -f $APPSDIR/$app/envoy && cp $APPSDIR/envoy $_
+  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "$HUB/${app}-v1:latest" $app/
+  rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh $APPSDIR/$app/envoy
 done
 
 REVIEWSDIR=$APPSDIR/reviews/reviews-wlpcfg
@@ -78,16 +83,20 @@ popd
 
 rm -f $REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
 rm -f $REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $REVIEWSDIR
+rm -f $REVIEWSDIR/envoy && cp $APPSDIR/envoy $REVIEWSDIR
 #plain build -- no ratings
-docker build --build-arg PROXY=$PROXY -t $HUB/reviews-v1:latest --build-arg service_version=v1 \
+docker build -t $HUB/reviews-v1:latest --build-arg service_version=v1 \
     -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings black stars
-docker build --build-arg PROXY=$PROXY -t $HUB/reviews-v2:latest --build-arg service_version=v2 \
+docker build -t $HUB/reviews-v2:latest --build-arg service_version=v2 \
     --build-arg enable_ratings=true -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
 #with ratings red stars
-docker build --build-arg PROXY=$PROXY -t $HUB/reviews-v3:latest --build-arg service_version=v3 \
+docker build -t $HUB/reviews-v3:latest --build-arg service_version=v3 \
     --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
-rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh
+rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh $REVIEWSDIR/envoy
+
+# clean up envoy downloaded artifacts
+rm -rf $SCRIPTDIR/usr/local/bin/envoy $APPSDIR/envoy
 
 # update the docker-compose.yaml file
 sed -i.bak "s/image:\ \$HUB/image:\ $HUB/" docker-compose.yaml

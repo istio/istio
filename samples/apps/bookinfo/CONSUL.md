@@ -58,9 +58,7 @@ $ docker inspect -f '{{.NetworkSettings.Networks.src_envoymesh.IPAddress}}' src_
 
 Open a web browser and enter the productpage IP as follows: `<IP>:9080/productpage`
 
-If you refresh the page several times, you should see different versions of reviews shown in productpage
-presented in a round robin style (red stars, black stars, no stars). If the webpage is not displaying properly,
-you may need to run `docker-compose restart discovery` to resolve a timing issue during start up.
+If you refresh the page several times, you should see different versions of reviews shown in productpage presented in a round robin style (red stars, black stars, no stars). If the webpage is not displaying properly, you may need to run `docker-compose restart discovery` to resolve a timing issue during start up.
 
 You can create basic routing rules using istioctl from the `/bookinfo` directory:
 
@@ -80,5 +78,6 @@ This will set a rule to display red stars by default.
 istioctl create -f consul-content-rule.yaml
 ```
 
-This will display black stars - but only if you login as user `jason` (no password), otherwise only red
-stars will be shown.
+This will display black stars - but only if you login as user `jason` (no password), otherwise only red stars will be shown.
+
+If you are an advanced consul and docker network user, you may choose to configure your own envoymesh network dns and consul port mapping and istio-apiserver ipv4_address in the `docker-compose.yaml` file.

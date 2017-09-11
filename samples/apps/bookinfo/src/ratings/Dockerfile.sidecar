@@ -14,18 +14,13 @@
 
 FROM node:4-onbuild
 
-ARG PROXY
-
 RUN mkdir -p /etc/istio/proxy/
 RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio
 RUN chown istio /etc/istio/proxy
 
-RUN echo "download and extract the proxy: https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz"
-RUN wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
-RUN cp usr/local/bin/envoy /usr/local/bin/
+COPY ./envoy /usr/local/bin/
 COPY ./prepare_proxy.sh /opt/istio/
-
 COPY . /opt/microservices/
 RUN cd /opt/microservices; npm install
 EXPOSE 9080
