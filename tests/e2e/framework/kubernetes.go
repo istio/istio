@@ -35,6 +35,7 @@ const (
 	istioAddonsDir     = "install/kubernetes/addons"
 	nonAuthInstallFile = "istio.yaml"
 	authInstallFile    = "istio-auth.yaml"
+	istioSystem        = "istio-system"
 )
 
 var (
@@ -51,6 +52,7 @@ var (
 
 	addons = []string{
 		"prometheus",
+		"zipkin",
 	}
 )
 
@@ -167,7 +169,23 @@ func (k *KubeInfo) Teardown() error {
 
 func (k *KubeInfo) deployAddons() error {
 	for _, addon := range addons {
-		yamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
+
+		baseYamlFile := util.GetResourcePath(filepath.Join(istioAddonsDir, fmt.Sprintf("%s.yaml", addon)))
+
+		content, err := ioutil.ReadFile(baseYamlFile)
+		if err != nil {
+			glog.Errorf("Cannot read file %s", baseYamlFile)
+			return err
+		}
+
+		content = replacePattern(k, content, istioSystem, k.Namespace)
+
+		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
+		err = ioutil.WriteFile(yamlFile, content, 0600)
+		if err != nil {
+			glog.Errorf("Cannot write into file %s", yamlFile)
+		}
+
 		if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
 			glog.Errorf("Kubectl apply %s failed", yamlFile)
 			return err
@@ -214,14 +232,42 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
-	namespace := []byte(fmt.Sprintf("namespace: %s", k.Namespace))
-	r := regexp.MustCompile("namespace: default")
-	content = r.ReplaceAllLiteral(content, namespace)
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
+
+	content = replacePattern(k, content, "namespace: default",
+		"namespace: "+k.Namespace)
+
+	content = replacePattern(k, content, "istio-pilot-admin-role-binding",
+		"istio-pilot-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-mixer-admin-role-binding",
+		"istio-mixer-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-ca-role-binding",
+		"istio-ca-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-ingress-admin-role-binding",
+		"istio-ingress-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-egress-admin-role-binding",
+		"istio-egress-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, "istio-sidecar-role-binding",
+		"istio-sidecar-role-binding-"+k.Namespace)
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate rbac file %s", dst)
 	}
 	return err
+}
+
+func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
+	r := []byte(dest)
+	p := regexp.MustCompile(src)
+	content = p.ReplaceAllLiteral(content, r)
+	return content
 }
 
 func (k *KubeInfo) generateIstio(src, dst string) error {
@@ -230,6 +276,8 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		glog.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
 
 	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
@@ -246,6 +294,9 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
+
+	content = []byte(strings.Replace(string(content), "args: [\"discovery\", \"-v\", \"2\"]",
+		"args: [\"discovery\", \"-v\", \"2\", \"-a\", \""+k.Namespace+"\"]", -1))
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {

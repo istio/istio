@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: zipkin-to-stackdriver
+  namespace: istio-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin-to-stackdriver
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: ignore
+      name: zipkin-to-stackdriver
+      labels:
+        app: zipkin-to-stackdriver
+    spec:
+      containers:
+      - name: zipkin-to-stackdriver
+        image: gcr.io/stackdriver-trace-docker/zipkin-collector
+        imagePullPolicy: IfNotPresent
+#        env:
+#        - name: GOOGLE_APPLICATION_CREDENTIALS
+#          value: "/path/to/credentials.json"
+#        - name: PROJECT_ID
+#          value: "my_project_id"
+        ports:
+        - name: zipkin
+          containerPort: 9411
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin-to-stackdriver
+spec:
+  ports:
+  - name: zipkin
+    port: 9411
+  selector:
+    app: zipkin-to-stackdriver
+---

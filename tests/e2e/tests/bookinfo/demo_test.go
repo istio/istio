@@ -39,14 +39,14 @@ const (
 	u2                    = "test-user"
 	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
 	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoMysqlYaml     = "samples/apps/bookinfo/bookinfo-mysql.yaml"
+	bookinfoDbYaml        = "samples/apps/bookinfo/bookinfo-db.yaml"
 	modelDir              = "tests/apps/bookinfo/output"
 	rulesDir              = "samples/apps/bookinfo/rules"
 	allRule               = "route-rule-all-v1.yaml"
 	delayRule             = "route-rule-ratings-test-delay.yaml"
 	fiftyRule             = "route-rule-reviews-50-v3.yaml"
 	testRule              = "route-rule-reviews-test-v2.yaml"
-	testDbRule            = "route-rule-ratings-mysql.yaml"
+	testDbRule            = "route-rule-ratings-db.yaml"
 )
 
 var (
@@ -70,11 +70,9 @@ func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cookies != nil {
-		for _, c := range cookies {
-			// Set cookie
-			req.AddCookie(&c)
-		}
+	for _, c := range cookies {
+		// Set cookie
+		req.AddCookie(&c)
 	}
 	return client.Do(req)
 }
@@ -392,8 +390,8 @@ func setTestConfig() error {
 		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
-		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
-			KubeInject: false,
+		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
+			KubeInject: true,
 		},
 	}
 	for i := range demoApps {
@@ -410,7 +408,9 @@ func TestDbRouting(t *testing.T) {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()
 
-	respExpr := "glyphicon-star"
+	// TODO: update the rating in the db and check the value on page
+
+	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
 	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
 	inspect(

@@ -49,6 +49,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -64,6 +65,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -79,6 +81,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: metric
@@ -94,6 +97,7 @@ spec:
     method: request.path | "unknown"
     version: target.labels["version"] | "unknown"
     response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -101,7 +105,6 @@ metadata:
   name: prommetrics
   namespace: istio-config-default
 spec:
-  selector: "true"
   actions:
   - handler: handler.prometheus.istio-config-default
     instances:
@@ -115,7 +118,6 @@ metadata:
   name: prommetricsresponse
   namespace: istio-config-default
 spec:
-  selector: "true"
   actions:
   - handler: handler.prometheus.istio-config-default
     instances:

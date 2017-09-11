@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   ports:
   - port: 3000
@@ -16,7 +16,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: gcr.io/istio-testing/grafana:83a710c25803d8ce9dfd236f3e49151283fc477f
+        image: docker.io/istio/grafana:0.2.1
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000

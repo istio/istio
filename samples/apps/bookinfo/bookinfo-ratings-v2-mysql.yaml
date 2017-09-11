@@ -30,21 +30,20 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.
-          # if you would like to use mysqldb then set DB_TYPE = 'mysql', set 
-          # the rest of the parameters shown here and also create the 
-          # mysqldb service using bookinfo-mysql.yaml
-          # - name: DB_TYPE #default to 
-          #   value: "mysql"
-          # - name: MYSQL_DB_HOST
-          #   value: mysqldb
-          # - name: MYSQL_DB_PORT
-          #   value: "3306"
-          # - name: MYSQL_DB_USER
-          #   value: root
-          # - name: MYSQL_DB_PASSWORD
-          #  value: password
-          - name: MONGO_DB_URL
-            value: mongodb://mongodb:27017/test
+          # if you would like to use mysqldb then you can use this file
+          # which sets DB_TYPE = 'mysql' and the rest of the parameters shown
+          # here and also create the # mysqldb service using bookinfo-mysql.yaml
+          # NOTE: This file is mutually exclusive to bookinfo-ratings-v2.yaml
+          - name: DB_TYPE
+            value: "mysql"
+          - name: MYSQL_DB_HOST
+            value: mysqldb
+          - name: MYSQL_DB_PORT
+            value: "3306"
+          - name: MYSQL_DB_USER
+            value: root
+          - name: MYSQL_DB_PASSWORD
+            value: password
         ports:
         - containerPort: 9080
 ---

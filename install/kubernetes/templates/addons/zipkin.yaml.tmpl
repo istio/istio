@@ -3,7 +3,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: zipkin
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   replicas: 1
   template:
@@ -29,7 +29,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: zipkin
-  namespace: istio-system
+  namespace: {ISTIO_NAMESPACE}
 spec:
   ports:
   - name: http

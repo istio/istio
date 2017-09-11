@@ -78,7 +78,7 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 func (i *Istioctl) Setup() error {
 	glog.Info("Setting up istioctl")
 	if err := i.Install(); err != nil {
-		glog.Error("Failed to download istioclt")
+		glog.Error("Failed to download istioctl")
 		return err
 	}
 	return nil
@@ -111,7 +111,7 @@ func (i *Istioctl) Install() error {
 		}
 
 		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
-			glog.Error("Failed to download istioclt")
+			glog.Error("Failed to download istioctl")
 			return err
 		}
 		err = os.Chmod(i.binaryPath, 0755) // #nosec
@@ -137,8 +137,8 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
-	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s",
-		src, dest, i.proxyHub, i.proxyTag, i.namespace)
+	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s",
+		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
 }
 
 // CreateRule create new rule(s)

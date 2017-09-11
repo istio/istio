@@ -98,6 +98,8 @@ def getForwardHeaders(request):
 
     return headers
 
+
+# The UI:
 @app.route('/')
 @app.route('/index.html')
 def index():
@@ -109,9 +111,11 @@ def index():
 
     return render_template('index.html', serviceTable=table)
 
+
 @app.route('/health')
 def health():
     return 'Product page is healthy'
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -120,54 +124,126 @@ def login():
     response.set_cookie('user', user)
     return response
 
+
 @app.route('/logout', methods=['GET'])
 def logout():
     response = app.make_response(redirect(request.referrer))
     response.set_cookie('user', '', expires=0)
     return response
 
+
 @app.route('/productpage')
 def front():
+    product_id = 0 # TODO: replace default value
     headers = getForwardHeaders(request)
     user = request.cookies.get("user", "")
-    bookdetails = getDetails(headers)
-    bookreviews = getReviews(headers)
-    return render_template('productpage.html', details=bookdetails, reviews=bookreviews, user=user)
-
-def getReviews(headers):
-    for i in range(2):
-        try:
-            res = requests.get(reviews['name']+"/"+reviews['endpoint'], headers=headers, timeout=3.0)
-        except:
-            res = None
-
-        if res and res.status_code == 200:
-            return res.text
-
-    return """<h3>Sorry, product reviews are currently unavailable for this book.</h3>"""
+    product = getProduct(product_id)
+    (detailsStatus, details) = getProductDetails(product_id, headers)
+    (reviewsStatus, reviews) = getProductReviews(product_id, headers)
+    return render_template(
+        'productpage.html',
+        detailsStatus=detailsStatus,
+        reviewsStatus=reviewsStatus,
+        product=product,
+        details=details,
+        reviews=reviews,
+        user=user)
 
 
-def getDetails(headers):
+# The API:
+@app.route('/api/v1/products')
+def productsRoute():
+    return json.dumps(getProducts()), 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/v1/products/<product_id>')
+def productRoute(product_id):
+    headers = getForwardHeaders(request)
+    (status, details) = getProductDetails(product_id, headers)
+    return json.dumps(details), status, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/v1/products/<product_id>/reviews')
+def reviewsRoute(product_id):
+    headers = getForwardHeaders(request)
+    (status, reviews) = getProductReviews(product_id, headers)
+    return json.dumps(reviews), status, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/v1/products/<product_id>/ratings')
+def ratingsRoute(product_id):
+    headers = getForwardHeaders(request)
+    (status, ratings) = getProductRatings(product_id, headers)
+    return json.dumps(ratings), status, {'Content-Type': 'application/json'}
+
+
+
+# Data providers:
+def getProducts():
+    return [
+        {
+            'id': 0,
+            'title': 'The Comedy of Errors',
+            'descriptionHtml': '<a href="https://en.wikipedia.org/wiki/The_Comedy_of_Errors">Wikipedia Summary</a>: The Comedy of Errors is one of <b>William Shakespeare\'s</b> early plays. It is his shortest and one of his most farcical comedies, with a major part of the humour coming from slapstick and mistaken identity, in addition to puns and word play.'
+        }
+    ]
+
+
+def getProduct(product_id):
+    products = getProducts()
+    if product_id + 1 > len(products):
+        return None
+    else:
+        return products[product_id]
+
+
+def getProductDetails(product_id, headers):
     try:
-        res = requests.get(details['name']+"/"+details['endpoint'], headers=headers, timeout=1.0)
+        url = details['name'] + "/" + details['endpoint'] + "/" + str(product_id)
+        res = requests.get(url, headers=headers, timeout=3.0)
     except:
         res = None
-
     if res and res.status_code == 200:
-        return res.text
+        return (200, res.json())
     else:
-        return """<h3>Sorry, product details are currently unavailable for this book.</h3>"""
+        status = (res.status_code if res != None and res.status_code else 500)
+        return (status, {'error': 'Sorry, product details are currently unavailable for this book.'})
 
+
+def getProductReviews(product_id, headers):
+    ## Do not remove. Bug introduced explicitly for illustration in fault injection task
+    ## TODO: Figure out how to achieve the same effect using Envoy retries/timeouts
+    for i in range(2):
+        try:
+            url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
+            res = requests.get(url, headers=headers, timeout=3.0)
+        except:
+            res = None
+        if res and res.status_code == 200:
+            return (200, res.json())        
+    status = (res.status_code if res != None and res.status_code else 500)
+    return (status, {'error': 'Sorry, product reviews are currently unavailable for this book.'})
+
+
+def getProductRatings(product_id, headers):
+    try:
+        url = ratings['name'] + "/" + ratings['endpoint'] + "/" + str(product_id)
+        res = requests.get(url, headers=headers, timeout=3.0)
+    except:
+        res = None
+    if res and res.status_code == 200:
+        return (200, res.json())        
+    else:
+        status = (res.status_code if res != None and res.status_code else 500)
+        return (status, {'error': 'Sorry, product ratings are currently unavailable for this book.'})
 
 class Writer(object):
-
     def __init__(self, filename):
         self.file = open(filename,'w')
 
     def write(self, data):
         self.file.write(data)
         self.file.flush()
-
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -177,5 +253,6 @@ if __name__ == '__main__':
     p = int(sys.argv[1])
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
+    print "start at port %s" % (p)
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
 
