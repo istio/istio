@@ -264,7 +264,7 @@ func injectRequired(namespacePolicy InjectionPolicy, obj metav1.Object) bool {
 
 	status, ok := annotations[istioSidecarAnnotationStatusKey]
 
-	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespace:%v useDefault:%v inject:%v status:%q required:%v",
+	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		obj.GetNamespace(), obj.GetName(), namespacePolicy, useDefault, inject, status, required)
 
 	if !required {
