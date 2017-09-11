@@ -48,7 +48,7 @@ function istioNetworkInit() {
 function istioInstall() {
   mkdir -p /etc/certs
 
-  cp cp ${ISTIO_FILES}/*.pem /etc/certs
+  cp ${ISTIO_FILES}/*.pem /etc/certs
 
   # Cluster settings - the CIDR in particular.
   cp ${ISTIO_FILES}/cluster.env /var/lib/istio/envoy

@@ -5,18 +5,14 @@
 # Script can be sourced in other files or used from tools like ansible.
 # Environment variables used:
 
-# ISTIO_NAMESPACE - if not set the default in .kube/config is used.
 # ISTIO_FILES - directory where istio artifacts are downloaded, default to current dir
 
 # Initialize internal load balancers to access K8S DNS and Istio Pilot, Mixer, CA.
 # Must be run once per cluster.
 function istioInitILB() {
-   local NS=""
-   if [[ ${ISTIO_NAMESPACE:-} != "" ]]; then
-     NS="-n $ISTIO_NAMESPACE"
-   fi
+   local NS=${ISTIO_NAMESPACE:-istio-system}
 
-cat <<EOF | kubectl apply $NS -f -
+cat <<EOF | kubectl apply -n $NS -f -
 apiVersion: v1
 kind: Service
 metadata:
@@ -51,7 +47,7 @@ spec:
     k8s-app: kube-dns
 EOF
 
-cat <<EOF | kubectl apply  $NS -f -
+cat <<EOF | kubectl apply -n $NS -f -
 apiVersion: v1
 kind: Service
 metadata:
@@ -69,7 +65,7 @@ spec:
     istio: mixer
 EOF
 
-cat <<EOF | kubectl apply $NS -f -
+cat <<EOF | kubectl apply -n $NS -f -
 apiVersion: v1
 kind: Service
 metadata:
@@ -94,20 +90,17 @@ EOF
 function istioGenerateClusterConfigs() {
    local K8SCLUSTER=${1}
 
-   local NS=""
-   if [[ ${ISTIO_NAMESPACE:-} != "" ]]; then
-     NS="-n $ISTIO_NAMESPACE"
-   fi
+   local NS=${ISTIO_NAMESPACE:-istio-system}
 
   # Multiple tries, it may take some time until the controllers generate the IPs
   for i in {1..10}
   do
-    PILOT_IP=$(kubectl get $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    MIXER_IP=$(kubectl get $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    CA_IP=$(kubectl get $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ ${PILOT_IP} == "" -o  ${PILOT_IP} == "" -o ${MIXER_IP} == "" ] ; then
+    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
         echo Waiting for ILBs
         sleep 5
     else
@@ -115,7 +108,7 @@ function istioGenerateClusterConfigs() {
     fi
   done
 
-  if [ ${PILOT_IP} == "" -o  ${PILOT_IP} == "" -o ${MIXER_IP} == "" ] ; then
+  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
