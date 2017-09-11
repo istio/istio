@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/genproto/googleapis/api/distribution"
 	"google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -298,6 +299,18 @@ func TestMergeSeries(t *testing.T) {
 }
 
 func TestMergePoints(t *testing.T) {
+	// under, 10-12, 12-14, 14-16, over
+	linearOpts := linear(10, 2, 3)
+	linear := distFactory(linearOpts)
+
+	// under, 2-4, 4-8, over
+	expOpts := exp(2, 2, 2)
+	exp := distFactory(expOpts)
+
+	// under, 10-20, 20-30, 30-40, over
+	explicitOpts := explicit([]float64{10, 20, 30, 40})
+	explicit := distFactory(explicitOpts)
+
 	tests := []struct {
 		name string
 		a    *monitoring.TypedValue
@@ -315,11 +328,6 @@ func TestMergePoints(t *testing.T) {
 			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
 			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{11}},
 			""},
-		{"happy distribution",
-			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
-			&monitoring.TypedValue{&monitoring.TypedValue_DistributionValue{}},
-			"not implemented"},
 		{"sad i64",
 			&monitoring.TypedValue{&monitoring.TypedValue_Int64Value{47}},
 			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
@@ -340,6 +348,51 @@ func TestMergePoints(t *testing.T) {
 			&monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{8.6}},
 			nil,
 			"invalid type for DELTA metric"},
+		{"linear-happy",
+			linear(11),
+			linear(13),
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{
+				DistributionValue: &distribution.Distribution{
+					Count:         2,
+					BucketOptions: linearOpts,
+					BucketCounts:  []int64{0, 1, 1, 0, 0},
+				}}},
+			""},
+		{"linear-sad",
+			linear(11),
+			exp(13),
+			nil,
+			"can't merge bucket counts with different numbers of buckets"},
+		{"exp-happy",
+			exp(3),
+			exp(6),
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{
+				DistributionValue: &distribution.Distribution{
+					Count:         2,
+					BucketOptions: expOpts,
+					BucketCounts:  []int64{0, 1, 1, 0},
+				}}},
+			""},
+		{"exp-sad",
+			linear(1),
+			exp(6),
+			nil,
+			"can't merge bucket counts with different numbers of buckets"},
+		{"explicit-happy",
+			explicit(39),
+			explicit(40),
+			&monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{
+				DistributionValue: &distribution.Distribution{
+					Count:         2,
+					BucketOptions: explicitOpts,
+					BucketCounts:  []int64{0, 0, 0, 1, 1},
+				}}},
+			""},
+		{"explicit-sad",
+			exp(83),
+			explicit(17),
+			nil,
+			"can't merge bucket counts with different numbers of buckets"},
 	}
 
 	for idx, tt := range tests {
@@ -360,5 +413,18 @@ func TestMergePoints(t *testing.T) {
 				t.Fatalf("merge(%v, %v) = %v, wanted value %v", a, b, out, tt.out)
 			}
 		})
+	}
+}
+
+func distFactory(opts *distribution.Distribution_BucketOptions) func(float64) *monitoring.TypedValue {
+	return func(val float64) *monitoring.TypedValue {
+		buckets := makeBuckets(opts)
+		buckets[index(val, opts)] = 1
+		return &monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{
+			DistributionValue: &distribution.Distribution{
+				Count:         1,
+				BucketOptions: opts,
+				BucketCounts:  buckets,
+			}}}
 	}
 }

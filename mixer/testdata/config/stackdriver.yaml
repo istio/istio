@@ -5,17 +5,19 @@ metadata:
   namespace: istio-config-default
 spec:
   # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
-  # pushInterval:
+  # pushInterval: 1m
   # Must be supplied for the stackdriver adapter to work
   project_id: <your project ID>
-  # One of the following must be set; the preferred method is
-  # `appCredentials`, which corresponds to Google Application Default
-  # Credentials. See: https://developers.google.com/identity/protocols/application-default-credentials
+  # One of the following must be set; the preferred method is `appCredentials`, which corresponds to
+  # Google Application Default Credentials. See:
+  #    https://developers.google.com/identity/protocols/application-default-credentials
+  # If none is provided we default to app credentials.
   # appCredentials:
   # apiKey:
   # serviceAccountPath:
 
   # Describes how to map Istio metrics into Stackdriver.
+  # Note: most of this config is copied over from prometheus.yaml to keep our metrics consistent across backends
   metricInfo:
     stackdriverrequestcount.metric.istio-config-default:
       # Due to a bug in gogoproto deserialization, Enums in maps must be
@@ -26,11 +28,26 @@ spec:
       value: 2 # INT64
     stackdriverrequestduration.metric.istio-config-default:
       kind: 2 # DELTA
-      # TODO: determine how we want to represent time: stackdriver does
-      # not have a time primitive, but does support a notion of units
-      # attached to int64, double, and distribution values. But those are
-      # only provided at metric creation time.
-      value: 2 # INT64
+      value: 5 # DISTRIBUTION
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    stackdriverrequestsize.metric.istio-config-default:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    stackdriverresponsesize.metric.istio-config-default:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
 
   # Describes how to map Istio logs into Stackdriver.
   logInfo:

@@ -60,9 +60,8 @@ type (
 
 	info struct {
 		ttype string
-		kind  metricpb.MetricDescriptor_MetricKind
-		value metricpb.MetricDescriptor_ValueType
 		vtype descriptor.ValueType
+		minfo *config.Params_MetricInfo
 	}
 
 	handler struct {
@@ -137,9 +136,8 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		// TODO: do we want to make sure that the definition conforms to stackdrvier requirements? Really that needs to happen during config validation
 		types[name] = info{
 			ttype: metricType(name),
-			kind:  i.Kind,
-			value: i.Value,
 			vtype: t.Value,
+			minfo: i,
 		}
 	}
 
@@ -201,8 +199,8 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 				Type:   minfo.ttype,
 				Labels: helper.ToStringMap(val.Dimensions),
 			},
-			MetricKind: minfo.kind,
-			ValueType:  minfo.value,
+			MetricKind: minfo.minfo.Kind,
+			ValueType:  minfo.minfo.Value,
 			// Since we're sending a `CreateTimeSeries` request we can only populate a single point, see
 			// the documentation on the `points` field: https://cloud.google.com/monitoring/api/ref_v3/rest/v3/TimeSeries
 			Points: []*monitoringpb.Point{{
@@ -210,7 +208,7 @@ func (h *handler) HandleMetric(_ context.Context, vals []*metric.Instance) error
 					StartTime: start,
 					EndTime:   end,
 				},
-				Value: toTypedVal(val.Value, minfo.vtype)},
+				Value: toTypedVal(val.Value, minfo)},
 			},
 		}
 
@@ -241,8 +239,16 @@ func (h *handler) Close() error {
 	return h.client.Close()
 }
 
-func toTypedVal(val interface{}, t descriptor.ValueType) *monitoringpb.TypedValue {
-	switch labelMap[t] {
+func toTypedVal(val interface{}, i info) *monitoringpb.TypedValue {
+	if i.minfo.Value == metricpb.MetricDescriptor_DISTRIBUTION {
+		v, err := toDist(val, i)
+		if err != nil {
+			return &monitoringpb.TypedValue{&monitoringpb.TypedValue_DistributionValue{}}
+		}
+		return v
+	}
+
+	switch labelMap[i.vtype] {
 	case labelpb.LabelDescriptor_BOOL:
 		return &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: val.(bool)}}
 	case labelpb.LabelDescriptor_INT64:

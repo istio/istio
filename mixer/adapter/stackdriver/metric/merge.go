@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/genproto/googleapis/api/distribution"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -107,15 +108,39 @@ func mergePoints(a, b *monitoring.TimeSeries) (*monitoring.TimeSeries, error) {
 		}
 		a.Points[0].Value = &monitoring.TypedValue{&monitoring.TypedValue_DoubleValue{av.DoubleValue + bv.DoubleValue}}
 	case *monitoring.TypedValue_DistributionValue:
-		if _, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_DistributionValue); !ok {
+		var bv *monitoring.TypedValue_DistributionValue
+		if bv, ok = b.Points[0].Value.Value.(*monitoring.TypedValue_DistributionValue); !ok {
 			return a, fmt.Errorf("can't merge two timeseries with different value types; a is a distribution, b is not: %#v", b.Points[0].Value)
 		}
-		return a, fmt.Errorf("not implemented")
-		// TODO: combining distributions is hard. We know that they have the same buckets since they're all for the same metric, so that part is fine.
-		// But we need to update counts of each bucket, as well as the mean, sum of squared deviation, and the range. This is non-trivial.
+		// TODO: in theory we should assert that the DistributionValue's options are identical before merging, but given
+		// that we produce the input data and handle grouping things before calling merging, a test is the only place we'd
+		// actually see values with different options.
+
+		// For the API, we only need to get bucket_counts, count, and bucket_options correct. We know the bucket_options
+		// are identical, so we just merge counts and carry on.
+		buckets, err := mergeBuckets(av.DistributionValue.BucketCounts, bv.DistributionValue.BucketCounts)
+		if err != nil {
+			return a, fmt.Errorf("error merging distribution buckets: %v", err)
+		}
+		a.Points[0].Value = &monitoring.TypedValue{Value: &monitoring.TypedValue_DistributionValue{
+			DistributionValue: &distribution.Distribution{
+				Count:         av.DistributionValue.Count + bv.DistributionValue.Count,
+				BucketOptions: av.DistributionValue.BucketOptions,
+				BucketCounts:  buckets,
+			}}}
 	default:
 		// illegal anyway, since we can't have DELTA/CUMULATIVE metrics on anything else
 		return a, fmt.Errorf("invalid type for DELTA metric: %v", a.Points[0].Value)
+	}
+	return a, nil
+}
+
+func mergeBuckets(a, b []int64) ([]int64, error) {
+	if len(a) != len(b) {
+		return a, fmt.Errorf("can't merge bucket counts with different numbers of buckets: len(a) = %d, len(b) = %d", len(a), len(b))
+	}
+	for i := 0; i < len(a); i++ {
+		a[i] += b[i]
 	}
 	return a, nil
 }

@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bufferedClient.go",
+        "distribution.go",
         "merge.go",
         "metric.go",
     ],
@@ -19,6 +20,7 @@ go_library(
         "@com_github_googleapis_gax_go//:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",
         "@com_google_cloud_go//monitoring/apiv3:go_default_library",
+        "@org_golang_google_genproto//googleapis/api/distribution:go_default_library",
         "@org_golang_google_genproto//googleapis/api/label:go_default_library",
         "@org_golang_google_genproto//googleapis/api/metric:go_default_library",
         "@org_golang_google_genproto//googleapis/api/monitoredres:go_default_library",
@@ -31,6 +33,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "bufferedClient_test.go",
+        "distribution_test.go",
         "merge_test.go",
         "metric_test.go",
     ],

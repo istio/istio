@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/monitoring/apiv3"
 	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/genproto/googleapis/api/distribution"
 	metricpb "google.golang.org/genproto/googleapis/api/metric"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -134,9 +135,64 @@ func TestRecord(t *testing.T) {
 		Labels: map[string]string{"str": "str", "int": "34"},
 	}
 	info := map[string]info{
-		"gauge":      {ttype: "type", kind: metricpb.MetricDescriptor_GAUGE, value: metricpb.MetricDescriptor_INT64, vtype: descriptor.INT64},
-		"cumulative": {ttype: "type", kind: metricpb.MetricDescriptor_CUMULATIVE, value: metricpb.MetricDescriptor_STRING, vtype: descriptor.STRING},
-		"delta":      {ttype: "type", kind: metricpb.MetricDescriptor_DELTA, value: metricpb.MetricDescriptor_BOOL, vtype: descriptor.BOOL},
+		"gauge": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_GAUGE, Value: metricpb.MetricDescriptor_INT64},
+			vtype: descriptor.INT64,
+		},
+		"cumulative": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_CUMULATIVE, Value: metricpb.MetricDescriptor_STRING},
+			vtype: descriptor.STRING,
+		},
+		"delta": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{Kind: metricpb.MetricDescriptor_DELTA, Value: metricpb.MetricDescriptor_BOOL},
+			vtype: descriptor.BOOL,
+		},
+		"distribution-linear": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{
+				Kind:  metricpb.MetricDescriptor_CUMULATIVE,
+				Value: metricpb.MetricDescriptor_DISTRIBUTION,
+				Buckets: &config.Params_MetricInfo_BucketsDefinition{Definition: &config.Params_MetricInfo_BucketsDefinition_LinearBuckets{
+					// under, 1-6, 6-11, over
+					LinearBuckets: &config.Params_MetricInfo_BucketsDefinition_Linear{
+						NumFiniteBuckets: 2,
+						Offset:           1,
+						Width:            5,
+					}}},
+			},
+			vtype: descriptor.DOUBLE,
+		},
+		"distribution-exp": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{
+				Kind:  metricpb.MetricDescriptor_CUMULATIVE,
+				Value: metricpb.MetricDescriptor_DISTRIBUTION,
+				Buckets: &config.Params_MetricInfo_BucketsDefinition{Definition: &config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets{
+					// under, 10-100, 100-1000, over
+					ExponentialBuckets: &config.Params_MetricInfo_BucketsDefinition_Exponential{
+						NumFiniteBuckets: 2,
+						Scale:            10,
+						GrowthFactor:     10,
+					}}},
+			},
+			vtype: descriptor.DOUBLE,
+		},
+		"distribution-explicit": {
+			ttype: "type",
+			minfo: &config.Params_MetricInfo{
+				Kind:  metricpb.MetricDescriptor_CUMULATIVE,
+				Value: metricpb.MetricDescriptor_DISTRIBUTION,
+				Buckets: &config.Params_MetricInfo_BucketsDefinition{Definition: &config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets{
+					// under, 1-10, 10-100, over
+					ExplicitBuckets: &config.Params_MetricInfo_BucketsDefinition_Explicit{
+						Bounds: []float64{1, 10, 100},
+					}}},
+			},
+			vtype: descriptor.DOUBLE,
+		},
 	}
 	now := time.Now()
 	pbnow, _ := ptypes.TimestampProto(now)
@@ -199,6 +255,75 @@ func TestRecord(t *testing.T) {
 				Points: []*monitoringpb.Point{{
 					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
 					Value:    &monitoringpb.TypedValue{&monitoringpb.TypedValue_BoolValue{BoolValue: true}},
+				}},
+			},
+		}},
+		{"distribution-linear", []*metrict.Instance{
+			{
+				Name:       "distribution-linear",
+				Value:      float64(6),
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
+			},
+		}, []*monitoringpb.TimeSeries{
+			{
+				Metric:     m,
+				Resource:   resource,
+				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
+				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
+				Points: []*monitoringpb.Point{{
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
+						DistributionValue: &distribution.Distribution{
+							Count:         1,
+							BucketOptions: linear(1, 5, 2),
+							BucketCounts:  []int64{0, 0, 1, 0},
+						}}},
+				}},
+			},
+		}},
+		{"distribution-exp", []*metrict.Instance{
+			{
+				Name:       "distribution-exp",
+				Value:      float64(99),
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
+			},
+		}, []*monitoringpb.TimeSeries{
+			{
+				Metric:     m,
+				Resource:   resource,
+				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
+				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
+				Points: []*monitoringpb.Point{{
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
+						DistributionValue: &distribution.Distribution{
+							Count:         1,
+							BucketOptions: exp(10, 10, 2),
+							BucketCounts:  []int64{0, 1, 0, 0},
+						}}},
+				}},
+			},
+		}},
+		{"distribution-explicit", []*metrict.Instance{
+			{
+				Name:       "distribution-explicit",
+				Value:      float64(9),
+				Dimensions: map[string]interface{}{"str": "str", "int": int64(34)},
+			},
+		}, []*monitoringpb.TimeSeries{
+			{
+				Metric:     m,
+				Resource:   resource,
+				MetricKind: metricpb.MetricDescriptor_CUMULATIVE,
+				ValueType:  metricpb.MetricDescriptor_DISTRIBUTION,
+				Points: []*monitoringpb.Point{{
+					Interval: &monitoringpb.TimeInterval{StartTime: pbnow, EndTime: pbnow},
+					Value: &monitoringpb.TypedValue{Value: &monitoringpb.TypedValue_DistributionValue{
+						DistributionValue: &distribution.Distribution{
+							Count:         1,
+							BucketOptions: explicit([]float64{1, 10, 100}),
+							BucketCounts:  []int64{0, 1, 0, 0},
+						}}},
 				}},
 			},
 		}},
