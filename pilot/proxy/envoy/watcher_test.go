@@ -24,6 +24,7 @@ import (
 func TestEnvoyArgs(t *testing.T) {
 	config := proxy.DefaultProxyConfig()
 	config.ServiceCluster = "my-cluster"
+	config.AvailabilityZone = "my-zone"
 
 	test := envoy{config: config, node: "my-node"}
 	got := test.args("test.json", 5)
@@ -34,6 +35,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "3",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
+		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got %v, want %v", got, want)

@@ -128,6 +128,7 @@ func DefaultProxyConfig() proxyconfig.ProxyConfig {
 		ConfigPath:             "/etc/istio/proxy",
 		BinaryPath:             "/usr/local/bin/envoy",
 		ServiceCluster:         "istio-proxy",
+		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
 		DiscoveryAddress:       "istio-pilot:8080",
