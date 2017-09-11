@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -52,6 +53,7 @@ var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
 
 const ipFnName = "ip"
+const matchFnName = "match"
 
 var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
 	if ip := net.ParseIP(in); ip != nil {
@@ -60,8 +62,19 @@ var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, err
 	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
 })
 
+var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, pattern string) bool {
+	if strings.HasSuffix(pattern, "*") {
+		return strings.HasPrefix(str, pattern[:len(pattern)-1])
+	}
+	if strings.HasPrefix(pattern, "*") {
+		return strings.HasSuffix(str, pattern[1:])
+	}
+	return str == pattern
+})
+
 var externMap = map[string]interpreter.Extern{
-	ipFnName: ipExternFn,
+	ipFnName:    ipExternFn,
+	matchFnName: matchExternFn,
 }
 
 type cacheEntry struct {

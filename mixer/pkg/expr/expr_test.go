@@ -47,6 +47,7 @@ func TestGoodParse(t *testing.T) {
 		{`a/b`, `QUO($a, $b)`},
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 		{`source.ip | ip("0.0.0.0")`, `OR($source.ip, ip("0.0.0.0"))`},
+		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {

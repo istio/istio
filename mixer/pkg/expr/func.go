@@ -271,6 +271,11 @@ type ipFunc struct {
 	*baseFunc
 }
 
+// func (string, string) bool
+type matchFunc struct {
+	*baseFunc
+}
+
 // newIP returns a fn that converts strings to IP_ADDRESSes.
 func newIP() Func {
 	return &ipFunc{
@@ -278,6 +283,17 @@ func newIP() Func {
 			name:     "ip",
 			retType:  config.IP_ADDRESS,
 			argTypes: []config.ValueType{config.STRING},
+		},
+	}
+}
+
+// newMatch returns a fn that checks whether a string matches a given pattern.
+func newMatch() Func {
+	return &matchFunc{
+		baseFunc: &baseFunc{
+			name:     "match",
+			retType:  config.BOOL,
+			argTypes: []config.ValueType{config.STRING, config.STRING},
 		},
 	}
 }
@@ -298,6 +314,29 @@ func (f *ipFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]F
 	return nil, fmt.Errorf("could not convert '%s' to IP_ADDRESS", rawIP)
 }
 
+func (f *matchFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	rawStr, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	rawPattern, err := args[1].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+
+	str, ok := rawStr.(string)
+	if !ok {
+		return nil, errors.New("input 'str' to 'match' func was not a string")
+	}
+
+	pattern, ok := rawPattern.(string)
+	if !ok {
+		return nil, errors.New("input 'pattern' to 'match' func was not a string")
+	}
+
+	return matchWithWildcards(str, pattern), nil
+}
+
 func inventory() []FuncBase {
 	return []FuncBase{
 		newEQ(),
@@ -307,6 +346,7 @@ func inventory() []FuncBase {
 		newLAND(),
 		newIndex(),
 		newIP(),
+		newMatch(),
 	}
 }
 
