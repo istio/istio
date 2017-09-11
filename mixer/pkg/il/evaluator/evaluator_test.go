@@ -15,6 +15,7 @@
 package evaluator
 
 import (
+	"fmt"
 	"testing"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
@@ -96,6 +97,35 @@ func TestEvalPredicate(t *testing.T) {
 	}
 	if !r {
 		t.Fatal("Expected result to be true.")
+	}
+}
+
+func TestEval_Match(t *testing.T) {
+	var tests = []struct {
+		str     string
+		pattern string
+		result  bool
+	}{
+		{"abc", "abc", true},
+		{"ns1.svc.local", "ns1.*", true},
+		{"ns1.svc.local", "ns2.*", false},
+		{"svc1.ns1.cluster", "*.ns1.cluster", true},
+		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
+	}
+
+	bag := initBag(int64(23))
+	e := initEvaluator(t, configInt)
+	for _, test := range tests {
+		expr := fmt.Sprintf("match(\"%s\", \"%s\")", test.str, test.pattern)
+		r, err := e.Eval(expr, bag)
+		if err != nil {
+			t.Logf("Expression: %s", expr)
+			t.Fatalf("Unexpected error: %+v", err)
+		}
+		if r != test.result {
+			t.Logf("Expression: %s", expr)
+			t.Fatalf("Result mismatch: E:%v != A:%v", test.result, r)
+		}
 	}
 }
 

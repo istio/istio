@@ -64,9 +64,16 @@ func TestEQFunc(tt *testing.T) {
 	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
 }
 
-func TestIPFunc(t *testing.T) {
+func TestNewIP(t *testing.T) {
 	fn := newIP()
 
 	check(t, "ReturnType", fn.ReturnType(), config.IP_ADDRESS)
 	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING})
+}
+
+func TestNewMatch(t *testing.T) {
+	fn := newMatch()
+
+	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING, config.STRING})
 }
