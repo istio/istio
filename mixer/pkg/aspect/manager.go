@@ -45,22 +45,6 @@ type (
 		Kind() config.Kind
 	}
 
-	// CheckManager take care of aspects used to implement the Check API method
-	CheckManager interface {
-		Manager
-
-		// NewCheckExecutor creates a new aspect executor given configuration.
-		NewCheckExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (CheckExecutor, error)
-	}
-
-	// ReportManager take care of aspects used to implement the Report API method
-	ReportManager interface {
-		Manager
-
-		// NewReportExecutor creates a new aspect executor given configuration.
-		NewReportExecutor(cfg *cpb.Combined, createAspect CreateAspectFunc, env adapter.Env, df descriptor.Finder, tmpl string) (ReportExecutor, error)
-	}
-
 	// QuotaManager take care of aspects used to implement the Quota API method
 	QuotaManager interface {
 		Manager
@@ -82,22 +66,6 @@ type (
 	// Executor encapsulates a single aspect and allows it to be invoked.
 	Executor interface {
 		io.Closer
-	}
-
-	// CheckExecutor encapsulates a single CheckManager aspect and allows it to be invoked.
-	CheckExecutor interface {
-		Executor
-
-		// Execute dispatches to the aspect manager.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
-	}
-
-	// ReportExecutor encapsulates a single ReportManager aspect and allows it to be invoked.
-	ReportExecutor interface {
-		Executor
-
-		// Execute dispatches to the aspect manager.
-		Execute(attrs attribute.Bag, mapper expr.Evaluator) rpc.Status
 	}
 
 	// QuotaExecutor encapsulates a single QuotaManager aspect and allows it to be invoked.

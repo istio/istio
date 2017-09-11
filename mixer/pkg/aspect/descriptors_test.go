@@ -59,31 +59,3 @@ func TestFromPbType(t *testing.T) {
 		})
 	}
 }
-
-func TestFromPbMetricKind(t *testing.T) {
-	cases := []struct {
-		in        dpb.MetricDescriptor_MetricKind
-		out       adapter.MetricKind
-		errString string
-	}{
-		{dpb.METRIC_KIND_UNSPECIFIED, 0, "invalid"},
-		{dpb.GAUGE, adapter.Gauge, ""},
-		{dpb.COUNTER, adapter.Counter, ""},
-	}
-	for idx, c := range cases {
-		t.Run(strconv.Itoa(idx), func(t *testing.T) {
-			out, err := metricKindFromProto(c.in)
-			errString := ""
-			if err != nil {
-				errString = err.Error()
-			}
-
-			if !strings.Contains(errString, c.errString) {
-				t.Errorf("metricKindFromProto(%v) = _, %v; wanted erro containing %s", c.in, err, c.errString)
-			}
-			if out != c.out {
-				t.Errorf("metricKindFromProto(%v) = %v, nil; wanted %v", c.in, out, c.out)
-			}
-		})
-	}
-}

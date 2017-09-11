@@ -46,8 +46,8 @@ func TestKindSetString(t *testing.T) {
 		expect []string
 	}{
 		{KindSet(0), []string{""}},
-		{KindSet(0).Set(AccessLogsKind), []string{"access-logs"}},
-		{KindSet(0).Set(AccessLogsKind).Set(ApplicationLogsKind), []string{"access-logs", "application-logs"}},
+		{KindSet(0).Set(QuotasKind), []string{"quotas"}},
+		{KindSet(0).Set(QuotasKind).Set(AttributesKind), []string{"quotas", "attributes"}},
 	}
 
 	for idx, tt := range tests {

@@ -279,14 +279,14 @@ func TestResolve(t *testing.T) {
 
 func TestRuntime(t *testing.T) {
 	table := []*ttable{
-		{nil, 0, true, 4, []string{ListsKindName}},
-		{nil, 1, false, 2, []string{ListsKindName}},
-		{errors.New("predicate error"), 1, false, 2, []string{ListsKindName}},
+		{nil, 0, true, 4, []string{QuotasKindName}},
+		{nil, 1, false, 2, []string{QuotasKindName}},
+		{errors.New("predicate error"), 1, false, 2, []string{QuotasKindName}},
 		{nil, 0, true, 0, []string{}},
-		{errors.New("predicate error"), 0, true, 0, []string{ListsKindName}},
+		{errors.New("predicate error"), 0, true, 0, []string{QuotasKindName}},
 	}
 
-	LC := ListsKindName
+	LC := QuotasKindName
 	a1 := &pb.Adapter{
 		Name: "a1",
 		Kind: LC,
@@ -298,8 +298,8 @@ func TestRuntime(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			{ListsKind, "a1"}: a1,
-			{ListsKind, "a2"}: a2,
+			{QuotasKind, "a1"}: a1,
+			{QuotasKind, "a2"}: a2,
 		},
 		rule: map[rulesKey]*pb.ServiceConfig{
 			globalRulesKey: {
@@ -375,7 +375,7 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 		{nil, 0, true, 0, []string{}},
 	}
 
-	LC := ListsKindName
+	LC := QuotasKindName
 	a1 := &pb.Adapter{
 		Name: "a1",
 		Kind: LC,
@@ -391,8 +391,8 @@ func TestRuntime_ResolveUnconditional(t *testing.T) {
 
 	v := &Validated{
 		adapterByName: map[adapterKey]*pb.Adapter{
-			{ListsKind, "a1"}:      a1,
-			{ListsKind, "a2"}:      a2,
+			{QuotasKind, "a1"}:     a1,
+			{QuotasKind, "a2"}:     a2,
 			{AttributesKind, "ag"}: ag,
 		},
 		rule: map[rulesKey]*pb.ServiceConfig{

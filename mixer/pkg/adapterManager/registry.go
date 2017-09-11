@@ -80,34 +80,9 @@ func (r *registry) SupportedKinds(builder string) config.KindSet {
 	return bi.Kinds
 }
 
-// RegisterListsBuilder registers a new ListChecker builder.
-func (r *registry) RegisterListsBuilder(b adapter.ListsBuilder) {
-	r.insert(config.ListsKind, b)
-}
-
-// RegisterDenialsBuilder registers a new DenyChecker builder.
-func (r *registry) RegisterDenialsBuilder(b adapter.DenialsBuilder) {
-	r.insert(config.DenialsKind, b)
-}
-
-// RegisterApplicationLogsBuilder registers a new Logger builder.
-func (r *registry) RegisterApplicationLogsBuilder(b adapter.ApplicationLogsBuilder) {
-	r.insert(config.ApplicationLogsKind, b)
-}
-
-// RegisterAccessLogsBuilder registers a new Logger builder.
-func (r *registry) RegisterAccessLogsBuilder(b adapter.AccessLogsBuilder) {
-	r.insert(config.AccessLogsKind, b)
-}
-
 // RegisterQuotasBuilder registers a new Quotas builder.
 func (r *registry) RegisterQuotasBuilder(b adapter.QuotasBuilder) {
 	r.insert(config.QuotasKind, b)
-}
-
-// RegisterMetricsBuilder registers a new Metrics builder.
-func (r *registry) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
-	r.insert(config.MetricsKind, b)
 }
 
 // RegisterAttributesGeneratorBuilder registers a new AttributesGenerator builder.

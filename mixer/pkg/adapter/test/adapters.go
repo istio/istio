@@ -23,37 +23,12 @@ import (
 )
 
 type fakeRegistrar struct {
-	denyCheckers  []adapter.DenialsBuilder
-	listCheckers  []adapter.ListsBuilder
-	loggers       []adapter.ApplicationLogsBuilder
-	accessLoggers []adapter.AccessLogsBuilder
 	quotas        []adapter.QuotasBuilder
-	metrics       []adapter.MetricsBuilder
 	attributesGen []adapter.AttributesGeneratorBuilder
-}
-
-func (r *fakeRegistrar) RegisterListsBuilder(b adapter.ListsBuilder) {
-	r.listCheckers = append(r.listCheckers, b)
-}
-
-func (r *fakeRegistrar) RegisterDenialsBuilder(b adapter.DenialsBuilder) {
-	r.denyCheckers = append(r.denyCheckers, b)
-}
-
-func (r *fakeRegistrar) RegisterApplicationLogsBuilder(b adapter.ApplicationLogsBuilder) {
-	r.loggers = append(r.loggers, b)
-}
-
-func (r *fakeRegistrar) RegisterAccessLogsBuilder(b adapter.AccessLogsBuilder) {
-	r.accessLoggers = append(r.accessLoggers, b)
 }
 
 func (r *fakeRegistrar) RegisterQuotasBuilder(b adapter.QuotasBuilder) {
 	r.quotas = append(r.quotas, b)
-}
-
-func (r *fakeRegistrar) RegisterMetricsBuilder(b adapter.MetricsBuilder) {
-	r.metrics = append(r.metrics, b)
 }
 
 func (r *fakeRegistrar) RegisterAttributesGeneratorBuilder(b adapter.AttributesGeneratorBuilder) {
@@ -65,33 +40,8 @@ func AdapterInvariants(r adapter.RegisterFn, t *gt.T) {
 	fr := &fakeRegistrar{}
 	r(fr)
 
-	count := len(fr.denyCheckers)
-	for _, b := range fr.denyCheckers {
-		testBuilder(b, t)
-	}
-
-	count += len(fr.listCheckers)
-	for _, b := range fr.listCheckers {
-		testBuilder(b, t)
-	}
-
-	count += len(fr.loggers)
-	for _, b := range fr.loggers {
-		testBuilder(b, t)
-	}
-
-	count += len(fr.quotas)
+	count := len(fr.quotas)
 	for _, b := range fr.quotas {
-		testBuilder(b, t)
-	}
-
-	count += len(fr.metrics)
-	for _, b := range fr.metrics {
-		testBuilder(b, t)
-	}
-
-	count += len(fr.accessLoggers)
-	for _, b := range fr.accessLoggers {
 		testBuilder(b, t)
 	}
 

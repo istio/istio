@@ -50,17 +50,3 @@ func valueTypeToLabelType(pbt dpb.ValueType) (adapter.LabelType, error) {
 		return 0, fmt.Errorf("unsupported proto ValueType %v", pbt)
 	}
 }
-
-// metricKindFromProto translates from MetricDescriptor_MetricKind to MetricKind.
-func metricKindFromProto(pbk dpb.MetricDescriptor_MetricKind) (adapter.MetricKind, error) {
-	switch pbk {
-	case dpb.GAUGE:
-		return adapter.Gauge, nil
-	case dpb.COUNTER:
-		return adapter.Counter, nil
-	case dpb.DISTRIBUTION:
-		return adapter.Distribution, nil
-	default:
-		return 0, fmt.Errorf("invalid proto MetricKind %v", pbk)
-	}
-}

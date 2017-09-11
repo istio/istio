@@ -37,22 +37,6 @@ func FromHandler(handler adapter.Handler) CreateAspectFunc {
 // on the kind parameter.
 func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, error) {
 	switch kind {
-	case cfg.AccessLogsKind:
-		b, ok := builder.(adapter.AccessLogsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind AccessLogsKind expected builder implementing AccessLogsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
-			return b.NewAccessLogsAspect(env, c)
-		}, nil
-	case cfg.ApplicationLogsKind:
-		b, ok := builder.(adapter.ApplicationLogsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind ApplicationLogsKind expected builder implementing ApplicationLogsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
-			return b.NewApplicationLogsAspect(env, c)
-		}, nil
 	case cfg.AttributesKind:
 		b, ok := builder.(adapter.AttributesGeneratorBuilder)
 		if !ok {
@@ -61,41 +45,10 @@ func FromBuilder(builder adapter.Builder, kind cfg.Kind) (CreateAspectFunc, erro
 		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
 			return b.BuildAttributesGenerator(env, c)
 		}, nil
-	case cfg.DenialsKind:
-		b, ok := builder.(adapter.DenialsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind DenialsKind expected builder implementing DenialsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
-			return b.NewDenialsAspect(env, c)
-		}, nil
-	case cfg.ListsKind:
-		b, ok := builder.(adapter.ListsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind ListsKind expected builder implementing ListsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, _ ...interface{}) (adapter.Aspect, error) {
-			return b.NewListsAspect(env, c)
-		}, nil
-	case cfg.MetricsKind:
-		b, ok := builder.(adapter.MetricsBuilder)
-		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind MetricsKind expected builder implementing MetricsBuilder, got builder: %v", builder)
-		}
-		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
-			if len(cfg) != 1 {
-				return nil, fmt.Errorf("metric builders must have configuration args")
-			}
-			metrics, ok := cfg[0].(map[string]*adapter.MetricDefinition)
-			if !ok {
-				return nil, fmt.Errorf("arg to metrics builder must be a map[string]*adapter.MetricDefinition, got: %#v", cfg[0])
-			}
-			return b.NewMetricsAspect(env, c, metrics)
-		}, nil
 	case cfg.QuotasKind:
 		b, ok := builder.(adapter.QuotasBuilder)
 		if !ok {
-			return nil, fmt.Errorf("invalid builder - kind QuotasKind expected builder implementing QuotasBuilder, go buildert: %v", builder)
+			return nil, fmt.Errorf("invalid builder - kind QuotasKind expected builder implementing QuotasBuilder, go builder: %v", builder)
 		}
 		return func(env adapter.Env, c adapter.Config, cfg ...interface{}) (adapter.Aspect, error) {
 			if len(cfg) != 1 {
@@ -137,19 +90,6 @@ func validateLabels(ceField string, labels map[string]string, labelDescs map[str
 			ce = ce.Appendf(ceField, "wrong dimensions: extra label named %s", name)
 		} else if err := v.AssertType(exp, df, labelType); err != nil {
 			ce = ce.Appendf(ceField, "error type checking label '%s': %v", name, err)
-		}
-	}
-	return
-}
-
-func validateTemplateExpressions(ceField string, expressions map[string]string, tc expr.TypeChecker, df expr.AttributeDescriptorFinder) (
-	ce *adapter.ConfigErrors) {
-
-	// We can't do type assertions since we don't know what each template param needs to resolve to, but we can
-	// make sure they're syntactically correct and we have the attributes they need available in the system.
-	for name, exp := range expressions {
-		if _, err := tc.EvalType(exp, df); err != nil {
-			ce = ce.Appendf(ceField, "failed to parse expression '%s': %v", name, err)
 		}
 	}
 	return
