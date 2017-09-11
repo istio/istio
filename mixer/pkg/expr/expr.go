@@ -379,7 +379,7 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("Parsed expression '%s' into '%v'", src, a)
 	}
 
@@ -408,7 +408,7 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 		return v.(*Expression), nil
 	}
 
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("expression cache miss for '%s'", exprStr)
 	}
 
@@ -416,7 +416,7 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if glog.V(4) {
+	if glog.V(6) {
 		glog.Infof("caching expression for '%s''", exprStr)
 	}
 

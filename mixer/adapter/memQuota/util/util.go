@@ -120,7 +120,7 @@ func (qu *QuotaUtil) ReapDedup() {
 	qu.OldDedup = qu.RecentDedup
 	qu.RecentDedup = t
 
-	if qu.Logger.VerbosityLevel(4) {
+	if len(t) > 0 && qu.Logger.VerbosityLevel(4) {
 		qu.Logger.Infof("Running repear to reclaim %d old deduplication entries", len(t))
 	}
 

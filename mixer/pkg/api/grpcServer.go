@@ -150,6 +150,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 			glog.Infof("  %s: %v", name, v)
 		}
 	}
+	dest, _ := compatRespBag.Get("destination.service")
 
 	glog.V(1).Info("Dispatching Check")
 	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
@@ -205,11 +206,6 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				break
 			}
 
-			if qr == nil {
-				//TODO remove
-				qr = quotaOld(legacyCtx, s.aspectDispatcher, compatRespBag, qma)
-			}
-
 			// If qma.Quota does not apply to this request give the client what it asked for.
 			// Effectively the quota is unlimited.
 			if qr == nil {
@@ -218,6 +214,13 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 					GrantedAmount: qma.Amount,
 				}
 			}
+
+			msg := ""
+			if qr.GrantedAmount == 0 {
+				msg = "exhausted"
+			}
+			glog.Infof("AccessLog Quota %s %d/%d %s", dest, qr.GrantedAmount, qma.Amount, msg)
+
 			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = *qr
 			requestBag.ClearReferencedAttributes()
@@ -228,32 +231,6 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	preprocResponseBag.Done()
 
 	return resp, nil
-}
-
-// quotaOld is to be removed.
-func quotaOld(legacyCtx legacyContext.Context, d adapterManager.AspectDispatcher, bag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) *mixerpb.CheckResponse_QuotaResult {
-	glog.V(1).Info("Dispatching Quota")
-	qmr, out := d.Quota(legacyCtx, bag, qma)
-	if status.IsOK(out) {
-		glog.V(1).Infof("Quota returned with ok '%s' and quota response '%v'", status.String(out), qmr)
-	} else {
-		glog.Warningf("Quota returned with error '%s' and quota response '%v'", status.String(out), qmr)
-
-		if out.Code == int32(rpc.RESOURCE_EXHAUSTED) {
-			qmr = &aspect.QuotaMethodResp{
-				Amount:     0,
-				Expiration: defaultValidDuration,
-			}
-		}
-	}
-	if qmr == nil {
-		return nil
-	}
-	return &mixerpb.CheckResponse_QuotaResult{
-		GrantedAmount: qmr.Amount,
-		ValidDuration: qmr.Expiration,
-	}
 }
 
 func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.Bag,

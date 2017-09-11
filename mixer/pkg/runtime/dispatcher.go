@@ -236,15 +236,21 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {
 			for _, inst := range call.instanceConfig {
-				if inst.Name != qma.Quota {
-					continue
-				}
+				// if inst.Name != qma.Quota {
+				//	continue
+				// }
+				// TODO Re-enable inst.Name check
+				// proxy - mixer quota protocol dictates that quota name is passed in as a parameter.
+				// As of 0.2, there is no mechanism to distribute configuration from Mixer to Mixer client(Proxy).
+				// When such a mechanism is created, re-enable the inst.Name filter.
+				// Until then Proxy always calls with exactly 1 quota request named
+				// "RequestCount" which is intended for rate limit.
 				if dispatched { // ensures only one call is dispatched.
 					glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
 					return nil
 				}
 				dispatched = true
-				return []dispatchFn{
+				return []dispatchFn{ // nolint: staticcheck
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,
