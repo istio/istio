@@ -2,6 +2,16 @@
 
 This directory contains Istio end-to-end tests and test framework.
 
+## e2e test environment
+You need a k8s cluster to run tests. We recommend GKE cluster although miniKube works for some people too. 
+```Bash
+gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
+  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --no-enable-legacy-authorization
+ ```
+ - `CLUSTER_VERSION`: Latest 1.7.x k8s cluster.
+ - `MACHINE_TYPE`: n1-standard-4
+ - `NUM_NODES`: Minimum 1.
+ - `no-enable-legacy-authorization`: Optional, needed if you want to test rbac.
 
 ## e2e.sh
 
