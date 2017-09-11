@@ -15,12 +15,8 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
     ],
     protos = [
-        "accessLogs.proto",
-        "applicationLogs.proto",
         "attrgen.proto",
-        "denials.proto",
         "lists.proto",
-        "metrics.proto",
         "quotas.proto",
     ],
     verbose = 0,

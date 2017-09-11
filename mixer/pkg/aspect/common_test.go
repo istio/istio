@@ -119,37 +119,6 @@ func TestValidateLabels(t *testing.T) {
 	}
 }
 
-func TestValidateTemplateExpressions(t *testing.T) {
-	dfind := test.NewDescriptorFinder(map[string]interface{}{
-		"duration": &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.DURATION},
-		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
-		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
-	})
-
-	tests := []struct {
-		name  string
-		exprs map[string]string
-		err   string
-	}{
-		{"valid", map[string]string{"1": "duration", "2": "string", "3": "int64"}, ""},
-		{"missing attr", map[string]string{"not present": "timestamp"}, "failed to parse expression"},
-		{"invalid expr", map[string]string{"invalid": "string |"}, "failed to parse expression"},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
-			if err := validateTemplateExpressions(tt.name, tt.exprs, eval, dfind); err != nil || tt.err != "" {
-				if tt.err == "" {
-					t.Fatalf("validateTemplateExpressions() = '%s', wanted no err", err.Error())
-				} else if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("Expected errors containing the string '%s', actual: '%s'", tt.err, err.Error())
-				}
-			}
-		})
-	}
-}
-
 type testhandler struct{ int }
 
 func (testhandler) Close() error { return nil }
@@ -175,26 +144,10 @@ func TestFromBuilder(t *testing.T) {
 		err          string
 		args         []interface{}
 	}{
-		{"access logs", config.AccessLogsKind, reflect.TypeOf((*adapter.AccessLogsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"app logs", config.ApplicationLogsKind, reflect.TypeOf((*adapter.ApplicationLogsAspect)(nil)).Elem(), "", []interface{}{}},
 		{"attr gen", config.AttributesKind, reflect.TypeOf((*adapter.AttributesGenerator)(nil)).Elem(), "", []interface{}{}},
-		{"denials", config.DenialsKind, reflect.TypeOf((*adapter.DenialsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"list", config.ListsKind, reflect.TypeOf((*adapter.ListsAspect)(nil)).Elem(), "", []interface{}{}},
-		{"metrics no args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
-			"metric builders must have configuration args",
-			[]interface{}{}},
-		{"metrics wrong args", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
-			"arg to metrics builder must be a map[string]*adapter.MetricDefinition",
-			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
-		{"metrics", config.MetricsKind, reflect.TypeOf((*adapter.MetricsAspect)(nil)).Elem(),
-			"",
-			[]interface{}{map[string]*adapter.MetricDefinition{}}},
 		{"quota no args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"quota builders must have configuration args",
 			[]interface{}{}},
-		{"quota wrong args", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
-			"arg to quota builder must be a map[string]*adapter.QuotaDefinition",
-			[]interface{}{map[string]*adapter.MetricDefinition{}}},
 		{"quota", config.QuotasKind, reflect.TypeOf((*adapter.QuotasAspect)(nil)).Elem(),
 			"",
 			[]interface{}{map[string]*adapter.QuotaDefinition{}}},
@@ -229,27 +182,14 @@ func (fakeDeny) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAs
 	return nil, nil
 }
 
-type fakeAccess struct{ adapter.Builder }
-
-func (fakeAccess) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
-	return nil, nil
-}
-
 func TestFromBuilder_Errors(t *testing.T) {
 	tests := []struct {
 		builder adapter.Builder
 		kind    config.Kind
 		err     string
 	}{
-		{&fakeDeny{}, config.AccessLogsKind, "invalid builder"},
-		{&fakeDeny{}, config.ApplicationLogsKind, "invalid builder"},
 		{&fakeDeny{}, config.AttributesKind, "invalid builder"},
-		{&fakeDeny{}, config.ListsKind, "invalid builder"},
-		{&fakeDeny{}, config.MetricsKind, "invalid builder"},
 		{&fakeDeny{}, config.QuotasKind, "invalid builder"},
-		{&fakeAccess{}, config.DenialsKind, "invalid builder"},
-		{&fakeAccess{}, config.NumKinds, "invalid kind"},
-		{&fakeDeny{}, config.DenialsKind, ""},
 	}
 
 	for idx, tt := range tests {

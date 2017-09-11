@@ -80,9 +80,7 @@ func TestConfigManager(t *testing.T) {
 			"metrics":     &lc{},
 			"listchecker": &lc{},
 		}, nil, map[Kind]AspectValidator{
-			DenialsKind: &ac{},
-			MetricsKind: &ac{},
-			ListsKind:   &ac{},
+			QuotasKind: &ac{},
 		}, ""},
 	}
 	for idx, mt := range mlist {

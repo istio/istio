@@ -29,37 +29,22 @@ type KindSet uint
 // Supported kinds of aspects
 const (
 	Unspecified Kind = iota
-	AccessLogsKind
-	ApplicationLogsKind
+	// Please don't change the order, tests depend on the order.
 	AttributesKind
-	DenialsKind
-	ListsKind
-	MetricsKind
 	QuotasKind
-
 	NumKinds
 )
 
 // Name of all supported aspect kinds.
 const (
-	AccessLogsKindName      = "access-logs"
-	ApplicationLogsKindName = "application-logs"
-	AttributesKindName      = "attributes"
-	DenialsKindName         = "denials"
-	ListsKindName           = "lists"
-	MetricsKindName         = "metrics"
-	QuotasKindName          = "quotas"
+	AttributesKindName = "attributes"
+	QuotasKindName     = "quotas"
 )
 
 // kindToString maps from kinds to their names.
 var kindToString = map[Kind]string{
-	AccessLogsKind:      AccessLogsKindName,
-	ApplicationLogsKind: ApplicationLogsKindName,
-	AttributesKind:      AttributesKindName,
-	DenialsKind:         DenialsKindName,
-	ListsKind:           ListsKindName,
-	MetricsKind:         MetricsKindName,
-	QuotasKind:          QuotasKindName,
+	AttributesKind: AttributesKindName,
+	QuotasKind:     QuotasKindName,
 }
 
 // stringToKinds maps from kind name to kind enum.

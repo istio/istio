@@ -30,6 +30,41 @@ import (
 	"istio.io/mixer/pkg/status"
 )
 
+var (
+	requestCountDesc = &dpb.MetricDescriptor{
+		Name:        "request_count",
+		Kind:        dpb.COUNTER,
+		Value:       dpb.INT64,
+		Description: "request count by source, target, service, and code",
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"method":        dpb.STRING,
+			"response_code": dpb.INT64,
+		},
+	}
+
+	requestLatencyDesc = &dpb.MetricDescriptor{
+		Name:        "request_latency",
+		Kind:        dpb.COUNTER,
+		Value:       dpb.DURATION,
+		Description: "request latency by source, target, and service",
+		Labels: map[string]dpb.ValueType{
+			"source":        dpb.STRING,
+			"target":        dpb.STRING,
+			"service":       dpb.STRING,
+			"method":        dpb.STRING,
+			"response_code": dpb.INT64,
+		},
+	}
+
+	df = atest.NewDescriptorFinder(map[string]interface{}{
+		"request_count":   requestCountDesc,
+		"request_latency": requestLatencyDesc,
+	})
+)
+
 func TestAttributeGeneratorManager(t *testing.T) {
 	m := newAttrGenMgr()
 	if m.Kind() != config.AttributesKind {

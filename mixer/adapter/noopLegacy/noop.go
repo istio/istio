@@ -17,10 +17,7 @@
 package noopLegacy
 
 import (
-	rpc "github.com/googleapis/googleapis/google/rpc"
-
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/status"
 )
 
 type (
@@ -32,12 +29,7 @@ type (
 // Register registers the no-op adapter as every aspect.
 func Register(r adapter.Registrar) {
 	b := Builder{adapter.NewDefaultBuilder("noop builder", "", nil)}
-	r.RegisterAccessLogsBuilder(b)
-	r.RegisterApplicationLogsBuilder(b)
 	r.RegisterAttributesGeneratorBuilder(b)
-	r.RegisterDenialsBuilder(b)
-	r.RegisterListsBuilder(b)
-	r.RegisterMetricsBuilder(b)
 	r.RegisterQuotasBuilder(b)
 }
 
@@ -49,36 +41,6 @@ func (aspect) Generate(map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 func (aspect) Close() error { return nil }
-
-// NewAccessLogsAspect creates an adapter.AccessLogsAspect instance
-func (Builder) NewAccessLogsAspect(adapter.Env, adapter.Config) (adapter.AccessLogsAspect, error) {
-	return &aspect{}, nil
-}
-func (aspect) LogAccess([]adapter.LogEntry) error { return nil }
-
-// NewApplicationLogsAspect creates an adapter.ApplicationLogsAspect instance
-func (Builder) NewApplicationLogsAspect(adapter.Env, adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return &aspect{}, nil
-}
-func (aspect) Log([]adapter.LogEntry) error { return nil }
-
-// NewDenialsAspect creates an adapter.DenialsAspect instance
-func (Builder) NewDenialsAspect(adapter.Env, adapter.Config) (adapter.DenialsAspect, error) {
-	return &aspect{}, nil
-}
-func (aspect) Deny() rpc.Status { return status.New(rpc.FAILED_PRECONDITION) }
-
-// NewListsAspect creates an adapter.ListsAspect instance
-func (Builder) NewListsAspect(adapter.Env, adapter.Config) (adapter.ListsAspect, error) {
-	return &aspect{}, nil
-}
-func (aspect) CheckList(symbol string) (bool, error) { return false, nil }
-
-// NewMetricsAspect creates an adapter.MetricsAspect instance
-func (Builder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return &aspect{}, nil
-}
-func (aspect) Record([]adapter.Value) error { return nil }
 
 // NewQuotasAspect creates an adapter.QuotasAspect instance
 func (Builder) NewQuotasAspect(env adapter.Env, c adapter.Config, quotas map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {

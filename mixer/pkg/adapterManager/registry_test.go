@@ -34,103 +34,15 @@ func (testBuilder) Description() string                                   { retu
 func (testBuilder) DefaultConfig() adapter.Config                         { return nil }
 func (testBuilder) ValidateConfig(c adapter.Config) *adapter.ConfigErrors { return nil }
 
-type denyBuilder struct{ testBuilder }
-
-func (denyBuilder) NewDenialsAspect(env adapter.Env, cfg adapter.Config) (adapter.DenialsAspect, error) {
-	return nil, errors.New("not implemented")
-}
-
-func TestRegisterDenyChecker(t *testing.T) {
-	reg := newRegistry(nil)
-	builder := denyBuilder{testBuilder{name: "foo"}}
-
-	reg.RegisterDenialsBuilder(builder)
-
-	impl, ok := reg.FindBuilder(builder.Name())
-	if !ok {
-		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
-	}
-
-	if deny, ok := impl.(denyBuilder); !ok || deny != builder {
-		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
-	}
-}
-
-type listBuilder struct{ testBuilder }
-type listBuilder2 struct{ listBuilder }
-
-func (listBuilder) NewListsAspect(env adapter.Env, cfg adapter.Config) (adapter.ListsAspect, error) {
-	return nil, errors.New("not implemented")
-}
-
-func TestRegisterListChecker(t *testing.T) {
-	reg := newRegistry(nil)
-	builder := listBuilder{testBuilder{name: "foo"}}
-
-	reg.RegisterListsBuilder(builder)
-
-	impl, ok := reg.FindBuilder(builder.Name())
-	if !ok {
-		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
-	}
-
-	if deny, ok := impl.(listBuilder); !ok || deny != builder {
-		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
-	}
-}
-
-type loggerBuilder struct{ testBuilder }
-
-func (loggerBuilder) NewApplicationLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.ApplicationLogsAspect, error) {
-	return nil, errors.New("not implemented")
-}
-
-func TestRegisterLogger(t *testing.T) {
-	reg := newRegistry(nil)
-	builder := loggerBuilder{testBuilder{name: "foo"}}
-
-	reg.RegisterApplicationLogsBuilder(builder)
-
-	impl, ok := reg.FindBuilder(builder.Name())
-	if !ok {
-		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
-	}
-
-	if deny, ok := impl.(loggerBuilder); !ok || deny != builder {
-		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
-	}
-}
-
-type accessLoggerBuilder struct{ testBuilder }
-
-func (accessLoggerBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
-	return nil, errors.New("not implemented")
-}
-
-func TestRegistry_RegisterAccessLogger(t *testing.T) {
-	reg := newRegistry(nil)
-	builder := accessLoggerBuilder{testBuilder{name: "foo"}}
-
-	reg.RegisterAccessLogsBuilder(builder)
-
-	impl, ok := reg.FindBuilder(builder.Name())
-	if !ok {
-		t.Errorf("No builder by impl with name %s, expected builder: %v", builder.Name(), builder)
-	}
-
-	if deny, ok := impl.(accessLoggerBuilder); !ok || deny != builder {
-		t.Errorf("reg.ByImpl(%s) expected builder '%v', actual '%v'", builder.Name(), builder, impl)
-	}
-}
-
 type quotaBuilder struct{ testBuilder }
+type quotaBuilder2 struct{ quotaBuilder }
 
 func (quotaBuilder) NewQuotasAspect(env adapter.Env, cfg adapter.Config, d map[string]*adapter.QuotaDefinition) (adapter.QuotasAspect, error) {
 	return nil, errors.New("not implemented")
 }
 
 // enables multiple aspects for testing.
-func (quotaBuilder) NewAccessLogsAspect(env adapter.Env, cfg adapter.Config) (adapter.AccessLogsAspect, error) {
+func (quotaBuilder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (adapter.AttributesGenerator, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -149,29 +61,12 @@ func TestRegisterQuota(t *testing.T) {
 	}
 }
 
-type metricsBuilder struct{ testBuilder }
-
-func (metricsBuilder) NewMetricsAspect(adapter.Env, adapter.Config, map[string]*adapter.MetricDefinition) (adapter.MetricsAspect, error) {
-	return nil, errors.New("not implemented")
-}
-
-func TestRegisterMetrics(t *testing.T) {
-	reg := newRegistry(nil)
-	builder := metricsBuilder{testBuilder{name: "foo"}}
-
-	reg.RegisterMetricsBuilder(builder)
-	impl, _ := reg.FindBuilder(builder.Name())
-	if impl != builder {
-		t.Errorf("Got :%#v, want: %#v", impl, builder)
-	}
-}
-
 func TestCollision(t *testing.T) {
 	reg := newRegistry(nil)
 	name := "some name that they both have"
 
-	a1 := listBuilder{testBuilder{name}}
-	reg.RegisterListsBuilder(a1)
+	a1 := quotaBuilder{testBuilder{name}}
+	reg.RegisterQuotasBuilder(a1)
 
 	if a, ok := reg.FindBuilder(name); !ok || a != a1 {
 		t.Errorf("Failed to get first adapter by impl name; expected: '%v', actual: '%v'", a1, a)
@@ -183,8 +78,8 @@ func TestCollision(t *testing.T) {
 		}
 	}()
 
-	a2 := listBuilder2{listBuilder{testBuilder{name}}}
-	reg.RegisterListsBuilder(a2)
+	a2 := quotaBuilder2{quotaBuilder{testBuilder{name}}}
+	reg.RegisterQuotasBuilder(a2)
 	t.Error("Should not reach this statement due to panic.")
 }
 
@@ -207,16 +102,16 @@ func TestMultiKinds(t *testing.T) {
 
 	// register as accessLog
 
-	kinds := config.KindSet(0).Set(config.QuotasKind).Set(config.AccessLogsKind)
+	kinds := config.KindSet(0).Set(config.QuotasKind).Set(config.AttributesKind)
 
-	reg.RegisterAccessLogsBuilder(builder)
+	reg.RegisterAttributesGeneratorBuilder(builder)
 	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
 		t.Errorf("SupportedKinds: got %s\nwant %s", reg.SupportedKinds(builder.Name()), kinds)
 	}
 
 	// register again and should be no change
 
-	reg.RegisterAccessLogsBuilder(builder)
+	reg.RegisterAttributesGeneratorBuilder(builder)
 	if !reflect.DeepEqual(reg.SupportedKinds(builder.Name()), kinds) {
 		t.Errorf("SupportedKinds: got %s\nwant %s", reg.SupportedKinds(builder.Name()), kinds)
 	}
@@ -236,14 +131,8 @@ func TestBuilderMap(t *testing.T) {
 		func(r adapter.Registrar) {
 			r.RegisterQuotasBuilder(quotaBuilder{testBuilder{name: "quotaB"}})
 		},
-		func(r adapter.Registrar) {
-			r.RegisterListsBuilder(listBuilder{testBuilder{name: "listB"}})
-		},
 	})
 
-	if _, found := mp["listB"]; !found {
-		t.Error("got nil, want listB")
-	}
 	if _, found := mp["quotaB"]; !found {
 		t.Error("got nil, want quotaB")
 	}

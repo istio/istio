@@ -134,14 +134,12 @@ func TestConfigValidatorError(t *testing.T) {
 			nil, 1, "service.name == “*”", false, ConstGlobalConfig},
 		{nil, nil, nil,
 			map[Kind]AspectValidator{
-				MetricsKind: &ac{},
-				QuotasKind:  &ac{},
+				QuotasKind: &ac{},
 			},
 			0, "service.name == “*”", false, sSvcConfig},
 		{nil, nil, nil,
 			map[Kind]AspectValidator{
-				MetricsKind: &ac{},
-				QuotasKind:  &ac{},
+				QuotasKind: &ac{},
 			},
 			1, "service.name == “*”", true, sSvcConfig},
 		{cerr, nil, nil,
@@ -200,9 +198,8 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"service.name == “*”", false, sSvcConfig2, nil},
 		{nil,
@@ -212,21 +209,19 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"", false, sSvcConfig2, nil},
-		{&adapter.ConfigError{Field: "namedAdapter", Underlying: errors.New("lists//denychecker.2 not available")},
+		{&adapter.ConfigError{Field: "namedAdapter", Underlying: errors.New("quotas//denychecker.2 not available")},
 			map[string]adapter.ConfigValidator{
 				"denyChecker": &lc{},
 				"metrics":     &lc{},
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"", false, sSvcConfig3, nil},
 		{&adapter.ConfigError{Field: ":Selector service.name == “*”", Underlying: errors.New("invalid expression")},
@@ -236,9 +231,8 @@ func TestFullConfigValidator(tt *testing.T) {
 				"listchecker": &lc{},
 			},
 			map[Kind]AspectValidator{
-				DenialsKind: &ac{},
-				MetricsKind: &ac{},
-				ListsKind:   &ac{},
+				QuotasKind:     &ac{},
+				AttributesKind: &ac{},
 			},
 			"service.name == “*”", false, sSvcConfig1, errors.New("invalid expression")},
 	}
@@ -383,7 +377,7 @@ revision: "2022"
 rules:
 - selector: service.name == “*”
   aspects:
-  - kind: lists
+  - kind: quotas
     inputs: {}
     params:
 `
@@ -393,7 +387,7 @@ revision: "2022"
 rules:
 - selector: service.name == “*”
   aspects:
-  - kind: lists
+  - kind: quotas
     inputs: {}
     params:
     adapter: denychecker.2
@@ -404,7 +398,7 @@ revision: "2022"
 rules:
 - selector: %s
   aspects:
-  - kind: metrics
+  - kind: quotas
     adapter: ""
     inputs: {}
     params:
@@ -470,7 +464,7 @@ func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, dpb.ValueT
 
 func TestValidated_Clone(t *testing.T) {
 	aa := map[adapterKey]*pb.Adapter{
-		{AccessLogsKind, "n1"}: {},
+		{QuotasKind, "n1"}: {},
 	}
 
 	hh := map[string]*HandlerInfo{

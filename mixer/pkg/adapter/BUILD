@@ -45,7 +45,6 @@ go_test(
         "applicationLogs_test.go",
         "builder_test.go",
         "configError_test.go",
-        "metrics_test.go",
         "result_test.go",
     ],
     library = ":go_default_library",

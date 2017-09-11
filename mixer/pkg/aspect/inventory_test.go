@@ -27,14 +27,6 @@ func TestInventory(t *testing.T) {
 		t.Error("Got 0 PreprocessManagers, wanted positive number")
 	}
 
-	if len(inventory.Check) == 0 {
-		t.Error("Expecting some managers for Check, got 0")
-	}
-
-	if len(inventory.Report) == 0 {
-		t.Error("Expecting some managers for Repor, got 0")
-	}
-
 	if len(inventory.Quota) == 0 {
 		t.Error("Expecting some managers for Quota, got 0")
 	}
