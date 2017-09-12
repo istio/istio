@@ -245,6 +245,7 @@ spec:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
           - --logtostderr
+	  - --useAst
           - -v
           - "4"
       volumes:
