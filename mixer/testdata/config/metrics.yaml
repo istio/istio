@@ -62,4 +62,3 @@ spec:
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
-
