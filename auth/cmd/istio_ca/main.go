@@ -66,6 +66,8 @@ var (
 	opts cliOptions
 
 	rootCmd = &cobra.Command{
+		Use:   "istio_ca",
+		Short: "Istio Certificate Authority (CA)",
 		Run: func(cmd *cobra.Command, args []string) {
 			runCA()
 		},

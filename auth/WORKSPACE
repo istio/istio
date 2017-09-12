@@ -37,6 +37,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_cpuguy83_go_md2man",
+    commit = "1d903dcb749992f3741d744c0f8376b4bd7eb3e1",
+    importpath = "github.com/cpuguy83/go-md2man",
+)
+
+go_repository(
     name = "com_github_davecgh_go_spew",
     commit = "346938d642f2ec3594ed81d874461961cd0faa76",
     importpath = "github.com/davecgh/go-spew",
@@ -172,6 +178,12 @@ go_repository(
     name = "com_github_pborman_uuid",
     commit = "1b00554d822231195d1babd97ff4a781231955c9",
     importpath = "github.com/pborman/uuid",
+)
+
+go_repository(
+    name = "com_github_russross_blackfriday",
+    commit = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c",
+    importpath = "github.com/russross/blackfriday",
 )
 
 go_repository(
