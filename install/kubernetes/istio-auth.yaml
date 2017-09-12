@@ -609,7 +609,7 @@ data:
       #
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-mixer.istio-system:9125
+      # statsdUdpAddress: istio-mixer.istio-system:9125
 ---
 apiVersion: v1
 kind: Service
