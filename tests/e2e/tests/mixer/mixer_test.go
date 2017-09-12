@@ -291,8 +291,8 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
-	if err = visitProductPage(productPageTimeout, http.StatusOK); err != nil {
-		t.Fatalf("Test app setup failure: %v", err)
+	if errNew := visitProductPage(productPageTimeout, http.StatusOK); errNew != nil {
+		t.Fatalf("Test app setup failure: %v", errNew)
 	}
 	allowPrometheusSync()
 
