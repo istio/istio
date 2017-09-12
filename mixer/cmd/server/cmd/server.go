@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
@@ -87,6 +88,33 @@ type serverArgs struct {
 	serviceConfigFile string
 	// @deprecated
 	globalConfigFile string
+}
+
+func (sa *serverArgs) String() string {
+	var b bytes.Buffer
+	s := *sa
+	b.WriteString(fmt.Sprint("maxMessageSize: ", s.maxMessageSize, "\n"))
+	b.WriteString(fmt.Sprint("maxConcurrentStreams: ", s.maxConcurrentStreams, "\n"))
+	b.WriteString(fmt.Sprint("apiWorkerPoolSize: ", s.apiWorkerPoolSize, "\n"))
+	b.WriteString(fmt.Sprint("adapterWorkerPoolSize: ", s.adapterWorkerPoolSize, "\n"))
+	b.WriteString(fmt.Sprint("expressionEvalCacheSize: ", s.expressionEvalCacheSize, "\n"))
+	b.WriteString(fmt.Sprint("port: ", s.port, "\n"))
+	b.WriteString(fmt.Sprint("configAPIPort: ", s.configAPIPort, "\n"))
+	b.WriteString(fmt.Sprint("monitoringPort: ", s.monitoringPort, "\n"))
+	b.WriteString(fmt.Sprint("singleThreaded: ", s.singleThreaded, "\n"))
+	b.WriteString(fmt.Sprint("compressedPayload: ", s.compressedPayload, "\n"))
+	b.WriteString(fmt.Sprint("traceOutput: ", s.traceOutput, "\n"))
+	b.WriteString(fmt.Sprint("serverCertFile: ", s.serverCertFile, "\n"))
+	b.WriteString(fmt.Sprint("serverKeyFile: ", s.serverKeyFile, "\n"))
+	b.WriteString(fmt.Sprint("clientCertFiles: ", s.clientCertFiles, "\n"))
+	b.WriteString(fmt.Sprint("configStoreURL: ", s.configStoreURL, "\n"))
+	b.WriteString(fmt.Sprint("configStore2URL: ", s.configStore2URL, "\n"))
+	b.WriteString(fmt.Sprint("configDefaultNamespace: ", s.configDefaultNamespace, "\n"))
+	b.WriteString(fmt.Sprint("configFetchIntervalSec: ", s.configFetchIntervalSec, "\n"))
+	b.WriteString(fmt.Sprint("configIdentityAttribute: ", s.configIdentityAttribute, "\n"))
+	b.WriteString(fmt.Sprint("configIdentityAttributeDomain: ", s.configIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("useAst: ", s.useAst, "\n"))
+	return b.String()
 }
 
 // ServerContext exports Mixer Grpc server and internal GoroutinePools.
@@ -233,21 +261,22 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	var dispatcher mixerRuntime.Dispatcher
 
-	// TODO until the dispatcher 2 switch is complete,
-	// dispatcher 2 is only enabled when configStore2URL is specified.
-	if sa.configStore2URL != "" {
-		adapterMap := config.InventoryMap(adapters)
-		store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
-		if err != nil {
-			fatalf("Failed to connect to the configuration2 server. %v", err)
-		}
-		dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
-			sa.configIdentityAttribute, sa.configDefaultNamespace,
-			store2, adapterMap, info,
-		)
-		if err != nil {
-			fatalf("Failed to create runtime dispatcher. %v", err)
-		}
+	if sa.configStore2URL == "" {
+		printf("configStore2URL is not specified, assuming inCluster Kubernetes")
+		sa.configStore2URL = "k8s://"
+	}
+
+	adapterMap := config.InventoryMap(adapters)
+	store2, err := store.NewRegistry2(config.Store2Inventory()...).NewStore2(sa.configStore2URL)
+	if err != nil {
+		fatalf("Failed to connect to the configuration server. %v", err)
+	}
+	dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+		sa.configIdentityAttribute, sa.configDefaultNamespace,
+		store2, adapterMap, info,
+	)
+	if err != nil {
+		fatalf("Failed to create runtime dispatcher. %v", err)
 	}
 
 	repo := template.NewRepository(info)
@@ -393,13 +422,14 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 }
 
 func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) {
-	printf("Mixer started with args: %#v", sa)
+	printf("Mixer started with\n%s", sa)
 	context := setupServer(sa, info, adapters, printf, fatalf)
 	defer context.GP.Close()
 	defer context.AdapterGP.Close()
 
 	printf("Istio Mixer: %s", version.Info)
 	printf("Starting gRPC server on port %v", sa.port)
+
 	var err error
 	var listener net.Listener
 	// get the network stuff setup
