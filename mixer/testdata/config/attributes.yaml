@@ -113,4 +113,3 @@ spec:
         valueType: STRING
       destination.serviceAccount:
         valueType: STRING
-
