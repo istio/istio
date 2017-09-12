@@ -15,7 +15,6 @@
 package framework
 
 import (
-	"cmd/pprof/internal/tempfile"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -149,7 +148,6 @@ func (t *testCleanup) init() error {
 }
 
 func (t *testCleanup) cleanup() {
-	defer tempfile.Cleanup()
 	if t.skipCleanup {
 		glog.Info("Debug model, skip cleanup")
 		return
