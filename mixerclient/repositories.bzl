@@ -32,7 +32,6 @@ def boringssl_repositories(bind=True):
             actual = "@boringssl//:ssl",
         )
 
-
 def protobuf_repositories(bind=True):
     native.git_repository(
         name = "protobuf_bzl",
@@ -70,7 +69,6 @@ def protobuf_repositories(bind=True):
             name = "protobuf_clib",
             actual = "@protobuf_bzl//:protoc_lib",
         )
-
 
 def googletest_repositories(bind=True):
     BUILD = """
@@ -150,7 +148,7 @@ cc_library(
             name = "googletest_prod",
             actual = "@googletest_git//:googletest_prod",
         )
-        
+
 def googleapis_repositories(protobuf_repo="@protobuf_bzl//", bind=True):
     BUILD = """
 # Copyright 2017 Istio Authors. All Rights Reserved.
@@ -378,7 +376,7 @@ cc_proto_library(
 
     native.new_git_repository(
         name = "mixerapi_git",
-        commit = "a0ba5903ae2771eac13f80c3a936ed70fd3494d5",
+        commit = "6838a2bfc42260cf0513552a64a457f1cf39041c",
         remote = "https://github.com/istio/api.git",
         build_file_content = BUILD,
     )
