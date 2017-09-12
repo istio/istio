@@ -223,6 +223,14 @@ def template_protos(WKSPC):
                         # check if there are files under /template/<some uber dir>/<some template dir>
                         if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
                             makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
+    for template in os.listdir(WKSPC + "/bazel-genfiles/test/template"):
+        if template.endswith(".gen.go"):
+            makelink(WKSPC + "/bazel-genfiles/test/template/" + template, WKSPC + "/test/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/test/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/test/template/" + template):
+                # check if there are files under /template/<some template dir>
+                if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
+                    makelink(WKSPC + "/bazel-genfiles/test/template/" + template + "/" + file, WKSPC + "/test/template/" +template + "/" + file)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):

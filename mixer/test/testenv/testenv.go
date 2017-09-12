@@ -5,10 +5,12 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/mixer/cmd/server/cmd"
 	"istio.io/mixer/cmd/shared"
 	"istio.io/mixer/pkg/adapter"
+	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/template"
 )
 
@@ -30,6 +32,7 @@ type Args struct {
 	ConfigStoreURL                string
 	ConfigStore2URL               string
 	ConfigDefaultNamespace        string
+	ConfigIdentityAttribute       string
 	ConfigIdentityAttributeDomain string
 	UseAstEvaluator               bool
 }
@@ -42,7 +45,7 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 	}
 
 	context := cmd.SetupTestServer(info, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
-		args.ConfigDefaultNamespace, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
+		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
 	shutdown := make(chan struct{})
 
 	go func() {
@@ -81,4 +84,17 @@ func (env *testEnv) Close() error {
 	close(env.shutdown)
 	env.mixerContext = nil
 	return nil
+}
+
+// GetAttrBag creates Attributes proto.
+func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.Attributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto mixerpb.Attributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
 }

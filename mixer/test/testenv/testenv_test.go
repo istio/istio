@@ -10,10 +10,10 @@ import (
 
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
+
 	mixerapi "istio.io/api/mixer/v1"
 	"istio.io/mixer/adapter/denier"
 	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/template"
 )
 
@@ -62,18 +62,6 @@ func buildConfigStore(relativePaths []string) (string, error) {
 	return configPath, nil
 }
 
-func getAttrBag(attribs map[string]interface{}) mixerapi.Attributes {
-	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set("target.service", "svc.cluster.local")
-	for k, v := range attribs {
-		requestBag.Set(k, v)
-	}
-
-	var attrs mixerapi.Attributes
-	requestBag.ToProto(&attrs, nil, 0)
-	return attrs
-}
-
 func TestMain(m *testing.M) {
 	flag.Parse()
 	code := m.Run()
@@ -101,6 +89,7 @@ func TestDenierAdapter(t *testing.T) {
 		ConfigStoreURL:                `fs://` + configStore,
 		ConfigStore2URL:               `fs://` + configStore,
 		ConfigDefaultNamespace:        "istio-config-default",
+		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		UseAstEvaluator:               true,
 	}
@@ -118,8 +107,8 @@ func TestDenierAdapter(t *testing.T) {
 	}
 	defer closeHelper(conn)
 
-	attribs := map[string]interface{}{"request.headers": map[string]string{"clnt": "abc"}}
-	bag := getAttrBag(attribs)
+	attrs := map[string]interface{}{"request.headers": map[string]string{"clnt": "abc"}}
+	bag := GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 	request := mixerapi.CheckRequest{Attributes: bag}
 	resq, err := client.Check(context.Background(), &request)
 	if err != nil {

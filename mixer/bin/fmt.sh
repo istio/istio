@@ -9,7 +9,7 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-GO_FILES=$(find adapter cmd example tools/codegen pkg template -type f -name '*.go')
+GO_FILES=$(find adapter cmd example tools/codegen test pkg template -type f -name '*.go')
 
 UX=$(uname)
 

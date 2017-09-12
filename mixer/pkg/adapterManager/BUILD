@@ -35,7 +35,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "e2e_configuration_test.go",
         "env_test.go",
         "manager_test.go",
         "registry_test.go",
