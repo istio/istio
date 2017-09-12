@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metric // import "istio.io/mixer/adapter/stackdriver/metric"
+package metric
 
 import (
 	"context"

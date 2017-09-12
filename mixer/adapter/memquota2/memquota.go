@@ -24,7 +24,7 @@
 // - Since the data is all memory-resident and there isn't any cross-node
 // synchronization, this adapter can't be used in an Istio mixer where
 // a single service can be handled by different mixer instances.
-package memquota // import "istio.io/mixer/adapter/memquota"
+package memquota
 
 import (
 	"context"

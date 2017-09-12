@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package statsd // import "istio.io/mixer/adapter/statsd"
+package statsd
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 	"github.com/cactus/go-statsd-client/statsd"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/mixer/adapter/statsd2/config"
+	"istio.io/mixer/adapter/statsd/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/pool"
 	"istio.io/mixer/template/metric"
