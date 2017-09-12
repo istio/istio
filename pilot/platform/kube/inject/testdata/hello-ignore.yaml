@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: hello
   annotations:
-    sidecar.istio.io/inject: false
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 7
   template:
