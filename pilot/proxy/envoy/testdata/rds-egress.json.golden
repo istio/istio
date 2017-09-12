@@ -10,8 +10,9 @@
       "prefix": "/",
       "cluster": "ae8d3361601f8293abe6ac5e4d807124612cf42e",
       "opaque_config": {
-       "mixer_control": "on",
-       "mixer_forward": "off"
+       "mixer_check": "on",
+       "mixer_forward": "off",
+       "mixer_report": "on"
       },
       "auto_host_rewrite": true
      }
@@ -27,8 +28,9 @@
       "prefix": "/",
       "cluster": "242bc3028e0f3fe0682e6d972e167ab415b2321d",
       "opaque_config": {
-       "mixer_control": "on",
-       "mixer_forward": "off"
+       "mixer_check": "on",
+       "mixer_forward": "off",
+       "mixer_report": "on"
       },
       "auto_host_rewrite": true
      }

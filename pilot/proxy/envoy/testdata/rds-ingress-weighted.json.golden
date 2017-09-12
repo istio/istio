@@ -21,8 +21,9 @@
        ]
       },
       "opaque_config": {
-       "mixer_control": "on",
-       "mixer_forward": "on"
+       "mixer_check": "on",
+       "mixer_forward": "on",
+       "mixer_report": "on"
       }
      }
     ]

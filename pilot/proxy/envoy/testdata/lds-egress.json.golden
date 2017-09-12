@@ -25,8 +25,8 @@
          "name": "mixer",
          "config": {
           "mixer_attributes": {
-           "target.ip": "10.3.3.4",
-           "target.uid": "kubernetes://egress.default"
+           "destination.ip": "10.3.3.4",
+           "destination.uid": "kubernetes://egress.default"
           },
           "forward_attributes": {
            "source.ip": "10.3.3.4",

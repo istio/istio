@@ -10,8 +10,9 @@
       "prefix": "/bar",
       "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
       "opaque_config": {
-       "mixer_control": "on",
-       "mixer_forward": "on"
+       "mixer_check": "on",
+       "mixer_forward": "on",
+       "mixer_report": "on"
       }
      }
     ]

@@ -34,20 +34,26 @@ const (
 	// AttrSourceUID is platform-specific unique identifier for the client instance of the source service
 	AttrSourceUID = "source.uid"
 
-	// AttrTargetIP is the server source IP
-	AttrTargetIP = "target.ip"
+	// AttrDestinationIP is the server source IP
+	AttrDestinationIP = "destination.ip"
 
-	// AttrTargetUID is platform-specific unique identifier for the server instance of the target service
-	AttrTargetUID = "target.uid"
+	// AttrDestinationUID is platform-specific unique identifier for the server instance of the target service
+	AttrDestinationUID = "destination.uid"
 
-	// AttrTargetService is name of the target service
-	AttrTargetService = "target.service"
+	// AttrDestinationService is name of the target service
+	AttrDestinationService = "destination.service"
 
 	// MixerRequestCount is the quota bucket name
 	MixerRequestCount = "RequestCount"
 
-	// MixerControl switches Check call on and off
-	MixerControl = "mixer_control"
+	// MixerCheck switches Check call on and off
+	MixerCheck = "mixer_check"
+
+	// MixerReport switches Report call on and off
+	MixerReport = "mixer_report"
+
+	// DisableTCPCheckCalls switches Check call on and off for tcp listeners
+	DisableTCPCheckCalls = "disable_tcp_check_calls"
 
 	// MixerForward switches attribute forwarding on and off
 	MixerForward = "mixer_forward"
@@ -66,6 +72,9 @@ type FilterMixerConfig struct {
 	// QuotaName specifies the name of the quota bucket to withdraw tokens from;
 	// an empty name means no quota will be charged.
 	QuotaName string `json:"quota_name,omitempty"`
+
+	// If set to true, disables mixer check calls for TCP connections
+	DisableTCPCheckCalls bool `json:"disable_tcp_check_calls,omitempty"`
 }
 
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
@@ -85,7 +94,8 @@ func buildMixerCluster(mesh *proxyconfig.MeshConfig) *Cluster {
 func buildMixerOpaqueConfig(check, forward bool) map[string]string {
 	keys := map[bool]string{true: "on", false: "off"}
 	return map[string]string{
-		MixerControl: keys[check],
+		MixerReport:  "on",
+		MixerCheck:   keys[check],
 		MixerForward: keys[forward],
 	}
 }
@@ -95,8 +105,8 @@ func buildMixerOpaqueConfig(check, forward bool) map[string]string {
 func mixerHTTPRouteConfig(role proxy.Node, service string) *FilterMixerConfig {
 	r := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
-			AttrTargetIP:  role.IPAddress,
-			AttrTargetUID: "kubernetes://" + role.ID,
+			AttrDestinationIP:  role.IPAddress,
+			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
 		ForwardAttributes: map[string]string{
 			AttrSourceIP:  role.IPAddress,
@@ -105,18 +115,19 @@ func mixerHTTPRouteConfig(role proxy.Node, service string) *FilterMixerConfig {
 		QuotaName: MixerRequestCount,
 	}
 	if len(service) > 0 {
-		r.MixerAttributes[AttrTargetService] = service
+		r.MixerAttributes[AttrDestinationService] = service
 	}
 
 	return r
 }
 
 // Mixer TCP filter config for inbound requests
-func mixerTCPConfig(role proxy.Node) *FilterMixerConfig {
+func mixerTCPConfig(role proxy.Node, check bool) *FilterMixerConfig {
 	return &FilterMixerConfig{
 		MixerAttributes: map[string]string{
-			AttrTargetIP:  role.IPAddress,
-			AttrTargetUID: "kubernetes://" + role.ID,
+			AttrDestinationIP:  role.IPAddress,
+			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
+		DisableTCPCheckCalls: !check,
 	}
 }

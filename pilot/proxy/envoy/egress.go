@@ -84,7 +84,7 @@ func buildEgressHTTPRoute(mesh *proxyconfig.MeshConfig, svc *model.Service) *Vir
 
 			// enable mixer check on the route
 			if mesh.MixerAddress != "" {
-				route.OpaqueConfig = buildMixerOpaqueConfig(true, false)
+				route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
 			}
 
 			host = &VirtualHost{
