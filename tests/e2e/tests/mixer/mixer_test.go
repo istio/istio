@@ -119,6 +119,8 @@ func (t *testConfig) Setup() (err error) {
 		glog.Infof("initial product page request failed: %v", err)
 	}
 
+	allowPrometheusSync()
+
 	return
 }
 
@@ -265,22 +267,40 @@ func errorf(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestGlobalCheckAndReport(t *testing.T) {
+	// setup prometheus API
+	promAPI, err := promAPI()
+	if err != nil {
+		t.Fatalf("Could not build prometheus API client: %v", err)
+	}
+
+	// establish baseline
+	t.Log("Establishing metrics baseline for test...")
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("productpage"))
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		t.Fatalf("Could not get metrics from prometheus: %v", err)
+	}
+
+	prior200s, err := vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	if err != nil {
+		t.Logf("error getting prior 200s, using 0 as value (msg: %v)", err)
+		prior200s = 0
+	}
+
+	t.Logf("Baseline established: prior200s = %f", prior200s)
+	t.Log("Visiting product page...")
+
 	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
-	dumpK8Env()
 	allowPrometheusSync()
 
-	dumpK8Env()
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
-	promAPI, err := promAPI()
-	if err != nil {
-		fatalf(t, "Could not build prometheus API client: %v", err)
-	}
-	query := fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	query = fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
-	value, err := promAPI.Query(context.Background(), query, time.Now())
+	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		fatalf(t, "Could not get metrics from prometheus: %v", err)
 	}
@@ -291,10 +311,12 @@ func TestGlobalCheckAndReport(t *testing.T) {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
+	t.Logf("Got request_count (200s) of: %f", got)
+
 	want := float64(1)
-	if got < want {
+	if (got - prior200s) < want {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+		errorf(t, "Bad metric value: got %f, want at least %f", got-prior200s, want)
 	}
 }
 
