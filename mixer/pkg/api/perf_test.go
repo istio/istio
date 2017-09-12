@@ -238,7 +238,7 @@ func getGlobalDict() []string {
 		"server", "envoy",
 		"x-envoy-upstream-service-time",
 		"response.http.code",
-		"response.latency",
+		"response.duration",
 		"response.size",
 		"response.time",
 		"source.namespace",
@@ -272,7 +272,7 @@ func setRequestAttrs(bag *attribute.MutableBag, uuid []byte) {
 		"x-envoy-upstream-service-time": "0",
 	})
 	bag.Set("response.http.code", int64(200))
-	bag.Set("response.latency", time.Duration(50)*time.Millisecond)
+	bag.Set("response.duration", time.Duration(50)*time.Millisecond)
 	bag.Set("response.size", int64(64))
 	bag.Set("response.time", time.Now())
 	bag.Set("source.namespace", "XYZ11")

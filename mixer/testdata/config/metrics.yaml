@@ -20,7 +20,7 @@ metadata:
   name: requestduration
   namespace: istio-config-default
 spec:
-  value: response.latency | response.duration | "0ms"
+  value: response.duration | "0ms"
   dimensions:
     source: source.labels["app"] | "unknown"
     target: target.service | "unknown"
