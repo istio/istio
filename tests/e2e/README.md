@@ -87,6 +87,11 @@ You can build and run this or any single test manually with the same options as 
 
 ## Developer process
 
+### Cluster in same local network
+In order to talk to istio ingress, we use the ingress IP by default. If your
+cluster is on the same local network and cannot provide external IP, use the `--use-local-cluster` flag.
+In that case, the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
+
 ### Testing code change
 1. Run `e2e.sh --pilot_hub <pilot hub> --pilot_tag <pilot tag> --istioctl_url <istioctl url>` or
    `e2e.sh --mixer_hub <mixer hub> --mixer_tag <mixer tag>` to test your changes to pilot, mixer, respectively.
