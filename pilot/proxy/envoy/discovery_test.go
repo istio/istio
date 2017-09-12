@@ -83,6 +83,13 @@ func makeDiscoveryRequest(ds *DiscoveryService, method, url string, t *testing.T
 	return body
 }
 
+func commonSetup(t *testing.T) (*proxyconfig.MeshConfig, model.ConfigStore, *DiscoveryService) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+	return &mesh, registry, ds
+}
+
 func compareResponse(body []byte, file string, t *testing.T) {
 	err := ioutil.WriteFile(file, body, 0644)
 	if err != nil {
@@ -92,8 +99,7 @@ func compareResponse(body []byte, file string, t *testing.T) {
 }
 
 func TestServiceDiscovery(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0], nil)
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/sds.json", t)
@@ -101,17 +107,14 @@ func TestServiceDiscovery(t *testing.T) {
 
 // Can we list Services?
 func TestServiceDiscoveryListAllServices(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
-
+	_, _, ds := commonSetup(t)
 	url := "/v1/registration/"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/all-sds.json", t)
 }
 
 func TestServiceDiscoveryVersion(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0],
 		map[string]string{"version": "v1"})
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -119,8 +122,7 @@ func TestServiceDiscoveryVersion(t *testing.T) {
 }
 
 func TestServiceDiscoveryEmpty(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := "/v1/registration/nonexistent"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/sds-empty.json", t)
@@ -128,29 +130,24 @@ func TestServiceDiscoveryEmpty(t *testing.T) {
 
 // Test listing all clusters
 func TestClusterDiscoveryAllClusters(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := "/v1/clusters/"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/all-cds.json", t)
 }
 
 func TestClusterDiscovery(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
-	ds := makeDiscoveryService(t, registry, &mesh)
+	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds.json", t)
 }
 
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	// add weighted rule to split into two clusters
 	addConfig(registry, weightedRouteRule, t)
 	addConfig(registry, cbPolicy, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
@@ -160,6 +157,7 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	mesh := makeMeshConfig()
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, egressRule, t) // original dst cluster should not have auth
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -167,36 +165,30 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ingress.json", t)
 }
 
-func TestClusterDiscoveryEgress(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
-	ds := makeDiscoveryService(t, registry, &mesh)
+func TestClusterDiscoveryIstioEgress(t *testing.T) {
+	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Egress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/cds-egress.json", t)
+	compareResponse(response, "testdata/cds-istio-egress.json", t)
 }
 
 // Test listing all routes
 func TestRouteDiscoveryAllRoutes(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := "/v1/routes/"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/all-rds.json", t)
 }
 
 func TestRouteDiscoveryV0(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v0.json", t)
@@ -205,53 +197,47 @@ func TestRouteDiscoveryV0(t *testing.T) {
 func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh := makeMeshConfig()
 	mesh.MixerAddress = ""
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
+	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v0-nomixer.json", t)
 }
 
 func TestRouteDiscoveryV0Status(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/routes/81/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v0-status.json", t)
 }
 
 func TestRouteDiscoveryV1(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
 
 func TestRouteDiscoveryTimeout(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, timeoutRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-timeout.json", t)
 }
 
 func TestRouteDiscoveryWeighted(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, weightedRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-weighted.json", t)
 }
 
 func TestRouteDiscoveryFault(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, faultRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -264,10 +250,8 @@ func TestRouteDiscoveryFault(t *testing.T) {
 }
 
 func TestRouteDiscoveryRedirect(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, redirectRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -276,10 +260,8 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 }
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, rewriteRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -288,10 +270,8 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addConfig(registry, websocketRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -303,10 +283,8 @@ func TestRouteDiscoveryWebsocket(t *testing.T) {
 }
 
 func TestRouteDiscoveryIngress(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -318,24 +296,21 @@ func TestRouteDiscoveryIngress(t *testing.T) {
 }
 
 func TestRouteDiscoveryIngressWeighted(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
+	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
 	addConfig(registry, weightedRouteRule, t)
-	ds := makeDiscoveryService(t, registry, &mesh)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-ingress-weighted.json", t)
 }
 
-func TestRouteDiscoveryEgress(t *testing.T) {
-	mesh := makeMeshConfig()
-	registry := memory.Make(model.IstioConfigTypes)
-	ds := makeDiscoveryService(t, registry, &mesh)
+func TestRouteDiscoveryIstioEgress(t *testing.T) {
+	_, _, ds := commonSetup(t)
+
 	url := fmt.Sprintf("/v1/routes/8888/%s/%s", "istio-proxy", mock.Egress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/rds-egress.json", t)
+	compareResponse(response, "testdata/rds-istio-egress.json", t)
 }
 
 func TestSidecarListenerDiscovery(t *testing.T) {
@@ -374,19 +349,21 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 			name: "fault",
 			file: faultRouteRule,
 		},
+		{
+			name: "egress-rule",
+			file: egressRule,
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			registry := memory.Make(model.IstioConfigTypes)
+			_, registry, ds := commonSetup(t)
 
 			if testCase.file != "" {
 				addConfig(registry, testCase.file, t)
 			}
 
 			// test with no auth
-			mesh := makeMeshConfig()
-			ds := makeDiscoveryService(t, registry, &mesh)
 			url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			compareResponse(response, fmt.Sprintf("testdata/lds-v0-%s.json", testCase.name), t)
@@ -396,7 +373,7 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s.json", testCase.name), t)
 
 			// test with no mixer
-			mesh = makeMeshConfig()
+			mesh := makeMeshConfig()
 			mesh.MixerAddress = ""
 			ds = makeDiscoveryService(t, registry, &mesh)
 			url = fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -425,6 +402,7 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 func TestListenerDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, egressRule, t)
 	addIngressRoutes(registry, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
@@ -443,6 +421,8 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 	mesh.ProxyHttpPort = 15002
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
+	addConfig(registry, egressRule, t)
+
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-httpproxy.json", t)
@@ -451,23 +431,23 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 	compareResponse(response, "testdata/rds-httpproxy.json", t)
 }
 
-func TestListenerDiscoveryEgress(t *testing.T) {
+func TestListenerDiscoveryIstioEgress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
+	addConfig(registry, egressRule, t)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Egress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-egress.json", t)
+	compareResponse(response, "testdata/lds-istio-egress.json", t)
 
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
-	compareResponse(response, "testdata/lds-egress-auth.json", t)
+	compareResponse(response, "testdata/lds-istio-egress-auth.json", t)
 }
 
 func TestDiscoveryCache(t *testing.T) {
-	mesh := makeMeshConfig()
-	ds := makeDiscoveryService(t, memory.Make(model.IstioConfigTypes), &mesh)
+	_, _, ds := commonSetup(t)
 
 	sds := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0], nil)
 	cds := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())

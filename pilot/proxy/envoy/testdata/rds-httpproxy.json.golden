@@ -1,6 +1,43 @@
 {
   "virtual_hosts": [
    {
+    "name": "*.google.com:443",
+    "domains": [
+     "*.google.com:443"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.orig-dst-cluster-https"
+     }
+    ]
+   },
+   {
+    "name": "*.google.com:80",
+    "domains": [
+     "*.google.com",
+     "*.google.com:80"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.orig-dst-cluster-http"
+     }
+    ]
+   },
+   {
+    "name": "*.google.com:8080",
+    "domains": [
+     "*.google.com:8080"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.orig-dst-cluster-http2"
+     }
+    ]
+   },
+   {
     "name": "hello.default.svc.cluster.local|http",
     "domains": [
      "hello:80",

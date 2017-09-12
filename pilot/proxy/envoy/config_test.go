@@ -226,6 +226,7 @@ const (
 	redirectRouteRule  = "testdata/redirect-route.yaml.golden"
 	rewriteRouteRule   = "testdata/rewrite-route.yaml.golden"
 	websocketRouteRule = "testdata/websocket-route.yaml.golden"
+	egressRule         = "testdata/egress-rule.yaml.golden"
 )
 
 func addConfig(r model.ConfigStore, file string, t *testing.T) {

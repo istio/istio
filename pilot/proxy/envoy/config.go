@@ -222,6 +222,7 @@ func buildSidecarListenersClusters(
 	if mesh.ProxyHttpPort > 0 {
 		// only HTTP outbound clusters are needed
 		httpOutbound := buildOutboundHTTPRoutes(mesh, node, instances, services, config)
+		httpOutbound = buildEgressFromSidecarHTTPRoutes(mesh, config.EgressRules(), httpOutbound)
 		clusters = append(clusters,
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
