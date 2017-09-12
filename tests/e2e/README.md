@@ -2,6 +2,25 @@
 
 This directory contains Istio end-to-end tests and test framework.
 
+## e2e test environment
+You need a k8s cluster to run tests. We recommend GKE cluster although miniKube works for some people too. 
+```bash
+gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
+  --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --no-enable-legacy-authorization
+ ```
+ - `CLUSTER_VERSION`: Latest 1.7.x k8s cluster.
+ - `MACHINE_TYPE`: n1-standard-4
+ - `NUM_NODES`: Minimum 1.
+ - `no-enable-legacy-authorization`: Optional, needed if you want to test rbac.
+
+If you hit the error 
+```bash
+Error from server (Forbidden): error when creating "install/kubernetes/istio-rbac-beta.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
+```
+You need to add the following: (replace the name with your own)
+```
+kubectl create clusterrolebinding myname-cluster-admin-binding --clusterrole=cluster-admin --user=myname@example.org
+```
 
 ## e2e.sh
 
@@ -34,12 +53,24 @@ If not specify `namespace`, a randomly namespace would be generated for each tes
 
 `log_provider` and `project_id` must both be specified if one wishes to collect cluster logs.
 
+### For all the following example, you always need to add:
+* `--auth_enable` if you want to include auth
+* `--rbac_path=install/kubernetes/istio-rbac-beta.yaml` if you are using a rbac cluster (which means you disabled legacy if using GKE)
+
 ### Example
 From the repo checkout root directory
 
-* `tests/e2e.sh`: run tests with the latest stable version of istio according to istio.VERSION.
+* Run tests with the latest stable version of istio according to istio.VERSION :
 
-* `tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl`: test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a".
+`tests/e2e.sh --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+
+* Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a": 
+
+`tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+
+* If you want to run one specific test, you can do:
+
+`bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
 
 
 ## Access to logs and temp files from Jenkins
