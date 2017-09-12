@@ -68,7 +68,7 @@ echo '=== Build istioctl ==='
 ./bin/upload-istioctl -r -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
 
 echo '=== Running e2e Tests ==='
-bin/e2e.sh -count 10 -logs=false -tag "${GIT_SHA}"
+bin/e2e.sh -logs=false -tag "${GIT_SHA}"
 
 if [ "${CI:-}" == 'bootstrap' ]; then
     echo "=== Building githubctl ==="
