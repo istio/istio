@@ -23,8 +23,7 @@ set -u
 # Print commands
 set -x
 
-# Use volume mount from pilot-presubmit job's pod spec.
-ln -sf "${HOME}/.kube/config" platform/kube/config
+touch platform/kube/config
 
 if [ "${CI:-}" == 'bootstrap' ]; then
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
