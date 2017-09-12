@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
+	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
@@ -157,6 +158,37 @@ func DefaultMeshConfig() proxyconfig.MeshConfig {
 		AccessLogFile:         "/dev/stdout",
 		DefaultConfig:         &config,
 	}
+}
+
+// ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
+// input YAML with defaults applied to omitted configuration values.
+func ApplyMeshConfigDefaults(yaml string) (*proxyconfig.MeshConfig, error) {
+	out := DefaultMeshConfig()
+	if err := model.ApplyYAML(yaml, &out); err != nil {
+		return nil, multierror.Prefix(err, "failed to convert to proto.")
+	}
+
+	// Reset the default ProxyConfig as jsonpb.UnmarshalString doesn't
+	// handled nested decode properly for our use case.
+	prevDefaultConfig := out.DefaultConfig
+	defaultProxyConfig := DefaultProxyConfig()
+	out.DefaultConfig = &defaultProxyConfig
+
+	// Re-apply defaults to ProxyConfig if they were defined in the
+	// original input MeshConfig.ProxyConfig.
+	if prevDefaultConfig != nil {
+		origProxyConfigYAML, err := model.ToYAML(prevDefaultConfig)
+		if err != nil {
+			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
+		}
+		if err := model.ApplyYAML(origProxyConfigYAML, out.DefaultConfig); err != nil {
+			return nil, multierror.Prefix(err, "failed to convert to proto.")
+		}
+	}
+	if err := model.ValidateMeshConfig(&out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ParsePort extracts port number from a valid proxy address

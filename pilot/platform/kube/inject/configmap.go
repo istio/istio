@@ -22,13 +22,11 @@ package inject
 import (
 	"fmt"
 
-	multierror "github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
 	"istio.io/pilot/proxy"
 )
 
@@ -48,16 +46,11 @@ func GetMeshConfig(kube kubernetes.Interface, namespace,
 		return nil, nil, fmt.Errorf("missing configuration map key %q", ConfigMapKey)
 	}
 
-	mesh := proxy.DefaultMeshConfig()
-	if err = model.ApplyYAML(yaml, &mesh); err != nil {
-		return nil, nil, multierror.Prefix(err, "failed to convert to proto.")
-	}
-
-	if err = model.ValidateMeshConfig(&mesh); err != nil {
+	mesh, err := proxy.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
 		return nil, nil, err
 	}
-
-	return config, &mesh, nil
+	return config, mesh, nil
 }
 
 // CreateMeshConfigMap copies a configMap in another namespace

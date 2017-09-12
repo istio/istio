@@ -15,6 +15,7 @@
 package proxy_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -77,5 +78,24 @@ func TestDefaultMeshConfig(t *testing.T) {
 	mesh := proxy.DefaultMeshConfig()
 	if err := model.ValidateMeshConfig(&mesh); err != nil {
 		t.Errorf("validation of default mesh config failed with %v", err)
+	}
+}
+
+func TestApplyMeshConfigDefaults(t *testing.T) {
+	configPath := "/test/config/patch"
+	yaml := fmt.Sprintf(`
+defaultConfig:
+  configPath: %s
+`, configPath)
+
+	want := proxy.DefaultMeshConfig()
+	want.DefaultConfig.ConfigPath = configPath
+
+	got, err := proxy.ApplyMeshConfigDefaults(yaml)
+	if err != nil {
+		t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
+	}
+	if !reflect.DeepEqual(got, &want) {
+		t.Fatalf("Wrong default values:\n got %#v \nwant %#v", got, &want)
 	}
 }

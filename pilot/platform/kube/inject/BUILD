@@ -10,7 +10,6 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//model:go_default_library",
         "//proxy:go_default_library",
         "//tools/version:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
@@ -19,7 +18,6 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
-        "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//:go_default_library",
         "@io_k8s_api//apps/v1beta1:go_default_library",
         "@io_k8s_api//batch/v1:go_default_library",
