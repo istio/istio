@@ -29,7 +29,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"istio.io/mixer/adapter/prometheus2/config"
+	"istio.io/mixer/adapter/prometheus/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/template/metric"
 )
