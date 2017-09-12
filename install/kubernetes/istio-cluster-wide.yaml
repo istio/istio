@@ -582,7 +582,13 @@ data:
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
       #
-      # These are advanced settings that determine how long an old Envoy
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      binaryPath: "/usr/local/bin/envoy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
       # process should be kept alive after an occasional reload.
       drainDuration: 45s
       parentShutdownDuration: 1m0s
@@ -644,7 +650,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:3632ef00cdc3cf36b85b956518754af836daaa65
+        image: gcr.io/istio-testing/pilot:60e6ed19f6027a038c7a3016fdb1012bf5889470
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -726,7 +732,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:3632ef00cdc3cf36b85b956518754af836daaa65
+        image: gcr.io/istio-testing/proxy_debug:60e6ed19f6027a038c7a3016fdb1012bf5889470
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: IfNotPresent
         ports:
@@ -802,7 +808,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:3632ef00cdc3cf36b85b956518754af836daaa65
+        image: gcr.io/istio-testing/proxy_debug:60e6ed19f6027a038c7a3016fdb1012bf5889470
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:

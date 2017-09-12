@@ -36,7 +36,13 @@ data:
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
       #
-      # These are advanced settings that determine how long an old Envoy
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      binaryPath: "/usr/local/bin/envoy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
       # process should be kept alive after an occasional reload.
       drainDuration: 45s
       parentShutdownDuration: 1m0s
