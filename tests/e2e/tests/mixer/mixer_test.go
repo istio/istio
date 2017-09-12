@@ -291,7 +291,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	t.Logf("Baseline established: prior200s = %f", prior200s)
 	t.Log("Visiting product page...")
 
-	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+	if err = visitProductPage(productPageTimeout, http.StatusOK); err != nil {
 		t.Fatalf("Test app setup failure: %v", err)
 	}
 	allowPrometheusSync()
@@ -312,6 +312,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 		fatalf(t, "Could not find metric value: %v", err)
 	}
 	t.Logf("Got request_count (200s) of: %f", got)
+	t.Logf("Actual new requests observed: %f", got-prior200s)
 
 	want := float64(1)
 	if (got - prior200s) < want {
