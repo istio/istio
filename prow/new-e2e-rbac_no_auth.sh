@@ -29,7 +29,7 @@ set -u
 set -x
 
 PROJECT_NAME=istio-testing
-ZONE=us-east4-a
+ZONE=us-central1-f
 CLUSTER_VERSION=1.7.5
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
