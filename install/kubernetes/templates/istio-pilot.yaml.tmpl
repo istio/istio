@@ -8,12 +8,21 @@ data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
-    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
-    discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
     ingressService: istio-ingress.{ISTIO_NAMESPACE}
     egressProxyAddress: istio-egress.{ISTIO_NAMESPACE}:80
-    statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
-    zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411
+    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
+    defaultConfig:
+          configPath:             "/etc/istio/proxy"
+          binaryPath:             "/usr/local/bin/envoy"
+          serviceCluster:         istio-proxy
+          drainDuration:          2s
+          parentShutdownDuration: 3s
+          discoveryAddress:       istio-pilot.{ISTIO_NAMESPACE}:8080
+          discoveryRefreshDelay:  1s
+          connectTimeout:         1s
+          proxyAdminPort:         15000
+          zipkinAddress:          zipkin.{ISTIO_NAMESPACE}:9411
+          statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
 ---
 apiVersion: v1
 kind: Service
