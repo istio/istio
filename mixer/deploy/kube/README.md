@@ -14,7 +14,7 @@ mixer server with our test client (`mixc`), providing some attribute values:
 
 ```shell
 $ MIXS=$(minikube service mixer --url --format "{{.IP}}:{{.Port}}" | head -n 1)
-$ bazel run //cmd/client:mixc -- report "something happened" -m $MIXS -a source.name=source,target.name=target,api.name=myapi,api.method=v1.foo.bar,response.http.code=200,response.latency=100,client.id=$USER
+$ bazel run //cmd/client:mixc -- report "something happened" -m $MIXS -a source.name=source,target.name=target,api.name=myapi,api.method=v1.foo.bar,response.http.code=200,response.duration=100,client.id=$USER
 ```
 
 <aside class="notice">
@@ -102,7 +102,7 @@ aspects:
           method: api.method | "unknown"
           response_code: response.http.code
       - descriptor:  request_latency
-        value: response.latency
+        value: response.duration | "0ms"
         labels:
           source: source.name
           target: target.name
