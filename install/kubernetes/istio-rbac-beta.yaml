@@ -26,6 +26,21 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["externaladmissionhookconfigurations"]
+  verbs: ["create", "update", "delete"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer-istio-system
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
+  verbs: ["initialize", "patch", "watch", "list"]
+- apiGroups: ["*"]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
 ---
 # Mixer CRD needs to watch and list CRDs
 # It also uses discovery API to discover Kinds of config.istio.io
@@ -85,6 +100,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-pilot-istio-system
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Sidecar initializer
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer-admin-role-binding-istio-system
+subjects:
+- kind: ServiceAccount
+  name: istio-sidecar-initializer-service-account
+  namespace: istio-system
+roleRef:
+  kind: ClusterRole
+  name: istio-sidecar-initializer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.

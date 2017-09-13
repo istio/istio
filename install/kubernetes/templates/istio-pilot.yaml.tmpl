@@ -76,8 +76,8 @@ spec:
   ports:
   - port: 8080
     name: http-discovery
-  - port: 8081
-    name: http-apiserver
+  - port: 443
+    name: http-admission-webhook
   selector:
     istio: pilot
 ---
@@ -106,9 +106,10 @@ spec:
       - name: discovery
         image: {PILOT_HUB}/pilot:{PILOT_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2"]
+        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
         - containerPort: 8080
+        - containerPort: 443
         env:
         - name: POD_NAME
           valueFrom:

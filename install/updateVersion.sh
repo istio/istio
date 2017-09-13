@@ -109,6 +109,7 @@ function merge_files() {
   ISTIO=$DEST/istio.yaml
   ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
   ISTIO_AUTH=$DEST/istio-auth.yaml
+  ISTIO_SIDECAR_INITIALIZER=$DEST/istio-sidecar-initializer.yaml
 
 #TODO remove 2 lines below once the e2e tests no longer look for this file
   cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
@@ -125,10 +126,14 @@ function merge_files() {
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
 
+  # TODO(andra/jason) - copy this into ${ISTIO_CLUSTER_WIDE} after initial cluster-wide test is verified.
+  cp ${SRC}/istio-sidecar-initializer.yaml.tmpl $ISTIO_SIDECAR_INITIALIZER
+
   cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
 #TODO the CA templates can be combines
   cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
   cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+
 
   #TODO remove once e2e tests are updated
 #  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
@@ -160,11 +165,15 @@ function update_istio_install() {
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-sidecar-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml.tmpl
+
+  sed -i=.bak "s|{PILOT_HUB}|${PILOT_HUB}|" istio-sidecar-initializer.yaml.tmpl
+  sed -i=.bak "s|{PILOT_TAG}|${PILOT_TAG}|" istio-sidecar-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml.tmpl
