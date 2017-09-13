@@ -42,17 +42,16 @@ fi
 echo "=== Bazel Build ==="
 bazel build //...
 
-echo "=== Bazel Tests and race check ==="
-bazel test --features=race //...
-
-
 echo "=== go build ./... ==="
 bin/bazel_to_go.py
-go build ./...
 
-echo "=== Code Linters ==="
-export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
-./bin/linters.sh
+echo "=== Code Coverage ==="
+./bin/codecov.sh | tee codecov.report
+if [ "${CI:-}" == "bootstrap" ]; then
+    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="mixer/presubmit" ./bin/toolbox/presubmit/pkg_coverage.sh
 
-echo "=== Publish docker images ==="
-./bin/publish-docker-images.sh -t ${GIT_SHA} -h 'gcr.io/istio-testing'
+    curl -s https://codecov.io/bash | CI_JOB_ID="${JOB_NAME}" CI_BUILD_ID="${BUILD_NUMBER}" bash /dev/stdin \
+      -K -Z -B ${PULL_BASE_REF} -C ${GIT_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/mixer.token
+else
+    echo "Not in bootstrap environment, skipping code coverage publishing"
+fi
