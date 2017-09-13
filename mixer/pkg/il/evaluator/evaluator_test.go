@@ -259,7 +259,7 @@ func TestConfigChange(t *testing.T) {
 	}
 
 	f := descriptor.NewFinder(&configBool)
-	e.ConfigChange(nil, f, nil)
+	e.ChangeVocabulary(f)
 	if e.getAttrContext().finder != f {
 		t.Fatal("Finder is not set correctly")
 	}
@@ -284,7 +284,7 @@ func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
 		t.Fatalf("error: %s", err)
 	}
 	finder := descriptor.NewFinder(&config)
-	e.ConfigChange(nil, finder, nil)
+	e.ChangeVocabulary(finder)
 	return e
 }
 

@@ -243,20 +243,32 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
 	adapterGP.AddWorkers(adapterPoolSize)
 
-	var ilEval *evaluator.IL
+	// Old and new runtime maintain their own evaluators with
+	// configs and attribute vocabularies.
+	var ilEvalForLegacy *evaluator.IL
 	var eval expr.Evaluator
+	var evalForLegacy expr.Evaluator
 	if sa.useAst {
 		// get aspect registry with proper aspect --> api mappings
 		eval, err = expr.NewCEXLEvaluator(expressionEvalCacheSize)
 		if err != nil {
 			fatalf("Failed to create CEXL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
+		evalForLegacy, err = expr.NewCEXLEvaluator(expressionEvalCacheSize)
+		if err != nil {
+			fatalf("Failed to create CEXL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+		}
 	} else {
-		ilEval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
 		if err != nil {
 			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
-		eval = ilEval
+		ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		if err != nil {
+			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
+		}
+
+		evalForLegacy = ilEvalForLegacy
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
@@ -279,16 +291,17 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 		fatalf("Failed to create runtime dispatcher. %v", err)
 	}
 
+	// Legacy Runtime
 	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
-	adapterMgr := adapterManager.NewManager(adapter.InventoryLegacy(), aspect.Inventory(), eval, gp, adapterGP)
-	configManager := config.NewManager(eval, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
+	adapterMgr := adapterManager.NewManager(adapter.InventoryLegacy(), aspect.Inventory(), evalForLegacy, gp, adapterGP)
+	configManager := config.NewManager(evalForLegacy, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
 		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
-	configAPIServer := config.NewAPI("v1", sa.configAPIPort, eval,
+	configAPIServer := config.NewAPI("v1", sa.configAPIPort, evalForLegacy,
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds, store, repo)
 
@@ -381,8 +394,9 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	configManager.Register(adapterMgr)
 	if !sa.useAst {
-		configManager.Register(ilEval)
+		configManager.Register(ilEvalForLegacy)
 	}
+
 	configManager.Start()
 
 	printf("Starting Config API server on port %v", sa.configAPIPort)
@@ -415,7 +429,6 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	// get everything wired up
 	gs := grpc.NewServer(grpcOptions...)
 
-	// FIXME construct a runtime.New as dispatcher param
 	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
 	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
