@@ -79,6 +79,8 @@ manifests:
         valueType: DURATION
       response.headers:
         valueType: STRING_MAP
+      response.latency:
+        valueType: DURATION
       response.size:
         valueType: INT64
       response.time:
