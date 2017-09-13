@@ -25,5 +25,5 @@ Default values for the `-p`, `-x`, `-c`, and `-i` options are as specified in `i
 Update the pilot and istioctl:
 
 ```
-./updateVersion.sh -p "docker.io/istio,2017-05-09-06.14.22" -c "https://storage.googleapis.com/istio-artifacts/dbcc933388561cdf06cbe6d6e1076b410e4433e0/artifacts/istioctl"
+./updateVersion.sh -p "docker.io/istio,2017-05-09-06.14.22" -i "https://storage.googleapis.com/istio-artifacts/dbcc933388561cdf06cbe6d6e1076b410e4433e0/artifacts/istioctl"
 ```
