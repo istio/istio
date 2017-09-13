@@ -12,19 +12,20 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM websphere-liberty:latest
+FROM ruby:2.3
 
-ENV SERVERDIRNAME reviews
+RUN mkdir -p /etc/istio/proxy/
+RUN apt-get update && apt-get -y install iptables curl
+RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
+RUN chown istio-proxy /etc/istio/proxy
 
-ADD ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
+COPY ./envoy /usr/local/bin/
+COPY ./prepare_proxy.sh /opt/istio/
+COPY . /opt/microservices/
+EXPOSE 9080
 
-RUN /opt/ibm/wlp/bin/installUtility install  --acceptLicense /opt/ibm/wlp/usr/servers/defaultServer/server.xml
+COPY ./start_service.sh /usr/local/bin/
+RUN chmod u+x /usr/local/bin/start_service.sh
+COPY ./pilot-agent /opt/istio/
 
-ARG service_version
-ARG enable_ratings
-ARG star_color
-ENV SERVICE_VERSION ${service_version:-v1}
-ENV ENABLE_RATINGS ${enable_ratings:-false}
-ENV STAR_COLOR ${star_color:-black}
-
-CMD /opt/ibm/wlp/bin/server run defaultServer
+ENTRYPOINT /usr/local/bin/start_service.sh
