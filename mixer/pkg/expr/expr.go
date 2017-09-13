@@ -101,7 +101,7 @@ func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]F
 	if e.Var != nil {
 		ad := attrs.GetAttribute(e.Var.Name)
 		if ad == nil {
-			return valueType, fmt.Errorf("unresolved attribute %s", e.Var.Name)
+			return valueType, fmt.Errorf("unknown attribute %s", e.Var.Name)
 		}
 		return ad.ValueType, nil
 	}

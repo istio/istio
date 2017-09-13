@@ -365,7 +365,7 @@ func TestInternalTypeCheck(t *testing.T) {
 		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, success},
 		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, "typeError"},
 		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, success},
-		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "unresolved attribute"},
+		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "unknown attribute"},
 		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "arity mismatch"},
 		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, "unknown function"},
 	}
