@@ -39,7 +39,7 @@ function istio_sync() {
   for sub in pilot istio mixer auth proxy; do
     if [[ -d $ISTIO_IO/$sub ]]; then
       echo "Syncing $sub"
-      (cd $ISTIO_IO/$sub; git pull github master)
+      (cd $ISTIO_IO/$sub; git pull origin master)
     else
       (cd $ISTIO_IO; git clone https://github.com/istio/$sub; )
     fi
@@ -72,8 +72,6 @@ function istio_build_docker() {
   # TODO: proxy will still use a hardcoded version, from the dockerfile.
   (cd $ISTIO_IO/pilot; ./bin/push-docker -tag $TAG)
 
-  (cd $ISTIO_IO/pilot; ./bin/upload-istioctl -p gs://istio-release/releases/"${TAG_NAME}"/istioctl)
-
   (cd $ISTIO_IO/auth; ./bin/push-docker.sh -t $TAG -h $HUB)
 
   (cd $ISTIO_IO/mixer; ./bin/publish-docker-images.sh -h $HUB -t $TAG)
@@ -88,9 +86,20 @@ function istio_update_version() {
   (cd $ISTIO_IO/istio; ./install/updateVersion.sh -p $HUB,$TAG -x $HUB,$TAG -c $HUB,$TAG)
 }
 
+# Run the tests with the images built by istio_build_docker.
 function istio_test() {
-  local TAG=${1:-$(whoami)}
+  local TAG=${TAG:-$(whoami)}
 
+  # Using head istioctl (no download)
   (cd $ISTIO_IO/istio; ./tests/e2e.sh --auth_enable --rbac_path=install/kubernetes/istio-rbac-beta.yaml --skip_cleanup --namespace e2e --mixer_hub $HUB --mixer_tag $TAG \
-    --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
+    --istioctl $ISTIO_IO/pilot/bazel-bin/cmd/istioctl/istioctl --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
+}
+
+# Rerun a test.
+function istio_retest() {
+  locat TESTS=$1
+  local TAG=${TAG:-$(whoami)}
+
+  (cd $ISTIO_IO/istio; ./tests/e2e.sh --auth_enable --rbac_path=install/kubernetes/istio-rbac-beta.yaml --skip_cleanup --skip_setup -test.run=$TESTS --namespace e2e --mixer_hub $HUB --mixer_tag $TAG \
+    --istioctl $ISTIO_IO/pilot/bazel-bin/cmd/istioctl/istioctl --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
 }
