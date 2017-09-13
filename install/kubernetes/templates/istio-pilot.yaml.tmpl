@@ -27,14 +27,14 @@ data:
     # from Istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: 30s
+    rdsRefreshDelay: {REFRESH_DELAY}
     #
     defaultConfig:
       # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: 30s
+      discoveryRefreshDelay: {REFRESH_DELAY}
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
+      connectTimeout: {CONNECT_TIMEOUT}
       #
       ### ADVANCED SETTINGS #############
       # Where should envoy's configuration be stored in the istio-proxy container
@@ -44,8 +44,8 @@ data:
       serviceCluster: istio-proxy
       # These settings that determine how long an old Envoy
       # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
+      drainDuration: {DRAIN_DURATION}
+      parentShutdownDuration: {PARENT_SHUTDOWN_DURATION}
       #
       # Port where Envoy listens (on local host) for admin commands
       # You can exec into the istio-proxy container in a pod and

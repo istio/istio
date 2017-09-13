@@ -16,6 +16,12 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+#Test constants for Pilot. Do not change
+REFRESH_DELAY="1s"
+CONNECT_TIMEOUT="1s"
+DRAIN_DURATION="2s"
+PARENT_SHUTDOWN_DURATION="3s"
+
 function error_exit() {
     # ${BASH_SOURCE[1]} is the file name of the caller.
     echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
@@ -67,6 +73,12 @@ function generate_istio_yaml() {
     cp -r ${src_dir}/* ${dest_dir}
     sed -i "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-pilot.yaml
     sed -i "s|args: [\"discovery\", \"-v\", \"2\"]|args: ["discovery", "-v", "2", \"-a\", $NAMESPACE]|" ${dest_dir}/istio-pilot.yaml
+    sed -i "s|{REFRESH_DELAY}|${REFRESH_DELAY}|" ${dest_dir}/istio-pilot.yaml.tmpl
+    sed -i "s|{CONNECT_TIMEOUT}|${CONNECT_TIMEOUT}|" ${dest_dir}/istio-pilot.yaml.tmpl
+    sed -i "s|{DRAIN_DURATION}|${DRAIN_DURATION}|" ${dest_dir}/istio-pilot.yaml.tmpl
+    sed -i "s|{PARENT_SHUTDOWN_DURATION}|${PARENT_SHUTDOWN_DURATION}|" ${dest_dir}/istio-pilot.yaml.tmpl
+
+
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-ingress.yaml
     sed -i "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" ${dest_dir}/istio-egress.yaml
     sed -i "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" ${dest_dir}/istio-mixer.yaml

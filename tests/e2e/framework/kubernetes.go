@@ -107,7 +107,7 @@ func (k *KubeInfo) Setup() error {
 
 	if err = util.CreateNamespace(k.Namespace); err != nil {
 		glog.Error("Failed to create namespace.")
-		return err
+		//return err
 	}
 	k.namespaceCreated = true
 
