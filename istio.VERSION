@@ -6,5 +6,5 @@ export MIXER_HUB="gcr.io/istio-testing"
 export MIXER_TAG="2c49eeb382bdd4c5df7a41836f5b547baef8f802"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/9643e1d85fc04635b3715786d19988c637fb514f/artifacts/istioctl"
 export PILOT_HUB="gcr.io/istio-testing"
-export PILOT_TAG="9643e1d85fc04635b3715786d19988c637fb514f"
+export PILOT_TAG="52fbe2338ca0e28fb95077ea5a3e6af31cd98342"
 export ISTIO_NAMESPACE=istio-system
