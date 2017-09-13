@@ -91,7 +91,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
@@ -105,7 +105,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-ca
+  name: istio-ca-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
@@ -119,7 +119,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Egress controller.
@@ -133,7 +133,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the sidecar.
@@ -149,7 +149,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar
+  name: istio-sidecar-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to Mixer.
@@ -163,7 +163,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-mixer
+  name: istio-mixer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Mixer
