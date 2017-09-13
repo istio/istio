@@ -92,15 +92,14 @@ function concurrent_exec() {
 }
 
 function sequential_exec() {
-    # for T in ${TESTS_TARGETS[@]}; do
-    #     echo '****************************************************'
-    #     echo "Running ${T}"
-    #     echo '****************************************************'
-    #     bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]}
-    #     process_result $? ${T}
-    #     echo '****************************************************'
-    # done
-    bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} //tests/e2e/tests/bookinfo:go_default_test -- ${ARGS[@]} ${TESTARGS[@]}
+    for T in ${TESTS_TARGETS[@]}; do
+        echo '****************************************************'
+        echo "Running ${T}"
+        echo '****************************************************'
+        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]}
+        process_result $? ${T}
+        echo '****************************************************'
+    done
 }
 
 # getopts only handles single character flags
