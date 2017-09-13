@@ -11,13 +11,13 @@
 		"repoName": "mixer",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "2c49eeb382bdd4c5df7a41836f5b547baef8f802"
+		"lastStableSHA": "8234eb2b21ec5cef584fc948d2d0c8b2095497de"
 	},
 	{
 		"name": "PILOT_TAG",
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e"
+		"lastStableSHA": "4d3e5b5dac116dfc840e21b9620b43e6c5f051a8"
 	}
 ]
