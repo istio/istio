@@ -34,6 +34,9 @@
 
 # GCLOUD_OPTS - optional parameters for gcloud command, for example "--project P --zone Z".
 #  If not set, defaults are used.
+# ISTIO_CP - command to use to copy files to the VM.
+# ISTIO_RUN - command to use to copy files to the VM.
+
 
 # Initialize internal load balancers to access K8S DNS and Istio Pilot, Mixer, CA.
 # Must be run once per cluster.
@@ -225,7 +228,9 @@ function istioCopyBuildFiles() {
   chmod +w *.deb
 }
 
-# Copy files to the VM
+# Copy files to the VM.
+# - VM name - required, destination where files will be copied
+# - list of files and directories to be copied
 function istioCopy() {
   # TODO: based on some env variable, use different commands for other clusters or for testing with
   # bare-metal machines.
@@ -233,14 +238,16 @@ function istioCopy() {
   shift
   local FILES=$*
 
-  gcloud compute scp --recurse ${GCP_OPTS:-} $FILES ${NAME}:
+  ${ISTIO_CP:-gcloud compute scp --recurse ${GCP_OPTS:-}} $FILES ${NAME}:
 }
 
 # Run a command in a VM.
+# - VM name
+# - command to run, as one parameter.
 function istioRun() {
   local NAME=$1
   local CMD=$2
 
-  gcloud compute ssh ${GCP_OPTS:-} $NAME --command "$CMD"
+  ${ISTIO_RUN:-gcloud compute ssh ${GCP_OPTS:-}} $NAME --command "$CMD"
 }
 
