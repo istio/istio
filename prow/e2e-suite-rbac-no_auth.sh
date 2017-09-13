@@ -31,4 +31,4 @@ set -x
 RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
 
 echo 'Running e2e with rbac, no auth Tests'
-./prow/e2e-suite.sh --rbac_path="${RBAC_FILE}" ${@}
+./prow/e2e-suite.sh --rbac_path="${RBAC_FILE}" "${@}"
