@@ -567,7 +567,7 @@ func TestRateLimit(t *testing.T) {
 	}
 	glog.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find rate limit value: %v", err)
@@ -586,7 +586,7 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find successes value: %v", err)
