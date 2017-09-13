@@ -24,7 +24,7 @@ rules:
           version: target.labels["version"] | "unknown"
           response_code: response.code | 200
       - descriptor_name:  request_duration
-        value: response.latency | response.duration | "0ms"
+        value: response.duration | "0ms"
         labels:
           source: source.labels["app"] | "unknown"
           target: target.service | "unknown"
