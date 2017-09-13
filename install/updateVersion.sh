@@ -19,12 +19,6 @@ VERSION_FILE="${ROOT}/istio.VERSION"
 TEMP_DIR="/tmp"
 GIT_COMMIT=false
 
-## Install constants for Pilot. Do not change
-REFRESH_DELAY="30s"
-CONNECT_TIMEOUT="10s"
-DRAIN_DURATION="45s"
-PARENT_SHUTDOWN_DURATION="1m0s"
-
 set -o errexit
 set -o pipefail
 set -x
@@ -168,11 +162,6 @@ function update_istio_install() {
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
-
-  sed -i=.bak "s|{REFRESH_DELAY}|${REFRESH_DELAY}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|{CONNECT_TIMEOUT}|${CONNECT_TIMEOUT}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|{DRAIN_DURATION}|${DRAIN_DURATION}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|{PARENT_SHUTDOWN_DURATION}|${PARENT_SHUTDOWN_DURATION}|" istio-pilot.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
