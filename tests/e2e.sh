@@ -17,7 +17,7 @@
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
-TESTARGS=${@}
+TESTARGS="${@}"
 
 function print_block() {
     line=""

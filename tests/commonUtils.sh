@@ -76,7 +76,6 @@ function generate_istio_yaml() {
 
     sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-ns.yaml.tmpl
     sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-rbac-beta.yaml.tmpl
-    sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-rbac-alpha.yaml.tmpl
     sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-pilot.yaml.tmpl
     sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-ingress.yaml.tmpl
     sed -i "s|{ISTIO_NAMESPACE}|${NAMESPACE}|" ${dest_dir}/istio-egress.yaml.tmpl

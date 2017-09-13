@@ -8,7 +8,6 @@ filegroup(
         "istio-namespace-ca.yaml.tmpl",
         "istio-ns.yaml.tmpl",
         "istio-pilot.yaml.tmpl",
-        "istio-rbac-alpha.yaml.tmpl",
         "istio-rbac-beta.yaml.tmpl",
     ],
     visibility = ["//visibility:public"],
