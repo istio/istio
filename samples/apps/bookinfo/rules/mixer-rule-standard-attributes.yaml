@@ -47,7 +47,7 @@ spec:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
-      target.uid:
+      destination.uid:
         valueType: STRING
       # DEPRECATED, to be removed. Use request.useragent instead.
       request.user-agent:
@@ -72,16 +72,16 @@ spec:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
-      target.ip:
+      destination.ip:
         valueType: IP_ADDRESS
-      target.labels:
+      destination.labels:
         valueType: STRING_MAP
-      target.name:
+      destination.name:
         valueType: STRING
-      target.namespace:
+      destination.namespace:
         valueType: STRING
-      target.service:
+      destination.service:
         valueType: STRING
-      target.serviceAccount:
+      destination.serviceAccount:
         valueType: STRING
 
