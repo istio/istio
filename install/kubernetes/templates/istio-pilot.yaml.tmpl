@@ -8,7 +8,7 @@ data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
-    ingressService: istio-ingress.{ISTIO_NAMESPACE}
+    ingressService: istio-ingress
     egressProxyAddress: istio-egress.{ISTIO_NAMESPACE}:80
     mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
     defaultConfig:
