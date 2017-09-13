@@ -6,7 +6,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-pilot
+  name: istio-pilot-{ISTIO_NAMESPACE}
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -33,7 +33,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-mixer
+  name: istio-mixer-{ISTIO_NAMESPACE}
 rules:
 - apiGroups: ["config.istio.io"] # Istio CRD watcher
   resources: ["*"]
@@ -48,7 +48,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca
+  name: istio-ca-{ISTIO_NAMESPACE}
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -61,7 +61,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar
+  name: istio-sidecar-{ISTIO_NAMESPACE}
 rules:
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs"]
