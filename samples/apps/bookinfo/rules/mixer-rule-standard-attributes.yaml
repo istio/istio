@@ -47,8 +47,28 @@ spec:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
+      source.user:
+        valueType: STRING
       destination.uid:
         valueType: STRING
+      connection.id:
+        valueType: STRING
+      connection.received.bytes:
+        valueType: INT64
+      connection.received.bytes_total:
+        valueType: INT64
+      connection.sent.bytes:
+        valueType: INT64
+      connection.sent.bytes_total:
+        valueType: INT64
+      connection.duration:
+        valueType: DURATION
+      context.protocol:
+        valueType: STRING
+      context.timestamp:
+        valueType: TIMESTAMP
+      context.time:
+        valueType: TIMESTAMP
       # DEPRECATED, to be removed. Use request.useragent instead.
       request.user-agent:
         valueType: STRING
