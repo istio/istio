@@ -19,7 +19,8 @@
 # Script to install istio components for the raw VM.
 
 # Environment variable pointing to the generated Istio configs and binaries.
-ISTIO_FILES=${ISTIO_FILES:-.}
+# TODO: use curl or tar to fetch the artifacts.
+ISTIO_STAGING=${ISTIO_STAGING:-.}
 
 # Configure network for istio use, using DNSMasq.
 # Will use the generated "kubedns" file.
@@ -30,8 +31,8 @@ function istioNetworkInit() {
   fi
 
   # Copy config files for DNS
-  chmod go+r ${ISTIO_FILES}/kubedns
-  cp ${ISTIO_FILES}/kubedns /etc/dnsmasq.d
+  chmod go+r ${ISTIO_STAGING}/kubedns
+  cp ${ISTIO_STAGING}/kubedns /etc/dnsmasq.d
   systemctl restart dnsmasq
 
   # Update DHCP - if needed
@@ -48,18 +49,18 @@ function istioNetworkInit() {
 function istioInstall() {
   mkdir -p /etc/certs
 
-  cp ${ISTIO_FILES}/*.pem /etc/certs
+  cp ${ISTIO_STAGING}/*.pem /etc/certs
 
   # Cluster settings - the CIDR in particular.
-  cp ${ISTIO_FILES}/cluster.env /var/lib/istio/envoy
+  cp ${ISTIO_STAGING}/cluster.env /var/lib/istio/envoy
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
 
   # Install istio binaries
-  dpkg -i ${ISTIO_FILES}/istio-proxy-envoy.deb
-  dpkg -i ${ISTIO_FILES}/istio-agent.deb
-  dpkg -i ${ISTIO_FILES}/istio-auth-node-agent.deb
+  dpkg -i ${ISTIO_STAGING}/istio-proxy-envoy.deb
+  dpkg -i ${ISTIO_STAGING}/istio-agent.deb
+  dpkg -i ${ISTIO_STAGING}/istio-auth-node-agent.deb
 }
 
 function istioRestart() {
