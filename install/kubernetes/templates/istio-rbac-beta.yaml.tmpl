@@ -84,7 +84,7 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
@@ -98,7 +98,7 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-ca
+  name: istio-ca-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
@@ -112,7 +112,7 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Egress controller.
@@ -126,7 +126,7 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the sidecar.
@@ -142,7 +142,7 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar
+  name: istio-sidecar-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to Mixer.
@@ -156,6 +156,6 @@ subjects:
   namespace: {ISTIO_NAMESPACE}
 roleRef:
   kind: ClusterRole
-  name: istio-mixer
+  name: istio-mixer-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
