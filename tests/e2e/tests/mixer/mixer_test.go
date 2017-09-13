@@ -475,7 +475,8 @@ func TestRateLimit(t *testing.T) {
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find rate limit value: %v", err)
+		t.Errorf("Could not find 429s: %v", err)
+		got = 0 // want to see 200 rate even if a bug makes there is no 429s
 	}
 
 	// establish some baseline to protect against flakiness due to randomness in routing
@@ -494,12 +495,13 @@ func TestRateLimit(t *testing.T) {
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Fatalf("Could not find successes value: %v", err)
+		t.Errorf("Could not find successes value: %v", err)
+		got = 0
 	}
 
 	got = got - prior200s
 
-	t.Logf("Actual 200s: %f (%f rps)", got, got/opts.Duration.Seconds())
+	t.Logf("Actual 200s: %f (%f rps), expecting 1 rps", got, got/opts.Duration.Seconds())
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
