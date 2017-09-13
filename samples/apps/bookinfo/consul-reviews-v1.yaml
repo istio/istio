@@ -1,0 +1,10 @@
+type: route-rule
+name: reviews-default
+spec:
+  destination:
+    service: reviews.service.consul
+  precedence: 1
+  route:
+    - labels:
+         version: v1
+      weight: 100
