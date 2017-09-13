@@ -14,7 +14,6 @@
 
 FROM python:2-onbuild
 
-RUN mkdir -p /opt/microservices
 COPY . /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
