@@ -22,25 +22,48 @@ package istio.proxy.v1.config;
 // DestinationPolicy defines client/caller-side policies that determine how
 // to handle traffic bound to a particular destination service. The policy
 // specifies configuration for load balancing and circuit breakers. For
-// example, a simple load balancing policy for the reviews service would
+// example, a simple load balancing policy for the ratings service would
 // look as follows:
 //
 //     metadata:
-//       name: reviews-lb-policy
+//       name: ratings-lb-policy
 //       namespace: default # optional (default is "default")
 //     spec:
 //       destination:
-//         name: reviews
-//       policy:
-//       - loadBalancing:
-//           name: RANDOM
+//         name: ratings
+//       loadBalancing:
+//         name: ROUND_ROBIN
 //
 // The FQDN of the destination service is composed from the destination name and meta namespace fields, along with
 // a platform-specific domain suffix
 // (e.g. on Kubernetes, "reviews" + "default" + "svc.cluster.local" -> "reviews.default.svc.cluster.local").
 //
-// A single DestinationPolicy resource includes configuration for all service versions. Only
-// one policy can be defined per service version. Policy CANNOT be empty.
+// A destination policy can be restricted to a particular version of a
+// service or applied to all versions. It can also be restricted to calls from
+// a particular source. For example, the following load balancing policy
+// applies to version v1 of the ratings service running in the prod
+// environment but only when called from version v2 of the reviews service:
+//
+//     metadata:
+//       name: ratings-lb-policy
+//       namespace: default
+//     spec:
+//       source:
+//         name: reviews
+//         labels:
+//           version: v2
+//       destination:
+//         name: ratings
+//         labels:
+//           env: prod
+//           version: v1
+//       loadBalancing:
+//         name: ROUND_ROBIN
+//
+// *Note:* Destination policies will be applied only if the corresponding
+// tagged instances are explicity routed to. In other words, for every
+// destination policy defined, at least one route rule must refer to the
+// service version indicated in the destination policy.
 message DestinationPolicy {
   // Optional: Destination uniquely identifies the destination service associated
   // with this policy.
@@ -55,53 +78,6 @@ message DestinationPolicy {
 
   // Circuit breaker policy.
   CircuitBreaker circuit_breaker = 4;
-
-  // REQUIRED. List of policies, one per service version. # DEPRECATED: will be removed soon
-  repeated DestinationVersionPolicy policy = 5;
-
-  //(-- Other custom policy implementations --)
-  google.protobuf.Any custom = 100 ;
-}
-
-// A destination policy can be restricted to a particular version of a
-// service or applied to all versions. The labels field in the
-// DestinationVersionPolicy allow restricting the scope of a
-// DestinationPolicy. For example, the following load balancing policy
-// applies to version v1 of the reviews service running in the prod
-// environment:
-//
-//     metadata:
-//       name: reviews-lb-policy
-//       namespace: default
-//     spec:
-//       destination:
-//         name: reviews
-//       policy:
-//       - labels:
-//           env: prod
-//           version: v1
-//         loadBalancing:
-//           name: RANDOM
-//
-// If labels are omitted, the policy applies for all versions of the
-// service. Policy CANNOT be empty.
-// *Note:* Destination policies will be applied only if the corresponding
-// tagged instances are explicity routed to. In other words, for every
-// destination policy defined, at least one route rule must refer to the
-// service version indicated in the destination policy.
-message DestinationVersionPolicy {
-  // Optional set of labels that identify a particular version of the
-  // destination service. If omitted, the policy will apply to all versions
-  // of the service. (-- N.B. The map is used instead of
-  // pstruct due to lack of serialization support in golang protobuf
-  // library (see https://github.com/golang/protobuf/pull/208) --)
-  map<string, string> labels = 1;
-
-  // Load balancing policy.
-  LoadBalancing load_balancing = 2;
-
-  // Circuit breaker policy.
-  CircuitBreaker circuit_breaker = 3;
 
   //(-- Other custom policy implementations --)
   google.protobuf.Any custom = 100 ;
@@ -118,9 +94,8 @@ message DestinationVersionPolicy {
 //     spec:
 //       destination:
 //         name: reviews
-//       policy:
-//       - loadBalancing:
-//           name: RANDOM
+//       loadBalancing:
+//         name: RANDOM
 //
 message LoadBalancing {
   // Load balancing algorithms supported by Envoy proxy.
@@ -168,12 +143,11 @@ message CircuitBreaker {
   //     spec:
   //       destination:
   //         name: reviews
-  //       policy:
-  //       - labels:
+  //         labels:
   //           version: v1
-  //         circuitBreaker:
-  //           simpleCb:
-  //             maxConnections: 100
+  //       circuitBreaker:
+  //         simpleCb:
+  //           maxConnections: 100
   //
   // The following destination policy sets a limit of 100 connections and
   // 1000 concurrent requests, with no more than 10 req/connection to
@@ -187,17 +161,16 @@ message CircuitBreaker {
   //     spec:
   //       destination:
   //         name: reviews
-  //       policy:
-  //       - labels:
+  //         labels:
   //           version: v1
-  //         circuitBreaker:
-  //           simpleCb:
-  //             maxConnections: 100
-  //             httpMaxRequests: 1000
-  //             httpMaxRequestsPerConnection: 10
-  //             httpConsecutiveErrors: 7
-  //             sleepWindow: 15m
-  //             httpDetectionInterval: 5m
+  //       circuitBreaker:
+  //         simpleCb:
+  //           maxConnections: 100
+  //           httpMaxRequests: 1000
+  //           httpMaxRequestsPerConnection: 10
+  //           httpConsecutiveErrors: 7
+  //           sleepWindow: 15m
+  //           httpDetectionInterval: 5m
   //           
   message SimpleCircuitBreakerPolicy {
     // Maximum number of connections to a backend.

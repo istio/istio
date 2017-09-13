@@ -46,10 +46,10 @@ message EgressRule {
   // Port describes the properties of a specific TCP port of an external service.
   message Port {
     // A valid non-negative integer port number.
-	int32 port = 1;
-	// The protocol to communicate with the external services.
-	// MUST BE one of HTTP|HTTPS|GRPC|HTTP2.
-	string protocol = 2;
+    int32 port = 1;
+    // The protocol to communicate with the external services.
+    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2.
+    string protocol = 2;
   }
 
   // REQUIRED: Hostname or a wildcard domain name associated with the external service.
@@ -60,15 +60,15 @@ message EgressRule {
   // allowed by Envoy's Virtual Host specification, such as “*.foo.com” or “*-bar.foo.com”.
   // The character '*' in a domain specification indicates a non-empty string. Hence, a wildcard
   // domain of form “*-bar.foo.com” will match “baz-bar.foo.com” but not “-bar.foo.com”.
-  IstioService destination = 2;
+  IstioService destination = 1;
 
   // REQUIRED: list of ports on which the external service is available.
-  repeated Port ports = 3;
+  repeated Port ports = 2;
 
-  // DEPRECATED. Forward all the external traffic through a dedicated egress proxy. It is used in some scenarios
+  // Forward all the external traffic through a dedicated egress proxy. It is used in some scenarios
   // where there is a requirement that all the external traffic goes through special dedicated nodes/pods.
   // These dedicated egress nodes could then be more closely monitored for security vulnerabilities.
   //
   // The default is false, i.e. the sidecar forwards external traffic directly to the external service.
-  bool use_egress_proxy = 4;
+  bool use_egress_proxy = 3;
 }
