@@ -17,7 +17,7 @@ Kubernetes [DynamicAdmissionControl](https://kubernetes.io/docs/admin/extensible
 
 ```bash
 gcloud container clusters create NAME \               
-    --cluster-version=1.7.3 \
+    --cluster-version=1.7.5 \
     --enable-kubernetes-alpha \ 
     --machine-type=n1-standard-2 \
     --num-nodes=4 \
@@ -46,10 +46,12 @@ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-ad
 
 * Minikube
 
+Minikube version >= v0.22.1 is required for proper certificate configuration for GenericAdmissionWebhook feature. Get the latest version from https://github.com/kubernetes/minikube/releases.
+
 ```bash
 minikube start \
     --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-    --kubernetes-version=v1.7.3
+    --kubernetes-version=v1.7.5
 ```
 
 Add `--extra-config=apiserver.Authorization.Mode=RBAC` to the list of minikube flags to enable RBAC in minikube.
