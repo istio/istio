@@ -4,20 +4,20 @@
 		"repoName": "auth",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "ca328c99ed96a80ca778966d8dfba9c7b0ff6410"
+		"lastStableSHA": "d2e988190d8a27bd3cfa7bbace504c9dd56a5641"
 	},
 	{
 		"name": "MIXER_TAG",
 		"repoName": "mixer",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "543c458e509f4074c4efaa415164274dccceebcf"
+		"lastStableSHA": "2c49eeb382bdd4c5df7a41836f5b547baef8f802"
 	},
 	{
 		"name": "PILOT_TAG",
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "4f34dbbd7e052d6f51689b301ea244588a01a73a"
+		"lastStableSHA": "e3ca669dcd40b63623a39b8c5ff50d1c3e3ca1c0"
 	}
 ]
