@@ -279,7 +279,7 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 		Config: FilterRouterConfig{},
 	})
 
-	// This is the mixer 'target.service'
+	// This is the mixer 'destination.service'
 	// TODO: use canonical name, comma separated list is not actually supported by mixer.
 
 	service := ""

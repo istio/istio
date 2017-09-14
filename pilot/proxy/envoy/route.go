@@ -150,9 +150,11 @@ func buildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 	if len(rule.Route) > 0 {
 		route.WeightedClusters = &WeightedCluster{}
 		for _, dst := range rule.Route {
-			// TODO: add destination service override from the route weights
-
-			cluster := buildOutboundCluster(destination, port, dst.Labels)
+			actualDestination := destination
+			if dst.Destination != nil {
+				actualDestination = model.ResolveHostname(config.ConfigMeta, dst.Destination)
+			}
+			cluster := buildOutboundCluster(actualDestination, port, dst.Labels)
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters, &WeightedClusterEntry{
 				Name:   cluster.Name,

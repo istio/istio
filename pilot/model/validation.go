@@ -933,10 +933,6 @@ func ValidateDestinationPolicy(msg proto.Message) error {
 		}
 	}
 
-	if policy.Policy != nil {
-		errs = multierror.Append(errs, errors.New("policy field has been deprecated"))
-	}
-
 	return errs
 }
 

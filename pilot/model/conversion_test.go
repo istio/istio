@@ -34,8 +34,8 @@ func TestProtoSchemaConversions(t *testing.T) {
 		},
 		Precedence: 5,
 		Route: []*proxyconfig.DestinationWeight{
-			{Destination: "bar", Weight: 75},
-			{Destination: "baz", Weight: 25},
+			{Destination: &proxyconfig.IstioService{Name: "bar"}, Weight: 75},
+			{Destination: &proxyconfig.IstioService{Name: "baz"}, Weight: 25},
 		},
 	}
 
@@ -47,11 +47,15 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"precedence": 5,
 		"route": [
 		{
-			"destination": "bar",
+			"destination": {
+                "name" : "bar"
+            },
 			"weight": 75
 		},
 		{
-			"destination": "baz",
+			"destination": {
+                "name" : "baz"
+            },
 			"weight": 25
 		}
 		]
@@ -62,9 +66,11 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"  name: foo\n" +
 		"precedence: 5\n" +
 		"route:\n" +
-		"- destination: bar\n" +
+		"- destination:\n" +
+		"    name: bar\n" +
 		"  weight: 75\n" +
-		"- destination: baz\n" +
+		"- destination:\n" +
+		"    name: baz\n" +
 		"  weight: 25\n"
 
 	wantJSONMap := map[string]interface{}{
@@ -74,12 +80,16 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"precedence": 5.0,
 		"route": []interface{}{
 			map[string]interface{}{
-				"destination": "bar",
-				"weight":      75.0,
+				"destination": map[string]interface{}{
+					"name": "bar",
+				},
+				"weight": 75.0,
 			},
 			map[string]interface{}{
-				"destination": "baz",
-				"weight":      25.0,
+				"destination": map[string]interface{}{
+					"name": "baz",
+				},
+				"weight": 25.0,
 			},
 		},
 	}
@@ -98,9 +108,11 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"    name: foo\n" +
 		"  precedence: 5\n" +
 		"  route:\n" +
-		"  - destination: bar\n" +
+		"  - destination:\n" +
+		"      name: bar\n" +
 		"    weight: 75\n" +
-		"  - destination: baz\n" +
+		"  - destination:\n" +
+		"      name: baz\n" +
 		"    weight: 25\n" +
 		"type: route-rule\n"
 

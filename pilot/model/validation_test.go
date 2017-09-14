@@ -522,7 +522,7 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 				Uri: "/new/path",
 			},
 			Route: []*proxyconfig.DestinationWeight{
-				{Destination: "host.default.svc.cluster.local", Weight: 100},
+				{Destination: &proxyconfig.IstioService{Name: "host"}, Weight: 100},
 			},
 			WebsocketUpgrade: true,
 		},
