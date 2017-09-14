@@ -50,7 +50,7 @@ func (q *eventQueue) convertValue(ev BackendEvent) (Event, error) {
 	if ev.Value == nil {
 		return Event{Key: ev.Key, Type: ev.Type}, nil
 	}
-	if err = convert(ev.Value.Spec, pbSpec); err != nil {
+	if err = convert(ev.Key, ev.Value.Spec, pbSpec); err != nil {
 		return Event{}, err
 	}
 	return Event{Key: ev.Key, Type: ev.Type, Value: &Resource{

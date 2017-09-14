@@ -43,7 +43,7 @@ func TestConvert(t *testing.T) {
 			&cfg.Handler{},
 		},
 	} {
-		if err := convert(tt.source, tt.dest); err != nil {
+		if err := convert(Key{}, tt.source, tt.dest); err != nil {
 			t.Errorf("Failed to convert %s: %v", tt.title, err)
 		}
 		if !reflect.DeepEqual(tt.dest, tt.expected) {
@@ -54,10 +54,10 @@ func TestConvert(t *testing.T) {
 
 func TestConvertFail(t *testing.T) {
 	h := &cfg.Handler{}
-	if err := convert(map[string]interface{}{"foo": 1}, h); err == nil {
+	if err := convert(Key{}, map[string]interface{}{"foo": 1}, h); err == nil {
 		t.Errorf("Got nil, Want error")
 	}
-	if err := convert(map[string]interface{}{"foo": map[interface{}]int{nil: 0}}, h); err == nil {
+	if err := convert(Key{}, map[string]interface{}{"foo": map[interface{}]int{nil: 0}}, h); err == nil {
 		t.Errorf("Got nil, Want error")
 	}
 }

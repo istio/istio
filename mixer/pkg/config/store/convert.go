@@ -24,6 +24,28 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	ruleKind      = "rule"
+	selectorField = "selector"
+	matchField    = "match"
+)
+
+// warnDeprecationAndFix warns users about deprecated fields.
+// It maps the field into new name.
+func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]interface{} {
+	if key.Kind != ruleKind {
+		return spec
+	}
+	sel := spec[selectorField]
+	if sel == nil {
+		return spec
+	}
+	glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
+	spec[matchField] = sel
+	delete(spec, selectorField)
+	return spec
+}
+
 // cloneMessage looks up the kind in the map, and creates a clone of it.
 func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, error) {
 	msg, ok := kinds[kind]
@@ -34,13 +56,13 @@ func cloneMessage(kind string, kinds map[string]proto.Message) (proto.Message, e
 }
 
 // convert converts unstructured spec into the target proto.
-func convert(spec map[string]interface{}, target proto.Message) error {
-	jsonData, err := json.Marshal(spec)
+func convert(key Key, spec map[string]interface{}, target proto.Message) error {
+	jsonData, err := json.Marshal(warnDeprecationAndFix(key, spec))
 	if err != nil {
 		return err
 	}
 	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
-		glog.Warningf("unable to unmarshal: %s, %s", err.Error(), string(jsonData))
+		glog.Warningf("%s unable to unmarshal: %s, %s", key, err.Error(), string(jsonData))
 	}
 
 	return err
