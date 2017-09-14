@@ -60,14 +60,14 @@ var programs = map[string]benchmarkProgram{
 		code: `
 fn eval() bool
   resolve_i "a"
-  ieq_i 20
+  aeq_i 20
   jz L0
-  ipush_b true
+  apush_b true
   ret
 L0:
-  resolve_r "request.header"
-  ilookup "host"
-  ieq_s "abc"
+  resolve_f "request.header"
+  anlookup "host"
+  aeq_s "abc"
   ret
 end`,
 	},

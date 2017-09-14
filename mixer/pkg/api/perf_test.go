@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/pool"
@@ -38,6 +39,8 @@ type benchState struct {
 	gp           *pool.GoroutinePool
 	s            *grpcServer
 	delayOnClose bool
+
+	legacy *legacyDispatcher
 }
 
 func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
@@ -62,7 +65,7 @@ func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs, nil, bs.gp)
+	ms := NewGRPCServer(bs.legacy, bs, bs.gp)
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
@@ -112,6 +115,10 @@ func (bs *benchState) deleteAPIClient() {
 
 func prepBenchState(grpcCompression bool) (*benchState, error) {
 	bs := &benchState{}
+	bs.legacy = &legacyDispatcher{
+		preproc: bs.legacyPreprocess,
+		quota:   bs.legacyQuota,
+	}
 	dial, err := bs.createGRPCServer(grpcCompression)
 	if err != nil {
 		return nil, err
@@ -130,26 +137,37 @@ func (bs *benchState) cleanupBenchState() {
 	bs.deleteGRPCServer()
 }
 
-func (bs *benchState) Check(ctx context.Context, bag attribute.Bag, output *attribute.MutableBag) rpc.Status {
-	output.Set("kubernetes.pod", "a pod name")
-	output.Set("kubernetes.service", "a service name")
-	output.Set("kubernetes.id", int64(123456))
-	output.Set("kubernetes.time", time.Now())
-	return status.OK
+func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+	return nil
 }
 
-func (bs *benchState) Report(_ context.Context, _ attribute.Bag) rpc.Status {
-	return status.WithPermissionDenied("Not Implemented")
+func (bs *benchState) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
+	result := &adapter.CheckResult{
+		Status: status.OK,
+	}
+	return result, nil
+}
+
+func (bs *benchState) Report(_ context.Context, _ attribute.Bag) error {
+	return nil
 }
 
 func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
+	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 
+	qr := &adapter.QuotaResult{
+		Status: status.OK,
+		Amount: 42,
+	}
+	return qr, nil
+}
+
+func (bs *benchState) legacyQuota(_ attribute.Bag, _ *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 	qmr := &aspect.QuotaMethodResp{Amount: 42}
 	return qmr, status.OK
 }
 
-func (bs *benchState) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+func (bs *benchState) legacyPreprocess(_ attribute.Bag, _ *attribute.MutableBag) rpc.Status {
 	return status.OK
 }
 
