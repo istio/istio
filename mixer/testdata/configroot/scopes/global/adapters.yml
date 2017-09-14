@@ -1,10 +1,6 @@
 subject: global
 adapters:
   - name: default
-    kind: quotas
-    impl: memQuota
-    params:
-  - name: default
     kind: attributes
     impl: kubernetes
     params:
