@@ -49,6 +49,7 @@ var (
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	skipSetup    = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 
 	addons = []string{
 		"prometheus",
@@ -105,20 +106,22 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err = util.CreateNamespace(k.Namespace); err != nil {
-		glog.Error("Failed to create namespace.")
-		return err
-	}
-	k.namespaceCreated = true
+	if !*skipSetup {
+		if err = util.CreateNamespace(k.Namespace); err != nil {
+			glog.Error("Failed to create namespace.")
+			return err
+		}
+		k.namespaceCreated = true
 
-	if err = k.deployIstio(); err != nil {
-		glog.Error("Failed to deploy Istio.")
-		return err
-	}
+		if err = k.deployIstio(); err != nil {
+			glog.Error("Failed to deploy Istio.")
+			return err
+		}
 
-	if err = k.deployAddons(); err != nil {
-		glog.Error("Failed to deploy istio addons")
-		return err
+		if err = k.deployAddons(); err != nil {
+			glog.Error("Failed to deploy istio addons")
+			return err
+		}
 	}
 
 	var in string

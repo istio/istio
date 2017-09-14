@@ -14,16 +14,16 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-# This script builds docker images for book info microservices.
-# It's different from build-services.sh because it builds all
+# This script builds docker images for bookinfo microservices.
+# It's different from ../src/build-services.sh because it builds all
 # services with the envoy proxy and pilot agent in the images.
 # Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 HUB=istio
 WORKSPACE=$GOPATH/src/istio.io/pilot
 BINDIR=$WORKSPACE/bazel-bin
-APPSDIR=$SCRIPTDIR
-DISCOVERYDIR=$SCRIPTDIR/../../discovery
+APPSDIR=$SCRIPTDIR/../src
+DISCOVERYDIR=$SCRIPTDIR/discovery
 PILOTAGENTPATH=$WORKSPACE/cmd/pilot-agent
 PILOTDISCOVERYPATH=$WORKSPACE/cmd/pilot-discovery
 PREPAREPROXYSCRIPT=$WORKSPACE/docker

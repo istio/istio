@@ -33,7 +33,7 @@ kubectl config set-context local --cluster=local
 kubectl config use-context local
 ```
 
-To build all images for the bookinfo sample for the consul adapter, navigate to `samples/apps/bookinfo/src` directory and run:
+To build all images for the bookinfo sample for the consul adapter, run:
 
   ```
   ./build-docker-services.sh
