@@ -12,7 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//adapter/kubernetes:go_default_library",
-        "//adapter/memQuota:go_default_library",
         "//adapter/noopLegacy:go_default_library",
         "//pkg/adapter:go_default_library",
     ],

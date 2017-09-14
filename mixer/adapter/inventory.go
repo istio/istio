@@ -16,7 +16,6 @@ package adapter
 
 import (
 	"istio.io/mixer/adapter/kubernetes"
-	"istio.io/mixer/adapter/memQuota"
 	"istio.io/mixer/adapter/noopLegacy"
 	"istio.io/mixer/pkg/adapter"
 )
@@ -24,7 +23,6 @@ import (
 // InventoryLegacy returns the inventory of all available adapters.
 func InventoryLegacy() []adapter.RegisterFn {
 	return []adapter.RegisterFn{
-		memQuota.Register,
 		kubernetes.Register,
 		noopLegacy.Register,
 	}
