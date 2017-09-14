@@ -115,7 +115,7 @@ func (t *testConfig) Setup() (err error) {
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
-	if err = visitProductPage(30*time.Second, 200); err != nil {
+	if err = visitProductPage(60*time.Second, 200); err != nil {
 		glog.Infof("initial product page request failed: %v", err)
 	}
 
