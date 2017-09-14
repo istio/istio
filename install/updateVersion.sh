@@ -134,6 +134,9 @@ function merge_files() {
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
 
+  # Deploy istio-ca always, required to enable MTLS for mixer and pilot
+  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO
+
   cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
 #TODO the CA templates can be combines
   cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH

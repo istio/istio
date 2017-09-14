@@ -828,3 +828,39 @@ spec:
           optional: true
 ---
 
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
+# Service account CA runs in.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: istio-system
+---
+# Istio CA
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: istio-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: gcr.io/istio-testing/istio-ca:ca328c99ed96a80ca778966d8dfba9c7b0ff6410
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+---
+
