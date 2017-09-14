@@ -26,4 +26,4 @@ rules:
         destination.namespace: targetNamespace
         destination.service: targetService
         destination.serviceAccount: targetServiceAccountName
-
+        

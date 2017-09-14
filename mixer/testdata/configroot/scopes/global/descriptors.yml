@@ -109,6 +109,6 @@ manifests:
         valueType: TIMESTAMP
       context.time:
         valueType: TIMESTAMP
-quotas:
-  - name: RequestCount
-    rate_limit: true
+      # DEPRECATED, to be removed. Use request.useragent instead.
+      request.user-agent:
+        valueType: STRING
