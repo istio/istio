@@ -165,28 +165,6 @@ func (s *store2) Watch(ctx context.Context) (<-chan Event, error) {
 	return q.chout, nil
 }
 
-const (
-	ruleKind      = "rule"
-	selectorField = "selector"
-	matchField    = "match"
-)
-
-// warnDeprecationAndFix warns users about deprecated fields.
-// It maps the field into new name.
-func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]interface{} {
-	if key.Kind != ruleKind {
-		return spec
-	}
-	sel := spec[selectorField]
-	if sel == nil {
-		return spec
-	}
-	glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
-	spec[matchField] = sel
-	delete(spec, selectorField)
-	return spec
-}
-
 // Get returns a resource's spec to the key.
 func (s *store2) Get(key Key, spec proto.Message) error {
 	obj, err := s.backend.Get(key)
@@ -194,7 +172,7 @@ func (s *store2) Get(key Key, spec proto.Message) error {
 		return err
 	}
 
-	return convert(warnDeprecationAndFix(key, obj.Spec), spec)
+	return convert(key, obj.Spec, spec)
 }
 
 // List returns the whole mapping from key to resource specs in the store.
@@ -207,7 +185,7 @@ func (s *store2) List() map[Key]*Resource {
 			glog.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
-		if err = convert(warnDeprecationAndFix(k, d.Spec), pbSpec); err != nil {
+		if err = convert(k, d.Spec, pbSpec); err != nil {
 			glog.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
