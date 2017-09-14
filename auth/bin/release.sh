@@ -33,4 +33,9 @@ gcloud kms decrypt \
 
 ./bin/push-docker.sh \
     -h gcr.io/istio-io,docker.io/istio \
-    -t $TAG_NAME
+    -t "${TAG_NAME}"
+
+./bin/push-debian.sh \
+    -c opt \
+    -v "${TAG_NAME}"
+    -p "gs://istio-release/releases/${TAG_NAME}/deb"
