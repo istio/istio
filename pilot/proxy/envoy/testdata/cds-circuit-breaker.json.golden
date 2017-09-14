@@ -67,11 +67,54 @@
     ]
    },
    {
+    "name": "out.02875f9311443c8773650d3fa21cee271505806f",
+    "service_name": "*.google.com|external-HTTP2-8080",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb",
+    "max_requests_per_connection": 9,
+    "features": "http2",
+    "circuit_breakers": {
+     "default": {
+      "max_connections": 9,
+      "max_pending_requests": 9,
+      "max_requests": 9
+     }
+    },
+    "outlier_detection": {
+     "consecutive_5xx": 9,
+     "interval_ms": 9000,
+     "base_ejection_time_ms": 9000,
+     "max_ejection_percent": 9
+    }
+   },
+   {
     "name": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
     "service_name": "world.default.svc.cluster.local|mongo",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"
+   },
+   {
+    "name": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+    "service_name": "*.google.com|external-HTTP-80",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb",
+    "max_requests_per_connection": 9,
+    "circuit_breakers": {
+     "default": {
+      "max_connections": 9,
+      "max_pending_requests": 9,
+      "max_requests": 9
+     }
+    },
+    "outlier_detection": {
+     "consecutive_5xx": 9,
+     "interval_ms": 9000,
+     "base_ejection_time_ms": 9000,
+     "max_ejection_percent": 9
+    }
    },
    {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
@@ -83,6 +126,28 @@
       "url": "tcp://localhost:8888"
      }
     ]
+   },
+   {
+    "name": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c",
+    "service_name": "*.google.com|external-HTTPS-443",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb",
+    "max_requests_per_connection": 9,
+    "ssl_context": {},
+    "circuit_breakers": {
+     "default": {
+      "max_connections": 9,
+      "max_pending_requests": 9,
+      "max_requests": 9
+     }
+    },
+    "outlier_detection": {
+     "consecutive_5xx": 9,
+     "interval_ms": 9000,
+     "base_ejection_time_ms": 9000,
+     "max_ejection_percent": 9
+    }
    },
    {
     "name": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",

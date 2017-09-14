@@ -148,6 +148,10 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	// add weighted rule to split into two clusters
 	addConfig(registry, weightedRouteRule, t)
 	addConfig(registry, cbPolicy, t)
+	// add egress rule and a circuit breaker for external service (*.google.com)
+	addConfig(registry, egressRule, t)
+	addConfig(registry, egressRuleCBPolicy, t)
+
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
@@ -221,7 +225,9 @@ func TestRouteDiscoveryV1(t *testing.T) {
 
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRule, t)
 	addConfig(registry, timeoutRouteRule, t)
+	addConfig(registry, egressRuleTimeoutRule, t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-timeout.json", t)

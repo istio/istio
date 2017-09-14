@@ -9,7 +9,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.orig-dst-cluster-http"
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27"
      }
     ]
    },

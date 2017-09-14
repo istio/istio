@@ -333,5 +333,6 @@ func buildOriginalDSTCluster(name string, timeout *duration.Duration) *Cluster {
 		Type:             ClusterTypeOriginalDST,
 		ConnectTimeoutMs: protoDurationToMS(timeout),
 		LbType:           LbTypeOriginalDST,
+		outbound:         true,
 	}
 }

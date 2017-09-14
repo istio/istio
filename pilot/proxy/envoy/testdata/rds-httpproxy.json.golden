@@ -8,7 +8,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.orig-dst-cluster-https"
+      "cluster": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c"
      }
     ]
    },
@@ -21,7 +21,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.orig-dst-cluster-http"
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27"
      }
     ]
    },
@@ -33,7 +33,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.orig-dst-cluster-http2"
+      "cluster": "out.02875f9311443c8773650d3fa21cee271505806f"
      }
     ]
    },

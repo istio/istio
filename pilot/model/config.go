@@ -456,7 +456,9 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 		return nil
 	}
 
-	var out *Config
+	// ugly go-ism
+	var out Config
+	var found bool
 	for _, config := range configs {
 		policy := config.Spec.(*proxyconfig.DestinationPolicy)
 		if !MatchSource(config.ConfigMeta, policy.Source, instances) {
@@ -473,12 +475,17 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 		}
 
 		// pick a deterministic policy from the matching configs by picking the smallest key
-		if out == nil || out.Key() > config.Key() {
-			out = &config
+		if !found || out.Key() > config.Key() {
+			out = config
+			found = true
 		}
 	}
 
-	return out
+	if !found {
+		return nil
+	}
+
+	return &out
 }
 
 // RejectConflictingEgressRules rejects rules that have the destination which is equal to

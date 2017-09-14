@@ -1,6 +1,25 @@
 {
   "virtual_hosts": [
    {
+    "name": "*.google.com:80",
+    "domains": [
+     "*.google.com",
+     "*.google.com:80"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+      "timeout_ms": 30000,
+      "retry_policy": {
+       "retry_on": "5xx,connect-failure,refused-stream",
+       "num_retries": 1,
+       "per_try_timeout_ms": 5000
+      }
+     }
+    ]
+   },
+   {
     "name": "hello.default.svc.cluster.local|http",
     "domains": [
      "hello:80",
