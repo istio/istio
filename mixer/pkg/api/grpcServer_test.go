@@ -56,7 +56,7 @@ func (l *legacyDispatcher) Preprocess(_ context.Context, requestBag attribute.Ba
 	return l.preproc(requestBag, responseBag)
 }
 
-func (l *legacyDispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
+func (l *legacyDispatcher) Quota(_ context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
 	return l.quota(requestBag, qma)
 }

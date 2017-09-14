@@ -1,4 +1,3 @@
-# gazelle:ignore
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
@@ -25,20 +24,8 @@ go_test(
     size = "small",
     srcs = [
         "extern_test.go",
-        "interpreter_test.go",
-    ],
-    library = ":go_default_library",
-    deps = [
-        "//pkg/il/testing:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-    ],
-)
-
-go_test(
-    name = "benchmark_tests",
-    size = "small",
-    srcs = [
         "interpreterBenchmark_test.go",
+        "interpreter_test.go",
         "result_test.go",
     ],
     library = ":go_default_library",
