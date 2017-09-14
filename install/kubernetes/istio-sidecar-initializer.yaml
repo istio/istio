@@ -10,10 +10,10 @@ data:
     namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
-      initImage: gcr.io/istio-testing/proxy_init:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
-      proxyImage: gcr.io/istio-testing/proxy:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
+      initImage: gcr.io/istio-testing/proxy_init:044810b928e2aca30a82b53df44cad71ef7a0fb8
+      proxyImage: gcr.io/istio-testing/proxy:044810b928e2aca30a82b53df44cad71ef7a0fb8
       verbosity: 2
-      version: 5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
+      version: 044810b928e2aca30a82b53df44cad71ef7a0fb8
       meshConfigMapName: istio
       imagePullPolicy: IfNotPresent
 ---
@@ -47,7 +47,7 @@ spec:
       serviceAccountName: istio-sidecar-initializer-service-account
       containers:
         - name: sidecar-initializer
-          image: gcr.io/istio-testing/sidecar_initializer:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
+          image: gcr.io/istio-testing/sidecar_initializer:044810b928e2aca30a82b53df44cad71ef7a0fb8
           imagePullPolicy: IfNotPresent
           args:
             - --port=8083

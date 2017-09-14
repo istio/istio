@@ -240,12 +240,12 @@ kind: Deployment
 metadata:
   name: istio-mixer
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: mixer
     spec:
@@ -572,7 +572,6 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 # Pilot service for discovery
 apiVersion: v1
 kind: ConfigMap
@@ -667,12 +666,12 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: pilot
     spec:
@@ -754,8 +753,6 @@ spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: ingress
     spec:
@@ -882,6 +879,8 @@ apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -895,4 +894,3 @@ spec:
         image: docker.io/istio/istio-ca:0.2.2
         imagePullPolicy: IfNotPresent
 ---
-

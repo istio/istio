@@ -92,12 +92,12 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: pilot
     spec:
