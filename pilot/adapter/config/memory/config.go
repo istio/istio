@@ -22,6 +22,11 @@ import (
 	"istio.io/pilot/model"
 )
 
+var (
+	errNotFound      = errors.New("item not found")
+	errAlreadyExists = errors.New("item already exists")
+)
+
 // Make creates an in-memory config store from a config descriptor
 func Make(descriptor model.ConfigDescriptor) model.ConfigStore {
 	out := store{
@@ -89,12 +94,12 @@ func (cr *store) Delete(typ, name, namespace string) error {
 	}
 	ns, exists := data[namespace]
 	if !exists {
-		return &model.ItemNotFoundError{Key: namespace}
+		return errNotFound
 	}
 
 	_, exists = ns[name]
 	if !exists {
-		return &model.ItemNotFoundError{Key: name}
+		return errNotFound
 	}
 
 	delete(ns, name)
@@ -123,7 +128,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 		ns[config.Name] = config
 		return config.ResourceVersion, nil
 	}
-	return "", &model.ItemAlreadyExistsError{Key: config.Name}
+	return "", errAlreadyExists
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
@@ -138,12 +143,12 @@ func (cr *store) Update(config model.Config) (string, error) {
 
 	ns, exists := cr.data[typ][config.Namespace]
 	if !exists {
-		return "", &model.ItemNotFoundError{Key: config.Namespace}
+		return "", errNotFound
 	}
 
 	oldConfig, exists := ns[config.Name]
 	if !exists {
-		return "", &model.ItemNotFoundError{Key: config.Name}
+		return "", errNotFound
 	}
 
 	if config.ResourceVersion != oldConfig.ResourceVersion {

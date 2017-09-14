@@ -163,3 +163,17 @@ func TestHTTPProtocol(t *testing.T) {
 		t.Errorf("gRPC is HTTP protocol")
 	}
 }
+
+func TestGetByPort(t *testing.T) {
+	ports := PortList{{
+		Name: "http",
+		Port: 80,
+	}}
+
+	if port, exists := ports.GetByPort(80); !exists || port == nil || port.Name != "http" {
+		t.Errorf("GetByPort(80) => want http but got %v, %t", port, exists)
+	}
+	if port, exists := ports.GetByPort(88); exists || port != nil {
+		t.Errorf("GetByPort(88) => want none but got %v, %t", port, exists)
+	}
+}
