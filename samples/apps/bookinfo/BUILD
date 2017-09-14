@@ -7,7 +7,6 @@ filegroup(
         "bookinfo-ratings-v2.yaml",
         "rules/mixer-rule-additional-telemetry.yaml",
         "rules/mixer-rule-empty-rule.yaml",
-        "rules/mixer-rule-preprocess-only.yaml",
         "rules/mixer-rule-ratings-denial.yaml",
         "rules/mixer-rule-ratings-ratelimit.yaml",
         "rules/mixer-rule-standard-attributes.yaml",
