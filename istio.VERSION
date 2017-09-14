@@ -3,8 +3,8 @@
 export CA_HUB="gcr.io/istio-testing"
 export CA_TAG="d2e988190d8a27bd3cfa7bbace504c9dd56a5641"
 export MIXER_HUB="gcr.io/istio-testing"
-export MIXER_TAG="2c49eeb382bdd4c5df7a41836f5b547baef8f802"
-export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e/artifacts/istioctl"
+export MIXER_TAG="8234eb2b21ec5cef584fc948d2d0c8b2095497de"
+export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/4d3e5b5dac116dfc840e21b9620b43e6c5f051a8/artifacts/istioctl"
 export PILOT_HUB="gcr.io/istio-testing"
-export PILOT_TAG="5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e"
+export PILOT_TAG="4d3e5b5dac116dfc840e21b9620b43e6c5f051a8"
 export ISTIO_NAMESPACE=istio-system
