@@ -7,26 +7,23 @@ set -x
 
 function usage() {
   echo "$0 \
-    -i <gcloud project ID name> \
     -t <tag name to apply to artifacts>"
   exit 1
 }
 
 # Initialize variables
-PROJECT_ID=""
 TAG_NAME=""
 
 # Handle command line args
-while getopts i:t: arg ; do
+while getopts t: arg ; do
   case "${arg}" in
-    i) PROJECT_ID="${OPTARG}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
   esac
 done
 
-if [ ! "${PROJECT_ID}" ] || [ ! "${TAG_NAME}" ] ; then
-  echo "-i and -t are required arguments"
+if [ ! "${TAG_NAME}" ] ; then
+  echo "-t is a required argument"
   usage
 fi
 
@@ -50,3 +47,5 @@ gcloud kms decrypt \
 ./bin/upload-istioctl -r -p gs://istio-release/releases/"${TAG_NAME}"/istioctl
 
 ./bin/push-docker -hub gcr.io/istio-io,docker.io/istio -tag "${TAG_NAME}"
+
+./bin/push-debian.sh -c opt -v "${TAG_NAME}" -p gs://istio-release/releases/"${TAG_NAME}"/deb
