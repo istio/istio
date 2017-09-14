@@ -211,16 +211,18 @@ def getProductDetails(product_id, headers):
 
 
 def getProductReviews(product_id, headers):
-    try:
-        url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
-        res = requests.get(url, headers=headers, timeout=3.0)
-    except:
-        res = None
-    if res and res.status_code == 200:
-        return (200, res.json())        
-    else:
-        status = (res.status_code if res != None and res.status_code else 500)
-        return (status, {'error': 'Sorry, product reviews are currently unavailable for this book.'})
+    ## Do not remove. Bug introduced explicitly for illustration in fault injection task
+    ## TODO: Figure out how to achieve the same effect using Envoy retries/timeouts
+    for i in range(2):
+        try:
+            url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
+            res = requests.get(url, headers=headers, timeout=3.0)
+        except:
+            res = None
+        if res and res.status_code == 200:
+            return (200, res.json())        
+    status = (res.status_code if res != None and res.status_code else 500)
+    return (status, {'error': 'Sorry, product reviews are currently unavailable for this book.'})
 
 
 def getProductRatings(product_id, headers):
@@ -253,4 +255,3 @@ if __name__ == '__main__':
     sys.stdout = Writer('stdout.log')
     print "start at port %s" % (p)
     app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
-

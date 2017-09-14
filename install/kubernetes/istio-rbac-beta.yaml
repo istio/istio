@@ -6,7 +6,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-pilot
+  name: istio-pilot-istio-system
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -33,7 +33,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-mixer
+  name: istio-mixer-istio-system
 rules:
 - apiGroups: ["config.istio.io"] # Istio CRD watcher
   resources: ["*"]
@@ -48,7 +48,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca
+  name: istio-ca-istio-system
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -61,7 +61,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar
+  name: istio-sidecar-istio-system
 rules:
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs"]
@@ -77,56 +77,56 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-pilot-admin-role-binding
+  name: istio-pilot-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-pilot-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca-role-binding
+  name: istio-ca-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-ca-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-ca
+  name: istio-ca-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ingress-admin-role-binding
+  name: istio-ingress-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-ingress-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Egress controller.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-egress-admin-role-binding
+  name: istio-egress-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-egress-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the sidecar.
@@ -135,27 +135,27 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-role-binding
+  name: istio-sidecar-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar
+  name: istio-sidecar-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to Mixer.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-mixer-admin-role-binding
+  name: istio-mixer-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
   name: istio-mixer-service-account
-  namespace: default
+  namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-mixer
+  name: istio-mixer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---

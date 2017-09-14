@@ -5,6 +5,7 @@ filegroup(
         "prometheus.yaml",
         "servicegraph.yaml",
         "zipkin.yaml",
+        "zipkin-to-stackdriver.yaml",
     ],
     visibility = ["//visibility:public"],
 )

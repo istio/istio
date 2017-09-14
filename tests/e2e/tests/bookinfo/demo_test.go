@@ -70,11 +70,9 @@ func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cookies != nil {
-		for _, c := range cookies {
-			// Set cookie
-			req.AddCookie(&c)
-		}
+	for _, c := range cookies {
+		// Set cookie
+		req.AddCookie(&c)
 	}
 	return client.Do(req)
 }
@@ -393,7 +391,7 @@ func setTestConfig() error {
 			KubeInject: true,
 		},
 		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
-			KubeInject: false,
+			KubeInject: true,
 		},
 	}
 	for i := range demoApps {
@@ -410,7 +408,9 @@ func TestDbRouting(t *testing.T) {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)
 	}()
 
-	respExpr := "glyphicon-star"
+	// TODO: update the rating in the db and check the value on page
+
+	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
 	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
 	inspect(

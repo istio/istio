@@ -39,19 +39,34 @@ spec:
         valueType: DURATION
       response.headers:
         valueType: STRING_MAP
-      response.latency:
-        valueType: DURATION
       response.size:
         valueType: INT64
       response.time:
         valueType: TIMESTAMP
       source.uid:
         valueType: STRING
-      target.uid:
+      source.user:
         valueType: STRING
-      # DEPRECATED, to be removed. Use request.useragent instead.
-      request.user-agent:
+      destination.uid:
         valueType: STRING
+      connection.id:
+        valueType: STRING
+      connection.received.bytes:
+        valueType: INT64
+      connection.received.bytes_total:
+        valueType: INT64
+      connection.sent.bytes:
+        valueType: INT64
+      connection.sent.bytes_total:
+        valueType: INT64
+      connection.duration:
+        valueType: DURATION
+      context.protocol:
+        valueType: STRING
+      context.timestamp:
+        valueType: TIMESTAMP
+      context.time:
+        valueType: TIMESTAMP
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -72,16 +87,15 @@ spec:
         valueType: STRING
       source.serviceAccount:
         valueType: STRING
-      target.ip:
+      destination.ip:
         valueType: IP_ADDRESS
-      target.labels:
+      destination.labels:
         valueType: STRING_MAP
-      target.name:
+      destination.name:
         valueType: STRING
-      target.namespace:
+      destination.namespace:
         valueType: STRING
-      target.service:
+      destination.service:
         valueType: STRING
-      target.serviceAccount:
+      destination.serviceAccount:
         valueType: STRING
-

@@ -2,6 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   name: zipkin-to-stackdriver
+  namespace: istio-system
 spec:
   replicas: 1
   selector:
