@@ -235,7 +235,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: docker.io/istio/mixer:0.2.2
+        image: gcr.io/istio-testing/mixer:c46550c570f344fb2d53ec222b8bfffbf0fd427c
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -650,7 +650,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: docker.io/istio/pilot:0.2.2
+        image: gcr.io/istio-testing/pilot:22163dcf87e037aa0cc2cdc42c1ecb127e625ad1
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -732,7 +732,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: docker.io/istio/proxy_debug:0.2.2
+        image: gcr.io/istio-testing/proxy_debug:22163dcf87e037aa0cc2cdc42c1ecb127e625ad1
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: IfNotPresent
         ports:
@@ -808,7 +808,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: docker.io/istio/proxy_debug:0.2.2
+        image: gcr.io/istio-testing/proxy_debug:22163dcf87e037aa0cc2cdc42c1ecb127e625ad1
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
