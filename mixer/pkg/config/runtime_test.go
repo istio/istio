@@ -491,5 +491,6 @@ func (b *bag) Names() []string {
 	return []string{}
 }
 
-func (b *bag) Done() {
-}
+func (b *bag) Done() {}
+
+func (b *bag) DebugString() string { return "" }

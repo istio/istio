@@ -24,4 +24,8 @@ type Bag interface {
 
 	// Done indicates the bag can be reclaimed.
 	Done()
+
+	// DebugString provides a dump of an attribute Bag that avoids affecting the
+	// calculation of referenced attributes.
+	DebugString() string
 }

@@ -15,7 +15,9 @@
 package attribute
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/golang/glog"
@@ -304,4 +306,27 @@ func (pb *ProtoBag) Names() []string {
 // Done indicates the bag can be reclaimed.
 func (pb *ProtoBag) Done() {
 	// NOP
+}
+
+// DebugString runs through the named attributes, looks up their values,
+// and prints them to a string.
+func (pb *ProtoBag) DebugString() string {
+	var buf bytes.Buffer
+
+	names := pb.Names()
+	sort.Strings(names)
+
+	for _, name := range names {
+		// find the dictionary index for the given string
+		index, ok := pb.getIndex(name)
+		if !ok {
+			glog.Warningf("Attribute '%s' not in either global or message dictionaries", name)
+			continue
+		}
+
+		if result, ok := pb.internalGet(name, index); ok {
+			buf.WriteString(fmt.Sprintf("%-30s: %v\n", name, result))
+		}
+	}
+	return buf.String()
 }

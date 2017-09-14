@@ -35,5 +35,7 @@ func (b *FakeBag) Names() []string {
 }
 
 // Done indicates the bag can be reclaimed.
-func (b *FakeBag) Done() {
-}
+func (b *FakeBag) Done() {}
+
+// DebugString is needed to implement the Bag interface.
+func (b *FakeBag) DebugString() string { return "" }

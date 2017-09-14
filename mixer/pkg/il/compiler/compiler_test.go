@@ -26,6 +26,7 @@ import (
 	"istio.io/mixer/pkg/config/descriptor"
 	pb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/il/interpreter"
+	iltest "istio.io/mixer/pkg/il/testing"
 	"istio.io/mixer/pkg/il/text"
 )
 
@@ -1091,7 +1092,9 @@ func TestCompile(t *testing.T) {
 					return
 				}
 			}
-			b := bag{attrs: te.input}
+
+			// TODO: replace with GetMutableBagForTesting()
+			b := iltest.FakeBag{Attrs: te.input}
 
 			ipExtern := interpreter.ExternFromFn("ip", func(in string) []byte {
 				if ip := net.ParseIP(in); ip != nil {
@@ -1165,21 +1168,4 @@ func TestCompile_TypeError(t *testing.T) {
 	if err.Error() != "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64" {
 		t.Fatalf("error is not as expected: '%v'", err)
 	}
-}
-
-// fake bag
-type bag struct {
-	attrs map[string]interface{}
-}
-
-func (b *bag) Get(name string) (interface{}, bool) {
-	c, found := b.attrs[name]
-	return c, found
-}
-
-func (b *bag) Names() []string {
-	return []string{}
-}
-
-func (b *bag) Done() {
 }

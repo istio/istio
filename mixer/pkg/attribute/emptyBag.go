@@ -24,3 +24,4 @@ var emptySlice = []string{}
 func (eb *emptyBag) Get(name string) (interface{}, bool) { return nil, false }
 func (eb *emptyBag) Names() []string                     { return emptySlice }
 func (eb *emptyBag) Done()                               {}
+func (eb *emptyBag) DebugString() string                 { return "" }

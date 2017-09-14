@@ -117,6 +117,7 @@ type fakeBag struct{}
 func (f fakeBag) Get(name string) (value interface{}, found bool) { return nil, false }
 func (f fakeBag) Names() []string                                 { return []string{} }
 func (f fakeBag) Done()                                           {}
+func (f fakeBag) DebugString() string                             { return "" }
 
 func TestGeneratedFields(t *testing.T) {
 	for _, tst := range []struct {

@@ -17,6 +17,7 @@ package attribute
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -391,4 +392,27 @@ func lookup(index int32, err error, globalWordList []string, messageWordList []s
 	}
 
 	return "", me.Append(err, fmt.Errorf("attribute index %d is not defined in the available dictionaries", index))
+}
+
+// DebugString prints out the attributes from the parent bag, then
+// walks through the local changes and prints them as well.
+func (mb *MutableBag) DebugString() string {
+	if len(mb.values) == 0 {
+		return mb.parent.DebugString()
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString(mb.parent.DebugString())
+	buf.WriteString("---\n")
+
+	keys := make([]string, 0, len(mb.values))
+	for key := range mb.values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		buf.WriteString(fmt.Sprintf("%-30s: %v\n", key, mb.values[key]))
+	}
+	return buf.String()
 }
