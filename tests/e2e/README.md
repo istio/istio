@@ -33,8 +33,8 @@ Tests could be built and drove manually as a single test or automatically detect
 * `--mixer_tag` mixer iamge tag
 * `--pilot_hub` pilot iamge hub
 * `--pilot_tag` pilot iamge tag
-* `--ca_hub` app image hub
-* `--ca_tag` app image tag
+* `--ca_hub` CA image hub
+* `--ca_tag` CA image tag
 * `--verbose` debug level noise from proxies
 * `--istioctl_url` the location of an `istioctl` binary
 * `--skip_cleanup` if skip cleanup steps

@@ -13,7 +13,7 @@ metadata:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-pilot
+  name: istio-pilot-istio-system
 rules:
 - apiGroups: ["config.istio.io"]
   resources: ["*"]
@@ -40,7 +40,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-mixer
+  name: istio-mixer-istio-system
 rules:
 - apiGroups: ["config.istio.io"] # Istio CRD watcher
   resources: ["*"]
@@ -55,7 +55,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-ca
+  name: istio-ca-istio-system
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -68,7 +68,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar
+  name: istio-sidecar-istio-system
 rules:
 - apiGroups: ["istio.io"]
   resources: ["istioconfigs"]
@@ -91,7 +91,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
@@ -105,7 +105,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-ca
+  name: istio-ca-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Ingress controller.
@@ -119,7 +119,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the Egress controller.
@@ -133,7 +133,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-pilot
+  name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the sidecar.
@@ -149,7 +149,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar
+  name: istio-sidecar-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to Mixer.
@@ -163,7 +163,7 @@ subjects:
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-mixer
+  name: istio-mixer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Mixer
@@ -235,7 +235,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:543c458e509f4074c4efaa415164274dccceebcf
+        image: docker.io/istio/mixer:0.2.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -554,12 +554,62 @@ data:
   mesh: |-
     # Uncomment the following line to enable mutual TLS between proxies
     authPolicy: MUTUAL_TLS
+    #
+    # Set the following variable to true to disable policy checks by the Mixer.
+    # Note that metrics will still be reported to the Mixer.
+    disablePolicyChecks: false
+    # Set enableTracing to false to disable request tracing.
+    enableTracing: true
+    #
+    # To disable the mixer completely (including metrics), comment out
+    # the following line
     mixerAddress: istio-mixer.istio-system:9091
-    discoveryAddress: istio-pilot.istio-system:8080
+    #
     ingressService: istio-ingress.istio-system
     egressProxyAddress: istio-egress.istio-system:80
-    statsdUdpAddress: istio-mixer.istio-system:9125
-    zipkinAddress: zipkin.istio-system:9411
+    #
+    # Along with discoveryRefreshDelay, this setting determines how
+    # frequently should Envoy fetch and update its internal configuration
+    # from Istio Pilot. Lower refresh delay results in higher CPU
+    # utilization and potential performance loss in exchange for faster
+    # convergence. Tweak this value according to your setup.
+    rdsRefreshDelay: 30s
+    #
+    defaultConfig:
+      # See rdsRefreshDelay for explanation about this setting.
+      discoveryRefreshDelay: 30s
+      #
+      # TCP connection timeout between Envoy & the application, and between Envoys.
+      connectTimeout: 10s
+      #
+      ### ADVANCED SETTINGS #############
+      # Where should envoy's configuration be stored in the istio-proxy container
+      configPath: "/etc/istio/proxy"
+      binaryPath: "/usr/local/bin/envoy"
+      # The pseudo service name used for Envoy.
+      serviceCluster: istio-proxy
+      # These settings that determine how long an old Envoy
+      # process should be kept alive after an occasional reload.
+      drainDuration: 45s
+      parentShutdownDuration: 1m0s
+      #
+      # Port where Envoy listens (on local host) for admin commands
+      # You can exec into the istio-proxy container in a pod and
+      # curl the admin port (curl http://localhost:15000/) to obtain
+      # diagnostic information from Envoy. See
+      # https://lyft.github.io/envoy/docs/operations/admin.html
+      # for more details
+      proxyAdminPort: 15000
+      #
+      # Address where Istio Pilot service is running
+      discoveryAddress: istio-pilot.istio-system:8080
+      #
+      # Zipkin trace collector
+      zipkinAddress: zipkin.istio-system:9411
+      #
+      # Statsd metrics collector. Istio mixer exposes a UDP endpoint
+      # to collect and convert statsd metrics into Prometheus metrics.
+      statsdUdpAddress: istio-mixer.istio-system:9125
 ---
 apiVersion: v1
 kind: Service
@@ -600,7 +650,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:330dd286541d1b84c5ac1f4fc504556796c070af
+        image: docker.io/istio/pilot:0.2.2
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -682,7 +732,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:330dd286541d1b84c5ac1f4fc504556796c070af
+        image: docker.io/istio/proxy_debug:0.2.2
         args: ["proxy", "ingress", "-v", "2"]
         imagePullPolicy: IfNotPresent
         ports:
@@ -758,7 +808,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:330dd286541d1b84c5ac1f4fc504556796c070af
+        image: docker.io/istio/proxy_debug:0.2.2
         imagePullPolicy: IfNotPresent
         args: ["proxy", "egress", "-v", "2"]
         env:
@@ -814,7 +864,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: gcr.io/istio-testing/istio-ca:ca328c99ed96a80ca778966d8dfba9c7b0ff6410
+        image: docker.io/istio/istio-ca:0.2.2
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE

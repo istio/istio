@@ -44,10 +44,10 @@ spec:
   value: "1"
   dimensions:
     source: source.labels["app"] | "unknown"
-    target: target.service | "unknown"
-    service: target.labels["app"] | "unknown"
+    target: destination.service | "unknown"
+    service: destination.labels["app"] | "unknown"
     method: request.path | "unknown"
-    version: target.labels["version"] | "unknown"
+    version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -57,13 +57,13 @@ metadata:
   name: requestduration
   namespace: istio-config-default
 spec:
-  value: response.latency | response.duration | "0ms"
+  value: response.duration | "0ms"
   dimensions:
     source: source.labels["app"] | "unknown"
-    target: target.service | "unknown"
-    service: target.labels["app"] | "unknown"
+    target: destination.service | "unknown"
+    service: destination.labels["app"] | "unknown"
     method: request.path | "unknown"
-    version: target.labels["version"] | "unknown"
+    version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -76,10 +76,10 @@ spec:
   value: request.size | 0
   dimensions:
     source: source.labels["app"] | "unknown"
-    target: target.service | "unknown"
-    service: target.labels["app"] | "unknown"
+    target: destination.service | "unknown"
+    service: destination.labels["app"] | "unknown"
     method: request.path | "unknown"
-    version: target.labels["version"] | "unknown"
+    version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---
@@ -92,10 +92,10 @@ spec:
   value: response.size | 0
   dimensions:
     source: source.labels["app"] | "unknown"
-    target: target.service | "unknown"
-    service: target.labels["app"] | "unknown"
+    target: destination.service | "unknown"
+    service: destination.labels["app"] | "unknown"
     method: request.path | "unknown"
-    version: target.labels["version"] | "unknown"
+    version: destination.labels["version"] | "unknown"
     response_code: response.code | 200
   monitored_resource_type: '"UNSPECIFIED"'
 ---

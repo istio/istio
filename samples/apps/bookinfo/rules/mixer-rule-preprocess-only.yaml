@@ -13,19 +13,17 @@ rules:
       input_expressions:
         sourceUID: source.uid | ""
         sourceIP: source.ip | ip("0.0.0.0") # default to unspecified ip addr
-        targetUID: target.uid | ""
-        targetIP: target.ip | ip("0.0.0.0") # default to unspecified ip addr
+        targetUID: destination.uid | ""
+        targetIP: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
       attribute_bindings:
         source.ip: sourcePodIp
         source.labels: sourceLabels
-        source.name: sourcePodName
         source.namespace: sourceNamespace
         source.service: sourceService
         source.serviceAccount: sourceServiceAccountName
-        target.ip: targetPodIp
-        target.labels: targetLabels
-        target.name: targetPodName
-        target.namespace: targetNamespace
-        target.service: targetService
-        target.serviceAccount: targetServiceAccountName
+        destination.ip: targetPodIp
+        destination.labels: targetLabels
+        destination.namespace: targetNamespace
+        destination.service: targetService
+        destination.serviceAccount: targetServiceAccountName
 

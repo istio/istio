@@ -1,0 +1,178 @@
+version: '2'
+services:
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    networks:
+      envoymesh:
+        aliases:
+          - etcd
+    ports:
+      - "4001:4001"
+      - "2380:2380"
+      - "2379:2379"
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
+
+  istio-apiserver:
+    image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
+    networks:
+      envoymesh:
+        ipv4_address: 172.28.0.13
+        aliases:
+          - apiserver
+    ports:
+      - "8080:8080"
+    privileged: true
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
+
+  consul:
+    image: gliderlabs/consul-server
+    networks:
+      envoymesh:
+        aliases:
+          - consul
+    ports:
+      - "8500:8500"
+      - "172.28.0.1:53:8600/udp"
+      - "8400:8400"
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["-bootstrap"]
+
+  registrator:
+    image: gliderlabs/registrator:latest
+    networks:
+      envoymesh:
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
+
+  discovery:
+    image: $HUB/discovery:latest
+    networks:
+      envoymesh:
+        aliases:
+          - istio-pilot
+    expose:
+      - "8080"
+    ports:
+      - "8081:8080"
+    volumes:
+      - ~/.kube/config:/istio/config
+
+  details-v1:
+    image: $HUB/details-v1:latest
+    networks:
+      envoymesh:
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_NAME=details
+      - SERVICE_TAGS=version|v1
+      - SERVICE_PROTOCOL=http
+    expose:
+      - "9080"
+
+  ratings-v1:
+    image: $HUB/ratings-v1:latest
+    networks:
+      envoymesh:
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_NAME=ratings
+      - SERVICE_TAGS=version|v1
+      - SERVICE_PROTOCOL=http
+    expose:
+      - "9080"
+
+  reviews-v1:
+    image: $HUB/reviews-v1:latest
+    networks:
+      envoymesh:
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_9080_NAME=reviews
+      - SERVICE_TAGS=version|v1
+      - SERVICE_PROTOCOL=http
+      - SERVICE_9443_IGNORE=1
+    expose:
+      - "9080"
+
+  reviews-v2:
+    image: $HUB/reviews-v2:latest
+    networks:
+      envoymesh:
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_9080_NAME=reviews
+      - SERVICE_TAGS=version|v2
+      - SERVICE_PROTOCOL=http
+      - SERVICE_9443_IGNORE=1
+    expose:
+      - "9080"
+
+  reviews-v3:
+    image: $HUB/reviews-v3:latest
+    networks:
+      envoymesh:
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_9080_NAME=reviews
+      - SERVICE_TAGS=version|v3
+      - SERVICE_PROTOCOL=http
+      - SERVICE_9443_IGNORE=1
+    expose:
+      - "9080"
+
+  productpage-v1:
+    image: $HUB/productpage-v1:latest
+    networks:
+      envoymesh:
+        ipv4_address: 172.28.0.14
+    dns:
+      - 172.28.0.1
+      - 8.8.8.8
+    dns_search:
+        - service.consul
+    privileged: true
+    environment:
+      - SERVICE_NAME=productpage
+      - SERVICE_TAGS=version|v1
+      - SERVICE_PROTOCOL=http
+    expose:
+      - "9080"
+
+networks:
+  envoymesh:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
