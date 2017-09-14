@@ -242,11 +242,46 @@ spec:
 			0,
 			bad + "\n---\n" + bad,
 		},
+		{
+			"trailing white space",
+			1,
+			good + "\n---\n\n    \n",
+		},
 	} {
 		t.Run(c.title, func(tt *testing.T) {
 			resources := parseFile(c.title, []byte(c.data))
 			if len(resources) != c.resourceCount {
 				tt.Errorf("Got %d, Want %d", len(resources), c.resourceCount)
+			}
+		})
+	}
+}
+
+func TestFsStore2_ParseChunk(t *testing.T) {
+	for _, c := range []struct {
+		title string
+		isNil bool
+		data  string
+	}{
+		{
+			"whitespace only",
+			true,
+			"      \n",
+		},
+		{
+			"whitespace with comments",
+			true,
+			"   \n#This is a comments\n",
+		},
+	} {
+		t.Run(c.title, func(t *testing.T) {
+			r, err := parseChunk([]byte(c.data))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if (r == nil) != c.isNil {
+				t.Fatalf("want Got %v, Want %t", r, c.isNil)
 			}
 		})
 	}
