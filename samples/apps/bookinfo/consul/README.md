@@ -39,7 +39,7 @@ To build all images for the bookinfo sample for the consul adapter, run:
   ./build-docker-services.sh
   ```
 
-To bring up all containers directly, from the `samples/apps/bookinfo/src` directory run
+To bring up all containers directly, from the `samples/apps/bookinfo/consul` directory run
 
   ```
   docker-compose up -d
@@ -49,18 +49,37 @@ This will pull images from docker hub to your local computing space.
 
 Now you can see all the containers in the mesh by running `docker ps -a`.
 
-To view the productpage webpage, retrieve the productpage container IP using the `docker inspect`command:
-
+NOTE: If Mac users experience an error starting the consul service in the `docker-compose up -d` command, 
+open your `docker-compose.yaml` and overwrite the `consul` service with the following and re-run the `up -d` command :
 ```
-$ docker inspect -f '{{.NetworkSettings.Networks.src_envoymesh.IPAddress}}' src_productpage-v1_1
-172.28.0.6
+  consul:
+    image: gliderlabs/consul-server
+    networks:
+      envoymesh:
+        aliases:
+          - consul
+    ports:
+      - "8500:8500"
+      - "53:8600/udp"
+      - "8400:8400"
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["-bootstrap"]
 ```
 
-Open a web browser and enter the productpage IP as follows: `<IP>:9080/productpage`
+To view the productpage webpage, open a web browser and enter `localhost:9081/productpage`.  
 
 If you refresh the page several times, you should see different versions of reviews shown in productpage presented in a round robin style (red stars, black stars, no stars). If the webpage is not displaying properly, you may need to run `docker-compose restart discovery` to resolve a timing issue during start up.
 
-You can create basic routing rules using istioctl from the `/bookinfo` directory:
+NOTE: Mac users will have to run the following commands first prior to creating a rule:
+
+```
+kubectl config set-cluster mac --server=http://localhost:8080
+kubectl config set-context mac --cluster=mac
+kubectl config use-context mac
+```
+
+You can create basic routing rules using istioctl from the `samples/apps/bookinfo/consul` directory:
 
 ```
 istioctl create -f consul-reviews-v1.yaml

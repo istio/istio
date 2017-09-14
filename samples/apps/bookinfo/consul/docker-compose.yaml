@@ -166,6 +166,8 @@ services:
       - SERVICE_NAME=productpage
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+    ports:
+      - "9081:9080"
     expose:
       - "9080"
 
