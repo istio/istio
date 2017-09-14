@@ -26,10 +26,4 @@ rules:
         destination.namespace: targetNamespace
         destination.service: targetService
         destination.serviceAccount: targetServiceAccountName
-  - kind: quotas
-    params:
-      quotas:
-      - descriptorName: RequestCount
-        maxAmount: 5000
-        expiration: 1s
 
