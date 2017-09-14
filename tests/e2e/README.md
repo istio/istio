@@ -3,7 +3,7 @@
 This directory contains Istio end-to-end tests and test framework.
 
 ## e2e test environment
-You need a k8s cluster to run tests. We recommend GKE cluster although miniKube works for some people too. 
+You need a k8s cluster to run tests.
 ```bash
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --no-enable-legacy-authorization
@@ -13,7 +13,7 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
  - `NUM_NODES`: Minimum 1.
  - `no-enable-legacy-authorization`: Optional, needed if you want to test rbac.
 
-If you hit the error 
+If you hit the error
 ```bash
 Error from server (Forbidden): error when creating "install/kubernetes/istio-rbac-beta.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
 ```
@@ -64,7 +64,7 @@ From the repo checkout root directory
 
 `tests/e2e.sh --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
 
-* Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a": 
+* Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a":
 
 `tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
 
@@ -89,7 +89,7 @@ You can build and run this or any single test manually with the same options as 
 
 ### Cluster in same local network
 In order to talk to istio ingress, we use the ingress IP by default. If your
-cluster is on the same local network and cannot provide external IP, use the `--use-local-cluster` flag.
+cluster is on the same local network and cannot provide external IP (for example, minikube), use the `--use-local-cluster` flag.
 In that case, the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
 
 ### Testing code change
