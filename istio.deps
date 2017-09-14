@@ -4,7 +4,7 @@
 		"repoName": "auth",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "d2e988190d8a27bd3cfa7bbace504c9dd56a5641"
+		"lastStableSHA": "64bfd95e8f9fe56265bd7a52e31158463b78e285"
 	},
 	{
 		"name": "MIXER_TAG",
@@ -18,6 +18,6 @@
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "044810b928e2aca30a82b53df44cad71ef7a0fb8"
+		"lastStableSHA": "d831c98b19b78d2718645d2acbe0e322e2262c69"
 	}
 ]
