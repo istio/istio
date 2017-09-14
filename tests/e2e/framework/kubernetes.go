@@ -49,6 +49,7 @@ var (
 	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
 	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	skipSetup    = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
 
 	addons = []string{
 		"prometheus",
@@ -105,20 +106,22 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err = util.CreateNamespace(k.Namespace); err != nil {
-		glog.Error("Failed to create namespace.")
-		return err
-	}
-	k.namespaceCreated = true
+	if !*skipSetup {
+		if err = util.CreateNamespace(k.Namespace); err != nil {
+			glog.Error("Failed to create namespace.")
+			return err
+		}
+		k.namespaceCreated = true
 
-	if err = k.deployIstio(); err != nil {
-		glog.Error("Failed to deploy Istio.")
-		return err
-	}
+		if err = k.deployIstio(); err != nil {
+			glog.Error("Failed to deploy Istio.")
+			return err
+		}
 
-	if err = k.deployAddons(); err != nil {
-		glog.Error("Failed to deploy istio addons")
-		return err
+		if err = k.deployAddons(); err != nil {
+			glog.Error("Failed to deploy istio addons")
+			return err
+		}
 	}
 
 	var in string
@@ -138,6 +141,17 @@ func (k *KubeInfo) Setup() error {
 func (k *KubeInfo) Teardown() error {
 	glog.Info("Cleaning up kubeInfo")
 	var err error
+
+	if *rbacfile != "" {
+
+		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
+		if _, err = os.Stat(testRbacYaml); os.IsNotExist(err) {
+			glog.Errorf("%s File does not exist", testRbacYaml)
+		} else if err = util.KubeDelete(k.Namespace, testRbacYaml); err != nil {
+			glog.Errorf("Rbac deletion failed, please remove stale ClusterRoleBindings")
+		}
+	}
+
 	if k.namespaceCreated {
 		if err = util.DeleteNamespace(k.Namespace); err != nil {
 			glog.Errorf("Failed to delete namespace %s", k.Namespace)
@@ -278,6 +292,13 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	content = replacePattern(k, content, istioSystem, k.Namespace)
+
+	// Replace long refresh delays with short ones for the sake of tests.
+	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
+	content = replacePattern(k, content, "discoveryRefreshDelay: 30s", "discoveryRefreshDelay: 1s")
+	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
+	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
+	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)

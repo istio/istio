@@ -1,34 +1,32 @@
-#!/bin/bash
-
 # Copyright 2017 Istio Authors
-
+#
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
-
+#
 #       http://www.apache.org/licenses/LICENSE-2.0
-
+#
 #   Unless required by applicable law or agreed to in writing, software
 #   distributed under the License is distributed on an "AS IS" BASIS,
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+FROM node:4-onbuild
 
-#######################################
-#                                     #
-#             e2e-suite               #
-#                                     #
-#######################################
+RUN mkdir -p /etc/istio/proxy/
+RUN apt-get update && apt-get -y install iptables curl
+RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
+RUN chown istio-proxy /etc/istio/proxy
 
-# Exit immediately for non zero status
-set -e
-# Check unset variables
-set -u
-# Print commands
-set -x
+COPY ./envoy /usr/local/bin/
+COPY ./prepare_proxy.sh /opt/istio/
+COPY . /opt/microservices/
+RUN cd /opt/microservices; npm install
+EXPOSE 9080
 
-RBAC_FILE='install/kubernetes/istio-rbac-beta.yaml'
+COPY ./start_service.sh /usr/local/bin/
+RUN chmod u+x /usr/local/bin/start_service.sh
+COPY ./pilot-agent /opt/istio/
 
-echo 'Running e2e with rbac, no auth Tests'
-./prow/e2e-suite.sh --rbac_path="${RBAC_FILE}" "${@}"
+ENTRYPOINT /usr/local/bin/start_service.sh
