@@ -21,6 +21,7 @@ go_test(
         "//pkg/config/descriptor:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/il/interpreter:go_default_library",
+        "//pkg/il/testing:go_default_library",
         "//pkg/il/text:go_default_library",
         "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],

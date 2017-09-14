@@ -77,3 +77,7 @@ func (t *Bag) Bytes(name string) ([]uint8, bool) {
 func (t *Bag) StringMap(name string) (map[string]string, bool) {
 	return nil, false
 }
+
+// DebugString returns the empty string.
+// TODO: use attribute.GetMutableBagForTest
+func (t *Bag) DebugString() string { return "" }
