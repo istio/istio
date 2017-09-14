@@ -51,7 +51,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
 
   discovery:
-    image: $HUB/discovery:latest
+    image: istio/discovery:latest
     networks:
       envoymesh:
         aliases:
@@ -64,7 +64,7 @@ services:
       - ~/.kube/config:/istio/config
 
   details-v1:
-    image: $HUB/details-v1:latest
+    image: istio/details-v1:latest
     networks:
       envoymesh:
     dns:
@@ -81,7 +81,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: $HUB/ratings-v1:latest
+    image: istio/ratings-v1:latest
     networks:
       envoymesh:
     dns:
@@ -98,7 +98,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: $HUB/reviews-v1:latest
+    image: istio/reviews-v1:latest
     networks:
       envoymesh:
     dns:
@@ -116,7 +116,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: $HUB/reviews-v2:latest
+    image: istio/reviews-v2:latest
     networks:
       envoymesh:
     dns:
@@ -134,7 +134,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: $HUB/reviews-v3:latest
+    image: istio/reviews-v3:latest
     networks:
       envoymesh:
     dns:
@@ -152,7 +152,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: $HUB/productpage-v1:latest
+    image: istio/productpage-v1:latest
     networks:
       envoymesh:
         ipv4_address: 172.28.0.14
@@ -166,6 +166,8 @@ services:
       - SERVICE_NAME=productpage
       - SERVICE_TAGS=version|v1
       - SERVICE_PROTOCOL=http
+    ports:
+      - "9081:9080"
     expose:
       - "9080"
 
