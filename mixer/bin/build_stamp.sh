@@ -33,7 +33,7 @@ fi
 echo "buildStatus ${tree_status}"
 
 # Check for version informatioqn
-RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
+RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' 2> /dev/null || echo "")
 if [[ -n "${RELEASE_TAG}" ]]; then
   VERSION="${RELEASE_TAG}"
 elif [[ -n ${ISTIO_VERSION} ]]; then
