@@ -15,7 +15,7 @@ spec:
         # That image runs the servers (so it will run forever) but has the
         # /usr/local/bin/fortio client
         image: FORTIO_IMAGE
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
 ---
 # Extra debug / shell
 apiVersion: v1
