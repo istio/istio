@@ -12,5 +12,6 @@ spec:
   match: destination.service == "bar.default.svc.cluster.local" && source.user != "tcp-test-user"
   actions:
   - handler: denyall.denier
-    instances: [ denyrequest.checknothing ]
+    instances:
+    - denyrequest.checknothing
 ---

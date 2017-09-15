@@ -26,4 +26,5 @@ spec:
   actions:
   # handler and instance names default to the rule's namespace.
   - handler: denyall.denier
-    instances: [ denyrequest.checknothing ]
+    instances:
+    - denyrequest.checknothing

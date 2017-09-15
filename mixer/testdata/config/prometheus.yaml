@@ -52,12 +52,12 @@ metadata:
     istio-protocol: http
 spec:
   actions:
-  - handler: handler.prometheus.istio-config-default
+  - handler: handler.prometheus
     instances:
-    - requestcount.metric.istio-config-default
-    - requestduration.metric.istio-config-default
-    - requestsize.metric.istio-config-default
-    - responsesize.metric.istio-config-default
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -68,8 +68,8 @@ metadata:
     istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP 
 spec:
   actions:
-  - handler: handler.prometheus.istio-config-default
+  - handler: handler.prometheus
     instances:    
-    - tcpbytesent.metric.istio-config-default
-    - tcpbytereceived.metric.istio-config-default
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
 ---
