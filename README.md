@@ -38,13 +38,9 @@ Istio is composed of these components:
 * **Pilot** - A component responsible for configuring the
   proxies at runtime.
 
-* **Galley** - A component responsible for storing and distributing Istio configuration state.
+* **Broker** - A component implementing the open service broker API for Istio-based services. (Under development)
 
-* **Broker** - A component implementing the open service broker API for Istio-based services.
-
-Istio currently only supports the Kubernetes
-platform, although we plan support for additional platforms such as
-Cloud Foundry, and Mesos in the near future.
+Istio currently supports Kubernetes, Consul, Eureka-based environments. We plan support for additional platforms such as Cloud Foundry, and Mesos in the near future.
 
 ## Istio authors
 
@@ -80,9 +76,6 @@ management services, and monitoring services.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
-
-- [istio/galley](https://github.com/istio/galley). This repository
-contains code for Istio configuration management and distribution system.
 
 - [istio/broker](https://github.com/istio/broker). This repository
 contains code for Istio's implementation of the Open Service Broker API.

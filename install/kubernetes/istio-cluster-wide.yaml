@@ -264,7 +264,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:2c49eeb382bdd4c5df7a41836f5b547baef8f802
+        image: gcr.io/istio-testing/mixer:4e107a2411e1d58e88fd9ae4d32a139751e87955
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -594,7 +594,7 @@ data:
     # the following line
     mixerAddress: istio-mixer.istio-system:9091
     #
-    ingressService: istio-ingress.istio-system
+    ingressService: istio-ingress
     egressProxyAddress: istio-egress.istio-system:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
@@ -679,7 +679,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
+        image: gcr.io/istio-testing/pilot:3ac357f84576f881d9f57ed76e4e14a052ac5333
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
@@ -703,18 +703,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
----
-################################
-# Empty secret for Istio ingress controller
-################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-ingress-certs
-  namespace: istio-system
-data:
-  tls.key:
-  tls.crt:
 ---
 ################################
 # Istio ingress controller
@@ -762,8 +750,14 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
-        args: ["proxy", "ingress", "-v", "2"]
+        image: gcr.io/istio-testing/proxy_debug:3ac357f84576f881d9f57ed76e4e14a052ac5333
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -780,8 +774,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -789,9 +781,6 @@ spec:
           mountPath: /etc/istio/ingress-certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -838,9 +827,15 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:5acaa9e26e7d9b239cbc72da63f5f9a3dac5a54e
+        image: gcr.io/istio-testing/proxy_debug:3ac357f84576f881d9f57ed76e4e14a052ac5333
         imagePullPolicy: IfNotPresent
-        args: ["proxy", "egress", "-v", "2"]
+        args:
+        - proxy
+        - egress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         env:
         - name: POD_NAME
           valueFrom:
@@ -853,15 +848,10 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -892,7 +882,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: gcr.io/istio-testing/istio-ca:d2e988190d8a27bd3cfa7bbace504c9dd56a5641
+        image: gcr.io/istio-testing/istio-ca:b7b8c10bbb6ca471e9c8aee2b3889f0ccbf01c3c
         imagePullPolicy: IfNotPresent
 ---
 

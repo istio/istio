@@ -41,6 +41,8 @@ import (
 
 const (
 	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
+	bookinfoRatingsv2Yaml    = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
+	bookinfoDbYaml           = "samples/apps/bookinfo/bookinfo-db.yaml"
 	rulesDir                 = "samples/apps/bookinfo/rules"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
@@ -49,9 +51,9 @@ const (
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
 	emptyRule                = "mixer-rule-empty-rule.yaml"
-	preProcessOnlyRule       = "mixer-rule-preprocess-only.yaml"
 	standardMetrics          = "mixer-rule-standard-metrics.yaml"
 	standardAttributes       = "mixer-rule-standard-attributes.yaml"
+	tcpDbRule                = "route-rule-ratings-db.yaml"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
@@ -59,8 +61,6 @@ const (
 
 	targetLabel       = "target"
 	responseCodeLabel = "response_code"
-
-	global = "global"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
@@ -77,8 +77,8 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule, preProcessOnlyRule,
-		standardAttributes, standardMetrics}
+		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule,
+		standardAttributes, standardMetrics, tcpDbRule}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -115,7 +115,7 @@ func (t *testConfig) Setup() (err error) {
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
-	if err = visitProductPage(30*time.Second, 200); err != nil {
+	if err = visitProductPage(60*time.Second, 200); err != nil {
 		glog.Infof("initial product page request failed: %v", err)
 	}
 
@@ -125,11 +125,6 @@ func (t *testConfig) Setup() (err error) {
 }
 
 func setupMixerConfig() error {
-	// TODO mixer2 cleanup.
-	// The old style mixer rule will only keep k8s pre-processing
-	if err := createMixerRule(global, global, preProcessOnlyRule); err != nil {
-		return err
-	}
 	if err := applyMixerRule(standardAttributes); err != nil {
 		return err
 	}
@@ -321,6 +316,68 @@ func TestGlobalCheckAndReport(t *testing.T) {
 	}
 }
 
+func TestTcpMetrics(t *testing.T) {
+	if err := replaceRouteRule(tcpDbRule); err != nil {
+		t.Fatalf("Could not update reviews routing rule: %v", err)
+	}
+	defer func() {
+		if err := deleteRouteRule(tcpDbRule); err != nil {
+			t.Fatalf("Could not delete reviews routing rule: %v", err)
+		}
+	}()
+	allowRuleSync()
+
+	if err := visitProductPage(productPageTimeout, http.StatusOK); err != nil {
+		t.Fatalf("Test app setup failure: %v", err)
+	}
+	allowPrometheusSync()
+
+	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
+
+	promAPI, err := promAPI()
+	if err != nil {
+		fatalf(t, "Could not build prometheus API client: %v", err)
+	}
+	query := fmt.Sprintf("tcp_bytes_sent{destination_service=\"%s\"}", fqdn("mongodb"))
+	t.Logf("prometheus query: %s", query)
+	value, err := promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+	glog.Infof("promvalue := %s", value.String())
+
+	got, err := vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Logf("prometheus values for tcp_bytes_sent:\n%s", promDump(promAPI, "tcp_bytes_sent"))
+		fatalf(t, "Could not find metric value: %v", err)
+	}
+	t.Logf("tcp_bytes_sent: %f", got)
+	want := float64(1)
+	if got < want {
+		t.Logf("prometheus values for tcp_bytes_sent:\n%s", promDump(promAPI, "tcp_bytes_sent"))
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	}
+
+	query = fmt.Sprintf("tcp_bytes_received{destination_service=\"%s\"}", fqdn("mongodb"))
+	t.Logf("prometheus query: %s", query)
+	value, err = promAPI.Query(context.Background(), query, time.Now())
+	if err != nil {
+		fatalf(t, "Could not get metrics from prometheus: %v", err)
+	}
+	glog.Infof("promvalue := %s", value.String())
+
+	got, err = vectorValue(value, map[string]string{})
+	if err != nil {
+		t.Logf("prometheus values for tcp_bytes_received:\n%s", promDump(promAPI, "tcp_bytes_received"))
+		fatalf(t, "Could not find metric value: %v", err)
+	}
+	t.Logf("tcp_bytes_received: %f", got)
+	if got < want {
+		t.Logf("prometheus values for tcp_bytes_received:\n%s", promDump(promAPI, "tcp_bytes_received"))
+		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
+	}
+}
+
 func TestNewMetrics(t *testing.T) {
 	if err := applyMixerRule(newTelemetryRule); err != nil {
 		fatalf(t, "could not create required mixer rule: %v", err)
@@ -502,7 +559,7 @@ func TestRateLimit(t *testing.T) {
 	}
 	glog.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429"})
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find rate limit value: %v", err)
@@ -521,7 +578,7 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200"})
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find successes value: %v", err)
@@ -702,11 +759,6 @@ func deleteRouteRule(ruleName string) error {
 	return util.KubeDelete(tc.Kube.Namespace, rule)
 }
 
-func createMixerRule(scope, subject, ruleName string) error {
-	rule := filepath.Join(tc.rulesDir, ruleName)
-	return tc.Kube.Istioctl.CreateMixerRule(scope, subject, rule)
-}
-
 func deleteMixerRule(ruleName string) error {
 	return doMixerRule(ruleName, util.KubeDeleteContents)
 }
@@ -747,11 +799,23 @@ func setTestConfig() error {
 		return err
 	}
 	tc.rulesDir = tmpDir
-	demoApp := &framework.App{
-		AppYaml:    util.GetResourcePath(bookinfoYaml),
-		KubeInject: true,
+	demoApps := []framework.App{
+		{
+			AppYaml:    util.GetResourcePath(bookinfoYaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    util.GetResourcePath(bookinfoRatingsv2Yaml),
+			KubeInject: true,
+		},
+		{
+			AppYaml:    util.GetResourcePath(bookinfoDbYaml),
+			KubeInject: true,
+		},
 	}
-	tc.Kube.AppManager.AddApp(demoApp)
+	for i := range demoApps {
+		tc.Kube.AppManager.AddApp(&demoApps[i])
+	}
 	mp := newPromProxy(tc.Kube.Namespace)
 	tc.Cleanup.RegisterCleanable(mp)
 	return nil

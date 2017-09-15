@@ -14,16 +14,16 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-# This script builds docker images for book info microservices.
-# It's different from build-services.sh because it builds all
+# This script builds docker images for bookinfo microservices.
+# It's different from ../src/build-services.sh because it builds all
 # services with the envoy proxy and pilot agent in the images.
 # Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 HUB=istio
 WORKSPACE=$GOPATH/src/istio.io/pilot
 BINDIR=$WORKSPACE/bazel-bin
-APPSDIR=$SCRIPTDIR
-DISCOVERYDIR=$SCRIPTDIR/../../discovery
+APPSDIR=$GOPATH/src/istio.io/istio/samples/apps/bookinfo/src
+DISCOVERYDIR=$SCRIPTDIR/discovery
 PILOTAGENTPATH=$WORKSPACE/cmd/pilot-agent
 PILOTDISCOVERYPATH=$WORKSPACE/cmd/pilot-discovery
 PREPAREPROXYSCRIPT=$WORKSPACE/docker
@@ -71,13 +71,13 @@ for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
   rm -f $APPSDIR/$app/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $_
   rm -f $APPSDIR/$app/envoy && cp $APPSDIR/envoy $_
-  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "$HUB/${app}-v1:latest" $app/
+  docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "$HUB/${app}-v1:latest" $APPSDIR/$app/
   rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh $APPSDIR/$app/envoy
 done
 
 REVIEWSDIR=$APPSDIR/reviews/reviews-wlpcfg
 
-pushd $SCRIPTDIR/reviews
+pushd $APPSDIR/reviews
     docker run --rm -v `pwd`:/usr/bin/app:rw niaquinto/gradle clean build
 popd
 
@@ -86,13 +86,13 @@ rm -f $REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $R
 rm -f $REVIEWSDIR/envoy && cp $APPSDIR/envoy $REVIEWSDIR
 #plain build -- no ratings
 docker build -t $HUB/reviews-v1:latest --build-arg service_version=v1 \
-    -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
+    -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar $APPSDIR/reviews/reviews-wlpcfg
 #with ratings black stars
 docker build -t $HUB/reviews-v2:latest --build-arg service_version=v2 \
-    --build-arg enable_ratings=true -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
+    --build-arg enable_ratings=true -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar $APPSDIR/reviews/reviews-wlpcfg
 #with ratings red stars
 docker build -t $HUB/reviews-v3:latest --build-arg service_version=v3 \
-    --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar reviews/reviews-wlpcfg
+    --build-arg enable_ratings=true --build-arg star_color=red -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar $APPSDIR/reviews/reviews-wlpcfg
 rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh $REVIEWSDIR/envoy
 
 # clean up envoy downloaded artifacts
