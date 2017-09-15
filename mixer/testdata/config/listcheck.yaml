@@ -1,0 +1,30 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: listchecker
+metadata:
+  name: staticversion
+  namespace: istio-config-default
+spec:
+  # providerUrl: ordinarily black and white lists are maintained
+  # externally and fetched asynchronously using the providerUrl.
+  overrides: ["v1", "v2"]  # overrides provide a static list
+  blacklist: false
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: listentry
+metadata:
+  name: appversion
+  namespace: istio-config-default
+spec:
+  value: source.labels["version"]
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: checkwl
+  namespace: istio-config-default
+spec:
+  match: destination.labels["app"] == "ratings"
+  actions:
+  - handler: staticversion.listchecker
+    instances: [ appversion.listentry ]

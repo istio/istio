@@ -240,7 +240,6 @@ func GetInfo() adapter.Info {
 		Description:        "Checks whether an entry is present in a list",
 		SupportedTemplates: []string{listentry.TemplateName},
 		DefaultConfig: &config.Params{
-			ProviderUrl:     "http://localhost",
 			RefreshInterval: 60 * time.Second,
 			Ttl:             300 * time.Second,
 			CachingInterval: 300 * time.Second,
