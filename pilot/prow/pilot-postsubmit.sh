@@ -67,6 +67,9 @@ fi
 echo '=== Build istioctl ==='
 ./bin/upload-istioctl -r -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
 
+echo "=== Pushing Debian Packages ==="
+bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/${GIT_SHA}/artifacts/debs"
+
 echo '=== Running e2e Tests ==='
 bin/e2e.sh -logs=false -tag "${GIT_SHA}"
 

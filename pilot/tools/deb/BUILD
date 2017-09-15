@@ -26,5 +26,18 @@ pkg_deb(
     homepage = "http://istio.io",
     maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
     package = "istio-agent",
-    version = "0.2.1",
+    version = "0.2-dev",
+)
+
+pkg_deb(
+    name = "istio-agent-release",
+    architecture = "amd64",
+    built_using = "bazel",
+    data = ":debian-data-agent",
+    description_file = "description-agent",
+    homepage = "http://istio.io",
+    maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
+    package = "istio-agent",
+    tags = ["manual"],
+    version_file = "version",
 )
