@@ -76,6 +76,8 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 		ports = append(ports, convertPort(port))
 	}
 
+	loadBalancingDisabled := addr == "" && external == "" // headless services should not be load balanced
+
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations != nil {
 		if svc.Annotations[CanonicalServiceAccountsOnVMAnnotation] != "" {
@@ -92,11 +94,12 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
-		Hostname:        serviceHostname(svc.Name, svc.Namespace, domainSuffix),
-		Ports:           ports,
-		Address:         addr,
-		ExternalName:    external,
-		ServiceAccounts: serviceaccounts,
+		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
+		Ports:                 ports,
+		Address:               addr,
+		ExternalName:          external,
+		ServiceAccounts:       serviceaccounts,
+		LoadBalancingDisabled: loadBalancingDisabled,
 	}
 }
 

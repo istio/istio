@@ -57,6 +57,9 @@ type Service struct {
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
+
+	// LoadBalancingDisabled indicates that no load balancing should be done for this service.
+	LoadBalancingDisabled bool `json:"-"`
 }
 
 // Port represents a network port where a service is listening for

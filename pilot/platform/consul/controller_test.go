@@ -90,7 +90,7 @@ func newServer() *httptest.Server {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else {
-			fmt.Println(r.URL.Path)
+			fmt.Fprintln(w, r.URL.Path)
 		}
 	}))
 }
@@ -131,8 +131,7 @@ func TestInstances(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("Instances() did not match by tag => %q, want tag {%q:%q}",
-				inst, filterTagKey, filterTagVal)
+			t.Errorf("Instances() did not match by tag {%q:%q}", filterTagKey, filterTagVal)
 		}
 	}
 
@@ -186,8 +185,13 @@ func TestServices(t *testing.T) {
 		serviceMap[name] = svc
 	}
 
-	if serviceMap["productpage"] == nil || serviceMap["reviews"] == nil || len(services) != 2 {
-		t.Errorf("Services() missing or incorrect # of services returned: %q", services)
+	for _, name := range []string{"productpage", "reviews"} {
+		if _, exists := serviceMap[name]; !exists {
+			t.Errorf("Services() missing: %q", name)
+		}
+	}
+	if len(services) != 2 {
+		t.Errorf("Services() returned wrong # of services: %q, want 2", len(services))
 	}
 }
 
@@ -205,6 +209,7 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	if services[0].Service.Hostname != serviceHostname("productpage") {
-		t.Errorf("HostInstances() wrong service instance returned => %q, want productpage", services[0])
+		t.Errorf("HostInstances() wrong service instance returned => hostname %q, want %q",
+			services[0].Service.Hostname, serviceHostname("productpage"))
 	}
 }
