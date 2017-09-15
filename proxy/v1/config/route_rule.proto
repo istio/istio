@@ -220,9 +220,8 @@ message MatchRequest {
   // to URI, protocol scheme (e.g., HTTP, HTTPS), HTTP method
   // (e.g., GET, POST), and the HTTP Host header respectively.
   //
-  // *Note 2:* _uri_ can be used to perform URL matches. For URL matches
-  // (_uri_), only prefix and exact matches are
-  // supported. For other HTTP headers, exact, prefix and ECMA style
+  // *Note 2:* _uri_ can be used to perform URL matches. 
+  // For all HTTP headers including _uri_, exact, prefix and ECMA style
   // regular expression matches are supported.
   map<string, StringMatch> headers = 1;
 }
