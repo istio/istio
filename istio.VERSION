@@ -7,4 +7,8 @@ export MIXER_TAG="4e107a2411e1d58e88fd9ae4d32a139751e87955"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/3ac357f84576f881d9f57ed76e4e14a052ac5333/artifacts/istioctl"
 export PILOT_HUB="gcr.io/istio-testing"
 export PILOT_TAG="3ac357f84576f881d9f57ed76e4e14a052ac5333"
-export ISTIO_NAMESPACE=istio-system
+export ISTIO_NAMESPACE="istio-system"
+export AUTH_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/auth/b7b8c10bbb6ca471e9c8aee2b3889f0ccbf01c3c/artifacts/debs"
+export PILOT_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/pilot/3ac357f84576f881d9f57ed76e4e14a052ac5333/artifacts/debs"
+export PROXY_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/proxy/4a493c07e34e764e29013c794ad295f665d8eebc/artifacts/debs"
+
