@@ -45,6 +45,9 @@ def presubmit(gitUtils, bazel) {
     stage('Push Test Binary') {
       sh 'script/release-binary'
     }
+    stage('Push Debian Package') {
+      sh "script/push-debian.sh -c opt -p gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs"
+    }
   }
 }
 
@@ -56,6 +59,9 @@ def postsubmit(gitUtils, bazel, utils) {
     }
     stage('Docker Push') {
       sh 'script/release-docker'
+    }
+    stage('Push Debian Package') {
+      sh "script/push-debian.sh -c opt -p gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs"
     }
   }
 }

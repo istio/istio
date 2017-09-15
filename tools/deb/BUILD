@@ -51,5 +51,19 @@ pkg_deb(
     maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
     package = "istio-proxy",
     postinst = "postinst.sh",
-    version = "0.2.1",
+    version = "0.2-dev",
+)
+
+pkg_deb(
+    name = "istio-proxy-release",
+    architecture = "amd64",
+    built_using = "bazel",
+    data = ":debian-data",
+    description_file = "description",
+    homepage = "http://istio.io",
+    maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
+    package = "istio-proxy",
+    postinst = "postinst.sh",
+    tags = ["manual"],
+    version_file = "version",
 )
