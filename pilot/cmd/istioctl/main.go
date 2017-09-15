@@ -71,8 +71,6 @@ Available routing and traffic management configuration types:
 See http://istio.io/docs/reference for an overview of routing rules
 and destination policies.
 
-More information on the mixer API configuration can be found under the
-istioctl mixer command documentation.
 `, model.IstioConfigTypes.Types()),
 	}
 
