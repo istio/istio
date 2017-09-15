@@ -31,7 +31,7 @@ option (gogoproto.gostring_all) = false;
 // The adapter works by looking up pod information by UIDs (of the
 // form: "kubernetes://pod.namespace"). It expects that the UIDs will be
 // supplied in an input map for three distinct traffic classes (source,
-// target, and origin).
+// destination, and origin).
 //
 // For all valid UIDs supplied, this adapter generates a map of output
 // values containing information about the related pods. The generated map
@@ -68,11 +68,11 @@ message Params {
     // Default: sourceUID
     string source_uid_input_name = 3;
 
-    // Configures how the UID for the target pod for traffic is identified
+    // Configures how the UID for the destination pod for traffic is identified
     // in the input map.
     //
-    // Default: targetUID
-    string target_uid_input_name = 4;
+    // Default: destinationUID
+    string destination_uid_input_name = 4;
 
     // Configures how the UID for the origin pod for traffic is identified
     // in the input map.
@@ -86,11 +86,11 @@ message Params {
     // Default: sourceIP
     string source_ip_input_name = 20;
 
-    // Configures how the IP for the target pod for traffic is identified
+    // Configures how the IP for the destination pod for traffic is identified
     // in the input map.
     //
-    // Default: targetIP
-    string target_ip_input_name = 21;
+    // Default: destinationIP
+    string destination_ip_input_name = 21;
 
     // Configures how the IP for the origin pod for traffic is identified
     // in the input map.
@@ -103,14 +103,14 @@ message Params {
     // Default: svc.cluster.local
     string cluster_domain_name = 18;
 
-    // In order to extract the service associated with a source, target, or
+    // In order to extract the service associated with a source, destination, or
     // origin, this adapter relies on pod labels. In particular, it looks for
     // the value of a specific label, as specified by this parameter.
     //
     // Default: app
     string pod_label_for_service = 6;
 
-    // In order to extract the service associated with a source, target, or
+    // In order to extract the service associated with a source, destination, or
     // origin, this adapter relies on pod labels. In particular, it looks for
     // the value of a specific label for istio component services, as specified 
     // by this parameter.
@@ -123,10 +123,10 @@ message Params {
     // Default: source
     string source_prefix = 7;
 
-    // The prefix used for target pod output value names.
+    // The prefix used for destination pod output value names.
     //
-    // Default: target
-    string target_prefix = 8;
+    // Default: destination
+    string destination_prefix = 8;
 
     // The prefix used for origin pod output value names.
     //
