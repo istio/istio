@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -193,6 +192,7 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	return duration, err
 }
 
+/**
 func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 	if err != nil {
@@ -231,6 +231,7 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	}
 	return 1, nil
 }
+*/
 
 func deleteRules(ruleKeys []string) error {
 	var err error
