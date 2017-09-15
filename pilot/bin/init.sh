@@ -37,6 +37,10 @@ for f in $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/
   ln -sf $f vendor/github.com/googleapis/googleapis/google/rpc/
 done
 
+# Link envoy binary
+ln -sf "$(pwd)/bazel-genfiles/proxy/envoy/envoy" proxy/envoy/
+
+# Link CRD generated files
 ln -sf "$(pwd)/bazel-genfiles/adapter/config/crd/types.go" \
   adapter/config/crd/
 

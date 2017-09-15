@@ -1,6 +1,6 @@
 /bazel-*
-contrib/cfgeditor/content.go
 platform/kube/config
+proxy/envoy/envoy
 vendor
 .idea*
 *.iml

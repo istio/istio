@@ -41,7 +41,9 @@ func (tp TestProxy) Run(config interface{}, epoch int, stop <-chan error) error 
 }
 
 func (tp TestProxy) Cleanup(epoch int) {
-	tp.cleanup(epoch)
+	if tp.cleanup != nil {
+		tp.cleanup(epoch)
+	}
 }
 
 func (tp TestProxy) Panic(config interface{}) {

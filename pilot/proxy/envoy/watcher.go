@@ -18,6 +18,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/howeyc/fsnotify"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/proxy"
@@ -66,7 +69,7 @@ func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.No
 }
 
 func (w *watcher) Run(ctx context.Context) {
-	// agent consumes notifications from the controllerr
+	// agent consumes notifications from the controller
 	go w.agent.Run(ctx)
 
 	// kickstart the proxy with partial state (in case there are no notifications coming)
@@ -94,6 +97,57 @@ func (w *watcher) Reload() {
 	w.agent.ScheduleConfigUpdate(config)
 }
 
+// watchCerts watches a certificate directory and calls the provided
+// `updateFunc` method when changes are detected. This method is blocking
+// so should be run as a goroutine.
+func watchCerts(ctx context.Context, certsDir string, updateFunc func()) {
+	fw, err := fsnotify.NewWatcher()
+	if err != nil {
+		glog.Warning("failed to create a watcher for certificate files")
+		return
+	}
+	defer func() {
+		if err := fw.Close(); err != nil {
+			glog.Warningf("closing watcher encounters an error %v", err)
+		}
+	}()
+
+	if err := fw.Watch(certsDir); err != nil {
+		glog.Warningf("watching %s encounters an error %v", certsDir, err)
+		return
+	}
+
+	for {
+		select {
+		case <-fw.Event:
+			glog.V(2).Infof("Change to %q is detected, reload the proxy if necessary", certsDir)
+			updateFunc()
+
+		case <-ctx.Done():
+			glog.V(2).Info("Certificate watcher is terminated")
+			return
+		}
+	}
+}
+
+func generateCertHash(h hash.Hash, certsDir string, files []string) {
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		return
+	}
+
+	for _, file := range files {
+		filename := path.Join(certsDir, file)
+		bs, err := ioutil.ReadFile(filename)
+		if err != nil {
+			// glog.Warningf("failed to read file %q", filename)
+			continue
+		}
+		if _, err := h.Write(bs); err != nil {
+			glog.Warning(err)
+		}
+	}
+}
+
 const (
 	// EpochFileTemplate is a template for the root config JSON
 	EpochFileTemplate = "envoy-rev%d.json"
@@ -104,15 +158,25 @@ func configFile(config string, epoch int) string {
 }
 
 type envoy struct {
-	config proxyconfig.ProxyConfig
-	node   string
+	config    proxyconfig.ProxyConfig
+	node      string
+	extraArgs []string
 }
 
 // NewProxy creates an instance of the proxy control commands
 func NewProxy(config proxyconfig.ProxyConfig, node string) proxy.Proxy {
+	// inject tracing flag for higher levels
+	var args []string
+	if glog.V(4) {
+		args = append(args, "-l", "trace")
+	} else if glog.V(3) {
+		args = append(args, "-l", "debug")
+	}
+
 	return envoy{
-		config: config,
-		node:   node,
+		config:    config,
+		node:      node,
+		extraArgs: args,
 	}
 }
 
@@ -124,6 +188,8 @@ func (proxy envoy) args(fname string, epoch int) []string {
 		"--service-cluster", proxy.config.ServiceCluster,
 		"--service-node", proxy.node,
 	}
+
+	startupArgs = append(startupArgs, proxy.extraArgs...)
 
 	if len(proxy.config.AvailabilityZone) > 0 {
 		startupArgs = append(startupArgs, []string{"--service-zone", proxy.config.AvailabilityZone}...)
@@ -151,13 +217,6 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 
 	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
-
-	// inject tracing flag for higher levels
-	if glog.V(4) {
-		args = append(args, "-l", "trace")
-	} else if glog.V(3) {
-		args = append(args, "-l", "debug")
-	}
 
 	glog.V(2).Infof("Envoy command: %v", args)
 

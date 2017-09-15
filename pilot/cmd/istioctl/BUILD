@@ -17,15 +17,12 @@ go_library(
         "//platform/kube:go_default_library",
         "//platform/kube/inject:go_default_library",
         "//tools/version:go_default_library",
-        "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_googleapis_googleapis//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_cobra//doc:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
-        "@io_k8s_client_go//rest:go_default_library",
     ],
 )
 
