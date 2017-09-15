@@ -45,5 +45,8 @@ echo 'Running Linters'
 echo 'Running Unit Tests'
 bazel test //...
 
+echo 'Checking that updateVersion has been called'
+install/updateVersion.sh -s
+
 echo 'Pushing Images'
 (cd devel/fortio && make authorize all TAG="${GIT_SHA}")
