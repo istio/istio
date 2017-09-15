@@ -11,6 +11,9 @@ fi
 # Building and testing with Bazel
 bazel build //...
 
+source "${PDIR}/bin/use_bazel_go.sh"
+go version
+
 # Clean up vendor dir
 rm -rf $(pwd)/vendor
 
@@ -30,11 +33,6 @@ done
 mkdir -p vendor/istio.io/pilot/test/grpcecho
 for f in $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go; do
   ln -sf $f vendor/istio.io/pilot/test/grpcecho/
-done
-
-mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
-for f in $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/*.pb.go; do
-  ln -sf $f vendor/github.com/googleapis/googleapis/google/rpc/
 done
 
 # Link envoy binary

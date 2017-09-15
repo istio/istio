@@ -36,8 +36,6 @@ cp -f "${ROOT}/bazel-bin/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 
 
 if [[ ${RELEASE} == true ]]; then
-  export GOROOT="$(find ${ROOT}/bazel-${DIR_NAME}/external -type d -name 'go1_*')"
-  go=${GOROOT}/bin/go
 
   # set linker flags for populating version info
   LDFLAGS=""
@@ -46,12 +44,12 @@ if [[ ${RELEASE} == true ]]; then
     LDFLAGS=${LDFLAGS}" -X istio.io/pilot/tools/version.${SYMBOL}=${VALUE}"
   done < <(./bin/get_workspace_status)
 
-  GOOS=darwin GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
+  GOOS=darwin GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
   mv istioctl "${BIN_DIR}/istioctl-osx"
 
   # install missing spf13/cobra dependency (windows only)
   go get github.com/inconshreveable/mousetrap
-  GOOS=windows GOARCH=amd64 ${go} build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
+  GOOS=windows GOARCH=amd64 go build -ldflags "${LDFLAGS}" istio.io/pilot/cmd/istioctl
   mv istioctl.exe "${BIN_DIR}/istioctl-win.exe"
 fi
 if [[ -n "${BUCKET_PATH}" ]]; then
