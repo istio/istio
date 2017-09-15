@@ -650,7 +650,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:4b0a83c743c52913ba2427f55407dbec4bc86836
+        image: gcr.io/istio-testing/pilot:897e396410b32a4ca85f84313589a542753c12c0
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2"]
         ports:
@@ -673,18 +673,6 @@ spec:
       - name: config-volume
         configMap:
           name: istio
----
-################################
-# Empty secret for Istio ingress controller
-################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-ingress-certs
-  namespace: istio-system
-data:
-  tls.key:
-  tls.crt:
 ---
 ################################
 # Istio ingress controller
@@ -732,8 +720,14 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:4b0a83c743c52913ba2427f55407dbec4bc86836
-        args: ["proxy", "ingress", "-v", "2"]
+        image: gcr.io/istio-testing/proxy_debug:897e396410b32a4ca85f84313589a542753c12c0
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -750,8 +744,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -759,9 +751,6 @@ spec:
           mountPath: /etc/istio/ingress-certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default
@@ -808,9 +797,15 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:4b0a83c743c52913ba2427f55407dbec4bc86836
+        image: gcr.io/istio-testing/proxy_debug:897e396410b32a4ca85f84313589a542753c12c0
         imagePullPolicy: IfNotPresent
-        args: ["proxy", "egress", "-v", "2"]
+        args:
+        - proxy
+        - egress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         env:
         - name: POD_NAME
           valueFrom:
@@ -823,15 +818,10 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default
