@@ -1,14 +1,8 @@
-# build protos from istio.io/api repo
-
 package(default_visibility = ["//visibility:public"])
-
-load("@io_bazel_rules_go//go:def.bzl", "go_prefix")
-
-go_prefix("istio.io/api/broker/v1/config")
 
 load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_library")
 
 go_proto_library(
     name = "go_default_library",
-    srcs = glob(["broker/v1/config/*.proto"]),
+    srcs = ["fake_config.proto"],
 )

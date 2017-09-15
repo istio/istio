@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+syntax = "proto3";
 
-// Service defines OSB service data structure.
-type Service struct {
-	Name           string   `json:"name"`
-	ID             string   `json:"id"`
-	Description    string   `json:"description"`
-	Bindable       bool     `json:"bindable"`
-	PlanUpdateable bool     `json:"plan_updateable, omitempty"`
-	Tags           []string `json:"tags, omitempty"`
-	Requires       []string `json:"requires, omitempty"`
+package proto;
 
-	Metadata        interface{}   `json:"metadata, omitempty"`
-	Plans           []ServicePlan `json:"plans"`
-	DashboardClient interface{}   `json:"dashboard_client"`
+// Testing config resource consisting
+// of a set of key-value pairs
+message FakeConfig {
+  string key = 1;
+  repeated Pair pairs = 2;
+}
+
+message Pair {
+  string key = 1;
+  string value = 2;
 }

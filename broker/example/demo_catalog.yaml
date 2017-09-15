@@ -7,7 +7,7 @@ spec:
     instance: productpage
   entry:
     name: istio-bookinfo-productpage
-    id: 0001
+    id: 4395a443-f49a-41b0-8d14-d17294cf612f
     description: A book info service
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -17,7 +17,7 @@ metadata:
 spec:
   plan:
     name: istio-monthly
-    id: 0001
+    id: 58646b26-867a-4954-a1b9-233dac07815b
     description: monthly subscription
   services:
     productpage-service-class
@@ -29,7 +29,7 @@ metadata:
 spec:
   plan: 
     name: istio-yearly
-    id: 0001
+    id: cdd76b03-a28b-4638-b4e2-19ee44b36db7
     description: yearly subscription
   services:
     productpage-service-class

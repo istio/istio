@@ -2,9 +2,10 @@ workspace(name = "com_github_istio_broker")
 
 git_repository(
     name = "io_bazel_rules_go",
+    commit = "eba68677493422112dd25f6a0b4bbdb02387e5a4",  # Aug 1, 2017
     remote = "https://github.com/bazelbuild/rules_go.git",
-    tag = "0.5.3",
 )
+
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
 go_repositories()
@@ -23,18 +24,33 @@ git_repository(
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
+git_repository(
+    name = "com_github_google_protobuf",
+    commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5", # Feb 17 (v3.2.0)
+    remote = "https://github.com/google/protobuf.git",
+)
 
-gogo_proto_repositories()
+bind(
+    name = "protoc",
+    actual = "@com_github_google_protobuf//:protoc",
+)
 
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
-
-cpp_proto_repositories()
+go_repository(
+    name = "com_github_gogo_protobuf",
+    commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
+    importpath = "github.com/gogo/protobuf",
+)
 
 go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
     importpath = "github.com/golang/glog",
+)
+
+go_repository(
+    name = "org_golang_x_net",
+    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
+    importpath = "golang.org/x/net",
 )
 
 go_repository(
@@ -200,9 +216,9 @@ go_repository(
 load("//:repositories.bzl", "new_git_or_local_repository")
 
 new_git_or_local_repository(
-    name = "com_github_istio_api",
+    name = "io_istio_api",
     build_file = "BUILD.api",
-    commit = "7d82318c70c7ba8611eed585ac1a8da44a005adb",  # May 1, 2017 (no releases)
+    commit = "c0bca9d735e67eac110621b088d66de04f326b90",  # Aug 31, 2017 (no releases)
     path = "../api",
     remote = "https://github.com/istio/api.git",
     # Change this to True to use ../api directory
@@ -228,69 +244,61 @@ http_file(
 )
 
 go_repository(
-    name = "com_github_prometheus_client_golang",
-    commit = "c5b7fccd204277076155f10851dad72b76a49317",  # Aug 17, 2016 (v0.8.0)
-    importpath = "github.com/prometheus/client_golang",
-)
-
-go_repository(
-    name = "com_github_prometheus_common",
-    commit = "dd2f054febf4a6c00f2343686efb775948a8bff4",  # Jan 8, 2017 (no releases)
-    importpath = "github.com/prometheus/common",
-)
-
-go_repository(
-    name = "com_github_matttproud_golang_protobuf_extensions",
-    commit = "c12348ce28de40eed0136aa2b644d0ee0650e56c",  # Apr 24, 2016 (v1.0.0)
-    importpath = "github.com/matttproud/golang_protobuf_extensions",
-)
-
-go_repository(
-    name = "com_github_prometheus_procfs",
-    commit = "1878d9fbb537119d24b21ca07effd591627cd160",  # Jan 28, 2017 (no releases)
-    importpath = "github.com/prometheus/procfs",
-)
-
-go_repository(
-    name = "com_github_beorn7_perks",
-    commit = "4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9",  # Aug 4, 2016 (no releases)
-    importpath = "github.com/beorn7/perks",
-)
-
-go_repository(
-    name = "com_github_prometheus_client_model",
-    commit = "fa8ad6fec33561be4280a8f0514318c79d7f6cb6",  # Feb 12, 2015 (only release too old)
-    importpath = "github.com/prometheus/client_model",
-)
-
-go_repository(
-    name = "com_github_cactus_statsd_client",
-    commit = "91c326c3f7bd20f0226d3d1c289dd9f8ce28d33d",  # release 3.1.0, 5/30/2016
-    importpath = "github.com/cactus/go-statsd-client",
-)
-
-go_repository(
-    name = "com_github_redis_client",
-    commit = "1ac54a28f5934ea5e08f588647e734aba2383cb8",  # Jan 28, 2017 (no releases)
-    importpath = "github.com/mediocregopher/radix.v2",
-)
-
-go_repository(
-    name = "com_github_mini_redis",
-    commit = "e9169f14d501184b6cc94e270e5a93e4bab203d7",  # release 2.0.0, 4/15/2017
-    importpath = "github.com/alicebob/miniredis",
-)
-
-go_repository(
-    name = "com_github_bsm_redeo",
-    commit = "1ce09fc76693fb3c1ca9b529c66f38920beb6fb8",  # Aug 17, 2016 (no releases)
-    importpath = "github.com/bsm/redeo",
+    name = "io_k8s_api",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7",  # Jul 18, 2017 (syncwith client_go)
+    importpath = "k8s.io/api",
 )
 
 go_repository(
     name = "io_k8s_client_go",
-    commit = "243d8a9cb66a51ad8676157f79e71033b4014a2a",  # Dec 11, 2016 (matches istio manager)
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017
     importpath = "k8s.io/client-go",
+)
+
+go_repository(
+    name = "io_k8s_apimachinery",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "6134cb2da6d90597b0434e349f90f94fafc9ae51",  # Jul 18, 2017 (sync with client_go)
+    importpath = "k8s.io/apimachinery",
+)
+
+go_repository(
+    name = "io_k8s_kube_openapi",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "abfc5fbe1cf87ee697db107fdfd24c32fe4397a8",  # Sept 6, 2017 (no release)
+    importpath = "k8s.io/kube-openapi",
+)
+
+go_repository(
+    name = "io_k8s_apiextensions_apiserver",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    commit = "2bfb07d318ed549813240d1165fcebad6250c666",  # Aug 29, 2017 (no release)
+    importpath = "k8s.io/apiextensions-apiserver",
+)
+
+go_repository(
+    name = "com_github_googleapis_gnostic",
+    commit = "ee43cbb60db7bd22502942cccbc39059117352ab",  # Sep 5, 2017 (no release)
+    importpath = "github.com/googleapis/gnostic",
+)
+
+go_repository(
+    name = "com_github_emicklei_go_restful",
+    commit = "68c9750c36bb8cb433f1b88c807b4b30df4acc40",  # Jul 3, 2017  (v2.2.1)
+    importpath = "github.com/emicklei/go-restful",
+)
+
+go_repository(
+    name = "com_github_emicklei_go_restful_swagger12",
+    commit = "dcef7f55730566d41eae5db10e7d6981829720f6",  # Feb 8, 2017 (v1.0.1)
+    importpath = "github.com/emicklei/go-restful-swagger12",
 )
 
 go_repository(
@@ -361,7 +369,7 @@ go_repository(
 
 go_repository(
     name = "com_github_juju_ratelimit",
-    commit = "acf38b000a03e4ab89e40f20f1e548f4e6ac7f72",  # Mar 13, 2017 (no releases)
+    commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 22, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
 )
 
@@ -460,6 +468,16 @@ go_repository(
     name = "com_github_hashicorp_golang_lru",
     commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6", # Aug 13, 2016 (no releases)
     importpath = "github.com/hashicorp/golang-lru",
+)
+
+##
+## Mock codegen rules
+##
+
+go_repository(
+    name = "com_github_golang_mock",
+    commit = "13f360950a79f5864a972c786a10a50e44b69541", # Jul 22, 2017 (v 1.0.0)
+    importpath = "github.com/golang/mock",
 )
 
 ##

@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/broker/pkg/model"
+	"istio.io/broker/pkg/model/osb"
 )
 
 const (
@@ -40,9 +40,9 @@ func CreateController() (*Controller, error) {
 }
 
 // Catalog serves catalog request and generate response.
-func (c *Controller) Catalog(w http.ResponseWriter, r *http.Request) {
+func (c *Controller) Catalog(w http.ResponseWriter, _ *http.Request) {
 	glog.Infof("Get Service Broker Catalog...")
-	var catalog model.Catalog
+	var catalog osb.Catalog
 
 	if err := readAndUnmarshal(&catalog, demoCatalogFilePath, catalogFileName); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -51,6 +51,7 @@ func (c *Controller) Catalog(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// nolint: unparam
 func writeResponse(w http.ResponseWriter, code int, object interface{}) {
 	data, err := json.Marshal(object)
 	if err != nil {

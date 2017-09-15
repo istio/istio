@@ -34,31 +34,35 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
     # Use the provided pull head sha, from prow.
     GIT_SHA="${PULL_PULL_SHA}"
+
+    # Use volume mount from broker-presubmit job's pod spec.
+    ln -sf "${HOME}/.kube/config" pkg/platform/kube/config
 else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
 echo "=== Bazel Build ==="
-bazel build //...
+make build
 
 echo "=== Bazel Tests ==="
-bazel test --features=race //...
+make test
 
-echo "=== Code Check ==="
-export LAST_GOOD_GITSHA="${PULL_BASE_SHA}"
-./bin/linters.sh
+# TODO temporary turn off
+# echo "=== Code Check ==="
+#export LAST_GOOD_GITSHA="${PULL_PULL_SHA}"
+# make lint
 
-echo "=== Code Coverage ==="
-./bin/codecov.sh | tee codecov.report
-if [ "${CI:-}" == "bootstrap" ]; then
-    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="broker/presubmit" ./bin/toolbox/presubmit/pkg_coverage.sh
-
-    curl -s https://codecov.io/bash | CI_JOB_ID="${JOB_NAME}" CI_BUILD_ID="${BUILD_NUMBER}" bash /dev/stdin \
-      -K -Z -B ${PULL_BASE_REF} -C ${GIT_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/broker.token
-else
-    echo "Not in bootstrap environment, skipping code coverage publishing"
-fi
+#echo "=== Code Coverage ==="
+#make coverage | tee codecov.report
+#if [ "${CI:-}" == "bootstrap" ]; then
+#    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="broker/presubmit" ./bin/toolbox/presubmit/pkg_coverage.sh
+#
+#    curl -s https://codecov.io/bash | CI_JOB_ID="${JOB_NAME}" CI_BUILD_ID="${BUILD_NUMBER}" bash /dev/stdin \
+#      -K -Z -B ${PULL_BASE_REF} -C ${GIT_SHA} -P ${PULL_NUMBER} -t @/etc/codecov/broker.token
+#else
+#    echo "Not in bootstrap environment, skipping code coverage publishing"
+#fi
 
 echo "=== Publish docker images ==="
 ./bin/publish-docker-images.sh -t ${GIT_SHA} -h 'gcr.io/istio-testing'

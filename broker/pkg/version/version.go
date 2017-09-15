@@ -16,7 +16,11 @@
 // version, build id, and status) for broker.
 package version
 
-import "fmt"
+import (
+	"fmt"
+
+	_ "github.com/golang/glog" // import glog flags
+)
 
 var (
 	buildVersion = "unknown"

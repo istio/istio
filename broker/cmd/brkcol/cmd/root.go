@@ -29,7 +29,7 @@ import (
 )
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
+func GetRootCmd(_ []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	outputDir := ""
 
 	rootCmd := &cobra.Command{

@@ -4,15 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["version.go"],
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "small_tests",
-    size = "small",
-    srcs = [
-        "version_test.go",
-    ],
-    library = ":go_default_library",
+    deps = ["@com_github_golang_glog//:go_default_library"],
 )
 
 go_test(

@@ -1,4 +1,4 @@
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//cmd/brkcol:__subpackages__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 

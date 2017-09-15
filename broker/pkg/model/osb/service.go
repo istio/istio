@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package osb
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-)
+// Service defines OSB service data structure.
+type Service struct {
+	Name           string   `json:"name"`
+	ID             string   `json:"id"`
+	Description    string   `json:"description"`
+	Bindable       bool     `json:"bindable"`
+	PlanUpdateable bool     `json:"plan_updateable, omitempty"`
+	Tags           []string `json:"tags, omitempty"`
+	Requires       []string `json:"requires, omitempty"`
 
-// nolint: unparam
-func readAndUnmarshal(object interface{}, dir string, fileName string) error {
-	path := dir + string(os.PathSeparator) + fileName
-
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	if err = json.Unmarshal(bytes, object); err != nil {
-		return err
-	}
-
-	return nil
+	Metadata        interface{}   `json:"metadata, omitempty"`
+	Plans           []ServicePlan `json:"plans"`
+	DashboardClient interface{}   `json:"dashboard_client"`
 }

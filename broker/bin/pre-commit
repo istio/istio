@@ -31,5 +31,5 @@ if [ $BRANCH_NAME != '(no branch)' ]; then
   cd $ROOT
 
   echo "formatting..."
-  bin/fmt.sh
+  make fmt
 fi

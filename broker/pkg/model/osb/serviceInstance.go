@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package osb
 
 // ServiceInstance defines OSB service instance data structure.
 type ServiceInstance struct {

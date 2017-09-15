@@ -28,6 +28,5 @@ if ! [[ -f WORKSPACE ]]; then
   exit 1
 fi
 
-bazel test //...
-bin/racetest.sh
-bin/linters.sh
+make test
+make lint

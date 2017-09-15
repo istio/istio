@@ -10,4 +10,4 @@ find . -type f -name BUILD -print0 | \
 
 find . -type f -name BUILD -print0 | \
     xargs -0 sed -i \
-          -e '/\/\/api\/mixer\/v1:go_default_library/d'
+          -e '/\/\/api\/broker\/v1:go_default_library/d'

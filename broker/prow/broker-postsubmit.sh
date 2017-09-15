@@ -34,6 +34,9 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
     # Use the provided base sha, from prow.
     GIT_SHA="${PULL_BASE_SHA}"
+
+    # Use volume mount from broker-postsubmit job's pod spec.
+    ln -sf "${HOME}/.kube/config" pkg/platform/kube/config
 else
     # Use the current commit.
     GIT_SHA="$(git rev-parse --verify HEAD)"
@@ -41,15 +44,15 @@ fi
 
 
 echo "=== Bazel Build ==="
-bazel build //...
+make build
 
 echo "=== Bazel Tests ==="
-bazel test --features=race //...
+make test
 
 echo "=== Code Coverage ==="
 source ./bin/use_bazel_go.sh
 ./bin/bazel_to_go.py
-./bin/codecov.sh | tee codecov.report
+make coverage | tee codecov.report
 if [ "${CI:-}" == 'bootstrap' ]; then
     BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME='broker/postsubmit' ./bin/toolbox/presubmit/pkg_coverage.sh
 
