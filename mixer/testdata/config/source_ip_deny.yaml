@@ -12,5 +12,6 @@ spec:
   match: destination.service == "foo.default.svc.cluster.local" && source.ip != ip("10.11.12.13")
   actions:
   - handler: denyall.denier
-    instances: [ denyrequest.checknothing ]
+    instances:
+    - denyrequest.checknothing
 ---

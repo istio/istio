@@ -27,4 +27,5 @@ spec:
   match: destination.labels["app"] == "ratings"
   actions:
   - handler: staticversion.listchecker
-    instances: [ appversion.listentry ]
+    instances:
+    - appversion.listentry
