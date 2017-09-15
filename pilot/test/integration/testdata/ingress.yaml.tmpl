@@ -3,7 +3,7 @@ kind: Ingress
 metadata:
   name: secured-ingress
   annotations:
-    kubernetes.io/ingress.class: istio
+    kubernetes.io/ingress.class: {{ .IstioNamespace }}
 spec:
   tls:
     - secretName: istio-ingress-certs
@@ -28,7 +28,7 @@ kind: Ingress
 metadata:
   name: regular-ingress
   annotations:
-    kubernetes.io/ingress.class: istio
+    kubernetes.io/ingress.class: {{ .IstioNamespace }}
 spec:
   rules:
   - http:

@@ -55,6 +55,9 @@ type args struct {
 	kubeconfig string
 	meshconfig string
 
+	// namespace for the controller (typically istio installation namespace)
+	namespace string
+
 	// ingress sync mode is set to off by default
 	controllerOptions kube.ControllerOptions
 	discoveryOptions  envoy.DiscoveryServiceOptions
@@ -93,8 +96,8 @@ var (
 
 			stop := make(chan struct{})
 
-			if flags.controllerOptions.Namespace == "" {
-				flags.controllerOptions.Namespace = os.Getenv("POD_NAMESPACE")
+			if flags.namespace == "" {
+				flags.namespace = os.Getenv("POD_NAMESPACE")
 			}
 
 			_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
@@ -127,7 +130,7 @@ var (
 				glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
 				switch serviceRegistry {
 				case platform.KubernetesRegistry:
-					kubectl := kube.NewController(client, mesh, flags.controllerOptions)
+					kubectl := kube.NewController(client, flags.controllerOptions)
 					serviceControllers.AddRegistry(
 						aggregate.Registry{
 							Name:             serviceRegistry,
@@ -145,7 +148,7 @@ var (
 						}
 					}
 
-					ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.controllerOptions)
+					ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.namespace, flags.controllerOptions)
 
 					go ingressSyncer.Run(stop)
 
@@ -202,10 +205,9 @@ var (
 			// controller. Fill in remaining admission controller
 			// options
 			flags.admissionArgs.Descriptor = configClient.ConfigDescriptor()
-			flags.admissionArgs.ServiceNamespace = flags.controllerOptions.Namespace
+			flags.admissionArgs.ServiceNamespace = flags.namespace
 			flags.admissionArgs.DomainSuffix = flags.controllerOptions.DomainSuffix
 			flags.admissionArgs.ValidateNamespaces = []string{
-				flags.controllerOptions.Namespace,
 				flags.controllerOptions.WatchedNamespace,
 			}
 			admissionController, err := admit.NewController(client, flags.admissionArgs)
@@ -232,9 +234,9 @@ func init() {
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
 		fmt.Sprintf("File name for Istio mesh configuration"))
-	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.Namespace, "namespace", "n", "",
-		"Select a namespace for the controller loop. If not set, uses ${POD_NAMESPACE} environment variable")
-	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.WatchedNamespace, "app namespace",
+	discoveryCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
+		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.WatchedNamespace, "appNamespace",
 		"a", metav1.NamespaceAll,
 		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
 	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", 60*time.Second,

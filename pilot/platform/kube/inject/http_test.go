@@ -37,15 +37,14 @@ var (
 		Policy:     InjectionPolicyEnabled,
 		Namespaces: []string{v1.NamespaceAll},
 		Params: Params{
-			InitImage:         InitImageName(unitTestHub, unitTestTag, unitTestDebugMode),
-			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, unitTestDebugMode),
-			ImagePullPolicy:   "IfNotPresent",
-			Verbosity:         DefaultVerbosity,
-			SidecarProxyUID:   DefaultSidecarProxyUID,
-			Version:           "12345678",
-			Mesh:              &mesh,
-			MeshConfigMapName: "istio",
-			DebugMode:         unitTestDebugMode,
+			InitImage:       InitImageName(unitTestHub, unitTestTag, unitTestDebugMode),
+			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, unitTestDebugMode),
+			ImagePullPolicy: "IfNotPresent",
+			Verbosity:       DefaultVerbosity,
+			SidecarProxyUID: DefaultSidecarProxyUID,
+			Version:         "12345678",
+			Mesh:            &mesh,
+			DebugMode:       unitTestDebugMode,
 		},
 	}
 )

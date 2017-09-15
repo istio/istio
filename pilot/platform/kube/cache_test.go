@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
 )
 
 func TestPodCache(t *testing.T) {
@@ -67,11 +66,10 @@ func TestPodCache(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			clientSet := fake.NewSimpleClientset()
-			mesh := proxy.DefaultMeshConfig()
-			controller := NewController(clientSet, &mesh, ControllerOptions{
-				Namespace:    "default",
-				ResyncPeriod: resync,
-				DomainSuffix: domainSuffix,
+			controller := NewController(clientSet, ControllerOptions{
+				WatchedNamespace: "default",
+				ResyncPeriod:     resync,
+				DomainSuffix:     domainSuffix,
 			})
 
 			// Populate podCache

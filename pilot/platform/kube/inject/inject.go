@@ -83,11 +83,10 @@ const (
 // Defaults values for injecting istio proxy into kubernetes
 // resources.
 const (
-	DefaultSidecarProxyUID   = int64(1337)
-	DefaultVerbosity         = 2
-	DefaultHub               = "docker.io/istio"
-	DefaultMeshConfigMapName = "meshConfig"
-	DefaultImagePullPolicy   = "IfNotPresent"
+	DefaultSidecarProxyUID = int64(1337)
+	DefaultVerbosity       = 2
+	DefaultHub             = "docker.io/istio"
+	DefaultImagePullPolicy = "IfNotPresent"
 )
 
 const (
@@ -103,7 +102,6 @@ const (
 	istioCertSecretPrefix = "istio."
 
 	istioCertVolumeName        = "istio-certs"
-	istioConfigVolumeName      = "istio-config"
 	istioEnvoyConfigVolumeName = "istio-envoy"
 
 	// ConfigMapKey should match the expected MeshConfig file name
@@ -111,9 +109,6 @@ const (
 
 	// InitializerConfigMapKey is the key into the initailizer ConfigMap data.
 	InitializerConfigMapKey = "config"
-
-	// EnvoyConfigPath is the temporary directory for storing configuration
-	EnvoyConfigPath = "/etc/istio/proxy"
 
 	// DefaultResyncPeriod specifies how frequently to retrieve the
 	// full list of watched resources for initialization.
@@ -141,16 +136,15 @@ func ProxyImageName(hub string, tag string, debug bool) string {
 // Params describes configurable parameters for injecting istio proxy
 // into kubernetes resource.
 type Params struct {
-	InitImage         string                  `json:"initImage"`
-	ProxyImage        string                  `json:"proxyImage"`
-	Verbosity         int                     `json:"verbosity"`
-	SidecarProxyUID   int64                   `json:"sidecarProxyUID"`
-	Version           string                  `json:"version"`
-	EnableCoreDump    bool                    `json:"enableCoreDump"`
-	DebugMode         bool                    `json:"debugMode"`
-	Mesh              *proxyconfig.MeshConfig `json:"-"`
-	MeshConfigMapName string                  `json:"meshConfigMapName"`
-	ImagePullPolicy   string                  `json:"imagePullPolicy"`
+	InitImage       string                  `json:"initImage"`
+	ProxyImage      string                  `json:"proxyImage"`
+	Verbosity       int                     `json:"verbosity"`
+	SidecarProxyUID int64                   `json:"sidecarProxyUID"`
+	Version         string                  `json:"version"`
+	EnableCoreDump  bool                    `json:"enableCoreDump"`
+	DebugMode       bool                    `json:"debugMode"`
+	Mesh            *proxyconfig.MeshConfig `json:"-"`
+	ImagePullPolicy string                  `json:"imagePullPolicy"`
 	// Comma separated list of IP ranges in CIDR form. If set, only
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
@@ -210,9 +204,6 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 	}
 	if c.Params.SidecarProxyUID == 0 {
 		c.Params.SidecarProxyUID = DefaultSidecarProxyUID
-	}
-	if c.Params.MeshConfigMapName == "" {
-		c.Params.MeshConfigMapName = DefaultMeshConfigMapName
 	}
 	if c.Params.ImagePullPolicy == "" {
 		c.Params.ImagePullPolicy = DefaultImagePullPolicy
@@ -328,7 +319,8 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		Command: []string{"/bin/sh"},
 		Args: []string{
 			"-c",
-			fmt.Sprintf("sysctl -w kernel.core_pattern=%s/core.%%e.%%p.%%t && ulimit -c unlimited", EnvoyConfigPath),
+			fmt.Sprintf("sysctl -w kernel.core_pattern=%s/core.%%e.%%p.%%t && ulimit -c unlimited",
+				p.Mesh.DefaultConfig.ConfigPath),
 		},
 		ImagePullPolicy: pullPolicy,
 		SecurityContext: &v1.SecurityContext{
@@ -365,27 +357,12 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 
 	volumeMounts := []v1.VolumeMount{
 		{
-			Name:      istioConfigVolumeName,
-			ReadOnly:  true,
-			MountPath: "/etc/istio/config",
-		},
-		{
 			Name:      istioEnvoyConfigVolumeName,
-			MountPath: EnvoyConfigPath,
+			MountPath: p.Mesh.DefaultConfig.ConfigPath,
 		},
 	}
 
 	spec.Volumes = append(spec.Volumes,
-		v1.Volume{
-			Name: istioConfigVolumeName,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: v1.LocalObjectReference{
-						Name: p.MeshConfigMapName,
-					},
-				},
-			},
-		},
 		v1.Volume{
 			Name: istioEnvoyConfigVolumeName,
 			VolumeSource: v1.VolumeSource{

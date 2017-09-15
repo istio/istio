@@ -41,10 +41,10 @@ spec:
         - -v
         - "{{.Verbosity}}"
         - --discoveryAddress
-        - istio-pilot.{{.IstioNamespace}}:8080
+        - istio-pilot:8080
 {{if .Zipkin}}
         - --zipkinAddress
-        - zipkin.{{.IstioNamespace}}:9411
+        - zipkin:9411
 {{end}}
         imagePullPolicy: IfNotPresent
         ports:

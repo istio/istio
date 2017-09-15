@@ -16,7 +16,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"github.com/golang/glog"
@@ -43,16 +42,14 @@ func (t *ingress) setup() error {
 	t.logs = makeAccessLogs()
 
 	// parse and send yamls
-	yamlFile, err := ioutil.ReadFile("test/integration/testdata/ingress.yaml")
-	if err != nil {
+	if yaml, err := fill("ingress.yaml.tmpl", t.infra); err != nil {
 		return err
-	}
-	if err = t.kubeApply(string(yamlFile), t.Namespace); err != nil {
+	} else if err = t.kubeApply(yaml, t.Namespace); err != nil {
 		return err
 	}
 
 	// send route rules for "c" only
-	if err = t.applyConfig("rule-default-route.yaml.tmpl", nil); err != nil {
+	if err := t.applyConfig("rule-default-route.yaml.tmpl", nil); err != nil {
 		return err
 	}
 
@@ -75,16 +72,16 @@ func (t *ingress) run() error {
 		url  string
 		host string
 	}{
-		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.Namespace), ""},
-		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.Namespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.Namespace), ""},
-		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.Namespace), ""},
-		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Namespace), "foo.bar.com"},
-		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.Namespace), "foo.baz.com"},
-		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.Namespace), "api.company.com"},
-		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.Namespace), "api.company.com"},
-		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.Namespace), ""},
-		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.Namespace), ""},
+		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.IstioNamespace), ""},
+		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.IstioNamespace), ""},
+		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), "foo.bar.com"},
+		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.IstioNamespace), "foo.baz.com"},
+		{"a", fmt.Sprintf("grpc://%s.%s:80", ingressServiceName, t.IstioNamespace), "api.company.com"},
+		{"a", fmt.Sprintf("grpcs://%s.%s:443", ingressServiceName, t.IstioNamespace), "api.company.com"},
+		{"", fmt.Sprintf("http://%s.%s/notfound", ingressServiceName, t.IstioNamespace), ""},
+		{"", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), ""},
 	}
 	for _, req := range cases {
 		name := fmt.Sprintf("Ingress request to %+v", req)
@@ -127,7 +124,7 @@ func (t *ingress) run() error {
 
 // checkRouteRule verifies that version splitting is applied to ingress paths
 func (t *ingress) checkRouteRule() status {
-	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.Namespace)
+	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.IstioNamespace)
 	resp := t.clientRequest("t", url, 100, "")
 	count := counts(resp.version)
 	glog.V(2).Infof("counts: %v", count)

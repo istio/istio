@@ -77,9 +77,6 @@ spec:
           readOnlyRootFilesystem: true
           runAsUser: 1337
         volumeMounts:
-        - mountPath: /etc/istio/config
-          name: istio-config
-          readOnly: true
         - mountPath: /etc/istio/proxy
           name: istio-envoy
         - mountPath: /etc/certs/
@@ -104,9 +101,6 @@ spec:
       - hostPath:
           path: /mnt/disks/ssd0
         name: data
-      - configMap:
-          name: istio
-        name: istio-config
       - emptyDir:
           medium: Memory
           sizeLimit: "0"

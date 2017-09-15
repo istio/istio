@@ -17,8 +17,15 @@ data:
 {{if .Zipkin}}
       zipkinAddress:          zipkin.{{.IstioNamespace}}:9411
 {{end}}
-    egressProxyAddress: istio-egress.{{.Namespace}}:80
+    egressProxyAddress:       istio-egress.{{.IstioNamespace}}:80
 {{if .Mixer}}
-    mixerAddress: istio-mixer.{{.IstioNamespace}}:9091
+    mixerAddress:             istio-mixer.{{.IstioNamespace}}:9091
 {{end}}
-    authPolicy: {{ .Auth }}
+    authPolicy:               {{ .Auth }}
+    connectTimeout:           1s
+    rdsRefreshDelay:          1s
+    disablePolicyChecks:      false
+    ingressClass:             {{.IstioNamespace}}
+    ingressControllerMode:    STRICT
+    enableTracing:            true
+    accessLogFile:            /dev/stdout

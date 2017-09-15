@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/pilot/model"
 )
 
@@ -43,8 +42,6 @@ const (
 
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
-	// Namespace in which the controller runs. Can be "" if the controller does not run in a namespace
-	Namespace string
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
 	WatchedNamespace string
 	ResyncPeriod     time.Duration
@@ -54,7 +51,6 @@ type ControllerOptions struct {
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
-	mesh         *proxyconfig.MeshConfig
 	domainSuffix string
 
 	client    kubernetes.Interface
@@ -72,16 +68,11 @@ type cacheHandler struct {
 }
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
-	options ControllerOptions) *Controller {
-
-	glog.V(2).Infof("New kube controller running in namespace %s, watching namespace %s",
-		options.Namespace,
-		options.WatchedNamespace)
+func NewController(client kubernetes.Interface, options ControllerOptions) *Controller {
+	glog.V(2).Infof("Service controller watching namespace %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &Controller{
-		mesh:         mesh,
 		domainSuffix: options.DomainSuffix,
 		client:       client,
 		queue:        NewQueue(1 * time.Second),

@@ -58,7 +58,6 @@ const unitTestDebugMode = true
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		authConfigPath  string
-		configMapName   string
 		enableAuth      bool
 		in              string
 		want            string
@@ -77,9 +76,8 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "testdata/hello-probes.yaml.injected",
 		},
 		{
-			configMapName: "config-map-name",
-			in:            "testdata/hello.yaml",
-			want:          "testdata/hello-config-map-name.yaml.injected",
+			in:   "testdata/hello.yaml",
+			want: "testdata/hello-config-map-name.yaml.injected",
 		},
 		{
 			in:   "testdata/frontend.yaml",
@@ -166,21 +164,16 @@ func TestIntoResourceFile(t *testing.T) {
 			Policy:     InjectionPolicyEnabled,
 			Namespaces: []string{v1.NamespaceAll},
 			Params: Params{
-				InitImage:         InitImageName(unitTestHub, unitTestTag, c.debugMode),
-				ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
-				ImagePullPolicy:   "IfNotPresent",
-				Verbosity:         DefaultVerbosity,
-				SidecarProxyUID:   DefaultSidecarProxyUID,
-				Version:           "12345678",
-				EnableCoreDump:    c.enableCoreDump,
-				Mesh:              &mesh,
-				MeshConfigMapName: "istio",
-				DebugMode:         c.debugMode,
+				InitImage:       InitImageName(unitTestHub, unitTestTag, c.debugMode),
+				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
+				ImagePullPolicy: "IfNotPresent",
+				Verbosity:       DefaultVerbosity,
+				SidecarProxyUID: DefaultSidecarProxyUID,
+				Version:         "12345678",
+				EnableCoreDump:  c.enableCoreDump,
+				Mesh:            &mesh,
+				DebugMode:       c.debugMode,
 			},
-		}
-
-		if c.configMapName != "" {
-			config.Params.MeshConfigMapName = c.configMapName
 		}
 
 		if c.imagePullPolicy != "" {
@@ -388,11 +381,10 @@ func TestGetInitializerConfig(t *testing.T) {
 		Policy:          InjectionPolicyDisabled,
 		InitializerName: DefaultInitializerName,
 		Params: Params{
-			InitImage:         InitImageName(unitTestHub, unitTestTag, false),
-			ProxyImage:        ProxyImageName(unitTestHub, unitTestTag, false),
-			SidecarProxyUID:   1234,
-			MeshConfigMapName: "something",
-			ImagePullPolicy:   "Always",
+			InitImage:       InitImageName(unitTestHub, unitTestTag, false),
+			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, false),
+			SidecarProxyUID: 1234,
+			ImagePullPolicy: "Always",
 		},
 	}
 	goodConfigYAML, err := yaml.Marshal(&goodConfig)
@@ -442,11 +434,10 @@ func TestGetInitializerConfig(t *testing.T) {
 				Policy:          DefaultInjectionPolicy,
 				InitializerName: DefaultInitializerName,
 				Params: Params{
-					InitImage:         InitImageName(DefaultHub, version.Info.Version, false),
-					ProxyImage:        ProxyImageName(DefaultHub, version.Info.Version, false),
-					SidecarProxyUID:   DefaultSidecarProxyUID,
-					MeshConfigMapName: DefaultMeshConfigMapName,
-					ImagePullPolicy:   DefaultImagePullPolicy,
+					InitImage:       InitImageName(DefaultHub, version.Info.Version, false),
+					ProxyImage:      ProxyImageName(DefaultHub, version.Info.Version, false),
+					SidecarProxyUID: DefaultSidecarProxyUID,
+					ImagePullPolicy: DefaultImagePullPolicy,
 				},
 			},
 		},

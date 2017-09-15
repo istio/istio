@@ -81,8 +81,6 @@ spec:
         args:
         - discovery
         - --v={{.Verbosity}}
-        - -a
-        - {{.Namespace}}
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}

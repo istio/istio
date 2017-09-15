@@ -52,16 +52,3 @@ func GetMeshConfig(kube kubernetes.Interface, namespace,
 	}
 	return config, mesh, nil
 }
-
-// CreateMeshConfigMap copies a configMap in another namespace
-func CreateMeshConfigMap(kube kubernetes.Interface, namespace, name string,
-	srcConfigMap *v1.ConfigMap) (*v1.ConfigMap, error) {
-
-	destConfigMap := &v1.ConfigMap{
-		TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Data:       srcConfigMap.Data,
-	}
-
-	return kube.CoreV1().ConfigMaps(namespace).Create(destConfigMap)
-}

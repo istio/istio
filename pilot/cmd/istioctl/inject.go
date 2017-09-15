@@ -120,41 +120,22 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				return err
 			}
 
-			_, meshConfig, err := inject.GetMeshConfig(client, namespace, meshConfigMapName)
-			if err != nil {
-				// Temporary hack (few days), until this is properly implemented
-				// https://github.com/istio/pilot/issues/1153
-				istioMeshConfigMap, istioMeshConfig, err := inject.GetMeshConfig(client,
-					istioNamespace, meshConfigMapName)
-				if err != nil {
-					return fmt.Errorf("could not read valid configmap %q from namespace %q or %q: %v - "+
-						"Re-run kube-inject with `-i <istioSystemNamespace> and ensure valid MeshConfig exists",
-						meshConfigMapName, namespace, istioNamespace, err)
-				}
-
-				meshConfig = istioMeshConfig
-				_, err = inject.CreateMeshConfigMap(client, namespace, meshConfigMapName, istioMeshConfigMap)
-				if err != nil {
-					return fmt.Errorf("cannot create Istio configuration map in namespace %s: %v",
-						namespace, err)
-				}
-			}
+			_, meshConfig, err := inject.GetMeshConfig(client, istioNamespace, meshConfigMapName)
 
 			config := &inject.Config{
 				Policy:     inject.DefaultInjectionPolicy,
 				Namespaces: []string{v1.NamespaceAll},
 				Params: inject.Params{
-					InitImage:         inject.InitImageName(hub, tag, debugMode),
-					ProxyImage:        inject.ProxyImageName(hub, tag, debugMode),
-					Verbosity:         verbosity,
-					SidecarProxyUID:   sidecarProxyUID,
-					Version:           versionStr,
-					EnableCoreDump:    enableCoreDump,
-					Mesh:              meshConfig,
-					MeshConfigMapName: meshConfigMapName,
-					ImagePullPolicy:   imagePullPolicy,
-					IncludeIPRanges:   includeIPRanges,
-					DebugMode:         debugMode,
+					InitImage:       inject.InitImageName(hub, tag, debugMode),
+					ProxyImage:      inject.ProxyImageName(hub, tag, debugMode),
+					Verbosity:       verbosity,
+					SidecarProxyUID: sidecarProxyUID,
+					Version:         versionStr,
+					EnableCoreDump:  enableCoreDump,
+					Mesh:            meshConfig,
+					ImagePullPolicy: imagePullPolicy,
+					IncludeIPRanges: includeIPRanges,
+					DebugMode:       debugMode,
 				},
 			}
 			return inject.IntoResourceFile(config, reader, writer)

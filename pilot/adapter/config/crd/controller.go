@@ -47,9 +47,7 @@ type cacheHandler struct {
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
-
-	glog.V(2).Infof("CRD controller running in namespace %s, watching app namespaces %s",
-		options.Namespace, options.WatchedNamespace)
+	glog.V(2).Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{

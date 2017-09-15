@@ -74,7 +74,6 @@ func TestIngressController(t *testing.T) {
 
 	mesh := proxy.DefaultMeshConfig()
 	ctl := ingress.NewController(cl, &mesh, kube.ControllerOptions{
-		Namespace:        ns,
 		WatchedNamespace: ns,
 		ResyncPeriod:     resync,
 	})
