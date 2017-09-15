@@ -235,9 +235,9 @@ func TestKubegen_Generate(t *testing.T) {
 	kg := &kubegen{log: test.NewEnv(t).Logger(), params: *conf, pods: fakeCache{pods: pods}}
 
 	sourceUIDIn := map[string]interface{}{
-		"sourceUID": "kubernetes://test-pod.testns",
-		"targetUID": "kubernetes://badsvcuid",
-		"originUID": "kubernetes://badsvcuid",
+		"sourceUID":      "kubernetes://test-pod.testns",
+		"destinationUID": "kubernetes://badsvcuid",
+		"originUID":      "kubernetes://badsvcuid",
 	}
 
 	sourceUIDOut := map[string]interface{}{
@@ -286,60 +286,60 @@ func TestKubegen_Generate(t *testing.T) {
 		"sourcePodName":   "long-pod",
 	}
 
-	emptySvcIn := map[string]interface{}{"targetUID": "kubernetes://empty.testns"}
+	emptySvcIn := map[string]interface{}{"destinationUID": "kubernetes://empty.testns"}
 
 	emptyServiceOut := map[string]interface{}{
-		"targetLabels": map[string]string{
+		"destinationLabels": map[string]string{
 			"app": "",
 		},
-		"targetNamespace": "testns",
-		"targetPodName":   "empty",
+		"destinationNamespace": "testns",
+		"destinationPodName":   "empty",
 	}
 
-	badTargetSvcIn := map[string]interface{}{"targetUID": "kubernetes://bad-svc-pod.testns"}
+	baddestinationSvcIn := map[string]interface{}{"destinationUID": "kubernetes://bad-svc-pod.testns"}
 
-	badTargetOut := map[string]interface{}{
-		"targetLabels": map[string]string{
+	baddestinationOut := map[string]interface{}{
+		"destinationLabels": map[string]string{
 			"app": ":",
 		},
-		"targetNamespace": "testns",
-		"targetPodName":   "bad-svc-pod",
+		"destinationNamespace": "testns",
+		"destinationPodName":   "bad-svc-pod",
 	}
 
-	ipTargetSvcIn := map[string]interface{}{"targetIP": []uint8(net.ParseIP("192.168.234.3"))}
+	ipdestinationSvcIn := map[string]interface{}{"destinationIP": []uint8(net.ParseIP("192.168.234.3"))}
 
-	ipTargetOut := map[string]interface{}{
-		"targetLabels": map[string]string{
+	ipdestinationOut := map[string]interface{}{
+		"destinationLabels": map[string]string{
 			"app": "ipAddr",
 		},
-		"targetNamespace": "testns",
-		"targetPodName":   "ip-svc-pod",
-		"targetService":   "ipAddr.testns.svc.cluster.local",
+		"destinationNamespace": "testns",
+		"destinationPodName":   "ip-svc-pod",
+		"destinationService":   "ipAddr.testns.svc.cluster.local",
 	}
 
-	istioTargetSvcIn := map[string]interface{}{
-		"targetUID": "kubernetes://istio-ingress.testns",
+	istiodestinationSvcIn := map[string]interface{}{
+		"destinationUID": "kubernetes://istio-ingress.testns",
 	}
 
-	istioTargetOut := map[string]interface{}{
-		"targetLabels": map[string]string{
+	istiodestinationOut := map[string]interface{}{
+		"destinationLabels": map[string]string{
 			"istio": "ingress",
 		},
-		"targetNamespace": "testns",
-		"targetPodName":   "istio-ingress",
-		"targetService":   "ingress.testns.svc.cluster.local",
+		"destinationNamespace": "testns",
+		"destinationPodName":   "istio-ingress",
+		"destinationService":   "ingress.testns.svc.cluster.local",
 	}
 
 	ipAppSvcIn := map[string]interface{}{
-		"targetUID": "kubernetes://ipApp.testns",
+		"destinationUID": "kubernetes://ipApp.testns",
 	}
 
-	ipAppTargetOut := map[string]interface{}{
-		"targetLabels": map[string]string{
+	ipAppdestinationOut := map[string]interface{}{
+		"destinationLabels": map[string]string{
 			"app": "10.1.10.1",
 		},
-		"targetNamespace": "testns",
-		"targetPodName":   "ipApp",
+		"destinationNamespace": "testns",
+		"destinationPodName":   "ipApp",
 	}
 
 	tests := []struct {
@@ -347,15 +347,15 @@ func TestKubegen_Generate(t *testing.T) {
 		inputs map[string]interface{}
 		want   map[string]interface{}
 	}{
-		{"source pod and target service", sourceUIDIn, sourceUIDOut},
+		{"source pod and destination service", sourceUIDIn, sourceUIDOut},
 		{"alternate service canonicalization (namespace)", nsAppLabelIn, nsAppLabelOut},
 		{"alternate service canonicalization (svc cluster)", svcClusterIn, svcClusterOut},
 		{"alternate service canonicalization (long svc)", longSvcClusterIn, longSvcClusterOut},
 		{"empty service", emptySvcIn, emptyServiceOut},
-		{"bad target service", badTargetSvcIn, badTargetOut},
-		{"target ip pod", ipTargetSvcIn, ipTargetOut},
-		{"istio service", istioTargetSvcIn, istioTargetOut},
-		{"ip app", ipAppSvcIn, ipAppTargetOut},
+		{"bad destination service", baddestinationSvcIn, baddestinationOut},
+		{"destination ip pod", ipdestinationSvcIn, ipdestinationOut},
+		{"istio service", istiodestinationSvcIn, istiodestinationOut},
+		{"ip app", ipAppSvcIn, ipAppdestinationOut},
 	}
 
 	for _, v := range tests {

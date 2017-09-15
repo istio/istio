@@ -69,13 +69,13 @@ const (
 
 	// input/output naming
 	sourceUID         = "sourceUID"
-	targetUID         = "targetUID"
+	destinationUID    = "destinationUID"
 	originUID         = "originUID"
 	sourceIP          = "sourceIP"
-	targetIP          = "targetIP"
+	destinationIP     = "destinationIP"
 	originIP          = "originIP"
 	sourcePrefix      = "source"
-	targetPrefix      = "target"
+	destinationPrefix = "destination"
 	originPrefix      = "origin"
 	labelsVal         = "Labels"
 	podNameVal        = "PodName"
@@ -100,16 +100,16 @@ var (
 		KubeconfigPath:                   "",
 		CacheRefreshDuration:             defaultRefreshPeriod,
 		SourceUidInputName:               sourceUID,
-		TargetUidInputName:               targetUID,
+		DestinationUidInputName:          destinationUID,
 		OriginUidInputName:               originUID,
 		SourceIpInputName:                sourceIP,
-		TargetIpInputName:                targetIP,
+		DestinationIpInputName:           destinationIP,
 		OriginIpInputName:                originIP,
 		ClusterDomainName:                clusterDomain,
 		PodLabelForService:               podServiceLabel,
 		PodLabelForIstioComponentService: istioPodServiceLabel,
 		SourcePrefix:                     sourcePrefix,
-		TargetPrefix:                     targetPrefix,
+		DestinationPrefix:                destinationPrefix,
 		OriginPrefix:                     originPrefix,
 		LabelsValueName:                  labelsVal,
 		PodNameValueName:                 podNameVal,
@@ -148,8 +148,8 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.SourceUidInputName) == 0 {
 		ce = ce.Appendf("sourceUidInputName", "field must be populated")
 	}
-	if len(params.TargetUidInputName) == 0 {
-		ce = ce.Appendf("targetUidInputName", "field must be populated")
+	if len(params.DestinationUidInputName) == 0 {
+		ce = ce.Appendf("destinationUidInputName", "field must be populated")
 	}
 	if len(params.OriginUidInputName) == 0 {
 		ce = ce.Appendf("originUidInputName", "field must be populated")
@@ -157,8 +157,8 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.SourceIpInputName) == 0 {
 		ce = ce.Appendf("sourceIpInputName", "field must be populated")
 	}
-	if len(params.TargetIpInputName) == 0 {
-		ce = ce.Appendf("targetIpInputName", "field must be populated")
+	if len(params.DestinationIpInputName) == 0 {
+		ce = ce.Appendf("destinationIpInputName", "field must be populated")
 	}
 	if len(params.OriginIpInputName) == 0 {
 		ce = ce.Appendf("originIpInputName", "field must be populated")
@@ -166,8 +166,8 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.SourcePrefix) == 0 {
 		ce = ce.Appendf("sourcePrefix", "field must be populated")
 	}
-	if len(params.TargetPrefix) == 0 {
-		ce = ce.Appendf("targetPrefix", "field must be populated")
+	if len(params.DestinationPrefix) == 0 {
+		ce = ce.Appendf("destinationPrefix", "field must be populated")
 	}
 	if len(params.OriginPrefix) == 0 {
 		ce = ce.Appendf("originPrefix", "field must be populated")
@@ -267,8 +267,8 @@ func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{
 	if id, found := serviceIdentifier(inputs, k.params.SourceUidInputName, k.params.SourceIpInputName); found && len(id) > 0 {
 		k.addValues(values, id, k.params.SourcePrefix)
 	}
-	if id, found := serviceIdentifier(inputs, k.params.TargetUidInputName, k.params.TargetIpInputName); found && len(id) > 0 {
-		k.addValues(values, id, k.params.TargetPrefix)
+	if id, found := serviceIdentifier(inputs, k.params.DestinationUidInputName, k.params.DestinationIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.DestinationPrefix)
 	}
 	if id, found := serviceIdentifier(inputs, k.params.OriginUidInputName, k.params.OriginIpInputName); found && len(id) > 0 {
 		k.addValues(values, id, k.params.OriginPrefix)
