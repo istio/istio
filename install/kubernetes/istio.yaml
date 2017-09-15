@@ -854,7 +854,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: gcr.io/istio-testing/istio-ca:ca328c99ed96a80ca778966d8dfba9c7b0ff6410
+        image: gcr.io/istio-testing/istio-ca:b7b8c10bbb6ca471e9c8aee2b3889f0ccbf01c3c
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
