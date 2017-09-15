@@ -38,7 +38,7 @@ bind(
 
 git_repository(
     name = "envoy",
-    remote = "https://github.com/lyft/envoy.git",
+    remote = "https://github.com/envoyproxy/envoy.git",
     commit = "419b26e942d606178321af6870fa70a294a7525c",
 )
 
