@@ -400,6 +400,8 @@ func setTestConfig() error {
 	return nil
 }
 
+/** Disabled because mixer_test has a better DB test. Keeping this
+ * for a brief period for salvaging code.
 func TestDbRouting(t *testing.T) {
 	var err error
 	var rules = []string{testDbRule}
@@ -417,6 +419,7 @@ func TestDbRouting(t *testing.T) {
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
+**/
 
 func TestMain(m *testing.M) {
 	flag.Parse()
