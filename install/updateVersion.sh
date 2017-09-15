@@ -36,13 +36,17 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -c ... <hub>,<tag> for the istio-ca docker image
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
+    -s ... check if template files have been updated with this tool
+    -A ... URL to download auth debian packages
+    -P ... URL to download pilot debian packages
+    -E ... URL to download proxy debian packages
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c:s arg; do
+while getopts :gi:n:p:x:c:sA:P:E: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -51,6 +55,9 @@ while getopts :gi:n:p:x:c:s arg; do
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     g) GIT_COMMIT=true;;
     s) CHECK_GIT_STATUS=true;;
+    A) AUTH_DEBIAN_URL="${OPTARG}";;
+    P) PILOT_DEBIAN_URL="${OPTARG}";;
+    E) PROXY_DEBIAN_URL="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -148,7 +155,11 @@ export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
-export ISTIO_NAMESPACE=${ISTIO_NAMESPACE}
+export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
+export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
+export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
+export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
+
 EOF
 }
 
@@ -204,5 +215,5 @@ fi
 
 if [[ ${CHECK_GIT_STATUS} == true ]]; then
   check_git_status \
-    || { echo "Need to update template and run install/updateVersion.sh"; exit 1; }
+    || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
 fi
