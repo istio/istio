@@ -565,7 +565,7 @@ data:
     # the following line
     mixerAddress: istio-mixer.istio-system:9091
     #
-    ingressService: istio-ingress.istio-system
+    ingressService: istio-ingress
     egressProxyAddress: istio-egress.istio-system:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
