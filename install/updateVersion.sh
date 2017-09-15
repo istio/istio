@@ -18,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
 TEMP_DIR="/tmp"
 GIT_COMMIT=false
+CHECK_GIT_STATUS=false
 
 set -o errexit
 set -o pipefail
@@ -41,7 +42,7 @@ EOF
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c: arg; do
+while getopts :gi:n:p:x:c:s arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -49,6 +50,7 @@ while getopts :gi:n:p:x:c: arg; do
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     g) GIT_COMMIT=true;;
+    s) CHECK_GIT_STATUS=true;;
     *) usage;;
   esac
 done
@@ -198,4 +200,9 @@ rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then
     create_commit
+fi
+
+if [[ ${CHECK_GIT_STATUS} == true ]]; then
+  check_git_status \
+    || { echo "Need to update template and run install/updateVersion.sh"; exit 1; }
 fi
