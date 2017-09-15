@@ -22,7 +22,9 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -164,13 +166,13 @@ and destination policies.
 		Short: "Retrieve policies and rules",
 		Example: `
 		# List all route rules
-		istioctl get route-rules
+		istioctl get routerules
 
 		# List all destination policies
-		istioctl get destination-policies
+		istioctl get destinationpolicies
 
 		# Get a specific rule named productpage-default
-		istioctl get route-rule productpage-default
+		istioctl get routerule productpage-default
 		`,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, err := newClient()
@@ -180,7 +182,7 @@ and destination policies.
 			if len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify the type of resource to get. Types are %v",
-					strings.Join(configClient.ConfigDescriptor().Types(), ", "))
+					strings.Join(supportedTypes(configClient), ", "))
 			}
 
 			typ, err := schema(configClient, args[0])
@@ -230,7 +232,7 @@ and destination policies.
 		istioctl delete -f example-routing.yaml
 
 		# Delete the rule productpage-default
-		istioctl delete route-rule productpage-default
+		istioctl delete routerule productpage-default
 		`,
 		RunE: func(c *cobra.Command, args []string) error {
 			configClient, errs := newClient()
@@ -339,26 +341,32 @@ func main() {
 	}
 }
 
-// The schema is based on the kind (for example "route-rule" or "destination-policy")
+// The schema is based on the kind (for example "routerule" or "destinationpolicy")
 func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 	for _, desc := range configClient.ConfigDescriptor() {
-		if desc.Type == typ || desc.Plural == typ {
+		switch typ {
+		case desc.Type, desc.Plural: // legacy hyphenated resources names
+			return model.ProtoSchema{}, fmt.Errorf("%q not recognized. Please use non-hyphenated resource name %q",
+				typ, crd.ResourceName(typ))
+		case crd.ResourceName(desc.Type), crd.ResourceName(desc.Plural):
 			return desc, nil
 		}
 	}
 	return model.ProtoSchema{}, fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
-		typ, strings.Join(configClient.ConfigDescriptor().Types(), ", "))
+		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
 // readInputs reads multiple documents from the input and checks with the schema
 func readInputs() ([]model.Config, error) {
 	var reader io.Reader
-	if file == "" {
+	switch file {
+	case "":
+		return nil, errors.New("filename not specified (see --filename or -f)")
+	case "-":
 		reader = os.Stdin
-	} else {
+	default:
 		var err error
-		reader, err = os.Open(file)
-		if err != nil {
+		if reader, err = os.Open(file); err != nil {
 			return nil, err
 		}
 	}
@@ -366,9 +374,9 @@ func readInputs() ([]model.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if out, err := readInputsLegacy(bytes.NewReader(input)); err == nil {
-		return out, nil
-	}
+	// if out, err := readInputsLegacy(bytes.NewReader(input)); err == nil {
+	// 	return out, nil
+	// }
 	return readInputsKubectl(bytes.NewReader(input))
 }
 
@@ -382,7 +390,7 @@ func readInputs() ([]model.Config, error) {
 func readInputsKubectl(reader io.Reader) ([]model.Config, error) {
 	var varr []model.Config
 
-	// We store route-rules as a YaML stream; there may be more than one decoder.
+	// We store routerules as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
 		obj := crd.IstioKind{}
@@ -417,10 +425,11 @@ func readInputsKubectl(reader io.Reader) ([]model.Config, error) {
 
 // readInputsLegacy reads multiple documents from the input and checks
 // with the schema.
+// nolint: deadcode, megacheck
 func readInputsLegacy(reader io.Reader) ([]model.Config, error) {
 	var varr []model.Config
 
-	// We store route-rules as a YaML stream; there may be more than one decoder.
+	// We store routerules as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
 		v := model.JSONConfig{}
@@ -446,16 +455,40 @@ func readInputsLegacy(reader io.Reader) ([]model.Config, error) {
 
 // Print a simple list of names
 func printShortOutput(_ *crd.Client, configList []model.Config) {
+	var w tabwriter.Writer
+	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+	fmt.Fprintf(&w, "NAME\tKIND\tNAMESPACE\n")
 	for _, c := range configList {
-		fmt.Printf("%v\n", c.Key())
+		kind := fmt.Sprintf("%s.%s.%s",
+			crd.KabobCaseToCamelCase(c.Type),
+			model.IstioAPIVersion,
+			model.IstioAPIGroup,
+		)
+		fmt.Fprintf(&w, "%s\t%s\t%s\n", c.Name, kind, c.Namespace)
 	}
+	w.Flush() // nolint: errcheck
 }
 
 // Print as YAML
 func printYamlOutput(configClient *crd.Client, configList []model.Config) {
-	for _, c := range configList {
-		yaml, _ := configClient.ConfigDescriptor().ToYAML(c)
-		fmt.Print(yaml)
+	descriptor := configClient.ConfigDescriptor()
+	for _, config := range configList {
+		schema, exists := descriptor.GetByType(config.Type)
+		if !exists {
+			glog.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
+			continue
+		}
+		obj, err := crd.ConvertConfig(schema, config)
+		if err != nil {
+			glog.Errorf("Could not decode %v: %v", config.Name, err)
+			continue
+		}
+		bytes, err := yaml.Marshal(obj)
+		if err != nil {
+			glog.Errorf("Could not convert %v to YAML: %v", config, err)
+			continue
+		}
+		fmt.Print(string(bytes))
 		fmt.Println("---")
 	}
 }
@@ -466,4 +499,12 @@ func newClient() (*crd.Client, error) {
 		model.EgressRule,
 		model.DestinationPolicy,
 	}, "")
+}
+
+func supportedTypes(configClient *crd.Client) []string {
+	types := configClient.ConfigDescriptor().Types()
+	for i := range types {
+		types[i] = crd.ResourceName(types[i])
+	}
+	return types
 }

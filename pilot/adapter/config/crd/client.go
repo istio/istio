@@ -160,7 +160,7 @@ func (cl *Client) RegisterResources() error {
 				Scope:   apiextensionsv1beta1.NamespaceScoped,
 				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 					Plural: ResourceName(schema.Plural),
-					Kind:   kabobCaseToCamelCase(schema.Type),
+					Kind:   KabobCaseToCamelCase(schema.Type),
 				},
 			},
 		}
