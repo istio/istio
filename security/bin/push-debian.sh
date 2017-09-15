@@ -7,6 +7,14 @@
 #   -v 0.2.1
 #   -p gs://istio-release/release/0.2.1/deb
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+VERSION_FILE="${ROOT}/tools/deb/version"
+BAZEL_ARGS=()
+BAZEL_TARGET='//tools/deb:istio-auth-node-agent'
+BAZEL_BINARY="${ROOT}/bazel-bin/tools/deb/istio-auth-node-agent"
+
+set -ex
+
 function usage() {
   echo "$0 \
     -c <bazel config to use> \
@@ -17,20 +25,22 @@ function usage() {
 
 while getopts ":c:p:v:" arg; do
   case ${arg} in
-    c) BAZEL_ARGS="--config=${OPTARG}";;
+    c) BAZEL_ARGS+=("--config=${OPTARG}");;
     p) GCS_PATH="${OPTARG}";;
     v) ISTIO_VERSION="${OPTARG}";;
     *) usage;;
   esac
 done
 
-if [ -z "${BAZEL_ARGS}" ] || [ -z "${ISTIO_VERSION}" ] || [ -z "${GCS_PATH}" ]; then
-  usage
+if [[ -n "${ISTIO_VERSION}" ]]; then
+  BAZEL_TARGET+='-release'
+  BAZEL_BINARY+='-release'
+  echo "${ISTIO_VERSION}" > "${VERSION_FILE}"
+  trap 'rm "${VERSION_FILE}"' EXIT
 fi
 
-set -ex
+[[ -z "${GCS_PATH}" ]] && usage
 
-bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_ARGS} "//tools/deb:istio-auth-node-agent"
-gsutil -m cp -r \
-  bazel-bin/tools/deb/istio-auth-node-agent_${ISTIO_VERSION}_amd64.* \
-  ${GCS_PATH}
+bazel build ${BAZEL_ARGS[@]} ${BAZEL_TARGET}
+
+gsutil -m cp -r "${BAZEL_BINARY}.deb" ${GCS_PATH}/
