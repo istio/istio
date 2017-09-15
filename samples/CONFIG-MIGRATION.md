@@ -3,8 +3,9 @@
 The following rule resource changes are needed to migrate
 from Istio 0.1 (alpha) to Istio 0.2 config format.
 
-All of the 0.2 Pilot config property names are now aligned with the attibute vocabulary
-used for Mixer config. The unified config model design can be found [here](https://docs.google.com/document/d/1fGZpgFWJZhNRlQoBlCW815aOFR-ewfxKhla0CcPRsBM/edit#).
+Note that all of the 0.2 Pilot config property names are now aligned with the
+[attibute vocabulary](https://istio.io/docs/reference/config/mixer/attribute-vocabulary.html)
+used for Mixer config.
 
 ### Create Route Rule
 
@@ -14,7 +15,11 @@ istioctl create route-rule -f myrule.yaml
 ```
 0.2.x:
 ```
-kubectl apply -f myrule.yaml
+istioctl create -f myrule.yaml
+
+    or (for Kubernetes users):
+
+kubectl create -f myrule.yaml
 ```
 
 ### Route Rule YAML
@@ -54,7 +59,7 @@ spec:
 0.2.x:
 ```
 metadata:
-  namespace: bar # optional (alternatively could use kubectl -n bar ...)
+  namespace: bar # optional (alternatively could use istioctl -n bar ...)
 spec:
   destination:
     name: foo
@@ -134,7 +139,11 @@ istioctl create destination-policy -f mypolicy.yaml
 ```
 0.2.x:
 ```
-kubectl apply -f mypolicy.yaml
+istioctl create -f mypolicy.yaml
+
+    or (for Kubernetes users):
+
+kubectl create -f mypolicy.yaml
 ```
 
 ### Destination Policy YAML
@@ -155,7 +164,7 @@ spec:
 0.2.x:
 ```
 metadata:
-  namespace: bar # optional (alternatively could use kubectl -n bar ...)
+  namespace: bar # optional (alternatively could use istioctl -n bar ...)
 spec:
   destination:
     name: foo
