@@ -34,5 +34,18 @@ pkg_deb(
     homepage = "http://istio.io",
     maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
     package = "istio-auth-node-agent",
-    version = "0.2.1",
+    version = "0.2-dev",
+)
+
+pkg_deb(
+    name = "istio-auth-node-agent-release",
+    architecture = "amd64",
+    built_using = "bazel",
+    data = ":debian-data",
+    description_file = "description",
+    homepage = "http://istio.io",
+    maintainer = "The Istio Authors <istio-dev@googlegroups.com>",
+    package = "istio-auth-node-agent",
+    tags = ["manual"],
+    version_file = "version",
 )
