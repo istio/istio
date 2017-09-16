@@ -2,16 +2,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["simple1.go"],
+    srcs = ["simple1_test.go"],
+    data = [":test_yamls"],
     deps = [
         "//tests/e2e/framework:go_default_library",
         "//tests/e2e/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
-    data = [":test_yamls"],
 )
 
 filegroup(
-  name = "test_yamls",
-  srcs = ["servicesToBeInjected.yaml", "servicesNotInjected.yaml"]
+    name = "test_yamls",
+    srcs = [
+        "servicesNotInjected.yaml",
+        "servicesToBeInjected.yaml",
+    ],
 )

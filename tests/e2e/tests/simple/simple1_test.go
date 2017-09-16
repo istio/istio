@@ -15,9 +15,11 @@
 /*
 Simple test - first time:
 source istio.VERSION
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestSimple1 --skip_cleanup --auth_enable --namespace=e2e
+bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+    -test.run TestSimple1 --skip_cleanup --auth_enable --namespace=e2e
 After which to Retest:
-bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestSimple1 --skip_setup --skip_cleanup --auth_enable --namespace=e2e
+bazel run //tests/e2e/tests/simple:go_default_test -- -alsologtostderr -test.v -v 2 \
+    -test.run TestSimple1 --skip_setup --skip_cleanup --auth_enable --namespace=e2e
 */
 
 package simple
@@ -68,7 +70,7 @@ func TestSimple1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	bodyStr := string(body)
 	glog.Infof("Got reply:\n%s\n---END--", bodyStr)
 	needle := "echo debug server on echosrv"
