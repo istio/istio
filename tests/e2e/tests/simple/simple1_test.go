@@ -31,9 +31,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/glog"
 
+	"istio.io/istio/devel/fortio"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
@@ -59,24 +61,31 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimple1(t *testing.T) {
+	// want: url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	url := "http://" + tc.Kube.Ingress + "/debug"
 	glog.Infof("Fetching '%s'", url)
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatal(err)
-	}
+	attempts := 5 // if it takes more than 50s to be live...
+	for i := 0; i < attempts; i++ {
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		bodyStr := string(body)
+		glog.Infof("Got reply %d:\n%s\n---END--", i, bodyStr)
+		needle := "echo debug server on echosrv"
+		if strings.Contains(bodyStr, needle) {
+			return // success
+		}
+		glog.Warningf("Not finding expected %s in %s", needle, fortio.DebugSummary(body, 128))
+		time.Sleep(10 * time.Second)
 	}
-	_ = resp.Body.Close()
-	bodyStr := string(body)
-	glog.Infof("Got reply:\n%s\n---END--", bodyStr)
-	needle := "echo debug server on echosrv"
-	if !strings.Contains(bodyStr, needle) {
-		t.Errorf("Not finding expected %s in %s", needle, body)
-	}
+	t.Errorf("Unable to find expected output after %d attempts", attempts)
 }
 
 type fortioTemplate struct {

@@ -21,10 +21,15 @@ spec:
   rules:
   - http:
       paths:
-      - path: /.*
+      - path: /.* # want /fortio/.*
         backend:
           serviceName: echosrv
           servicePort: http-echo
+#   - destination: echosrv
+#      uri:
+#        prefix: /fortio
+#      rewrite:
+#        uri: /
 ---
 apiVersion: apps/v1beta1
 # 2 pods for service inside the cluster, will get istio injected
