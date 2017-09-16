@@ -4,6 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = ["simple1_test.go"],
     data = [":test_yamls"],
+    tags = ["manual"],
     deps = [
         "//tests/e2e/framework:go_default_library",
         "//tests/e2e/util:go_default_library",
