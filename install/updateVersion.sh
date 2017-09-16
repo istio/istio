@@ -131,13 +131,16 @@ function merge_files() {
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
+  cp $ISTIO $ISTIO_CLUSTER_WIDE
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_CLUSTER_WIDE
+#TODO the CA templates can be combined
+  cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+
+  # Deploy istio-ca always, required to enable MTLS for mixer and pilot
+  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO
+
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-
-  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
-#TODO the CA templates can be combines
-  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
-  cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 
   #TODO remove once e2e tests are updated
 #  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
