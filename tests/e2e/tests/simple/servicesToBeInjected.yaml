@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: simple-ingress
+  annotations:
+    kubernetes.io/ingress.class: istio
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /.*
+        backend:
+          serviceName: echosrv
+          servicePort: http-echo
+---
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster, will get istio injected
+kind: Deployment
+metadata:
+  name: echosrv-deployment
+spec:
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+        - containerPort: 8080

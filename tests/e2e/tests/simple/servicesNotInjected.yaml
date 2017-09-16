@@ -1,0 +1,18 @@
+# Client inside the cluster, not istio injected
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: raw-cli-deployement
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio
+        # That image runs the servers (so it will run forever) but has the
+        # /usr/local/bin/fortio client
+        image: {{.FortioImage}}
+        imagePullPolicy: Always
