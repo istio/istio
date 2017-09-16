@@ -1,23 +1,18 @@
-type: destination-policy
-name: egress-circuit-breaker
-namespace: default
-domain: cluster.local
-spec:
-  source:
-    name: hello
-    labels:
-      version: v0
-  destination:
-    service: "*.google.com"
-  circuitBreaker:
-    simpleCb:
-      maxConnections: 9
-      sleepWindow: 9s
-      httpMaxRequests: 9
-      httpMaxRequestsPerConnection: 9
-      httpMaxPendingRequests: 9
-      httpConsecutiveErrors: 9
-      httpDetectionInterval: 9s
-      httpMaxEjectionPercent: 9
-  loadBalancing:
-    name: RANDOM
+source:
+  name: hello
+  labels:
+    version: v0
+destination:
+  service: "*.google.com"
+circuitBreaker:
+  simpleCb:
+    maxConnections: 9
+    sleepWindow: 9s
+    httpMaxRequests: 9
+    httpMaxRequestsPerConnection: 9
+    httpMaxPendingRequests: 9
+    httpConsecutiveErrors: 9
+    httpDetectionInterval: 9s
+    httpMaxEjectionPercent: 9
+loadBalancing:
+  name: RANDOM

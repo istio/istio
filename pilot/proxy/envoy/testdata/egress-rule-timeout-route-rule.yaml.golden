@@ -1,13 +1,9 @@
-type: route-rule
-name: egress-timeout
-namespace: default
-spec:
-  destination:
-    service: "*.google.com"
-  httpReqTimeout:
-    simpleTimeout:
-      timeout: 30s
-  httpReqRetries:
-    simple_retry:
-      attempts: 1
-      perTryTimeout: 5s
+destination:
+  service: "*.google.com"
+httpReqTimeout:
+  simpleTimeout:
+    timeout: 30s
+httpReqRetries:
+  simple_retry:
+    attempts: 1
+    perTryTimeout: 5s

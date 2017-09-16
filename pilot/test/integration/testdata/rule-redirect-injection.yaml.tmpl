@@ -1,5 +1,7 @@
-type: route-rule
-name: redirect-route
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: redirect-route
 spec:
   destination:
     name: c

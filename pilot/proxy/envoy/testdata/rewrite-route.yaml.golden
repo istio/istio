@@ -1,16 +1,11 @@
-type: route-rule
-name: rewrite-route
-namespace: default
-domain: cluster.local
-spec:
-  destination:
-    name: world
-  match:
-    request:
-      headers:
-        uri:
-          prefix: /old/path
-  rewrite:
-    uri: /new/path
-    authority: foo.bar.com
+destination:
+  name: world
+match:
+  request:
+    headers:
+      uri:
+        prefix: /old/path
+rewrite:
+  uri: /new/path
+  authority: foo.bar.com
 

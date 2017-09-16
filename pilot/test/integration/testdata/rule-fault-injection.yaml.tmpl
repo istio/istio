@@ -1,5 +1,7 @@
-type: route-rule
-name: fault-route
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: fault-route
 spec:
   destination:
     name: c

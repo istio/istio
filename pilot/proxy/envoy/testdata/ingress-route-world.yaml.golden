@@ -1,15 +1,10 @@
-type: ingress-rule
-name: bar
-namespace: default
-domain: cluster.local
-spec:
-  destination:
-    name: world
-  destinationPortName: http
-  match:
-    request:
-      headers:
-        authority:
-          exact: world.com
-        uri:
-          exact: "/hello"
+destination:
+  name: world
+destinationPortName: http
+match:
+  request:
+    headers:
+      authority:
+        exact: world.com
+      uri:
+        exact: "/hello"

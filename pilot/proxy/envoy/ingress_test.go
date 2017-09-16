@@ -9,11 +9,6 @@ import (
 	"istio.io/pilot/model"
 )
 
-const (
-	ingressRouteRule1 = "testdata/ingress-route-world.yaml.golden"
-	ingressRouteRule2 = "testdata/ingress-route-foo.yaml.golden"
-)
-
 func addIngressRoutes(r model.ConfigStore, t *testing.T) {
 	addConfig(r, ingressRouteRule1, t)
 	addConfig(r, ingressRouteRule2, t)

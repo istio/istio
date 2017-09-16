@@ -1,14 +1,9 @@
-type: ingress-rule
-name: foo
-namespace: default
-domain: cluster.local
-spec:
-  destination:
-    name: hello
-  destinationPort: 81
-  tlsSecret: my-secret.default
-  match:
-    request:
-      headers:
-        uri:
-          prefix: "/bar"
+destination:
+  name: hello
+destinationPort: 81
+tlsSecret: my-secret.default
+match:
+  request:
+    headers:
+      uri:
+        prefix: "/bar"

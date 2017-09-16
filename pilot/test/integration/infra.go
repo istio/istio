@@ -397,23 +397,25 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 		return err
 	}
 
-	v, err := model.IstioConfigTypes.FromYAML([]byte(config))
+	vs, err := crd.ParseInputs(config)
 	if err != nil {
 		return err
 	}
 
-	// fill up namespace for the config
-	v.Namespace = infra.Namespace
+	for _, v := range vs {
+		// fill up namespace for the config
+		v.Namespace = infra.Namespace
 
-	old, exists := infra.config.Get(v.Type, v.Name, v.Namespace)
-	if exists {
-		v.ResourceVersion = old.ResourceVersion
-		_, err = infra.config.Update(*v)
-	} else {
-		_, err = infra.config.Create(*v)
-	}
-	if err != nil {
-		return err
+		old, exists := infra.config.Get(v.Type, v.Name, v.Namespace)
+		if exists {
+			v.ResourceVersion = old.ResourceVersion
+			_, err = infra.config.Update(v)
+		} else {
+			_, err = infra.config.Create(v)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	glog.Info("Sleeping for the config to propagate")

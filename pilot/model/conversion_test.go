@@ -48,14 +48,14 @@ func TestProtoSchemaConversions(t *testing.T) {
 		"route": [
 		{
 			"destination": {
-                "name" : "bar"
-            },
+				"name" : "bar"
+			},
 			"weight": 75
 		},
 		{
 			"destination": {
-                "name" : "baz"
-            },
+				"name" : "baz"
+			},
 			"weight": 25
 		}
 		]
@@ -94,33 +94,6 @@ func TestProtoSchemaConversions(t *testing.T) {
 		},
 	}
 
-	wantJSONConfig := model.JSONConfig{
-		ConfigMeta: model.ConfigMeta{
-			Type: model.RouteRule.Type,
-			Name: "test",
-		},
-		Spec: wantJSONMap,
-	}
-
-	wantYAMLConfig := "name: test\n" +
-		"spec:\n" +
-		"  destination:\n" +
-		"    name: foo\n" +
-		"  precedence: 5\n" +
-		"  route:\n" +
-		"  - destination:\n" +
-		"      name: bar\n" +
-		"    weight: 75\n" +
-		"  - destination:\n" +
-		"      name: baz\n" +
-		"    weight: 25\n" +
-		"type: route-rule\n"
-
-	wantConfig := model.Config{
-		ConfigMeta: wantJSONConfig.ConfigMeta,
-		Spec:       msg,
-	}
-
 	badSchema := &model.ProtoSchema{MessageName: "bad-name"}
 	if _, err := badSchema.FromYAML(wantYAML); err == nil {
 		t.Errorf("FromYAML should have failed using ProtoSchema with bad MessageName")
@@ -134,6 +107,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 
 	if gotJSON != strings.Join(strings.Fields(wantJSON), "") {
 		t.Errorf("ToJSON failed: got %s, want %s", gotJSON, wantJSON)
+	}
+
+	if _, err = model.ToJSON(nil); err == nil {
+		t.Error("should produce an error")
 	}
 
 	gotFromJSON, err := routeRuleSchema.FromJSON(wantJSON)
@@ -156,6 +133,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("ToYAML failed: got %+v want %+v", spew.Sdump(gotYAML), spew.Sdump(wantYAML))
 	}
 
+	if _, err = model.ToYAML(nil); err == nil {
+		t.Error("should produce an error")
+	}
+
 	gotFromYAML, err := routeRuleSchema.FromYAML(wantYAML)
 
 	if err != nil {
@@ -164,6 +145,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 
 	if !reflect.DeepEqual(gotFromYAML, msg) {
 		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAML), spew.Sdump(msg))
+	}
+
+	if _, err = routeRuleSchema.FromYAML(":"); err == nil {
+		t.Errorf("should produce an error")
 	}
 
 	gotJSONMap, err := model.ToJSONMap(msg)
@@ -176,6 +161,10 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("ToJSONMap failed: \ngot %vwant %v", spew.Sdump(gotJSONMap), spew.Sdump(wantJSONMap))
 	}
 
+	if _, err = model.ToJSONMap(nil); err == nil {
+		t.Error("should produce an error")
+	}
+
 	gotFromJSONMap, err := routeRuleSchema.FromJSONMap(wantJSONMap)
 
 	if err != nil {
@@ -186,41 +175,11 @@ func TestProtoSchemaConversions(t *testing.T) {
 		t.Errorf("FromJSONMap failed: got %+v want %+v", spew.Sdump(gotFromJSONMap), spew.Sdump(msg))
 	}
 
-	gotFromJSONConfig, err := model.IstioConfigTypes.FromJSON(wantJSONConfig)
-
-	if err != nil {
-		t.Errorf("FromJSON failed: %v", err)
+	if _, err = routeRuleSchema.FromJSONMap(1); err == nil {
+		t.Error("should produce an error")
 	}
 
-	if !reflect.DeepEqual(gotFromJSONConfig, &wantConfig) {
-		t.Errorf("FromJSON failed: got %+v want %+v", spew.Sdump(gotFromJSONConfig), spew.Sdump(wantConfig))
-	}
-
-	gotFromYAMLConfig, err := model.IstioConfigTypes.FromYAML([]byte(wantYAMLConfig))
-
-	if err != nil {
-		t.Errorf("FromYAML failed: %v", err)
-	}
-
-	if !reflect.DeepEqual(gotFromYAMLConfig, &wantConfig) {
-		t.Errorf("FromYAML failed: got %+v want %+v", spew.Sdump(gotFromYAMLConfig), spew.Sdump(wantConfig))
-	}
-
-	gotFromConfig, err := model.IstioConfigTypes.ToYAML(wantConfig)
-
-	if err != nil {
-		t.Errorf("ToYAML failed: %v", err)
-	}
-
-	if gotFromConfig != wantYAMLConfig {
-		t.Errorf("ToYAML failed: got %s want %s", gotFromConfig, wantYAMLConfig)
-	}
-
-	if _, err = model.IstioConfigTypes.ToYAML(model.Config{}); err == nil {
-		t.Error("ToYAML failed: want error")
-	}
-
-	if _, err = model.IstioConfigTypes.FromJSON(model.JSONConfig{}); err == nil {
-		t.Error("FromJSON failed: want error")
+	if _, err = routeRuleSchema.FromJSON(":"); err == nil {
+		t.Errorf("should produce an error")
 	}
 }

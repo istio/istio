@@ -201,7 +201,7 @@ func (proxy envoy) args(fname string, epoch int) []string {
 func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 	envoyConfig, ok := config.(*Config)
 	if !ok {
-		return fmt.Errorf("Unexpected config type: %#v", config)
+		return fmt.Errorf("unexpected config type: %#v", config)
 	}
 
 	// create parent directories if necessary

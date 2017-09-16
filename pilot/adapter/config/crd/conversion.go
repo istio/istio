@@ -16,9 +16,12 @@ package crd
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"strings"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/pilot/model"
 )
@@ -94,4 +97,47 @@ func CamelCaseToKabobCase(s string) string {
 		}
 	}
 	return out.String()
+}
+
+// ParseInputs reads multiple documents from `kubectl` output and checks with
+// the schema.
+//
+// NOTE: This function only decodes a subset of the complete k8s
+// ObjectMeta as identified by the fields in model.ConfigMeta. This
+// would typically only be a problem if a user dumps an configuration
+// object with kubectl and then re-ingests it.
+func ParseInputs(inputs string) ([]model.Config, error) {
+	var varr []model.Config
+	reader := bytes.NewReader([]byte(inputs))
+
+	// We store configs as a YaML stream; there may be more than one decoder.
+	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+	for {
+		obj := IstioKind{}
+		err := yamlDecoder.Decode(&obj)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
+		if !exists {
+			return nil, fmt.Errorf("unrecognized type %v", obj.Kind)
+		}
+
+		config, err := ConvertObject(schema, &obj, "")
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+
+		if err := schema.Validate(config.Spec); err != nil {
+			return nil, fmt.Errorf("configuration is invalid: %v", err)
+		}
+
+		varr = append(varr, *config)
+	}
+
+	return varr, nil
 }

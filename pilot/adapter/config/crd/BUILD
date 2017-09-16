@@ -23,6 +23,7 @@ go_library(
         "@io_k8s_apimachinery//pkg/runtime/schema:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime/serializer:go_default_library",
         "@io_k8s_apimachinery//pkg/util/wait:go_default_library",
+        "@io_k8s_apimachinery//pkg/util/yaml:go_default_library",
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/gcp:go_default_library",
         "@io_k8s_client_go//plugin/pkg/client/auth/oidc:go_default_library",

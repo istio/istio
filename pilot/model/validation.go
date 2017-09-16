@@ -602,6 +602,9 @@ func ValidateThrottle(throttle *proxyconfig.L4FaultInjection_Throttle) (errs err
 
 // ValidateLoadBalancing validates Load Balancing
 func ValidateLoadBalancing(lb *proxyconfig.LoadBalancing) (errs error) {
+	if lb.LbPolicy == nil {
+		errs = multierror.Append(errs, errors.New("must set load balancing if specified"))
+	}
 	// Currently the policy is just a name, and we don't validate it
 	return
 }

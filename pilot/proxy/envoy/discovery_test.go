@@ -322,7 +322,7 @@ func TestRouteDiscoveryIstioEgress(t *testing.T) {
 func TestSidecarListenerDiscovery(t *testing.T) {
 	testCases := []struct {
 		name string
-		file string
+		file fileConfig
 	}{
 		{name: "none"},
 		/* these configs do not affect listeners
@@ -365,7 +365,7 @@ func TestSidecarListenerDiscovery(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			_, registry, ds := commonSetup(t)
 
-			if testCase.file != "" {
+			if testCase.name != "none" {
 				addConfig(registry, testCase.file, t)
 			}
 

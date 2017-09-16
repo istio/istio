@@ -216,31 +216,100 @@ func TestTCPRouteConfigByRoute(t *testing.T) {
 	}
 }
 
+type fileConfig struct {
+	meta model.ConfigMeta
+	file string
+}
+
 const (
 	envoyConfig = "testdata/envoy.json"
-
-	cbPolicy              = "testdata/cb-policy.yaml.golden"
-	timeoutRouteRule      = "testdata/timeout-route-rule.yaml.golden"
-	weightedRouteRule     = "testdata/weighted-route.yaml.golden"
-	faultRouteRule        = "testdata/fault-route.yaml.golden"
-	redirectRouteRule     = "testdata/redirect-route.yaml.golden"
-	rewriteRouteRule      = "testdata/rewrite-route.yaml.golden"
-	websocketRouteRule    = "testdata/websocket-route.yaml.golden"
-	egressRule            = "testdata/egress-rule.yaml.golden"
-	egressRuleCBPolicy    = "testdata/egress-rule-cb-policy.yaml.golden"
-	egressRuleTimeoutRule = "testdata/egress-rule-timeout-route-rule.yaml.golden"
 )
 
-func addConfig(r model.ConfigStore, file string, t *testing.T) {
-	content, err := ioutil.ReadFile(file)
+var (
+	cbPolicy = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
+		file: "testdata/cb-policy.yaml.golden",
+	}
+
+	timeoutRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "timeout"},
+		file: "testdata/timeout-route-rule.yaml.golden",
+	}
+
+	weightedRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "weighted"},
+		file: "testdata/weighted-route.yaml.golden",
+	}
+
+	faultRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
+		file: "testdata/fault-route.yaml.golden",
+	}
+
+	redirectRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect"},
+		file: "testdata/redirect-route.yaml.golden",
+	}
+
+	rewriteRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "rewrite"},
+		file: "testdata/rewrite-route.yaml.golden",
+	}
+
+	websocketRouteRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
+		file: "testdata/websocket-route.yaml.golden",
+	}
+
+	egressRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google"},
+		file: "testdata/egress-rule.yaml.golden",
+	}
+
+	egressRuleCBPolicy = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "egress-circuit-breaker"},
+		file: "testdata/egress-rule-cb-policy.yaml.golden",
+	}
+
+	egressRuleTimeoutRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "egress-timeout"},
+		file: "testdata/egress-rule-timeout-route-rule.yaml.golden",
+	}
+
+	ingressRouteRule1 = fileConfig{
+		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "world"},
+		file: "testdata/ingress-route-world.yaml.golden",
+	}
+
+	ingressRouteRule2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "foo"},
+		file: "testdata/ingress-route-foo.yaml.golden",
+	}
+)
+
+func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
+	schema, ok := model.IstioConfigTypes.GetByType(config.meta.Type)
+	if !ok {
+		t.Fatalf("missing schema for %q", config.meta.Type)
+	}
+	content, err := ioutil.ReadFile(config.file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, err := model.IstioConfigTypes.FromYAML(content)
+	spec, err := schema.FromYAML(string(content))
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = r.Create(*config)
+	out := model.Config{
+		ConfigMeta: config.meta,
+		Spec:       spec,
+	}
+
+	// set default values for overriding
+	out.ConfigMeta.Namespace = "default"
+	out.ConfigMeta.Domain = "cluster.local"
+
+	_, err = r.Create(out)
 	if err != nil {
 		t.Fatal(err)
 	}

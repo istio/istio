@@ -1,14 +1,9 @@
-type: route-rule
-name: weighted-route
-namespace: default
-domain: cluster.local
-spec:
-  destination:
-    name: world
-  route:
-    - labels:
-         version: v0
-      weight: 75
-    - labels:
-         version: v1
-      weight: 25
+destination:
+  name: world
+route:
+  - labels:
+       version: v0
+    weight: 75
+  - labels:
+       version: v1
+    weight: 25

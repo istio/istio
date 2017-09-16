@@ -159,6 +159,14 @@ func TestServiceInstanceValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "bad label",
+			instance: &ServiceInstance{
+				Service:  service1,
+				Labels:   Labels{"*": "-"},
+				Endpoint: endpoint1,
+			},
+		},
+		{
 			name: "invalid service",
 			instance: &ServiceInstance{
 				Service: &Service{},
@@ -282,6 +290,15 @@ func TestLabelsValidate(t *testing.T) {
 	}
 }
 
+func TestValidateFQDN(t *testing.T) {
+	if ValidateFQDN(strings.Repeat("x", 256)) == nil {
+		t.Error("expected error on long FQDN")
+	}
+	if ValidateFQDN("") == nil {
+		t.Error("expected error on empty FQDN")
+	}
+}
+
 func TestValidateRouteAndIngressRule(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -296,6 +313,10 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			valid: true},
 		{name: "route rule bad destination", in: &proxyconfig.RouteRule{
 			Destination: &proxyconfig.IstioService{Name: "foobar?"},
+		},
+			valid: false},
+		{name: "route rule bad destination", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar", Labels: Labels{"version": "v1"}},
 		},
 			valid: false},
 		{name: "route rule bad match source", in: &proxyconfig.RouteRule{
@@ -398,6 +419,16 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 				Abort: &proxyconfig.HTTPFaultInjection_Abort{
 					Percent:   100,
 					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: -1},
+				},
+			},
+		},
+			valid: false},
+		{name: "route rule bad unsupported status", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			HttpFault: &proxyconfig.HTTPFaultInjection{
+				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+					Percent:   100,
+					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_GrpcStatus{GrpcStatus: "test"},
 				},
 			},
 		},
@@ -539,6 +570,12 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: true},
+		{name: "route rule match rewrite and redirect", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			Redirect:    &proxyconfig.HTTPRedirect{Uri: "/new/path"},
+			Rewrite:     &proxyconfig.HTTPRewrite{Authority: "foo.bar.com"},
+		},
+			valid: false},
 		{name: "route rule match valid prefix rewrite", in: &proxyconfig.RouteRule{
 			Destination: &proxyconfig.IstioService{Name: "foobar"},
 			Rewrite: &proxyconfig.HTTPRewrite{
@@ -614,10 +651,12 @@ func TestValidateDestinationPolicy(t *testing.T) {
 		},
 			valid: true},
 		{in: &proxyconfig.DestinationPolicy{
-			Destination: &proxyconfig.IstioService{
-				Name:   "",
-				Labels: map[string]string{"@": "~"},
-			},
+			Destination:   &proxyconfig.IstioService{Name: "foobar"},
+			LoadBalancing: &proxyconfig.LoadBalancing{},
+		},
+			valid: false},
+		{in: &proxyconfig.DestinationPolicy{
+			Source: &proxyconfig.IstioService{},
 		},
 			valid: false},
 	}
@@ -701,11 +740,11 @@ func TestValidateParentAndDrain(t *testing.T) {
 		},
 		{
 			Parent: duration.Duration{Seconds: 2},
-			Drain:  duration.Duration{Seconds: 1, Nanos: 1},
+			Drain:  duration.Duration{Seconds: 1, Nanos: 1000000},
 			Valid:  false,
 		},
 		{
-			Parent: duration.Duration{Seconds: 2, Nanos: 1},
+			Parent: duration.Duration{Seconds: 2, Nanos: 1000000},
 			Drain:  duration.Duration{Seconds: 1},
 			Valid:  false,
 		},
@@ -717,6 +756,16 @@ func TestValidateParentAndDrain(t *testing.T) {
 		{
 			Parent: duration.Duration{Seconds: 2},
 			Drain:  duration.Duration{Seconds: -1},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
+			Drain:  duration.Duration{Seconds: 10},
+			Valid:  false,
+		},
+		{
+			Parent: duration.Duration{Seconds: 10},
+			Drain:  duration.Duration{Seconds: 1 + int64(time.Hour/time.Second)},
 			Valid:  false,
 		},
 	}
@@ -755,6 +804,10 @@ func TestValidateConnectTimeout(t *testing.T) {
 }
 
 func TestValidateMeshConfig(t *testing.T) {
+	if ValidateMeshConfig(&proxyconfig.MeshConfig{}) == nil {
+		t.Error("expected an error on an empty mesh config")
+	}
+
 	invalid := proxyconfig.MeshConfig{
 		EgressProxyAddress: "10.0.0.100",
 		MixerAddress:       "10.0.0.100",
@@ -762,6 +815,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
 		AuthPolicy:         -1,
 		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
+		DefaultConfig:      &proxyconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -781,6 +835,10 @@ func TestValidateMeshConfig(t *testing.T) {
 }
 
 func TestValidateProxyConfig(t *testing.T) {
+	if ValidateProxyConfig(&proxyconfig.ProxyConfig{}) == nil {
+		t.Error("expected an error on an empty proxy config")
+	}
+
 	invalid := proxyconfig.ProxyConfig{
 		ConfigPath:             "",
 		BinaryPath:             "",
@@ -823,6 +881,14 @@ func TestValidateIstioService(t *testing.T) {
 			Valid:   false,
 		},
 		{
+			Service: proxyconfig.IstioService{Service: "**cnn.com"},
+			Valid:   false,
+		},
+		{
+			Service: proxyconfig.IstioService{Service: "cnn.com", Labels: Labels{"*": ":"}},
+			Valid:   false,
+		},
+		{
 			Service: proxyconfig.IstioService{Service: "*cnn.com", Domain: "domain", Namespace: "namespace"},
 			Valid:   false,
 		},
@@ -858,6 +924,41 @@ func TestValidateIstioService(t *testing.T) {
 				got == nil, svc.Valid, got, svc.Service)
 		}
 	}
+}
+
+func TestValidateMatchCondition(t *testing.T) {
+	for key, mc := range map[string]*proxyconfig.MatchCondition{
+		"bad header key": {
+			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+				"XHeader": {MatchType: &proxyconfig.StringMatch_Exact{Exact: "test"}},
+			}},
+		},
+		"bad header value": {
+			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+				"user-agent": {},
+			}},
+		},
+		"uri header exact empty": {
+			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+				HeaderURI: {MatchType: &proxyconfig.StringMatch_Exact{}},
+			}},
+		},
+		"uri header prefix empty": {
+			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+				HeaderURI: {MatchType: &proxyconfig.StringMatch_Prefix{}},
+			}},
+		},
+		"uri header regex empty": {
+			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+				HeaderURI: {MatchType: &proxyconfig.StringMatch_Regex{}},
+			}},
+		},
+	} {
+		if ValidateMatchCondition(mc) == nil {
+			t.Errorf("expected error %s for %#v", key, mc)
+		}
+	}
+
 }
 
 func TestValidateEgressRuleDomain(t *testing.T) {
@@ -912,12 +1013,34 @@ func TestValidateEgressRulePort(t *testing.T) {
 	}
 }
 
+func TestValidateIngressRule(t *testing.T) {
+	cases := []struct {
+		name string
+		in   proto.Message
+	}{
+		{name: "nil egress rule"},
+		{name: "empty egress rule", in: &proxyconfig.IngressRule{}},
+		{name: "empty egress rule", in: &proxyconfig.IngressRule{
+			Destination: &proxyconfig.IstioService{
+				Service: "***", Labels: Labels{"version": "v1"},
+			},
+		}},
+	}
+
+	for _, c := range cases {
+		if ValidateIngressRule(c.in) == nil {
+			t.Errorf("ValidateIngressRule failed on %s: %#v", c.name, c.in)
+		}
+	}
+}
+
 func TestValidateEgressRule(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    proto.Message
 		valid bool
 	}{
+		{name: "nil egress rule"},
 		{name: "empty egress rule", in: &proxyconfig.EgressRule{}, valid: false},
 		{name: "valid egress rule",
 			in: &proxyconfig.EgressRule{

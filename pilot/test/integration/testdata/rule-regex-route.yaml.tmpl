@@ -1,5 +1,7 @@
-type: route-rule
-name: content-route
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: content-route
 spec:
   destination:
     name: c

@@ -1,20 +1,15 @@
-type: route-rule
-name: redirect-route
-namespace: default
-domain: cluster.local
-spec:
-  destination:
-    name: world
-  match:
-    request:
-      headers:
-        scooby:
-          exact: doo
-        animal:
-          prefix: dog
-        name:
-          regex: "sco+do+"
-  redirect:
-    uri: "/new/path"
-    authority: "foo.bar.com"
+destination:
+  name: world
+match:
+  request:
+    headers:
+      scooby:
+        exact: doo
+      animal:
+        prefix: dog
+      name:
+        regex: "sco+do+"
+redirect:
+  uri: "/new/path"
+  authority: "foo.bar.com"
 
