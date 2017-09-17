@@ -220,7 +220,6 @@ class TcpMixerFilterFactory : public NamedNetworkFilterConfigFactory {
     };
   }
   std::string name() override { return "mixer"; }
-  NetworkFilterType type() override { return NetworkFilterType::Both; }
 };
 
 static Registry::RegisterFactory<TcpMixerFilterFactory,

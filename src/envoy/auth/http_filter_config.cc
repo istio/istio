@@ -37,7 +37,6 @@ class JwtVerificationFilterConfig : public NamedHttpFilterConfigFactory {
     };
   }
   std::string name() override { return "jwt-auth"; }
-  HttpFilterType type() override { return HttpFilterType::Decoder; }
 };
 
 /**

@@ -13,17 +13,18 @@
  * limitations under the License.
  */
 
-#include "test/integration/integration.h"
+#include "test/integration/http_integration.h"
 #include "test/integration/utility.h"
 
 namespace Envoy {
 
 // Base class JWT filter integration tests.
 class JwtVerificationFilterIntegrationTest
-    : public BaseIntegrationTest,
+    : public HttpIntegrationTest,
       public testing::TestWithParam<Network::Address::IpVersion> {
  public:
-  JwtVerificationFilterIntegrationTest() : BaseIntegrationTest(GetParam()) {}
+  JwtVerificationFilterIntegrationTest()
+      : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
   virtual ~JwtVerificationFilterIntegrationTest() {}
   /**
    * Initializer for an individual integration test.
@@ -107,8 +108,7 @@ class JwtVerificationFilterIntegrationTest
     FakeStreamPtr request_stream_issuer;
     FakeStreamPtr request_stream_backend;
 
-    codec_client =
-        makeHttpConnection(lookupPort("http"), Http::CodecClient::Type::HTTP1);
+    codec_client = makeHttpConnection(lookupPort("http"));
 
     // Send a request to Envoy.
     if (!request_body.empty()) {

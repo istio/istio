@@ -81,6 +81,7 @@ envoy_cc_test(
     deps = [
         ":http_filter_config",
         ":jwt_lib",
+        "@envoy//test/integration:http_integration_lib",
         "@envoy//test/integration:integration_lib",
     ],
 )

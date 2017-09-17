@@ -382,7 +382,6 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
         };
   }
   std::string name() override { return "mixer"; }
-  HttpFilterType type() override { return HttpFilterType::Decoder; }
 };
 
 static Registry::RegisterFactory<MixerConfigFactory,
