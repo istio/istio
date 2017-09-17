@@ -14,24 +14,39 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: simple-ingress
   annotations:
     kubernetes.io/ingress.class: istio
+  name: istio-ingress
 spec:
   rules:
-  - http:
-      paths:
-      - path: /.* # want /fortio/.*
-        backend:
-          serviceName: echosrv
-          servicePort: http-echo
-# TODO: figure out exact syntax and also for above / invalid yaml?
-#  - destination: echosrv
-#    match:
-#    uri:
-#        prefix: /fortio
-#      rewrite:
-#        uri: /
+    - http:
+        paths:
+          - path: /fortio/.*
+            backend:
+              serviceName: echosrv
+              servicePort: http-echo
+          - path: /debug
+            backend:
+              serviceName: echosrv
+              servicePort: http-echo
+---
+# This doesn't appear to work at all
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: fortio-redir
+spec:
+#    source:
+#      service: istio-ingress # TODO check it doesn't rewrite intra cluster traffic
+    destination:
+      name: echosrv
+    match:
+        request:
+          headers:
+            uri:
+              prefix: /fortio/abc
+          rewrite:
+            uri: /debug
 ---
 apiVersion: apps/v1beta1
 # 2 pods for service inside the cluster, will get istio injected
@@ -50,4 +65,9 @@ spec:
       - name: echosrv
         image: {{.FortioImage}}
         ports:
-        - containerPort: 8080
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+          - -loglevel=debug
+          - -echo-debug-path=/fortio/debug # because rewrite doesn't work

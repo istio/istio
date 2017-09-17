@@ -61,29 +61,33 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimple1(t *testing.T) {
-	// want: url := "http://" + tc.Kube.Ingress + "/fortio/debug"
-	url := "http://" + tc.Kube.Ingress + "/debug"
+	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	glog.Infof("Fetching '%s'", url)
 	attempts := 5 // if it takes more than 50s to be live...
-	for i := 0; i < attempts; i++ {
+	for i := 1; i <= attempts; i++ {
+		if i > 1 {
+			time.Sleep(10 * time.Second) // wait between retries
+		}
 		resp, err := http.Get(url)
 		if err != nil {
-			t.Fatal(err)
+			glog.Warningf("Attempt %d : http.Get error %v", i, err)
+			continue
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			t.Fatal(err)
+			glog.Warningf("Attempt %d : ReadAll error %v", i, err)
+			continue
 		}
 		_ = resp.Body.Close()
 		bodyStr := string(body)
-		glog.Infof("Got reply %d:\n%s\n---END--", i, bodyStr)
+		glog.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
 		needle := "echo debug server on echosrv"
-		if strings.Contains(bodyStr, needle) {
-			return // success
+		if !strings.Contains(bodyStr, needle) {
+			glog.Warningf("Not finding expected %s in %s", needle, fortio.DebugSummary(body, 128))
+			continue
 		}
-		glog.Warningf("Not finding expected %s in %s", needle, fortio.DebugSummary(body, 128))
-		time.Sleep(10 * time.Second)
+		return // success
 	}
 	t.Errorf("Unable to find expected output after %d attempts", attempts)
 }

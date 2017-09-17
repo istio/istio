@@ -59,7 +59,7 @@ func init() {
 
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
-	Version       = "0.2.2"
+	Version       = "0.2.3"
 	userAgent     = "istio/fortio-" + Version
 	retcodeOffset = len("HTTP/1.X ")
 )
@@ -669,7 +669,7 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	if LogDebug() {
 		for name, headers := range r.Header {
 			for _, h := range headers {
-				fmt.Printf("%v: %v\n", name, h)
+				Debugf("Header %v: %v\n", name, h)
 			}
 		}
 	}
@@ -814,10 +814,11 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // EchoServer starts a debug / echo http server on the given port.
-func EchoServer(port int) {
+func EchoServer(port int, debugPath string) {
 	fmt.Printf("Fortio %s echo server listening on port %v\n", Version, port)
-
-	http.HandleFunc("/debug", DebugHandler)
+	if debugPath != "" {
+		http.HandleFunc(debugPath, DebugHandler)
+	}
 	http.HandleFunc("/", EchoHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		fmt.Println("Error starting server", err)

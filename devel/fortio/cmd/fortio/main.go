@@ -69,6 +69,7 @@ var (
 	grpcFlag        = flag.Bool("grpc", false, "Use GRPC (health check) for load testing")
 	echoPortFlag    = flag.Int("http-port", 8080, "http echo server port")
 	grpcPortFlag    = flag.Int("grpc-port", 8079, "grpc port")
+	echoDbgPathFlag = flag.String("echo-debug-path", "/debug", "http echo server URI for debug, empty turns off that part (more secure)")
 
 	headersFlags flagList
 	percList     []float64
@@ -94,7 +95,7 @@ func main() {
 	case "load":
 		fortioLoad()
 	case "server":
-		go fortio.EchoServer(*echoPortFlag)
+		go fortio.EchoServer(*echoPortFlag, *echoDbgPathFlag)
 		pingServer(*grpcPortFlag)
 	case "grpcping":
 		grpcClient()
