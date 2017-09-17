@@ -243,7 +243,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Services in SDS"))
 
 	// This route makes discovery act as an Envoy Service discovery service (SDS).
-	// See https://lyft.github.io/envoy/docs/intro/arch_overview/service_discovery.html#arch-overview-service-discovery-sds
+	// See https://envoyproxy.github.io/envoy/intro/arch_overview/service_discovery.html#service-discovery-service-sds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/registration/{%s}", ServiceKey)).
 		To(ds.ListEndpoints).
@@ -251,7 +251,7 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceKey, "tuple of service name and tag name").DataType("string")))
 
 	// This route makes discovery act as an Envoy Cluster discovery service (CDS).
-	// See https://lyft.github.io/envoy/docs/configuration/cluster_manager/cds.html
+	// See https://envoyproxy.github.io/envoy/configuration/cluster_manager/cds.html#config-cluster-manager-cds
 	ws.Route(ws.
 		GET(fmt.Sprintf("/v1/clusters/{%s}/{%s}", ServiceCluster, ServiceNode)).
 		To(ds.ListClusters).

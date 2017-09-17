@@ -17,7 +17,7 @@ An attacker impact is minimized if envoy is compromised with non-elevated privil
 ## Configuration for redirection inbound and outbound traffic to proxy
 
 The following assumes all inbound and outbound traffic is redirected (via iptables) to a single port. The envoy process binds to this port and uses SO_ORIGINAL_DST to recover the original destination and pass on to the matching filter (see 
-[config-listeners](https://lyft.github.io/envoy/docs/configuration/listeners/listeners.html#config-listeners)).
+[config-listeners](https://envoyproxy.github.io/envoy/configuration/listeners/listeners.html)).
 ```
 ISTIO_PROXY_PORT=5001
 ```

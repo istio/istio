@@ -35,7 +35,7 @@ import (
 // successfully launch a new Envoy process that will replace the running Envoy
 // processes, the restart epoch of the new process must be exactly 1 greater
 // than the highest restart epoch of the currently running Envoy processes.
-// See https://lyft.github.io/envoy/docs/intro/arch_overview/hot_restart.html
+// See https://envoyproxy.github.io/envoy/intro/arch_overview/hot_restart.html
 // for more information about the Envoy hot restart protocol.
 //
 // Agent requires two functions "run" and "cleanup". Run function is a call to
