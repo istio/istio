@@ -18,9 +18,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	"istio.io/mixer/pkg/adapter"
@@ -521,6 +523,111 @@ func TestController_canHandlers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type fakeProto struct {
+	proto.Message
+}
+
+func (f *fakeProto) ProtoMessage() {}
+func (f *fakeProto) Reset()        {}
+func (f *fakeProto) String() string {
+	return "FFF"
+}
+
+func (f *fakeProto) Marshal() ([]byte, error) {
+	return nil, errors.New("cannot marshal")
+}
+
+type wr struct {
+	b   []byte
+	err error
+}
+
+func (w *wr) Write(p []byte) (n int, err error) {
+	w.b = p
+	return len(p), w.err
+}
+
+func TestController_encodeErrors(t *testing.T) {
+
+	hh := &cpb.Handler{
+		Name: "abcdefg",
+	}
+	hhout, _ := proto.Marshal(hh)
+	fp := &fakeProto{}
+
+	for _, tc := range []struct {
+		desc string
+		v    interface{}
+		out  []byte
+		err  error
+	}{
+		{
+			desc: "string",
+			v:    "String1",
+			out:  []byte("String1"),
+			err:  nil,
+		},
+		{
+			desc: "string",
+			v:    "String1",
+			out:  []byte("String1"),
+			err:  errors.New("write failed"),
+		},
+		{
+			desc: "handler proto",
+			v:    hh,
+			out:  hhout,
+			err:  nil,
+		},
+		{
+			desc: "bad proto",
+			v:    fp,
+			out:  []byte(fmt.Sprintf("%+v", fp)),
+			err:  nil,
+		},
+		{
+			desc: "time",
+			v:    time.Minute,
+			out:  []byte(fmt.Sprintf("%+v", time.Minute)),
+			err:  nil,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			w := &wr{err: tc.err}
+			encode(w, tc.v)
+			if !reflect.DeepEqual(w.b, tc.out) {
+				t.Fatalf("Got %v\nWant %v", w.b, tc.out)
+			}
+		})
+	}
+}
+
+func TestController_KindMap(t *testing.T) {
+	ti := map[string]template.Info{
+		"t1": {
+			CtrCfg: &cpb.Instance{},
+		},
+	}
+	ai := map[string]*adapter.Info{
+		"a1": {
+			DefaultConfig: &cpb.Handler{},
+		},
+	}
+
+	km := kindMap(ai, ti)
+
+	want := map[string]proto.Message{
+		"t1":                  &cpb.Instance{},
+		"a1":                  &cpb.Handler{},
+		RulesKind:             &cpb.Rule{},
+		AttributeManifestKind: &cpb.AttributeManifest{},
+	}
+
+	if !reflect.DeepEqual(km, want) {
+		t.Fatalf("Got %v\nwant %v", km, want)
 	}
 }
 
