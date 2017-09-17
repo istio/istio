@@ -148,22 +148,25 @@ func (t *handlerTable) initHandler(he *HandlerEntry) {
 }
 
 func encode(w io.Writer, v interface{}) {
+	var b []byte
+	var err error
+
 	switch t := v.(type) {
 	case string:
-		if _, err := w.Write([]byte(t)); err != nil {
-			glog.Warningf("Failed to write %v to a buffer: %v", t, err)
-		}
+		b = []byte(t)
 	case proto.Message:
-		if b, err := proto.Marshal(t); err != nil {
+		if b, err = proto.Marshal(t); err != nil {
 			glog.Warningf("Failed to marshall %v into a proto: %v", t, err)
-		} else if _, err := w.Write(b); err != nil {
-			glog.Warningf("Failed to write %v to buffer: %v", b, err)
 		}
-	default:
-		glog.Warningf("Fell into default case for v.(type): %#v; falling back to fmt.Fprintf()", t)
-		if _, err := fmt.Fprintf(w, "%+v", t); err != nil {
-			glog.Warningf("Failed to write %v to buffer: %v", t, err)
-		}
+	}
+
+	if b == nil {
+		glog.Warningf("Falling back to fmt.Fprintf()", v)
+		b = []byte(fmt.Sprintf("%+v", v))
+	}
+
+	if _, err = w.Write(b); err != nil {
+		glog.Warningf("Failed to write %s to a buffer: %v", string(b), err)
 	}
 }
 
