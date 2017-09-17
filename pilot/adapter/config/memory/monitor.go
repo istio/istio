@@ -30,7 +30,7 @@ type Handler func(model.Config, model.Event)
 
 // Monitor provides methods of manipulating changes in the config store
 type Monitor interface {
-	Start(<-chan struct{})
+	Run(<-chan struct{})
 	AppendEventHandler(string, Handler)
 	ScheduleProcessEvent(ConfigEvent)
 }
@@ -66,11 +66,7 @@ func (m *configstoreMonitor) ScheduleProcessEvent(configEvent ConfigEvent) {
 	m.eventCh <- configEvent
 }
 
-func (m *configstoreMonitor) Start(stop <-chan struct{}) {
-	m.run(stop)
-}
-
-func (m *configstoreMonitor) run(stop <-chan struct{}) {
+func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:

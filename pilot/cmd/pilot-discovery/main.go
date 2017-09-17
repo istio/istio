@@ -148,9 +148,12 @@ var (
 						}
 					}
 
-					ingressSyncer := ingress.NewStatusSyncer(mesh, client, flags.namespace, flags.controllerOptions)
-
-					go ingressSyncer.Run(stop)
+					if ingressSyncer, errSyncer := ingress.NewStatusSyncer(mesh, client,
+						flags.namespace, flags.controllerOptions); errSyncer != nil {
+						glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
+					} else {
+						go ingressSyncer.Run(stop)
+					}
 
 				case platform.ConsulRegistry:
 					glog.V(2).Infof("Consul url: %v", flags.consul.serverURL)

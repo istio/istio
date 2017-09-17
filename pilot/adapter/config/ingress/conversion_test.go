@@ -103,6 +103,7 @@ func TestIngressClass(t *testing.T) {
 		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: istio, shouldProcess: true},
 		{ingressMode: proxyconfig.MeshConfig_DEFAULT, ingressClass: "", shouldProcess: true},
 		{ingressMode: proxyconfig.MeshConfig_STRICT, ingressClass: "", shouldProcess: false},
+		{ingressMode: -1, shouldProcess: false},
 	}
 
 	for _, c := range cases {

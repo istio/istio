@@ -31,28 +31,12 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "controller_test.go",
         "conversion_test.go",
         "status_test.go",
     ],
     library = ":go_default_library",
     deps = [
-        "//platform/kube:go_default_library",
-        "//proxy:go_default_library",
-        "@io_istio_api//:go_default_library",
-        "@io_k8s_api//extensions/v1beta1:go_default_library",
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
-        "@io_k8s_apimachinery//pkg/util/intstr:go_default_library",
-        "@io_k8s_ingress//core/pkg/ingress/annotations/class:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_xtest",
-    size = "small",
-    srcs = ["controller_test.go"],
-    data = ["//platform/kube:kubeconfig"],
-    deps = [
-        ":go_default_library",
         "//model:go_default_library",
         "//platform/kube:go_default_library",
         "//proxy:go_default_library",
@@ -62,6 +46,7 @@ go_test(
         "@io_k8s_api//extensions/v1beta1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/util/intstr:go_default_library",
-        "@io_k8s_client_go//kubernetes:go_default_library",
+        "@io_k8s_client_go//kubernetes/fake:go_default_library",
+        "@io_k8s_ingress//core/pkg/ingress/annotations/class:go_default_library",
     ],
 )

@@ -50,14 +50,14 @@ func (in *IstioKind) SetObjectMeta(metadata meta_v1.ObjectMeta) {
 type IstioKindList struct {
 	meta_v1.TypeMeta `json:",inline"`
 	meta_v1.ListMeta `json:"metadata"`
-	Items            []*IstioKind `json:"items"`
+	Items            []IstioKind `json:"items"`
 }
 
 // GetItems from a wrapper
 func (in *IstioKindList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
 	for i, v := range in.Items {
-		out[i] = v
+		out[i] = &v
 	}
 	return out
 }
@@ -96,9 +96,9 @@ func (in *IstioKindList) DeepCopyInto(out *IstioKindList) {
 	out.ListMeta = in.ListMeta
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]*IstioKind, len(*in))
+		*out = make([]IstioKind, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto((*out)[i])
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

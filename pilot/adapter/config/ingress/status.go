@@ -15,7 +15,9 @@
 package ingress
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
@@ -55,7 +57,13 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 	client kubernetes.Interface,
 	ingressNamespace string,
-	options kube.ControllerOptions) *StatusSyncer {
+	options kube.ControllerOptions) (*StatusSyncer, error) {
+	if _, exists := os.LookupEnv("POD_NAME"); !exists {
+		return nil, errors.New("POD_NAME environment variable must be defined")
+	}
+	if _, exists := os.LookupEnv("POD_NAMESPACE"); !exists {
+		return nil, errors.New("POD_NAMESPACE environment variable must be defined")
+	}
 
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -73,7 +81,7 @@ func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 	if mesh.IngressService != "" {
 		publishService = fmt.Sprintf("%v/%v", ingressNamespace, mesh.IngressService)
 	}
-	glog.V(2).Infof("INGRESS STATUS publishService %s", publishService)
+	glog.V(2).Infof("ingress status syncer publishService %s", publishService)
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
 
 	customIngressStatus := func(*betaext.Ingress) []v1.LoadBalancerIngress {
@@ -93,7 +101,7 @@ func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 	return &StatusSyncer{
 		sync:     sync,
 		informer: informer,
-	}
+	}, nil
 }
 
 // convertIngressControllerMode converts Ingress controller mode into k8s ingress status syncer ingress class and

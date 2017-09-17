@@ -46,7 +46,7 @@ func (c *controller) HasSynced() bool {
 }
 
 func (c *controller) Run(stop <-chan struct{}) {
-	c.monitor.Start(stop)
+	c.monitor.Run(stop)
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {

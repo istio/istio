@@ -41,7 +41,7 @@ func TestEventConsistency(t *testing.T) {
 		done <- true
 	})
 
-	stop := make(<-chan struct{})
+	stop := make(chan struct{})
 	go controller.Run(stop)
 
 	// Test Add Event
@@ -69,5 +69,5 @@ func TestEventConsistency(t *testing.T) {
 		return
 	}
 	<-done
-	close(done)
+	close(stop)
 }

@@ -159,8 +159,16 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 		Spec: &test.MockConfig{Key: "missing"},
 	}
 
+	if _, err := r.Create(model.Config{}); err == nil {
+		t.Error("expected error posting empty object")
+	}
+
 	if _, err := r.Create(invalid); err == nil {
 		t.Error("expected error posting invalid object")
+	}
+
+	if _, err := r.Update(model.Config{}); err == nil {
+		t.Error("expected error updating empty object")
 	}
 
 	if _, err := r.Update(invalid); err == nil {
@@ -205,6 +213,9 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	// delete missing elements
 	if err := r.Delete(model.MockConfig.Type, "missing", ""); err == nil {
 		t.Error("expected error on deletion of missing element")
+	}
+	if err := r.Delete(model.MockConfig.Type, "missing", "unknown"); err == nil {
+		t.Error("expected error on deletion of missing element in unknown namespace")
 	}
 
 	// list elements
@@ -331,22 +342,42 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	stop := make(chan struct{})
 	var doneMu sync.Mutex
 	done := false
+	o := Make(namespace, 0)
 
 	// validate cache consistency
 	cache.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, ev model.Event) {
 		elts, _ := cache.List(model.MockConfig.Type, namespace)
+		elt, exists := cache.Get(o.Type, o.Name, o.Namespace)
 		switch ev {
 		case model.EventAdd:
 			if len(elts) != 1 {
-				t.Errorf("Got %#v, expected %d element(s) on ADD event", elts, 1)
+				t.Errorf("Got %#v, expected %d element(s) on Add event", elts, 1)
 			}
-			glog.Infof("Calling Delete(%#v)", config.Key)
+			if !exists || elt == nil || !reflect.DeepEqual(elt.Spec, o.Spec) {
+				t.Errorf("Got %#v, %t, expected %#v", elt, exists, o)
+			}
+
+			glog.Infof("Calling Update(%s)", config.Key())
+			revised := Make(namespace, 1)
+			revised.ConfigMeta = elt.ConfigMeta
+			if _, err := cache.Update(revised); err != nil {
+				t.Error(err)
+			}
+		case model.EventUpdate:
+			if len(elts) != 1 {
+				t.Errorf("Got %#v, expected %d element(s) on Update event", elts, 1)
+			}
+			if !exists || elt == nil {
+				t.Errorf("Got %#v, %t, expected nonempty", elt, exists)
+			}
+
+			glog.Infof("Calling Delete(%s)", config.Key())
 			if err := cache.Delete(model.MockConfig.Type, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
 		case model.EventDelete:
 			if len(elts) != 0 {
-				t.Errorf("Got %#v, expected zero elements on DELETE event", elts)
+				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
 			glog.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
@@ -357,10 +388,14 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	})
 
 	go cache.Run(stop)
-	o := Make(namespace, 0)
+
+	// try warm-up with empty Get
+	if _, exists := cache.Get("unknown", "example", namespace); exists {
+		t.Error("unexpected result for unknown type")
+	}
 
 	// add and remove
-	glog.Infof("Calling Post(%#v)", o)
+	glog.Infof("Calling Create(%#v)", o)
 	if _, err := cache.Create(o); err != nil {
 		t.Error(err)
 	}

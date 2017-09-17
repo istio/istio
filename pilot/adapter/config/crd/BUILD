@@ -58,3 +58,13 @@ go_test(
         "//test/util:go_default_library",
     ],
 )
+
+go_test(
+    name = "go_default_xtest",
+    size = "small",
+    srcs = ["config_test.go"],
+    deps = [
+        ":go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+    ],
+)

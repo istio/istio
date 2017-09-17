@@ -14,7 +14,13 @@
 
 package crd
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	"istio.io/pilot/model"
+	"istio.io/pilot/test/mock"
+)
 
 var (
 	camelKabobs = []struct{ in, out string }{
@@ -34,5 +40,61 @@ func TestCamelKabob(t *testing.T) {
 		if u != tt.in {
 			t.Errorf("kabobToCamel(%q) => %q, want %q", tt.out, u, tt.in)
 		}
+	}
+}
+
+func TestConvert(t *testing.T) {
+	if _, err := ConvertConfig(model.RouteRule, model.Config{}); err == nil {
+		t.Errorf("expected error for converting empty config")
+	}
+	if _, err := ConvertObject(model.RouteRule, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err == nil {
+		t.Errorf("expected error for converting empty object")
+	}
+	config := model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Type:            model.RouteRule.Type,
+			Name:            "test",
+			Namespace:       "default",
+			Domain:          "cluster",
+			ResourceVersion: "1234",
+			Labels:          map[string]string{"label": "value"},
+			Annotations:     map[string]string{"annotation": "value"},
+		},
+		Spec: mock.ExampleRouteRule,
+	}
+
+	obj, err := ConvertConfig(model.RouteRule, config)
+	if err != nil {
+		t.Errorf("ConvertConfig() => unexpected error %v", err)
+	}
+	got, err := ConvertObject(model.RouteRule, obj, "cluster")
+	if err != nil {
+		t.Errorf("ConvertObject() => unexpected error %v", err)
+	}
+	if !reflect.DeepEqual(&config, got) {
+		t.Errorf("ConvertObject(ConvertConfig(%#v)) => got %#v", config, got)
+	}
+}
+
+func TestParseInputs(t *testing.T) {
+	if varr, err := ParseInputs(""); len(varr) > 0 || err != nil {
+		t.Errorf("ParseInput(\"\") => got %v, %v, want nil, nil", varr, err)
+	}
+	if _, err := ParseInputs("a"); err == nil {
+		t.Error("ParseInput(\"a\") => got no error")
+	}
+	if _, err := ParseInputs("kind: Pod"); err == nil {
+		t.Error("ParseInput(\"kind: Pod\") => got no error")
+	}
+	if _, err := ParseInputs("kind: RouteRule\nspec:\n  destination: x"); err == nil {
+		t.Error("ParseInput(bad spec) => got no error")
+	}
+	if _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service:"); err == nil {
+		t.Error("ParseInput(invalid spec) => got no error")
+	}
+
+	varr, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service: x")
+	if err != nil || len(varr) == 0 {
+		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)
 	}
 }
