@@ -1,4 +1,4 @@
 # Change this and ../WORKSPACE at the same time
-FROM gcr.io/istio-testing/envoy:4a493c07e34e764e29013c794ad295f665d8eebc
+FROM gcr.io/istio-testing/envoy:c9f369bca03fae0afa0921d78f8af530ce576e91
 ADD pilot-agent /usr/local/bin/pilot-agent
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
