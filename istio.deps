@@ -18,6 +18,6 @@
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "4089b261927c117e0b3f6246341b539c0a7e283b"
+		"lastStableSHA": "634a19e013a664077d378e9190dddce7d2693136"
 	}
 ]
