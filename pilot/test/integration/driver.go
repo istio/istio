@@ -203,6 +203,7 @@ func runTests(envs ...infra) {
 			&headless{infra: &istio},
 			&ingress{infra: &istio},
 			&egress{infra: &istio},
+			&egressRules{infra: &istio},
 			&routing{infra: &istio},
 			&zipkin{infra: &istio},
 		}
