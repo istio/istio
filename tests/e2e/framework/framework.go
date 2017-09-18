@@ -25,6 +25,8 @@ import (
 
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
+	// TestVM is true if in this test run user wants to test VM on istio
+	TestVM = flag.Bool("test_vm", false, "Wether to test VM on istio")
 )
 
 type testCleanup struct {
@@ -164,7 +166,7 @@ func (t *testCleanup) cleanup() {
 }
 
 // Save test logs to tmp dir
-// Fetch and save cluster tracing logs if logProvider specified
+// Fetch and save cluster pod logs using kuebctl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
 	if c.Cleanup.skipCleanup {

@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 )
@@ -32,6 +33,34 @@ const (
 	pathPrefix     = "com_github_istio_istio"
 	runfilesSuffix = ".runfiles"
 )
+
+// GitRootDir returns the absolute path to the root directory of the git repo
+// where this function is called
+func GitRootDir() (string, error) {
+	dir, err := Shell("git rev-parse --show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(dir, "\n"), nil
+}
+
+// Poll executes do() after time interval for a max of numTrials times.
+// The bool returned by do() indicates if polling succeeds in that trial
+func Poll(interval time.Duration, numTrials int, do func() (bool, error)) error {
+	if numTrials < 0 {
+		return fmt.Errorf("numTrials cannot be negative")
+	}
+	for i := 0; i < numTrials; i++ {
+		if success, err := do(); err != nil {
+			return fmt.Errorf("error during trial %d: %v", i, err)
+		} else if success {
+			return nil
+		} else {
+			time.Sleep(interval)
+		}
+	}
+	return fmt.Errorf("max polling iteration reached")
+}
 
 // CreateTempfile creates a tempfile string.
 func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {
