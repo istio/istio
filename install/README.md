@@ -16,6 +16,10 @@ The [updateVersion.sh](updateVersion.sh) script is used to update image versions
 * `-i <url>` new `istioctl` download URL
 * `-g` create a `git commit` titled "Updating istio version" for the changes
 * `-n` <namespace> namespace in which to install Istio control plane components (defaults to istio-system)
+* `-s` check if template files have been updated with this tool
+* `-A` URL to download auth debian packages
+* `-P` URL to download pilot debian packages
+* `-E` URL to download proxy debian packages
 
 Default values for the `-p`, `-x`, `-c`, and `-i` options are as specified in `istio.VERSION`
 (i.e., they are left unchanged).
