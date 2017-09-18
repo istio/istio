@@ -219,7 +219,6 @@ type HTTPRoute struct {
 
 	Path   string `json:"path,omitempty"`
 	Prefix string `json:"prefix,omitempty"`
-	Regex  string `json:"regex,omitempty"`
 
 	PrefixRewrite string `json:"prefix_rewrite,omitempty"`
 	HostRewrite   string `json:"host_rewrite,omitempty"`

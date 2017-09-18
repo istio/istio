@@ -26,7 +26,6 @@ import (
 func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 	path := ""
 	prefix := "/"
-	regex := ""
 	var headers Headers
 	if matches != nil && matches.Request != nil {
 		for name, match := range matches.Request.Headers {
@@ -36,15 +35,11 @@ func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 				case *proxyconfig.StringMatch_Exact:
 					path = m.Exact
 					prefix = ""
-					regex = ""
 				case *proxyconfig.StringMatch_Prefix:
 					path = ""
 					prefix = m.Prefix
-					regex = ""
 				case *proxyconfig.StringMatch_Regex:
-					path = ""
-					prefix = ""
-					regex = m.Regex
+					headers = append(headers, buildHeader(name, match))
 				}
 			} else {
 				headers = append(headers, buildHeader(name, match))
@@ -55,7 +50,6 @@ func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 	return &HTTPRoute{
 		Path:    path,
 		Prefix:  prefix,
-		Regex:   regex,
 		Headers: headers,
 	}
 }
