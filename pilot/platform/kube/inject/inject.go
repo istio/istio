@@ -446,6 +446,13 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
+	// skip special kubernetes system namespaces
+	for _, namespace := range ignoredNamespaces {
+		if obj.GetNamespace() == namespace {
+			return out, nil
+		}
+	}
+
 	if !injectRequired(c.Policy, obj) {
 		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
 		return out, nil

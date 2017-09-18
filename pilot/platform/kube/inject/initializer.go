@@ -172,12 +172,6 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 namespaceSearch:
 	for _, namespace := range i.config.Namespaces {
 		if namespace == v1.NamespaceAll {
-			// skip special kubernetes system namespaces
-			for _, namespace := range ignoredNamespaces {
-				if obj.GetNamespace() == namespace {
-					break namespaceSearch
-				}
-			}
 			inject = true
 			break namespaceSearch
 		} else if namespace == obj.GetNamespace() {
