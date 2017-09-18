@@ -37,5 +37,5 @@ gcloud kms decrypt \
 
 ./bin/push-debian.sh \
     -c opt \
-    -v "${TAG_NAME}"
+    -v "${TAG_NAME}" \
     -p "gs://istio-release/releases/${TAG_NAME}/deb"
