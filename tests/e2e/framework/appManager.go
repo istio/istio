@@ -77,7 +77,7 @@ func (am *AppManager) deploy(a *App) error {
 		return err
 	}
 	finalYaml := a.AppYaml
-	if a.KubeInject && !useInitializer {
+	if a.KubeInject && !*useInitializer {
 		var err error
 		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {

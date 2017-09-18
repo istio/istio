@@ -36,21 +36,21 @@ const (
 	nonAuthInstallFile = "istio.yaml"
 	authInstallFile    = "istio-auth.yaml"
 	istioSystem        = "istio-system"
-	initializerFile    = "istio-sidecar-initializer.yaml"
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
-	mixerTag     = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
-	pilotHub     = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
-	pilotTag     = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
-	caHub        = flag.String("ca_hub", "", "Ca hub")
-	caTag        = flag.String("ca_tag", "", "Ca tag")
-	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
-	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
-	skipSetup    = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	namespace       = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub        = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
+	mixerTag        = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
+	pilotHub        = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
+	pilotTag        = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
+	caHub           = flag.String("ca_hub", "", "Ca hub")
+	caTag           = flag.String("ca_tag", "", "Ca tag")
+	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
+	rbacfile        = flag.String("rbac_path", "", "Rbac yaml file")
+	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	initializerFile = flag.String("initializer_file", "", "Initializer yaml file")
 
 	addons = []string{
 		"prometheus",
@@ -230,9 +230,9 @@ func (k *KubeInfo) deployIstio() error {
 	}
 
 	if *useInitializer {
-		baseInitializerYaml := util.GetResourcePath(*initializerFile)
-		testInitializerYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
-		if err := k.generateInitializer(baseInitializerYaml, testInitializerYaml); err != nil {
+		baseInitializerYAML := util.GetResourcePath(*initializerFile)
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
+		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
 			glog.Errorf("Generating initializer yaml failed")
 			return err
 		}
@@ -301,7 +301,7 @@ func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
 
 func updateInjectVersion(version string, content []byte) []byte {
 	versionLine := []byte(fmt.Sprintf("version: %s", version))
-	r := regexp.MustCompile(fmt.Sprintf("version: .*(\\/%s):.*", name))
+	r := regexp.MustCompile("version: .*")
 	return r.ReplaceAllLiteral(content, versionLine)
 }
 
