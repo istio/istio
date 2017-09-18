@@ -36,6 +36,7 @@ const (
 	nonAuthInstallFile = "istio.yaml"
 	authInstallFile    = "istio-auth.yaml"
 	istioSystem        = "istio-system"
+	initializerFile    = "istio-sidecar-initializer.yaml"
 )
 
 var (
@@ -228,6 +229,19 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
+	if *useInitializer {
+		baseInitializerYaml := util.GetResourcePath(*initializerFile)
+		testInitializerYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
+		if err := k.generateInitializer(baseInitializerYaml, testInitializerYaml); err != nil {
+			glog.Errorf("Generating initializer yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio sidecar initializer %s deployment failed", testInitializerYAML)
+			return err
+		}
+	}
+
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		glog.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
@@ -248,7 +262,6 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	}
 
 	content = replacePattern(k, content, istioSystem, k.Namespace)
-
 	content = replacePattern(k, content, "namespace: default",
 		"namespace: "+k.Namespace)
 
@@ -270,9 +283,47 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	content = replacePattern(k, content, "istio-sidecar-role-binding",
 		"istio-sidecar-role-binding-"+k.Namespace)
 
+	content = replacePattern(k, content, "istio-initializer-admin-role-binding",
+		"istio-initializer-admin-role-binding-"+k.Namespace)
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate rbac file %s", dst)
+	}
+	return err
+}
+
+func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
+	image := []byte(fmt.Sprintf("%s: %s/%s:%s", name, hub, module, tag))
+	r := regexp.MustCompile(fmt.Sprintf("%s: .*(\\/%s):.*", name, module))
+	return r.ReplaceAllLiteral(content, image)
+}
+
+func updateInjectVersion(version string, content []byte) []byte {
+	versionLine := []byte(fmt.Sprintf("version: %s", version))
+	r := regexp.MustCompile(fmt.Sprintf("version: .*(\\/%s):.*", name))
+	return r.ReplaceAllLiteral(content, versionLine)
+}
+
+func (k *KubeInfo) generateInitializer(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
+
+	if *pilotHub != "" && *pilotTag != "" {
+		content = updateIstioYaml("initializer", *pilotHub, *pilotTag, content)
+		content = updateInjectVersion(*pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("proxyImage", "proxy", *pilotHub, *pilotTag, content)
+	}
+
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		glog.Errorf("Cannot write into generate initializer file %s", dst)
 	}
 	return err
 }

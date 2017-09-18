@@ -20,33 +20,33 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: istio-sidecar-initializer-service-account
+  name: istio-initializer-service-account
   namespace: istio-system
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
-  name: istio-sidecar-initializer
+  name: istio-initializer
   namespace: istio-system
   annotations:
     sidecar.istio.io/inject: "false"
   initializers:
     pending: []
   labels:
-    istio: istio-sidecar-initializer
+    istio: istio-initializer
 spec:
   replicas: 1
   template:
     metadata:
-      name: istio-sidecar-initializer
+      name: istio-initializer
       labels:
-        istio: sidecar-initializer
+        istio: initializer
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
-      serviceAccountName: istio-sidecar-initializer-service-account
+      serviceAccountName: istio-initializer-service-account
       containers:
-        - name: sidecar-initializer
+        - name: initializer
           image: gcr.io/istio-testing/sidecar_initializer:044810b928e2aca30a82b53df44cad71ef7a0fb8
           imagePullPolicy: IfNotPresent
           args:

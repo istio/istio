@@ -33,7 +33,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-initializer-istio-system
+  name: istio-initializer-istio-system
 rules:
 - apiGroups: ["*"]
   resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
@@ -106,14 +106,14 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
-  name: istio-sidecar-initializer-admin-role-binding-istio-system
+  name: istio-initializer-admin-role-binding-istio-system
 subjects:
 - kind: ServiceAccount
-  name: istio-sidecar-initializer-service-account
+  name: istio-initializer-service-account
   namespace: istio-system
 roleRef:
   kind: ClusterRole
-  name: istio-sidecar-initializer-istio-system
+  name: istio-initializer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
