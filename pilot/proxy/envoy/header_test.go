@@ -29,7 +29,7 @@ func TestHTTPMatch(t *testing.T) {
 	}{
 		{
 			in:   &proxyconfig.MatchCondition{},
-			want: &HTTPRoute{Path: "", Prefix: "/"},
+			want: &HTTPRoute{Path: "", Prefix: "/", Regex: ""},
 		},
 		{
 			in: &proxyconfig.MatchCondition{
@@ -39,7 +39,7 @@ func TestHTTPMatch(t *testing.T) {
 					},
 				},
 			},
-			want: &HTTPRoute{Path: "/path", Prefix: ""},
+			want: &HTTPRoute{Path: "/path", Prefix: "", Regex: ""},
 		},
 		{
 			in: &proxyconfig.MatchCondition{
@@ -49,7 +49,7 @@ func TestHTTPMatch(t *testing.T) {
 					},
 				},
 			},
-			want: &HTTPRoute{Path: "", Prefix: "/prefix"},
+			want: &HTTPRoute{Path: "", Prefix: "/prefix", Regex: ""},
 		},
 		{
 			in: &proxyconfig.MatchCondition{
@@ -59,9 +59,7 @@ func TestHTTPMatch(t *testing.T) {
 					},
 				},
 			},
-			want: &HTTPRoute{Path: "", Prefix: "/", Headers: Headers{
-				{Name: model.HeaderURI, Value: "/.*", Regex: true},
-			}},
+			want: &HTTPRoute{Path: "", Prefix: "", Regex: "/.*"},
 		},
 		{
 			in: &proxyconfig.MatchCondition{
@@ -73,10 +71,9 @@ func TestHTTPMatch(t *testing.T) {
 					},
 				},
 			},
-			want: &HTTPRoute{Path: "", Prefix: "/", Headers: Headers{
+			want: &HTTPRoute{Path: "", Prefix: "", Regex: "/.*", Headers: Headers{
 				{Name: "cookie", Value: "^user=jason\\?.*", Regex: true},
 				{Name: "test", Value: "value"},
-				{Name: model.HeaderURI, Value: "/.*", Regex: true},
 			}},
 		},
 	}

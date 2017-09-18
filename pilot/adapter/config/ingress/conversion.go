@@ -104,7 +104,9 @@ func createIngressRule(name, host, path, domainSuffix string,
 			}
 		} else {
 			rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
-				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
+				// Always do prefix match for ingress paths
+				// as thats what the standard kubernetes nginx ingress does.
+				MatchType: &proxyconfig.StringMatch_Prefix{Prefix: path},
 			}
 		}
 	}
