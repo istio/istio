@@ -29,7 +29,7 @@ import (
 
 const (
 	// PodCheckBudget is the maximum number of retries with 1s delays
-	PodCheckBudget = 90
+	PodCheckBudget = 200
 )
 
 // CreateNamespace creates a fresh namespace
