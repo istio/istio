@@ -70,7 +70,10 @@ From the repo checkout root directory
 
 * If you want to run one specific test, you can do:
 
-`bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+```
+source istio.VERSION
+bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup --auth_enable
+```
 
 
 ## Access to logs and temp files from Jenkins

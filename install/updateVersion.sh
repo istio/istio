@@ -18,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
 TEMP_DIR="/tmp"
 GIT_COMMIT=false
+CHECK_GIT_STATUS=false
 
 set -o errexit
 set -o pipefail
@@ -35,13 +36,17 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -c ... <hub>,<tag> for the istio-ca docker image
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
+    -s ... check if template files have been updated with this tool
+    -A ... URL to download auth debian packages
+    -P ... URL to download pilot debian packages
+    -E ... URL to download proxy debian packages
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c: arg; do
+while getopts :gi:n:p:x:c:sA:P:E: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -49,6 +54,10 @@ while getopts :gi:n:p:x:c: arg; do
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     g) GIT_COMMIT=true;;
+    s) CHECK_GIT_STATUS=true;;
+    A) AUTH_DEBIAN_URL="${OPTARG}";;
+    P) PILOT_DEBIAN_URL="${OPTARG}";;
+    E) PROXY_DEBIAN_URL="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -123,17 +132,18 @@ function merge_files() {
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
-  cp $ISTIO $ISTIO_AUTH
-  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-
-  # TODO(andra/jason) - copy this into ${ISTIO_CLUSTER_WIDE} after initial cluster-wide test is verified.
   cp ${SRC}/istio-sidecar-initializer.yaml.tmpl $ISTIO_SIDECAR_INITIALIZER
 
-  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
-#TODO the CA templates can be combines
-  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
+  cp $ISTIO $ISTIO_CLUSTER_WIDE
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_CLUSTER_WIDE
+#TODO the CA templates can be combined
   cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
 
+  # Deploy istio-ca always, required to enable MTLS for mixer and pilot
+  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO
+
+  cp $ISTIO $ISTIO_AUTH
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
 
   #TODO remove once e2e tests are updated
 #  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
@@ -151,7 +161,11 @@ export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
-export ISTIO_NAMESPACE=${ISTIO_NAMESPACE}
+export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
+export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
+export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
+export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
+
 EOF
 }
 
@@ -207,4 +221,9 @@ rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then
     create_commit
+fi
+
+if [[ ${CHECK_GIT_STATUS} == true ]]; then
+  check_git_status \
+    || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
 fi

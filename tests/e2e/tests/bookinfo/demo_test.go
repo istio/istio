@@ -412,7 +412,7 @@ func TestDbRouting(t *testing.T) {
 
 	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
 
-	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 11)
+	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 10)
 	inspect(
 		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
