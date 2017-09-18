@@ -58,7 +58,7 @@ iptables -t nat -A OUTPUT -p tcp -j REDIRECT ! -s 127.0.0.1/32 \
 ```     
 
 - pro: No envoy change required
-- con: Requires coordinating UID between proxy and init-container. Istio may not necessarily have control over UID (e.g. set by docker). The UID could be made configurable / overridable so the proxy UID does not conflict with other end-user UID and processes. See (Security Context)[https://kubernetes.io/docs/user-guide/security-context]. 
+- con: Requires coordinating UID between proxy and init-container. Istio may not necessarily have control over UID (e.g. set by docker). The UID could be made configurable / overridable so the proxy UID does not conflict with other end-user UID and processes. See [Security Context](https://kubernetes.io/docs/user-guide/security-context). 
 
 ## Alternatives considered
 
@@ -83,7 +83,7 @@ iptables -t nat -A OUTPUT -p tcp -j REDIRECT ! -s 127.0.0.1/32 \
 - pro: No envoy change required
 - con: Requires newer version of iptables (e.g. 1.6.0)
 - con: Requires exposing /sys/fs/cgroup/net_cls to proxy container so that proxy agent can add proxy PID to net_cls groups, e.g. bind-mount /sys/fs/cgroup/net_cls via pod spec. This requires additional privileges in the proxy container through the proxy agent could possibly drop privileges before fork/exec'ing envoy. Alternatively, a node-level agent could manage net_cls on behalf of per-pod proxy agent via something like UDS. 
-- con: Proxy agent needs to update /sys/fs/group/net_cls/<proxy-group>/tasks file with envoy proxy PID whenever proxy crashes, restarts, etc.
+- con: Proxy agent needs to update /sys/fs/group/net_cls/&lt;proxy-group&gt;/tasks file with envoy proxy PID whenever proxy crashes, restarts, etc.
 
 I wasn't able to get this method to work. Suggestions / corrections welcome.
 
