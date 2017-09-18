@@ -57,7 +57,7 @@ func (t *egress) setup() error {
 		},
 		Spec: v1.ServiceSpec{
 			Type:         "ExternalName",
-			ExternalName: "www.google.com",
+			ExternalName: "cloud.google.com",
 			Ports: []v1.ServicePort{{
 				Port: 443,
 				Name: "https", // important to define protocol
