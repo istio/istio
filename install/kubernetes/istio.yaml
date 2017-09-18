@@ -871,6 +871,8 @@ apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -890,4 +892,3 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
-
