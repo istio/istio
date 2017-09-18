@@ -24,6 +24,7 @@ ISTIO_STAGING=${ISTIO_STAGING:-.}
 
 function istioVersionSource() {
   echo "Sourced ${ISTIO_STAGING}/istio.VERSION"
+  cat ${ISTIO_STAGING}/istio.VERSION
   source ${ISTIO_STAGING}/istio.VERSION
 }
 
@@ -56,9 +57,9 @@ function istioNetworkInit() {
 function istioInstall() {
   echo "*** Fetching istio packages..."
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
-  curl -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
-  curl -L ${AUTH_DEBIAN_URL}/istio-auth-node-agent.deb > ${ISTIO_STAGING}/istio-auth-node-agent.deb
-  curl -L ${PROXY_DEBIAN_URL}/istio-proxy.deb > ${ISTIO_STAGING}/istio-proxy.deb
+  curl -f -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
+  curl -f -L ${AUTH_DEBIAN_URL}/istio-auth-node-agent.deb > ${ISTIO_STAGING}/istio-auth-node-agent.deb
+  curl -f -L ${PROXY_DEBIAN_URL}/istio-proxy.deb > ${ISTIO_STAGING}/istio-proxy.deb
 
   # Install istio binaries
   dpkg -i ${ISTIO_STAGING}/istio-proxy.deb
@@ -74,9 +75,13 @@ function istioInstall() {
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
+
+  # Useful to test VM extension to istio
+  apt-get --no-install-recommends -y install host
 }
 
 function istioRestart() {
+    echo "*** Restarting istio proxy..."
     # Node agent
     systemctl status istio-auth-node-agent > /dev/null
     if [[ $? = 0 ]]; then
