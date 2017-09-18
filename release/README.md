@@ -71,6 +71,8 @@ $ githubctl --token_file=<github token file> \
     --next_release=0.2.2
 ```
 
+```<github token file>``` is a text file containing the github peronal access token setup following the [instruction](https://github.com/istio/istio/blob/master/devel/README.md#setting-up-a-personal-access-token)
+
 ## Manual release process (DEPRECATED)
 
 ### Creating tags
