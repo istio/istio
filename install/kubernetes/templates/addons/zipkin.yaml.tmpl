@@ -4,12 +4,12 @@ kind: Deployment
 metadata:
   name: zipkin
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: zipkin
     spec:
