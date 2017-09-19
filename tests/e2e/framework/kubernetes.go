@@ -30,13 +30,12 @@ import (
 )
 
 const (
-	yamlSuffix       = ".yaml"
-	istioInstallDir  = "install/kubernetes"
-	istioAddonsDir   = "install/kubernetes/addons"
-	authConfigFile   = "istio-config.yaml"
-	noauthConfigFile = "istio-config-no-encryption.yaml"
-	istioInstallFile = "istio-one-namespace.yaml"
-	istioSystem      = "istio-system"
+	yamlSuffix         = ".yaml"
+	istioInstallDir    = "install/kubernetes"
+	istioAddonsDir     = "install/kubernetes/addons"
+	nonAuthInstallFile = "istio-one-namespace.yaml"
+	authInstallFile    = "istio-one-namespace-auth.yaml"
+	istioSystem        = "istio-system"
 )
 
 var (
@@ -211,25 +210,10 @@ func (k *KubeInfo) deployAddons() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
-	baseConfigFile := noauthConfigFile
+	istioYaml := nonAuthInstallFile
 	if *authEnable {
-		baseConfigFile = authConfigFile
+		istioYaml = authInstallFile
 	}
-
-	baseConfigYaml := util.GetResourcePath(filepath.Join(istioInstallDir, baseConfigFile))
-	testConfigYaml := filepath.Join(k.TmpDir, "yaml", baseConfigFile)
-
-	if err := k.generateConfig(baseConfigYaml, testConfigYaml); err != nil {
-		glog.Errorf("Generating config map yaml failed")
-		return err
-	}
-	if err := util.KubeApply(k.Namespace, testConfigYaml); err != nil {
-		glog.Errorf("Istio config %s deployment failed", testConfigYaml)
-		return err
-	}
-
-	istioYaml := istioInstallFile
-
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -340,22 +324,6 @@ func (k *KubeInfo) generateInitializer(src, dst string) error {
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate initializer file %s", dst)
-	}
-	return err
-}
-
-func (k *KubeInfo) generateConfig(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		glog.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	content = replacePattern(k, content, istioSystem, k.Namespace)
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		glog.Errorf("Cannot write into file %s", dst)
 	}
 	return err
 }

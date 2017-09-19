@@ -11,8 +11,8 @@ metadata:
   namespace: {ISTIO_NAMESPACE}
 data:
   mesh: |-
-    # Comment the following line or change to NONE to disable mutual encryption
-    authPolicy: MUTUAL_TLS
+    # Uncomment the following line to enable mutual encryption
+    # authPolicy: MUTUAL_TLS
     #
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.

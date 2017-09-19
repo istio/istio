@@ -116,42 +116,41 @@ function merge_files() {
   SRC=$TEMP_DIR/templates
   DEST=$ROOT/install/kubernetes
 
-  # istio.yaml file contains a cluster-wide installation
+  # istio.yaml and istio-auth.yaml file contain cluster-wide installations
   ISTIO=$DEST/istio.yaml
+  ISTIO_AUTH=$DEST/istio-auth.yaml
   ISTIO_ONE_NAMESPACE=$DEST/istio-one-namespace.yaml
+  ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
   ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
-  CONFIG_ENCRYPT=$DEST/istio-config.yaml
-  CONFIG_NO_ENCRYPT=$DEST/istio-config-no-encryption.yaml
 
   # TODO remove 3 lines below once the e2e tests no longer look for this file
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $DEST/istio-rbac-beta.yaml
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $DEST/istio-rbac-beta.yaml
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $DEST/istio-rbac-beta.yaml
 
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $CONFIG_ENCRYPT
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh"  >> $CONFIG_ENCRYPT
-  cat $SRC/istio-config.yaml.tmpl >> $CONFIG_ENCRYPT
-
-  cp $CONFIG_ENCRYPT $CONFIG_NO_ENCRYPT
-  sed -i=.bak "s/authPolicy: MUTUAL_TLS/authPolicy: NONE/" $CONFIG_NO_ENCRYPT
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
-
   cp $ISTIO $ISTIO_ONE_NAMESPACE
-  # restrict pilot controllers to a single namespace in the test file
-  sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
-  # TODO the CA templates can be combined
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
+  cp $ISTIO $ISTIO_AUTH
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+
+  # restrict pilot controllers to a single namespace in the test file
+  sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+
+  cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
 
   cp ${SRC}/istio-initializer.yaml.tmpl $ISTIO_INITIALIZER
 }
@@ -178,8 +177,8 @@ EOF
 function update_istio_install() {
   pushd $TEMP_DIR/templates
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
