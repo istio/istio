@@ -58,6 +58,29 @@ function istio_status() {
   done
 }
 
+# Checkout all repos at a specific tag
+# Example: istio_checkout 0.2.2
+function istio_checkout {
+  local TAG=$1
+  cd $ISTIO_IO
+
+  for sub in pilot istio mixer auth proxy; do
+     echo -e "\n\n$sub\n"
+     (cd $ISTIO_IO/$sub; git checkout $TAG)
+  done
+}
+
+# Create a tag i
+function istio_tag {
+  local TAG=$1
+  cd $ISTIO_IO
+
+  for sub in pilot istio mixer auth proxy; do
+     echo -e "\n\n$sub\n"
+     (cd $ISTIO_IO/$sub; git tag $TAG)
+  done
+}
+
 
 # Build docker images for istio from current branch, using same tag for all.
 #
@@ -103,3 +126,4 @@ function istio_retest() {
   (cd $ISTIO_IO/istio; ./tests/e2e.sh --auth_enable --rbac_path=install/kubernetes/istio-rbac-beta.yaml --skip_cleanup --skip_setup -test.run=$TESTS --namespace e2e --mixer_hub $HUB --mixer_tag $TAG \
     --istioctl $ISTIO_IO/pilot/bazel-bin/cmd/istioctl/istioctl --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
 }
+
