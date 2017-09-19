@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 	os.Exit(tc.RunTest(m))
 }
 
-func TestSimple1(t *testing.T) {
+func TestSimpleIngress(t *testing.T) {
 	//url := "http://" + tc.Kube.Ingress + "/fortio/debug" // not working but should
 	url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
 	glog.Infof("Fetching '%s'", url)
@@ -91,6 +91,28 @@ func TestSimple1(t *testing.T) {
 		return // success
 	}
 	t.Errorf("Unable to find expected output after %d attempts", attempts)
+}
+
+func TestSvc2Svc(t *testing.T) {
+	ns := tc.Kube.Namespace
+	// Get the 2 pods
+	pods, err := util.Shell("kubectl get pods -n %s -l app=echosrv -o jsonpath={.items[*].metadata.name}", ns)
+	if err != nil {
+		t.Fatalf("kubectl failure to get pods %v", err)
+	}
+	podList := strings.Split(pods, " ")
+	if len(podList) != 2 {
+		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
+	}
+	// call into the service from each of the pods
+	for _, pod := range podList {
+		glog.Infof("From pod \"%s\"", pod)
+		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -qps 0 -t 20s http://echosrv.%s:8080/echo", ns, pod, ns)
+		if err != nil {
+			t.Fatalf("kubectl failure to run fortio %v", err)
+		}
+	}
+	// Success
 }
 
 type fortioTemplate struct {
