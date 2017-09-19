@@ -1,9 +1,10 @@
 # This file should be sourced before using go commands
 # it ensures that bazel's version of go is used
 
-SP=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+ROOT=$( cd "$(dirname "${BASH_SOURCE[0]}")/.." ; pwd -P )
+DIR_NAME="$(basename ${ROOT})"
 
-TARGETBIN=$SP/../bazel-pilot
+TARGETBIN="${ROOT}/bazel-${DIR_NAME}"
 if [[ ! -e $TARGETBIN ]]; then
   echo "*** $TARGETBIN does not exist - did you forget to bazel build ... ?"
   exit 1
