@@ -37,7 +37,6 @@
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to copy files to the VM.
 
-
 # Initialize internal load balancers to access K8S DNS and Istio Pilot, Mixer, CA.
 # Must be run once per cluster.
 function istioInitILB() {
@@ -119,7 +118,7 @@ EOF
 # Parameters:
 # - name of the k8s cluster.
 function istioGenerateClusterConfigs() {
-   local K8SCLUSTER=${1:-K8SCLUSTER}
+   local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
 
    local NS=${ISTIO_NAMESPACE:-istio-system}
 
@@ -151,7 +150,7 @@ function istioGenerateClusterConfigs() {
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
   echo "address=/istio-ca/$CA_IP" >> kubedns
 
-  CIDR=$(gcloud container clusters describe ${K8SCLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
+  CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 }
 
@@ -189,7 +188,8 @@ function istioBootstrapVM() {
 
   istio_provision_certs $SA
 
-  local ISTIO_FILES=${ISTIO_FILES:-.}
+  local ISTIO_IO=${ISTIO_BASE:-${GOPATH:-$HOME/go}}/src/istio.io
+  local ISTIO_FILES=${ISTIO_FILES:-$ISTIO_IO/istio/bazel-bin/vm}
 
  # Copy deb, helper and config files
  # Reviews not copied - VMs don't support labels yet.
@@ -209,12 +209,13 @@ function istioBootstrapVM() {
 
 # Helper functions for the main script
 
-# If Istio was built from source, copy the artifcats to the current directory, for use
-# by istioProvisionVM
+# If Istio source is available, built from source and copy the artifacts to the current directory, for use
+# by istioBootstrapVM
 function istioCopyBuildFiles() {
   local ISTIO_IO=${ISTIO_BASE:-${GOPATH:-$HOME/go}}/src/istio.io
-  local ISTIO_FILES=${ISTIO_FILES:-.}
+  local ISTIO_FILES=${ISTIO_FILES:-$ISTIO_IO/istio/bazel-bin/vm}
 
+  mkdir -p $ISTIO_FILES
   (cd $ISTIO_IO/proxy; bazel build tools/deb/... )
   (cd $ISTIO_IO/pilot; bazel build tools/deb/... )
   (cd $ISTIO_IO/auth; bazel build tools/deb/... )
@@ -226,6 +227,23 @@ function istioCopyBuildFiles() {
      $ISTIO_FILES
   # For override to work
   chmod +w *.deb
+}
+
+function istioDownloadVMFiles() {
+  local ISTIO_IO=${ISTIO_BASE:-${GOPATH:-$HOME/go}}/src/istio.io
+  local ISTIO_FILES=${ISTIO_FILES:-$ISTIO_IO/istio/bazel-bin/vm}
+  local ISTIO_VERSION=${ISTIO_VERSION:-0.2.3}
+
+  mkdir -p $ISTIO_FILES
+  pushd $ISTIO_FILES
+
+  curl https://storage.googleapis.com/istio-release/releases/$ISTIO_VERSION/deb/istio-auth-node-agent-release.deb > istio-auth-node-agent.deb
+  curl https://storage.googleapis.com/istio-release/releases/$ISTIO_VERSION/deb/istio-proxy-envoy-release.deb > istio-proxy-envoy.deb
+  curl https://storage.googleapis.com/istio-release/releases/$ISTIO_VERSION/deb/istio-agent-release.deb > istio-agent.deb
+  chmod +w *.deb
+
+  popd
+  cp $ISTIO_IO/istio/install/tools/istio_vm_setup.sh $ISTIO_FILES
 }
 
 # Copy files to the VM.
