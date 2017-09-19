@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {ISTIO_NAMESPACE}
+  name: istio-system
 ---
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
