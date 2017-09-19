@@ -47,7 +47,7 @@ EOF
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c:sA:P:E: arg; do
+while getopts :gi:n:p:x:c:r:sA:P:E: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
