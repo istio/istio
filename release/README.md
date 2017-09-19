@@ -57,7 +57,7 @@ and build it using
 $ bazel build //toolbox/githubctl
 ```
 
-The binary output is located in
+The binary output is located in bazel-bin/toolbox/githubctl/githubctl.
 
 ```
 $ alias githubctl="${PWD}/bazel-bin/toolbox/githubctl/githubctl"
