@@ -397,7 +397,7 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 		return err
 	}
 
-	vs, err := crd.ParseInputs(config)
+	vs, _, err := crd.ParseInputs(config)
 	if err != nil {
 		return err
 	}

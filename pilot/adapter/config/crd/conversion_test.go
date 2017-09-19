@@ -77,23 +77,23 @@ func TestConvert(t *testing.T) {
 }
 
 func TestParseInputs(t *testing.T) {
-	if varr, err := ParseInputs(""); len(varr) > 0 || err != nil {
+	if varr, _, err := ParseInputs(""); len(varr) > 0 || err != nil {
 		t.Errorf("ParseInput(\"\") => got %v, %v, want nil, nil", varr, err)
 	}
-	if _, err := ParseInputs("a"); err == nil {
+	if _, _, err := ParseInputs("a"); err == nil {
 		t.Error("ParseInput(\"a\") => got no error")
 	}
-	if _, err := ParseInputs("kind: Pod"); err == nil {
-		t.Error("ParseInput(\"kind: Pod\") => got no error")
+	if _, others, err := ParseInputs("kind: Pod"); err != nil || len(others) != 1 {
+		t.Errorf("ParseInput(\"kind: Pod\") => got %v, %v", others, err)
 	}
-	if _, err := ParseInputs("kind: RouteRule\nspec:\n  destination: x"); err == nil {
+	if _, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")
 	}
-	if _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service:"); err == nil {
+	if _, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service:"); err == nil {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
-	varr, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service: x")
+	varr, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination:\n    service: x")
 	if err != nil || len(varr) == 0 {
 		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)
 	}

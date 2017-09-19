@@ -28,6 +28,10 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 
 	"istio.io/pilot/adapter/config/crd"
 	"istio.io/pilot/cmd"
@@ -85,11 +89,11 @@ and destination policies.
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
 			}
-			varr, err := readInputs()
+			varr, others, err := readInputs()
 			if err != nil {
 				return err
 			}
-			if len(varr) == 0 {
+			if len(varr) == 0 && len(others) == 0 {
 				return errors.New("nothing to create")
 			}
 			for _, config := range varr {
@@ -97,15 +101,49 @@ and destination policies.
 					config.Namespace = namespace
 				}
 
-				configClient, err := newClient()
-				if err != nil {
+				var configClient *crd.Client
+				if configClient, err = newClient(); err != nil {
 					return err
 				}
-				rev, err := configClient.Create(config)
-				if err != nil {
+				var rev string
+				if rev, err = configClient.Create(config); err != nil {
 					return err
 				}
 				fmt.Printf("Created config %v at revision %v\n", config.Key(), rev)
+			}
+
+			if len(others) > 0 {
+				if err = preprocMixerConfig(others); err != nil {
+					return err
+				}
+				otherClient, resources, oerr := prepareClientForOthers(others)
+				if oerr != nil {
+					return oerr
+				}
+				var errs *multierror.Error
+				var updated crd.IstioKind
+				for _, config := range others {
+					resource, ok := resources[config.Kind]
+					if !ok {
+						errs = multierror.Append(errs, fmt.Errorf("kind %s is not known", config.Kind))
+						continue
+					}
+					err = otherClient.Post().
+						Namespace(config.Namespace).
+						Resource(resource.Name).
+						Body(&config).
+						Do().
+						Into(&updated)
+					if err != nil {
+						errs = multierror.Append(errs, err)
+						continue
+					}
+					key := model.Key(config.Kind, config.Name, config.Namespace)
+					fmt.Printf("Created config %s at revision %v\n", key, updated.ResourceVersion)
+				}
+				if errs != nil {
+					return errs
+				}
 			}
 
 			return nil
@@ -123,11 +161,11 @@ and destination policies.
 				c.Println(c.UsageString())
 				return fmt.Errorf("replace takes no arguments")
 			}
-			varr, err := readInputs()
+			varr, others, err := readInputs()
 			if err != nil {
 				return err
 			}
-			if len(varr) == 0 {
+			if len(varr) == 0 && len(others) == 0 {
 				return errors.New("nothing to replace")
 			}
 			for _, config := range varr {
@@ -135,8 +173,8 @@ and destination policies.
 					config.Namespace = namespace
 				}
 
-				configClient, err := newClient()
-				if err != nil {
+				var configClient *crd.Client
+				if configClient, err = newClient(); err != nil {
 					return err
 				}
 				// fill up revision
@@ -147,12 +185,60 @@ and destination policies.
 					}
 				}
 
-				newRev, err := configClient.Update(config)
-				if err != nil {
+				var newRev string
+				if newRev, err = configClient.Update(config); err != nil {
 					return err
 				}
 
 				fmt.Printf("Updated config %v to revision %v\n", config.Key(), newRev)
+			}
+
+			if len(others) > 0 {
+				if err = preprocMixerConfig(others); err != nil {
+					return err
+				}
+				otherClient, resources, oerr := prepareClientForOthers(others)
+				if oerr != nil {
+					return oerr
+				}
+				var errs *multierror.Error
+				var current crd.IstioKind
+				var updated crd.IstioKind
+				for _, config := range others {
+					resource, ok := resources[config.Kind]
+					if !ok {
+						errs = multierror.Append(errs, fmt.Errorf("kind %s is not known", config.Kind))
+						continue
+					}
+					if config.ResourceVersion == "" {
+						err = otherClient.Get().
+							Namespace(config.Namespace).
+							Name(config.Name).
+							Resource(resource.Name).
+							Do().
+							Into(&current)
+						if err == nil && current.ResourceVersion != "" {
+							config.ResourceVersion = current.ResourceVersion
+						}
+					}
+
+					err = otherClient.Put().
+						Namespace(config.Namespace).
+						Name(config.Name).
+						Resource(resource.Name).
+						Body(&config).
+						Do().
+						Into(&updated)
+					if err != nil {
+						errs = multierror.Append(errs, err)
+						continue
+					}
+					key := model.Key(config.Kind, config.Name, config.Namespace)
+					fmt.Printf("Updated config %s to revision %v\n", key, updated.ResourceVersion)
+				}
+				if errs != nil {
+					return errs
+				}
 			}
 
 			return nil
@@ -263,11 +349,11 @@ and destination policies.
 				c.Println(c.UsageString())
 				return fmt.Errorf("delete takes no arguments when the file option is used")
 			}
-			varr, err := readInputs()
+			varr, others, err := readInputs()
 			if err != nil {
 				return err
 			}
-			if len(varr) == 0 {
+			if len(varr) == 0 && len(others) == 0 {
 				return errors.New("nothing to delete")
 			}
 			for _, config := range varr {
@@ -282,6 +368,37 @@ and destination policies.
 					fmt.Printf("Deleted config: %v\n", config.Key())
 				}
 			}
+			if errs != nil {
+				return errs
+			}
+
+			if len(others) > 0 {
+				if err = preprocMixerConfig(others); err != nil {
+					return err
+				}
+				otherClient, resources, oerr := prepareClientForOthers(others)
+				if oerr != nil {
+					return oerr
+				}
+				for _, config := range others {
+					resource, ok := resources[config.Kind]
+					if !ok {
+						errs = multierror.Append(errs, fmt.Errorf("kind %s is not known", config.Kind))
+						continue
+					}
+					err = otherClient.Delete().
+						Namespace(config.Namespace).
+						Resource(resource.Name).
+						Do().
+						Error()
+					if err != nil {
+						errs = multierror.Append(errs, fmt.Errorf("failed to delete: %v", err))
+						continue
+					}
+					fmt.Printf("Deleted cofig: %s\n", model.Key(config.Kind, config.Name, config.Namespace))
+				}
+			}
+
 			return errs
 		},
 	}
@@ -355,22 +472,22 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 }
 
 // readInputs reads multiple documents from the input and checks with the schema
-func readInputs() ([]model.Config, error) {
+func readInputs() ([]model.Config, []crd.IstioKind, error) {
 	var reader io.Reader
 	switch file {
 	case "":
-		return nil, errors.New("filename not specified (see --filename or -f)")
+		return nil, nil, errors.New("filename not specified (see --filename or -f)")
 	case "-":
 		reader = os.Stdin
 	default:
 		var err error
 		if reader, err = os.Open(file); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	input, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return crd.ParseInputs(string(input))
 }
@@ -429,4 +546,64 @@ func supportedTypes(configClient *crd.Client) []string {
 		types[i] = crd.ResourceName(types[i])
 	}
 	return types
+}
+
+func preprocMixerConfig(configs []crd.IstioKind) error {
+	for i, config := range configs {
+		if config.Namespace == "" {
+			configs[i].Namespace = namespace
+		}
+		if config.APIVersion == "" {
+			configs[i].APIVersion = crd.IstioAPIGroupVersion.String()
+		}
+		// TODO: invokes the mixer validation webhook.
+	}
+	return nil
+}
+
+func apiResources(config *rest.Config, configs []crd.IstioKind) (map[string]metav1.APIResource, error) {
+	client, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	resources, err := client.ServerResourcesForGroupVersion(crd.IstioAPIGroupVersion.String())
+	if err != nil {
+		return nil, err
+	}
+	kindsSet := map[string]bool{}
+	for _, config := range configs {
+		if !kindsSet[config.Kind] {
+			kindsSet[config.Kind] = true
+		}
+	}
+	result := make(map[string]metav1.APIResource, len(kindsSet))
+	for _, resource := range resources.APIResources {
+		if kindsSet[resource.Kind] {
+			result[resource.Kind] = resource
+		}
+	}
+	return result, nil
+}
+
+func restClientForOthers(config *rest.Config) (*rest.RESTClient, error) {
+	configCopied := *config
+	configCopied.ContentConfig = dynamic.ContentConfig()
+	configCopied.GroupVersion = &crd.IstioAPIGroupVersion
+	return rest.RESTClientFor(config)
+}
+
+func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[string]metav1.APIResource, error) {
+	restConfig, err := crd.CreateRESTConfig(kubeconfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	resources, err := apiResources(restConfig, configs)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := restClientForOthers(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return client, resources, nil
 }

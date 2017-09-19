@@ -20,6 +20,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -100,14 +101,16 @@ func CamelCaseToKabobCase(s string) string {
 }
 
 // ParseInputs reads multiple documents from `kubectl` output and checks with
-// the schema.
+// the schema. It also returns the list of unrecognized kinds as the second
+// response.
 //
 // NOTE: This function only decodes a subset of the complete k8s
 // ObjectMeta as identified by the fields in model.ConfigMeta. This
 // would typically only be a problem if a user dumps an configuration
 // object with kubectl and then re-ingests it.
-func ParseInputs(inputs string) ([]model.Config, error) {
+func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 	var varr []model.Config
+	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
 
 	// We store configs as a YaML stream; there may be more than one decoder.
@@ -119,25 +122,27 @@ func ParseInputs(inputs string) ([]model.Config, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
 		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
 		if !exists {
-			return nil, fmt.Errorf("unrecognized type %v", obj.Kind)
+			glog.V(7).Infof("unrecognized type %v", obj.Kind)
+			others = append(others, obj)
+			continue
 		}
 
 		config, err := ConvertObject(schema, &obj, "")
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
 		}
 
 		if err := schema.Validate(config.Spec); err != nil {
-			return nil, fmt.Errorf("configuration is invalid: %v", err)
+			return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 		}
 
 		varr = append(varr, *config)
 	}
 
-	return varr, nil
+	return varr, others, nil
 }

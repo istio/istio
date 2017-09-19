@@ -41,6 +41,13 @@ import (
 	"istio.io/pilot/platform/kube"
 )
 
+// IstioAPIGroupVersion defines schema.GroupVersion for Istio configuration
+// resources.
+var IstioAPIGroupVersion = schema.GroupVersion{
+	Group:   model.IstioAPIGroup,
+	Version: model.IstioAPIVersion,
+}
+
 // IstioObject is a k8s wrapper interface for config objects
 type IstioObject interface {
 	runtime.Object
@@ -82,12 +89,7 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 		return
 	}
 
-	version := schema.GroupVersion{
-		Group:   model.IstioAPIGroup,
-		Version: model.IstioAPIVersion,
-	}
-
-	config.GroupVersion = &version
+	config.GroupVersion = &IstioAPIGroupVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 
@@ -95,9 +97,9 @@ func CreateRESTConfig(kubeconfig string) (config *rest.Config, err error) {
 	schemeBuilder := runtime.NewSchemeBuilder(
 		func(scheme *runtime.Scheme) error {
 			for _, kind := range knownTypes {
-				scheme.AddKnownTypes(version, kind.object, kind.collection)
+				scheme.AddKnownTypes(IstioAPIGroupVersion, kind.object, kind.collection)
 			}
-			meta_v1.AddToGroupVersion(scheme, version)
+			meta_v1.AddToGroupVersion(scheme, IstioAPIGroupVersion)
 			return nil
 		})
 	err = schemeBuilder.AddToScheme(types)
