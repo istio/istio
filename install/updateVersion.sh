@@ -34,6 +34,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -p ... <hub>,<tag> for the pilot docker image
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the istio-ca docker image
+    -r ... tag for proxy debian package
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
     -s ... check if template files have been updated with this tool
@@ -53,6 +54,7 @@ while getopts :gi:n:p:x:c:sA:P:E: arg; do
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    r) PROXY_TAG="${OPTARG}";;
     g) GIT_COMMIT=true;;
     s) CHECK_GIT_STATUS=true;;
     A) AUTH_DEBIAN_URL="${OPTARG}";;
@@ -161,6 +163,7 @@ export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
+export PROXY_TAG="${PROXY_TAG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
