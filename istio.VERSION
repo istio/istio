@@ -12,4 +12,4 @@ export AUTH_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/auth/8790
 export PILOT_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/pilot/aca4710958367c0ac39e0a890cce599690680414/artifacts/debs"
 export PROXY_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/proxy/4a493c07e34e764e29013c794ad295f665d8eebc/artifacts/debs"
 export FORTIO_HUB="gcr.io/istio-testing"
-export FORTIO_TAG="0.2.3-pre1"
+export FORTIO_TAG="0.2.3-pre2"

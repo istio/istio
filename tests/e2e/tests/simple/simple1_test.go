@@ -61,8 +61,9 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimpleIngress(t *testing.T) {
-	//url := "http://" + tc.Kube.Ingress + "/fortio/debug" // not working but should
-	url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
+	url := "http://" + tc.Kube.Ingress + "/fortio/debug" // not working but should
+	//url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
+
 	glog.Infof("Fetching '%s'", url)
 	attempts := 5 // if it takes more than 50s to be live...
 	for i := 1; i <= attempts; i++ {
@@ -107,7 +108,7 @@ func TestSvc2Svc(t *testing.T) {
 	// call into the service from each of the pods
 	for _, pod := range podList {
 		glog.Infof("From pod \"%s\"", pod)
-		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -qps 0 -t 20s http://echosrv.%s:8080/echo", ns, pod, ns)
+		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -qps 0 -t 10s http://echosrv.%s:8080/echo", ns, pod, ns)
 		if err != nil {
 			t.Fatalf("kubectl failure to run fortio %v", err)
 		}

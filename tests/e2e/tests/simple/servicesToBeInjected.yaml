@@ -25,12 +25,7 @@ spec:
             backend:
               serviceName: echosrv
               servicePort: http-echo
-          - path: /debug # workaround for above + rewrite rule not working
-            backend:
-              serviceName: echosrv
-              servicePort: http-echo
 ---
-# This doesn't appear to work at all
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
@@ -44,9 +39,9 @@ spec:
         request:
           headers:
             uri:
-              prefix: /fortio/(.*) # no idea what the syntax is if regexp
-          rewrite:
-            uri: /&1  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
+              prefix: /fortio/ # prefix
+    rewrite:
+        uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
 ---
 apiVersion: apps/v1beta1
 # 2 pods for service inside the cluster, will get istio injected
@@ -69,5 +64,5 @@ spec:
          - containerPort: 8079
         args:
           - server
-          - -loglevel=debug
+#          - -loglevel=debug
 #          - -echo-debug-path=/fortio/debug # because rewrite doesn't work
