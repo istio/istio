@@ -572,12 +572,6 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-#Istio Configuration file
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
