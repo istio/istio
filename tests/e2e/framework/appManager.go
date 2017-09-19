@@ -15,12 +15,15 @@
 package framework
 
 import (
+	"flag"
 	"path/filepath"
 
 	"github.com/golang/glog"
 
 	"istio.io/istio/tests/e2e/util"
 )
+
+var useInitializer = flag.Bool("use_initializer", false, "Use the initializer instead of kube-inject for transparent proxy injection")
 
 const (
 	kubeInjectPrefix = "KubeInject"
@@ -74,7 +77,7 @@ func (am *AppManager) deploy(a *App) error {
 		return err
 	}
 	finalYaml := a.AppYaml
-	if a.KubeInject {
+	if a.KubeInject && !*useInitializer {
 		var err error
 		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {

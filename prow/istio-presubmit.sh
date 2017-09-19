@@ -43,7 +43,7 @@ echo 'Running Linters'
 ./bin/linters.sh
 
 echo 'Running Unit Tests'
-bazel test //...
+bazel test --test_output=all //...
 
 echo 'Checking that updateVersion has been called'
 install/updateVersion.sh -s

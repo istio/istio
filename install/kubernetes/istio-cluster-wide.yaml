@@ -33,6 +33,21 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["externaladmissionhookconfigurations"]
+  verbs: ["create", "update", "delete"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-initializer-istio-system
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
+  verbs: ["initialize", "patch", "watch", "list"]
+- apiGroups: ["*"]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
 ---
 # Mixer CRD needs to watch and list CRDs
 # It also uses discovery API to discover Kinds of config.istio.io
@@ -92,6 +107,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-pilot-istio-system
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Sidecar initializer
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-initializer-admin-role-binding-istio-system
+subjects:
+- kind: ServiceAccount
+  name: istio-initializer-service-account
+  namespace: istio-system
+roleRef:
+  kind: ClusterRole
+  name: istio-initializer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
@@ -211,12 +240,12 @@ kind: Deployment
 metadata:
   name: istio-mixer
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: mixer
     spec:
@@ -543,7 +572,6 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
 # Pilot service for discovery
 apiVersion: v1
 kind: ConfigMap
@@ -622,8 +650,8 @@ spec:
   ports:
   - port: 8080
     name: http-discovery
-  - port: 8081
-    name: http-apiserver
+  - port: 443
+    name: http-admission-webhook
   selector:
     istio: pilot
 ---
@@ -638,23 +666,24 @@ kind: Deployment
 metadata:
   name: istio-pilot
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: pilot
     spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:634a19e013a664077d378e9190dddce7d2693136
+        image: gcr.io/istio-testing/pilot:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2"]
+        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
         - containerPort: 8080
+        - containerPort: 443
         env:
         - name: POD_NAME
           valueFrom:
@@ -712,15 +741,13 @@ spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: ingress
     spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:634a19e013a664077d378e9190dddce7d2693136
+        image: gcr.io/istio-testing/proxy_debug:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         args:
         - proxy
         - ingress
@@ -797,7 +824,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:634a19e013a664077d378e9190dddce7d2693136
+        image: gcr.io/istio-testing/proxy_debug:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         imagePullPolicy: IfNotPresent
         args:
         - proxy
@@ -842,6 +869,8 @@ apiVersion: extensions/v1beta1
 metadata:
   name: istio-ca
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
@@ -852,7 +881,6 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: gcr.io/istio-testing/istio-ca:b7b8c10bbb6ca471e9c8aee2b3889f0ccbf01c3c
+        image: gcr.io/istio-testing/istio-ca:87901f278dd40e864b083409dfee9ca72e6a27e9
         imagePullPolicy: IfNotPresent
 ---
-
