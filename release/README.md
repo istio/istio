@@ -26,28 +26,41 @@ Only organization members part of the [Release Engineers](https://github.com/org
 
 If you are making a release from a branch, use the branch name, e.g. `BRANCH=release-0.1` for 0.1 or `master` for master.
 
+## Release Preparation
+
+Before any release we need to make sure that all components are using the same
+version of [istio/api](https://github.com/istio/api/commits/master).
+
+As of today API is used in
+* [pilot](https://github.com/istio/pilot/blob/master/WORKSPACE#L480)
+* [mixer](https://github.com/istio/mixer/blob/master/istio_api.bzl#L18)
+* [mixerclient](https://github.com/istio/mixerclient/blob/master/repositories.bzl#L379)
+
+For mixerclient, it gets more complicated. We need to update proxy to use the
+last version, and then update pilot a second time to use the last proxy.
+
 ## Semi-automated release since 0.2
 
-The release process is semi-automated starting with release 0.2. 
-It is still driven from a release engineer desktop but all actions are automated 
-using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go), 
-a tool of our own that acts as a GitHub client making REST calls through the GitHub API. 
-One may get githubctl from the istio/test-infra repository  
+The release process is semi-automated starting with release 0.2.
+It is still driven from a release engineer desktop but all actions are automated
+using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go),
+a tool of our own that acts as a GitHub client making REST calls through the GitHub API.
+One may get githubctl from the istio/test-infra repository
 
 ```
 $ git clone https://github.com/istio/test-infra.git
 ```
 
-and build it using 
+and build it using
 
 ```
 $ bazel build //toolbox/githubctl
 ```
 
-The binary output is located in
+The binary output is located in bazel-bin/toolbox/githubctl/githubctl.
 
 ```
-$ bazel-bin/toolbox/githubctl/githubctl
+$ alias githubctl="${PWD}/bazel-bin/toolbox/githubctl/githubctl"
 ```
 
 The release process goes like the following:
@@ -61,13 +74,13 @@ $ githubctl --token_file=<github token file> \
 # The previous command triggers rebuild and retagging on pilot, mixer and auth.
 # Wait for them to finish, then create an update PR in istio/istio
 $ githubctl --token_file=<github token file> \
-    --op=updateIstioVersion --base_branch=<release branch or master> 
+    --op=updateIstioVersion --base_branch=<release branch or master>
 
 # Wait for the PR to be merged.
 # Then create the release in GitHub, upload the artifacts,
 # advance next release tag, update download script with latest release:
 $ githubctl --token_file=<github token file> \
-    --op=uploadArtifacts --base_branch=<release branch or master> \     
+    --op=uploadArtifacts --base_branch=<release branch or master> \
     --next_release=0.2.2
 ```
 
