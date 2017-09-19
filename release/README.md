@@ -60,7 +60,7 @@ $ bazel build //toolbox/githubctl
 The binary output is located in
 
 ```
-$ bazel-bin/toolbox/githubctl/githubctl
+$ alias githubctl="${PWD}/bazel-bin/toolbox/githubctl/githubctl"
 ```
 
 The release process goes like the following:
