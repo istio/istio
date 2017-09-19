@@ -58,6 +58,7 @@ function istio_status() {
   done
 }
 
+<<<<<<< HEAD
 # Checkout all repos at a specific tag
 # Example: istio_checkout 0.2.2
 function istio_checkout {
@@ -81,6 +82,8 @@ function istio_tag {
   done
 }
 
+=======
+>>>>>>> e7e2dff4aff77c132006fa556e9c830f77f7c8b8
 
 # Build docker images for istio from current branch, using same tag for all.
 #
@@ -126,4 +129,3 @@ function istio_retest() {
   (cd $ISTIO_IO/istio; ./tests/e2e.sh --auth_enable --rbac_path=install/kubernetes/istio-rbac-beta.yaml --skip_cleanup --skip_setup -test.run=$TESTS --namespace e2e --mixer_hub $HUB --mixer_tag $TAG \
     --istioctl $ISTIO_IO/pilot/bazel-bin/cmd/istioctl/istioctl --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
 }
-
