@@ -721,3 +721,99 @@ spec:
           secretName: istio-ingress-certs
           optional: true
 ---
+################################
+# Istio egress envoy
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-egress
+  namespace: istio-system
+spec:
+  ports:
+  - port: 80
+  selector:
+    istio: egress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-egress-service-account
+  namespace: istio-system
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-egress
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: egress
+    spec:
+      serviceAccountName: istio-egress-service-account
+      containers:
+      - name: proxy
+        image: gcr.io/istio-testing/proxy_debug:aca4710958367c0ac39e0a890cce599690680414
+        imagePullPolicy: IfNotPresent
+        args:
+        - proxy
+        - egress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+---
+# Service account CA runs in.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: istio-system
+---
+# Istio CA watching all namespaces
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: gcr.io/istio-testing/istio-ca:87901f278dd40e864b083409dfee9ca72e6a27e9
+        imagePullPolicy: IfNotPresent
+---
