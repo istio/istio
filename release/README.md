@@ -65,25 +65,26 @@ $ alias githubctl="${PWD}/bazel-bin/toolbox/githubctl/githubctl"
 
 The release process goes like the following:
 
-1. Tag the release
+Step 1: Tag the release.
 ```
 $ githubctl --token_file=<github token file> \
     --op=tagIstioDepsForRelease \
     --base_branch=<release branch or master>
 ```
 
-1. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589)
+Step 2: The previous command triggers rebuild and retagging on pilot, mixer and auth. 
+ Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589)
 
-1. The previous command triggers rebuild and retagging on pilot, mixer and auth. 
- Wait for them to finish, then create an update PR in istio/istio
+Step 3: Create an update PR in istio/istio.
 ```
 $ githubctl --token_file=<github token file> \
     --op=updateIstioVersion --base_branch=<release branch or master> 
 ```
-1. Request PR approval and wait for the PR to be merged.
 
-1. Then create the release in GitHub, upload the artifacts,
- advance next release tag, update download script with latest release:
+Step 4: Request PR approval and wait for the PR to be merged.
+
+Step 5: Finalize the release. This creates the release in GitHub, uploads the artifacts,
+ advances next release tag, and updates download script with latest release:
 ```
 $ githubctl --token_file=<github token file> \
     --op=uploadArtifacts --base_branch=<release branch or master> \
@@ -94,13 +95,13 @@ $ githubctl --token_file=<github token file> \
 
 ### Revert a failed release
 
-When a release failed, we need to clean up partial steps before retry.
+When a release failed, we need to clean up partial state before retry. A common case is that a build failed when doing Step 2 from the above. We need to rollback the Step 1 by doing the following: 
 
-1. Remove new tags on the repos by finding the release and click "delete tag"
+1. Remove new tags on the repos by finding the release and click "delete tag".
    * https://github.com/istio/auth/releases
    * https://github.com/istio/mixer/releases
    * https://github.com/istio/pilot/releases
-1. Redo the above release process step [1-4].
+1. Proceed with the above release process step [1-5].
 
 ## Manual release process (DEPRECATED)
 
