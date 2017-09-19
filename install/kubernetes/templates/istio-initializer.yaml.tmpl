@@ -1,0 +1,79 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+  namespace: {ISTIO_NAMESPACE}
+data:
+  config: |-
+    policy: "enabled"
+    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    initializerName: "sidecar.initializer.istio.io"
+    params:
+      initImage: {PILOT_HUB}/proxy_init:{PILOT_TAG}
+      proxyImage: {PILOT_HUB}/proxy:{PILOT_TAG}
+      verbosity: 2
+      version: {PILOT_TAG}
+      meshConfigMapName: istio
+      imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-initializer-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: istio-initializer
+  namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
+  initializers:
+    pending: []
+  labels:
+    istio: istio-initializer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: istio-initializer
+      labels:
+        istio: initializer
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-initializer-service-account
+      containers:
+        - name: initializer
+          image: {PILOT_HUB}/sidecar_initializer:{PILOT_TAG}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=8083
+            - --namespace={ISTIO_NAMESPACE}
+            - -v=2
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: InitializerConfiguration
+metadata:
+  name: istio-sidecar
+initializers:
+  - name: sidecar.initializer.istio.io
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - "*"
+        resources:
+          - deployments
+          - statefulsets
+          - jobs
+          - daemonsets
