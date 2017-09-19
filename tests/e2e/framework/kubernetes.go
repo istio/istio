@@ -30,12 +30,13 @@ import (
 )
 
 const (
-	yamlSuffix         = ".yaml"
-	istioInstallDir    = "install/kubernetes"
-	istioAddonsDir     = "install/kubernetes/addons"
-	nonAuthInstallFile = "istio.yaml"
-	authInstallFile    = "istio-auth.yaml"
-	istioSystem        = "istio-system"
+	yamlSuffix       = ".yaml"
+	istioInstallDir  = "install/kubernetes"
+	istioAddonsDir   = "install/kubernetes/addons"
+	authConfigFile   = "istio-config.yaml"
+	noauthConfigFile = "istio-config-no-encryption.yaml"
+	istioInstallFile = "istio-one-namespace.yaml"
+	istioSystem      = "istio-system"
 )
 
 var (
@@ -210,10 +211,25 @@ func (k *KubeInfo) deployAddons() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
-	istioYaml := nonAuthInstallFile
+	baseConfigFile := noauthConfigFile
 	if *authEnable {
-		istioYaml = authInstallFile
+		baseConfigFile = authConfigFile
 	}
+
+	baseConfigYaml := util.GetResourcePath(filepath.Join(istioInstallDir, baseConfigFile))
+	testConfigYaml := filepath.Join(k.TmpDir, "yaml", baseConfigFile)
+
+	if err := k.generateConfig(baseConfigYaml, testConfigYaml); err != nil {
+		glog.Errorf("Generating config map yaml failed")
+		return err
+	}
+	if err := util.KubeApply(k.Namespace, testConfigYaml); err != nil {
+		glog.Errorf("Istio config %s deployment failed", testConfigYaml)
+		return err
+	}
+
+	istioYaml := istioInstallFile
+
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
@@ -328,6 +344,22 @@ func (k *KubeInfo) generateInitializer(src, dst string) error {
 	return err
 }
 
+func (k *KubeInfo) generateConfig(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
+
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		glog.Errorf("Cannot write into file %s", dst)
+	}
+	return err
+}
+
 func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
 	r := []byte(dest)
 	p := regexp.MustCompile(src)
@@ -366,11 +398,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
-
-	content = []byte(strings.Replace(string(content),
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]`,
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external", "-a", "`+k.Namespace+`"]`,
-		-1))
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {

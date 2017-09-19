@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-system
+  name: {ISTIO_NAMESPACE}
 ---
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
@@ -574,72 +574,6 @@ spec:
 ---
 # Pilot service for discovery
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio
-  namespace: istio-system
-data:
-  mesh: |-
-    # Uncomment the following line to enable mutual TLS between proxies
-    authPolicy: MUTUAL_TLS
-    #
-    # Set the following variable to true to disable policy checks by the Mixer.
-    # Note that metrics will still be reported to the Mixer.
-    disablePolicyChecks: false
-    # Set enableTracing to false to disable request tracing.
-    enableTracing: true
-    #
-    # To disable the mixer completely (including metrics), comment out
-    # the following line
-    mixerAddress: istio-mixer.istio-system:9091
-    #
-    ingressService: istio-ingress
-    egressProxyAddress: istio-egress.istio-system:80
-    #
-    # Along with discoveryRefreshDelay, this setting determines how
-    # frequently should Envoy fetch and update its internal configuration
-    # from Istio Pilot. Lower refresh delay results in higher CPU
-    # utilization and potential performance loss in exchange for faster
-    # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: 30s
-    #
-    defaultConfig:
-      # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: 30s
-      #
-      # TCP connection timeout between Envoy & the application, and between Envoys.
-      connectTimeout: 10s
-      #
-      ### ADVANCED SETTINGS #############
-      # Where should envoy's configuration be stored in the istio-proxy container
-      configPath: "/etc/istio/proxy"
-      binaryPath: "/usr/local/bin/envoy"
-      # The pseudo service name used for Envoy.
-      serviceCluster: istio-proxy
-      # These settings that determine how long an old Envoy
-      # process should be kept alive after an occasional reload.
-      drainDuration: 45s
-      parentShutdownDuration: 1m0s
-      #
-      # Port where Envoy listens (on local host) for admin commands
-      # You can exec into the istio-proxy container in a pod and
-      # curl the admin port (curl http://localhost:15000/) to obtain
-      # diagnostic information from Envoy. See
-      # https://lyft.github.io/envoy/docs/operations/admin.html
-      # for more details
-      proxyAdminPort: 15000
-      #
-      # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-system:8080
-      #
-      # Zipkin trace collector
-      zipkinAddress: zipkin.istio-system:9411
-      #
-      # Statsd metrics collector. Istio mixer exposes a UDP endpoint
-      # to collect and convert statsd metrics into Prometheus metrics.
-      statsdUdpAddress: istio-mixer.istio-system:9125
----
-apiVersion: v1
 kind: Service
 metadata:
   name: istio-pilot
@@ -680,7 +614,7 @@ spec:
       - name: discovery
         image: gcr.io/istio-testing/pilot:997b963d0fb0b66682d236032433254e02906ad7
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
+        args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
         - containerPort: 8080
         - containerPort: 443
@@ -855,6 +789,8 @@ spec:
           optional: true
 ---
 
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
 apiVersion: v1
 kind: ServiceAccount
@@ -862,7 +798,7 @@ metadata:
   name: istio-ca-service-account
   namespace: istio-system
 ---
-# Istio CA watching all namespaces
+# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -883,4 +819,10 @@ spec:
       - name: istio-ca
         image: gcr.io/istio-testing/istio-ca:b7b8c10bbb6ca471e9c8aee2b3889f0ccbf01c3c
         imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---

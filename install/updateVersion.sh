@@ -115,13 +115,25 @@ function check_git_status() {
 function merge_files() {
   SRC=$TEMP_DIR/templates
   DEST=$ROOT/install/kubernetes
-  ISTIO=$DEST/istio.yaml
-  ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
-  ISTIO_AUTH=$DEST/istio-auth.yaml
-  ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
 
-#TODO remove 2 lines below once the e2e tests no longer look for this file
-  cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
+  # istio.yaml file contains a cluster-wide installation
+  ISTIO=$DEST/istio.yaml
+  ISTIO_ONE_NAMESPACE=$DEST/istio-one-namespace.yaml
+  ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
+  CONFIG_ENCRYPT=$DEST/istio-config.yaml
+  CONFIG_NO_ENCRYPT=$DEST/istio-config-no-encryption.yaml
+
+  # TODO remove 3 lines below once the e2e tests no longer look for this file
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $DEST/istio-rbac-beta.yaml
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $DEST/istio-rbac-beta.yaml
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $DEST/istio-rbac-beta.yaml
+
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $CONFIG_ENCRYPT
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh"  >> $CONFIG_ENCRYPT
+  cat $SRC/istio-config.yaml.tmpl >> $CONFIG_ENCRYPT
+
+  cp $CONFIG_ENCRYPT $CONFIG_NO_ENCRYPT
+  sed -i=.bak "s/authPolicy: MUTUAL_TLS/authPolicy: NONE/" $CONFIG_NO_ENCRYPT
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
@@ -132,22 +144,16 @@ function merge_files() {
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
+
+  cp $ISTIO $ISTIO_ONE_NAMESPACE
+  # restrict pilot controllers to a single namespace in the test file
+  sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
+  # TODO the CA templates can be combined
+  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
+
+  cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
+
   cp ${SRC}/istio-initializer.yaml.tmpl $ISTIO_INITIALIZER
-
-  cp $ISTIO $ISTIO_CLUSTER_WIDE
-  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_CLUSTER_WIDE
-#TODO the CA templates can be combined
-  cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
-
-  # Deploy istio-ca always, required to enable MTLS for mixer and pilot
-  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO
-
-  cp $ISTIO $ISTIO_AUTH
-  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-
-  #TODO remove once e2e tests are updated
-#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
-#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO_AUTH
 }
 
 function update_version_file() {
@@ -171,20 +177,20 @@ EOF
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
 
   sed -i=.bak "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
   sed -i=.bak "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
