@@ -460,6 +460,9 @@ go_repository(
     importpath = "google.golang.org/grpc",
 )
 
+# This SHA is obtained from istio/api
+ISTIO_API = "d2e01d950fd932c8939652135c930c85c6bdda1d"
+
 new_git_repository(
     name = "io_istio_api",
     build_file_content = """
@@ -477,7 +480,7 @@ go_proto_library(
     ],
 )
     """,
-    commit = "f25de4f0d4f9812a567974b868c44366253e22c5",  # Sep 14, 2017
+    commit = ISTIO_API,
     remote = "https://github.com/istio/api.git",
 )
 
