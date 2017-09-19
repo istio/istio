@@ -4,8 +4,8 @@ RUN apt-get update \
 
 ADD . /tmp
 
-RUN dpkg -i /tmp/istio-proxy_amd64.deb
-RUN dpkg -i /tmp/istio-node-agent_amd64.deb && rm /tmp/*.deb
-RUN dpkg -i /tmp/istio-auth-node-agent_amd64.deb && rm /tmp/*.deb
+RUN dpkg -i /tmp/istio-proxy-envoy.deb
+RUN dpkg -i /tmp/istio-agent.deb
+RUN dpkg -i /tmp/istio-auth-node-agent.deb && rm /tmp/*.deb
 
 

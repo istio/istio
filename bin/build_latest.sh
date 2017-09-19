@@ -22,10 +22,7 @@ function istio_build() {
 
   # Note: components may still use old SHA - but the test will build the binaries from master
   # from each component, to make sure we don't test old code.
-  pushd $ISTIO_IO/pilot
-  bazel build ...
-  ./bin/init.sh
-  popd
+  (cd $ISTIO_IO/pilot; bazel build cmd/... tools/deb/...)
 
   (cd $ISTIO_IO/mixer; bazel build ...)
 
@@ -139,9 +136,9 @@ function istio_build_vm_docker() {
     local OUT=$ISTIO_IO/istio/bazel-bin/vm
 
     mkdir -p $OUT
-    cp -f $ISTIO_IO/proxy/bazel-bin/tools/deb/*_amd64.deb $OUT
-    cp -f $ISTIO_IO/auth/bazel-bin/tools/deb/*_amd64.deb $OUT
-    cp -f $ISTIO_IO/pilot/bazel-bin/tools/deb/*_amd64.deb $OUT
+    cp -f $ISTIO_IO/proxy/bazel-bin/tools/deb/istio-proxy-envoy.deb $OUT
+    cp -f $ISTIO_IO/auth/bazel-bin/tools/deb/istio-auth-node-agent.deb $OUT
+    cp -f $ISTIO_IO/pilot/bazel-bin/tools/deb/istio-agent.deb $OUT
     cp -f $ISTIO_IO/istio/tests/local/* $OUT
 
     docker build -f $OUT/Dockerfile -t "${DOCKER_IMAGE}" $OUT
