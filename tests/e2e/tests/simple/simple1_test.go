@@ -61,7 +61,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimple1(t *testing.T) {
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	//url := "http://" + tc.Kube.Ingress + "/fortio/debug" // not working but should
+	url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
 	glog.Infof("Fetching '%s'", url)
 	attempts := 5 // if it takes more than 50s to be live...
 	for i := 1; i <= attempts; i++ {

@@ -25,7 +25,7 @@ spec:
             backend:
               serviceName: echosrv
               servicePort: http-echo
-          - path: /debug
+          - path: /debug # workaround for above + rewrite rule not working
             backend:
               serviceName: echosrv
               servicePort: http-echo
@@ -44,9 +44,9 @@ spec:
         request:
           headers:
             uri:
-              prefix: /fortio/abc
+              prefix: /fortio/(.*) # no idea what the syntax is if regexp
           rewrite:
-            uri: /debug
+            uri: /&1  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
 ---
 apiVersion: apps/v1beta1
 # 2 pods for service inside the cluster, will get istio injected
@@ -70,4 +70,4 @@ spec:
         args:
           - server
           - -loglevel=debug
-          - -echo-debug-path=/fortio/debug # because rewrite doesn't work
+#          - -echo-debug-path=/fortio/debug # because rewrite doesn't work
