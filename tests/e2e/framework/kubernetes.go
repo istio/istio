@@ -54,6 +54,8 @@ var (
 	initializerFile = flag.String("initializer_file", "", "Initializer yaml file")
 
 	addons = []string{
+		"logs",
+		"metrics",
 		"prometheus",
 		"zipkin",
 	}
@@ -195,6 +197,7 @@ func (k *KubeInfo) deployAddons() error {
 		}
 
 		content = replacePattern(k, content, istioSystem, k.Namespace)
+		content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
 
 		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
 		err = ioutil.WriteFile(yamlFile, content, 0600)
