@@ -4,12 +4,12 @@ kind: Deployment
 metadata:
   name: servicegraph
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: servicegraph
     spec:
