@@ -788,7 +788,6 @@ spec:
           secretName: istio.default
           optional: true
 ---
-
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
