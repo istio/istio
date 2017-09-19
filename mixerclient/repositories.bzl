@@ -332,6 +332,8 @@ cc_proto_library(
             actual = "@gogoproto_git//:cc_gogoproto_genproto",
         )
 
+ISTIO_API = "d2e01d950fd932c8939652135c930c85c6bdda1d"
+
 def mixerapi_repositories(protobuf_repo="@protobuf_bzl//", bind=True):
     gogoproto_repositories(bind)
 
@@ -376,7 +378,7 @@ cc_proto_library(
 
     native.new_git_repository(
         name = "mixerapi_git",
-        commit = "6838a2bfc42260cf0513552a64a457f1cf39041c",
+        commit = ISTIO_API,
         remote = "https://github.com/istio/api.git",
         build_file_content = BUILD,
     )
