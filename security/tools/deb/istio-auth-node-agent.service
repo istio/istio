@@ -3,7 +3,7 @@ Description=istio-auth-node-agent: The Istio auth node agent
 Documentation=http://istio.io/
 
 [Service]
-ExecStart=/usr/local/bin/istio-auth-node-agent --logtostderr
+ExecStart=/usr/local/bin/node-agent --logtostderr
 Restart=always
 StartLimitInterval=0
 RestartSec=10
