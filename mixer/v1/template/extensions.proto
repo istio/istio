@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package istio.mixer.v1.template;
+import "google/protobuf/descriptor.proto";
+
+// Specifies the varity of the the Template.
+enum TemplateVariety {
+    TEMPLATE_VARIETY_CHECK = 0;
+    TEMPLATE_VARIETY_REPORT = 1;
+    TEMPLATE_VARIETY_QUOTA = 2;
+}
+
+// File option for the TemplateVariety.
+extend google.protobuf.FileOptions {
+    TemplateVariety template_variety = 72295727;
+}
