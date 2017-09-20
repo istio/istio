@@ -19,6 +19,7 @@ Istio release is currently composed of artifacts for the following repos:
 * [auth](https://github.com/istio/auth)
 * [pilot](https://github.com/istio/pilot)
 * [mixer](https://github.com/istio/mixer)
+* [proxy](https://github.com/istio/proxy)
 
 The release consists in retagging the artifacts and creating new annotated tags.
 
@@ -73,7 +74,7 @@ $ githubctl --token_file=<github token file> \
 ```
 
 Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth. 
- Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589)
+ Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589).
 
 Step 3: Create an update PR in istio/istio.
 ```
@@ -101,6 +102,7 @@ When a release failed, we need to clean up partial state before retry. A common 
    * https://github.com/istio/auth/releases
    * https://github.com/istio/mixer/releases
    * https://github.com/istio/pilot/releases
+   * https://github.com/istio/proxy/releases
 1. Proceed with the above release process step [1-5].
 
 ## Manual release process (DEPRECATED)
