@@ -16,6 +16,7 @@ package framework
 
 import (
 	"errors"
+	"log"
 	"reflect"
 	"testing"
 )
@@ -136,6 +137,7 @@ func TestFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failRun = true
+	log.Printf("Expecting error, testing failure case")
 	if ret := c.RunTest(tc.t); ret == 0 {
 		t.Errorf("RunTest should have failed")
 	}
@@ -155,6 +157,7 @@ func TestInitFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failRun = true
+	log.Printf("Expecting error, testing init failure case")
 	if ret := c.RunTest(tc.t); ret == 0 {
 		t.Errorf("init should have failed during RunTest")
 	}
@@ -173,6 +176,7 @@ func TestSetupFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failSetup = true
+	log.Printf("Expecting error, testing setup failure case")
 	if ret := c.RunTest(tc.t); ret == 0 {
 		t.Errorf("RunTest should have failed")
 	}
@@ -191,6 +195,7 @@ func TestTearDownFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failTearDown = true
+	log.Printf("Expecting error after RunTest, testing teardown failure case")
 	if ret := c.RunTest(tc.t); ret != 0 {
 		t.Errorf("RunTest should have passed since teardown happens after")
 	}
