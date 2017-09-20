@@ -56,8 +56,8 @@ type IstioKindList struct {
 // GetItems from a wrapper
 func (in *IstioKindList) GetItems() []IstioObject {
 	out := make([]IstioObject, len(in.Items))
-	for i, v := range in.Items {
-		out[i] = &v
+	for i := range in.Items {
+		out[i] = &in.Items[i]
 	}
 	return out
 }

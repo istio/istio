@@ -55,8 +55,14 @@ func TestKind(t *testing.T) {
 		t.Error("DeepCopyObject of nil should return nil")
 	}
 
-	list := crd.IstioKindList{Items: []crd.IstioKind{obj}}
-	if got := list.GetItems(); len(got) != 1 || !reflect.DeepEqual(got[0], &obj) {
+	obj2 := crd.IstioKind{}
+	spec2 := map[string]interface{}{"a": "b"}
+	obj2.SetSpec(spec2)
+
+	list := crd.IstioKindList{Items: []crd.IstioKind{obj, obj2}}
+	if got := list.GetItems(); len(got) != len(list.Items) ||
+		!reflect.DeepEqual(got[0], &obj) ||
+		!reflect.DeepEqual(got[1], &obj2) {
 		t.Errorf("GetItems() => got %#v, want %#v", got, list.Items)
 	}
 

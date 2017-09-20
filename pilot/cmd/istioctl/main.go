@@ -410,7 +410,7 @@ and destination policies.
 
 	configCmd = &cobra.Command{
 		Use:   "context-create --api-server http://<ip>:<port>",
-		Short: "Create base kubeconfig file for a server",
+		Short: "Create a kubeconfig file suitable for use with istioctl in a non kubernetes environment",
 		Example: `
 		# Create a config file for the api server.
 		istioctl context-create --api-server http://127.0.0.1:8080
