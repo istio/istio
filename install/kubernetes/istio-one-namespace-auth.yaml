@@ -916,7 +916,6 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
-# Pilot service for discovery
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -936,7 +935,7 @@ data:
     # To disable the mixer completely (including metrics), comment out
     # the following line
     mixerAddress: istio-mixer.istio-system:9091
-    #
+    # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     egressProxyAddress: istio-egress.istio-system:80
     #
@@ -983,6 +982,7 @@ data:
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
 ---
+# Pilot service for discovery
 apiVersion: v1
 kind: Service
 metadata:
@@ -1024,7 +1024,7 @@ spec:
       - name: discovery
         image: gcr.io/istio-testing/pilot:e5681371e971d20b89823e55e394b2f773e7f07a
         imagePullPolicy: IfNotPresent
-        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
+        args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
         - containerPort: 8080
         - containerPort: 443
@@ -1198,7 +1198,8 @@ spec:
           secretName: istio.default
           optional: true
 ---
-
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
 apiVersion: v1
 kind: ServiceAccount
@@ -1206,7 +1207,7 @@ metadata:
   name: istio-ca-service-account
   namespace: istio-system
 ---
-# Istio CA watching all namespaces
+# Istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -1227,4 +1228,10 @@ spec:
       - name: istio-ca
         image: gcr.io/istio-testing/istio-ca:87901f278dd40e864b083409dfee9ca72e6a27e9
         imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
 ---
