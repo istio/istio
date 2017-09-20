@@ -8,18 +8,33 @@ spec:
   - name: request_count
     instance_name: requestcount.metric.istio-config-default
     kind: COUNTER
-    label_names: [ source, target, service, method, version, response_code ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
   - name: request_duration
     instance_name: requestduration.metric.istio-config-default
     kind: DISTRIBUTION
-    label_names: [ source, target, service, method, version, response_code ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
     buckets:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
   - name: request_size
     instance_name: requestsize.metric.istio-config-default
     kind: DISTRIBUTION
-    label_names: [ source, target, service, method, version, response_code ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -28,7 +43,12 @@ spec:
   - name: response_size
     instance_name: responsesize.metric.istio-config-default
     kind: DISTRIBUTION
-    label_names: [ source, target, service, method, version, response_code ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
     buckets:
       exponentialBuckets:
         numFiniteBuckets: 8
@@ -37,11 +57,19 @@ spec:
   - name: tcp_bytes_sent
     instance_name: tcpbytesent.metric.istio-config-default
     kind: COUNTER
-    label_names: [ source_service, source_version, destination_service, destination_version ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
   - name: tcp_bytes_received
     instance_name: tcpbytereceived.metric.istio-config-default
     kind: COUNTER
-    label_names: [ source_service, source_version, destination_service, destination_version ]
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule

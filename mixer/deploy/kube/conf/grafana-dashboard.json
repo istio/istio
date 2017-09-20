@@ -443,14 +443,14 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(request_count[1m])), 0.001)",
+              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])), 0.001)",
               "intervalFactor": 2,
               "legendFormat": "All",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "round(sum(irate(request_count{response_code=\"200\"}[1m])), 0.001)",
+              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=\"200\"}[1m])), 0.001)",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "200s",
@@ -458,7 +458,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(request_count{response_code=~\"4.*\"}[1m])), 0.001)",
+              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])), 0.001)",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "400s",
@@ -532,10 +532,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",response_code!~\"5.*\"}[1m])) by (service) / sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[1m])) by (service)",
+              "expr": "label_replace(sum(irate(request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",response_code!~\"5.*\",destination_version=~\"$destination_version\"}[1m])) by (destination_service) / sum(irate(request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ service }}",
+              "legendFormat": "{{ destination_service }}",
               "refId": "A",
               "step": 2
             }
@@ -604,9 +604,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(irate(request_count{response_code=~\"4.*\"}[1m])) by (service)",
+              "expr": "label_replace(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
-              "legendFormat": "{{ service }}",
+              "legendFormat": "{{ destination_service }}",
               "refId": "A",
               "step": 2
             }
@@ -675,9 +675,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(irate(request_count{response_code=~\"5.*\"}[1m])) by (service) ",
+              "expr": "label_replace(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"5.*\"}[1m])) by (destination_service) , \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
-              "legendFormat": "{{ service }}",
+              "legendFormat": "{{ destination_service }}",
               "refId": "A",
               "step": 2
             }
@@ -730,7 +730,7 @@
       "height": "50",
       "panels": [
         {
-          "content": "<div class=\"text-center dashboard-header\">\n  <span>Services</span>\n</div>",
+          "content": "<div class=\"text-center dashboard-header\">\n  <span>HTTP Services</span>\n</div>",
           "height": "50px",
           "id": 26,
           "links": [],
@@ -781,9 +781,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(request_count{service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, response_code), 0.001)",
+              "expr": "label_replace(round(sum(irate(request_count{destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version, response_code), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{version}} : {{ response_code }}",
+              "legendFormat": "{{ source_service }}-{{ source_version}} -> {{destination_version}} : {{ response_code }}",
               "refId": "B",
               "step": 2
             }
@@ -854,10 +854,10 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\",version=~\"$version\",response_code!~\"5.*\"}[1m])) by (source, version) / sum(irate(request_count{service=~\"$service\",target=~\"$target\",source=~\"$source\"}[1m])) by (source, version)",
+              "expr": "label_replace(sum(irate(request_count{source_version=~\"$source_version\",destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\",response_code!~\"5.*\"}[1m])) by (source_service, source_version, destination_version) / sum(irate(request_count{source_version=~\"$source_version\",destination_service=~\"$destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }}",
+              "legendFormat": "{{source_service}}-{{source_version}} -> {{destination_version}}",
               "refId": "A",
               "step": 2
             }
@@ -928,35 +928,35 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.50, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p50)",
+              "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
               "refId": "D",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.90, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.90, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p90)",
+              "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p90)",
+              "refId": "A",
+              "step": 2
+            },
+            {
+              "expr": "label_replace(histogram_quantile(0.95, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "hide": false,
+              "intervalFactor": 2,
+              "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p95)",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.95, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.99, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p95)",
+              "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p99)",
               "refId": "C",
-              "step": 2
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(irate(request_duration_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\",version=~\"$version\"}[1m])) by (source, version, le))",
-              "hide": false,
-              "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{version }} (p99)",
-              "refId": "A",
               "step": 2
             }
           ],
@@ -1026,35 +1026,35 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.50, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p50)",
+              "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
               "refId": "D",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.90, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.90, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p90)",
+              "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p90)",
+              "refId": "A",
+              "step": 2
+            },
+            {
+              "expr": "label_replace(histogram_quantile(0.95, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "hide": false,
+              "intervalFactor": 2,
+              "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p95)",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "histogram_quantile(0.95, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
+              "expr": "label_replace(histogram_quantile(0.99, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p95)",
+              "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p99)",
               "refId": "C",
-              "step": 2
-            },
-            {
-              "expr": "histogram_quantile(0.99, sum(irate(response_size_bucket{source=~\"$source\",target=~\"$target\",service=~\"$service\", version=~\"$version\"}[1m])) by (source, version, le))",
-              "hide": false,
-              "intervalFactor": 2,
-              "legendFormat": "{{ source }} -> {{ version }} (p99)",
-              "refId": "A",
               "step": 2
             }
           ],
@@ -1094,11 +1094,189 @@
           ]
         }
       ],
-      "repeat": "service",
+      "repeat": "http_destination",
       "repeatIteration": null,
       "repeatRowId": null,
       "showTitle": true,
-      "title": "$service",
+      "title": "$http_destination",
+      "titleSize": "h5"
+    },
+    {
+      "collapse": false,
+      "height": "50",
+      "panels": [
+        {
+          "content": "<div class=\"text-center dashboard-header\">\n  <span>TCP Services</span>\n</div>",
+          "height": "50px",
+          "id": 49,
+          "links": [],
+          "mode": "html",
+          "repeat": null,
+          "span": 12,
+          "title": "",
+          "transparent": true,
+          "type": "text"
+        }
+      ],
+      "repeat": null,
+      "repeatIteration": null,
+      "repeatRowId": null,
+      "showTitle": false,
+      "title": "TCP Services",
+      "titleSize": "h6"
+    },
+    {
+      "collapse": false,
+      "height": "221",
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 47,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 6,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "label_replace(round(sum(irate(tcp_bytes_received{destination_service=~\"$tcp_destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "intervalFactor": 2,
+              "legendFormat": "{{ source_service }}-{{ source_version}} -> {{ destination_version }}",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Bytes Received",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "Bps",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": "${DS_PROMETHEUS}",
+          "fill": 1,
+          "id": 48,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 6,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "label_replace(round(sum(irate(tcp_bytes_sent{destination_service=~\"$destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "intervalFactor": 2,
+              "legendFormat": "{{ destination_version }} -> {{ source_service }}-{{source_version}} ",
+              "refId": "A",
+              "step": 2
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Bytes Sent",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "Bps",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ]
+        }
+      ],
+      "repeat": "tcp_destination",
+      "repeatIteration": null,
+      "repeatRowId": null,
+      "showTitle": true,
+      "title": "$tcp_destination",
       "titleSize": "h5"
     }
   ],
@@ -1117,7 +1295,7 @@
         "multi": true,
         "name": "source",
         "options": [],
-        "query": "label_values(request_count, source)",
+        "query": "label_values(source_service)",
         "refresh": 1,
         "regex": "",
         "sort": 0,
@@ -1133,14 +1311,34 @@
         "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
-        "label": "Target",
+        "label": "Source Version",
         "multi": true,
-        "name": "target",
+        "name": "source_version",
         "options": [],
-        "query": "label_values(request_count, target)",
+        "query": "label_values(source_version)",
         "refresh": 1,
         "regex": "",
-        "sort": 0,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_PROMETHEUS}",
+        "hide": 2,
+        "includeAll": true,
+        "label": "Destination",
+        "multi": true,
+        "name": "destination",
+        "options": [],
+        "query": "label_values(destination_service)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
         "tagValuesQuery": "",
         "tags": [],
         "tagsQuery": "",
@@ -1153,14 +1351,14 @@
         "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
-        "label": "Service",
+        "label": "HTTP Destination",
         "multi": true,
-        "name": "service",
+        "name": "http_destination",
         "options": [],
-        "query": "label_values(request_count, service)",
+        "query": "label_values(request_count, destination_service)",
         "refresh": 1,
         "regex": "",
-        "sort": 0,
+        "sort": 1,
         "tagValuesQuery": "",
         "tags": [],
         "tagsQuery": "",
@@ -1173,11 +1371,31 @@
         "datasource": "${DS_PROMETHEUS}",
         "hide": 0,
         "includeAll": true,
-        "label": "Version",
+        "label": "TCP Destination",
         "multi": true,
-        "name": "version",
+        "name": "tcp_destination",
         "options": [],
-        "query": "label_values(request_count, version)",
+        "query": "label_values(tcp_bytes_received, destination_service)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": "${DS_PROMETHEUS}",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Destination Version",
+        "multi": true,
+        "name": "destination_version",
+        "options": [],
+        "query": "label_values(destination_version)",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -1220,5 +1438,5 @@
   },
   "timezone": "browser",
   "title": "Istio Dashboard",
-  "version": 35
+  "version": 0
 }

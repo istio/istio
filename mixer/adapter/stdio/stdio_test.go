@@ -17,6 +17,7 @@ package stdio
 import (
 	"context"
 	"errors"
+	"net"
 	"strconv"
 	"strings"
 	"testing"
@@ -208,6 +209,8 @@ func TestLogEntry(t *testing.T) {
 				"Duration":  descriptor.DURATION,
 				"Time":      descriptor.TIMESTAMP,
 				"StringMap": descriptor.STRING_MAP,
+				"IPAddress": descriptor.IP_ADDRESS,
+				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
 			},
 		},
 	}
@@ -257,13 +260,15 @@ func TestLogEntry(t *testing.T) {
 						"Time":      tm,
 						"Duration":  1 * time.Second,
 						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"Bytes":     []byte{'b'},
 					},
 				},
 			},
 			false,
 			[]string{
-				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","Bool":true,"Double":1.23,"Duration":"1s","Int64":123,` +
-					`"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
+				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","Bool":true,"Bytes":"Yg==","Double":1.23,"Duration":"1s",` +
+					`"IPAddress":"0.0.0.0","Int64":123,"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
 			},
 		},
 	}
@@ -307,6 +312,8 @@ func TestMetricEntry(t *testing.T) {
 				"Duration":  descriptor.DURATION,
 				"Time":      descriptor.TIMESTAMP,
 				"StringMap": descriptor.STRING_MAP,
+				"IPAddress": descriptor.IP_ADDRESS,
+				"Bytes":     descriptor.VALUE_TYPE_UNSPECIFIED,
 			},
 		},
 	}
@@ -356,13 +363,15 @@ func TestMetricEntry(t *testing.T) {
 						"Time":      tm,
 						"Duration":  1 * time.Second,
 						"StringMap": map[string]string{"A": "B", "C": "D"},
+						"IPAddress": net.IPv4zero,
+						"Bytes":     []byte{'b'},
 					},
 				},
 			},
 			false,
 			[]string{
-				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","value":123,"Bool":true,"Double":1.23,` +
-					`"Duration":"1s","Int64":123,"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
+				`{"level":"info","ts":"0001-01-01T00:00:00.000Z","instance":"Foo","value":123,"Bool":true,"Bytes":"Yg==","Double":1.23,` +
+					`"Duration":"1s","IPAddress":"0.0.0.0","Int64":123,"String":"a string","StringMap":{"A":"B","C":"D"},"Time":"2017-08-21T10:04:00.000Z"}`,
 			},
 		},
 	}

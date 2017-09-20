@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/api/prometheus"
@@ -29,10 +30,13 @@ import (
 	"istio.io/mixer/example/servicegraph"
 )
 
-const reqsFmt = "sum(rate(request_count[%s])) by (source, target, version, service)"
+const reqsFmt = "sum(rate(request_count[%s])) by (source_service, destination_service, source_version, destination_version)"
+const tcpFmt = "sum(rate(tcp_bytes_received[%s])) by (source_service, destination_service, source_version, destination_version)"
+const emptyFilter = " > 0"
 
 type genOpts struct {
 	timeHorizon string
+	filterEmpty bool
 }
 
 type promHandler struct {
@@ -52,12 +56,17 @@ func (p *promHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if timeHorizon == "" {
 		timeHorizon = "5m"
 	}
+	filterEmpty := false
+	filterEmptyStr := r.URL.Query().Get("filter_empty")
+	if filterEmptyStr == "true" {
+		filterEmpty = true
+	}
 	// validate time_horizon
 	if _, err := model.ParseDuration(timeHorizon); err != nil {
 		writeError(w, fmt.Errorf("could not parse time_horizon: %v", err))
 		return
 	}
-	g, err := p.generate(genOpts{timeHorizon})
+	g, err := p.generate(genOpts{timeHorizon, filterEmpty})
 	g.Merge(p.static)
 	if err != nil {
 		writeError(w, err)
@@ -81,8 +90,42 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 	if err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf(reqsFmt, opts.timeHorizon)
 	api := prometheus.NewQueryAPI(client)
+	query := fmt.Sprintf(reqsFmt, opts.timeHorizon)
+	if opts.filterEmpty {
+		query += emptyFilter
+		fmt.Println(query)
+	}
+	graph, err := extractGraph(api, query, "reqs/sec")
+	if err != nil {
+		return nil, err
+	}
+	query = fmt.Sprintf(tcpFmt, opts.timeHorizon)
+	if opts.filterEmpty {
+		query += emptyFilter
+		fmt.Println(query)
+	}
+	tcpGraph, err := extractGraph(api, query, "bytes/sec")
+	if err != nil {
+		return nil, err
+	}
+	return merge(graph, tcpGraph)
+}
+
+func merge(g1, g2 *servicegraph.Dynamic) (*servicegraph.Dynamic, error) {
+	d := servicegraph.Dynamic{Nodes: map[string]struct{}{}, Edges: []*servicegraph.Edge{}}
+	d.Edges = append(d.Edges, g1.Edges...)
+	d.Edges = append(d.Edges, g2.Edges...)
+	for nodeName, nodeValue := range g1.Nodes {
+		d.Nodes[nodeName] = nodeValue
+	}
+	for nodeName, nodeValue := range g2.Nodes {
+		d.Nodes[nodeName] = nodeValue
+	}
+	return &d, nil
+}
+
+func extractGraph(api prometheus.QueryAPI, query, label string) (*servicegraph.Dynamic, error) {
 	val, err := api.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return nil, err
@@ -94,16 +137,17 @@ func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
 		for _, sample := range matrix {
 			// todo: add error checking here
 			metric := sample.Metric
-			src := metric["source"]
-			// tgt := metric["target"]
-			ver := metric["version"]
-			svc := metric["service"]
+			src := strings.Replace(string(metric["source_service"]), ".svc.cluster.local", "", -1)
+			srcVer := string(metric["source_version"])
+			dst := strings.Replace(string(metric["destination_service"]), ".svc.cluster.local", "", -1)
+			dstVer := string(metric["destination_version"])
 
 			value := sample.Value
-			d.AddEdge(string(src), string(svc),
+			d.AddEdge(
+				src+" ("+srcVer+")",
+				dst+" ("+dstVer+")",
 				servicegraph.Attributes{
-					"qps":     strconv.FormatFloat(float64(value), 'f', 6, 64),
-					"version": string(ver),
+					label: strconv.FormatFloat(float64(value), 'f', 6, 64),
 				})
 		}
 		return &d, nil

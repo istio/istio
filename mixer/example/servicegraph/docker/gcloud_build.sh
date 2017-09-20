@@ -11,9 +11,11 @@ fi
 
 if [ -z $BAZEL_OUTBASE ]
 then
-    bazel run //example/servicegraph/docker:servicegraph gcr.io/$PROJECT/servicegraph:$DOCKER_TAG
+    bazel run //example/servicegraph/docker:servicegraph 
+    docker tag istio/example/servicegraph/docker:servicegraph gcr.io/$PROJECT/servicegraph:$DOCKER_TAG
 else
-    bazel --output_base=$BAZEL_OUTBASE run //example/servicegraph/docker:servicegraph gcr.io/$PROJECT/servicegraph:$DOCKER_TAG
+    bazel --output_base=$BAZEL_OUTBASE run //example/servicegraph/docker:servicegraph
+    docker tag istio/example/servicegraph/docker:servicegraph 
 fi
 
 docker tag gcr.io/$PROJECT/servicegraph:$DOCKER_TAG gcr.io/$PROJECT/servicegraph:latest
