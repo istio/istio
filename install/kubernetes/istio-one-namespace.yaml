@@ -579,7 +579,7 @@ metadata:
   namespace: istio-system
 data:
   mesh: |-
-    # Uncomment the following line to enable mutual encryption
+    # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
     #
     # Set the following variable to true to disable policy checks by the Mixer.
@@ -596,7 +596,7 @@ data:
     egressProxyAddress: istio-egress.istio-system:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
-    # frequently should Envoy fetch and update its ntiernal configuration
+    # frequently should Envoy fetch and update its internal configuration
     # from Istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
@@ -678,7 +678,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:aca4710958367c0ac39e0a890cce599690680414
+        image: gcr.io/istio-testing/pilot:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
@@ -747,7 +747,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:aca4710958367c0ac39e0a890cce599690680414
+        image: gcr.io/istio-testing/proxy_debug:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         args:
         - proxy
         - ingress
@@ -824,7 +824,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:aca4710958367c0ac39e0a890cce599690680414
+        image: gcr.io/istio-testing/proxy_debug:e32cdc4b77175ccc800231e4103ab2b0182ea25d
         imagePullPolicy: IfNotPresent
         args:
         - proxy
