@@ -2,8 +2,6 @@ filegroup(
     name = "addons",
     srcs = [
         "grafana.yaml",
-        "logs.yaml",
-        "metrics.yaml",
         "prometheus.yaml",
         "servicegraph.yaml",
         "zipkin.yaml",
