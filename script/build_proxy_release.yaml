@@ -3,6 +3,6 @@
 
 steps:
 - name: 'gcr.io/istio-io/istio-builder'
-  args: [ './bin/release.sh', '-t', '$TAG_NAME' ]
+  args: [ './script/release.sh', '-t', '$TAG_NAME' ]
 
 timeout: 1800s
