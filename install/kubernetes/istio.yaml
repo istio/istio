@@ -271,6 +271,7 @@ spec:
         - containerPort: 9094
         - containerPort: 42422
         args:
+          - --configDefaultNamespace=istio-config-default
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
           - --logtostderr
