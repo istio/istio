@@ -104,6 +104,7 @@ if [[ -z "$VM" || -z "$K8S_CLUSTER" ]] ; then
   echo
   echo "VM - name of the virtual machine, to use in ssh and scp commands"
   echo "K8S_CLUSTER - name of the k8s cluster"
+
 else
   shift
   installFiles $VM

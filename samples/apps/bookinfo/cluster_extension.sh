@@ -44,12 +44,13 @@ EOF
 
 function istioInstallBookinfo() {
   # Configure the inbound ports
-  sudo echo "ISTIO_INBOUND_PORTS=80,9080,3306,27017" > /var/lib/istio/envoy/sidecar.env
+  sudo bash -c 'echo "ISTIO_INBOUND_PORTS=80,9080,3306,27017" > /var/lib/istio/envoy/sidecar.env'
   sudo chown istio-proxy /var/lib/istio/envoy/sidecar.env
 
   sudo apt-get install -y ruby mariadb-server mongodb
 
   sudo systemctl start mariadb
+  sudo systemctl restart istio
   istioMysql
 
   startDetails
