@@ -33,8 +33,8 @@ const (
 	yamlSuffix         = ".yaml"
 	istioInstallDir    = "install/kubernetes"
 	istioAddonsDir     = "install/kubernetes/addons"
-	nonAuthInstallFile = "istio.yaml"
-	authInstallFile    = "istio-auth.yaml"
+	nonAuthInstallFile = "istio-one-namespace.yaml"
+	authInstallFile    = "istio-one-namespace-auth.yaml"
 	istioSystem        = "istio-system"
 	mixerConfigDefault = "istio-config-default"
 )
@@ -370,11 +370,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
-
-	content = []byte(strings.Replace(string(content),
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]`,
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external", "-a", "`+k.Namespace+`"]`,
-		-1))
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
