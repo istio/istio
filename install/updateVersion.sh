@@ -37,6 +37,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -r ... tag for proxy debian package
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
+    -d ... <namespace> namespace for mixer default configuration
     -s ... check if template files have been updated with this tool
     -A ... URL to download auth debian packages
     -P ... URL to download pilot debian packages
@@ -47,10 +48,11 @@ EOF
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c:r:sA:P:E: arg; do
+while getopts :gi:n:d:p:x:c:r:sA:P:E: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
+    d) MIXER_CONFIG_DEFAULT_NS="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
@@ -160,6 +162,7 @@ export CA_HUB="${CA_HUB}"
 export CA_TAG="${CA_TAG}"
 export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
+export MIXER_CONFIG_DEFAULT_NS="${MIXER_CONFIG_DEFAULT_NS}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
@@ -195,6 +198,8 @@ function update_istio_install() {
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml.tmpl
 
+  sed -i=.bak "s|{MIXER_CONFIG_DEFAULT_NS}|${MIXER_CONFIG_DEFAULT_NS}|" istio-mixer.yaml.tmpl
+
   popd
 }
 
@@ -204,8 +209,6 @@ function update_istio_addons() {
   sed -i=.bak "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" metrics.yaml.tmpl > $DEST/metrics.yaml
-  sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" logs.yaml.tmpl > $DEST/logs.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin.yaml.tmpl > $DEST/zipkin.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" zipkin-to-stackdriver.yaml.tmpl > $DEST/zipkin-to-stackdriver.yaml
