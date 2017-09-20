@@ -137,12 +137,12 @@ TEST(ReferencedTest, NegativeSignature1Test) {
   Attributes attributes1;
   // "target.service" should be absence.
   attributes1.attributes["target.service"] = Attributes::StringValue("foo");
-  EXPECT_FALSE(referenced.Signature(attributes1, &signature));
+  EXPECT_FALSE(referenced.Signature(attributes1, "", &signature));
 
   Attributes attributes2;
   // many keys should exist.
   attributes2.attributes["bytes-key"] = Attributes::StringValue("foo");
-  EXPECT_FALSE(referenced.Signature(attributes2, &signature));
+  EXPECT_FALSE(referenced.Signature(attributes2, "", &signature));
 }
 
 TEST(ReferencedTest, OKSignature1Test) {
@@ -172,9 +172,9 @@ TEST(ReferencedTest, OKSignature1Test) {
       Attributes::StringMapValue(std::move(string_map));
 
   std::string signature;
-  EXPECT_TRUE(referenced.Signature(attributes, &signature));
+  EXPECT_TRUE(referenced.Signature(attributes, "extra", &signature));
 
-  EXPECT_EQ(MD5::DebugString(signature), "3941a660b4df440dd2ff65f78bf61f2a");
+  EXPECT_EQ(MD5::DebugString(signature), "cfcf5f20f58a44da8832456742bf7b88");
 }
 
 }  // namespace

@@ -74,6 +74,7 @@ bool Referenced::Fill(const ReferencedAttributes& reference) {
 }
 
 bool Referenced::Signature(const Attributes& attributes,
+                           const std::string& extra_key,
                            std::string* signature) const {
   for (const std::string& key : absence_keys_) {
     // if an "absence" key exists, return false for mis-match.
@@ -129,6 +130,7 @@ bool Referenced::Signature(const Attributes& attributes,
     }
     hasher.Update(kDelimiter, kDelimiterLength);
   }
+  hasher.Update(extra_key);
 
   *signature = hasher.Digest();
   return true;

@@ -38,7 +38,8 @@ class Referenced {
   // Return false if attributes are mismatched, such as "absence" attributes
   // present
   // or "exact" match attributes don't present.
-  bool Signature(const Attributes& attributes, std::string* signature) const;
+  bool Signature(const Attributes& attributes, const std::string& extra_key,
+                 std::string* signature) const;
 
   // A hash value to identify an instance.
   std::string Hash() const;

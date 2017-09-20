@@ -169,7 +169,7 @@ void QuotaCache::CheckCache(const Attributes& request, bool check_use_cache,
   for (const auto& it : quota_ref.referenced_map) {
     const Referenced& referenced = it.second;
     std::string signature;
-    if (!referenced.Signature(request, &signature)) {
+    if (!referenced.Signature(request, quota->name, &signature)) {
       continue;
     }
     QuotaLRUCache::ScopedLookup lookup(cache_.get(), signature);
@@ -211,7 +211,7 @@ void QuotaCache::SetResponse(const Attributes& attributes,
   }
 
   std::string signature;
-  if (!referenced.Signature(attributes, &signature)) {
+  if (!referenced.Signature(attributes, quota_name, &signature)) {
     GOOGLE_LOG(ERROR) << "Quota response referenced mismatchs with request";
     GOOGLE_LOG(ERROR) << "Request attributes: " << attributes.DebugString();
     GOOGLE_LOG(ERROR) << "Referenced attributes: " << referenced.DebugString();

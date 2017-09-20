@@ -103,7 +103,7 @@ Status CheckCache::Check(const Attributes& attributes, Tick time_now) {
   for (const auto& it : referenced_map_) {
     const Referenced& reference = it.second;
     std::string signature;
-    if (!reference.Signature(attributes, &signature)) {
+    if (!reference.Signature(attributes, "", &signature)) {
       continue;
     }
 
@@ -139,7 +139,7 @@ Status CheckCache::CacheResponse(const Attributes& attributes,
     return ConvertRpcStatus(response.precondition().status());
   }
   std::string signature;
-  if (!referenced.Signature(attributes, &signature)) {
+  if (!referenced.Signature(attributes, "", &signature)) {
     GOOGLE_LOG(ERROR) << "Response referenced mismatchs with request";
     GOOGLE_LOG(ERROR) << "Request attributes: " << attributes.DebugString();
     GOOGLE_LOG(ERROR) << "Referenced attributes: " << referenced.DebugString();
