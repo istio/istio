@@ -214,6 +214,7 @@ func TestDeInitFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.s.failTearDown = true
+	log.Printf("Expecting error after RunTest, testing teardown failure case")
 	if ret := c.RunTest(tc.t); ret != 0 {
 		t.Errorf("RunTest should have passed")
 	}
