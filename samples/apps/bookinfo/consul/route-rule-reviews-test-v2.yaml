@@ -1,0 +1,16 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-test-v2
+spec:
+  destination:
+    service: reviews.service.consul
+  precedence: 2
+  match:
+    request:
+      headers:
+        cookie:
+          regex: "^(.*?;)?(user=jason)(;.*)?$"
+  route:
+  - labels:
+      version: v2

@@ -82,19 +82,19 @@ kubectl config use-context mac
 You can create basic routing rules using istioctl from the `samples/apps/bookinfo/consul` directory:
 
 ```
-istioctl create -f consul-reviews-v1.yaml
+istioctl create -f route-rule-all-v1.yaml
 ```
 
 This will set a rule to display no stars by default.
 
 ```
-istioctl replace -f consul-reviews-v3.yaml
+istioctl replace -f route-rule-reviews-v3.yaml
 ```
 
 This will set a rule to display red stars by default.
 
 ```
-istioctl create -f consul-content-rule.yaml
+istioctl create -f route-rule-reviews-test-v2.yaml
 ```
 
 This will display black stars - but only if you login as user `jason` (no password), otherwise only red stars will be shown.

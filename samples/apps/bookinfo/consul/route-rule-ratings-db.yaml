@@ -1,0 +1,23 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ratings-test-v2
+spec:
+  destination:
+    service: ratings.service.consul
+  precedence: 2
+  route:
+  - labels:
+      version: v2
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-test-ratings-v2
+spec:
+  destination:
+    service: reviews.service.consul
+  precedence: 2
+  route:
+  - labels:
+      version: v3
