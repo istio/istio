@@ -118,7 +118,9 @@ func TestSuccess(t *testing.T) {
 	tc := newTestConfig()
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret != 0 {
+		t.Errorf("non zero return value from RunTest")
+	}
 	b := []int{1, 2, 3, 4, 5}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
@@ -134,7 +136,9 @@ func TestFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failRun = true
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret == 0 {
+		t.Errorf("RunTest should have failed")
+	}
 	b := []int{1, 2, 4, 5}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
@@ -151,7 +155,9 @@ func TestInitFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failRun = true
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret == 0 {
+		t.Errorf("init should have failed during RunTest")
+	}
 	b := []int{5}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
@@ -167,7 +173,9 @@ func TestSetupFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failSetup = true
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret == 0 {
+		t.Errorf("RunTest should have failed")
+	}
 	b := []int{1, 4, 5}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
@@ -183,7 +191,9 @@ func TestTearDownFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.t.failTearDown = true
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret != 0 {
+		t.Errorf("RunTest should have passed since teardown happens after")
+	}
 	b := []int{1, 2, 3, 5}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
@@ -199,7 +209,9 @@ func TestDeInitFailure(t *testing.T) {
 	c.Cleanup.RegisterCleanable(tc.s)
 	c.Cleanup.RegisterCleanable(tc.t)
 	tc.s.failTearDown = true
-	c.RunTest(tc.t)
+	if ret := c.RunTest(tc.t); ret != 0 {
+		t.Errorf("RunTest should have passed")
+	}
 	b := []int{1, 2, 3, 4}
 	if !reflect.DeepEqual(*tc.q, b) {
 		t.Errorf("Order is not as expected %d %d", *tc.q, b)
