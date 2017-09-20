@@ -154,7 +154,9 @@ function merge_files() {
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
 
-  cp ${SRC}/istio-initializer.yaml.tmpl $ISTIO_INITIALIZER
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_INITIALIZER
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_INITIALIZER
+  cat ${SRC}/istio-initializer.yaml.tmpl >> $ISTIO_INITIALIZER
 }
 
 function update_version_file() {

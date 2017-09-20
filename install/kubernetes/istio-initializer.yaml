@@ -1,3 +1,5 @@
+# GENERATED FILE. Use with Kubernetes 1.7+
+# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 ---
 apiVersion: v1
 kind: ConfigMap
