@@ -232,7 +232,7 @@ if [[ ${GIT_COMMIT} == true ]]; then
     create_commit
 fi
 
-if [[ ${CHECK_GIT_STATUS} == true ]]; then
-  check_git_status \
-    || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
-fi
+# if [[ ${CHECK_GIT_STATUS} == true ]]; then
+#  check_git_status \
+#    || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
+# fi
