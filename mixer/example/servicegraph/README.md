@@ -19,6 +19,10 @@ generating servicegraphs. It exposes the following endpoints:
 All endpoints take an optional argument of `time_horizon`, which controls the 
 timespan to consider for graph generation.
 
+All endpoints also take an optional arugment of `filter_empty=true`, which will
+restrict the nodes and edges shown to only those that reflect non-zero traffic
+levels during the specified `time_horizon`.
+
 ### Demosvc service
 Defined in `servicegraph/cmd/demosvc`, this provides a simple HTTP endpoint that
 generates prometheus metrics. This can be used to test the servicegraph service.

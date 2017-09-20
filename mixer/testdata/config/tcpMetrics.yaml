@@ -9,9 +9,9 @@ spec:
   value: connection.sent.bytes | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: target.labels["version"] | "unknown"
-    destination_service: target.service | "unknown"
-    destination_version: target.labels["version"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -25,8 +25,8 @@ spec:
   value: connection.received.bytes | 0
   dimensions:
     source_service: source.service | "unknown"
-    source_version: target.labels["version"] | "unknown"
-    destination_service: target.service | "unknown"
-    destination_version: target.labels["version"] | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
   monitored_resource_type: '"UNSPECIFIED"'
 ---
