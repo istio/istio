@@ -25,13 +25,18 @@ import (
 
 	"istio.io/auth/pkg/pki"
 	"istio.io/auth/pkg/pki/testutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/pkg/api/v1"
 )
 
-func TestSelfSignedIstioCA(t *testing.T) {
+func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	certTTL := 30 * time.Minute
 	caCertTTL := time.Hour
 	org := "test.ca.org"
-	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org)
+	caNamespace := "default"
+	client := fake.NewSimpleClientset()
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
 	if err != nil {
 		t.Errorf("Failed to create a self-signed CA: %v", err)
 	}
@@ -101,6 +106,119 @@ func TestSelfSignedIstioCA(t *testing.T) {
 	if !bytes.Equal(bs, san.Value) {
 		t.Errorf("SAN field does not match: %s is expected but actual is %s", bs, san.Value)
 	}
+
+	caSecret, err := client.CoreV1().Secrets("default").Get(cASecret, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get secret (error: %s)", err)
+	}
+
+	signingCert, err := pki.ParsePemEncodedCertificate(caSecret.Data[cACertID])
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+	if !signingCert.Equal(ca.signingCert) {
+		t.Error("Cert does not match")
+	}
+
+	if len(ca.certChainBytes) > 0 {
+		t.Error("CertChain should be empty")
+	}
+
+	rootCertBytes := copyBytes(caSecret.Data[cACertID])
+	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
+		t.Error("Root cert does not match")
+	}
+}
+
+func TestSelfSignedIstioCAWithSecret(t *testing.T) {
+	rootCert := `
+-----BEGIN CERTIFICATE-----
+MIIC5jCCAc6gAwIBAgIRAO1DMLWq99XL/B2kRlNpnikwDQYJKoZIhvcNAQELBQAw
+HDEaMBgGA1UEChMRazhzLmNsdXN0ZXIubG9jYWwwHhcNMTcwOTIwMjMxODQwWhcN
+MTgwOTIwMjMxODQwWjAcMRowGAYDVQQKExFrOHMuY2x1c3Rlci5sb2NhbDCCASIw
+DQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKYSyDbjRlYuyyYJOuZQHiG9wOsn
+M4Rx/wWTJUOQthYz3uIBnR0WSMdyJ25VdpitHqDOR4hJo33DxNmknMnXhAuyVZoq
+YpoSx/UdlOBYNQivy6OCRxe3LuDbJ5+wNZ4y3OoEqMQjxWPWcL6iyaYHyVEJprMm
+IhjHD9yedJaX3F7pN0hosdtkfEsBkfcK5VPx99ekbAEo8DcsopG+XvNuT4nb7ww9
+wd9VtGA8upmgNOCJvkLGVHwybw67LL4T7nejdUQd9T7o7CfAXGmBlkuGWHnsbeOe
+QtCfHD3+6iCmRjcSUK6AfGnfcHTjbwzGjv48JPFaNbjm2hLixC0TdAdPousCAwEA
+AaMjMCEwDgYDVR0PAQH/BAQDAgIEMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcN
+AQELBQADggEBAHV5DdWspKxjeE4BsjnsA3oSkTBnbmUkMGFUtIgAvSlULYy3Wl4O
+bAj7VfxIegZbE3tnkuky9BwVCoBD+d2zIqCZ5Xl17+ki6cttLAFWni85cg9gX8a6
+2p/EMefUYxLXEdZTw80eAB56/34Xkt6g/CnB531W8vOvjTzg25qClkA7TjVIil2+
+kLAXl8xEp48cvAxX4FslgAlBPagpJYbjVM0BjQbgmGLg1rjoH/jbkQJyIabX5dSq
+9fdQYxkTzYnvcvgHf4WSl/awopjsI1NhNv07+qE8ie86EoYJgXPrNtlytyqSvIXQ
+2ETBxlxOg3DdlBwhBz/Hg31tCLv8E8U8fqQ=
+-----END CERTIFICATE-----
+	`
+
+	// Use the same signing cert and root cert for self-signed CA.
+	signingCert := rootCert
+
+	signingKey := `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAphLINuNGVi7LJgk65lAeIb3A6yczhHH/BZMlQ5C2FjPe4gGd
+HRZIx3InblV2mK0eoM5HiEmjfcPE2aScydeEC7JVmipimhLH9R2U4Fg1CK/Lo4JH
+F7cu4Nsnn7A1njLc6gSoxCPFY9ZwvqLJpgfJUQmmsyYiGMcP3J50lpfcXuk3SGix
+22R8SwGR9wrlU/H316RsASjwNyyikb5e825PidvvDD3B31W0YDy6maA04Im+QsZU
+fDJvDrssvhPud6N1RB31PujsJ8BcaYGWS4ZYeext455C0J8cPf7qIKZGNxJQroB8
+ad9wdONvDMaO/jwk8Vo1uObaEuLELRN0B0+i6wIDAQABAoIBAHzHVelvoFR2uips
++vU7MziU0xOcE6gq4rr0kSYP39AUzx0uqzbEnJBGY/wReJdEU+PsuXBcK9v9sLT6
+atd493y2VH0N5aHwBI9V15ssi0RomW/UHchi2XUXFNF12wNvIe8u6wLcAZ5+651A
+wJPf+9HIl5i5SRsmzfMsl1ri5S/lgnjUQty4GYnT/Y53uaZoquX+sUhZ3pW8SkzX
+ZvKvMbj6UOiXlelDgtEGOCgftjdm916OfnQDnSOJsh/0UvM/Bn3kQJEOgwzhMy2/
++TOIB04wVN7K6ZEbSaV7gkciiDyjg0XhJqfkmOUm8kLhLFgervjrBdkUSuukdGmq
+TZmP1EkCgYEA194D0hslC//Qu0XtUCcJgLV4a41U/PDYIStf92FRXcqqYGBHDtzJ
+1J86BuO/cjOdp+jZBjIIoECvY3n3TCacUiKvjmszMtanwz42eFPpVgSi3pZcyBF+
+cLPB08dnUWxrxA46ss1g6gjPXjUXuEFkxuogrPiNwQPuwZnjrPWa580CgYEAxPLg
+oXZ7BFVUxDEUjokj9HsvSToJNAIu7XAc84Z00yJ8z/B/muCZtpC5CZ2ZhejwBioR
+AbpPEVRXFs9M2W1jW2YgO8iVcXiLT+qmNnjqGZuZnhzkMC2q9RnHrRfYMUO5bVOX
+bw0UqnEMo7vTLEN47FnImr6Jv9cQFXztJEVZjZcCgYAtQPrWEiC7Gj7885Tjh7uD
+QwfirDdT632zvm8Y4kr3eaQsHiLnZ7vcGiFFDnu1CkMTz0mn9dc/GTBrj0cbrMB6
+q5DYL3sFPmDfGmy63wR8pu4p8aWzv48dO2H37sanGC6jZERD9bBKf9xRKJo3Y2Yo
+GS8Oc/DrtNJZvdQwDzERRQKBgGFd8c/hU1ABH7cezJrrEet8OxRorMQZkDmyg52h
+i4AWPL5Ql8Vp5JRtWA147L1XO9LQWTgRc6WNnMCaG9QiUEyPYMAtmjRO9BC+YQ3t
+GU8vrfKNNgLbkPk7lYvtjeRNJw71lJhCT0U0Pptz8CKh+NZgTNyz9kXxfPIioNqd
+rnhhAoGANfiSkuFuw2+WpBvTNah+wcZDNiMbvkQVhUwRvqIM6sLhRJhVZzJkTrYu
+YQTFeoqvepyHWE9e1Mb5dGFHMvXywZQR0hR2rpWxA2OgNaRhqL7Rh7th+V/owIi9
+7lGXdUBnyY8tcLhla+Rbo7Y8yOsN6pp4grT1DP+8rG4G4vnJgbk=
+-----END RSA PRIVATE KEY-----
+	`
+
+	client := fake.NewSimpleClientset()
+	initSecret := createSecret("default", signingCert, signingKey, rootCert)
+	_, err := client.CoreV1().Secrets("default").Create(initSecret)
+	if err != nil {
+		t.Errorf("Failed to create secret (error: %s)", err)
+	}
+
+	certTTL := 30 * time.Minute
+	caCertTTL := time.Hour
+	org := "test.ca.org"
+	caNamespace := "default"
+
+	ca, err := NewSelfSignedIstioCA(caCertTTL, certTTL, org, caNamespace, client.CoreV1())
+	if ca == nil || err != nil {
+		t.Errorf("Expecting an error but an Istio CA is wrongly instantiated")
+	}
+
+	cert, err := pki.ParsePemEncodedCertificate([]byte(signingCert))
+	if err != nil {
+		t.Errorf("Failed to parse cert (error: %s)", err)
+	}
+	if !cert.Equal(ca.signingCert) {
+		t.Error("Cert does not match")
+	}
+
+	if len(ca.certChainBytes) > 0 {
+		t.Error("CertChain should be empty")
+	}
+
+	rootCertBytes := copyBytes([]byte(rootCert))
+	if !bytes.Equal(ca.rootCertBytes, rootCertBytes) {
+		t.Error("Root cert does not match")
+	}
+
 }
 
 // Pass in unmatched chain and cert to make sure the `verify` method yeilds an error.
@@ -289,4 +407,19 @@ func createCA() (CertificateAuthority, error) {
 	}
 
 	return NewIstioCA(caOpts)
+}
+
+// TODO(wattli): move the two functions below as a util function to share with secret_test.go
+func createSecret(namespace, signingCert, signingKey, rootCert string) *v1.Secret {
+	return &v1.Secret{
+		Data: map[string][]byte{
+			cACertID:       []byte(signingCert),
+			cAPrivateKeyID: []byte(signingKey),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cASecret,
+			Namespace: namespace,
+		},
+		Type: istioCASecretType,
+	}
 }
