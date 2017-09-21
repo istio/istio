@@ -364,3 +364,41 @@ func TestCascadingAbort(t *testing.T) {
 	a.ScheduleConfigUpdate(2)
 	<-ctx.Done()
 }
+
+// TestLockup plays a scenario that may cause a deadlock
+//  * start epoch 0
+//  * start epoch 1 (wait till sets desired and current config)
+//  * epoch 0 crashes, triggers abort
+//  * epoch 1 aborts
+//  * progress should be made
+func TestLockup(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	crash := make(chan struct{})
+	try := 0
+	start := func(config interface{}, epoch int, abort <-chan error) error {
+		if try >= 2 {
+			cancel()
+			return nil
+		}
+		try = try + 1
+		switch epoch {
+		case 0:
+			<-crash
+			return errors.New("crash")
+		case 1:
+			close(crash)
+			err := <-abort
+			return err
+		}
+		return nil
+	}
+	a := NewAgent(TestProxy{start, func(_ int) {}, nil}, testRetry)
+	go a.Run(ctx)
+	a.ScheduleConfigUpdate(0)
+	a.ScheduleConfigUpdate(1)
+	select {
+	case <-ctx.Done():
+	case <-time.After(1 * time.Second):
+		t.Error("liveness check failed")
+	}
+}
