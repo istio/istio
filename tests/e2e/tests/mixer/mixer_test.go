@@ -113,7 +113,7 @@ func (t *testConfig) Setup() (err error) {
 	err = createDefaultRoutingRules()
 
 	if !util.CheckPodsRunning(tc.Kube.Namespace) {
-		return fmt.Errorf("Can't get all pods running")
+		return fmt.Errorf("can't get all pods running")
 	}
 
 	// pre-warm the system. we don't care about what happens with this

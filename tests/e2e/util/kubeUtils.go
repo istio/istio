@@ -202,6 +202,7 @@ func GetIngressPod(n string) (string, error) {
 	return ingress, err
 }
 
+// GetPodsName gets names of all pods in specific namespace and return in a slice
 func GetPodsName(n string) (pods []string) {
 	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items..metadata.name}'", n)
 	if err != nil {
@@ -214,6 +215,7 @@ func GetPodsName(n string) (pods []string) {
 	return
 }
 
+// GetPodStatus gets status of a pod from a namespace
 func GetPodStatus(n, pod string) string {
 	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}", n, pod)
 	if err != nil {
@@ -223,6 +225,7 @@ func GetPodStatus(n, pod string) string {
 	return strings.Trim(status, "'")
 }
 
+// CheckPodsRunning return if all pods in a namespace are in "Running" status
 func CheckPodsRunning(n string) (ready bool) {
 	retry := Retrier{
 		BaseDelay: 30 * time.Second,
@@ -240,8 +243,11 @@ func CheckPodsRunning(n string) (ready bool) {
 			}
 		}
 		if !ready {
-			Shell("kubectl -n %s get pods -o wide", n)
-			return fmt.Errorf("Some pods are not ready")
+			_, err := Shell("kubectl -n %s get pods -o wide", n)
+			if err != nil {
+				glog.Infof("Cannot get pods: %s", err)
+			}
+			return fmt.Errorf("some pods are not ready")
 		}
 		return nil
 	}
