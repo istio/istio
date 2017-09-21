@@ -467,7 +467,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		// handled by buildOutboundTCPListeners
 
 	default:
-		glog.Warningf("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
+		glog.V(4).Infof("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
 	}
 
 	return nil
@@ -681,7 +681,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 			listeners = append(listeners, listener)
 
 		default:
-			glog.Warningf("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
+			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
 		}
 	}
 
