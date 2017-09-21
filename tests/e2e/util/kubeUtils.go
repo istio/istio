@@ -201,3 +201,54 @@ func GetIngressPod(n string) (string, error) {
 	_, err := retry.Retry(retryFn)
 	return ingress, err
 }
+
+func GetPodsName(n string) (pods []string) {
+	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items..metadata.name}'", n)
+	if err != nil {
+		glog.Infof("Failed to get pods name in namespace %s: %s", n, err)
+		return
+	}
+	res = strings.Trim(res, "'")
+	pods = strings.Split(res, " ")
+	glog.Infof("Existing pods: %v", pods)
+	return
+}
+
+func GetPodStatus(n, pod string) string {
+	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}", n, pod)
+	if err != nil {
+		glog.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
+		status = "Failed to get"
+	}
+	return strings.Trim(status, "'")
+}
+
+func CheckPodsRunning(n string) (ready bool) {
+	retry := Retrier{
+		BaseDelay: 30 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   6,
+	}
+
+	retryFn := func(i int) error {
+		pods := GetPodsName(n)
+		ready = true
+		for _, p := range pods {
+			if status := GetPodStatus(n, p); status != "Running" {
+				glog.Infof("%s in namespace %s is not running: %s", p, n, status)
+				ready = false
+			}
+		}
+		if !ready {
+			Shell("kubectl -n %s get pods -o wide", n)
+			return fmt.Errorf("Some pods are not ready")
+		}
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	if err != nil {
+		return false
+	}
+	glog.Info("Get all pods running!")
+	return true
+}
