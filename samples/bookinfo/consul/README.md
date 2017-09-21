@@ -25,7 +25,7 @@ The ingress controller is still under construction, routing functionalities can 
 First step is to configure kubectl to use the apiserver created in the steps below:
 
 ```
-istioctl context-create --api-server=http://172.28.0.13:8080
+istioctl context-create --api-server http://172.28.0.13:8080
 ```
 
 To build all images for the bookinfo sample for the consul adapter, run:
