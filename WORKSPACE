@@ -39,7 +39,7 @@ bind(
 git_repository(
     name = "envoy",
     remote = "https://github.com/envoyproxy/envoy.git",
-    commit = "ec3446e9b3631568db6223e9eaf37fc6ce9f6cf2", # Sep 17, 2017 (added support for regex route matching)
+    commit = "2c7ee712a0795e79732546de8b01e1e7319d809c", # Sep 20, 2017 (bugfix for envoy crash w/ HTTP2 promise frames)
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
