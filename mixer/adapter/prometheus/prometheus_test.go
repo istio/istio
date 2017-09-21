@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 
@@ -147,7 +148,7 @@ var (
 	gaugeVal = newGaugeVal(gaugeNoLabels.InstanceName, int64(993))
 )
 
-func TestFactory_NewMetricsAspect(t *testing.T) {
+func TestBuild(t *testing.T) {
 	f := newBuilder(&testServer{})
 
 	tests := []struct {
@@ -168,6 +169,56 @@ func TestFactory_NewMetricsAspect(t *testing.T) {
 			f.SetAdapterConfig(makeConfig(v.metrics...))
 			if _, err := f.Build(context.Background(), test.NewEnv(t)); err != nil {
 				t.Errorf("NewMetricsAspect() => unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestBucket(t *testing.T) {
+	tests := []struct {
+		name      string
+		bucketDef *config.Params_MetricInfo_BucketsDefinition
+		want      []float64
+	}{
+		{
+			name: "linear bucket",
+			bucketDef: &config.Params_MetricInfo_BucketsDefinition{
+				Definition: &config.Params_MetricInfo_BucketsDefinition_LinearBuckets{
+					LinearBuckets: &config.Params_MetricInfo_BucketsDefinition_Linear{
+						Offset: 4, Width: 1, NumFiniteBuckets: 1,
+					},
+				},
+			},
+			want: []float64{4, 5},
+		},
+		{
+			name: "explicit bucket",
+			bucketDef: &config.Params_MetricInfo_BucketsDefinition{
+				Definition: &config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets{
+					ExplicitBuckets: &config.Params_MetricInfo_BucketsDefinition_Explicit{
+						Bounds: []float64{6, 7},
+					},
+				},
+			},
+			want: []float64{6, 7},
+		},
+		{
+			name: "exponential bucket",
+			bucketDef: &config.Params_MetricInfo_BucketsDefinition{
+				Definition: &config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets{
+					ExponentialBuckets: &config.Params_MetricInfo_BucketsDefinition_Exponential{
+						GrowthFactor: 3, NumFiniteBuckets: 3, Scale: 4,
+					},
+				},
+			},
+			want: []float64{4, 12, 36, 108},
+		},
+	}
+
+	for _, v := range tests {
+		t.Run(v.name, func(t *testing.T) {
+			if got := buckets(v.bucketDef); !reflect.DeepEqual(got, v.want) {
+				t.Errorf("bucket() => %v; want %v", got, v.want)
 			}
 		})
 	}

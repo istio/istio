@@ -18,7 +18,6 @@ go_library(
         "info.go",
         "labels.go",
         "lists.go",
-        "metrics.go",
         "quotas.go",
         "registrar.go",
         "result.go",
