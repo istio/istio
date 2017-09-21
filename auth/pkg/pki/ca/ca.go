@@ -22,10 +22,24 @@ import (
 	"errors"
 	"time"
 
+	"github.com/golang/glog"
 	"istio.io/auth/pkg/pki"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	apiv1 "k8s.io/client-go/pkg/api/v1"
 )
 
 const (
+	// istioCASecretType is the Istio secret annotation type.
+	istioCASecretType = "istio.io/ca-root"
+
+	// cACertChainID is the CA certificate chain file.
+	cACertID = "ca-cert.pem"
+	// cAPrivateKeyID is the private key file of CA.
+	cAPrivateKeyID = "ca-key.pem"
+	// cASecret stores the key/cert of self-signed CA for persistency purpose.
+	cASecret = "istio-ca-secret"
+
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
 )
@@ -56,24 +70,57 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCA returns a new IstioCA instance using self-signed certificate.
-func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, org string) (*IstioCA, error) {
-	now := time.Now()
-	options := CertOptions{
-		NotBefore:    now,
-		NotAfter:     now.Add(caCertTTL),
-		Org:          org,
-		IsCA:         true,
-		IsSelfSigned: true,
-		RSAKeySize:   caKeySize,
-	}
-	pemCert, pemKey := GenCert(options)
+func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, org string, namespace string,
+	core corev1.SecretsGetter) (*IstioCA, error) {
 
+	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
+	// cASecret. For subsequent restart, CA will reads key/cert from cASecret.
+	caSecret, err := core.Secrets(namespace).Get(cASecret, metav1.GetOptions{})
 	opts := &IstioCAOptions{
-		CertTTL:          certTTL,
-		SigningCertBytes: pemCert,
-		SigningKeyBytes:  pemKey,
-		RootCertBytes:    pemCert,
+		CertTTL: certTTL,
 	}
+	if err != nil {
+		glog.Infof("Failed to get secret (error: %s), will create one", err)
+
+		now := time.Now()
+		options := CertOptions{
+			NotBefore:    now,
+			NotAfter:     now.Add(caCertTTL),
+			Org:          org,
+			IsCA:         true,
+			IsSelfSigned: true,
+			RSAKeySize:   caKeySize,
+		}
+		pemCert, pemKey := GenCert(options)
+
+		opts.SigningCertBytes = pemCert
+		opts.SigningKeyBytes = pemKey
+		opts.RootCertBytes = pemCert
+
+		// Rewrite the key/cert back to secret so they will be persistent when CA restarts.
+		secret := &apiv1.Secret{
+			Data: map[string][]byte{
+				cACertID:       pemCert,
+				cAPrivateKeyID: pemKey,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cASecret,
+				Namespace: namespace,
+			},
+			Type: istioCASecretType,
+		}
+		_, err := core.Secrets(namespace).Create(secret)
+		if err != nil {
+			glog.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
+		}
+	} else {
+		// Reuse existing key/cert in secrets.
+		// TODO(wattli): better handle the logic when the key/cert are invalid.
+		opts.SigningCertBytes = caSecret.Data[cACertID]
+		opts.SigningKeyBytes = caSecret.Data[cAPrivateKeyID]
+		opts.RootCertBytes = caSecret.Data[cACertID]
+	}
+
 	return NewIstioCA(opts)
 }
 

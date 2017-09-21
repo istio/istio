@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -49,7 +50,10 @@ type cliOptions struct {
 	signingKeyFile  string
 	rootCertFile    string
 
-	namespace      string
+	namespace string
+
+	istioCaStorageNamespace string
+
 	kubeConfigFile string
 
 	selfSignedCA    bool
@@ -85,6 +89,9 @@ func init() {
 	flags.StringVar(&opts.namespace, "namespace", "",
 		"Select a namespace for the CA to listen to. If unspecified, Istio CA tries to use the ${"+namespaceKey+"} "+
 			"environment variable. If neither is set, Istio CA listens to all namespaces.")
+	flags.StringVar(&opts.istioCaStorageNamespace, "istio-ca-storage-namespace", "istio-system", "Namespace where "+
+		"the Istio CA pods is running. Will not be used if explicit file or other storage mechanism is specified.")
+
 	flags.StringVar(&opts.kubeConfigFile, "kube-config", "",
 		"Specifies path to kubeconfig file. This must be specified when not running inside a Kubernetes pod.")
 
@@ -116,17 +123,19 @@ func main() {
 }
 
 func runCA() {
-	if opts.namespace == "" {
+	if value, exists := os.LookupEnv(namespaceKey); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
-		if value, exists := os.LookupEnv(namespaceKey); exists {
+		if opts.namespace == "" {
 			opts.namespace = value
 		}
+		// Use environment variable for istioCaStorageNamespace if it exists
+		opts.istioCaStorageNamespace = value
 	}
 
 	verifyCommandLineOptions()
 
-	ca := createCA()
 	cs := createClientset()
+	ca := createCA(cs.CoreV1())
 	sc := controller.NewSecretController(ca, cs.CoreV1(), opts.namespace)
 
 	stopCh := make(chan struct{})
@@ -154,11 +163,13 @@ func createClientset() *kubernetes.Clientset {
 	return cs
 }
 
-func createCA() ca.CertificateAuthority {
+func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.selfSignedCA {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
-		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg)
+		// TODO(wattli): Refactor this and combine it with NewIstioCA().
+		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
+			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
@@ -179,7 +190,7 @@ func createCA() ca.CertificateAuthority {
 
 	ca, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		glog.Errorf("Failed to create an Istio CA (error %v)", err)
+		glog.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
 	return ca
 }
