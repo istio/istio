@@ -7,7 +7,21 @@ info:
   license:
     name: "Apache 2.0"
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: <producer_project_id>-<istio_service_name>.cloud.goog
 basePath: "/api/v1"
+x-google-allow: configured
+x-google-management:
+  quota:
+    limits:
+      - name: bookinfo-read-requests
+        values:
+          STANDARD: 1000 # user provided in Swagger as "default_limit"
+        unit: "1/min/{project}"
+        metric: <producer_project_id>-<istio_service_name>.cloud.goog/read_requests
+  metrics:
+    - name: <producer_project_id>-<istio_service_name>.cloud.goog/read_requests
+      valueType: INT64 # default
+      metricKind: GAUGE # default
 tags:
 - name: "product"
   description: "Information about a product (in this case a book)"
@@ -37,6 +51,9 @@ paths:
             type: "array"
             items:
               $ref: "#/definitions/Product"
+      x-google-quota:
+        metricCosts:
+          <producer_project_id>-<istio_service_name>.cloud.goog/read_requests: 10
   /products/{id}:
     get:
       tags:
@@ -62,6 +79,9 @@ paths:
             $ref: "#/definitions/ProductDetails"
         400:
           description: "Invalid product id"
+      x-google-quota:
+        metricCosts:
+          <producer_project_id>-<istio_service_name>.cloud.goog/read_requests: 1
   /products/{id}/reviews:
     get:
       tags:
@@ -87,6 +107,9 @@ paths:
             $ref: "#/definitions/ProductReviews"
         400:
           description: "Invalid product id"
+      x-google-quota:
+        metricCosts:
+          <producer_project_id>-<istio_service_name>.cloud.goog/read_requests: 1
   /products/{id}/ratings:
     get:
       tags:
@@ -112,7 +135,9 @@ paths:
             $ref: "#/definitions/ProductRatings"
         400:
           description: "Invalid product id"
-
+      x-google-quota:
+        metricCosts:
+          <producer_project_id>-<istio_service_name>.cloud.goog/read_requests: 10
 
 definitions:
   Product:
