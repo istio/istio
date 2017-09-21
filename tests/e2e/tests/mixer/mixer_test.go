@@ -40,10 +40,10 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/apps/bookinfo/bookinfo-db.yaml"
-	rulesDir                 = "samples/apps/bookinfo/rules"
+	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"

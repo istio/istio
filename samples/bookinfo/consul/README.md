@@ -39,7 +39,7 @@ To build all images for the bookinfo sample for the consul adapter, run:
   ./build-docker-services.sh
   ```
 
-To bring up all containers directly, from the `samples/apps/bookinfo/consul` directory run
+To bring up all containers directly, from the `samples/bookinfo/consul` directory run
 
   ```
   docker-compose up -d
@@ -79,7 +79,7 @@ kubectl config set-context mac --cluster=mac
 kubectl config use-context mac
 ```
 
-You can create basic routing rules using istioctl from the `samples/apps/bookinfo/consul` directory:
+You can create basic routing rules using istioctl from the `samples/bookinfo/consul` directory:
 
 ```
 istioctl create -f consul-reviews-v1.yaml
