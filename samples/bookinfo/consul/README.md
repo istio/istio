@@ -69,7 +69,7 @@ If you refresh the page several times, you should see different versions of revi
 NOTE: Mac users will have to run the following commands first prior to creating a rule:
 
 ```
-istioctl context-create --context mac --api-server=http://localhost:8080
+istioctl context-create --context mac --api-server http://localhost:8080
 ```
 
 You can create basic routing rules using istioctl from the `samples/bookinfo/consul` directory:
