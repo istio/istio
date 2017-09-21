@@ -246,7 +246,7 @@ func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
 	return c
 }
 
-func newHistogramVec(name, desc string, labels []string, bucketDef adapter.BucketDefinition) *prometheus.HistogramVec {
+func newHistogramVec(name, desc string, labels []string, bucketDef *config.Params_MetricInfo_BucketsDefinition) *prometheus.HistogramVec {
 	if desc == "" {
 		desc = name
 	}
@@ -261,17 +261,17 @@ func newHistogramVec(name, desc string, labels []string, bucketDef adapter.Bucke
 	return c
 }
 
-func buckets(def adapter.BucketDefinition) []float64 {
-	switch def.(type) {
-	case *adapter.ExplicitBuckets:
-		b := def.(*adapter.ExplicitBuckets)
+func buckets(def *config.Params_MetricInfo_BucketsDefinition) []float64 {
+	switch def.GetDefinition().(type) {
+	case *config.Params_MetricInfo_BucketsDefinition_ExplicitBuckets:
+		b := def.GetExplicitBuckets()
 		return b.Bounds
-	case *adapter.LinearBuckets:
-		lb := def.(*adapter.LinearBuckets)
-		return prometheus.LinearBuckets(lb.Offset, lb.Width, int(lb.Count+1))
-	case *adapter.ExponentialBuckets:
-		eb := def.(*adapter.ExponentialBuckets)
-		return prometheus.ExponentialBuckets(eb.Scale, eb.GrowthFactor, int(eb.Count+1))
+	case *config.Params_MetricInfo_BucketsDefinition_LinearBuckets:
+		lb := def.GetLinearBuckets()
+		return prometheus.LinearBuckets(lb.Offset, lb.Width, int(lb.NumFiniteBuckets+1))
+	case *config.Params_MetricInfo_BucketsDefinition_ExponentialBuckets:
+		eb := def.GetExponentialBuckets()
+		return prometheus.ExponentialBuckets(eb.Scale, eb.GrowthFactor, int(eb.NumFiniteBuckets+1))
 	default:
 		return prometheus.DefBuckets
 	}
@@ -289,7 +289,6 @@ func labelNames(m []string) []string {
 // targeted for removal soon(tm). So, we duplicate that functionality here
 // to maintain it long-term, as we have a use case for the convenience.
 func registerOrGet(registry *prometheus.Registry, c prometheus.Collector) (prometheus.Collector, error) {
-
 	if err := registry.Register(c); err != nil {
 		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
 			return are.ExistingCollector, nil
