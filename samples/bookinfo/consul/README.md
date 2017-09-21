@@ -15,9 +15,6 @@ Note that Istio pilot is running inside each app container so as to coordinate E
 
  * Clone Istio Pilot [repo](https://github.com/istio/pilot) (required only if building images locally)
 
- * Download and install Kubernetes CLI [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) version
-  1.7.3 or higher.
-
  * Download istioctl from Istio's [releases page](https://github.com/istio/istio/releases) or build from
  source in Istio Pilot repository
 
@@ -28,9 +25,7 @@ The ingress controller is still under construction, routing functionalities can 
 First step is to configure kubectl to use the apiserver created in the steps below:
 
 ```
-kubectl config set-cluster local --server=http://172.28.0.13:8080
-kubectl config set-context local --cluster=local
-kubectl config use-context local
+istioctl context-create --api-server=http://172.28.0.13:8080
 ```
 
 To build all images for the bookinfo sample for the consul adapter, run:
@@ -39,7 +34,7 @@ To build all images for the bookinfo sample for the consul adapter, run:
   ./build-docker-services.sh
   ```
 
-To bring up all containers directly, from the `samples/apps/bookinfo/consul` directory run
+To bring up all containers directly, from the `samples/bookinfo/consul` directory run
 
   ```
   docker-compose up -d
@@ -74,12 +69,10 @@ If you refresh the page several times, you should see different versions of revi
 NOTE: Mac users will have to run the following commands first prior to creating a rule:
 
 ```
-kubectl config set-cluster mac --server=http://localhost:8080
-kubectl config set-context mac --cluster=mac
-kubectl config use-context mac
+istioctl context-create --context mac --api-server=http://localhost:8080
 ```
 
-You can create basic routing rules using istioctl from the `samples/apps/bookinfo/consul` directory:
+You can create basic routing rules using istioctl from the `samples/bookinfo/consul` directory:
 
 ```
 istioctl create -f route-rule-all-v1.yaml
