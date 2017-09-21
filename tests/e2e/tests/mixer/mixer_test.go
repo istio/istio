@@ -43,7 +43,7 @@ const (
 	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
 	bookinfoRatingsv2Yaml    = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml           = "samples/apps/bookinfo/bookinfo-db.yaml"
-	rulesDir                 = "samples/apps/bookinfo/rules"
+	rulesDir                 = "samples/apps/bookinfo/rules/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"

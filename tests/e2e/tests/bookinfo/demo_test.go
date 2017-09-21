@@ -41,7 +41,7 @@ const (
 	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
 	bookinfoDbYaml        = "samples/apps/bookinfo/bookinfo-db.yaml"
 	modelDir              = "tests/apps/bookinfo/output"
-	rulesDir              = "samples/apps/bookinfo/rules"
+	rulesDir              = "samples/apps/bookinfo/kube/rules"
 	allRule               = "route-rule-all-v1.yaml"
 	delayRule             = "route-rule-ratings-test-delay.yaml"
 	fiftyRule             = "route-rule-reviews-50-v3.yaml"
