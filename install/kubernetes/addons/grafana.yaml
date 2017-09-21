@@ -17,18 +17,18 @@ kind: Deployment
 metadata:
   name: grafana
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: grafana
     spec:
       containers:
       - name: grafana
-        image: gcr.io/istio-testing/grafana:4235a86c20cf7667dd8b9f96a926a46f37e99c1c
+        image: gcr.io/istio-testing/grafana:5c3f8f14085870d8af05ca5f26e30227bd6b3e72
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000
