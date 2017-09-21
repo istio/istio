@@ -34,7 +34,7 @@ To build all images for the bookinfo sample for the consul adapter, run:
   ./build-docker-services.sh
   ```
 
-To bring up all containers directly, from the `samples/apps/bookinfo/consul` directory run
+To bring up all containers directly, from the `samples/bookinfo/consul` directory run
 
   ```
   docker-compose up -d
@@ -72,7 +72,7 @@ NOTE: Mac users will have to run the following commands first prior to creating 
 istioctl context-create --context mac --api-server http://localhost:8080
 ```
 
-You can create basic routing rules using istioctl from the `samples/apps/bookinfo/rules/consul` directory:
+You can create basic routing rules using istioctl from the `samples/bookinfo/rules/consul` directory:
 
 ```
 istioctl create -f route-rule-all-v1.yaml
