@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/platform"
 )
 
 type tcp struct {
@@ -36,6 +37,10 @@ func (t *tcp) teardown() {
 }
 
 func (t *tcp) run() error {
+	// TCP in Eureka is tested by the headless service test.
+	if platform.ServiceRegistry(t.Registry) == platform.EurekaRegistry {
+		return nil
+	}
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b"}
 	if t.Auth == proxyconfig.MeshConfig_NONE {

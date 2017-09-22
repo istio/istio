@@ -81,6 +81,12 @@ spec:
         args:
         - discovery
         - --v={{.Verbosity}}
+        - -a
+        - {{.Namespace}}
+        - --registries
+        - {{.Registry}}
+        - --eurekaserverURL
+        - http://eureka:8080
 {{if .UseAdmissionWebhook}}
         - --admission-service={{.AdmissionServiceName}}
 {{end}}

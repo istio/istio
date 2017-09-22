@@ -39,6 +39,11 @@ func (t *egressRules) setup() error {
 
 // TODO: test negatives
 func (t *egressRules) run() error {
+	if !t.Egress {
+		glog.Info("skipping test since egress is missing")
+		return nil
+	}
+
 	cases := []struct {
 		description string
 		config      string

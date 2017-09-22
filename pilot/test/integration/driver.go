@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/pilot/platform"
 	"istio.io/pilot/platform/kube"
 	"istio.io/pilot/platform/kube/inject"
 	"istio.io/pilot/test/util"
@@ -70,6 +71,7 @@ func init() {
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&params.Namespace, "n", "",
 		"Namespace in which to install the applications (empty to create/delete temporary one)")
+	flag.StringVar(&params.Registry, "registry", string(platform.KubernetesRegistry), "Pilot registry")
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
 	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 

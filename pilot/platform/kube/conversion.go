@@ -57,7 +57,7 @@ func convertPort(port v1.ServicePort) *model.Port {
 	return &model.Port{
 		Name:     port.Name,
 		Port:     int(port.Port),
-		Protocol: convertProtocol(port.Name, port.Protocol),
+		Protocol: ConvertProtocol(port.Name, port.Protocol),
 	}
 }
 
@@ -127,7 +127,7 @@ func KeyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-// parseHostname extracts service name and namespace from the service hostnamei
+// parseHostname extracts service name and namespace from the service hostname
 func parseHostname(hostname string) (name string, namespace string, err error) {
 	parts := strings.Split(hostname, ".")
 	if len(parts) < 2 {
@@ -139,7 +139,8 @@ func parseHostname(hostname string) (name string, namespace string, err error) {
 	return
 }
 
-func convertProtocol(name string, proto v1.Protocol) model.Protocol {
+// ConvertProtocol from k8s protocol and port name
+func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 	out := model.ProtocolTCP
 	switch proto {
 	case v1.ProtocolUDP:

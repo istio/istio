@@ -51,7 +51,7 @@ var (
 
 func TestConvertProtocol(t *testing.T) {
 	for _, tt := range protocols {
-		out := convertProtocol(tt.name, tt.proto)
+		out := ConvertProtocol(tt.name, tt.proto)
 		if out != tt.out {
 			t.Errorf("convertProtocol(%q, %q) => %q, want %q", tt.name, tt.proto, out, tt.out)
 		}

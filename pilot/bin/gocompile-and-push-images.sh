@@ -60,7 +60,7 @@ if [[ "$hub" =~ ^gcr\.io ]]; then
 fi
 
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer; do
+  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
     docker build -f "Dockerfile.${image}" -t "$hub/$image:$tag" .
     docker push "$hub/$image:$tag"
   done

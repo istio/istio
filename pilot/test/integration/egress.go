@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"istio.io/pilot/platform"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,6 +35,9 @@ func (t *egress) String() string {
 
 func (t *egress) setup() error {
 	if !t.Egress {
+		return nil
+	}
+	if platform.ServiceRegistry(t.Registry) != platform.KubernetesRegistry {
 		return nil
 	}
 	if _, err := client.CoreV1().Services(t.Namespace).Create(&v1.Service{
@@ -72,6 +76,9 @@ func (t *egress) setup() error {
 func (t *egress) run() error {
 	if !t.Egress {
 		glog.Info("skipping test since egress is missing")
+		return nil
+	}
+	if platform.ServiceRegistry(t.Registry) != platform.KubernetesRegistry {
 		return nil
 	}
 	extServices := map[string]string{

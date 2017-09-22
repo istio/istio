@@ -65,8 +65,10 @@ spec:
           - "10090"
           - --port
           - "19090"
+{{if eq .healthPort "true"}}
           - --port
           - "3333"
+{{end}}
           - --version
           - "{{.version}}"
         ports:
@@ -76,6 +78,7 @@ spec:
         - containerPort: {{.port4}}
         - containerPort: 10090
         - containerPort: 19090
+{{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:
@@ -91,4 +94,5 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+{{end}}
 ---

@@ -20,6 +20,7 @@ go_library(
     deps = [
         "//adapter/config/crd:go_default_library",
         "//model:go_default_library",
+        "//platform:go_default_library",
         "//platform/kube:go_default_library",
         "//platform/kube/inject:go_default_library",
         "//test/util:go_default_library",

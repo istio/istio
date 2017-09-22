@@ -1,0 +1,40 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: eureka
+spec:
+  selector:
+    app: eureka
+  ports:
+    - protocol: TCP
+      port: 8080
+      name: http
+  type: NodePort
+---
+apiVersion: apps/v1beta1 # for versions before 1.6.0 use extensions/v1beta1
+kind: Deployment
+metadata:
+  name: eureka
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: eureka
+    spec:
+      containers:
+      - name: eureka
+        image: netflixoss/eureka:1.3.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+      - name: mirror
+        image: {{.Hub}}/eurekamirror:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - -url
+        - http://localhost:8080
+        - -namespace
+        - {{.Namespace}}
+        - -logtostderr
+---
