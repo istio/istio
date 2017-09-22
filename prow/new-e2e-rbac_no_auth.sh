@@ -67,3 +67,4 @@ done
 kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=cluster-admin --user=istio-prow-test-job@istio-testing.iam.gserviceaccount.com
 
 ./prow/e2e-suite-rbac-no_auth.sh "${@}"
+exit ${?}

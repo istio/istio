@@ -204,7 +204,7 @@ func GetIngressPod(n string) (string, error) {
 
 // GetPodsName gets names of all pods in specific namespace and return in a slice
 func GetPodsName(n string) (pods []string) {
-	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items..metadata.name}'", n)
+	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items[*].metadata.name}'", n)
 	if err != nil {
 		glog.Infof("Failed to get pods name in namespace %s: %s", n, err)
 		return
