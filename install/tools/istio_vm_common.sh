@@ -119,9 +119,8 @@ EOF
 # Parameters:
 # - name of the k8s cluster.
 function istioGenerateClusterConfigs() {
-   local K8SCLUSTER=${1:-K8SCLUSTER}
-
-   local NS=${ISTIO_NAMESPACE:-istio-system}
+  local K8S_CLUSTER=${1:-$K8S_CLUSTER}
+  local NS=${ISTIO_NAMESPACE:-istio-system}
 
   # Multiple tries, it may take some time until the controllers generate the IPs
   for i in {1..10}
@@ -153,6 +152,10 @@ function istioGenerateClusterConfigs() {
 
   CIDR=$(gcloud container clusters describe ${K8SCLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
+
+  echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
+  echo "The /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
+  echo "Generated Dnsmaq config file kubedns. Install it in /etc/dnsmasq.d and restart dnsmasq."
 }
 
 # Get an istio service account secret, extract it to files to be provisioned on a raw VM
@@ -170,10 +173,14 @@ function istio_provision_certs() {
   kubectl get $NS secret $SA -o jsonpath='{.data.cert-chain\.pem}' |base64 -d  > cert-chain.pem
   kubectl get $NS secret $SA -o jsonpath='{.data.root-cert\.pem}' |base64 -d  > root-cert.pem
   kubectl get $NS secret $SA -o jsonpath='{.data.key\.pem}' |base64 -d  > key.pem
+
+  echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
+  echo "The directory and files must be owned by 'istio-proxy' user"
 }
 
 
 # Install required files on a VM and run the setup script.
+# This is an example to help integrating the steps into the admin automation tools.
 #
 # Must be run for each VM added to the cluster
 # Params:
@@ -187,7 +194,7 @@ function istioBootstrapVM() {
  local SA=${2:-${SERVICE_ACCOUNT:-istio.default}}
  local NS=${3:-${SERVICE_NAMESPACE:-}}
 
-  istio_provision_certs $SA
+ istio_provision_certs $SA $NS
 
   local ISTIO_FILES=${ISTIO_FILES:-.}
 
@@ -208,25 +215,6 @@ function istioBootstrapVM() {
 
 
 # Helper functions for the main script
-
-# If Istio was built from source, copy the artifcats to the current directory, for use
-# by istioProvisionVM
-function istioCopyBuildFiles() {
-  local ISTIO_IO=${ISTIO_BASE:-${GOPATH:-$HOME/go}}/src/istio.io
-  local ISTIO_FILES=${ISTIO_FILES:-.}
-
-  (cd $ISTIO_IO/proxy; bazel build tools/deb/... )
-  (cd $ISTIO_IO/pilot; bazel build tools/deb/... )
-  (cd $ISTIO_IO/auth; bazel build tools/deb/... )
-
-  cp $ISTIO_IO/proxy/bazel-bin/tools/deb/istio-proxy-envoy.deb \
-     $ISTIO_IO/pilot/bazel-bin/tools/deb/istio-agent.deb \
-     $ISTIO_IO/auth/bazel-bin/tools/deb/istio-auth-node-agent.deb \
-     $ISTIO_IO/istio/install/tools/istio_vm_setup.sh \
-     $ISTIO_FILES
-  # For override to work
-  chmod +w *.deb
-}
 
 # Copy files to the VM.
 # - VM name - required, destination where files will be copied
