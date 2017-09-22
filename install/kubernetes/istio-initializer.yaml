@@ -1,3 +1,5 @@
+# GENERATED FILE. Use with Kubernetes 1.7+
+# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -10,10 +12,10 @@ data:
     namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
-      initImage: gcr.io/istio-testing/proxy_init:e32cdc4b77175ccc800231e4103ab2b0182ea25d
-      proxyImage: gcr.io/istio-testing/proxy:e32cdc4b77175ccc800231e4103ab2b0182ea25d
+      initImage: docker.io/istio/proxy_init:0.2.4
+      proxyImage: docker.io/istio/proxy:0.2.4
       verbosity: 2
-      version: e32cdc4b77175ccc800231e4103ab2b0182ea25d
+      version: 0.2.4
       meshConfigMapName: istio
       imagePullPolicy: IfNotPresent
 ---
@@ -47,7 +49,7 @@ spec:
       serviceAccountName: istio-initializer-service-account
       containers:
         - name: initializer
-          image: gcr.io/istio-testing/sidecar_initializer:e32cdc4b77175ccc800231e4103ab2b0182ea25d
+          image: docker.io/istio/sidecar_initializer:0.2.4
           imagePullPolicy: IfNotPresent
           args:
             - --port=8083
@@ -77,3 +79,4 @@ initializers:
           - statefulsets
           - jobs
           - daemonsets
+---

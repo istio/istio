@@ -33,9 +33,10 @@ const (
 	yamlSuffix         = ".yaml"
 	istioInstallDir    = "install/kubernetes"
 	istioAddonsDir     = "install/kubernetes/addons"
-	nonAuthInstallFile = "istio.yaml"
-	authInstallFile    = "istio-auth.yaml"
+	nonAuthInstallFile = "istio-one-namespace.yaml"
+	authInstallFile    = "istio-one-namespace-auth.yaml"
 	istioSystem        = "istio-system"
+	mixerConfigDefault = "istio-config-default"
 )
 
 var (
@@ -286,6 +287,8 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	content = replacePattern(k, content, "istio-initializer-admin-role-binding",
 		"istio-initializer-admin-role-binding-"+k.Namespace)
 
+	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate rbac file %s", dst)
@@ -343,6 +346,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	content = replacePattern(k, content, istioSystem, k.Namespace)
+	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
 
 	// Replace long refresh delays with short ones for the sake of tests.
 	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
@@ -366,11 +370,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
-
-	content = []byte(strings.Replace(string(content),
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]`,
-		`args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external", "-a", "`+k.Namespace+`"]`,
-		-1))
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
