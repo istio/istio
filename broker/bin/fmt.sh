@@ -15,11 +15,11 @@ UX=$(uname)
 
 #remove blank lines so gofmt / goimports can do their job
 for fl in ${GO_FILES}; do
-	if [[ ${UX} == "Darwin" ]];then
-		sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
-	else
-		sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
-	fi
+  if [[ ${UX} == "Darwin" ]];then
+    sed -i '' -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
+  else
+  sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
+  fi
 done
 gofmt -s -w ${GO_FILES}
 goimports -w -local istio.io ${GO_FILES}

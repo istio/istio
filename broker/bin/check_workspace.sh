@@ -1,26 +1,13 @@
 #!/bin/bash
-SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-ROOTDIR=$SCRIPTPATH/..
-cd $ROOTDIR
 
-ret=0
-TMPFILE=$(mktemp)
-
-function cleanup() {
-	rm -f $TMPFILE
-}
-
-trap cleanup EXIT
-
-grep -n commit WORKSPACE  | grep -v "#" > $TMPFILE
-ret=$?
+res=`grep -n commit WORKSPACE  | grep -v "#"`
 
 # found a commit line with no comment
-if [[ $ret -eq 0 ]];then
-	cat $TMPFILE
-	echo "Missing comment on dependency"
-	echo "https://github.com/istio/istio/blob/master/devel/README.md#adding-dependencies"
-	exit 1
+if [[ ! -z $res ]]; then
+  echo $res
+  echo "Missing comment on dependency"
+  echo "https://github.com/istio/istio/blob/master/devel/README.md#adding-dependencies"
+  exit 1
 fi
 
 exit 0

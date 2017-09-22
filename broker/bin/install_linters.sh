@@ -1,9 +1,11 @@
 #!/bin/bash
 
-echo "Installing or updating linters"
-go get -u gopkg.in/alecthomas/gometalinter.v1
-go get -u github.com/bazelbuild/buildifier/buildifier
-go get -u github.com/3rf/codecoroner
-gometalinter.v1 --update --install --vendored-linters >/dev/null
+set -ex
 
-echo Done installing linters
+echo "Installing or updating linters"
+go get -u github.com/alecthomas/gometalinter
+gometalinter --install --update --vendored-linters
+echo "Done installing linters"
+
+# Install buildifier BUILD file validator
+go get -u github.com/bazelbuild/buildifier/buildifier

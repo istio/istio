@@ -11,6 +11,6 @@ echo "Perf test"
 DIRS=""
 cd $ROOT
 for pkgdir in ${DIRS}; do
-    cd ${ROOT}/${pkgdir} 
-    go test -run=^$  -bench=.  -benchmem
+  cd ${ROOT}/${pkgdir}
+  go test -run=^$  -bench=.  -benchmem
 done

@@ -9,9 +9,9 @@ echo "buildID $(date +%F)-$(git rev-parse --short HEAD)"
 git diff-index --quiet HEAD --
 if [[ $? == 0 ]];
 then
-    tree_status="Clean"
+  tree_status="Clean"
 else
-    tree_status="Modified"
+  tree_status="Modified"
 fi
 echo "buildStatus ${tree_status}"
 
@@ -19,5 +19,5 @@ echo "buildStatus ${tree_status}"
 VERSION=$(git describe)
 if [[ $? == 0 ]];
 then
-    echo "buildVersion ${VERSION}"
+  echo "buildVersion ${VERSION}"
 fi

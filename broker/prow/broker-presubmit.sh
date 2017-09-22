@@ -48,10 +48,8 @@ make build
 echo "=== Bazel Tests ==="
 make test
 
-# TODO temporary turn off
 # echo "=== Code Check ==="
-#export LAST_GOOD_GITSHA="${PULL_PULL_SHA}"
-# make lint
+make lint
 
 #echo "=== Code Coverage ==="
 #make coverage | tee codecov.report

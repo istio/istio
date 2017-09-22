@@ -38,7 +38,8 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 			runServer(sa, printf, fatalf)
 		},
 	}
-	serverCmd.PersistentFlags().Uint16Var(&sa.port, "port", 9091, "TCP port to use for Broker's Open Service Broker (OSB) API")
+	serverCmd.PersistentFlags().Uint16Var(&sa.port, "port", 9091,
+		"TCP port to use for Broker's Open Service Broker (OSB) API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.apiPort, "apiPort", 9093, "TCP port to use for Broker's gRPC API")
 	return &serverCmd
 }
