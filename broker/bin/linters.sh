@@ -3,7 +3,7 @@ set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 $SCRIPTPATH/install_linters.sh
-$SCRIPTPATH/prepare_linter.sh
+$SCRIPTPATH/init.sh
 
 buildifier -showlog -mode=check $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel$' -or -wholename '.*bzl$' \) -print )
 

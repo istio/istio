@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
+
 set -e
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-source $SCRIPTPATH/use_bazel_go.sh
+$SCRIPTPATH/init.sh
 
-ROOTDIR=$SCRIPTPATH/..
-cd $ROOTDIR
-
-
-echo "Code coverage test"
 echo "" > coverage.txt
 for d in $(go list ./... | grep -v vendor); do
-    go test -coverprofile=profile.out $d
+    options="-coverprofile=profile.out"
+    go test $options $d
+
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
         rm profile.out

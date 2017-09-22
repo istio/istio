@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# This file takes care of linking generated files into the proper path for lint.
-# This is a prerequist to run linters.
+# This file takes care of linking generated files into the proper paths.
+# This is a prerequist to run linters, code coverage.
 
 set -ex
 
@@ -34,9 +34,12 @@ done
 ln -sf $(pwd)/bazel-genfiles/pkg/testing/mock/proto/fake_config.pb.go \
   pkg/testing/mock/proto/
 
-# Link CRD generated files
-ln -sf "$(pwd)/bazel-genfiles/pkg/platform/kube/crd/types.go" \
+# Link generated go files
+ln -sf $(pwd)/bazel-genfiles/pkg/platform/kube/crd/types.go \
   pkg/platform/kube/crd/
+
+ln -sf $(pwd)/bazel-genfiles/pkg/model/config/mock_store.go \
+  pkg/model/config/
 
 # Some linters expect the code to be installed
 go install ./...

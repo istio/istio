@@ -82,7 +82,7 @@ def postsubmit(gitUtils, bazel, utils) {
       sh('bin/bazel_to_go.py')
       bazel.test('//...')
       sh('bin/codecov.sh | tee codecov.report')
-      sh('bin/toolbox/presubmit/pkg_coverage.sh')
+      sh('bin/toolbox/pkg_coverage.sh')
       utils.publishCodeCoverage('BROKER_CODECOV_TOKEN')
     }
     stage('Docker Push') {

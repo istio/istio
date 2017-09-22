@@ -1,8 +1,9 @@
-broker.bin
-client.bin
+# coverage output
 coverage.txt
-types.go
+
+# gazelle outputs
 BUILD-e
+
 *.swp
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
@@ -11,6 +12,7 @@ BUILD-e
 *.pb.go
 *.pb.cc
 *.pb.h
+*.bin
 
 # Folders
 _obj
@@ -57,3 +59,7 @@ CMakeLists.txt
 
 # key file
 istio-testing.json
+
+# links to generated files
+types.go
+mock_store.go
