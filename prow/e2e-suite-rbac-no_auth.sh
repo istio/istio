@@ -29,4 +29,8 @@ set -u
 set -x
 
 echo 'Running e2e with rbac, no auth Tests'
-./prow/e2e-suite.sh
+if [ "$#" != 0 ]; then
+    ./prow/e2e-suite.sh "${@}"
+else
+    ./prow/e2e-suite.sh
+fi

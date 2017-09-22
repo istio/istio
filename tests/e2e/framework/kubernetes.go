@@ -30,15 +30,15 @@ import (
 )
 
 const (
-	yamlSuffix           = ".yaml"
-	istioInstallDir      = "install/kubernetes"
-	istioAddonsDir       = "install/kubernetes/addons"
-	nonAuthInstallFile   = "istio.yaml"
-	authInstallFile      = "istio-auth.yaml"
-	nonAuthInstallFileNs = "istio-one-namespace.yaml"
-	authInstallFileNs    = "istio-one-namespace-auth.yaml"
-	istioSystem          = "istio-system"
-	mixerConfigDefault   = "istio-config-default"
+	yamlSuffix                  = ".yaml"
+	istioInstallDir             = "install/kubernetes"
+	istioAddonsDir              = "install/kubernetes/addons"
+	nonAuthInstallFile          = "istio.yaml"
+	authInstallFile             = "istio-auth.yaml"
+	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
+	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
+	istioSystem                 = "istio-system"
+	mixerConfigDefault          = "istio-config-default"
 )
 
 var (
@@ -142,13 +142,12 @@ func (k *KubeInfo) Setup() error {
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
 	glog.Info("Cleaning up kubeInfo")
-	var err error
 
 	if *skipSetup {
-		return err
+		return nil
 	}
 
-	istioYaml := nonAuthInstallFileNs
+	istioYaml := nonAuthInstallFileNamespace
 	if *clusterWide {
 		if *authEnable {
 			istioYaml = authInstallFile
@@ -157,7 +156,7 @@ func (k *KubeInfo) Teardown() error {
 		}
 	} else {
 		if *authEnable {
-			istioYaml = authInstallFileNs
+			istioYaml = authInstallFileNamespace
 		}
 	}
 
@@ -176,6 +175,7 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
+	var err error
 	maxAttempts := 15
 	namespaceDeleted := false
 	totalWait := 0
@@ -185,7 +185,7 @@ func (k *KubeInfo) Teardown() error {
 			break
 		}
 		totalWait += attempts
-		time.Sleep(time.Duration(attempts) * time.Second)
+		time.Sleep(time.Second)
 	}
 
 	if !namespaceDeleted {
@@ -228,7 +228,7 @@ func (k *KubeInfo) deployAddons() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
-	istioYaml := nonAuthInstallFileNs
+	istioYaml := nonAuthInstallFileNamespace
 	if *clusterWide {
 		if *authEnable {
 			istioYaml = authInstallFile
@@ -237,7 +237,7 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	} else {
 		if *authEnable {
-			istioYaml = authInstallFileNs
+			istioYaml = authInstallFileNamespace
 		}
 	}
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
