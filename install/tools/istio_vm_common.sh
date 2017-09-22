@@ -25,6 +25,7 @@
 
 # Environment variables used:
 #
+# ISTIO_VERSION - istio version.
 # ISTIO_FILES - directory where istio artifacts are downloaded, default to current dir
 # ISTIO_NAMESPACE - defaults to istio-system, needs to be set for custom deployments
 # K8S_CLUSTER - name of the K8S cluster.
@@ -37,6 +38,9 @@
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to copy files to the VM.
 
+# Keep it in sync with the default in downloadIstio.sh, use same mechansim to update.
+ISTIO_VERSION=${ISTIO_VERSION:-0.2.2}
+ISTIO_STAGING=${ISTIO_STAGING:-istio-${ISTIO_VERSION}}
 
 # Initialize internal load balancers to access K8S DNS and Istio Pilot, Mixer, CA.
 # Must be run once per cluster.
