@@ -57,12 +57,14 @@ function istioInstallBookinfo() {
 }
 
 function startDetails() {
+
+  curl -L https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/src/details/details.rb > details.rb
   # Start bookinfo components
   local app=details
   if [[ -r $app.pid ]] ; then
      kill -9 $(cat ${app}.pid)
   fi
-  ruby details/details.rb 9080  > details.log 2>&1 &
+  ruby details.rb 9080  > details.log 2>&1 &
   echo $! > $app.pid
 }
 
