@@ -58,9 +58,6 @@ const (
 	// caImage specifies the default istio-ca docker image used for e2e testing *update manually*
 	caImage = "gcr.io/istio-testing/istio-ca:2baec6baacecbd516ea0880573b6fc3cd5736739"
 
-	// mixerImage specifies the default mixer docker image used for e2e testing *update manually*
-	mixerImage = "gcr.io/istio-testing/mixer:345feec92a1fe660badef33c74df446d8b106307"
-
 	// retry budget
 	budget = 90
 )
@@ -69,7 +66,6 @@ func init() {
 	flag.StringVar(&params.Hub, "hub", "gcr.io/istio-testing", "Docker hub")
 	flag.StringVar(&params.Tag, "tag", "", "Docker tag")
 	flag.StringVar(&params.CaImage, "ca", caImage, "CA Docker image")
-	flag.StringVar(&params.MixerImage, "mixer", mixerImage, "Mixer Docker image")
 	flag.StringVar(&params.IstioNamespace, "ns", "",
 		"Namespace in which to install Istio components (empty to create/delete temporary one)")
 	flag.StringVar(&params.Namespace, "n", "",

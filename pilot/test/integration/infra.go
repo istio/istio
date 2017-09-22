@@ -44,9 +44,8 @@ type infra struct { // nolint: aligncheck
 	Name string
 
 	// docker tags
-	Hub, Tag   string
-	MixerImage string
-	CaImage    string
+	Hub, Tag string
+	CaImage  string
 
 	Namespace      string
 	IstioNamespace string

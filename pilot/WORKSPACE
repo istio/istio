@@ -479,6 +479,14 @@ go_proto_library(
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
     ],
 )
+filegroup(
+    name = "mixer",
+    srcs = glob(["mixer/v1/*.proto"]),
+)
+filegroup(
+    name = "wordlist",
+    srcs = ["mixer/v1/global_dictionary.yaml"],
+)
     """,
     commit = ISTIO_API,
     remote = "https://github.com/istio/api.git",

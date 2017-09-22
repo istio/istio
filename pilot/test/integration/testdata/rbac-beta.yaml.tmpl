@@ -84,20 +84,6 @@ roleRef:
   name: istio-ca-{{.IstioNamespace}}
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to mixer.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-mixer-role-binding-{{.IstioNamespace}}
-subjects:
-- kind: ServiceAccount
-  name: istio-mixer-service-account
-  namespace: {{.IstioNamespace}}
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot-{{.IstioNamespace}}
-  apiGroup: rbac.authorization.k8s.io
----
 # Grant permissions to the Ingress controller.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1

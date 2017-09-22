@@ -121,6 +121,8 @@ trying to install additional test tools via apt-get. Use
 `proxy-redirection-clear` to temporarily disable the iptable redirection rules
 and `proxy-redirection-restore` to restore them.
 
+The integration tests use a test mixer server that implements Mixer protocol but provides a programming interface to hardcode test behaviors. The implementation is located [here](../test/mixer).
+
 ## Test logging
 
 Istio Pilot uses [glog](https://godoc.org/github.com/golang/glog) library for all its logging. We encourage extensive logging at the appropriate log levels. As a hint to the log level selection, level 10 is the most verbose (Kubernetes will show all its HTTP requests), level 2 is used by default in the integration tests, level 4 turns on extensive logging in the proxy.

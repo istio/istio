@@ -35,6 +35,15 @@ for f in $(pwd)/bazel-genfiles/test/grpcecho/*.pb.go; do
   ln -sf $f vendor/istio.io/pilot/test/grpcecho/
 done
 
+# Mixer proto gen files
+mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
+for f in code.pb.go error_details.pb.go status.pb.go; do
+  ln -sf $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/$f \
+    vendor/github.com/googleapis/googleapis/google/rpc/
+done
+ln -sf "$(pwd)/bazel-genfiles/test/mixer/pb/mixer.pb.go" test/mixer/pb/
+ln -sf "$(pwd)/bazel-genfiles/test/mixer/wordlist.go" test/mixer/
+
 # Link envoy binary
 ln -sf "$(pwd)/bazel-genfiles/proxy/envoy/envoy" proxy/envoy/
 
