@@ -25,7 +25,6 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter/template:go_default_library",
         "//pkg/expr:go_default_library",
         "//template/sample/check:go_default_library",
         "//template/sample/quota:go_default_library",
@@ -36,5 +35,6 @@ go_test(
         "@com_github_golang_protobuf//ptypes/empty:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@com_github_istio_api//:mixer/v1/template",
     ],
 )

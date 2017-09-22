@@ -101,6 +101,36 @@ gogo_proto_compile(
     with_grpc = False,
 )
 
+
+gogoslick_proto_library(
+    name = "mixer/v1/template",
+    importmap = {
+        "google/protobuf/descriptor.proto": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
+    },
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+        "external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+    protos = ["mixer/v1/template/extensions.proto"],
+    verbose = 0,
+    with_grpc = False,
+    deps = [
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "mixer/v1/template_protos",
+    srcs = ["mixer/v1/template/extensions.proto"],
+    visibility = ["//visibility:public"],
+)
+
 gogoslick_proto_library(
     name = "mixer/v1/config/descriptor",
     importmap = {

@@ -26,8 +26,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	cpb "istio.io/mixer/pkg/config/proto"

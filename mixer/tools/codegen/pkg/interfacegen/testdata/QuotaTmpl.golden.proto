@@ -18,10 +18,10 @@ syntax = "proto3";
 
 package istio.mixer.adapter.quota;
 
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 
 
 

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/attribute"
 )
 

@@ -44,7 +44,7 @@ import (
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/template"
 	"github.com/golang/glog"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"errors"
 	{{range .TemplateModels}}
 		"{{.PackageImportPath}}"

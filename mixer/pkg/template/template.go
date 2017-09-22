@@ -22,8 +22,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 )
