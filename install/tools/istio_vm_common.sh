@@ -149,8 +149,14 @@ function istioGenerateClusterConfigs() {
   echo "address=/mixer-server/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
   echo "address=/istio-ca/$CA_IP" >> kubedns
+  # Also generate host entries for the istio-system. The generated config will work with both 
+  # 'cluster-wide' and 'per-namespace'.
+  echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
+  echo "address=/mixer-server.$NS/$MIXER_IP" >> kubedns
+  echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
+  echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
 
-  CIDR=$(gcloud container clusters describe ${K8SCLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
+  CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
