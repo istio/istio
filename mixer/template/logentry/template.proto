@@ -18,9 +18,9 @@ package logEntry;
 
 import "google/protobuf/timestamp.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
 // LogEntry represents an individual entry within a log.
 message Template {

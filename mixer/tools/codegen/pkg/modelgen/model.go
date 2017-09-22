@@ -23,7 +23,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 
-	tmpl "istio.io/mixer/pkg/adapter/template"
+	tmpl "istio.io/api/mixer/v1/template"
 )
 
 const fullProtoNameOfValueTypeEnum = "istio.mixer.v1.config.descriptor.ValueType"

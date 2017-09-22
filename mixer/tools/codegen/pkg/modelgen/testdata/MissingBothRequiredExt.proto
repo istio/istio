@@ -2,6 +2,6 @@ syntax = "proto3";
 
 package foo.bar;
 
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
 message Template {}

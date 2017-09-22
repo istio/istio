@@ -21,10 +21,10 @@ syntax = "proto3";
 
 package {{.PackageName}};
 
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 $$additional_imports$$
 
-option (istio.mixer.v1.config.template.template_variety) = {{.VarietyName}};
+option (istio.mixer.v1.template.template_variety) = {{.VarietyName}};
 
 {{.Comment}}
 {{.TemplateMessage.Comment}}

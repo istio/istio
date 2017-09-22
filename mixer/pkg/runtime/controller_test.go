@@ -25,8 +25,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	cpb "istio.io/mixer/pkg/config/proto"
 	"istio.io/mixer/pkg/config/store"
 	"istio.io/mixer/pkg/expr"

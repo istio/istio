@@ -32,7 +32,7 @@ func TestErrorInTemplate(t *testing.T) {
 	}{
 		{"testdata/missing_package_name.descriptor_set", "package name missing"},
 		{"testdata/missing_both_required.descriptor_set", "There has to be one proto file that has the " +
-			"extension istio.mixer.v1.config.template.template_variety"},
+			"extension istio.mixer.v1.template.template_variety"},
 		{"testdata/missing_template_message.descriptor_set", "message 'Template' not defined"},
 		{"testdata/reserved_field_in_template.descriptor_set", "proto:14: Template message must not contain the reserved filed name 'Name'"},
 		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},

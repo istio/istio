@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
-option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
 
 message NOTEMPLATEMESSAGE {

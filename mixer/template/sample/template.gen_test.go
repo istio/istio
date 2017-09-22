@@ -30,8 +30,8 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
+	adpTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adpTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/attribute"
 	"istio.io/mixer/pkg/expr"
 	sample_check "istio.io/mixer/template/sample/check"

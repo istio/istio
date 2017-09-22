@@ -31,8 +31,8 @@ import (
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/mixer/pkg/adapter"
-	adptTmpl "istio.io/mixer/pkg/adapter/template"
 	"istio.io/mixer/pkg/aspect"
 	"istio.io/mixer/pkg/attribute"
 	cpb "istio.io/mixer/pkg/config/proto"
