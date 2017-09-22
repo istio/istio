@@ -120,14 +120,9 @@ EOF
 # Parameters:
 # - name of the k8s cluster.
 function istioGenerateClusterConfigs() {
-<<<<<<< HEAD
    local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
 
    local NS=${ISTIO_NAMESPACE:-istio-system}
-=======
-  local K8S_CLUSTER=${1:-$K8S_CLUSTER}
-  local NS=${ISTIO_NAMESPACE:-istio-system}
->>>>>>> 561218d48ec6750b09d0095c4c28aaa691f605ab
 
   # Multiple tries, it may take some time until the controllers generate the IPs
   for i in {1..10}
@@ -156,15 +151,12 @@ function istioGenerateClusterConfigs() {
   echo "address=/mixer-server/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
   echo "address=/istio-ca/$CA_IP" >> kubedns
-<<<<<<< HEAD
-=======
-  # Also generate host entries for the istio-system. The generated config will work with both 
+  # Also generate host entries for the istio-system. The generated config will work with both
   # 'cluster-wide' and 'per-namespace'.
   echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
   echo "address=/mixer-server.$NS/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
   echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
->>>>>>> 561218d48ec6750b09d0095c4c28aaa691f605ab
 
   CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
