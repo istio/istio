@@ -166,10 +166,14 @@ func (k *KubeInfo) Teardown() error {
 	if *useInitializer {
 		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
 
-		util.KubeDelete(k.Namespace, testInitializerYAML)
+		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio core %s deletion failed", testIstioYaml)
+		}
 	}
 
-	util.KubeDelete(k.Namespace, testIstioYaml)
+	if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
+		glog.Errorf("Istio core %s deletion failed", testIstioYaml)
+	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
 	maxAttempts := 15
