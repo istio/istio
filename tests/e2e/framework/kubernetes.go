@@ -39,6 +39,7 @@ const (
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
 	mixerConfigDefault          = "istio-config-default"
+	istioInitializerFile        = "istio-initializer.yaml"
 )
 
 var (
@@ -52,7 +53,7 @@ var (
 	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
 	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	initializerFile = flag.String("initializer_file", "", "Initializer yaml file")
+	initializerFile = flag.String("initializer_file", istioInitializerFile, "Initializer yaml file")
 	clusterWide     = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 
 	addons = []string{
@@ -147,6 +148,15 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
+	if *useInitializer {
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
+
+		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio initializer %s deletion failed", testInitializerYAML)
+			return err
+		}
+	}
+
 	if *clusterWide {
 		// for cluster-wide, we can verify the uninstall
 		istioYaml := nonAuthInstallFile
@@ -156,17 +166,8 @@ func (k *KubeInfo) Teardown() error {
 
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
-		if *useInitializer {
-			testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
-
-			if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
-				glog.Errorf("Istio core %s deletion failed", testIstioYaml)
-				return err
-			}
-		}
-
 		if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
-			glog.Errorf("Istio core %s deletion failed", testIstioYaml)
+			glog.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 		}
 	} else {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
@@ -174,6 +175,7 @@ func (k *KubeInfo) Teardown() error {
 			return err
 		}
 
+		// ClusterRoleBindings are not namespaced and need to be deleted separately
 		if _, err := util.Shell("kubectl get clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
 			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrolebinding",
 			k.Namespace); err != nil {
@@ -181,13 +183,13 @@ func (k *KubeInfo) Teardown() error {
 			return err
 		}
 
+		// ClusterRoles are not namespaced and need to be deleted separately
 		if _, err := util.Shell("kubectl get clusterrole -o jsonpath={.items[*].metadata.name}"+
 			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrole",
 			k.Namespace); err != nil {
 			glog.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
 			return err
 		}
-
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
@@ -256,19 +258,6 @@ func (k *KubeInfo) deployIstio() error {
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
-	if *useInitializer {
-		baseInitializerYAML := util.GetResourcePath(*initializerFile)
-		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
-		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
-			glog.Errorf("Generating initializer yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
-			glog.Errorf("Istio sidecar initializer %s deployment failed", testInitializerYAML)
-			return err
-		}
-	}
-
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		glog.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
@@ -276,6 +265,19 @@ func (k *KubeInfo) deployIstio() error {
 	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
 		glog.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
+	}
+
+	if *useInitializer {
+		baseInitializerYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *initializerFile))
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
+		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
+			glog.Errorf("Generating initializer yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
+			return err
+		}
 	}
 
 	return nil
