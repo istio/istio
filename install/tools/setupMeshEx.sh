@@ -246,3 +246,20 @@ function istioRun() {
   ${ISTIO_RUN:-gcloud compute ssh ${GCP_OPTS:-}} $NAME --command "$CMD"
 }
 
+if [[ ${1:-} == "initCluster" ]] ; then
+  istioInitILB
+elif [[ ${1:-} == "generateConfigs" ]] ; then
+  shift
+  istioGenerateClusterConfigs $1
+elif [[ ${1:-} == "machineCerts" ]] ; then
+  shift
+  istio_provision_certs $1 $2
+elif [[ ${1:-} == "machineSetup" ]] ; then
+  shift
+  istioBootstrapVM $1
+else
+  echo "$0 initCluster: Configure ILB for the cluster (one time)"
+  echo "$0 generateConfigs K8S_CLUSTER_NAME: Generate dnsmasq and cluster range config files (one time)"
+  echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
+  echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
+fi
