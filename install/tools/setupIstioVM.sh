@@ -215,9 +215,6 @@ function istioBootstrapVM() {
    *.pem \
    cluster.env \
    $ISTIO_STAGING/install/tools/istio_vm_setup.sh \
-   $ISTIO_STAGING/istio-proxy-envoy.deb \
-   $ISTIO_STAGING/istio-agent.deb \
-   $ISTIO_STAGING/istio-auth-node-agent.deb \
 
  # Run the setup script.
  istioRun $NAME "sudo bash -c -x ./istio_vm_setup.sh"
