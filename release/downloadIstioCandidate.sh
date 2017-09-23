@@ -5,10 +5,11 @@
 # This file will be fetched as: curl -L https://git.io/getIstio | sh -
 # so it should be pure bourne shell, not bash (and not references other scripts)
 #
-# The script fetches the latest stable Istio release and untars it.
+# The script fetches the latest Istio release candidate and untars it.
 
-# DO NOT UPDATE THIS VERSION OR SCRIPT LIGHTLY - THIS IS THE "STABLE" VERSION
-ISTIO_VERSION=0.1.6
+# This is the latest release candidate (matches ../istio.VERSION after basic
+# sanity checks)
+ISTIO_VERSION=0.2.4
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
