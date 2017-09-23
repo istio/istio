@@ -36,10 +36,12 @@ bind(
     actual = "//external:ssl",
 )
 
-git_repository(
+ENVOY_SHA = "2c7ee712a0795e79732546de8b01e1e7319d809c"  # Sep 20, 2017 (bugfix for envoy crash w/ HTTP2 promise frames)
+
+http_archive(
     name = "envoy",
-    remote = "https://github.com/envoyproxy/envoy.git",
-    commit = "2c7ee712a0795e79732546de8b01e1e7319d809c", # Sep 20, 2017 (bugfix for envoy crash w/ HTTP2 promise frames)
+    url = "https://github.com/envoyproxy/envoy/archive/" + ENVOY_SHA + ".zip",
+    strip_prefix = "envoy-" + ENVOY_SHA,
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
