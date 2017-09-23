@@ -8,7 +8,7 @@ spec:
   ports:
   - port: 3000
     protocol: TCP
-    name: grafana
+    name: http
   selector:
     app: grafana
 ---
@@ -17,18 +17,18 @@ kind: Deployment
 metadata:
   name: grafana
   namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: grafana
     spec:
       containers:
       - name: grafana
-        image: gcr.io/istio-testing/grafana:543c458e509f4074c4efaa415164274dccceebcf
+        image: docker.io/istio/grafana:0.2.4
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000

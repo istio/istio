@@ -5,7 +5,7 @@ go_test(
     size = "large",
     srcs = ["mixer_test.go"],
     data = [
-        "//samples/apps/bookinfo",
+        "//samples/bookinfo",
         "//tests/e2e/tests:testdata",
     ],
     tags = ["manual"],

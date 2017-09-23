@@ -18,6 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.."
 VERSION_FILE="${ROOT}/istio.VERSION"
 TEMP_DIR="/tmp"
 GIT_COMMIT=false
+CHECK_GIT_STATUS=false
 
 set -o errexit
 set -o pipefail
@@ -33,22 +34,32 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -p ... <hub>,<tag> for the pilot docker image
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the istio-ca docker image
+    -r ... tag for proxy debian package
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
+    -s ... check if template files have been updated with this tool
+    -A ... URL to download auth debian packages
+    -P ... URL to download pilot debian packages
+    -E ... URL to download proxy debian packages
 EOF
   exit 2
 }
 
 source "$VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c: arg; do
+while getopts :gi:n:p:x:c:r:sA:P:E: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    r) PROXY_TAG="${OPTARG}";;
     g) GIT_COMMIT=true;;
+    s) CHECK_GIT_STATUS=true;;
+    A) AUTH_DEBIAN_URL="${OPTARG}";;
+    P) PILOT_DEBIAN_URL="${OPTARG}";;
+    E) PROXY_DEBIAN_URL="${OPTARG}";;
     *) usage;;
   esac
 done
@@ -106,34 +117,46 @@ function check_git_status() {
 function merge_files() {
   SRC=$TEMP_DIR/templates
   DEST=$ROOT/install/kubernetes
-  ISTIO=$DEST/istio.yaml
-  ISTIO_CLUSTER_WIDE=$DEST/istio-cluster-wide.yaml
-  ISTIO_AUTH=$DEST/istio-auth.yaml
 
-#TODO remove 2 lines below once the e2e tests no longer look for this file
-  cp $SRC/istio-rbac-beta.yaml.tmpl $DEST/istio-rbac-beta.yaml
-  cp $SRC/istio-rbac-alpha.yaml.tmpl $DEST/istio-rbac-alpha.yaml
+  # istio.yaml and istio-auth.yaml file contain cluster-wide installations
+  ISTIO=$DEST/istio.yaml
+  ISTIO_AUTH=$DEST/istio-auth.yaml
+  ISTIO_ONE_NAMESPACE=$DEST/istio-one-namespace.yaml
+  ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
+  ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
+
+  # TODO remove 3 lines below once the e2e tests no longer look for this file
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $DEST/istio-rbac-beta.yaml
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $DEST/istio-rbac-beta.yaml
+  cat $SRC/istio-rbac-beta.yaml.tmpl >> $DEST/istio-rbac-beta.yaml
+
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
   cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
+  cp $ISTIO $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
+
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
 
-  cp $ISTIO_AUTH $ISTIO_CLUSTER_WIDE
-#TODO the CA templates can be combines
-  cat $SRC/istio-namespace-ca.yaml.tmpl >> $ISTIO_AUTH
-  cat $SRC/istio-cluster-ca.yaml.tmpl >> $ISTIO_CLUSTER_WIDE
+  # restrict pilot controllers to a single namespace in the test file
+  sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
+  cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
-  #TODO remove once e2e tests are updated
-#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO
-#  sed -i=.bak "s/${ISTIO_NAMESPACE}/default/" $ISTIO_AUTH
+  cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_INITIALIZER
+  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_INITIALIZER
+  cat ${SRC}/istio-initializer.yaml.tmpl >> $ISTIO_INITIALIZER
 }
 
 function update_version_file() {
@@ -147,7 +170,12 @@ export MIXER_TAG="${MIXER_TAG}"
 export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
-export ISTIO_NAMESPACE=${ISTIO_NAMESPACE}
+export PROXY_TAG="${PROXY_TAG}"
+export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
+export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
+export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
+export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
+
 EOF
 }
 
@@ -155,18 +183,22 @@ function update_istio_install() {
   pushd $TEMP_DIR/templates
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-alpha.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-namespace-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
+  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-cluster-ca.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-namespace-ca.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
+  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
+
+  sed -i=.bak "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
+  sed -i=.bak "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml.tmpl
@@ -200,4 +232,9 @@ rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then
     create_commit
+fi
+
+if [[ ${CHECK_GIT_STATUS} == true ]]; then
+ check_git_status \
+   || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
 fi

@@ -1,16 +1,4 @@
 ################################
-# Empty secret for Istio ingress controller
-################################
-apiVersion: v1
-kind: Secret
-metadata:
-  name: istio-ingress-certs
-  namespace: {ISTIO_NAMESPACE}
-data:
-  tls.key:
-  tls.crt:
----
-################################
 # Istio ingress controller
 ################################
 apiVersion: v1
@@ -48,8 +36,6 @@ spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: ingress
     spec:
@@ -57,7 +43,13 @@ spec:
       containers:
       - name: istio-ingress
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
-        args: ["proxy", "ingress", "-v", "2"]
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -74,8 +66,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
@@ -83,9 +73,6 @@ spec:
           mountPath: /etc/istio/ingress-certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default

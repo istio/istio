@@ -1,0 +1,82 @@
+# GENERATED FILE. Use with Kubernetes 1.7+
+# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+  namespace: istio-system
+data:
+  config: |-
+    policy: "enabled"
+    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    initializerName: "sidecar.initializer.istio.io"
+    params:
+      initImage: docker.io/istio/proxy_init:0.2.4
+      proxyImage: docker.io/istio/proxy:0.2.4
+      verbosity: 2
+      version: 0.2.4
+      meshConfigMapName: istio
+      imagePullPolicy: IfNotPresent
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-initializer-service-account
+  namespace: istio-system
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: istio-initializer
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+  initializers:
+    pending: []
+  labels:
+    istio: istio-initializer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: istio-initializer
+      labels:
+        istio: initializer
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-initializer-service-account
+      containers:
+        - name: initializer
+          image: docker.io/istio/sidecar_initializer:0.2.4
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=8083
+            - --namespace=istio-system
+            - -v=2
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: InitializerConfiguration
+metadata:
+  name: istio-sidecar
+initializers:
+  - name: sidecar.initializer.istio.io
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - "*"
+        resources:
+          - deployments
+          - statefulsets
+          - jobs
+          - daemonsets
+---

@@ -33,22 +33,25 @@ const (
 	yamlSuffix         = ".yaml"
 	istioInstallDir    = "install/kubernetes"
 	istioAddonsDir     = "install/kubernetes/addons"
-	nonAuthInstallFile = "istio.yaml"
-	authInstallFile    = "istio-auth.yaml"
+	nonAuthInstallFile = "istio-one-namespace.yaml"
+	authInstallFile    = "istio-one-namespace-auth.yaml"
 	istioSystem        = "istio-system"
+	mixerConfigDefault = "istio-config-default"
 )
 
 var (
-	namespace    = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub     = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
-	mixerTag     = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
-	pilotHub     = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
-	pilotTag     = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
-	caHub        = flag.String("ca_hub", "", "Ca hub")
-	caTag        = flag.String("ca_tag", "", "Ca tag")
-	authEnable   = flag.Bool("auth_enable", false, "Enable auth")
-	rbacfile     = flag.String("rbac_path", "", "Rbac yaml file")
-	localCluster = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	namespace       = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
+	mixerHub        = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
+	mixerTag        = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
+	pilotHub        = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
+	pilotTag        = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
+	caHub           = flag.String("ca_hub", "", "Ca hub")
+	caTag           = flag.String("ca_tag", "", "Ca tag")
+	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
+	rbacfile        = flag.String("rbac_path", "", "Rbac yaml file")
+	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
+	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
+	initializerFile = flag.String("initializer_file", "", "Initializer yaml file")
 
 	addons = []string{
 		"prometheus",
@@ -105,20 +108,22 @@ func (k *KubeInfo) Setup() error {
 		return err
 	}
 
-	if err = util.CreateNamespace(k.Namespace); err != nil {
-		glog.Error("Failed to create namespace.")
-		return err
-	}
-	k.namespaceCreated = true
+	if !*skipSetup {
+		if err = util.CreateNamespace(k.Namespace); err != nil {
+			glog.Error("Failed to create namespace.")
+			return err
+		}
+		k.namespaceCreated = true
 
-	if err = k.deployIstio(); err != nil {
-		glog.Error("Failed to deploy Istio.")
-		return err
-	}
+		if err = k.deployIstio(); err != nil {
+			glog.Error("Failed to deploy Istio.")
+			return err
+		}
 
-	if err = k.deployAddons(); err != nil {
-		glog.Error("Failed to deploy istio addons")
-		return err
+		if err = k.deployAddons(); err != nil {
+			glog.Error("Failed to deploy istio addons")
+			return err
+		}
 	}
 
 	var in string
@@ -225,6 +230,19 @@ func (k *KubeInfo) deployIstio() error {
 		}
 	}
 
+	if *useInitializer {
+		baseInitializerYAML := util.GetResourcePath(*initializerFile)
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
+		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
+			glog.Errorf("Generating initializer yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio sidecar initializer %s deployment failed", testInitializerYAML)
+			return err
+		}
+	}
+
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		glog.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
@@ -245,7 +263,6 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	}
 
 	content = replacePattern(k, content, istioSystem, k.Namespace)
-
 	content = replacePattern(k, content, "namespace: default",
 		"namespace: "+k.Namespace)
 
@@ -267,9 +284,49 @@ func (k *KubeInfo) generateRbac(src, dst string) error {
 	content = replacePattern(k, content, "istio-sidecar-role-binding",
 		"istio-sidecar-role-binding-"+k.Namespace)
 
+	content = replacePattern(k, content, "istio-initializer-admin-role-binding",
+		"istio-initializer-admin-role-binding-"+k.Namespace)
+
+	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
+
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
 		glog.Errorf("Cannot write into generate rbac file %s", dst)
+	}
+	return err
+}
+
+func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
+	image := []byte(fmt.Sprintf("%s: %s/%s:%s", name, hub, module, tag))
+	r := regexp.MustCompile(fmt.Sprintf("%s: .*(\\/%s):.*", name, module))
+	return r.ReplaceAllLiteral(content, image)
+}
+
+func updateInjectVersion(version string, content []byte) []byte {
+	versionLine := []byte(fmt.Sprintf("version: %s", version))
+	r := regexp.MustCompile("version: .*")
+	return r.ReplaceAllLiteral(content, versionLine)
+}
+
+func (k *KubeInfo) generateInitializer(src, dst string) error {
+	content, err := ioutil.ReadFile(src)
+	if err != nil {
+		glog.Errorf("Cannot read original yaml file %s", src)
+		return err
+	}
+
+	content = replacePattern(k, content, istioSystem, k.Namespace)
+
+	if *pilotHub != "" && *pilotTag != "" {
+		content = updateIstioYaml("initializer", *pilotHub, *pilotTag, content)
+		content = updateInjectVersion(*pilotTag, content)
+		content = updateInjectImage("initImage", "proxy_init", *pilotHub, *pilotTag, content)
+		content = updateInjectImage("proxyImage", "proxy", *pilotHub, *pilotTag, content)
+	}
+
+	err = ioutil.WriteFile(dst, content, 0600)
+	if err != nil {
+		glog.Errorf("Cannot write into generate initializer file %s", dst)
 	}
 	return err
 }
@@ -289,6 +346,14 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	content = replacePattern(k, content, istioSystem, k.Namespace)
+	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
+
+	// Replace long refresh delays with short ones for the sake of tests.
+	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
+	content = replacePattern(k, content, "discoveryRefreshDelay: 30s", "discoveryRefreshDelay: 1s")
+	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
+	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
+	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
 	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)
@@ -305,9 +370,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if *localCluster {
 		content = []byte(strings.Replace(string(content), "LoadBalancer", "NodePort", 1))
 	}
-
-	content = []byte(strings.Replace(string(content), "args: [\"discovery\", \"-v\", \"2\"]",
-		"args: [\"discovery\", \"-v\", \"2\", \"-a\", \""+k.Namespace+"\"]", -1))
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {

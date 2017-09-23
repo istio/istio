@@ -8,7 +8,7 @@ spec:
   ports:
   - port: 3000
     protocol: TCP
-    name: grafana
+    name: http
   selector:
     app: grafana
 ---
@@ -17,12 +17,12 @@ kind: Deployment
 metadata:
   name: grafana
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: grafana
     spec:

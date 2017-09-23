@@ -4,7 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = ["demo_test.go"],
     data = [
-        "//samples/apps/bookinfo",
+        "//samples/bookinfo",
         "//tests/apps/bookinfo/output:bookinfo_out",
     ],
     tags = ["manual"],
