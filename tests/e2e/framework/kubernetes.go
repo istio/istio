@@ -147,55 +147,68 @@ func (k *KubeInfo) Teardown() error {
 		return nil
 	}
 
-	istioYaml := nonAuthInstallFileNamespace
 	if *clusterWide {
+		// for cluster-wide, we can verify the uninstall
+		istioYaml := nonAuthInstallFile
 		if *authEnable {
 			istioYaml = authInstallFile
-		} else {
-			istioYaml = nonAuthInstallFile
 		}
-	} else {
-		if *authEnable {
-			istioYaml = authInstallFileNamespace
+
+		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+		if *useInitializer {
+			testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
+
+			if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
+				glog.Errorf("Istio core %s deletion failed", testIstioYaml)
+				return err
+			}
 		}
-	}
 
-	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
-	if *useInitializer {
-		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
-
-		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
+		if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
 			glog.Errorf("Istio core %s deletion failed", testIstioYaml)
 		}
-	}
+	} else {
+		if err := util.DeleteNamespace(k.Namespace); err != nil {
+			glog.Errorf("Failed to delete namespace %s", k.Namespace)
+			return err
+		}
 
-	if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
-		glog.Errorf("Istio core %s deletion failed", testIstioYaml)
+		if _, err := util.Shell("kubectl get clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrolebinding",
+			k.Namespace); err != nil {
+			glog.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
+			return err
+		}
+
+		if _, err := util.Shell("kubectl get clusterrole -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrole",
+			k.Namespace); err != nil {
+			glog.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
+			return err
+		}
+
 	}
 
 	// confirm the namespace is deleted as it will cause future creation to fail
-	var err error
-	maxAttempts := 15
+	maxAttempts := 20
 	namespaceDeleted := false
-	totalWait := 0
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
-		namespaceDeleted, err = util.NamespaceDeleted(k.Namespace)
+		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
 		if namespaceDeleted {
 			break
 		}
-		totalWait += attempts
-		time.Sleep(time.Second)
+		time.Sleep(4*time.Second)
 	}
 
 	if !namespaceDeleted {
-		glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, totalWait)
-		return err
+		glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		return nil
 	}
-	k.namespaceCreated = false
+
 	glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
-	return err
+	return nil
 }
 
 func (k *KubeInfo) deployAddons() error {
