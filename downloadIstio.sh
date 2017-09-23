@@ -8,7 +8,7 @@
 # The script fetches the latest stable Istio release and untars it.
 
 # DO NOT UPDATE THIS VERSION OR SCRIPT LIGHTLY - THIS IS THE "STABLE" VERSION
-ISTIO_VERSION=0.1.6
+ISTIO_VERSION="0.1.6"
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
