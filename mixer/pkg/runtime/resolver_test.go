@@ -52,6 +52,16 @@ func TestResolver_Resolve(t *testing.T) {
 			nactions: 8,
 		},
 		{
+			desc: "success - service in default namespace",
+			bag: map[string]interface{}{
+				ia: "myservice." + ns,
+			},
+			rules: []fakeRuleCfg{
+				{ns, 5},
+			},
+			nactions: 5,
+		},
+		{
 			desc: "success nothing selected",
 			bag: map[string]interface{}{
 				ia: "myservice.myns",

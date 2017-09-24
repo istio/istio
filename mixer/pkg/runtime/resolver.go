@@ -100,6 +100,7 @@ const expectedResolvedActionsCount = 10
 func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety) (ra Actions, err error) {
 	nselected := 0
 	target := "unknown"
+	var ns string
 
 	start := time.Now()
 	// increase refcount just before returning
@@ -126,36 +127,26 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 		resolveActions.With(lbls).Observe(float64(raLen))
 	}()
 
-	attr, _ := attrs.Get(r.identityAttribute)
-	if attr == nil {
-		msg := fmt.Sprintf("%s identity not found in attributes%v", r.identityAttribute, attrs.Names())
-		glog.Warningf(msg)
-		return nil, errors.New(msg)
+	if target, ns, err = destAndNamespace(attrs, r.identityAttribute); err != nil {
+		return nil, err
 	}
 
+	// at most this can have 2 elements.
 	rulesArr := make([][]*Rule, 0, 2)
 
 	// add default namespace if present
-	if dcf := r.rules[r.defaultConfigNamespace]; dcf != nil {
-		rulesArr = append(rulesArr, dcf)
+	rulesArr = appendRules(rulesArr, r.rules, r.defaultConfigNamespace)
+
+	// If the destination namespace is different than the default namespace
+	// add those rules too
+	if r.defaultConfigNamespace != ns {
+		rulesArr = appendRules(rulesArr, r.rules, ns)
 	} else if glog.V(3) {
-		glog.Infof("Resolve: no namespace config for %s", r.defaultConfigNamespace)
+		glog.Infof("Resolve: skipping duplicate namespace %s", ns)
 	}
 
-	target = attr.(string)
-	// add service namespace if present
-	splits := strings.SplitN(target, ".", 3) // we only care about service and namespace.
-	if len(splits) > 1 {
-		ns := splits[1]
-		if dcf := r.rules[ns]; dcf != nil {
-			rulesArr = append(rulesArr, dcf)
-		} else if glog.V(4) {
-			glog.Infof("Resolve: no namespace config for %s. target: %s.", ns, target)
-		}
-	}
 	var res []*Action
 	res, nselected, err = r.filterActions(rulesArr, attrs, variety)
-
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +155,37 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 
 	ra = &actions{a: res, done: r.decRefCount}
 	return ra, nil
+}
+
+func appendRules(rulesArr [][]*Rule, rules map[string][]*Rule, ns string) [][]*Rule {
+	if r := rules[ns]; r != nil {
+		rulesArr = append(rulesArr, r)
+	} else if glog.V(3) {
+		glog.Infof("Resolve: no namespace config for %s", ns)
+	}
+	return rulesArr
+}
+
+// destAndNamespace extracts namespace from identity attribute.
+func destAndNamespace(attrs attribute.Bag, idAttr string) (dest string, ns string, err error) {
+	attr, _ := attrs.Get(idAttr)
+	if attr == nil {
+		msg := fmt.Sprintf("%s identity not found in attributes%v", idAttr, attrs.Names())
+		glog.Warningf(msg)
+		return "", "", errors.New(msg)
+	}
+
+	var ok bool
+	if dest, ok = attr.(string); !ok {
+		msg := fmt.Sprintf("%s identity must be string: %v", idAttr, attr)
+		glog.Warningf(msg)
+		return "", "", errors.New(msg)
+	}
+	splits := strings.SplitN(dest, ".", 3) // we only care about service and namespace.
+	if len(splits) > 1 {
+		ns = splits[1]
+	}
+	return dest, ns, nil
 }
 
 //filterActions filters rules based on template variety and selectors.
