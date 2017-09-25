@@ -1,0 +1,16 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: reviews-default
+spec:
+# Route rules are the same across platforms. The rule files differ in the DNS domain used for the platform.
+  destination:
+    service: reviews.service.consul
+  precedence: 2
+  route:
+  - labels:
+      version: v2
+    weight: 50
+  - labels:
+      version: v3
+    weight: 50

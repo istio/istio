@@ -79,9 +79,8 @@ func ShellMuteOutput(format string, args ...interface{}) (string, error) {
 
 func sh(format string, logOutput bool, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
-	parts := strings.Split(command, " ")
 	glog.V(2).Infof("Running command %s", command)
-	c := exec.Command(parts[0], parts[1:]...) // #nosec
+	c := exec.Command("sh", "-c", command) // #nosec
 	bytes, err := c.CombinedOutput()
 	if logOutput {
 		glog.V(2).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
