@@ -65,7 +65,7 @@ services:
       - ~/.kube/config:/istio/config
 
   details-v1:
-    image: $HUB/details-v1:latest
+    image: $HUB/examples-bookinfo-details-v1-envoy:0.2.4
     networks:
       istiomesh:
     dns:
@@ -82,7 +82,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: $HUB/ratings-v1:latest
+    image: $HUB/examples-bookinfo-ratings-v1-envoy:0.2.4
     networks:
       istiomesh:
     dns:
@@ -99,7 +99,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: $HUB/reviews-v1:latest
+    image: $HUB/examples-bookinfo-reviews-v1-envoy:0.2.4
     networks:
       istiomesh:
     dns:
@@ -117,7 +117,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: $HUB/reviews-v2:latest
+    image: $HUB/examples-bookinfo-reviews-v2-envoy:0.2.4
     networks:
       istiomesh:
     dns:
@@ -135,7 +135,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: $HUB/reviews-v3:latest
+    image: $HUB/examples-bookinfo-reviews-v3-envoy:0.2.4
     networks:
       istiomesh:
     dns:
@@ -153,7 +153,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: $HUB/productpage-v1:latest
+    image: $HUB/examples-bookinfo-productpage-v1-envoy:0.2.4
     networks:
       istiomesh:
         ipv4_address: 172.28.0.14
