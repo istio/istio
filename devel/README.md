@@ -380,7 +380,6 @@ Assuming you did (once):
    - [update_all](update_all) : script to build from source
    - [setup_run](setup_run) : run locally
    - [fortio](fortio/) (φορτίο) : load testing and minimal echo http and grpc server
-   - Also found in this directory: [rules.yml](rules.yml) : the version of  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml that works locally and [quota.yml](quota.yml) a very simple 1 qps quota example used below.
    - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
    ```bash
