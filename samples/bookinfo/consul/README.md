@@ -22,7 +22,7 @@ Note that Istio pilot is running inside each app container so as to coordinate E
 
 The ingress controller is still under construction, routing functionalities can be tested by curling a service container directly.
 
-First step is to configure kubectl to use the apiserver created in the steps below:
+First step is to configure istioctl to use the apiserver created in the steps below:
 
 ```
 istioctl context-create --api-server http://172.28.0.13:8080
