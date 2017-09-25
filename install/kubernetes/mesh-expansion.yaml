@@ -1,0 +1,69 @@
+# Currently specific to GKE. Annotations specific to other providers should be added
+# after they get tested.
+Version: v1
+kind: Service
+metadata:
+  name: istio-pilot-ilb
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: pilot
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    protocol: TCP
+  selector:
+    istio: pilot
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-ilb
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    k8s-app: kube-dns
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 53
+    protocol: UDP
+  selector:
+    k8s-app: kube-dns
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixer-ilb
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: mixer
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 9091
+    protocol: TCP
+  selector:
+    istio: mixer
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ca-ilb
+  annotations:
+    cloud.google.com/load-balancer-type: "internal"
+  labels:
+    istio: istio-ca
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 8060
+    protocol: TCP
+  selector:
+    istio: istio-ca
