@@ -3,7 +3,7 @@ services:
   etcd:
     image: quay.io/coreos/etcd:latest
     networks:
-      envoymesh:
+      istiomesh:
         aliases:
           - etcd
     ports:
@@ -17,7 +17,7 @@ services:
   istio-apiserver:
     image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
     networks:
-      envoymesh:
+      istiomesh:
         ipv4_address: 172.28.0.13
         aliases:
           - apiserver
@@ -31,7 +31,7 @@ services:
   consul:
     image: gliderlabs/consul-server
     networks:
-      envoymesh:
+      istiomesh:
         aliases:
           - consul
     ports:
@@ -45,15 +45,15 @@ services:
   registrator:
     image: gliderlabs/registrator:latest
     networks:
-      envoymesh:
+      istiomesh:
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock
     command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
 
-  discovery:
-    image: $HUB/discovery:latest
+  pilot:
+    image: istio/pilot:0.2.4
     networks:
-      envoymesh:
+      istiomesh:
         aliases:
           - istio-pilot
     expose:
@@ -66,7 +66,7 @@ services:
   details-v1:
     image: $HUB/details-v1:latest
     networks:
-      envoymesh:
+      istiomesh:
     dns:
       - 172.28.0.1
       - 8.8.8.8
@@ -83,7 +83,7 @@ services:
   ratings-v1:
     image: $HUB/ratings-v1:latest
     networks:
-      envoymesh:
+      istiomesh:
     dns:
       - 172.28.0.1
       - 8.8.8.8
@@ -100,7 +100,7 @@ services:
   reviews-v1:
     image: $HUB/reviews-v1:latest
     networks:
-      envoymesh:
+      istiomesh:
     dns:
       - 172.28.0.1
       - 8.8.8.8
@@ -118,7 +118,7 @@ services:
   reviews-v2:
     image: $HUB/reviews-v2:latest
     networks:
-      envoymesh:
+      istiomesh:
     dns:
       - 172.28.0.1
       - 8.8.8.8
@@ -136,7 +136,7 @@ services:
   reviews-v3:
     image: $HUB/reviews-v3:latest
     networks:
-      envoymesh:
+      istiomesh:
     dns:
       - 172.28.0.1
       - 8.8.8.8
@@ -154,7 +154,7 @@ services:
   productpage-v1:
     image: $HUB/productpage-v1:latest
     networks:
-      envoymesh:
+      istiomesh:
         ipv4_address: 172.28.0.14
     dns:
       - 172.28.0.1
@@ -172,7 +172,7 @@ services:
       - "9080"
 
 networks:
-  envoymesh:
+  istiomesh:
     ipam:
       driver: default
       config:
