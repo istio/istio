@@ -25,6 +25,6 @@
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "5336c40262415119113d58aa5a493c561951b463"
+		"lastStableSHA": "f7251ce75231e0d154bc04f7695ae4d119b186f4"
 	}
 ]
