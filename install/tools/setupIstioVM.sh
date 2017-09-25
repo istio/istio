@@ -57,6 +57,14 @@ function istioInstall() {
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
 
+  ISTIO_VERSION=${ISTIO_VERSION:-0.2.4}
+
+  # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
+  DEBURL=http://gcsweb.istio.io/gcs/istio-release/releases/${ISTIO_VERSION}/deb
+  curl -L ${DEBURL}/istio-agent-release.deb > istio-agent-release.deb
+  curl -L ${DEBURL}/istio-auth-node-agent-release.deb > istio-auth-node-agent-release.deb
+  curl -L ${DEBURL}/istio-proxy-release.deb > istio-proxy-release.deb
+
   # Install istio binaries
   dpkg -i ${ISTIO_STAGING}/istio-proxy-envoy.deb
   dpkg -i ${ISTIO_STAGING}/istio-agent.deb
