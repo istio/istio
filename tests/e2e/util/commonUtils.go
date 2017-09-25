@@ -69,9 +69,8 @@ func WriteTempfile(tmpDir, prefix, suffix, contents string) (string, error) {
 // Shell run command on shell and get back output and error if get one
 func Shell(format string, args ...interface{}) (string, error) {
 	command := fmt.Sprintf(format, args...)
-	parts := strings.Split(command, " ")
 	glog.V(2).Infof("Running command %s", command)
-	c := exec.Command(parts[0], parts[1:]...) // #nosec
+	c := exec.Command("sh", "-c", command) // #nosec
 	bytes, err := c.CombinedOutput()
 	glog.V(2).Infof("Command output: \n %s, err: %v", string(bytes[:]), err)
 	if err != nil {
