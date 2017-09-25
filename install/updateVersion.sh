@@ -125,12 +125,6 @@ function merge_files() {
   ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
   ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
 
-  # TODO remove 3 lines below once the e2e tests no longer look for this file
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $DEST/istio-rbac-beta.yaml
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $DEST/istio-rbac-beta.yaml
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $DEST/istio-rbac-beta.yaml
-
-
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
