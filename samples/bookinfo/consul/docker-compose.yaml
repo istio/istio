@@ -60,6 +60,7 @@ services:
       - "8080"
     ports:
       - "8081:8080"
+    command: ["discovery", "-v", "2", "--registries", "Consul", "--consulserverURL", "http://consul:8500", "--kubeconfig", "/istio/config"]
     volumes:
       - ~/.kube/config:/istio/config
 

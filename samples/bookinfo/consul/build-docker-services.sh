@@ -45,18 +45,18 @@ if [ $STATUS -ne 0 ]; then
     exit $STATUS
 fi
 
-# Build the pilot discovery binary
-cd $PILOTDISCOVERYPATH && bazel build :pilot-discovery
-STATUS=$?
-if [ $STATUS -ne 0 ]; then
-    echo -e "\n***********\nFAILED: build failed for pilot discovery.\n***********\n"
-    exit $STATUS
-fi
-
-cd $DISCOVERYDIR
-rm -f pilot-discovery && cp $BINDIR/cmd/pilot-discovery/pilot-discovery $_
-docker build -t $HUB/discovery:latest .
-rm -f pilot-discovery
+## Build the pilot discovery binary
+#cd $PILOTDISCOVERYPATH && bazel build :pilot-discovery
+#STATUS=$?
+#if [ $STATUS -ne 0 ]; then
+#    echo -e "\n***********\nFAILED: build failed for pilot discovery.\n***********\n"
+#    exit $STATUS
+#fi
+#
+#cd $DISCOVERYDIR
+#rm -f pilot-discovery && cp $BINDIR/cmd/pilot-discovery/pilot-discovery $_
+#docker build -t $HUB/discovery:latest .
+#rm -f pilot-discovery
 
 cd $SCRIPTDIR
 
