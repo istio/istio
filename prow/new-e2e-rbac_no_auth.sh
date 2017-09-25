@@ -33,7 +33,7 @@ ZONE=us-central1-f
 CLUSTER_VERSION=1.7.5
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
-CLUSTER_NAME=rbac-n-auth-$(uuidgen | cut -c1-8)
+CLUSTER_NAME=cluster-wide-auth-$(uuidgen | cut -c1-8 | tr "[A-Z]" "[a-z]")
 
 CLUSTER_CREATED=false
 
@@ -56,6 +56,5 @@ CLUSTER_CREATED=true
 
 kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=cluster-admin --user=istio-prow-test-job@istio-testing.iam.gserviceaccount.com
 
-echo 'Running e2e rbac, no auth Tests'
-./prow/e2e-suite-rbac-no_auth.sh "${@}"
-
+echo 'Running cluster-wide e2e rbac, auth Tests'
+./prow/e2e-suite-rbac-auth.sh --cluster_wide "${@}"
