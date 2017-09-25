@@ -83,6 +83,3 @@ rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh $REVIEWSDIR/envoy
 
 # clean up envoy downloaded artifacts
 rm -rf $SCRIPTDIR/usr/local/bin/envoy $APPSDIR/envoy
-
-# update the docker-compose.yaml file
-sed -i.bak "s/image:\ \$HUB/image:\ $HUB/" docker-compose.yaml

@@ -34,18 +34,20 @@ To build all images for the bookinfo sample for the consul adapter, run:
   ./build-docker-services.sh
   ```
 
-To bring up all containers directly, from the `samples/bookinfo/consul` directory run
+To bring up the control plane containers directly, from the `samples/bookinfo/consul` directory run
 
   ```
-  docker-compose up -d
+  docker-compose -f control-plane.yaml up -d
   ```
 
 This will pull images from docker hub to your local computing space.
 
 Now you can see all the containers in the mesh by running `docker ps -a`.
 
+If the webpage is not displaying properly, you may need to run the previous command once more to resolve a timing issue during start up.
+
 NOTE: If Mac users experience an error starting the consul service in the `docker-compose up -d` command, 
-open your `docker-compose.yaml` and overwrite the `consul` service with the following and re-run the `up -d` command :
+open your `control-plane.yaml` and overwrite the `consul` service with the following and re-run the `up -d` command :
 ```
   consul:
     image: gliderlabs/consul-server
@@ -62,9 +64,16 @@ open your `docker-compose.yaml` and overwrite the `consul` service with the foll
     command: ["-bootstrap"]
 ```
 
+To bring up the app containers, from the `samples/bookinfo/consul` directory run
+
+  ```
+  docker-compose -f bookinfo.yaml up -d
+  ```
+
+
 To view the productpage webpage, open a web browser and enter `localhost:9081/productpage`.  
 
-If you refresh the page several times, you should see different versions of reviews shown in productpage presented in a round robin style (red stars, black stars, no stars). If the webpage is not displaying properly, you may need to run `docker-compose restart discovery` to resolve a timing issue during start up.
+If you refresh the page several times, you should see different versions of reviews shown in productpage presented in a round robin style (red stars, black stars, no stars).
 
 NOTE: Mac users will have to run the following commands first prior to creating a rule:
 
