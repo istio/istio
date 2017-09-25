@@ -22,16 +22,8 @@ while getopts i:t: arg ; do
   esac
 done
 
-mkdir -p $HOME/.docker
-gsutil cp gs://istio-secrets/dockerhub_config.json.enc $HOME/.docker/config.json.enc
-gcloud kms decrypt \
-       --ciphertext-file=$HOME/.docker/config.json.enc \
-       --plaintext-file=$HOME/.docker/config.json \
-       --location=global \
-       --keyring=Secrets \
-       --key=DockerHub
-
-./script/push-debian.sh \
+script/push-debian.sh \
     -c opt \
     -v "${TAG_NAME}" \
     -p "gs://istio-release/releases/${TAG_NAME}/deb"
+
