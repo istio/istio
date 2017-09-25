@@ -78,13 +78,16 @@ func TestConvert(t *testing.T) {
 
 func TestParseInputs(t *testing.T) {
 	if varr, _, err := ParseInputs(""); len(varr) > 0 || err != nil {
-		t.Errorf("ParseInput(\"\") => got %v, %v, want nil, nil", varr, err)
+		t.Errorf(`ParseInput("") => got %v, %v, want nil, nil`, varr, err)
 	}
 	if _, _, err := ParseInputs("a"); err == nil {
-		t.Error("ParseInput(\"a\") => got no error")
+		t.Error(`ParseInput("a") => got no error`)
 	}
 	if _, others, err := ParseInputs("kind: Pod"); err != nil || len(others) != 1 {
-		t.Errorf("ParseInput(\"kind: Pod\") => got %v, %v", others, err)
+		t.Errorf(`ParseInput("kind: Pod") => got %v, %v`, others, err)
+	}
+	if varr, others, err := ParseInputs("---\n"); err != nil || len(varr) != 0 || len(others) != 0 {
+		t.Errorf(`ParseInput("---") => got %v, %v, %v`, varr, others, err)
 	}
 	if _, _, err := ParseInputs("kind: RouteRule\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")

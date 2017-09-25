@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 
 	"github.com/golang/glog"
@@ -112,6 +113,7 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 	var varr []model.Config
 	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
+	var empty = IstioKind{}
 
 	// We store configs as a YaML stream; there may be more than one decoder.
 	yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(reader, 512*1024)
@@ -123,6 +125,9 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 		}
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
+		}
+		if reflect.DeepEqual(obj, empty) {
+			continue
 		}
 
 		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
