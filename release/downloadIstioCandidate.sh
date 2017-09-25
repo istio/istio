@@ -2,16 +2,17 @@
 #
 # Early version of a downloader/installer for Istio
 #
-# This file will be fetched as: curl -L https://git.io/getIstio | sh -
+# This file will be fetched as: curl -L https://git.io/getLatestIstio | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
 #
-# The script fetches the latest STABLE Istio release and untars it.
-#
-# release/downloadIstioCandidate.sh lets users override the ISTIO_VERSION
-# and is updated more often.
+# The script fetches the latest Istio release candidate and untars it.
+# It's a copy of ../downloadIstio.sh which is for stable releases but lets
+# users do curl -L https://git.io/getLatestIstio | ISTIO_VERSION=0.3.6 sh -
+# for instance to change the version fetched.
 
-# DO NOT UPDATE THIS VERSION OR SCRIPT LIGHTLY - THIS IS THE "STABLE" VERSION
-ISTIO_VERSION="0.1.6"
+# This is the latest release candidate (matches ../istio.VERSION after basic
+# sanity checks)
+ISTIO_VERSION=${ISTIO_VERSION:-0.2.4}
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
