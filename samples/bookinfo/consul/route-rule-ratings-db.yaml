@@ -3,6 +3,7 @@ kind: RouteRule
 metadata:
   name: ratings-test-v2
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: ratings.service.consul
   precedence: 2
@@ -15,6 +16,7 @@ kind: RouteRule
 metadata:
   name: reviews-test-ratings-v2
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: reviews.service.consul
   precedence: 2

@@ -3,6 +3,7 @@ kind: RouteRule
 metadata:
   name: productpage-default
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: productpage.service.consul
   precedence: 1
@@ -15,6 +16,7 @@ kind: RouteRule
 metadata:
   name: reviews-default
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: reviews.service.consul
   precedence: 1
@@ -27,6 +29,7 @@ kind: RouteRule
 metadata:
   name: ratings-default
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: ratings.service.consul
   precedence: 1
@@ -39,6 +42,7 @@ kind: RouteRule
 metadata:
   name: details-default
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: details.service.consul
   precedence: 1

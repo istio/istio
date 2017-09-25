@@ -3,6 +3,7 @@ kind: RouteRule
 metadata:
   name: ratings-test-delay
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: ratings.service.consul
   precedence: 2

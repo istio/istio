@@ -3,6 +3,7 @@ kind: RouteRule
 metadata:
   name: reviews-default
 spec:
+# Route Rules are the same across platforms, the only difference is the different DNS domain that Consul uses
   destination:
     service: reviews.service.consul
   precedence: 2
