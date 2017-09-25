@@ -16,6 +16,7 @@ branch, but release branches should not change.
   - [Setting up Go](#setting-up-go)
   - [Setting up Bazel](#setting-up-bazel)
   - [Setting up Docker](#setting-up-docker)
+  - [Setting up environment variables](#setting-up-environment-variables)
   - [Setting up personal access token](#setting-up-a-personal-access-token)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
@@ -62,14 +63,6 @@ Mixer require Go version 1.8. If you haven't set up a Go development
 environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
 
-Set up your GOPATH and add a path entry for Go binaries to your PATH. Typically
-added to your ~/.profile:
-
-```shell
-export GOPATH=~/go
-export PATH=$PATH:$GOPATH/bin
-```
-
 ### Setting up Bazel
 
 Istio components are built using the Bazel build system. See
@@ -83,6 +76,27 @@ In addition to Bazel itself, you should install the Bazel buildifier tool from
 To run some of Istio's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
+
+### Setting up environment variables
+
+Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
+path, and set your GITHUB_USER used later in this document.  These exports are
+typically added to your ~/.profile:
+
+```shell
+export GOPATH=~/go
+export PATH=$PATH:$GOPATH/bin
+export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
+
+# Replace "$GITHUB_USER" below with your github username
+export GITHUB_USER=$USER # replace with actual if different
+```
+
+Execute a one time operation to contain the Istio source trees.
+
+```shell
+mkdir -p $ISTIO
+```
 
 ### Setting up a personal access token
 
@@ -116,12 +130,7 @@ Mixer's code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
 ```shell
-export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
-mkdir -p $ISTIO
 cd $ISTIO
-
-# Replace "$GITHUB_USER" below with your github username
-export GITHUB_USER=$USER # replace with actual if different
 git clone https://github.com/$GITHUB_USER/mixer.git
 cd mixer
 git remote add upstream 'https://github.com/istio/mixer.git'
