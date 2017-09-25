@@ -161,17 +161,20 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		return nil
 	}
 
-	// limit number of concurrent jobs to stay in stackdriver api quota
 	lines, err := util.Shell("kubectl get pods -n " + namespace)
 	if err != nil {
 		return err
 	}
 	pods := strings.Split(lines, "\n")
-	for _, line := range pods[1:] {
-		pod := line[:strings.Index(line, " ")]
-		glog.Infof("Fetching logs on %s", pod)
-		if err := fetchAndWrite(pod); err != nil {
-			multiErr = multierror.Append(multiErr, err)
+	if len(pods) > 1 {
+		for _, line := range pods[1:] {
+			if idxEndOfPodName := strings.Index(line, " "); idxEndOfPodName > 0 {
+				pod := line[:idxEndOfPodName]
+				glog.Infof("Fetching logs on %s", pod)
+				if err := fetchAndWrite(pod); err != nil {
+					multiErr = multierror.Append(multiErr, err)
+				}
+			}
 		}
 	}
 
