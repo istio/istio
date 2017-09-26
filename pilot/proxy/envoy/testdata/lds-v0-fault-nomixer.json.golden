@@ -19,7 +19,7 @@
        "stat_prefix": "http",
        "generate_request_id": true,
        "tracing": {
-        "operation_name": "ingress"
+        "operation_name": "egress"
        },
        "rds": {
         "cluster": "rds",
@@ -55,7 +55,7 @@
        "stat_prefix": "http",
        "generate_request_id": true,
        "tracing": {
-        "operation_name": "ingress"
+        "operation_name": "egress"
        },
        "rds": {
         "cluster": "rds",
@@ -123,7 +123,7 @@
        "stat_prefix": "http",
        "generate_request_id": true,
        "tracing": {
-        "operation_name": "ingress"
+        "operation_name": "egress"
        },
        "rds": {
         "cluster": "rds",

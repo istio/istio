@@ -227,7 +227,8 @@ func buildSidecarListenersClusters(
 		clusters = append(clusters,
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
-			buildHTTPListener(mesh, node, instances, nil, LocalhostAddress, int(mesh.ProxyHttpPort), RDSAll, false))
+			buildHTTPListener(mesh, node, instances, nil, LocalhostAddress, int(mesh.ProxyHttpPort),
+				RDSAll, false, EgressTraceOperation))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -270,7 +271,7 @@ func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName stri
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances []*model.ServiceInstance,
-	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool) *Listener {
+	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool, direction string) *Listener {
 	filters := buildFaultFilters(routeConfig)
 
 	filters = append(filters, HTTPFilter{
@@ -324,7 +325,7 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	if mesh.EnableTracing {
 		config.GenerateRequestID = true
 		config.Tracing = &HTTPFilterTraceConfig{
-			OperationName: IngressTraceOperation,
+			OperationName: direction,
 		}
 	}
 
@@ -409,7 +410,8 @@ func buildOutboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node, in
 
 	for port, routeConfig := range httpOutbound {
 		listeners = append(listeners,
-			buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port, fmt.Sprintf("%d", port), false))
+			buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
+				fmt.Sprintf("%d", port), false, EgressTraceOperation))
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
 
@@ -661,7 +663,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listeners = append(listeners,
-				buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address, endpoint.Port, "", false))
+				buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
+					endpoint.Port, "", false, IngressTraceOperation))
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMONGO:
 			listener := buildTCPListener(&TCPRouteConfig{

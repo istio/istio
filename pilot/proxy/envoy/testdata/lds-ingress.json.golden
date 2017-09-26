@@ -13,7 +13,7 @@
        "generate_request_id": true,
        "use_remote_address": true,
        "tracing": {
-        "operation_name": "ingress"
+        "operation_name": "egress"
        },
        "rds": {
         "cluster": "rds",
@@ -65,7 +65,7 @@
        "generate_request_id": true,
        "use_remote_address": true,
        "tracing": {
-        "operation_name": "ingress"
+        "operation_name": "egress"
        },
        "rds": {
         "cluster": "rds",

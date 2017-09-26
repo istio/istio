@@ -90,6 +90,9 @@ const (
 	// LocalhostAddress for local binding
 	LocalhostAddress = "127.0.0.1"
 
+	// EgressTraceOperation denotes the name of trace operation for Envoy
+	EgressTraceOperation = "egress"
+
 	// IngressTraceOperation denotes the name of trace operation for Envoy
 	IngressTraceOperation = "ingress"
 
