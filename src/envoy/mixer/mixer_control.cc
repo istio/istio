@@ -403,15 +403,21 @@ void MixerControl::SetMeshAttribute(const std::string& name,
   }
 
   in_addr ipv4_bytes;
-  // Only IPV4 is supported for now.
-  if (inet_pton(AF_INET, value.c_str(), &ipv4_bytes) != 1) {
-    ENVOY_LOG(warn, "Could not convert to ipv4: attribute {}, value: {}", name,
-              value);
-    attr->attributes[name] = Attributes::StringValue(value);
-  } else {
+  if (inet_pton(AF_INET, value.c_str(), &ipv4_bytes) == 1) {
     attr->attributes[name] = Attributes::BytesValue(std::string(
         reinterpret_cast<const char*>(&ipv4_bytes), sizeof(ipv4_bytes)));
+    return;
   }
+
+  in6_addr ipv6_bytes;
+  if (inet_pton(AF_INET6, value.c_str(), &ipv6_bytes) == 1) {
+    attr->attributes[name] = Attributes::BytesValue(std::string(
+        reinterpret_cast<const char*>(&ipv6_bytes), sizeof(ipv6_bytes)));
+    return;
+  }
+
+  ENVOY_LOG(warn, "Could not convert to ip: {}: {}", name, value);
+  attr->attributes[name] = Attributes::StringValue(value);
 }
 
 }  // namespace Mixer

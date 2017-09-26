@@ -93,7 +93,7 @@ const networkFailClose = `
 // The default client proxy mixer config
 const defaultClientMixerConfig = `
                    "forward_attributes": {
-		      "mesh3.ip": "3.3.3.3",
+		      "mesh3.ip": "1::8",
                       "source.uid": "POD11",
                       "source.namespace": "XYZ11"
                    }
@@ -130,7 +130,7 @@ const envoyConfTempl = `
                       "opaque_config": {
 {{.MixerRouteFlags}}
                         "mixer_forward": "off",
-			"mixer_attributes.mesh2.ip": "2.2.2.2",
+			"mixer_attributes.mesh2.ip": "::ffff:204.152.189.116",
                         "mixer_attributes.target.user": "target-user",
                         "mixer_attributes.target.name": "target-name"
                       }

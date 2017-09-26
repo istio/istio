@@ -24,8 +24,8 @@ const reportAttributesOkGet = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[2 2 2 2]",
-  "mesh3.ip": "[3 3 3 3]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -70,8 +70,8 @@ const reportAttributesOkPost1 = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[2 2 2 2]",
-  "mesh3.ip": "[3 3 3 3]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -116,8 +116,8 @@ const reportAttributesOkPost2 = `
 {
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[2 2 2 2]",
-  "mesh3.ip": "[3 3 3 3]",
+  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
+  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
