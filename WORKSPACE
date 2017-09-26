@@ -71,7 +71,7 @@ git_repository(
 
 git_repository(
     name = "com_github_istio_mixer",
-    commit = "2da5a16120f913ec4f5ee7b34e84d7a08a02740f",  # Aug 30, 2017
+    commit = "535eb564667cef6aed334cb4f5e967a104768387",  # Sep 26, 2017
     remote = "https://github.com/istio/mixer",
 )
 
