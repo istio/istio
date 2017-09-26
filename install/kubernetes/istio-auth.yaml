@@ -273,7 +273,11 @@ spec:
         args:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
+<<<<<<< HEAD
           - --configDefaultNamespace=istio-system
+=======
+          - --traceOutput=http://zipkin.istio-system:9411/api/v1/spans
+>>>>>>> Add zipkin tracing configuration for Mixer
           - --logtostderr
           - -v
           - "4"
