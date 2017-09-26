@@ -332,7 +332,7 @@ cc_proto_library(
             actual = "@gogoproto_git//:cc_gogoproto_genproto",
         )
 
-ISTIO_API = "0ac7998e828072627e0329cf5b21b02fbe01ee04"
+ISTIO_API = "2b5fabb787e4fa030edb7cfb7000890f31c4c73e"
 
 def mixerapi_repositories(protobuf_repo="@protobuf_bzl//", bind=True):
     gogoproto_repositories(bind)
