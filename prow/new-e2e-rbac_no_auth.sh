@@ -57,4 +57,4 @@ CLUSTER_CREATED=true
 kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=cluster-admin --user=istio-prow-test-job@istio-testing.iam.gserviceaccount.com
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
-./prow/e2e-suite-rbac-auth.sh --cluster_wide --use_initializer "${@}"
+./prow/e2e-suite-rbac-auth.sh --cluster_wide --use_initializer "$@"

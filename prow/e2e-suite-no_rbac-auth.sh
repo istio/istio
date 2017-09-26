@@ -29,4 +29,4 @@ set -u
 set -x
 
 echo 'Running e2e no rbac, with auth Tests'
-./prow/e2e-suite.sh --auth_enable "${@}"
+./prow/e2e-suite.sh --auth_enable "$@"
