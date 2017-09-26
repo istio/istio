@@ -127,7 +127,7 @@ func TestResolver_Resolve(t *testing.T) {
 			err:  "identity not found",
 		},
 		{
-			desc: "failure selector error",
+			desc: "failure match error",
 			bag: map[string]interface{}{
 				ia: "myservice.myns",
 			},
@@ -135,8 +135,8 @@ func TestResolver_Resolve(t *testing.T) {
 				{ns, 5},
 				{"myns", 3},
 			},
-			selectError: "invalid selector syntax",
-			err:         "invalid selector",
+			selectError: "invalid match syntax",
+			err:         "invalid match",
 			nactions:    0,
 		},
 	}
@@ -209,7 +209,7 @@ func assertResolverError(t *testing.T, got error, want string) {
 
 func newFakeRule(vr adptTmpl.TemplateVariety, length int) *Rule {
 	return &Rule{
-		selector: "request.size=2000",
+		match: "request.size=2000",
 		actions: map[adptTmpl.TemplateVariety][]*Action{
 			vr: make([]*Action, length),
 		},

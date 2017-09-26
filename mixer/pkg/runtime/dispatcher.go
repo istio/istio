@@ -111,7 +111,7 @@ func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) *
 // dispatcher is responsible for dispatching incoming API calls
 // to the configured adapters. It implements the Dispatcher interface.
 type dispatcher struct {
-	// mapper is the selector and expression evaluator.
+	// mapper is the match and expression evaluator.
 	// It is not directly used by dispatcher.
 	mapper expr.Evaluator
 

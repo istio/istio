@@ -92,9 +92,8 @@ kind: rule
 metadata:
   name: promtcp
   namespace: istio-config-default
-  labels:
-    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP 
 spec:
+  match: context.protocol == "tcp"
   actions:
   - handler: handler.prometheus
     instances:    

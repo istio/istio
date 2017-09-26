@@ -32,8 +32,8 @@ import (
 
 // Rule represents a runtime view of cpb.Rule.
 type Rule struct {
-	// Selector from the original rule.
-	selector string
+	// Match condition from the original rule.
+	match string
 	// Actions are stored in runtime format.
 	actions map[adptTmpl.TemplateVariety][]*Action
 	// Rule is a top level config object and it has a unique name.
@@ -41,6 +41,11 @@ type Rule struct {
 	name string
 	// rtype is gathered from labels.
 	rtype ResourceType
+}
+
+func (r Rule) String() string {
+	return fmt.Sprintf("[name:<%s>, match:<%s>, type:%s, actions: %v",
+		r.name, r.match, r.rtype, r.actions)
 }
 
 // resolver is the runtime view of the configuration database.
@@ -81,17 +86,22 @@ func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, de
 	}
 }
 
-// DefaultConfigNamespace holds istio wide configuration.
-const DefaultConfigNamespace = "istio-config-default"
+const (
+	// DefaultConfigNamespace holds istio wide configuration.
+	DefaultConfigNamespace = "istio-config-default"
 
-// DefaultIdentityAttribute is attribute that defines config scopes.
-const DefaultIdentityAttribute = "target.service"
+	// DefaultIdentityAttribute is attribute that defines config scopes.
+	DefaultIdentityAttribute = "destination.service"
 
-// ContextProtocolAttributeName is the attribute that defines the protocol context.
-const ContextProtocolAttributeName = "context.protocol"
+	// ContextProtocolAttributeName is the attribute that defines the protocol context.
+	ContextProtocolAttributeName = "context.protocol"
 
-// expectedResolvedActionsCount is used to preallocate slice for actions.
-const expectedResolvedActionsCount = 10
+	// ContextProtocolTCP defines constant for tcp protocol.
+	ContextProtocolTCP = "tcp"
+
+	// expectedResolvedActionsCount is used to preallocate slice for actions.
+	expectedResolvedActionsCount = 10
+)
 
 // Resolve resolves the in memory configuration to a set of actions based on request attributes.
 // Resolution is performed in the following order
@@ -196,12 +206,12 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 	nselected := 0
 	var err error
 	ctxProtocol, _ := attrs.Get(ContextProtocolAttributeName)
-	tcp := ctxProtocol == "tcp"
+	tcp := ctxProtocol == ContextProtocolTCP
 
 	for _, rules := range rulesArr {
 		for _, rule := range rules {
 			act := rule.actions[variety]
-			if act == nil { // do not evaluate selector if there is no variety specific action there.
+			if act == nil { // do not evaluate match if there is no variety specific action there.
 				continue
 			}
 			// default rtype is HTTP + Check|Report|Preprocess
@@ -213,8 +223,8 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			}
 
 			// do not evaluate empty predicates.
-			if len(rule.selector) != 0 {
-				if selected, err = r.evaluator.EvalPredicate(rule.selector, attrs); err != nil {
+			if len(rule.match) != 0 {
+				if selected, err = r.evaluator.EvalPredicate(rule.match, attrs); err != nil {
 					return nil, 0, err
 				}
 				if !selected {
