@@ -68,6 +68,9 @@ func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.No
 	}
 }
 
+// defaultMinDelay is the minimum amount of time between delivery of two successive events via updateFunc.
+const defaultMinDelay = 10 * time.Second
+
 func (w *watcher) Run(ctx context.Context) {
 	// agent consumes notifications from the controller
 	go w.agent.Run(ctx)
@@ -76,9 +79,12 @@ func (w *watcher) Run(ctx context.Context) {
 	w.Reload()
 
 	// monitor certificates
+	certDirs := make([]string, 0, len(w.certs))
 	for _, cert := range w.certs {
-		go watchCerts(ctx, cert.Directory, w.Reload)
+		certDirs = append(certDirs, cert.Directory)
 	}
+
+	go watchCerts(ctx, certDirs, watchFileEvents, defaultMinDelay, w.Reload)
 
 	<-ctx.Done()
 }
@@ -97,13 +103,52 @@ func (w *watcher) Reload() {
 	w.agent.ScheduleConfigUpdate(config)
 }
 
-// watchCerts watches a certificate directory and calls the provided
+type watchFileEventsFn func(ctx context.Context, wch <-chan *fsnotify.FileEvent,
+	minDelay time.Duration, notifyFn func())
+
+// watchFileEvents watches for changes on a channel and notifies via notifyFn().
+// The function batches changes so that related changes are processed together.
+// The function ensures that notifyFn() is called no more than one time per minDelay.
+// The function does not return until the the context is cancelled.
+func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDelay time.Duration, notifyFn func()) {
+	// timer and channel for managing minDelay.
+	var timeChan <-chan time.Time
+	var timer *time.Timer
+
+	for {
+		select {
+		case ev := <-wch:
+			glog.Infof("watchFileEvents: %s", ev.String())
+			if timer != nil {
+				continue
+			}
+			// create new timer
+			timer = time.NewTimer(minDelay)
+			timeChan = timer.C
+		case <-timeChan:
+			// reset timer
+			timeChan = nil
+			timer.Stop()
+			timer = nil
+
+			glog.Info("watchFileEvents: notifying")
+			notifyFn()
+		case <-ctx.Done():
+			glog.V(2).Info("watchFileEvents has terminated")
+			return
+		}
+	}
+}
+
+// watchCerts watches all certificate directories and calls the provided
 // `updateFunc` method when changes are detected. This method is blocking
-// so should be run as a goroutine.
-func watchCerts(ctx context.Context, certsDir string, updateFunc func()) {
+// so it should be run as a goroutine.
+// updateFunc will not be called more than one time per minDelay.
+func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watchFileEventsFn,
+	minDelay time.Duration, updateFunc func()) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
-		glog.Warning("failed to create a watcher for certificate files")
+		glog.Warningf("failed to create a watcher for certificate files: %v", err)
 		return
 	}
 	defer func() {
@@ -112,22 +157,14 @@ func watchCerts(ctx context.Context, certsDir string, updateFunc func()) {
 		}
 	}()
 
-	if err := fw.Watch(certsDir); err != nil {
-		glog.Warningf("watching %s encounters an error %v", certsDir, err)
-		return
-	}
-
-	for {
-		select {
-		case <-fw.Event:
-			glog.V(2).Infof("Change to %q is detected, reload the proxy if necessary", certsDir)
-			updateFunc()
-
-		case <-ctx.Done():
-			glog.V(2).Info("Certificate watcher is terminated")
+	// watch all directories
+	for _, d := range certsDirs {
+		if err := fw.Watch(d); err != nil {
+			glog.Warningf("watching %s encounters an error %v", d, err)
 			return
 		}
 	}
+	watchFileEventsFn(ctx, fw.Event, minDelay, updateFunc)
 }
 
 func generateCertHash(h hash.Hash, certsDir string, files []string) {

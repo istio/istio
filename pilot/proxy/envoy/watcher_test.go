@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/howeyc/fsnotify"
+
 	"istio.io/pilot/proxy"
 )
 
@@ -68,6 +70,42 @@ func TestRunReload(t *testing.T) {
 	}
 }
 
+func TestWatchCerts_Multiple(t *testing.T) {
+	called := 0
+	callback := func() {
+		called++
+	}
+
+	maxDelay := 500 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	wch := make(chan *fsnotify.FileEvent, 10)
+
+	go watchFileEvents(ctx, wch, maxDelay, callback)
+
+	// fire off multiple events
+	wch <- &fsnotify.FileEvent{Name: "f1"}
+	wch <- &fsnotify.FileEvent{Name: "f2"}
+	wch <- &fsnotify.FileEvent{Name: "f3"}
+
+	// sleep for less than maxDelay
+	time.Sleep(maxDelay / 2)
+
+	// Expect no events to be delivered within maxDelay.
+	if called != 0 {
+		t.Fatalf("Called %d times, want 0", called)
+	}
+
+	// wait for quiet period
+	time.Sleep(maxDelay)
+
+	// Expect exactly 1 event to be delivered.
+	if called != 1 {
+		t.Fatalf("Called %d times, want 1", called)
+	}
+	cancel()
+}
+
 func TestWatchCerts(t *testing.T) {
 	name, err := ioutil.TempDir("testdata", "certs")
 	if err != nil {
@@ -86,7 +124,7 @@ func TestWatchCerts(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	go watchCerts(ctx, name, callbackFunc)
+	go watchCerts(ctx, []string{name}, watchFileEvents, 50*time.Millisecond, callbackFunc)
 
 	// sleep one second to make sure the watcher is set up before change is made
 	time.Sleep(time.Second)
@@ -106,7 +144,7 @@ func TestWatchCerts(t *testing.T) {
 	}
 
 	// should terminate immediately
-	go watchCerts(ctx, "", callbackFunc)
+	go watchCerts(ctx, nil, watchFileEvents, 50*time.Millisecond, callbackFunc)
 }
 
 func TestGenerateCertHash(t *testing.T) {
@@ -155,7 +193,7 @@ func TestEnvoyArgs(t *testing.T) {
 	test := envoy{config: config, node: "my-node"}
 	testProxy := NewProxy(config, "my-node")
 	if !reflect.DeepEqual(testProxy, test) {
-		t.Errorf("unexpected struct %v", testProxy)
+		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
 
 	got := test.args("test.json", 5)
