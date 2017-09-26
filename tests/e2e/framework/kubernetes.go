@@ -278,6 +278,9 @@ func (k *KubeInfo) deployIstio() error {
 			glog.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
 			return err
 		}
+
+		// alow time to the initializer to start
+		time.Sleep(60 * time.Second)
 	}
 
 	return nil
