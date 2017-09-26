@@ -54,6 +54,11 @@ for IMAGE in "${BAZEL_IMAGES[@]}"; do
   IMAGES+=("${IMAGE}")
 done
 
+# Build Servicegraph
+bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//example/servicegraph/docker:servicegraph"
+docker tag "istio/example/servicegraph/docker:servicegraph" "servicegraph"
+IMAGES+=(servicegraph)
+
 # Tag and push
 
 for IMAGE in ${IMAGES[@]}; do
