@@ -3,8 +3,6 @@ kind: metric
 metadata:
   name: tcpbytesent
   namespace: istio-config-default
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -19,8 +17,6 @@ kind: metric
 metadata:
   name: tcpbytereceived
   namespace: istio-config-default
-  labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
 spec:
   value: connection.received.bytes | 0
   dimensions:

@@ -48,6 +48,8 @@ func TestGoodParse(t *testing.T) {
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 		{`source.ip | ip("0.0.0.0")`, `OR($source.ip, ip("0.0.0.0"))`},
 		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
+		{`a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
+			`LOR(LAND(LAND(EQ($a.b, 3.14), EQ($c, "d")), EQ(INDEX($r.h, "abc"), "pqr")), EQ(INDEX($r.h, "abc"), "xyz"))`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -58,6 +60,88 @@ func TestGoodParse(t *testing.T) {
 			}
 			if tt.postfix != ex.String() {
 				t.Errorf("got %s\nwant: %s", ex.String(), tt.postfix)
+			}
+		})
+	}
+}
+
+func TestExtractMatches(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		src  string
+		m    map[string]interface{}
+	}{
+		{
+			desc: "no ANDS",
+			src:  `a || b || "c" || ( a && b )`,
+			m:    map[string]interface{}{},
+		},
+		{
+			desc: "EQ check with function",
+			src:  `substring(a, 5) == "abc"`,
+			m:    map[string]interface{}{},
+		},
+		{
+			desc: "single EQ check",
+			src:  `origin.host == "9.0.10.1"`,
+			m: map[string]interface{}{
+				"origin.host": "9.0.10.1",
+			},
+		},
+		{
+			desc: "top level OR --> cannot extract equality subexpressions",
+			src:  `a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
+			m:    map[string]interface{}{},
+		},
+		{
+			desc: "yoda",
+			src:  `"d" == c`,
+			m: map[string]interface{}{
+				"c": "d",
+			},
+		},
+		{
+			desc: "only top level ANDS",
+			src:  `a.b == 3.14 && "d" == c && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
+			m: map[string]interface{}{
+				"a.b": 3.14,
+				"c":   "d",
+			},
+		},
+		{
+			desc: "only top level ANDS, attribute to attribute comparison excluded",
+			src:  `a.b == 3.14 && c == d && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz")`,
+			m: map[string]interface{}{
+				"a.b": 3.14,
+			},
+		},
+		{
+			src: `c == d && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz") && a.b == 3.14`,
+			m: map[string]interface{}{
+				"a.b": 3.14,
+			},
+		},
+		{ // c == d is not included because it is an attribute to attribute comparison.
+			src: `c == d && (r.h["abc"] == "pqr" || r.h["abc"] == "xyz") && a.b == 3.14 && context.protocol == "TCP"`,
+			m: map[string]interface{}{
+				"context.protocol": "TCP",
+				"a.b":              3.14,
+			},
+		},
+		{
+			src: `destination.service == "mysvc.FQDN" && request.headers["x-id"] == "AAA"`,
+			m: map[string]interface{}{
+				"destination.service": "mysvc.FQDN",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			m, err := ExtractEQMatches(tc.src)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(m, tc.m) {
+				t.Fatalf("got %v, want %v", m, tc.m)
 			}
 		})
 	}
