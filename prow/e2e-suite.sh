@@ -45,4 +45,4 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 fi
 
 echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
+./tests/e2e.sh ${E2E_ARGS[@]:-} "$@"
