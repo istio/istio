@@ -29,8 +29,4 @@ set -u
 set -x
 
 echo 'Running e2e with rbac, with auth Tests'
-if [ "$#" != 0 ]; then
-    ./prow/e2e-suite.sh --auth_enable "${@}"
-else
-    ./prow/e2e-suite.sh --auth_enable
-fi
+./prow/e2e-suite.sh --auth_enable "$@"
