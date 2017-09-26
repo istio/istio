@@ -29,6 +29,9 @@ const (
 const checkAttributesMixerFail = `
 {
   "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[2 2 2 2]",
+  "mesh3.ip": "[3 3 3 3]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -39,7 +42,7 @@ const checkAttributesMixerFail = `
   "source.namespace": "XYZ11",
   "source.name": "source-name",
   "source.user": "source-user",
-  "source.ip": "*",
+  "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
@@ -60,6 +63,9 @@ const checkAttributesMixerFail = `
 const reportAttributesMixerFail = `
 {
   "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[2 2 2 2]",
+  "mesh3.ip": "[3 3 3 3]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -70,7 +76,7 @@ const reportAttributesMixerFail = `
   "source.namespace": "XYZ11",
   "source.name": "source-name",
   "source.user": "source-user",
-  "source.ip": "*",
+  "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
@@ -103,6 +109,9 @@ const reportAttributesMixerFail = `
 const reportAttributesBackendFail = `
 {
   "context.protocol": "http",
+  "mesh1.ip": "[1 1 1 1]",
+  "mesh2.ip": "[2 2 2 2]",
+  "mesh3.ip": "[3 3 3 3]",
   "request.host": "localhost:27070",
   "request.path": "/echo",
   "request.time": "*",
@@ -113,7 +122,7 @@ const reportAttributesBackendFail = `
   "source.namespace": "XYZ11",
   "source.name": "source-name",
   "source.user": "source-user",
-  "source.ip": "*",
+  "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",

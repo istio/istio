@@ -81,9 +81,10 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 				}
 			} else {
 				if val, ok := b.Get(k); ok {
-					if val.(string) != v.(string) {
+				        val_string := fmt.Sprintf("%v", val)
+					if val_string != v.(string) {
 						return fmt.Errorf("attribute %+v value doesn't match. Actual %+v, expected %+v",
-							k, val.(string), v.(string))
+							k, val_string, v.(string))
 					}
 				} else {
 					return fmt.Errorf("attribute %+v is expected", k)

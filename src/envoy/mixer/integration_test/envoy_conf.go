@@ -48,6 +48,7 @@ type ConfParam struct {
 // A basic config
 const basicConfig = `
                   "mixer_attributes": {
+		      "mesh1.ip": "1.1.1.1",
                       "target.uid": "POD222",
                       "target.namespace": "XYZ222"
                   }
@@ -92,6 +93,7 @@ const networkFailClose = `
 // The default client proxy mixer config
 const defaultClientMixerConfig = `
                    "forward_attributes": {
+		      "mesh3.ip": "3.3.3.3",
                       "source.uid": "POD11",
                       "source.namespace": "XYZ11"
                    }
@@ -128,6 +130,7 @@ const envoyConfTempl = `
                       "opaque_config": {
 {{.MixerRouteFlags}}
                         "mixer_forward": "off",
+			"mixer_attributes.mesh2.ip": "2.2.2.2",
                         "mixer_attributes.target.user": "target-user",
                         "mixer_attributes.target.name": "target-name"
                       }

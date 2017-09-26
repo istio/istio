@@ -95,6 +95,10 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
   }
 
  private:
+  // Set the mesh attributes from Pilot
+  void SetMeshAttribute(const std::string& name, const std::string& value,
+                        ::istio::mixer_client::Attributes* attr) const;
+
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer client
