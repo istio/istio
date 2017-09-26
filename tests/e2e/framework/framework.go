@@ -25,7 +25,6 @@ import (
 
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
-	logProvider = flag.String("log_provider", "", "Cluster log storage provider")
 )
 
 type testCleanup struct {
@@ -180,10 +179,8 @@ func (c *CommonConfig) saveLogs(r int) error {
 		glog.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
-	if r != 0 && *logProvider == "stackdriver" { // fetch logs only if tests failed
-		if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
-			return err
-		}
+	if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
+		return err
 	}
 	return nil
 }
