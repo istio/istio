@@ -16,6 +16,25 @@ licenses(["notice"])
 
 load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
 
+py_binary(
+   name = "create_global_dictionary",
+   srcs = ["create_global_dictionary.py"],
+)
+
+genrule(
+   name = "global_dictionary_header_gen",
+   srcs = [
+       "@mixerapi_git//:mixer/v1/global_dictionary.yaml",
+   ],
+   outs = [
+       "src/global_dictionary.cc",
+   ],
+   cmd = "$(location //:create_global_dictionary) $(location @mixerapi_git//:mixer/v1/global_dictionary.yaml) > $@",
+   tools = [
+        "//:create_global_dictionary",
+   ],
+)
+
 cc_library(
     name = "mixer_client_lib",
     srcs = [

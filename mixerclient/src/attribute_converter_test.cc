@@ -200,7 +200,7 @@ default_words: "time-key"
 default_words: "int-key2"
 default_words: "key"
 default_words: "value"
-global_word_count: 150
+global_word_count: 111
 )";
 
 class AttributeConverterTest : public ::testing::Test {
@@ -316,6 +316,7 @@ TEST_F(AttributeConverterTest, BatchConvertTest) {
   ::istio::mixer::v1::ReportRequest expected_report_pb;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kReportAttributes, &expected_report_pb));
+  report_pb->set_global_word_count(111);
   EXPECT_TRUE(MessageDifferencer::Equals(*report_pb, expected_report_pb));
 }
 
