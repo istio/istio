@@ -16,6 +16,8 @@ package expr
 
 import (
 	"fmt"
+	"net"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,6 +107,14 @@ func TestGoodEval(tt *testing.T) {
 				"request.user": "user2",
 			},
 			"user1", "",
+		},
+		{
+			`source.name| source.target`,
+			map[string]interface{}{
+				"source.name":   nil,
+				"source.target": nil,
+			},
+			nil, "",
 		},
 		{
 			`request.size| 200`,
@@ -229,6 +239,69 @@ func TestGoodEval(tt *testing.T) {
 			},
 			true, "",
 		},
+		{
+			`match(service.name, "*.ns1.cluster")`,
+			map[string]interface{}{
+				"service.name": "svc1.ns1.cluster",
+			},
+			true, "",
+		},
+		{
+			`match(service.name, "*.ns1.cluster")`,
+			map[string]interface{}{
+				"service.name": "svc1.ns2.cluster",
+			},
+			false, "",
+		},
+		{
+			`match(service.name, "*.ns1.cluster")`,
+			map[string]interface{}{
+				"service.name": 20,
+			},
+			false, "input 'str' to 'match' func was not a string",
+		},
+		{
+			`match(service.name, servicename)`,
+			map[string]interface{}{
+				"service.name1": "svc1.ns2.cluster",
+			},
+			false, "unresolved attribute",
+		},
+		{
+			`match(service.name, servicename)`,
+			map[string]interface{}{
+				"service.name": "svc1.ns2.cluster",
+			},
+			false, "unresolved attribute",
+		},
+		{
+			`match(service.name, 1)`,
+			map[string]interface{}{
+				"service.name": "svc1.ns2.cluster",
+			},
+			false, "input 'pattern' to 'match' func was not a string",
+		},
+		{
+			`target.ip| ip("10.1.12.3")`,
+			map[string]interface{}{
+				"target.ip": "",
+			},
+			[]uint8(net.ParseIP("10.1.12.3")), "",
+		},
+		{
+			`target.ip| ip(2)`,
+			map[string]interface{}{
+				"target.ip": "",
+			},
+			nil, "input to 'ip' func was not a string",
+		},
+		{
+			`target.ip| ip("10.1.12")`,
+			map[string]interface{}{
+				"target.ip": "",
+			},
+			nil, "could not convert '10.1.12' to IP_ADDRESS",
+		},
 	}
 
 	for idx, tst := range tests {
@@ -248,8 +321,14 @@ func TestGoodEval(tt *testing.T) {
 				}
 				return
 			}
-			if res != tst.result {
-				t.Errorf("[%d] %s got <%q>\nwant <%q>", idx, exp.String(), res, tst.result)
+			if strings.Contains(tst.src, "ip") {
+				if !reflect.DeepEqual(res, tst.result) {
+					t.Errorf("[%d] %s got <%q>\nwant <%q>", idx, exp.String(), res, tst.result)
+				}
+			} else {
+				if res != tst.result {
+					t.Errorf("[%d] %s got <%q>\nwant <%q>", idx, exp.String(), res, tst.result)
+				}
 			}
 		})
 	}

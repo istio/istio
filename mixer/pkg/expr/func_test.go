@@ -23,11 +23,11 @@ import (
 	config "istio.io/api/mixer/v1/config/descriptor"
 )
 
-func TestIndexFunc(tt *testing.T) {
+func TestNewIndex(t *testing.T) {
 	fn := newIndex()
 
-	check(tt, "ReturnType", fn.ReturnType(), config.STRING)
-	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
+	check(t, "ReturnType", fn.ReturnType(), config.STRING)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING_MAP, config.STRING})
 }
 
 func check(t *testing.T, msg string, got interface{}, want interface{}) {
@@ -36,7 +36,7 @@ func check(t *testing.T, msg string, got interface{}, want interface{}) {
 	}
 }
 
-func TestEQFunc(tt *testing.T) {
+func TestNewEQ(t *testing.T) {
 	fn := newEQ().(*eqFunc)
 	tbl := []struct {
 		val   interface{}
@@ -50,22 +50,23 @@ func TestEQFunc(tt *testing.T) {
 		{"ns1.svc.local", "ns2.*", false},
 		{"svc1.ns1.cluster", "*.ns1.cluster", true},
 		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
-		{net.ParseIP("10.3.25.1"), net.ParseIP("10.3.25.1"), true},
-		{net.ParseIP("10.3.25.1"), net.ParseIP("103.4.15.3"), false},
+		{[]uint8(net.ParseIP("10.3.25.1")), []uint8(net.ParseIP("10.3.25.1")), true},
+		{[]uint8(net.ParseIP("10.3.25.1")), []uint8(net.ParseIP("103.4.15.3")), false},
+		{[]uint8(net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")), []uint8(net.ParseIP("2001:0db8:85a3:0000")), false},
 		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e'}, true},
 		{[]byte{'a', 'b', 'e'}, []byte{'a', 'b', 'e', 'z', 'z', 'z'}, false},
 	}
 	for idx, tst := range tbl {
-		tt.Run(fmt.Sprintf("[%d] %s", idx, tst.val), func(t *testing.T) {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tst.val), func(t *testing.T) {
 			rv := fn.call(tst.val, tst.match)
 			if rv != tst.equal {
-				tt.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tst.val, tst.match, rv, tst.equal)
+				t.Errorf("[%d] %v ?= %v -- got %#v\nwant %#v", idx, tst.val, tst.match, rv, tst.equal)
 			}
 		})
 	}
 
-	check(tt, "ReturnType", fn.ReturnType(), config.BOOL)
-	check(tt, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
+	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
 }
 
 func TestNewIP(t *testing.T) {
@@ -80,4 +81,25 @@ func TestNewMatch(t *testing.T) {
 
 	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
 	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING, config.STRING})
+}
+
+func TestNewLAND(t *testing.T) {
+	fn := newLAND()
+
+	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.BOOL, config.BOOL})
+}
+
+func TestNewOR(t *testing.T) {
+	fn := newOR()
+
+	check(t, "ReturnType", fn.ReturnType(), config.VALUE_TYPE_UNSPECIFIED)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED})
+}
+
+func TestNewLOR(t *testing.T) {
+	fn := newLOR()
+
+	check(t, "ReturnType", fn.ReturnType(), config.BOOL)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.BOOL, config.BOOL})
 }
