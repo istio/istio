@@ -23,8 +23,10 @@
 
 # Exit immediately for non zero status
 set -e
+# Check unset variables
+set -u
 # Print commands
 set -x
 
 echo 'Running e2e with rbac, with auth Tests'
-./prow/e2e-suite.sh --auth_enable "${@}"
+./prow/e2e-suite.sh --auth_enable "$@"
