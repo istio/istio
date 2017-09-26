@@ -22,7 +22,7 @@ metadata:
   name: denyreviewsv3
   namespace: istio-config-default
 spec:
-  match: destination.labels["app"] == "ratings" && source.labels["app"]=="reviews" && source.labels["version"] == "v3"
+  match: request.headers["x-user"] == ""
   actions:
   - handler: handler.denier.istio-config-default
     instances: [ denyrequest.checknothing.istio-config-default ]
