@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: docker.io/istio/grafana:0.2.1
+        image: {MIXER_HUB}/grafana:{MIXER_TAG}
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000
