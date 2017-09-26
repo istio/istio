@@ -25,6 +25,11 @@ spec:
   selector:
     app: mongodb
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-mongodb
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -37,6 +42,7 @@ spec:
         app: mongodb
         version: v1
     spec:
+      serviceAccountName: bookinfo-mongodb
       containers:
       - name: mongodb 
         image: istio/examples-bookinfo-mongodb:0.2.3

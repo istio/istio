@@ -22,8 +22,7 @@ metadata:
   name: denyreviewsv3
   namespace: istio-config-default
 spec:
-  #FIXME match: target.labels["app"]=="productpage" && request.headers["x-user"] == ""
-  match: request.headers["x-user"] == ""
+  match: destination.labels["app"] == "ratings" && source.labels["app"]=="reviews" && source.labels["version"] == "v3"
   actions:
   - handler: handler.denier.istio-config-default
     instances: [ denyrequest.checknothing.istio-config-default ]

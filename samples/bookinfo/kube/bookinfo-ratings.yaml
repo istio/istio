@@ -28,6 +28,11 @@ spec:
   selector:
     app: ratings
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bookinfo-ratings
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -40,6 +45,7 @@ spec:
         app: ratings
         version: v1
     spec:
+      serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
         image: istio/examples-bookinfo-ratings-v1

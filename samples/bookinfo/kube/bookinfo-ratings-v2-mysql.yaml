@@ -24,6 +24,7 @@ spec:
         app: ratings
         version: v2
     spec:
+      serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
         image: istio/examples-bookinfo-ratings-v2:0.2.3
