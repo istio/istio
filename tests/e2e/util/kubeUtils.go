@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	podRunning = "Running"
+	podRunning   = "Running"
 	podFailedGet = "Failed_Get"
 )
 
