@@ -195,7 +195,9 @@ roleRef:
   name: istio-mixer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
+################################
 # Mixer
+################################
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -286,6 +288,7 @@ spec:
 # Mixer CRD definitions are generated using
 # mixs crd all
 
+>>>>>>> origin
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -574,6 +577,92 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: http-health
+    port: 9093
+  - name: configapi
+    port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: istio-system
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
+      - name: mixer
+        image: gcr.io/istio-testing/mixer:3a0dfbfd4e0b9301cb378a190830d00061d29d8e
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
+          - --configStore2URL=k8s://
+          - --configDefaultNamespace=istio-system
+          - --logtostderr
+          - -v
+          - "4"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-mixer
+---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -800,7 +889,7 @@ metadata:
   name: tcpbytereceived
   namespace: istio-system
   labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
