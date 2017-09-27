@@ -80,7 +80,7 @@ for how to do this for your platform.
 ### Setting up environment variables
 
 Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
-path, and set your GITHUB_USER used later in this document.  These exports are
+path, and set your GITHUB_USER used later in this document. These exports are
 typically added to your ~/.profile:
 
 ```shell
@@ -88,8 +88,9 @@ export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
 
-# Replace "$GITHUB_USER" below with your github username
-export GITHUB_USER=$USER # replace with actual if different
+# If your github username is not the same as your local user name (saved in the
+# shell variable $USER), then replace "$USER" below with your github username
+export GITHUB_USER=$USER
 ```
 
 Execute a one time operation to contain the Istio source trees.
