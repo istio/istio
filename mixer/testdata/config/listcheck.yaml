@@ -24,7 +24,10 @@ metadata:
   name: checkwl
   namespace: istio-config-default
 spec:
-  match: destination.labels["app"] == "ratings"
+  # If an attribute could be potentially absent, use the '|' operator
+  # to provide a default value. In the below example if 'destination.labels'
+  # is absent, "unknown" is used in its place (this happens in non kubernetes env).
+  match: (destination.labels["app"]|"unknown") == "ratings"
   actions:
   - handler: staticversion.listchecker
     instances:
