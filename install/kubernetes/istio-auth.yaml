@@ -277,7 +277,7 @@ spec:
           - --traceOutput=http://zipkin:9411/api/v1/spans
           - --logtostderr
           - -v
-          - "4"
+          - "2"
       volumes:
       - name: config-volume
         configMap:
