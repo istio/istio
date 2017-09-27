@@ -941,11 +941,11 @@ data:
     # from Istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: 30s
+    rdsRefreshDelay: 1s
     #
     defaultConfig:
       # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: 30s
+      discoveryRefreshDelay: 1s
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
