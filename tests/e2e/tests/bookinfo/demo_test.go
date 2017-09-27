@@ -103,6 +103,11 @@ func (t *testConfig) Setup() error {
 		}
 
 	}
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
 	return setUpDefaultRouting()
 }
 
