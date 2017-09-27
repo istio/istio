@@ -151,8 +151,14 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			glog.Warningf("%s attribute not found in %p", identityAttribute, bag)
 			return nil, fmt.Errorf("%s attribute not found", identityAttribute)
 		}
-	} else if scopes, err = GetScopes(attr.(string), identityAttributeDomain, scopes); err != nil {
-		return nil, err
+	} else {
+		attrStr, ok := attr.(string)
+		if !ok {
+			return nil, fmt.Errorf("%s attribute with value %v should be of type string", identityAttribute, attr)
+		}
+		if scopes, err = GetScopes(attrStr, identityAttributeDomain, scopes); err != nil {
+			return nil, err
+		}
 	}
 
 	dlist = make([]*pb.Combined, 0, resolveSize)
