@@ -341,8 +341,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
-	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
-	content = replacePattern(k, content, "discoveryRefreshDelay: 30s", "discoveryRefreshDelay: 1s")
 	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
 	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
 	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
