@@ -39,10 +39,8 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
-  LOG_HOST="stackdriver"
-  PROJ_ID="istio-testing"
-  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}" --log_provider=${LOG_HOST} --project_id=${PROJ_ID})
+  E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 fi
 
 echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} ${@}
+./tests/e2e.sh ${E2E_ARGS[@]:-} "$@"
