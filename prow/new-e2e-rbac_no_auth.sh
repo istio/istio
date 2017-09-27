@@ -54,6 +54,16 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
   || { echo "Failed to create a new cluster"; exit 1; }
 CLUSTER_CREATED=true
 
+for i in {1..10}
+do
+  status=$(kubectl get namespace || echo "Unreachable")
+  [[ ${status} == 'Unreachable' ]] || break
+  if [ ${i} -eq 10 ]; then
+    echo "Cannot connect to the new cluster"; exit 1
+  fi
+  sleep 5
+done
+
 kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=cluster-admin --user=istio-prow-test-job@istio-testing.iam.gserviceaccount.com
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
