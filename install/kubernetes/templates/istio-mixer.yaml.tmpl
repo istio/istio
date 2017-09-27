@@ -1,7 +1,94 @@
-################################
 # Mixer
-################################
-# Mixer CRD definitions are generated using mixs crd all
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: http-health
+    port: 9093
+  - name: configapi
+    port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+  namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
+      - name: mixer
+        image: {MIXER_HUB}/mixer:{MIXER_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
+          - --configStore2URL=k8s://
+          - --configDefaultNamespace={ISTIO_NAMESPACE}
+          - --traceOutput=http://zipkin:9411/api/v1/spans
+          - --logtostderr
+          - -v
+          - "4"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-mixer
+---
+# Mixer CRD definitions are generated using
+# mixs crd all
+
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -290,90 +377,342 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
 metadata:
-  name: istio-mixer
+  name: istioproxy
   namespace: {ISTIO_NAMESPACE}
-data:
-  mapping.conf: |-
+spec:
+  attributes:
+    origin.ip:
+      valueType: IP_ADDRESS
+    origin.uid:
+      valueType: STRING
+    origin.user:
+      valueType: STRING
+    request.headers:
+      valueType: STRING_MAP
+    request.id:
+      valueType: STRING
+    request.host:
+      valueType: STRING
+    request.method:
+      valueType: STRING
+    request.path:
+      valueType: STRING
+    request.reason:
+      valueType: STRING
+    request.referer:
+      valueType: STRING
+    request.scheme:
+      valueType: STRING
+    request.size:
+      valueType: INT64
+    request.time:
+      valueType: TIMESTAMP
+    request.useragent:
+      valueType: STRING
+    response.code:
+      valueType: INT64
+    response.duration:
+      valueType: DURATION
+    response.headers:
+      valueType: STRING_MAP
+    response.size:
+      valueType: INT64
+    response.time:
+      valueType: TIMESTAMP
+    source.uid:
+      valueType: STRING
+    source.user:
+      valueType: STRING
+    destination.uid:
+      valueType: STRING
+    connection.id:
+      valueType: STRING
+    connection.received.bytes:
+      valueType: INT64
+    connection.received.bytes_total:
+      valueType: INT64
+    connection.sent.bytes:
+      valueType: INT64
+    connection.sent.bytes_total:
+      valueType: INT64
+    connection.duration:
+      valueType: DURATION
+    context.protocol:
+      valueType: STRING
+    context.timestamp:
+      valueType: TIMESTAMP
+    context.time:
+      valueType: TIMESTAMP
+
 ---
-apiVersion: v1
-kind: Service
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
 metadata:
-  name: istio-mixer
+  name: kubernetes
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  attributes:
+    source.ip:
+      valueType: IP_ADDRESS
+    source.labels:
+      valueType: STRING_MAP
+    source.name:
+      valueType: STRING
+    source.namespace:
+      valueType: STRING
+    source.service:
+      valueType: STRING
+    source.serviceAccount:
+      valueType: STRING
+    destination.ip:
+      valueType: IP_ADDRESS
+    destination.labels:
+      valueType: STRING_MAP
+    destination.name:
+      valueType: STRING
+    destination.namespace:
+      valueType: STRING
+    destination.service:
+      valueType: STRING
+    destination.serviceAccount:
+      valueType: STRING
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: stdio
+metadata:
+  name: handler
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  outputAsJson: true
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: accesslog
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  severity: '"Default"'
+  timestamp: request.time
+  variables:
+    sourceIp: source.ip | ip("0.0.0.0")
+    destinationIp: destination.ip | ip("0.0.0.0")
+    sourceUser: source.user | ""
+    method: request.method | ""
+    url: request.path | ""
+    protocol: request.scheme | "http"
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
+    latency: response.duration | "0ms"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stdio
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  match: "true" # If omitted match is true.
+  actions:
+  - handler: handler.stdio
+    instances:
+    - accesslog.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestcount
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  value: "1"
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestduration
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  value: response.duration | "0ms"
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: requestsize
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  value: request.size | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: responsesize
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  value: response.size | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: tcpbytesent
   namespace: {ISTIO_NAMESPACE}
   labels:
-    istio: mixer
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
-  ports:
-  - name: tcp
-    port: 9091
-  - name: http-health
-    port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
-  selector:
-    istio: mixer
+  value: connection.sent.bytes | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
 ---
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
 metadata:
-  name: istio-mixer-service-account
+  name: tcpbytereceived
   namespace: {ISTIO_NAMESPACE}
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-mixer
-  namespace: {ISTIO_NAMESPACE}
-  annotations:
-    sidecar.istio.io/inject: "false"
+  labels:
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        istio: mixer
-    spec:
-      serviceAccountName: istio-mixer-service-account
-      containers:
-      - name: statsd-to-prometheus
-        image: prom/statsd-exporter
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9102
-        - containerPort: 9125
-          protocol: UDP
-        args:
-        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/statsd
-      - name: mixer
-        image: {MIXER_HUB}/mixer:{MIXER_TAG}
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9091
-        - containerPort: 9094
-        - containerPort: 42422
-        args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
-          - --configStore2URL=k8s://
-          - --configDefaultNamespace={ISTIO_NAMESPACE}
-          - --traceOutput=http://zipkin:9411/api/v1/spans
-          - --logtostderr
-          - -v
-          - "4"
-      volumes:
-      - name: config-volume
-        configMap:
-          name: istio-mixer
+  value: connection.received.bytes | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+  monitored_resource_type: '"UNSPECIFIED"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: handler
+  namespace: {ISTIO_NAMESPACE}
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.{ISTIO_NAMESPACE}
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: request_duration
+    instance_name: requestduration.metric.{ISTIO_NAMESPACE}
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      explicit_buckets:
+        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+  - name: request_size
+    instance_name: requestsize.metric.{ISTIO_NAMESPACE}
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+  - name: response_size
+    instance_name: responsesize.metric.{ISTIO_NAMESPACE}
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+  - name: tcp_bytes_sent
+    instance_name: tcpbytesent.metric.{ISTIO_NAMESPACE}
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+  - name: tcp_bytes_received
+    instance_name: tcpbytereceived.metric.{ISTIO_NAMESPACE}
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio-protocol: http
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: {ISTIO_NAMESPACE}
+  labels:
+    istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
 ---
