@@ -19,6 +19,7 @@ import (
 	"flag"
 	//"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -150,7 +151,7 @@ func fP(scope string, subject string, kinds ...string) *fakeRule { // nolint: un
 // TestResolve multi rules resolve
 func TestResolve(t *testing.T) {
 	table := []struct {
-		target       string
+		target       interface{}
 		rule         []*fakeRule
 		kinds        []string
 		makebag      bool
@@ -229,10 +230,19 @@ func TestResolve(t *testing.T) {
 				"metric0": "global/global",
 			}, false,
 		},
+		{1234, []*fakeRule{
+			fP("global", "global", "metric0", "metric1")},
+			[]string{"metric0"},
+			true,
+			errors.New("should be of type string"), errors.New("unable to resolve"),
+			map[string]string{
+				"metric0": "global/global",
+			}, false,
+		},
 	}
 
-	for _, tt := range table {
-		t.Run(tt.target, func(t1 *testing.T) {
+	for i, tt := range table {
+		t.Run(strconv.Itoa(i), func(t1 *testing.T) {
 			rules := buildRule(tt.rule)
 			attrs := map[string]interface{}{}
 			if tt.makebag {
