@@ -1100,7 +1100,7 @@ spec:
           name: istio
 ---
 ################################
-# Istio-ingress
+# Istio ingress
 ################################
 apiVersion: v1
 kind: Service
