@@ -1,7 +1,7 @@
 # GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
 ################################
-# Istio-system namespace template: run updateVersions.sh after editing this file
+# Istio system namespace
 ################################
 apiVersion: v1
 kind: Namespace
@@ -9,7 +9,7 @@ metadata:
   name: istio-system
 ---
 ################################
-# Istio RBAC template: run updateVersions.sh after editing this file
+# Istio RBAC
 ################################
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
@@ -202,7 +202,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 ################################
-# Mixer template: run updateVersions.sh after editing this file
+# Mixer
 ################################
 # Mixer CRD definitions are generated using mixs crd all
 kind: CustomResourceDefinition
@@ -919,7 +919,7 @@ spec:
     - tcpbytereceived.metric
 ---
 ################################
-# Istio configMap cluster-wide template: run updateVersions.sh after editing this file
+# Istio configMap cluster-wide
 ################################
 apiVersion: v1
 kind: ConfigMap
@@ -988,7 +988,7 @@ data:
       statsdUdpAddress: istio-mixer.istio-system:9125
 ---
 ################################
-# Pilot template: run updateVersions.sh after editing this file
+# Pilot
 ################################
 # Pilot CRDs
 apiVersion: apiextensions.k8s.io/v1beta1
@@ -1099,7 +1099,7 @@ spec:
           name: istio
 ---
 ################################
-# Istio-ingress template: run updateVersions.sh after editing this file
+# Istio-ingress
 ################################
 apiVersion: v1
 kind: Service
@@ -1183,7 +1183,7 @@ spec:
           optional: true
 ---
 ################################
-# Istio egress template: run updateVersions.sh after editing this file
+# Istio egress
 ################################
 apiVersion: v1
 kind: Service
@@ -1250,7 +1250,7 @@ spec:
           optional: true
 ---
 ################################
-# Istio-CA single namespace template: run updateVersions.sh after editing this file
+# Istio-CA single namespace
 ################################
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
