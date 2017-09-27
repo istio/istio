@@ -29,6 +29,11 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	podRunning = "Running"
+	podFailedGet = "Failed_Get"
+)
+
 // Fill complete a template with given values and generate a new output file
 func Fill(outFile, inFile string, values interface{}) error {
 	var bytes bytes.Buffer
@@ -217,10 +222,10 @@ func GetPodsName(n string) (pods []string) {
 
 // GetPodStatus gets status of a pod from a namespace
 func GetPodStatus(n, pod string) string {
-	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}", n, pod)
+	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}'", n, pod)
 	if err != nil {
 		glog.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
-		status = "Failed to get"
+		status = podFailedGet
 	}
 	return strings.Trim(status, "'")
 }
@@ -237,7 +242,7 @@ func CheckPodsRunning(n string) (ready bool) {
 		pods := GetPodsName(n)
 		ready = true
 		for _, p := range pods {
-			if status := GetPodStatus(n, p); status != "Running" {
+			if status := GetPodStatus(n, p); status != podRunning {
 				glog.Infof("%s in namespace %s is not running: %s", p, n, status)
 				ready = false
 			}

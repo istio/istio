@@ -21,6 +21,8 @@
 #                                     #
 #######################################
 
+# Exit immediately for non zero status
+set -e
 # Check unset variables
 set -u
 # Print commands
@@ -54,10 +56,8 @@ CLUSTER_CREATED=true
 
 for i in {1..10}
 do
-  kubectl get namespace
-  if [ ${?} -eq 0 ]; then
-    break
-  fi
+  status=$(kubectl get namespace || echo "Unreachable")
+  [[ ${status} == 'Unreachable' ]] || break
   if [ ${i} -eq 10 ]; then
     echo "Cannot connect to the new cluster"; exit 1
   fi
@@ -68,4 +68,3 @@ kubectl create clusterrolebinding prow-cluster-admin-binding --clusterrole=clust
 
 echo 'Running cluster-wide e2e rbac, auth Tests'
 ./prow/e2e-suite-rbac-auth.sh --cluster_wide "${@}"
-exit ${?}
