@@ -61,7 +61,7 @@ const (
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
-	templateNamespace = "istio-config-default"
+	templateNamespace = "istio-system"
 )
 
 type testConfig struct {
