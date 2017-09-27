@@ -37,7 +37,7 @@ bind(
     actual = "//external:ssl",
 )
 
-ENVOY_SHA = "2c7ee712a0795e79732546de8b01e1e7319d809c"  # Sep 20, 2017 (bugfix for envoy crash w/ HTTP2 promise frames)
+ENVOY_SHA = "b02d8a9b5033a61a7b13d98999f5f00c4b85b6a4"  # Sep 26, 2017 (use github to download tclap instead of sourceforge)
 
 http_archive(
     name = "envoy",
