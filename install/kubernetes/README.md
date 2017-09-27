@@ -1,6 +1,6 @@
 # Install Istio on an existing Kubernetes cluster
 
-Please follow the installation instructions from [istio.io](https://istio.io/docs/tasks/installing-istio.html).
+Please follow the installation instructions from [istio.io](https://istio.io/docs/setup/kubernetes/).
 
 ## Directory structure
 This directory contains files needed for installing Istio on a Kubernetes cluster.
