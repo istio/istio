@@ -274,6 +274,7 @@ spec:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
           - --configDefaultNamespace=istio-system
+          - --traceOutput=http://zipkin:9411/api/v1/spans
           - --logtostderr
           - -v
           - "4"
