@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: denier
 metadata:
   name: handler
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   status:
     code: 7
@@ -12,7 +12,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: denyrequest
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
  
 ---
@@ -20,10 +20,10 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: denyreviewsv3
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   #FIXME match: target.labels["app"]=="productpage" && request.headers["x-user"] == ""
   match: request.headers["x-user"] == ""
   actions:
-  - handler: handler.denier.istio-config-default
-    instances: [ denyrequest.checknothing.istio-config-default ]
+  - handler: handler.denier.istio-system
+    instances: [ denyrequest.checknothing.istio-system ]
