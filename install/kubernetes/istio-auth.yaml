@@ -1,10 +1,16 @@
 # GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
+################################
+# Istio-system namespace template: run updateVersions.sh after editing this file
+################################
 apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system
 ---
+################################
+# Istio RBAC template: run updateVersions.sh after editing this file
+################################
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
@@ -195,96 +201,10 @@ roleRef:
   name: istio-mixer-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
-# Mixer
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: istio-mixer
-  namespace: istio-system
-data:
-  mapping.conf: |-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-mixer
-  namespace: istio-system
-  labels:
-    istio: mixer
-spec:
-  ports:
-  - name: tcp
-    port: 9091
-  - name: http-health
-    port: 9093
-  - name: configapi
-    port: 9094
-  - name: statsd-prom
-    port: 9102
-  - name: statsd-udp
-    port: 9125
-    protocol: UDP
-  - name: prometheus
-    port: 42422
-  selector:
-    istio: mixer
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-mixer-service-account
-  namespace: istio-system
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-mixer
-  namespace: istio-system
-  annotations:
-    sidecar.istio.io/inject: "false"
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        istio: mixer
-    spec:
-      serviceAccountName: istio-mixer-service-account
-      containers:
-      - name: statsd-to-prometheus
-        image: prom/statsd-exporter
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9102
-        - containerPort: 9125
-          protocol: UDP
-        args:
-        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/statsd
-      - name: mixer
-        image: gcr.io/istio-testing/mixer:3a0dfbfd4e0b9301cb378a190830d00061d29d8e
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 9091
-        - containerPort: 9094
-        - containerPort: 42422
-        args:
-          - --configStoreURL=fs:///etc/opt/mixer/configroot
-          - --configStore2URL=k8s://
-          - --configDefaultNamespace=istio-system
-          - --logtostderr
-          - -v
-          - "4"
-      volumes:
-      - name: config-volume
-        configMap:
-          name: istio-mixer
----
-# Mixer CRD definitions are generated using
-# mixs crd all
-
+################################
+# Mixer template: run updateVersions.sh after editing this file
+################################
+# Mixer CRD definitions are generated using mixs crd all
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -572,6 +492,92 @@ spec:
     singular: reportnothing
   scope: Namespaced
   version: v1alpha2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+data:
+  mapping.conf: |-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+  labels:
+    istio: mixer
+spec:
+  ports:
+  - name: tcp
+    port: 9091
+  - name: http-health
+    port: 9093
+  - name: configapi
+    port: 9094
+  - name: statsd-prom
+    port: 9102
+  - name: statsd-udp
+    port: 9125
+    protocol: UDP
+  - name: prometheus
+    port: 42422
+  selector:
+    istio: mixer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-mixer-service-account
+  namespace: istio-system
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-mixer
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: mixer
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+      - name: statsd-to-prometheus
+        image: prom/statsd-exporter
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9102
+        - containerPort: 9125
+          protocol: UDP
+        args:
+        - '-statsd.mapping-config=/etc/statsd/mapping.conf'
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/statsd
+      - name: mixer
+        image: gcr.io/istio-testing/mixer:3a0dfbfd4e0b9301cb378a190830d00061d29d8e
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+          - --configStoreURL=fs:///etc/opt/mixer/configroot
+          - --configStore2URL=k8s://
+          - --configDefaultNamespace=istio-system
+          - --logtostderr
+          - -v
+          - "4"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio-mixer
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -912,6 +918,9 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+################################
+# Istio configMap cluster-wide template: run updateVersions.sh after editing this file
+################################
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -977,6 +986,52 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
+---
+################################
+# Pilot template: run updateVersions.sh after editing this file
+################################
+# Pilot CRDs
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationpolicies.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: DestinationPolicy
+    listKind: DestinationPolicyList
+    plural: destinationpolicies
+    singular: destinationpolicy
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: egressrules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: EgressRule
+    listKind: EgressRuleList
+    plural: egressrules
+    singular: egressrule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: routerules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: RouteRule
+    listKind: RouteRuleList
+    plural: routerules
+    singular: routerule
+  scope: Namespaced
+  version: v1alpha2
 ---
 # Pilot service for discovery
 apiVersion: v1
@@ -1044,7 +1099,7 @@ spec:
           name: istio
 ---
 ################################
-# Istio ingress controller
+# Istio-ingress template: run updateVersions.sh after editing this file
 ################################
 apiVersion: v1
 kind: Service
@@ -1128,7 +1183,7 @@ spec:
           optional: true
 ---
 ################################
-# Istio egress envoy
+# Istio egress template: run updateVersions.sh after editing this file
 ################################
 apiVersion: v1
 kind: Service
@@ -1194,7 +1249,10 @@ spec:
           secretName: istio.default
           optional: true
 ---
-# Service account CA runs in.
+################################
+# Istio-CA cluster-wide template: run updateVersions.sh after editing this file
+################################
+# Service account CA
 apiVersion: v1
 kind: ServiceAccount
 metadata:
