@@ -38,7 +38,6 @@ const (
 	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
 	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
 	istioSystem                 = "istio-system"
-	mixerConfigDefault          = "istio-config-default"
 	istioInitializerFile        = "istio-initializer.yaml"
 )
 
@@ -340,7 +339,6 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	if !*clusterWide {
 		content = replacePattern(k, content, istioSystem, k.Namespace)
 	}
-	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
 
 	// Replace long refresh delays with short ones for the sake of tests.
 	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
