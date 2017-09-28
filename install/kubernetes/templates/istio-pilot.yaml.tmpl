@@ -1,3 +1,49 @@
+################################
+# Pilot
+################################
+# Pilot CRDs
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationpolicies.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: DestinationPolicy
+    listKind: DestinationPolicyList
+    plural: destinationpolicies
+    singular: destinationpolicy
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: egressrules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: EgressRule
+    listKind: EgressRuleList
+    plural: egressrules
+    singular: egressrule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: routerules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: RouteRule
+    listKind: RouteRuleList
+    plural: routerules
+    singular: routerule
+  scope: Namespaced
+  version: v1alpha2
+---
 # Pilot service for discovery
 apiVersion: v1
 kind: Service
