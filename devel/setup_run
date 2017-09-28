@@ -1,12 +1,15 @@
 # very basic local run, this is meant to be source'ed
 set -x
 ulimit -n 16384
-cp istio/devel/rules.yml  mixer/testdata/configroot/scopes/global/subjects/global/rules.yml
+mkdir -p emptydir
+mkdir -p mixerconfig
+cp mixer/testdata/config/* mixerconfig/
+rm mixerconfig/stackdriver.yaml
 cd mixer; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 ./istio/bazel-bin/devel/fortio/cmd/fortio/fortio server &
 ( cd proxy/src/envoy/mixer; ./start_envoy > /tmp/envoy.log ) &
 # add -v=5 for verbose/debug
-./mixer/bazel-bin/cmd/server/mixs server --configStoreURL=fs://$(pwd)/mixer/testdata/configroot --logtostderr 2> /tmp/mixs.2.log &
+./mixer/bazel-bin/cmd/server/mixs server --configStore2URL=fs://$(pwd)/mixerconfig --configStoreURL=fs://$(pwd)/emptydir --logtostderr 2> /tmp/mixs.2.log > /tmp/mixs.1.log &
 echo "starting everything..."
 sleep 3
 curl -v http://localhost:9090/debug

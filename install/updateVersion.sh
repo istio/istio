@@ -125,12 +125,6 @@ function merge_files() {
   ISTIO_ONE_NAMESPACE_AUTH=$DEST/istio-one-namespace-auth.yaml
   ISTIO_INITIALIZER=$DEST/istio-initializer.yaml
 
-  # TODO remove 3 lines below once the e2e tests no longer look for this file
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $DEST/istio-rbac-beta.yaml
-  echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $DEST/istio-rbac-beta.yaml
-  cat $SRC/istio-rbac-beta.yaml.tmpl >> $DEST/istio-rbac-beta.yaml
-
-
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
@@ -209,7 +203,8 @@ function update_istio_install() {
 function update_istio_addons() {
   DEST=$ROOT/install/kubernetes/addons
   pushd $TEMP_DIR/templates/addons
-  sed -i=.bak "s|image: .*/\(.*\):.*|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
+  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
+  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml

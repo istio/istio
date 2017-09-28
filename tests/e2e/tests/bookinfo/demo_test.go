@@ -37,11 +37,11 @@ import (
 const (
 	u1                    = "normal-user"
 	u2                    = "test-user"
-	bookinfoYaml          = "samples/apps/bookinfo/bookinfo.yaml"
-	bookinfoRatingsv2Yaml = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml        = "samples/apps/bookinfo/bookinfo-db.yaml"
+	bookinfoYaml          = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoDbYaml        = "samples/bookinfo/kube/bookinfo-db.yaml"
 	modelDir              = "tests/apps/bookinfo/output"
-	rulesDir              = "samples/apps/bookinfo/rules"
+	rulesDir              = "samples/bookinfo/kube"
 	allRule               = "route-rule-all-v1.yaml"
 	delayRule             = "route-rule-ratings-test-delay.yaml"
 	fiftyRule             = "route-rule-reviews-50-v3.yaml"
@@ -103,6 +103,11 @@ func (t *testConfig) Setup() error {
 		}
 
 	}
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
 	return setUpDefaultRouting()
 }
 

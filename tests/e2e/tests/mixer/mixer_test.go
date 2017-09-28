@@ -40,10 +40,10 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/apps/bookinfo/bookinfo-db.yaml"
-	rulesDir                 = "samples/apps/bookinfo/rules"
+	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
@@ -61,7 +61,7 @@ const (
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
-	templateNamespace = "istio-config-default"
+	templateNamespace = "istio-system"
 )
 
 type testConfig struct {
@@ -103,10 +103,14 @@ func (t *testConfig) Setup() (err error) {
 
 	err = createDefaultRoutingRules()
 
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
+
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
-	if err = visitProductPage(60*time.Second, 200); err != nil {
+	if err = visitProductPage(30*time.Second, 200); err != nil {
 		glog.Infof("initial product page request failed: %v", err)
 	}
 

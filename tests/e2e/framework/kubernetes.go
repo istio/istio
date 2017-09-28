@@ -30,13 +30,15 @@ import (
 )
 
 const (
-	yamlSuffix         = ".yaml"
-	istioInstallDir    = "install/kubernetes"
-	istioAddonsDir     = "install/kubernetes/addons"
-	nonAuthInstallFile = "istio-one-namespace.yaml"
-	authInstallFile    = "istio-one-namespace-auth.yaml"
-	istioSystem        = "istio-system"
-	mixerConfigDefault = "istio-config-default"
+	yamlSuffix                  = ".yaml"
+	istioInstallDir             = "install/kubernetes"
+	istioAddonsDir              = "install/kubernetes/addons"
+	nonAuthInstallFile          = "istio.yaml"
+	authInstallFile             = "istio-auth.yaml"
+	nonAuthInstallFileNamespace = "istio-one-namespace.yaml"
+	authInstallFileNamespace    = "istio-one-namespace-auth.yaml"
+	istioSystem                 = "istio-system"
+	istioInitializerFile        = "istio-initializer.yaml"
 )
 
 var (
@@ -48,10 +50,10 @@ var (
 	caHub           = flag.String("ca_hub", "", "Ca hub")
 	caTag           = flag.String("ca_tag", "", "Ca tag")
 	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
-	rbacfile        = flag.String("rbac_path", "", "Rbac yaml file")
 	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
-	initializerFile = flag.String("initializer_file", "", "Initializer yaml file")
+	initializerFile = flag.String("initializer_file", istioInitializerFile, "Initializer yaml file")
+	clusterWide     = flag.Bool("cluster_wide", false, "Run cluster wide tests")
 
 	addons = []string{
 		"prometheus",
@@ -80,7 +82,11 @@ type KubeInfo struct {
 // newKubeInfo create a new KubeInfo by given temp dir and runID
 func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 	if *namespace == "" {
-		*namespace = runID
+		if *clusterWide {
+			*namespace = istioSystem
+		} else {
+			*namespace = runID
+		}
 	}
 	yamlDir := filepath.Join(tmpDir, "yaml")
 	i, err := NewIstioctl(yamlDir, *namespace, *namespace, *pilotHub, *pilotTag)
@@ -109,12 +115,6 @@ func (k *KubeInfo) Setup() error {
 	}
 
 	if !*skipSetup {
-		if err = util.CreateNamespace(k.Namespace); err != nil {
-			glog.Error("Failed to create namespace.")
-			return err
-		}
-		k.namespaceCreated = true
-
 		if err = k.deployIstio(); err != nil {
 			glog.Error("Failed to deploy Istio.")
 			return err
@@ -142,45 +142,74 @@ func (k *KubeInfo) Setup() error {
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
 	glog.Info("Cleaning up kubeInfo")
-	var err error
 
-	if *rbacfile != "" {
+	if *skipSetup {
+		return nil
+	}
 
-		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
-		if _, err = os.Stat(testRbacYaml); os.IsNotExist(err) {
-			glog.Errorf("%s File does not exist", testRbacYaml)
-		} else if err = util.KubeDelete(k.Namespace, testRbacYaml); err != nil {
-			glog.Errorf("Rbac deletion failed, please remove stale ClusterRoleBindings")
+	if *useInitializer {
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
+
+		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio initializer %s deletion failed", testInitializerYAML)
+			return err
 		}
 	}
 
-	if k.namespaceCreated {
-		if err = util.DeleteNamespace(k.Namespace); err != nil {
+	if *clusterWide {
+		// for cluster-wide, we can verify the uninstall
+		istioYaml := nonAuthInstallFile
+		if *authEnable {
+			istioYaml = authInstallFile
+		}
+
+		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
+
+		if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
+			glog.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+		}
+	} else {
+		if err := util.DeleteNamespace(k.Namespace); err != nil {
 			glog.Errorf("Failed to delete namespace %s", k.Namespace)
 			return err
 		}
 
-		// confirm the namespace is deleted as it will cause future creation to fail
-		maxAttempts := 15
-		namespaceDeleted := false
-		totalWait := 0
-		for attempts := 1; attempts <= maxAttempts; attempts++ {
-			namespaceDeleted, err = util.NamespaceDeleted(k.Namespace)
-			if namespaceDeleted {
-				break
-			}
-			totalWait += attempts
-			time.Sleep(time.Duration(attempts) * time.Second)
-		}
-
-		if !namespaceDeleted {
-			glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, totalWait)
+		// ClusterRoleBindings are not namespaced and need to be deleted separately
+		if _, err := util.Shell("kubectl get clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrolebinding",
+			k.Namespace); err != nil {
+			glog.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
 			return err
 		}
-		k.namespaceCreated = false
-		glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
+
+		// ClusterRoles are not namespaced and need to be deleted separately
+		if _, err := util.Shell("kubectl get clusterrole -o jsonpath={.items[*].metadata.name}"+
+			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrole",
+			k.Namespace); err != nil {
+			glog.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
+			return err
+		}
 	}
-	return err
+
+	// confirm the namespace is deleted as it will cause future creation to fail
+	maxAttempts := 20
+	namespaceDeleted := false
+	for attempts := 1; attempts <= maxAttempts; attempts++ {
+		namespaceDeleted, _ = util.NamespaceDeleted(k.Namespace)
+		if namespaceDeleted {
+			break
+		}
+		time.Sleep(4 * time.Second)
+	}
+
+	if !namespaceDeleted {
+		glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		return nil
+	}
+
+	glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
+
+	return nil
 }
 
 func (k *KubeInfo) deployAddons() error {
@@ -194,7 +223,9 @@ func (k *KubeInfo) deployAddons() error {
 			return err
 		}
 
-		content = replacePattern(k, content, istioSystem, k.Namespace)
+		if !*clusterWide {
+			content = replacePattern(k, content, istioSystem, k.Namespace)
+		}
 
 		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
 		err = ioutil.WriteFile(yamlFile, content, 0600)
@@ -211,37 +242,20 @@ func (k *KubeInfo) deployAddons() error {
 }
 
 func (k *KubeInfo) deployIstio() error {
-	istioYaml := nonAuthInstallFile
-	if *authEnable {
-		istioYaml = authInstallFile
+	istioYaml := nonAuthInstallFileNamespace
+	if *clusterWide {
+		if *authEnable {
+			istioYaml = authInstallFile
+		} else {
+			istioYaml = nonAuthInstallFile
+		}
+	} else {
+		if *authEnable {
+			istioYaml = authInstallFileNamespace
+		}
 	}
 	baseIstioYaml := util.GetResourcePath(filepath.Join(istioInstallDir, istioYaml))
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
-
-	if *rbacfile != "" {
-		baseRbacYaml := util.GetResourcePath(*rbacfile)
-		testRbacYaml := filepath.Join(k.TmpDir, "yaml", filepath.Base(*rbacfile))
-		if err := k.generateRbac(baseRbacYaml, testRbacYaml); err != nil {
-			glog.Errorf("Generating rbac yaml failed")
-		}
-		if err := util.KubeApply(k.Namespace, testRbacYaml); err != nil {
-			glog.Errorf("Rbac deployment failed")
-			return err
-		}
-	}
-
-	if *useInitializer {
-		baseInitializerYAML := util.GetResourcePath(*initializerFile)
-		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", filepath.Base(*initializerFile))
-		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
-			glog.Errorf("Generating initializer yaml failed")
-			return err
-		}
-		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
-			glog.Errorf("Istio sidecar initializer %s deployment failed", testInitializerYAML)
-			return err
-		}
-	}
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
 		glog.Errorf("Generating yaml %s failed", testIstioYaml)
@@ -252,48 +266,23 @@ func (k *KubeInfo) deployIstio() error {
 		return err
 	}
 
+	if *useInitializer {
+		baseInitializerYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *initializerFile))
+		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
+		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
+			glog.Errorf("Generating initializer yaml failed")
+			return err
+		}
+		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
+			glog.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
+			return err
+		}
+
+		// alow time to the initializer to start
+		time.Sleep(60 * time.Second)
+	}
+
 	return nil
-}
-
-func (k *KubeInfo) generateRbac(src, dst string) error {
-	content, err := ioutil.ReadFile(src)
-	if err != nil {
-		glog.Errorf("Cannot read original yaml file %s", src)
-		return err
-	}
-
-	content = replacePattern(k, content, istioSystem, k.Namespace)
-	content = replacePattern(k, content, "namespace: default",
-		"namespace: "+k.Namespace)
-
-	content = replacePattern(k, content, "istio-pilot-admin-role-binding",
-		"istio-pilot-admin-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-mixer-admin-role-binding",
-		"istio-mixer-admin-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-ca-role-binding",
-		"istio-ca-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-ingress-admin-role-binding",
-		"istio-ingress-admin-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-egress-admin-role-binding",
-		"istio-egress-admin-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-sidecar-role-binding",
-		"istio-sidecar-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, "istio-initializer-admin-role-binding",
-		"istio-initializer-admin-role-binding-"+k.Namespace)
-
-	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
-
-	err = ioutil.WriteFile(dst, content, 0600)
-	if err != nil {
-		glog.Errorf("Cannot write into generate rbac file %s", dst)
-	}
-	return err
 }
 
 func updateInjectImage(name, module, hub, tag string, content []byte) []byte {
@@ -315,7 +304,9 @@ func (k *KubeInfo) generateInitializer(src, dst string) error {
 		return err
 	}
 
-	content = replacePattern(k, content, istioSystem, k.Namespace)
+	if !*clusterWide {
+		content = replacePattern(k, content, istioSystem, k.Namespace)
+	}
 
 	if *pilotHub != "" && *pilotTag != "" {
 		content = updateIstioYaml("initializer", *pilotHub, *pilotTag, content)
@@ -345,12 +336,11 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 		return err
 	}
 
-	content = replacePattern(k, content, istioSystem, k.Namespace)
-	content = replacePattern(k, content, mixerConfigDefault, k.Namespace)
+	if !*clusterWide {
+		content = replacePattern(k, content, istioSystem, k.Namespace)
+	}
 
 	// Replace long refresh delays with short ones for the sake of tests.
-	content = replacePattern(k, content, "rdsRefreshDelay: 30s", "rdsRefreshDelay: 1s")
-	content = replacePattern(k, content, "discoveryRefreshDelay: 30s", "discoveryRefreshDelay: 1s")
 	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
 	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
 	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")

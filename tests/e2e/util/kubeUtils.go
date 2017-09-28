@@ -29,6 +29,11 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	podRunning   = "Running"
+	podFailedGet = "Failed_Get"
+)
+
 // Fill complete a template with given values and generate a new output file
 func Fill(outFile, inFile string, values interface{}) error {
 	var bytes bytes.Buffer
@@ -200,4 +205,61 @@ func GetIngressPod(n string) (string, error) {
 	}
 	_, err := retry.Retry(retryFn)
 	return ingress, err
+}
+
+// GetPodsName gets names of all pods in specific namespace and return in a slice
+func GetPodsName(n string) (pods []string) {
+	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items[*].metadata.name}'", n)
+	if err != nil {
+		glog.Infof("Failed to get pods name in namespace %s: %s", n, err)
+		return
+	}
+	res = strings.Trim(res, "'")
+	pods = strings.Split(res, " ")
+	glog.Infof("Existing pods: %v", pods)
+	return
+}
+
+// GetPodStatus gets status of a pod from a namespace
+func GetPodStatus(n, pod string) string {
+	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}'", n, pod)
+	if err != nil {
+		glog.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
+		status = podFailedGet
+	}
+	return strings.Trim(status, "'")
+}
+
+// CheckPodsRunning return if all pods in a namespace are in "Running" status
+func CheckPodsRunning(n string) (ready bool) {
+	retry := Retrier{
+		BaseDelay: 30 * time.Second,
+		MaxDelay:  30 * time.Second,
+		Retries:   6,
+	}
+
+	retryFn := func(i int) error {
+		pods := GetPodsName(n)
+		ready = true
+		for _, p := range pods {
+			if status := GetPodStatus(n, p); status != podRunning {
+				glog.Infof("%s in namespace %s is not running: %s", p, n, status)
+				ready = false
+			}
+		}
+		if !ready {
+			_, err := Shell("kubectl -n %s get pods -o wide", n)
+			if err != nil {
+				glog.Infof("Cannot get pods: %s", err)
+			}
+			return fmt.Errorf("some pods are not ready")
+		}
+		return nil
+	}
+	_, err := retry.Retry(retryFn)
+	if err != nil {
+		return false
+	}
+	glog.Info("Get all pods running!")
+	return true
 }
