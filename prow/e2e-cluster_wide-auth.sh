@@ -30,10 +30,11 @@ set -x
 
 PROJECT_NAME=istio-testing
 ZONE=us-central1-f
-CLUSTER_VERSION=1.7.5
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
 CLUSTER_NAME=cluster-wide-auth-$(uuidgen | cut -c1-8 | tr "[A-Z]" "[a-z]")
+CLUSTER_VERSION=$(gcloud container get-server-config --project="${PROJECT_NAME}" --zone="${ZONE}" --format='value(defaultClusterVersion)')
+echo "Default cluster version: ${CLUSTER_VERSION}"
 
 CLUSTER_CREATED=false
 
