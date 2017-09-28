@@ -1,10 +1,16 @@
 # GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
+################################
+# Istio system namespace
+################################
 apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system
 ---
+################################
+# Istio RBAC
+################################
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
@@ -264,7 +270,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:c99106271a77d89fa082fb58fa3a4be8a2de3d3f
+        image: docker.io/istio/mixer:0.2.6
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -273,9 +279,11 @@ spec:
         args:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
+          - --configDefaultNamespace=istio-system
+          - --traceOutput=http://zipkin:9411/api/v1/spans
           - --logtostderr
           - -v
-          - "4"
+          - "2"
       volumes:
       - name: config-volume
         configMap:
@@ -572,16 +580,11 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-config-default
----
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: istioproxy
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   attributes:
     origin.ip:
@@ -652,7 +655,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
   name: kubernetes
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   attributes:
     source.ip:
@@ -684,7 +687,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
 metadata:
   name: handler
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   outputAsJson: true
 ---
@@ -692,7 +695,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: accesslog
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   severity: '"Default"'
   timestamp: request.time
@@ -713,7 +716,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: stdio
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   match: "true" # If omitted match is true.
   actions:
@@ -725,7 +728,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestcount
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: "1"
   dimensions:
@@ -740,7 +743,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestduration
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -755,7 +758,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: requestsize
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: request.size | 0
   dimensions:
@@ -770,7 +773,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: responsesize
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: response.size | 0
   dimensions:
@@ -785,7 +788,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytesent
-  namespace: istio-config-default
+  namespace: istio-system
   labels:
     istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
@@ -801,9 +804,9 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytereceived
-  namespace: istio-config-default
+  namespace: istio-system
   labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
@@ -817,11 +820,11 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: prometheus
 metadata:
   name: handler
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   metrics:
   - name: request_count
-    instance_name: requestcount.metric.istio-config-default
+    instance_name: requestcount.metric.istio-system
     kind: COUNTER
     label_names:
     - source_service
@@ -830,7 +833,7 @@ spec:
     - destination_version
     - response_code
   - name: request_duration
-    instance_name: requestduration.metric.istio-config-default
+    instance_name: requestduration.metric.istio-system
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -842,7 +845,7 @@ spec:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
   - name: request_size
-    instance_name: requestsize.metric.istio-config-default
+    instance_name: requestsize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -856,7 +859,7 @@ spec:
         scale: 1
         growthFactor: 10
   - name: response_size
-    instance_name: responsesize.metric.istio-config-default
+    instance_name: responsesize.metric.istio-system
     kind: DISTRIBUTION
     label_names:
     - source_service
@@ -870,7 +873,7 @@ spec:
         scale: 1
         growthFactor: 10
   - name: tcp_bytes_sent
-    instance_name: tcpbytesent.metric.istio-config-default
+    instance_name: tcpbytesent.metric.istio-system
     kind: COUNTER
     label_names:
     - source_service
@@ -878,7 +881,7 @@ spec:
     - destination_service
     - destination_version
   - name: tcp_bytes_received
-    instance_name: tcpbytereceived.metric.istio-config-default
+    instance_name: tcpbytereceived.metric.istio-system
     kind: COUNTER
     label_names:
     - source_service
@@ -890,7 +893,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promhttp
-  namespace: istio-config-default
+  namespace: istio-system
   labels:
     istio-protocol: http
 spec:
@@ -906,7 +909,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: promtcp
-  namespace: istio-config-default
+  namespace: istio-system
   labels:
     istio-protocol: tcp # needed so that mixer will only execute when context.protocol == TCP
 spec:
@@ -916,6 +919,9 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+################################
+# Istio configMap cluster-wide
+################################
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -944,11 +950,11 @@ data:
     # from Istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
-    rdsRefreshDelay: 30s
+    rdsRefreshDelay: 1s
     #
     defaultConfig:
       # See rdsRefreshDelay for explanation about this setting.
-      discoveryRefreshDelay: 30s
+      discoveryRefreshDelay: 1s
       #
       # TCP connection timeout between Envoy & the application, and between Envoys.
       connectTimeout: 10s
@@ -981,6 +987,52 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
+---
+################################
+# Pilot
+################################
+# Pilot CRDs
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationpolicies.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: DestinationPolicy
+    listKind: DestinationPolicyList
+    plural: destinationpolicies
+    singular: destinationpolicy
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: egressrules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: EgressRule
+    listKind: EgressRuleList
+    plural: egressrules
+    singular: egressrule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: routerules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: RouteRule
+    listKind: RouteRuleList
+    plural: routerules
+    singular: routerule
+  scope: Namespaced
+  version: v1alpha2
 ---
 # Pilot service for discovery
 apiVersion: v1
@@ -1022,7 +1074,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:c371d111adb3da6f4edf0091716380ab97087886
+        image: docker.io/istio/pilot:0.2.6
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
@@ -1048,7 +1100,7 @@ spec:
           name: istio
 ---
 ################################
-# Istio ingress controller
+# Istio ingress
 ################################
 apiVersion: v1
 kind: Service
@@ -1091,7 +1143,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:c371d111adb3da6f4edf0091716380ab97087886
+        image: docker.io/istio/proxy_debug:0.2.6
         args:
         - proxy
         - ingress
@@ -1132,7 +1184,7 @@ spec:
           optional: true
 ---
 ################################
-# Istio egress envoy
+# Istio egress
 ################################
 apiVersion: v1
 kind: Service
@@ -1168,7 +1220,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:c371d111adb3da6f4edf0091716380ab97087886
+        image: docker.io/istio/proxy_debug:0.2.6
         imagePullPolicy: IfNotPresent
         args:
         - proxy
@@ -1198,6 +1250,9 @@ spec:
           secretName: istio.default
           optional: true
 ---
+################################
+# Istio-CA single namespace
+################################
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
@@ -1226,7 +1281,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.2.4
+        image: docker.io/istio/istio-ca:0.2.6
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE

@@ -28,8 +28,8 @@ fi
 
 echo "using NAMESPACE=${NAMESPACE}"
 
-for rule in $(istioctl get -n ${NAMESPACE}  route-rules); do
-  istioctl delete -n ${NAMESPACE} route-rule $rule;
+for rule in $(istioctl get -n ${NAMESPACE} routerules); do
+  istioctl delete -n ${NAMESPACE} routerule $rule;
 done
 #istioctl delete mixer-rule ratings-ratelimit
 
