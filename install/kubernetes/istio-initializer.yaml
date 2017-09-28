@@ -1,6 +1,8 @@
 # GENERATED FILE. Use with Kubernetes 1.7+
 # TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
----
+################################
+# Istio initializer
+################################
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,10 +14,10 @@ data:
     namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
     initializerName: "sidecar.initializer.istio.io"
     params:
-      initImage: gcr.io/istio-testing/proxy_init:67313e528f3c932d24781d630e239a8e59607d88
-      proxyImage: gcr.io/istio-testing/proxy:67313e528f3c932d24781d630e239a8e59607d88
+      initImage: gcr.io/istio-testing/proxy_init:081ffece00c82cb9de33cd5617682999aee5298d
+      proxyImage: gcr.io/istio-testing/proxy:081ffece00c82cb9de33cd5617682999aee5298d
       verbosity: 2
-      version: 67313e528f3c932d24781d630e239a8e59607d88
+      version: 081ffece00c82cb9de33cd5617682999aee5298d
       meshConfigMapName: istio
       imagePullPolicy: IfNotPresent
 ---
@@ -49,7 +51,7 @@ spec:
       serviceAccountName: istio-initializer-service-account
       containers:
         - name: initializer
-          image: gcr.io/istio-testing/sidecar_initializer:67313e528f3c932d24781d630e239a8e59607d88
+          image: gcr.io/istio-testing/sidecar_initializer:081ffece00c82cb9de33cd5617682999aee5298d
           imagePullPolicy: IfNotPresent
           args:
             - --port=8083

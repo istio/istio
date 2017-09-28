@@ -2,9 +2,9 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: prommetricsresponse
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   actions:
-  - handler: handler.prometheus.istio-config-default
+  - handler: handler.prometheus.istio-system
     instances:
-    - responsesize.metric.istio-config-default
+    - responsesize.metric.istio-system
