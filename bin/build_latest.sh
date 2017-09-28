@@ -9,8 +9,12 @@
 # HUB: hub to use to upload the docker images.
 # TAG: tag to use for the docker images. Defaults to user ID.
 
+ISTIO_BASE=${ISTIO_BASE:-${GOPATH:-${HOME}/go}}
+ISTIO_IO=${ISTIO_IO:-${ISTIO_BASE}/src/istio.io}
+
 HUB=${HUB:-gcr.io/istio-testing}
-ISTIO_IO=${ISTIO_BASE:-${GOPATH:-$HOME/go}}/src/istio.io
+BRANCH=${ISTIO_BRANCH:-master}
+REMOTE=${ISTIO_REMOTE:-origin}
 
 
 # Build all components using bazel.
@@ -18,10 +22,7 @@ function istio_build() {
 
   # Note: components may still use old SHA - but the test will build the binaries from master
   # from each component, to make sure we don't test old code.
-  pushd $ISTIO_IO/pilot
-  bazel build ...
-  ./bin/init.sh
-  popd
+  (cd $ISTIO_IO/pilot; bazel build cmd/... tools/deb/...)
 
   (cd $ISTIO_IO/mixer; bazel build ...)
 
@@ -58,7 +59,6 @@ function istio_status() {
   done
 }
 
-<<<<<<< HEAD
 # Checkout all repos at a specific tag
 # Example: istio_checkout 0.2.2
 function istio_checkout {
@@ -82,9 +82,6 @@ function istio_tag {
   done
 }
 
-=======
->>>>>>> e7e2dff4aff77c132006fa556e9c830f77f7c8b8
-
 # Build docker images for istio from current branch, using same tag for all.
 #
 function istio_build_docker() {
@@ -101,7 +98,6 @@ function istio_build_docker() {
   (cd $ISTIO_IO/auth; ./bin/push-docker.sh -t $TAG -h $HUB)
 
   (cd $ISTIO_IO/mixer; ./bin/publish-docker-images.sh -h $HUB -t $TAG)
-
 
 }
 
@@ -128,4 +124,22 @@ function istio_retest() {
 
   (cd $ISTIO_IO/istio; ./tests/e2e.sh --auth_enable --rbac_path=install/kubernetes/istio-rbac-beta.yaml --skip_cleanup --skip_setup -test.run=$TESTS --namespace e2e --mixer_hub $HUB --mixer_tag $TAG \
     --istioctl $ISTIO_IO/pilot/bazel-bin/cmd/istioctl/istioctl --pilot_hub $HUB --pilot_tag $TAG --ca_hub $HUB --ca_tag $TAG --project_id $(whoami)-istio )
+}
+
+# Build a local docker image with the VM components installed.
+function istio_build_vm_docker() {
+
+    # Image has a fixed name, you can tag and override it to upload to a repo.
+    local DOCKER_IMAGE=${DOCKER_IMAGE:-istio-vm-test}
+
+    # Staging dir
+    local OUT=$ISTIO_IO/istio/bazel-bin/vm
+
+    mkdir -p $OUT
+    cp -f $ISTIO_IO/proxy/bazel-bin/tools/deb/istio-proxy-envoy.deb $OUT
+    cp -f $ISTIO_IO/auth/bazel-bin/tools/deb/istio-auth-node-agent.deb $OUT
+    cp -f $ISTIO_IO/pilot/bazel-bin/tools/deb/istio-agent.deb $OUT
+    cp -f $ISTIO_IO/istio/tests/local/* $OUT
+
+    docker build -f $OUT/Dockerfile -t "${DOCKER_IMAGE}" $OUT
 }
