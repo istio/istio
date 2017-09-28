@@ -77,9 +77,10 @@ spec:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
+          - --traceOutput=http://zipkin:9411/api/v1/spans
           - --logtostderr
           - -v
-          - "4"
+          - "2"
       volumes:
       - name: config-volume
         configMap:
@@ -602,7 +603,7 @@ metadata:
   name: tcpbytereceived
   namespace: {ISTIO_NAMESPACE}
   labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:

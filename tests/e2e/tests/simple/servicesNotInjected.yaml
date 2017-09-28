@@ -1,4 +1,17 @@
 # Client inside the cluster, not istio injected
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-noistio
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -8,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        app: fortio
+        app: fortio-noistio
     spec:
       containers:
       - name: fortio
