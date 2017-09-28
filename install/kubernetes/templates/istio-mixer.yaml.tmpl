@@ -603,7 +603,7 @@ metadata:
   name: tcpbytereceived
   namespace: {ISTIO_NAMESPACE}
   labels:
-    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp 
+    istio-protocol: tcp # needed so that mixer will only generate when context.protocol == tcp
 spec:
   value: connection.received.bytes | 0
   dimensions:
