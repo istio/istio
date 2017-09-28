@@ -150,7 +150,8 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 					glog.Warningf("Error during closing file: %v\n", err)
 				}
 			}()
-			dump, err := util.ShellMuteOutput(fmt.Sprintf("kubectl logs %s -n %s", pod, namespace))
+			dump, err := util.ShellMuteOutput(
+				fmt.Sprintf("kubectl logs %s -n %s -c %s", pod, namespace, container))
 			if err != nil {
 				return err
 			}
