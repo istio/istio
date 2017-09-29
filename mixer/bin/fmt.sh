@@ -23,7 +23,10 @@ for fl in ${GO_FILES}; do
 done
 gofmt -s -w ${GO_FILES}
 goimports -w -local istio.io ${GO_FILES}
-buildifier -mode=fix $(find . \( -name BUILD -o -name BUILD.bazel \) -type f)
-buildifier -mode=fix ./*.bzl
-buildifier -mode=fix ./BUILD.ubuntu
-buildifier -mode=fix ./WORKSPACE
+
+bazel build @com_github_bazelbuild_buildtools//buildifier
+buildifier=$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier
+$buildifier -mode=fix $(find . \( -name BUILD -o -name BUILD.bazel \) -type f)
+$buildifier -mode=fix ./*.bzl
+$buildifier -mode=fix ./BUILD.ubuntu
+$buildifier -mode=fix ./WORKSPACE
