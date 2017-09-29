@@ -15,6 +15,7 @@
 package il
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -89,5 +90,30 @@ func TestGetString(t *testing.T) {
 	i := s.GetID("foo")
 	if s.GetString(i) != "foo" {
 		t.Fatal()
+	}
+}
+
+func TestExpansion(t *testing.T) {
+	s := newStringTable()
+
+	strMap := make(map[uint32]string)
+
+	for i := 1; i < allocSize*10+1; i++ {
+		str := fmt.Sprintf("str-%d", i)
+		id := s.GetID(str)
+		strMap[id] = str
+	}
+
+	for id, str := range strMap {
+
+		actualStr := s.GetString(id)
+		if actualStr != str {
+			t.Fatal()
+		}
+
+		actualID := s.GetID(str)
+		if actualID != id {
+			t.Fatal()
+		}
 	}
 }
