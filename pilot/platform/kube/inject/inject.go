@@ -275,7 +275,7 @@ func timeString(dur *duration.Duration) string {
 	return out.String()
 }
 
-func injectIntoSpec(p *Params, spec *v1.PodSpec) {
+func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 	// proxy initContainer 1.6 spec
 	initArgs := []string{
 		"-p", fmt.Sprintf("%d", p.Mesh.ProxyListenPort),
@@ -342,10 +342,17 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec) {
 		args = append(args, "-v", strconv.Itoa(p.Verbosity))
 	}
 
+	serviceCluster := p.Mesh.DefaultConfig.ServiceCluster
+
+	// If 'app' label is available, use it as the default service cluster
+	if val, ok := metadata.GetLabels()["app"]; ok {
+		serviceCluster = val
+	}
+
 	// set all proxy config flags
 	args = append(args, "--configPath", p.Mesh.DefaultConfig.ConfigPath)
 	args = append(args, "--binaryPath", p.Mesh.DefaultConfig.BinaryPath)
-	args = append(args, "--serviceCluster", p.Mesh.DefaultConfig.ServiceCluster)
+	args = append(args, "--serviceCluster", serviceCluster)
 	args = append(args, "--drainDuration", timeString(p.Mesh.DefaultConfig.DrainDuration))
 	args = append(args, "--parentShutdownDuration", timeString(p.Mesh.DefaultConfig.ParentShutdownDuration))
 	args = append(args, "--discoveryAddress", p.Mesh.DefaultConfig.DiscoveryAddress)
@@ -479,7 +486,7 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		m.Annotations[istioSidecarAnnotationStatusKey] = "injected-version-" + c.Params.Version
 	}
 
-	injectIntoSpec(&c.Params, templatePodSpec)
+	injectIntoSpec(&c.Params, templatePodSpec, templateObjectMeta)
 
 	return out, nil
 }
