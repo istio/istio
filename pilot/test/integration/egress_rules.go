@@ -57,6 +57,13 @@ func (t *egressRules) run() error {
 			},
 		},
 		{
+			description: "allow external http2 traffic to nghttp2.org",
+			config:      "egress-rule-nghttp2.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("http://nghttp2.org", true)
+			},
+		},
+		{
 			description: "prohibit https to httbin.org",
 			config:      "egress-rule-httpbin.yaml.tmpl",
 			check: func() error {
