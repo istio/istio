@@ -99,10 +99,12 @@ go_metalinter() {
 
 run_linters() {
     echo Running linters
-    buildifier -showlog -mode=check $(find . -name BUILD -type f)
-    buildifier -showlog -mode=check $(find . -name BUILD.bazel -type f)
-    buildifier -showlog -mode=check ./BUILD.ubuntu
-    buildifier -showlog -mode=check ./WORKSPACE
+    bazel build @com_github_bazelbuild_buildtools//buildifier
+    buildifier=$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier
+    $buildifier -showlog -mode=check $(find . -name BUILD -type f)
+    $buildifier -showlog -mode=check $(find . -name BUILD.bazel -type f)
+    $buildifier -showlog -mode=check ./BUILD.ubuntu
+    $buildifier -showlog -mode=check ./WORKSPACE
     go_metalinter
     $SCRIPTPATH/check_license.sh
     $SCRIPTPATH/check_workspace.sh
