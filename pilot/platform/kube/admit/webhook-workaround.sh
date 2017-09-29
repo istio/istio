@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This script implements a workaround for enabling dynamic external
 # webhooks on GKE as described by
@@ -17,7 +17,9 @@
 # deployment should watch for creation of this secret and register
 # itself with k8s apiserver when secret becomes available.
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
 
 function usage() {
     cat <<EOF

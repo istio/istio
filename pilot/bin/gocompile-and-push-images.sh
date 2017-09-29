@@ -19,10 +19,10 @@
 # This script creates a base image for the init image that includes iptables.
 # Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies
 
-set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 hub="gcr.io/istio-testing"
 tag=$(whoami)_$(date +%y%m%d_%H%M%S)

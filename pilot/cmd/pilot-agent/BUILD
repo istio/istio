@@ -1,5 +1,4 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 go_library(
     name = "go_default_library",

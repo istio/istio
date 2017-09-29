@@ -19,10 +19,10 @@
 # This script creates a base image for the init image that includes iptables.
 #
 
-set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 function docker_push() {
   im="${1}"

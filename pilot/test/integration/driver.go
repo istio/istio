@@ -162,15 +162,11 @@ func setAuth(params infra) infra {
 }
 
 func log(header, s string) {
-	glog.Infof("\n\n"+
-		"\033[1;34m=================== %s =====================\033[0m\n"+
-		"\033[1;34m%s\033[0m\n\n", header, s)
+	glog.Infof("\n\n=================== %s =====================\n%s\n\n", header, s)
 }
 
 func logError(header, s string) {
-	glog.Errorf("\n\n"+
-		"\033[1;31m=================== %s =====================\033[0m\n"+
-		"\033[1;31m%s\033[0m\n\n", header, s)
+	glog.Errorf("\n\n=================== %s =====================\n%s\n\n", header, s)
 }
 
 func runTests(envs ...infra) {

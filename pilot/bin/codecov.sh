@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
+
 echo "" > coverage.txt
 
 for d in $(go list ./... | grep -v vendor); do

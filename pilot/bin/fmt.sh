@@ -2,7 +2,10 @@
 
 # Applies requisite code formatters to the source tree
 
-set -e
+set -o errexit
+set -o nounset
+set -o pipefail
+
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source $SCRIPTPATH/use_bazel_go.sh
 

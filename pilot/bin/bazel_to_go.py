@@ -22,8 +22,6 @@ def process(fl, external, vendor):
     return links
 
 def makelink(source, name):
-    print "makelink", name, "from", source
-
     try:
         os.makedirs(os.path.dirname(name))
     except Exception as e1:
@@ -38,7 +36,6 @@ def makelink(source, name):
             print type(e1), e1
 
     if not os.path.exists(source):
-        print source, "Does not exist"
         return
 
     os.symlink(source, name)

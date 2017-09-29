@@ -24,10 +24,10 @@
 # - set default docker tag based on a timestamp and user name
 # - build and push docker images, including this repo pieces and proxy.
 
-set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 args=""
 hub="gcr.io/istio-testing"

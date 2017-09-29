@@ -1,5 +1,9 @@
 #!/bin/bash
-set -ex
+
+set -o errexit
+set -o nounset
+set -o pipefail
+set -x
 
 # Ensure expected GOPATH setup
 PDIR=`pwd`
