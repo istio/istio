@@ -5,12 +5,5 @@
 		"prodBranch": "master",
 		"file": "src/envoy/mixer/repositories.bzl",
 		"lastStableSHA": "c46e75a46c83a76098bd841b40d36f8fcbf52534"
-	},
-	{
-		"name": "MIXER",
-		"repoName": "mixer",
-		"prodBranch": "stable",
-		"file": "WORKSPACE",
-		"lastStableSHA": "535eb564667cef6aed334cb4f5e967a104768387"
 	}
 ]
