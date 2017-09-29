@@ -41,7 +41,7 @@ option (gogoproto.gostring_all) = false;
 // that includes a key of "sourcePodIP" (assuming parameter defaults).
 message Params {
     reserved 17;
-    // next field id: 24
+    // next field id: 26
 
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
@@ -167,4 +167,17 @@ message Params {
     //
     // Default: Service
     string service_value_name = 16;
+
+    // Whether or not to execute source and origin value lookup
+    // for Mixer requests when Istio ingress is the destination
+    // service.
+    //
+    // Default: false
+    bool lookup_ingress_source_and_origin_values = 24;
+
+    // Istio ingress service string. This is used to identify the
+    // ingress service in requests.
+    //
+    // Default: "ingress.istio-system.svc.cluster.local"
+    string fully_qualified_istio_ingress_service_name = 25;
 }

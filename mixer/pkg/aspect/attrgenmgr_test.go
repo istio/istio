@@ -16,6 +16,8 @@ package aspect
 
 import (
 	"errors"
+	"net"
+	"reflect"
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -217,26 +219,36 @@ func (t testAttrGen) Generate(map[string]interface{}) (map[string]interface{}, e
 func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 
 	genParams := &apb.AttributesGeneratorParams{
-		InputExpressions:  map[string]string{"pod.ip": "source_ip"},
-		AttributeBindings: map[string]string{"service_found": "found", "source_service": "srcSvc"},
+		InputExpressions: map[string]string{"pod.ip": "source_ip"},
+		AttributeBindings: map[string]string{
+			"service_found":  "found",
+			"source_service": "srcSvc",
+			"destination_ip": "destIP",
+			"ip_v6":          "v6IP",
+		},
 	}
 
-	bMap := map[string]string{"found": "service_found", "srcSvc": "source_service"}
+	bMap := map[string]string{"found": "service_found", "srcSvc": "source_service", "destIP": "destination_ip", "v6IP": "ip_v6"}
 
-	inBag := attribute.GetMutableBag(nil)
-	inBag.Set("source_ip", "10.1.1.10")
+	inBag := attribute.GetFakeMutableBagForTesting(map[string]interface{}{"source_ip": []byte(net.IP("10.1.1.10").To4())})
 
 	outMap := map[string]interface{}{
 		"found":  true,
 		"srcSvc": "service1",
+		"destIP": net.ParseIP("10.34.23.3"),
+		"v6IP":   net.ParseIP("2001:db8::1"),
 	}
 	wantBag := attribute.GetMutableBag(nil)
 	wantBag.Set("service_found", true)
 	wantBag.Set("source_service", "service1")
+	wantBag.Set("destination_ip", []byte{0xa, 0x22, 0x17, 0x3})
+	wantBag.Set("ip_v6", []byte{0x20, 0x1, 0xd, 0xb8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1})
 
 	extraOutMap := map[string]interface{}{
 		"found":            true,
 		"srcSvc":           "service1",
+		"destIP":           net.ParseIP("10.34.23.3"),
+		"v6IP":             net.ParseIP("2001:db8::1"),
 		"shouldBeStripped": "never_used",
 	}
 
@@ -272,7 +284,7 @@ func TestAttributeGeneratorExecutor_Execute(t *testing.T) {
 				if !ok {
 					t.Errorf("Generated attribute.Bag missing attribute %s", n)
 				}
-				if gotVal != wantVal {
+				if !reflect.DeepEqual(gotVal, wantVal) {
 					t.Errorf("For attribute '%s': got value %v, want %v", n, gotVal, wantVal)
 				}
 			}
