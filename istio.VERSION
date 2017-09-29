@@ -3,7 +3,7 @@
 export CA_HUB="docker.io/istio"
 export CA_TAG="0.2.6"
 export MIXER_HUB="gcr.io/istio-testing"
-export MIXER_TAG="2d1394c380f8bc7ec62e71e2a38134308dad8979"
+export MIXER_TAG="260eafc9341889931fb4420ef5c27e0a275c6220"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/3d688c2d1a995c17a5e3a199955ed8df0d0ad69e/artifacts/istioctl"
 export PILOT_HUB="gcr.io/istio-testing"
 export PILOT_TAG="3d688c2d1a995c17a5e3a199955ed8df0d0ad69e"
