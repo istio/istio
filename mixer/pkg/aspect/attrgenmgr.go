@@ -16,6 +16,7 @@ package aspect
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -106,7 +107,19 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 	for key, val := range out {
 		if attrName, found := e.bindings[key]; found {
 			// TODO: type validation?
-			bag.Set(attrName, val)
+			switch v := val.(type) {
+			case net.IP:
+				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
+				// TODO: remove
+				glog.Warningf("---- converting net.IP to []byte")
+				if v4 := v.To4(); v4 != nil {
+					bag.Set(attrName, []byte(v4))
+					continue
+				}
+				bag.Set(attrName, []byte(v.To16()))
+			default:
+				bag.Set(attrName, val)
+			}
 			continue
 		}
 		glog.Warningf("Generated value '%s' was not mapped to an attribute.", key)

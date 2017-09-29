@@ -86,9 +86,11 @@ const (
 	serviceVal        = "Service"
 
 	// value extraction
-	clusterDomain        = "svc.cluster.local"
-	podServiceLabel      = "app"
-	istioPodServiceLabel = "istio"
+	clusterDomain                      = "svc.cluster.local"
+	podServiceLabel                    = "app"
+	istioPodServiceLabel               = "istio"
+	lookupIngressSourceAndOriginValues = false
+	istioIngressSvc                    = "ingress.istio-system.svc.cluster.local"
 
 	// cache invaliation
 	// TODO: determine a reasonable default
@@ -97,27 +99,29 @@ const (
 
 var (
 	conf = &config.Params{
-		KubeconfigPath:                   "",
-		CacheRefreshDuration:             defaultRefreshPeriod,
-		SourceUidInputName:               sourceUID,
-		DestinationUidInputName:          destinationUID,
-		OriginUidInputName:               originUID,
-		SourceIpInputName:                sourceIP,
-		DestinationIpInputName:           destinationIP,
-		OriginIpInputName:                originIP,
-		ClusterDomainName:                clusterDomain,
-		PodLabelForService:               podServiceLabel,
-		PodLabelForIstioComponentService: istioPodServiceLabel,
-		SourcePrefix:                     sourcePrefix,
-		DestinationPrefix:                destinationPrefix,
-		OriginPrefix:                     originPrefix,
-		LabelsValueName:                  labelsVal,
-		PodNameValueName:                 podNameVal,
-		PodIpValueName:                   podIPVal,
-		HostIpValueName:                  hostIPVal,
-		NamespaceValueName:               namespaceVal,
-		ServiceAccountValueName:          serviceAccountVal,
-		ServiceValueName:                 serviceVal,
+		KubeconfigPath:                        "",
+		CacheRefreshDuration:                  defaultRefreshPeriod,
+		SourceUidInputName:                    sourceUID,
+		DestinationUidInputName:               destinationUID,
+		OriginUidInputName:                    originUID,
+		SourceIpInputName:                     sourceIP,
+		DestinationIpInputName:                destinationIP,
+		OriginIpInputName:                     originIP,
+		ClusterDomainName:                     clusterDomain,
+		PodLabelForService:                    podServiceLabel,
+		PodLabelForIstioComponentService:      istioPodServiceLabel,
+		SourcePrefix:                          sourcePrefix,
+		DestinationPrefix:                     destinationPrefix,
+		OriginPrefix:                          originPrefix,
+		LabelsValueName:                       labelsVal,
+		PodNameValueName:                      podNameVal,
+		PodIpValueName:                        podIPVal,
+		HostIpValueName:                       hostIPVal,
+		NamespaceValueName:                    namespaceVal,
+		ServiceAccountValueName:               serviceAccountVal,
+		ServiceValueName:                      serviceVal,
+		FullyQualifiedIstioIngressServiceName: istioIngressSvc,
+		LookupIngressSourceAndOriginValues:    lookupIngressSourceAndOriginValues,
 	}
 )
 
@@ -199,6 +203,9 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 	if len(params.PodLabelForIstioComponentService) == 0 {
 		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
 	}
+	if len(params.FullyQualifiedIstioIngressServiceName) == 0 {
+		ce = ce.Appendf("fullyQualifiedIstioIngressServiceName", "field must be populated")
+	}
 	if len(params.ClusterDomainName) == 0 {
 		ce = ce.Appendf("clusterDomainName", "field must be populated")
 	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
@@ -264,11 +271,14 @@ func (k *kubegen) Close() error { return nil }
 
 func (k *kubegen) Generate(inputs map[string]interface{}) (map[string]interface{}, error) {
 	values := make(map[string]interface{})
-	if id, found := serviceIdentifier(inputs, k.params.SourceUidInputName, k.params.SourceIpInputName); found && len(id) > 0 {
-		k.addValues(values, id, k.params.SourcePrefix)
-	}
 	if id, found := serviceIdentifier(inputs, k.params.DestinationUidInputName, k.params.DestinationIpInputName); found && len(id) > 0 {
 		k.addValues(values, id, k.params.DestinationPrefix)
+	}
+	if k.skipIngressLookups(values) {
+		return values, nil
+	}
+	if id, found := serviceIdentifier(inputs, k.params.SourceUidInputName, k.params.SourceIpInputName); found && len(id) > 0 {
+		k.addValues(values, id, k.params.SourcePrefix)
 	}
 	if id, found := serviceIdentifier(inputs, k.params.OriginUidInputName, k.params.OriginIpInputName); found && len(id) > 0 {
 		k.addValues(values, id, k.params.OriginPrefix)
@@ -284,6 +294,11 @@ func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) 
 		return
 	}
 	addPodValues(vals, valPrefix, k.params, pod)
+}
+
+func (k *kubegen) skipIngressLookups(values map[string]interface{}) bool {
+	destSvcParam := k.params.DestinationPrefix + k.params.ServiceValueName
+	return !k.params.LookupIngressSourceAndOriginValues && values[destSvcParam] == k.params.FullyQualifiedIstioIngressServiceName
 }
 
 func keyFromUID(uid string) string {
@@ -314,10 +329,10 @@ func addPodValues(m map[string]interface{}, prefix string, params config.Params,
 		m[valueName(prefix, params.ServiceAccountValueName)] = p.Spec.ServiceAccountName
 	}
 	if len(p.Status.PodIP) > 0 {
-		m[valueName(prefix, params.PodIpValueName)] = p.Status.PodIP
+		m[valueName(prefix, params.PodIpValueName)] = net.ParseIP(p.Status.PodIP)
 	}
 	if len(p.Status.HostIP) > 0 {
-		m[valueName(prefix, params.HostIpValueName)] = p.Status.HostIP
+		m[valueName(prefix, params.HostIpValueName)] = net.ParseIP(p.Status.HostIP)
 	}
 	if app, found := p.Labels[params.PodLabelForService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
