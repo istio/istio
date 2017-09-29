@@ -22,7 +22,8 @@ import (
 	google_rpc "github.com/googleapis/googleapis/google/rpc"
 	"golang.org/x/net/context"
 
-	"istio.io/pilot/test/mixer/pb"
+	"istio.io/pilot/test/mixer/istio_mixer_v1"
+	words "istio.io/pilot/test/mixer/wordlist"
 )
 
 // Server is a basic Mixer server
@@ -55,7 +56,7 @@ func (s *Server) Report(ctx context.Context, _ *istio_mixer_v1.ReportRequest) (*
 // NewServer creates a new server
 func NewServer() *Server {
 	out := &Server{
-		words: GlobalList(),
+		words: words.GlobalList(),
 	}
 	fmt.Printf("GlobalList=%d\n", len(out.words))
 	return out

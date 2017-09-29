@@ -6,7 +6,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//test/mixer:go_default_library",
-        "//test/mixer/pb:go_default_library",
+        "//test/mixer/istio_mixer_v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
