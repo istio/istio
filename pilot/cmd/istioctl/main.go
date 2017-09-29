@@ -400,7 +400,7 @@ and destination policies.
 						errs = multierror.Append(errs, fmt.Errorf("failed to delete: %v", err))
 						continue
 					}
-					fmt.Printf("Deleted cofig: %s\n", model.Key(config.Kind, config.Name, config.Namespace))
+					fmt.Printf("Deleted config: %s\n", model.Key(config.Kind, config.Name, config.Namespace))
 				}
 			}
 
