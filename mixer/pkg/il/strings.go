@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// maxStrings is the maximum number of strings that can be placed in the strings table.
-	maxStrings = 100
+	// allocSize is the allocation size when extending the string table.
+	allocSize  = 512
 	nullString = "<<DEADBEEF>>"
 )
 
@@ -37,7 +37,7 @@ func newStringTable() *StringTable {
 
 	t := &StringTable{
 		stringToID: make(map[string]uint32),
-		idToString: make([]string, maxStrings),
+		idToString: make([]string, allocSize),
 		nextID:     0,
 	}
 
@@ -63,10 +63,17 @@ func (t *StringTable) GetID(s string) uint32 {
 
 	id, exists = t.stringToID[s]
 	if !exists {
-		t.stringToID[s] = t.nextID
-		t.idToString[t.nextID] = s
 		id = t.nextID
 		t.nextID++
+
+		if len(t.idToString) <= int(id) {
+			tmp := make([]string, len(t.idToString)+allocSize)
+			copy(tmp, t.idToString)
+			t.idToString = tmp
+		}
+
+		t.stringToID[s] = id
+		t.idToString[id] = s
 	}
 
 	return id
