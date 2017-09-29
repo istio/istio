@@ -204,3 +204,19 @@ and edit the release that points to ```${RELEASE_TAG}```. Uploads the artifacts 
 
 Create a PR, where you increment ```istio.RELEASE``` for the next
 release and you update ```istio/downloadIstio.sh``` to point to ```${RELEASE_TAG}```
+
+### Generate release-note
+
+First make sure you finished tagging.
+
+This tool helps you to collect release-note left in PR descriptions.
+
+If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
+```Bash
+$ git clone https://github.com/istio/test-infra
+$ cd test-infra
+$ bazel build //toolbox/release_note_collector:release_note_collector
+$ bazel bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
+$ cat release-note
+```
+
