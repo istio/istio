@@ -81,6 +81,7 @@ Step 3: Create an update PR in istio/istio.
 $ githubctl --token_file=<github token file> \
     --op=updateIstioVersion --base_branch=<release branch or master> 
 ```
+This will run all the presubmits on the istio repo, smoke testing the created artifacts.
 
 Step 4: Request PR approval and wait for the PR to be merged.
 
