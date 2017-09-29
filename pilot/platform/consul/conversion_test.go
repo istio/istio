@@ -82,7 +82,7 @@ func TestConvertInstance(t *testing.T) {
 	consulServiceInst := api.CatalogService{
 		Node:        "istio-node",
 		Address:     "172.19.0.5",
-		ServiceID:   "1111-22-3333-444",
+		ID:          "1111-22-3333-444",
 		ServiceName: name,
 		ServiceTags: []string{
 			fmt.Sprintf("%v|%v", tagKey1, tagVal1),
@@ -155,7 +155,7 @@ func TestConvertService(t *testing.T) {
 		{
 			Node:        "istio-node",
 			Address:     "172.19.0.5",
-			ServiceID:   "1111-22-3333-444",
+			ID:          "1111-22-3333-444",
 			ServiceName: name,
 			ServiceTags: []string{
 				"version=v1",
@@ -168,7 +168,7 @@ func TestConvertService(t *testing.T) {
 		{
 			Node:        "istio-node",
 			Address:     "172.19.0.5",
-			ServiceID:   "1111-22-3333-444",
+			ID:          "1111-22-3333-444",
 			ServiceName: name,
 			ServiceTags: []string{
 				"version=v2",

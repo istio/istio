@@ -36,7 +36,7 @@ var (
 		{
 			Node:           "istio",
 			Address:        "172.19.0.5",
-			ServiceID:      "111-111-111",
+			ID:             "111-111-111",
 			ServiceName:    "productpage",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.11",
@@ -47,7 +47,7 @@ var (
 		{
 			Node:           "istio",
 			Address:        "172.19.0.5",
-			ServiceID:      "222-222-222",
+			ID:             "222-222-222",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v1"},
 			ServiceAddress: "172.19.0.6",
@@ -56,7 +56,7 @@ var (
 		{
 			Node:           "istio",
 			Address:        "172.19.0.5",
-			ServiceID:      "333-333-333",
+			ID:             "333-333-333",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v2"},
 			ServiceAddress: "172.19.0.7",
@@ -65,7 +65,7 @@ var (
 		{
 			Node:           "istio",
 			Address:        "172.19.0.5",
-			ServiceID:      "444-444-444",
+			ID:             "444-444-444",
 			ServiceName:    "reviews",
 			ServiceTags:    []string{"version|v3"},
 			ServiceAddress: "172.19.0.8",
@@ -75,30 +75,52 @@ var (
 	}
 )
 
-func newServer() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+type mockServer struct {
+	Server      *httptest.Server
+	Services    map[string][]string
+	Productpage []*api.CatalogService
+	Reviews     []*api.CatalogService
+}
+
+func newServer() *mockServer {
+	m := mockServer{
+		Productpage: make([]*api.CatalogService, len(productpage)),
+		Reviews:     make([]*api.CatalogService, len(reviews)),
+		Services:    make(map[string][]string),
+	}
+
+	copy(m.Reviews, reviews)
+	copy(m.Productpage, productpage)
+	for k, v := range services {
+		m.Services[k] = v
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/catalog/services" {
-			data, _ := json.Marshal(&services)
+			data, _ := json.Marshal(&m.Services)
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/reviews" {
-			data, _ := json.Marshal(&reviews)
+			data, _ := json.Marshal(&m.Reviews)
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/productpage" {
-			data, _ := json.Marshal(&productpage)
+			data, _ := json.Marshal(&m.Productpage)
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else {
 			fmt.Fprintln(w, r.URL.Path)
 		}
 	}))
+
+	m.Server = server
+	return &m
 }
 
 func TestInstances(t *testing.T) {
 	ts := newServer()
-	defer ts.Close()
-	controller, err := NewController(ts.URL, "datacenter", 3*time.Second)
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -148,10 +170,24 @@ func TestInstances(t *testing.T) {
 	}
 }
 
+func TestInstancesBadHostname(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	instances := controller.Instances("badhostname", []string{}, model.LabelsCollection{})
+	if len(instances) != 0 {
+		t.Errorf("Instances() returned wrong # of service instances => %q, want 0", len(instances))
+	}
+}
+
 func TestGetService(t *testing.T) {
 	ts := newServer()
-	defer ts.Close()
-	controller, err := NewController(ts.URL, "datacenter", 3*time.Second)
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -167,10 +203,48 @@ func TestGetService(t *testing.T) {
 	}
 }
 
+func TestGetServiceBadHostname(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	service, exists := controller.GetService("badshostname")
+	if exists {
+		t.Error("service should not exist")
+	}
+
+	if service != nil {
+		t.Error("service should be nil")
+	}
+}
+
+func TestGetServiceNoInstances(t *testing.T) {
+	ts := newServer()
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Productpage = []*api.CatalogService{}
+
+	service, exists := controller.GetService("productpage.service.consul")
+	if exists {
+		t.Error("service should not exist")
+	}
+
+	if service != nil {
+		t.Error("service should be nil")
+	}
+}
+
 func TestServices(t *testing.T) {
 	ts := newServer()
-	defer ts.Close()
-	controller, err := NewController(ts.URL, "datacenter", 3*time.Second)
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -195,10 +269,25 @@ func TestServices(t *testing.T) {
 	}
 }
 
+func TestServicesError(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		ts.Server.Close()
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Server.Close()
+	services := controller.Services()
+	if len(services) != 0 {
+		t.Errorf("Services() returned wrong # of services: %q, want 0", len(services))
+	}
+}
+
 func TestHostInstances(t *testing.T) {
 	ts := newServer()
-	defer ts.Close()
-	controller, err := NewController(ts.URL, "datacenter", 3*time.Second)
+	defer ts.Server.Close()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
