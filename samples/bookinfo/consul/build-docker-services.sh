@@ -20,7 +20,7 @@
 # Set required env vars. Ensure you have checked out the pilot project
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 HUB=istio
-VERSION=0.2.4
+VERSION=0.2.7
 WORKSPACE=$GOPATH/src/istio.io/pilot
 BINDIR=$WORKSPACE/bazel-bin
 APPSDIR=$GOPATH/src/istio.io/istio/samples/bookinfo/src
