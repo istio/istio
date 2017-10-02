@@ -15,6 +15,8 @@
 package kube
 
 import (
+	"sync"
+
 	"k8s.io/api/core/v1"
 
 	"istio.io/pilot/model"
@@ -22,6 +24,7 @@ import (
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
+	rwMu sync.RWMutex
 	cacheHandler
 
 	// keys maintains stable pod IP to name key mapping
@@ -36,6 +39,9 @@ func newPodCache(ch cacheHandler) *PodCache {
 	}
 
 	ch.handler.Append(func(obj interface{}, ev model.Event) error {
+		out.rwMu.Lock()
+		defer out.rwMu.Unlock()
+
 		pod := *obj.(*v1.Pod)
 		ip := pod.Status.PodIP
 		if len(ip) > 0 {
@@ -53,6 +59,9 @@ func newPodCache(ch cacheHandler) *PodCache {
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodByIP(addr string) (*v1.Pod, bool) {
+	pc.rwMu.RLock()
+	defer pc.rwMu.RUnlock()
+
 	key, exists := pc.keys[addr]
 	if !exists {
 		return nil, false
