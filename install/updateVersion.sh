@@ -213,6 +213,24 @@ function update_istio_addons() {
   popd
 }
 
+function update_istio_install_consul() {
+  pushd $TEMP_DIR/templates
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+  popd
+}
+
+# Generated merge yaml files for easy installation
+function merge_files_consul() {
+  SRC=$TEMP_DIR/templates
+  DEST=$ROOT/install/consul
+
+  ISTIO=$DEST/istio.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and Consul" > $ISTIO
+  echo "# TO UPDATE, modify files in install/consul/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+}
+
 if [[ ${GIT_COMMIT} == true ]]; then
     check_git_status \
       || error_exit "You have modified files. Please commit or reset your workspace."
@@ -223,6 +241,11 @@ update_version_file
 update_istio_install
 update_istio_addons
 merge_files
+rm -R $TEMP_DIR/templates
+
+cp -R $ROOT/install/consul/templates $TEMP_DIR/templates
+update_istio_install_consul
+merge_files_consul
 rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then
