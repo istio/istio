@@ -40,31 +40,28 @@ import (
 )
 
 const (
-	bookinfoYaml             = "samples/apps/bookinfo/bookinfo.yaml"
-	bookinfoRatingsv2Yaml    = "samples/apps/bookinfo/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml           = "samples/apps/bookinfo/bookinfo-db.yaml"
-	rulesDir                 = "samples/apps/bookinfo/rules"
+	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	rulesDir                 = "samples/bookinfo/kube"
 	rateLimitRule            = "mixer-rule-ratings-ratelimit.yaml"
 	denialRule               = "mixer-rule-ratings-denial.yaml"
 	newTelemetryRule         = "mixer-rule-additional-telemetry.yaml"
 	routeAllRule             = "route-rule-all-v1.yaml"
 	routeReviewsVersionsRule = "route-rule-reviews-v2-v3.yaml"
 	routeReviewsV3Rule       = "route-rule-reviews-v3.yaml"
-	emptyRule                = "mixer-rule-empty-rule.yaml"
-	standardMetrics          = "mixer-rule-standard-metrics.yaml"
-	standardAttributes       = "mixer-rule-standard-attributes.yaml"
 	tcpDbRule                = "route-rule-ratings-db.yaml"
 
 	prometheusPort   = "9090"
 	mixerMetricsPort = "42422"
 	productPagePort  = "10000"
 
-	targetLabel       = "target"
+	destLabel         = "destination_service"
 	responseCodeLabel = "response_code"
 
 	// This namespace is used by default in all mixer config documents.
 	// It will be replaced with the test namespace.
-	templateNamespace = "istio-config-default"
+	templateNamespace = "istio-system"
 )
 
 type testConfig struct {
@@ -77,8 +74,7 @@ var (
 	tc                 *testConfig
 	productPageTimeout = 60 * time.Second
 	rules              = []string{rateLimitRule, denialRule, newTelemetryRule, routeAllRule,
-		routeReviewsVersionsRule, routeReviewsV3Rule, emptyRule,
-		standardAttributes, standardMetrics, tcpDbRule}
+		routeReviewsVersionsRule, routeReviewsV3Rule, tcpDbRule}
 )
 
 func (t *testConfig) Setup() (err error) {
@@ -105,30 +101,22 @@ func (t *testConfig) Setup() (err error) {
 		}
 	}
 
-	if err = setupMixerConfig(); err != nil {
-		glog.Errorf("Unable to setup mixer metrics: %v", err)
-		return err
-	}
-
 	err = createDefaultRoutingRules()
+
+	if !util.CheckPodsRunning(tc.Kube.Namespace) {
+		return fmt.Errorf("can't get all pods running")
+	}
 
 	// pre-warm the system. we don't care about what happens with this
 	// request, but we want Mixer, etc., to be ready to go when the actual
 	// Tests start.
-	if err = visitProductPage(60*time.Second, 200); err != nil {
+	if err = visitProductPage(30*time.Second, 200); err != nil {
 		glog.Infof("initial product page request failed: %v", err)
 	}
 
 	allowPrometheusSync()
 
 	return
-}
-
-func setupMixerConfig() error {
-	if err := applyMixerRule(standardAttributes); err != nil {
-		return err
-	}
-	return applyMixerRule(standardMetrics)
 }
 
 func createDefaultRoutingRules() error {
@@ -270,7 +258,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	// establish baseline
 	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("productpage"))
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("productpage"))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -293,7 +281,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	query = fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -402,7 +390,7 @@ func TestNewMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", targetLabel, fqdn("productpage"), responseCodeLabel)
+	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -482,7 +470,7 @@ func TestRateLimit(t *testing.T) {
 
 	// establish baseline
 	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	query := fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -551,7 +539,7 @@ func TestRateLimit(t *testing.T) {
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	query = fmt.Sprintf("request_count{%s=\"%s\"}", targetLabel, fqdn("ratings"))
+	query = fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -559,7 +547,7 @@ func TestRateLimit(t *testing.T) {
 	}
 	glog.Infof("promvalue := %s", value.String())
 
-	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "version": "v1"})
+	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find rate limit value: %v", err)
@@ -578,7 +566,7 @@ func TestRateLimit(t *testing.T) {
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
-	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "version": "v1"})
+	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "destination_version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		fatalf(t, "Could not find successes value: %v", err)

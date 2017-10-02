@@ -1,5 +1,5 @@
 ################################
-# Istio ingress controller
+# Istio ingress
 ################################
 apiVersion: v1
 kind: Service
@@ -36,8 +36,6 @@ spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         istio: ingress
     spec:

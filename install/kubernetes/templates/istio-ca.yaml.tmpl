@@ -1,0 +1,32 @@
+################################
+# Istio-CA cluster-wide
+################################
+# Service account CA
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: {ISTIO_NAMESPACE}
+---
+# Istio CA watching all namespaces
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: {CA_HUB}/istio-ca:{CA_TAG}
+        imagePullPolicy: IfNotPresent
+---

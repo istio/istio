@@ -3,8 +3,9 @@ filegroup(
     srcs = [
         "istio.yaml",
         "istio-auth.yaml",
-        "istio-cluster-wide.yaml",
-        "istio-rbac-beta.yaml",
+        "istio-initializer.yaml",
+        "istio-one-namespace.yaml",
+        "istio-one-namespace-auth.yaml",
     ],
     visibility = ["//visibility:public"],
 )

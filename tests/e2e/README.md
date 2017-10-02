@@ -15,7 +15,7 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
 
 If you hit the error
 ```bash
-Error from server (Forbidden): error when creating "install/kubernetes/istio-rbac-beta.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
+Error from server (Forbidden): error when creating "install/kubernetes/istio.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
 ```
 You need to add the following: (replace the name with your own)
 ```
@@ -55,22 +55,26 @@ If not specify `namespace`, a randomly namespace would be generated for each tes
 
 ### For all the following example, you always need to add:
 * `--auth_enable` if you want to include auth
-* `--rbac_path=install/kubernetes/istio-rbac-beta.yaml` if you are using a rbac cluster (which means you disabled legacy if using GKE)
+* `--cluster_wide` if you want to run the cluster wide installation and tests
+* `--use_initializer` if you want to do transparent sidecar injection
 
 ### Example
 From the repo checkout root directory
 
 * Run tests with the latest stable version of istio according to istio.VERSION :
 
-`tests/e2e.sh --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+`tests/e2e.sh --auth_enable`
 
 * Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a":
 
-`tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+`tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl --auth_enable`
 
 * If you want to run one specific test, you can do:
 
-`bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+```
+source istio.VERSION
+bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup --auth_enable
+```
 
 
 ## Access to logs and temp files from Jenkins

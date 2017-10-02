@@ -1,0 +1,88 @@
+# GENERATED FILE. Use with Docker-Compose and Consul
+# TO UPDATE, modify files in install/consul/templates and run install/updateVersion.sh
+version: '2'
+services:
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    networks:
+      istiomesh:
+        aliases:
+          - etcd
+    ports:
+      - "4001:4001"
+      - "2380:2380"
+      - "2379:2379"
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
+
+  istio-apiserver:
+    image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
+    networks:
+      istiomesh:
+        ipv4_address: 172.28.0.13
+        aliases:
+          - apiserver
+    ports:
+      - "8080:8080"
+    privileged: true
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
+
+  consul:
+    image: gliderlabs/consul-server
+    networks:
+      istiomesh:
+        aliases:
+          - consul
+    ports:
+      - "8500:8500"
+      - "${DOCKER_GATEWAY}53:8600/udp"
+      - "8400:8400"
+    environment:
+      - SERVICE_IGNORE=1
+    command: ["-bootstrap"]
+
+  registrator:
+    image: gliderlabs/registrator:latest
+    networks:
+      istiomesh:
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
+
+  pilot:
+    image: gcr.io/istio-testing/pilot:e6d7b75869ac4ecc1fa055ebd70b462159537a5d
+    networks:
+      istiomesh:
+        aliases:
+          - istio-pilot
+    expose:
+      - "8080"
+    ports:
+      - "8081:8080"
+    command: ["discovery", "-v", "2",
+              "--registries", "Consul",
+              "--consulserverURL", "http://consul:8500",
+              "--kubeconfig", "/etc/istio/config/kubeconfig"
+              ]
+    volumes:
+      - ~/.kube/config:/etc/istio/config/kubeconfig
+
+  zipkin:
+    image: docker.io/openzipkin/zipkin:latest
+    networks:
+      istiomesh:
+        aliases:
+          - zipkin
+    ports:
+      - "9411:9411"
+
+networks:
+  istiomesh:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1

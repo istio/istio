@@ -1,3 +1,6 @@
+################################
+# Istio RBAC
+################################
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
 # Also helps to enable logging on apiserver 'wrap' to see the URLs.
@@ -25,6 +28,21 @@ rules:
   verbs: ["*"]
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["externaladmissionhookconfigurations"]
+  verbs: ["create", "update", "delete"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-initializer-{ISTIO_NAMESPACE}
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
+  verbs: ["initialize", "patch", "watch", "list"]
+- apiGroups: ["*"]
+  resources: ["configmaps"]
   verbs: ["get", "list", "watch"]
 ---
 # Mixer CRD needs to watch and list CRDs
@@ -85,6 +103,20 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: istio-pilot-{ISTIO_NAMESPACE}
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Sidecar initializer
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-initializer-admin-role-binding-{ISTIO_NAMESPACE}
+subjects:
+- kind: ServiceAccount
+  name: istio-initializer-service-account
+  namespace: {ISTIO_NAMESPACE}
+roleRef:
+  kind: ClusterRole
+  name: istio-initializer-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
 # Grant permissions to the CA.
