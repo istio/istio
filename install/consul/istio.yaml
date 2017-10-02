@@ -36,7 +36,7 @@ services:
           - consul
     ports:
       - "8500:8500"
-      - "172.28.0.1:53:8600/udp"
+      - "${DOCKER_GATEWAY}53:8600/udp"
       - "8400:8400"
     environment:
       - SERVICE_IGNORE=1
