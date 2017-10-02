@@ -65,7 +65,7 @@ func TestSimpleIngress(t *testing.T) {
 	//url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
 
 	glog.Infof("Fetching '%s'", url)
-	attempts := 5 // if it takes more than 50s to be live...
+	attempts := 7 // if it takes more than 70s to be live...
 	for i := 1; i <= attempts; i++ {
 		if i > 1 {
 			time.Sleep(10 * time.Second) // wait between retries
@@ -97,11 +97,10 @@ func TestSimpleIngress(t *testing.T) {
 func TestSvc2Svc(t *testing.T) {
 	ns := tc.Kube.Namespace
 	// Get the 2 pods
-	pods, err := util.Shell("kubectl get pods -n %s -l app=echosrv -o jsonpath={.items[*].metadata.name}", ns)
+	podList, err := getPodList(ns, "app=echosrv")
 	if err != nil {
 		t.Fatalf("kubectl failure to get pods %v", err)
 	}
-	podList := strings.Split(pods, " ")
 	if len(podList) != 2 {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
 	}
@@ -118,6 +117,14 @@ func TestSvc2Svc(t *testing.T) {
 
 type fortioTemplate struct {
 	FortioImage string
+}
+
+func getPodList(namespace string, selector string) ([]string, error) {
+	pods, err := util.Shell("kubectl get pods -n %s -l %s -o jsonpath={.items[*].metadata.name}", namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(pods, " "), nil
 }
 
 func setTestConfig() error {
