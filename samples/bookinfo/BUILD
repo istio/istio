@@ -6,6 +6,8 @@ filegroup(
         "kube/bookinfo-mysql.yaml",
         "kube/bookinfo-ratings-v2.yaml",
         "kube/mixer-rule-additional-telemetry.yaml",
+        "kube/mixer-rule-deny-label.yaml",
+        "kube/mixer-rule-deny-serviceaccount.yaml",
         "kube/mixer-rule-ratings-denial.yaml",
         "kube/mixer-rule-ratings-ratelimit.yaml",
         "kube/route-rule-all-v1.yaml",
