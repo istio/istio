@@ -37,11 +37,6 @@ spec:
   selector:
     app: mysqldb
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: bookinfo-mysqldb
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -54,7 +49,6 @@ spec:
         app: mysqldb
         version: v1
     spec:
-      serviceAccountName: bookinfo-mysqldb
       containers:
       - name: mysqldb
         image: istio/examples-bookinfo-mysqldb:0.2.3
