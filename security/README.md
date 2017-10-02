@@ -136,7 +136,7 @@ managed by the photo SRE team while the datastore service is managed by the
 datastore SRE team. Photo-frontend can access photo-backend, and photo-backend
 can access datastore. However, photo-frontend cannot access datastore.
 
-In this scenario, a cluster admin can creates 3 namespaces: istio-ca-ns,
+In this scenario, a cluster admin can create 3 namespaces: istio-ca-ns,
 photo-ns, and datastore-ns. Admin has access to all namespaces, and each team
 only has access to its own namespace. The photo SRE team creates 2 service
 accounts to run photo-frontend and photo-backend respectively in namespace
