@@ -39,89 +39,9 @@
 # ISTIO_CP - command to use to copy files to the VM.
 # ISTIO_RUN - command to use to copy files to the VM.
 
-# Initialize internal load balancers to access K8S DNS and Istio Pilot, Mixer, CA.
-# Must be run once per cluster.
-function istioInitILB() {
-   local NS=${ISTIO_NAMESPACE:-istio-system}
-
-cat <<EOF | kubectl apply -n $NS -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-pilot-ilb
-  annotations:
-    cloud.google.com/load-balancer-type: "internal"
-  labels:
-    istio: pilot
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 8080
-    protocol: TCP
-  selector:
-    istio: pilot
-EOF
-cat <<EOF | kubectl apply -n kube-system -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: dns-ilb
-  annotations:
-    cloud.google.com/load-balancer-type: "internal"
-  labels:
-    k8s-app: kube-dns
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 53
-    protocol: UDP
-  selector:
-    k8s-app: kube-dns
-EOF
-
-cat <<EOF | kubectl apply -n $NS -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: mixer-ilb
-  annotations:
-    cloud.google.com/load-balancer-type: "internal"
-  labels:
-    istio: mixer
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 9091
-    protocol: TCP
-  selector:
-    istio: mixer
-EOF
-
-cat <<EOF | kubectl apply -n $NS -f -
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-ca-ilb
-  annotations:
-    cloud.google.com/load-balancer-type: "internal"
-  labels:
-    istio: istio-ca
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 8060
-    protocol: TCP
-  selector:
-    istio: istio-ca
-EOF
-}
-
-# Generate a kubedns file and a cluster.env
-# Parameters:
-# - name of the k8s cluster.
-function istioGenerateClusterConfigs() {
-   local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
-
+# Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
+# It will need to be installed on each machine expanding the mesh.
+function istioDnsmasq() {
    local NS=${ISTIO_NAMESPACE:-istio-system}
 
   # Multiple tries, it may take some time until the controllers generate the IPs
@@ -158,13 +78,22 @@ function istioGenerateClusterConfigs() {
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
   echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
 
-  CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
-  echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
+  echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
+}
+
+# Generate a cluster.env config file.
+# Parameters:
+# - name of the k8s cluster.
+function istioClusterEnv() {
+   local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
+
+   CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
+   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "The /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
-  echo "Generated Dnsmaq config file kubedns. Install it in /etc/dnsmasq.d and restart dnsmasq."
 }
+
 
 # Get an istio service account secret, extract it to files to be provisioned on a raw VM
 # Params:
@@ -246,11 +175,11 @@ function istioRun() {
   ${ISTIO_RUN:-gcloud compute ssh ${GCP_OPTS:-}} $NAME --command "$CMD"
 }
 
-if [[ ${1:-} == "initCluster" ]] ; then
-  istioInitILB
-elif [[ ${1:-} == "generateConfigs" ]] ; then
+if [[ ${1:-} == "generateDnsmasq" ]] ; then
+  istioDnsmasq
+elif [[ ${1:-} == "generateClusterEnv" ]] ; then
   shift
-  istioGenerateClusterConfigs $1
+  istioClusterEnv $1
 elif [[ ${1:-} == "machineCerts" ]] ; then
   shift
   istio_provision_certs $1 $2
@@ -258,8 +187,8 @@ elif [[ ${1:-} == "machineSetup" ]] ; then
   shift
   istioBootstrapVM $1
 else
-  echo "$0 initCluster: Configure ILB for the cluster (one time)"
-  echo "$0 generateConfigs K8S_CLUSTER_NAME: Generate dnsmasq and cluster range config files (one time)"
+  echo "$0 generateDnsmasq: Generate dnsmasq config files (one time)"
+  echo "$0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
   echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
   echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
 fi

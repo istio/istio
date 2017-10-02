@@ -1,6 +1,7 @@
 reviewers:
   - geeknoid
   - andraxylia
+  - costin
   - Douglas-reid
   - ldemailly
   - rshriram
@@ -8,6 +9,7 @@ reviewers:
 approvers:
   - geeknoid
   - andraxylia
+  - costin
   - Douglas-reid
   - ldemailly
   - rshriram
