@@ -21,9 +21,9 @@ import (
 
 func TestFailOpen(t *testing.T) {
 	s := &TestSetup{
-		t:    t,
-		conf: basicConfig,
-		no_mixer: true,
+		t:       t,
+		conf:    basicConfig,
+		noMixer: true,
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

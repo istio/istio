@@ -20,10 +20,11 @@ import (
 )
 
 type TestSetup struct {
-	t        *testing.T
-	conf     string
-	stress   bool
-	no_mixer bool
+	t           *testing.T
+	conf        string
+	stress      bool
+	faultInject bool
+	noMixer     bool
 
 	envoy   *Envoy
 	mixer   *MixerServer
@@ -32,14 +33,14 @@ type TestSetup struct {
 
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, "", s.stress)
+	s.envoy, err = NewEnvoy(s.conf, "", s.stress, s.faultInject)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
 		s.envoy.Start()
 	}
 
-	if !s.no_mixer {
+	if !s.noMixer {
 		s.mixer, err = NewMixerServer(MixerPort, s.stress)
 		if err != nil {
 			log.Printf("unable to create mixer server %v", err)

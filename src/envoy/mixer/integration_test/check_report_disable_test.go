@@ -54,7 +54,7 @@ func TestCheckReportDisable(t *testing.T) {
 	var err error
 	// stop and start a new envoy config
 	s.envoy.Stop()
-	s.envoy, err = NewEnvoy(s.conf, checkOnlyFlags, s.stress)
+	s.envoy, err = NewEnvoy(s.conf, checkOnlyFlags, s.stress, s.faultInject)
 	if err != nil {
 		t.Errorf("unable to re-create Envoy %v", err)
 	} else {
@@ -74,7 +74,7 @@ func TestCheckReportDisable(t *testing.T) {
 
 	// stop and start a new envoy config
 	s.envoy.Stop()
-	s.envoy, err = NewEnvoy(s.conf, reportOnlyFlags, s.stress)
+	s.envoy, err = NewEnvoy(s.conf, reportOnlyFlags, s.stress, s.faultInject)
 	if err != nil {
 		t.Errorf("unable to re-create Envoy %v", err)
 	} else {

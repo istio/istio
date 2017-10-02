@@ -43,6 +43,7 @@ type ConfParam struct {
 	ServerConfig    string
 	AccessLog       string
 	MixerRouteFlags string
+	FaultFilter     string
 }
 
 // A basic config
@@ -103,6 +104,19 @@ const defaultMixerRouteFlags = `
                    "mixer_control": "on",
 `
 
+const allAbortFaultFilter = `
+               {
+                   "type": "decoder",
+                   "name": "fault",
+                   "config": {
+                       "abort": {
+                           "abort_percent": 100,
+                           "http_status": 503
+                       }
+                   }
+               },
+`
+
 // The envoy config template
 const envoyConfTempl = `
 {
@@ -152,6 +166,7 @@ const envoyConfTempl = `
 {{.ServerConfig}}
                 }
               },
+{{.FaultFilter}}
               {
                 "type": "decoder",
                 "name": "router",
@@ -320,7 +335,7 @@ func getConf() ConfParam {
 	}
 }
 
-func CreateEnvoyConf(path, conf, flags string, stress bool) error {
+func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool) error {
 	c := getConf()
 	c.ServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags
@@ -329,6 +344,9 @@ func CreateEnvoyConf(path, conf, flags string, stress bool) error {
 	}
 	if stress {
 		c.AccessLog = "/dev/null"
+	}
+	if faultInject {
+		c.FaultFilter = allAbortFaultFilter
 	}
 	return c.write(path)
 }
