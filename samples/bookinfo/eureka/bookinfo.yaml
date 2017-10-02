@@ -2,7 +2,8 @@ version: '2'
 services:
   details-v1:
     image: istio/examples-bookinfo-details-v1-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
@@ -15,7 +16,8 @@ services:
 
   ratings-v1:
     image: istio/examples-bookinfo-ratings-v1-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
@@ -28,7 +30,8 @@ services:
 
   reviews-v1:
     image: istio/examples-bookinfo-reviews-v1-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
@@ -42,7 +45,8 @@ services:
 
   reviews-v2:
     image: istio/examples-bookinfo-reviews-v2-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
@@ -56,7 +60,8 @@ services:
 
   reviews-v3:
     image: istio/examples-bookinfo-reviews-v3-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
@@ -70,7 +75,8 @@ services:
 
   productpage-v1:
     image: istio/examples-bookinfo-productpage-v1-envoy:0.2.7
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     networks:
       default:
         aliases:
