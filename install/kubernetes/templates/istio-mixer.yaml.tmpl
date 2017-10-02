@@ -55,13 +55,17 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: statsd-to-prometheus
-        image: prom/statsd-exporter
+        # when a release including TCP support is released, switch to that tag (instead of :master)
+        image: prom/statsd-exporter:master
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102
         - containerPort: 9125
           protocol: UDP
+        - containerPort: 9126
         args:
+        - '-statsd.listen-udp=":9125"'
+        - '-statsd.listen-tcp=":9126"'
         - '-statsd.mapping-config=/etc/statsd/mapping.conf'
         volumeMounts:
         - name: config-volume
