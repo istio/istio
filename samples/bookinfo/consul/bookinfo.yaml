@@ -1,7 +1,7 @@
 version: '2'
 services:
   details-v1:
-    image: istio/examples-bookinfo-details-v1-envoy:0.2.4
+    image: istio/examples-bookinfo-details-v1-envoy:0.2.7
     networks:
       istiomesh:
     dns:
@@ -9,7 +9,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_NAME=details
       - SERVICE_TAGS=version|v1
@@ -18,7 +19,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: istio/examples-bookinfo-ratings-v1-envoy:0.2.4
+    image: istio/examples-bookinfo-ratings-v1-envoy:0.2.7
     networks:
       istiomesh:
     dns:
@@ -26,7 +27,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_NAME=ratings
       - SERVICE_TAGS=version|v1
@@ -35,7 +37,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: istio/examples-bookinfo-reviews-v1-envoy:0.2.4
+    image: istio/examples-bookinfo-reviews-v1-envoy:0.2.7
     networks:
       istiomesh:
     dns:
@@ -43,7 +45,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_9080_NAME=reviews
       - SERVICE_TAGS=version|v1
@@ -53,7 +56,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: istio/examples-bookinfo-reviews-v2-envoy:0.2.4
+    image: istio/examples-bookinfo-reviews-v2-envoy:0.2.7
     networks:
       istiomesh:
     dns:
@@ -61,7 +64,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_9080_NAME=reviews
       - SERVICE_TAGS=version|v2
@@ -71,7 +75,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: istio/examples-bookinfo-reviews-v3-envoy:0.2.4
+    image: istio/examples-bookinfo-reviews-v3-envoy:0.2.7
     networks:
       istiomesh:
     dns:
@@ -79,7 +83,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_9080_NAME=reviews
       - SERVICE_TAGS=version|v3
@@ -89,7 +94,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: istio/examples-bookinfo-productpage-v1-envoy:0.2.4
+    image: istio/examples-bookinfo-productpage-v1-envoy:0.2.7
     networks:
       istiomesh:
         ipv4_address: 172.28.0.14
@@ -98,7 +103,8 @@ services:
       - 8.8.8.8
     dns_search:
         - service.consul
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     environment:
       - SERVICE_NAME=productpage
       - SERVICE_TAGS=version|v1
