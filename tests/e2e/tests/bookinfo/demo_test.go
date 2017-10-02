@@ -305,7 +305,7 @@ func TestFaultDelay(t *testing.T) {
 			break
 		}
 
-		if i == testRetryTimes - 1 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s",
 				duration, minDuration, maxDuration, err)
 			break
@@ -371,7 +371,7 @@ func TestVersionMigration(t *testing.T) {
 			break
 		}
 
-		if i == testRetryTimes - 1 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Failed version migration test, "+
 				"old version hit %d, new version hit %d", c1, c3)
 		}
