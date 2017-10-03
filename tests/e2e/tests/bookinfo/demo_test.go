@@ -305,7 +305,7 @@ func TestFaultDelay(t *testing.T) {
 			break
 		}
 
-		if i == 4 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s",
 				duration, minDuration, maxDuration, err)
 			break
@@ -347,12 +347,12 @@ func TestVersionMigration(t *testing.T) {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
-				t.Errorf("unexpected response status %d", resp.StatusCode)
+				glog.Errorf("unexpected response status %d", resp.StatusCode)
 				continue
 			}
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Error(err)
+				glog.Error(err)
 				continue
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
@@ -371,7 +371,7 @@ func TestVersionMigration(t *testing.T) {
 			break
 		}
 
-		if i == 4 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Failed version migration test, "+
 				"old version hit %d, new version hit %d", c1, c3)
 		}
