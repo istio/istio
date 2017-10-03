@@ -4,18 +4,18 @@ kind: Deployment
 metadata:
   name: servicegraph
   namespace: {ISTIO_NAMESPACE}
+  annotations:
+    sidecar.istio.io/inject: "false"
 spec:
   replicas: 1
   template:
     metadata:
-      annotations:
-        alpha.istio.io/sidecar: ignore
       labels:
         app: servicegraph
     spec:
       containers:
       - name: servicegraph
-        image: gcr.io/istio-testing/servicegraph:latest
+        image: {MIXER_HUB}/servicegraph:{MIXER_TAG}
         ports:
           - containerPort: 8088
         args:

@@ -146,12 +146,6 @@ func (i *Istioctl) CreateRule(rule string) error {
 	return i.run("-n %s create -f %s", i.namespace, rule)
 }
 
-// CreateMixerRule create new rule(s)
-func (i *Istioctl) CreateMixerRule(scope, subject, rule string) error {
-	return i.run("-n %s mixer rule create %s %s -f %s",
-		i.namespace, scope, subject, rule)
-}
-
 // ReplaceRule replace rule(s)
 func (i *Istioctl) ReplaceRule(rule string) error {
 	return i.run("-n %s replace -f %s", i.namespace, rule)

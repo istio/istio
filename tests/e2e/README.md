@@ -3,7 +3,7 @@
 This directory contains Istio end-to-end tests and test framework.
 
 ## e2e test environment
-You need a k8s cluster to run tests. We recommend GKE cluster although miniKube works for some people too. 
+You need a k8s cluster to run tests.
 ```bash
 gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJECT_NAME} --cluster-version ${CLUSTER_VERSION} \
   --machine-type ${MACHINE_TYPE} --num-nodes ${NUM_NODES} --enable-kubernetes-alpha --no-enable-legacy-authorization
@@ -13,9 +13,9 @@ gcloud container clusters create ${CLUSTER_NAME} --zone ${ZONE} --project ${PROJ
  - `NUM_NODES`: Minimum 1.
  - `no-enable-legacy-authorization`: Optional, needed if you want to test rbac.
 
-If you hit the error 
+If you hit the error
 ```bash
-Error from server (Forbidden): error when creating "install/kubernetes/istio-rbac-beta.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
+Error from server (Forbidden): error when creating "install/kubernetes/istio.yaml": clusterroles.rbac.authorization.k8s.io "istio-pilot" is forbidden: attempt to grant extra privileges: [{[*] [istio.io] [istioconfigs] [] []} {[*] [istio.io] [istioconfigs.istio.io] [] []} {[*] [extensions] [thirdpartyresources] [] []} {[*] [extensions] [thirdpartyresources.extensions] [] []} {[*] [extensions] [ingresses] [] []} {[*] [] [configmaps] [] []} {[*] [] [endpoints] [] []} {[*] [] [pods] [] []} {[*] [] [services] [] []}] user=&{user@example.org [...]
 ```
 You need to add the following: (replace the name with your own)
 ```
@@ -55,22 +55,26 @@ If not specify `namespace`, a randomly namespace would be generated for each tes
 
 ### For all the following example, you always need to add:
 * `--auth_enable` if you want to include auth
-* `--rbac_path=install/kubernetes/istio-rbac-beta.yaml` if you are using a rbac cluster (which means you disabled legacy if using GKE)
+* `--cluster_wide` if you want to run the cluster wide installation and tests
+* `--use_initializer` if you want to do transparent sidecar injection
 
 ### Example
 From the repo checkout root directory
 
 * Run tests with the latest stable version of istio according to istio.VERSION :
 
-`tests/e2e.sh --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+`tests/e2e.sh --auth_enable`
 
-* Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a": 
+* Test commit in pilot repo, SHA:"dc738396fd21ab9779853635dd22693d9dd3f78a":
 
-`tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+`tests/e2e.sh --pilot_hub=gcr.io/istio-testing --pilot_tag=dc738396fd21ab9779853635dd22693d9dd3f78a --istioctl_url=https://storage.googleapis.com/istio-artifacts/dc738396fd21ab9779853635dd22693d9dd3f78a/artifacts/istioctl --auth_enable`
 
 * If you want to run one specific test, you can do:
 
-`bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup  --rbac_path=install/kubernetes/istio-rbac-beta.yaml --auth_enable`
+```
+source istio.VERSION
+bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup --auth_enable
+```
 
 
 ## Access to logs and temp files from Jenkins
@@ -80,12 +84,17 @@ If tests ran in presubmit on Jenkins, you can easily access to logs and temp fil
 ## demo_test.go
 
 [demo_test.go](tests/bookinfo/demo_test.go) is a sample test.
-It's based on the shell script version of demo test [kubeTest.sh](../kubeTest.sh). It has four test cases: default routing, version routing, fault delay and version migration. Each test case applies specific rules for itself and clean them up after finishing.
+It's based on the shell script version of demo test. It has four test cases: default routing, version routing, fault delay and version migration. Each test case applies specific rules for itself and clean them up after finishing.
 
 You can build and run this or any single test manually with the same options as e2e.sh when testing specific version of master, mixer or istioctl
 
 
 ## Developer process
+
+### Cluster in same local network
+In order to talk to istio ingress, we use the ingress IP by default. If your
+cluster is on the same local network and cannot provide external IP (for example, minikube), use the `--use-local-cluster` flag.
+In that case, the framework will not create a LoadBalancer and talk directly to the Pod running istio-ingress.
 
 ### Testing code change
 1. Run `e2e.sh --pilot_hub <pilot hub> --pilot_tag <pilot tag> --istioctl_url <istioctl url>` or

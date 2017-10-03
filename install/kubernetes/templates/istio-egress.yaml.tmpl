@@ -1,5 +1,5 @@
 ################################
-# Istio egress envoy
+# Istio egress
 ################################
 apiVersion: v1
 kind: Service
@@ -37,7 +37,13 @@ spec:
       - name: proxy
         image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
-        args: ["proxy", "egress", "-v", "2"]
+        args:
+        - proxy
+        - egress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:8080
         env:
         - name: POD_NAME
           valueFrom:
@@ -50,18 +56,12 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         volumeMounts:
-        - name: config-volume
-          mountPath: /etc/istio/config
         - name: istio-certs
           mountPath: /etc/certs
           readOnly: true
       volumes:
-      - name: config-volume
-        configMap:
-          name: istio
       - name: istio-certs
         secret:
           secretName: istio.default
           optional: true
 ---
-

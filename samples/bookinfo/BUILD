@@ -1,0 +1,22 @@
+filegroup(
+    name = "bookinfo",
+    srcs = [
+        "kube/bookinfo.yaml",
+        "kube/bookinfo-db.yaml",
+        "kube/bookinfo-mysql.yaml",
+        "kube/bookinfo-ratings-v2.yaml",
+        "kube/mixer-rule-additional-telemetry.yaml",
+        "kube/mixer-rule-deny-label.yaml",
+        "kube/mixer-rule-deny-serviceaccount.yaml",
+        "kube/mixer-rule-ratings-denial.yaml",
+        "kube/mixer-rule-ratings-ratelimit.yaml",
+        "kube/route-rule-all-v1.yaml",
+        "kube/route-rule-ratings-db.yaml",
+        "kube/route-rule-ratings-test-delay.yaml",
+        "kube/route-rule-reviews-50-v3.yaml",
+        "kube/route-rule-reviews-test-v2.yaml",
+        "kube/route-rule-reviews-v2-v3.yaml",
+        "kube/route-rule-reviews-v3.yaml",
+    ],
+    visibility = ["//visibility:public"],
+)

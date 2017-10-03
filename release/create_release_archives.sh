@@ -95,11 +95,12 @@ function create_windows_archive() {
 
 pushd ${ROOT}
 ${CP} istio.VERSION LICENSE README.md CONTRIBUTING.md "${COMMON_FILES_DIR}"/
-find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "README.md" \) \
+find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
+find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
 
-# Changinf dir such that tar and zip files are
+# Changing dir such that tar and zip files are
 # created with right hiereachy
 pushd "${COMMON_FILES_DIR}/.."
 create_linux_archive
@@ -108,4 +109,3 @@ create_windows_archive
 popd
 
 echo "Archives are available in ${ARCHIVES_DIR}"
-
