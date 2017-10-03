@@ -31,8 +31,9 @@ message Deployment {
   string instance = 1;
 }
 
-// CatalogEntry defines listing information for this service within the exposed catalog.
-// The message is a subset of OSBI service fields defined in https://github.com/openservicebrokerapi
+// CatalogEntry defines listing information for this service within the exposed
+// catalog.  The message is a subset of OSBI service fields defined in
+// https://github.com/openservicebrokerapi
 message CatalogEntry {
   // Required. Public service name.
   string name = 1;
