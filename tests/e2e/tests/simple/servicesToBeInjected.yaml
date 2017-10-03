@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: istio
+  name: istio-ingress
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /fortio/.*
+            backend:
+              serviceName: echosrv
+              servicePort: http-echo
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: fortio-redir
+spec:
+#    source:
+#      service: istio-ingress # TODO check it doesn't rewrite intra cluster traffic
+    destination:
+      name: echosrv
+    match:
+        request:
+          headers:
+            uri:
+              prefix: /fortio/ # prefix
+    rewrite:
+        uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
+---
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster, will get istio injected
+kind: Deployment
+metadata:
+  name: echosrv-deployment
+spec:
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+#          - -loglevel=debug  # to see all incoming connections
+#          - -echo-debug-path=/fortio/debug # can be changed
