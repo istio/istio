@@ -55,8 +55,12 @@ var (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	check(framework.InitGlog(), "cannot setup glog")
-	check(setTestConfig(), "could not create TestConfig")
+	if err := framework.InitGlog(); err != nil {
+		panic("cannot setup glog")
+	}
+	if err := setTestConfig(); err != nil {
+		glog.Fatal("could not create TestConfig")
+	}
 	os.Exit(tc.RunTest(m))
 }
 
@@ -189,10 +193,4 @@ func setTestConfig() error {
 		tc.Kube.AppManager.AddApp(&services[i])
 	}
 	return nil
-}
-
-func check(err error, msg string) {
-	if err != nil {
-		glog.Fatalf("%s. Error %s", msg, err)
-	}
 }

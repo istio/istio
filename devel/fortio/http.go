@@ -705,6 +705,23 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func closingServer(listener net.Listener) (err error) {
+	for {
+		c, err := listener.Accept()
+		if err != nil {
+			Errf("Accept error in dummy server %v", err)
+			break
+		}
+		LogVf("Got connection from %v, closing", c.RemoteAddr())
+		err = c.Close()
+		if err != nil {
+			Errf("Close error in dummy server %v", err)
+			break
+		}
+	}
+	return
+}
+
 // DynamicHTTPServer listens on an available port, sets up an http or https
 // (when secure is true) server on it and returns the listening port.
 func DynamicHTTPServer(secure bool) int {
@@ -714,32 +731,19 @@ func DynamicHTTPServer(secure bool) int {
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	Infof("Using port: %d", port)
-	go func(secure bool, port int) {
+	go func() {
 		var err error
 		if secure {
-			Errf("Secure setup not yet supported will just close incoming connections for now")
-			for {
-				var c net.Conn
-				c, err = listener.Accept()
-				if err != nil {
-					Errf("Accept error in dummy server %v", err)
-					break
-				}
-				LogVf("Got connection from %v, closing", c.RemoteAddr())
-				err = c.Close()
-				if err != nil {
-					Errf("Close error in dummy server %v", err)
-					break
-				}
-			}
+			Errf("Secure setup not yet supported. Will just close incoming connections for now")
 			//err = http.ServeTLS(listener, nil, "", "") // go 1.9
+			err = closingServer(listener)
 		} else {
 			err = http.Serve(listener, nil)
 		}
 		if err != nil {
 			Fatalf("Unable to serve with secure=%v on %d: %v", secure, port, err)
 		}
-	}(secure, port)
+	}()
 	return port
 }
 
