@@ -136,7 +136,7 @@ func TestAuth(t *testing.T) {
 		}
 	} else {
 		if err == nil {
-			glog.Infof("Got expected success with auth on and non istio->istio connection: %v", res)
+			glog.Infof("Got expected success with auth off and non istio->istio connection: %v", res)
 		} else {
 			t.Fatalf("Unexpected error connect from non istio to istio without auth: %v", err)
 		}
