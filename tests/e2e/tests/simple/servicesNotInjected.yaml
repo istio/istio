@@ -24,7 +24,7 @@ spec:
         app: fortio-noistio
     spec:
       containers:
-      - name: fortio
+      - name: fortio-noistio
         # That image runs the servers (so it will run forever) but has the
         # /usr/local/bin/fortio client
         image: {{.FortioImage}}

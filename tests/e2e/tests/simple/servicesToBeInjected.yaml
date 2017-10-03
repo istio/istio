@@ -64,5 +64,5 @@ spec:
          - containerPort: 8079
         args:
           - server
-#          - -loglevel=debug
-#          - -echo-debug-path=/fortio/debug # because rewrite doesn't work
+#          - -loglevel=debug  # to see all incoming connections
+#          - -echo-debug-path=/fortio/debug # can be changed

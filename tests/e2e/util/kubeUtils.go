@@ -142,7 +142,8 @@ func GetIngress(n string) (string, error) {
 		}
 		ip = strings.Trim(ip, "'")
 		if ri.FindString(ip) == "" {
-			err = fmt.Errorf("unable to find ingress ip")
+			pods, _ := Shell("kubectl get all -n %s -o wide", n)
+			err = fmt.Errorf("unable to find ingress ip, state:\n%s", pods)
 			glog.Warning(err)
 			return err
 		}

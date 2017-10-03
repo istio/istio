@@ -73,7 +73,15 @@ From the repo checkout root directory
 
 ```
 source istio.VERSION
-bazel run //tests/e2e/tests/mixer:go_default_test -- -alsologtostderr -test.v -v 2 -test.run TestDenials --skip_cleanup --auth_enable
+# Each time pilot SHA changes, get the matching istioctl binary
+# for instance on a mac:
+curl $ISTIOCTL_URL/istioctl-osx > ~/istioctl-osx ; chmod 755 ~/istioctl-osx
+# Each time the test code changes
+bazel build //tests/e2e/tests/simple:go_default_test
+# First time you want to run: deploy in namespace e2e and leave it running:
+./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable
+# Subsequent runs if only the TestSimpleIngress (for instance) changes:
+./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress
 ```
 
 
@@ -132,6 +140,3 @@ Testing code or writing tests don't require knowledge of framework, it should be
 
 ### appManager.go
 `appManager` gather apps required for test into a array and deploy them while setup()
-
-
-
