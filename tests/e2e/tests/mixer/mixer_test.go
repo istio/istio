@@ -518,7 +518,8 @@ func TestRateLimit(t *testing.T) {
 	badReqs := res.RetCodes[http.StatusBadRequest]
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
-	t.Logf("Fortio Summary: %d reqs (%f 200s (%f rps), %d 400s)", totalReqs, succReqs, succReqs/opts.Duration.Seconds(), badReqs)
+	t.Logf("Fortio Summary: %d reqs (%f rps, %f 200s (%f rps), %d 400s)",
+		totalReqs, res.ActualQPS, succReqs, succReqs/opts.Duration.Seconds(), badReqs)
 
 	// consider only successful requests (as recorded at productpage service)
 	callsToRatings := succReqs
@@ -550,7 +551,7 @@ func TestRateLimit(t *testing.T) {
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Could not find 429s: %v", err)
+		errorf(t, "Could not find 429s: %v", err)
 		got = 0 // want to see 200 rate even if a bug makes there is no 429s
 	}
 
@@ -570,13 +571,13 @@ func TestRateLimit(t *testing.T) {
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "destination_version": "v1"})
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
-		t.Errorf("Could not find successes value: %v", err)
+		errorf(t, "Could not find successes value: %v", err)
 		got = 0
 	}
 
 	got = got - prior200s
 
-	t.Logf("Actual 200s: %f (%f rps), expecting 1 rps", got, got/opts.Duration.Seconds())
+	t.Logf("Actual 200s: %f (%f rps), expecting ~1 rps", got, got/opts.Duration.Seconds())
 
 	// establish some baseline to protect against flakiness due to randomness in routing
 	// and to allow for leniency in actual ceiling of enforcement (if 10 is the limit, but we allow slightly
