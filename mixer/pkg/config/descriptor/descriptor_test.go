@@ -280,6 +280,7 @@ func TestParseValid(t *testing.T) {
 var sepRegex = regexp.MustCompile(`\[|\]|\.`)
 
 // mutates the json at given path with val
+// nolint: unparam
 func mutate(m interface{}, path string, val interface{}) interface{} {
 	var idx int
 	var key string

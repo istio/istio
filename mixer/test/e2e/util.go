@@ -78,7 +78,6 @@ func CmpSliceAndErr(t *testing.T, msg string, act, exp interface{}) {
 			return
 		}
 	}
-	return
 }
 
 // CmpMapAndErr compares two maps
@@ -99,7 +98,6 @@ func CmpMapAndErr(t *testing.T, msg string, act, exp interface{}) {
 			}
 		}
 	}
-	return
 }
 
 func interfaceSlice(slice interface{}) []interface{} {

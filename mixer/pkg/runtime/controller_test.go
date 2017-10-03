@@ -371,6 +371,7 @@ func Test_cleanupResolver(t *testing.T) {
 	cleanupSleepTime = cr
 }
 
+// nolint: unparam
 func waitFor(t *testing.T, tm time.Duration, done chan bool, msg string) bool {
 	tc := time.NewTimer(tm).C
 	ok := false
