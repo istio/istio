@@ -28,7 +28,7 @@ import (
 func TestHTTPRunner(t *testing.T) {
 	SetLogLevel(Info)
 	http.HandleFunc("/foo/", EchoHandler)
-	port := DynamicHTTPServer()
+	port := DynamicHTTPServer(false)
 	baseURL := fmt.Sprintf("http://localhost:%d/", port)
 
 	opts := HTTPRunnerOptions{
@@ -52,4 +52,24 @@ func TestHTTPRunner(t *testing.T) {
 	if totalReq != httpOk {
 		t.Errorf("Mismatch between requests %d and ok %v", totalReq, res.RetCodes)
 	}
+}
+
+func TestHTTPRunnerBadServer(t *testing.T) {
+	SetLogLevel(Info)
+	// Using http to an https server (or the current 'close all' dummy https server)
+	// should fail:
+	port := DynamicHTTPServer(true)
+	baseURL := fmt.Sprintf("http://localhost:%d/", port)
+
+	opts := HTTPRunnerOptions{
+		RunnerOptions: RunnerOptions{
+			QPS: 10,
+		},
+		URL: baseURL,
+	}
+	_, err := RunHTTPTest(&opts)
+	if err == nil {
+		t.Fatal("Expecting an error but didn't get it when connecting to bad server")
+	}
+	Infof("Got expected error from mismatch/bad server: %v", err)
 }
