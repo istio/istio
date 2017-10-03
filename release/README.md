@@ -33,12 +33,12 @@ Before any release we need to make sure that all components are using the same
 version of [istio/api](https://github.com/istio/api/commits/master).
 
 As of today API is used in
-* [pilot](https://github.com/istio/pilot/blob/master/WORKSPACE#L480)
-* [mixer](https://github.com/istio/mixer/blob/master/istio_api.bzl#L18)
-* [mixerclient](https://github.com/istio/mixerclient/blob/master/repositories.bzl#L379)
+* [pilot](https://github.com/istio/pilot/blob/master/WORKSPACE#L464), value of `ISTIO_API`.
+* [mixer](https://github.com/istio/mixer/blob/master/istio_api.bzl#L18), value of `ISTIO_API_SHA`.
+* [mixerclient](https://github.com/istio/mixerclient/blob/master/repositories.bzl#L335), value of `ISTIO_API`.
 
 For mixerclient, it gets more complicated. We need to update proxy to use the
-last version, and then update pilot a second time to use the last proxy.
+last version, and then update pilot a second time to use the last proxy.  Further,  mixerclient requires someone who has write access to the repo to manually merge the [istio/api](https://github.com/istio/api/commits/master) version update.
 
 ## Semi-automated release since 0.2
 
