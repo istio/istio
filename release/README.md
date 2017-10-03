@@ -48,6 +48,9 @@ using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/github
 a tool of our own that acts as a GitHub client making REST calls through the GitHub API.
 One may get githubctl from the istio/test-infra repository
 
+
+You will need a ```<github token file>``` text file containing the github peronal access token setup following the [instruction](https://github.com/istio/istio/blob/master/devel/README.md#setting-up-a-personal-access-token)
+
 ```
 $ git clone https://github.com/istio/test-infra.git
 ```
@@ -84,9 +87,9 @@ $ githubctl --token_file=<github token file> \
 This will run all the presubmits on the istio repo, smoke testing the created artifacts.
 
 Step 4: Request PR approval and wait for the PR to be merged. Note down the SHA
-of the merged PR in `RELEASE_SHA`. We will create the release at tag
+of the merged PR in `RELEASE_SHA`. We will create the release tag from it.
 
-Step 5: Finalize the release. This creates the release in GitHub, uploads the artifacts,
+Step 5: Finalize the release. This creates the release draft in GitHub, uploads the artifacts,
  advances next release tag, and updates download script with latest release:
 ```
 $ githubctl --token_file=<github token file> \
@@ -94,13 +97,7 @@ $ githubctl --token_file=<github token file> \
     --next_release=<next release> --ref_sha=${RELEASE_SHA}
 ```
 
-```<github token file>``` is a text file containing the github peronal access token setup following the [instruction](https://github.com/istio/istio/blob/master/devel/README.md#setting-up-a-personal-access-token)
-
-### Generate release-note
-
-First make sure you finished tagging.
-
-This tool helps you to collect release-note left in PR descriptions.
+Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions.
 
 If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
 ```Bash
@@ -110,6 +107,10 @@ $ bazel build //toolbox/release_note_collector:release_note_collector
 $ bazel bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
 $ cat release-note
 ```
+
+Go to Istio release [page](https://github.com/istio/istio/releases) to find your
+release. Click on the RELEASE_NOTES link and add your release notes. Once the
+release notes are to your taste, click on ```Publish the release```.
 
 ### Revert a failed release
 
