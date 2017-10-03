@@ -59,7 +59,7 @@ func init() {
 
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
-	Version       = "0.2.3"
+	Version       = "0.2.7"
 	userAgent     = "istio/fortio-" + Version
 	retcodeOffset = len("HTTP/1.X ")
 )
@@ -514,10 +514,16 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	for {
 		n, err := conn.Read(c.buffer[c.size:])
 		if err == io.EOF {
+			if c.size == 0 {
+				Errf("EOF before reading anything on %v %v", conn, c.dest)
+				c.code = -1
+			}
 			break
 		}
 		if err != nil {
 			Errf("Read error %v %v %d : %v", conn, c.dest, c.size, err)
+			c.code = -1
+			break
 		}
 		c.size += n
 		if Log(Debug) {
@@ -651,8 +657,10 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	} else {
 		if err := conn.Close(); err != nil {
 			Errf("Close error %v %v %d : %v", conn, c.dest, c.size, err)
+		} else {
+			Debugf("Closed ok %v from %v after reading %d bytes", conn, c.dest, c.size)
 		}
-		// we cleared c.socket already
+		// we cleared c.socket in caller already
 	}
 }
 
@@ -696,19 +704,41 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DynamicHTTPServer listens on an available port and return it.
-func DynamicHTTPServer() int {
+// DynamicHTTPServer listens on an available port, sets up an http or https
+// (when secure is true) server on it and returns the listening port.
+func DynamicHTTPServer(secure bool) int {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		Fatalf("Unable to listen to dynamic port: %v", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	Infof("Using port: %d", port)
-	go func(port int) {
-		if err := http.Serve(listener, nil); err != nil {
-			Fatalf("Unable to serve on %d: %v", port, err)
+	go func(secure bool, port int) {
+		var err error
+		if secure {
+			Errf("Secure setup not yet supported will just close incoming connections for now")
+			for {
+				var c net.Conn
+				c, err = listener.Accept()
+				if err != nil {
+					Errf("Accept error in dummy server %v", err)
+					break
+				}
+				LogVf("Got connection from %v, closing", c.RemoteAddr())
+				err = c.Close()
+				if err != nil {
+					Errf("Close error in dummy server %v", err)
+					break
+				}
+			}
+			//err = http.ServeTLS(listener, nil, "", "") // go 1.9
+		} else {
+			err = http.Serve(listener, nil)
 		}
-	}(port)
+		if err != nil {
+			Fatalf("Unable to serve with secure=%v on %d: %v", secure, port, err)
+		}
+	}(secure, port)
 	return port
 }
 

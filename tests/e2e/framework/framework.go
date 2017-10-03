@@ -148,7 +148,7 @@ func (t *testCleanup) init() error {
 
 func (t *testCleanup) cleanup() {
 	if t.skipCleanup {
-		glog.Info("Debug model, skip cleanup")
+		glog.Info("Dev mode (--skip_cleanup), skipping cleanup (removal of namespace/install)")
 		return
 	}
 	// Run tear down on all cleanable
@@ -167,6 +167,10 @@ func (t *testCleanup) cleanup() {
 // Fetch and save cluster tracing logs if logProvider specified
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
+	if c.Cleanup.skipCleanup {
+		glog.Info("Dev mode (--skip_cleanup), skipping log fetching")
+		return nil
+	}
 	if c.Info == nil {
 		glog.Warning("Skipping log saving as Info is not initialized")
 		return nil
