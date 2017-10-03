@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:4-onbuild
+FROM node:4-slim
 
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}

@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:4-onbuild
+FROM node:4-slim
 
 RUN mkdir -p /etc/istio/proxy/
 RUN apt-get update && apt-get -y install iptables curl
