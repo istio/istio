@@ -59,7 +59,7 @@ func init() {
 
 // Version is the fortio package version (TODO:auto gen/extract).
 const (
-	Version       = "0.2.2"
+	Version       = "0.2.7"
 	userAgent     = "istio/fortio-" + Version
 	retcodeOffset = len("HTTP/1.X ")
 )
@@ -506,6 +506,7 @@ func DebugSummary(buf []byte, max int) string {
 func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	max := len(c.buffer)
 	parsedHeaders := false
+	// TODO: safer to start with -1 and fix ok for http 1.0
 	c.code = http.StatusOK // In http 1.0 mode we don't bother parsing anything
 	endofHeadersStart := retcodeOffset + 3
 	keepAlive := c.keepAlive
@@ -514,10 +515,16 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	for {
 		n, err := conn.Read(c.buffer[c.size:])
 		if err == io.EOF {
+			if c.size == 0 {
+				Errf("EOF before reading anything on %v %v", conn, c.dest)
+				c.code = -1
+			}
 			break
 		}
 		if err != nil {
 			Errf("Read error %v %v %d : %v", conn, c.dest, c.size, err)
+			c.code = -1
+			break
 		}
 		c.size += n
 		if Log(Debug) {
@@ -608,7 +615,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 					}
 				}
 			}
-		}
+		} // end of big if parse header
 		if c.size >= max {
 			if !keepAlive {
 				Errf("More data is available but stopping after %d, increase -httpbufferkb", max)
@@ -644,15 +651,17 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 			}
 			break // we're done!
 		}
-	}
+	} // end of big for loop
 	// Figure out whether to keep or close the socket:
 	if keepAlive && c.code == http.StatusOK {
 		c.socket = conn // keep the open socket
 	} else {
 		if err := conn.Close(); err != nil {
 			Errf("Close error %v %v %d : %v", conn, c.dest, c.size, err)
+		} else {
+			Debugf("Closed ok %v from %v after reading %d bytes", conn, c.dest, c.size)
 		}
-		// we cleared c.socket already
+		// we cleared c.socket in caller already
 	}
 }
 
@@ -669,7 +678,7 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	if LogDebug() {
 		for name, headers := range r.Header {
 			for _, h := range headers {
-				fmt.Printf("%v: %v\n", name, h)
+				Debugf("Header %v: %v\n", name, h)
 			}
 		}
 	}
@@ -696,19 +705,45 @@ func EchoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DynamicHTTPServer listens on an available port and return it.
-func DynamicHTTPServer() int {
+func closingServer(listener net.Listener) (err error) {
+	for {
+		c, err := listener.Accept()
+		if err != nil {
+			Errf("Accept error in dummy server %v", err)
+			break
+		}
+		LogVf("Got connection from %v, closing", c.RemoteAddr())
+		err = c.Close()
+		if err != nil {
+			Errf("Close error in dummy server %v", err)
+			break
+		}
+	}
+	return
+}
+
+// DynamicHTTPServer listens on an available port, sets up an http or https
+// (when secure is true) server on it and returns the listening port.
+func DynamicHTTPServer(secure bool) int {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		Fatalf("Unable to listen to dynamic port: %v", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	Infof("Using port: %d", port)
-	go func(port int) {
-		if err := http.Serve(listener, nil); err != nil {
-			Fatalf("Unable to serve on %d: %v", port, err)
+	go func() {
+		var err error
+		if secure {
+			Errf("Secure setup not yet supported. Will just close incoming connections for now")
+			//err = http.ServeTLS(listener, nil, "", "") // go 1.9
+			err = closingServer(listener)
+		} else {
+			err = http.Serve(listener, nil)
 		}
-	}(port)
+		if err != nil {
+			Fatalf("Unable to serve with secure=%v on %d: %v", secure, port, err)
+		}
+	}()
 	return port
 }
 
@@ -814,10 +849,11 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // EchoServer starts a debug / echo http server on the given port.
-func EchoServer(port int) {
+func EchoServer(port int, debugPath string) {
 	fmt.Printf("Fortio %s echo server listening on port %v\n", Version, port)
-
-	http.HandleFunc("/debug", DebugHandler)
+	if debugPath != "" {
+		http.HandleFunc(debugPath, DebugHandler)
+	}
 	http.HandleFunc("/", EchoHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		fmt.Println("Error starting server", err)
