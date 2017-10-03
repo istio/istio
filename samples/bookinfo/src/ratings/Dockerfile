@@ -14,6 +14,9 @@
 
 FROM node:4-slim
 
+COPY package.json /opt/microservices/
+COPY ratings.js /opt/microservices/
+
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}
 

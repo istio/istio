@@ -30,8 +30,7 @@ PREPAREPROXYSCRIPT=$WORKSPACE/docker
 # grab ISTIO_PROXY_BUCKET from pilot/WORKSPACE
 ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $WORKSPACE/WORKSPACE))
 PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
-# configure whether you want debug or not
-PROXY=debug-$PROXYVERSION
+PROXY=istio-proxy-$PROXYVERSION.deb
 
 set -x
 set -o errexit
@@ -47,18 +46,18 @@ fi
 cd $SCRIPTDIR
 
 # Download the envoy proxy
-echo "Download and extract the proxy: https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz"
-wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
-cp usr/local/bin/envoy $APPSDIR/
+PROXY_URL=https://storage.googleapis.com/istio-build/proxy/$PROXY
+echo "Download the proxy: $PROXY_URL"
+wget -q -O $APPSDIR/envoy.deb $PROXY_URL
 
 # Copy the pilot agent binary to each app dir
-# Build the images and  push them to hub
+# Build the images and push them to hub
 for app in details productpage ratings; do
   rm -f $APPSDIR/$app/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $_
   rm -f $APPSDIR/$app/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $_
-  rm -f $APPSDIR/$app/envoy && cp $APPSDIR/envoy $_
+  rm -f $APPSDIR/$app/envoy.deb && cp $APPSDIR/envoy.deb $_
   docker build -f $APPSDIR/$app/Dockerfile.sidecar -t "$HUB/examples-bookinfo-${app}-v1-envoy:${VERSION}" $APPSDIR/$app/
-  rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh $APPSDIR/$app/envoy
+  rm -f $APPSDIR/$app/pilot-agent $APPSDIR/$app/prepare_proxy.sh $APPSDIR/$app/envoy.deb
 done
 
 REVIEWSDIR=$APPSDIR/reviews/reviews-wlpcfg
@@ -69,7 +68,7 @@ popd
 
 rm -f $REVIEWSDIR/pilot-agent && cp $BINDIR/cmd/pilot-agent/pilot-agent $REVIEWSDIR
 rm -f $REVIEWSDIR/prepare_proxy.sh && cp $PREPAREPROXYSCRIPT/prepare_proxy.sh $REVIEWSDIR
-rm -f $REVIEWSDIR/envoy && cp $APPSDIR/envoy $REVIEWSDIR
+rm -f $REVIEWSDIR/envoy.deb && cp $APPSDIR/envoy.deb $REVIEWSDIR
 #plain build -- no ratings
 docker build -t $HUB/examples-bookinfo-reviews-v1-envoy:$VERSION --build-arg service_version=v1 \
     -f $APPSDIR/reviews/reviews-wlpcfg/Dockerfile.sidecar $APPSDIR/reviews/reviews-wlpcfg
@@ -82,4 +81,4 @@ docker build -t $HUB/examples-bookinfo-reviews-v3-envoy:$VERSION --build-arg ser
 rm -f $REVIEWSDIR/pilot-agent $REVIEWSDIR/prepare_proxy.sh $REVIEWSDIR/envoy
 
 # clean up envoy downloaded artifacts
-rm -rf $SCRIPTDIR/usr/local/bin/envoy $APPSDIR/envoy
+rm -rf $APPSDIR/envoy.deb
