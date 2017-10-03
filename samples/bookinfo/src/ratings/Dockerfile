@@ -16,9 +16,11 @@ FROM node:4-slim
 
 COPY package.json /opt/microservices/
 COPY ratings.js /opt/microservices/
+RUN cd /opt/microservices; npm install
 
 ARG service_version
 ENV SERVICE_VERSION ${service_version:-v1}
 
 EXPOSE 9080
-CMD node ratings.js 9080
+WORKDIR /opt/microservices
+CMD node /opt/microservices/ratings.js 9080

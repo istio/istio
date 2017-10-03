@@ -14,7 +14,7 @@
 
 FROM ruby:2.3-slim
 
-COPY detail.rb /opt/microservices/
+COPY details.rb /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
 
