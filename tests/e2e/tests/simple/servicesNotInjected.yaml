@@ -1,0 +1,31 @@
+# Client inside the cluster, not istio injected
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortio-noistio
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: fortio-noistio
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: raw-cli-deployement
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio-noistio
+    spec:
+      containers:
+      - name: fortio-noistio
+        # That image runs the servers (so it will run forever) but has the
+        # /usr/local/bin/fortio client
+        image: {{.FortioImage}}
+        imagePullPolicy: Always
