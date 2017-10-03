@@ -506,6 +506,7 @@ func DebugSummary(buf []byte, max int) string {
 func (c *BasicClient) readResponse(conn *net.TCPConn) {
 	max := len(c.buffer)
 	parsedHeaders := false
+	// TODO: safer to start with -1 and fix ok for http 1.0
 	c.code = http.StatusOK // In http 1.0 mode we don't bother parsing anything
 	endofHeadersStart := retcodeOffset + 3
 	keepAlive := c.keepAlive
@@ -614,7 +615,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 					}
 				}
 			}
-		}
+		} // end of big if parse header
 		if c.size >= max {
 			if !keepAlive {
 				Errf("More data is available but stopping after %d, increase -httpbufferkb", max)
@@ -650,7 +651,7 @@ func (c *BasicClient) readResponse(conn *net.TCPConn) {
 			}
 			break // we're done!
 		}
-	}
+	} // end of big for loop
 	// Figure out whether to keep or close the socket:
 	if keepAlive && c.code == http.StatusOK {
 		c.socket = conn // keep the open socket

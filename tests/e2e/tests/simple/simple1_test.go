@@ -61,11 +61,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestSimpleIngress(t *testing.T) {
-	url := "http://" + tc.Kube.Ingress + "/fortio/debug" // not working but should
-	//url := "http://" + tc.Kube.Ingress + "/debug" // works through direct mapping
-
+	// Tests the rewrite/dropping of the /fortio/ prefix as fortio only replies
+	// with "echo debug server ..." on the /debug uri.
+	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
 	glog.Infof("Fetching '%s'", url)
-	attempts := 7 // if it takes more than 70s to be live...
+	attempts := 7 // should not take more than 70s to be live...
 	for i := 1; i <= attempts; i++ {
 		if i > 1 {
 			time.Sleep(10 * time.Second) // wait between retries
