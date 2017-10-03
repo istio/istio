@@ -31,7 +31,7 @@ istioctl context-create --api-server http://172.28.0.13:8080
 To build all images for the bookinfo sample for the consul adapter, run:
 
   ```
-  ./build-docker-services.sh
+  samples/bookinfo/src/build-docker-services.sh
   ```
 
 For Linux users, configure the `DOCKER_GATEWAY` environment variable
