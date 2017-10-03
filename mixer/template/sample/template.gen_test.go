@@ -977,6 +977,7 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	return ret
 }
 
+// nolint: unparam
 func fillProto(cfg string, o interface{}) error {
 	//data []byte, m map[string]interface{}, err error
 	var m map[string]interface{}

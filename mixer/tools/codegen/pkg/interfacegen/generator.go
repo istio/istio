@@ -151,7 +151,7 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 	bytesWithImpts := bytes.Replace(intfaceBuf.Bytes(), []byte("$$additional_imports$$"), []byte(strings.Join(imprts, "\n")), 1)
 	fmtd, err := format.Source(bytesWithImpts)
 	if err != nil {
-		return nil, fmt.Errorf("could not format generated code: %v : %s", err, string(intfaceBuf.Bytes()))
+		return nil, fmt.Errorf("could not format generated code: %v : %s", err, intfaceBuf.String())
 	}
 
 	imports.LocalPrefix = "istio.io"

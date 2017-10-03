@@ -250,7 +250,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 					return nil
 				}
 				dispatched = true
-				return []dispatchFn{ // nolint: staticcheck
+				return []dispatchFn{ // nolint: megacheck
 					func(ctx context.Context) *result {
 						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
 							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,

@@ -119,7 +119,11 @@ def makelink(target, linksrc):
     if not os.path.exists(target):
         print target, "Does not exist"
         return
-    os.symlink(target, linksrc)
+
+    # resolve target if it is a symlink
+    realpath = os.path.realpath(target)
+
+    os.symlink(realpath, linksrc)
 #    print "Linked ", linksrc, '-->', target
 
 def bazel_to_vendor(WKSPC):

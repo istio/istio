@@ -264,14 +264,14 @@ func (a adapterKey) String() string {
 // compatfilterConfig
 // given a yaml file, filter specific keys from it
 // globalConfig contains descriptors and adapters which will be split shortly.
-func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, map[string]interface{}, error) {
+func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, error) {
 	//data []byte, m map[string]interface{}, err error
 	var m map[string]interface{}
 	var data []byte
 	var err error
 
 	if err = yaml.Unmarshal([]byte(cfg), &m); err != nil {
-		return data, nil, err
+		return data, err
 	}
 
 	for k := range m {
@@ -280,7 +280,7 @@ func compatfilterConfig(cfg string, shouldSelect func(string) bool) ([]byte, map
 		}
 	}
 	data, err = json.Marshal(m)
-	return data, m, err
+	return data, err
 }
 
 // validateDescriptors
@@ -320,7 +320,7 @@ func (p *validator) validateAdapters(key string, cfg string) (ce *adapter.Config
 	var ferr error
 	var data []byte
 
-	if data, _, ferr = compatfilterConfig(cfg, func(s string) bool {
+	if data, ferr = compatfilterConfig(cfg, func(s string) bool {
 		return s == "adapters"
 	}); ferr != nil {
 		return ce.Appendf("adapterConfig", "failed to unmarshal config into proto with err: %v", ferr)
@@ -409,6 +409,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 	return numAspects, ce
 }
 
+// nolint: unparam
 func (p *validator) validateRules(rules []*pb.Rule, path string) (ce *adapter.ConfigErrors) {
 	for _, rule := range rules {
 		if err := p.validateSelector(rule.GetMatch(), p.descriptorFinder); err != nil {
@@ -707,7 +708,7 @@ func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {
 	var ferr error
 	var data []byte
 
-	if data, _, ferr = compatfilterConfig(cfg, func(s string) bool {
+	if data, ferr = compatfilterConfig(cfg, func(s string) bool {
 		return s == "handlers"
 	}); ferr != nil {
 		return ce.Appendf("handlerConfig", "failed to unmarshal config into proto with err: %v", ferr)
