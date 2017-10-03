@@ -22,8 +22,9 @@ import (
 )
 
 type serverArgs struct {
-	port    uint16
-	apiPort uint16
+	port       uint16
+	apiPort    uint16
+	kubeconfig string
 }
 
 func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
@@ -41,11 +42,13 @@ func serverCmd(printf, fatalf shared.FormatFn) *cobra.Command {
 	serverCmd.PersistentFlags().Uint16Var(&sa.port, "port", 9091,
 		"TCP port to use for Broker's Open Service Broker (OSB) API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.apiPort, "apiPort", 9093, "TCP port to use for Broker's gRPC API")
+	serverCmd.PersistentFlags().StringVar(&sa.kubeconfig, "kubeconfig", "",
+		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	return &serverCmd
 }
 
 func runServer(sa *serverArgs, printf, fatalf shared.FormatFn) {
-	if osb, err := server.CreateServer(); err != nil {
+	if osb, err := server.CreateServer(sa.kubeconfig); err != nil {
 		fatalf("Failed to create server: %s", err.Error())
 	} else {
 		printf("Server started, listening on port %d", sa.port)

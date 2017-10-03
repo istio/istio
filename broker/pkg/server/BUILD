@@ -7,6 +7,8 @@ go_library(
     srcs = ["broker.go"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/model/config:go_default_library",
+        "//pkg/platform/kube/crd:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_gorilla_mux//:go_default_library",
     ],

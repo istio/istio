@@ -101,6 +101,7 @@ func (b *Schema) ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
 }
 
 // fromJSON converts a canonical JSON to a proto message
+// nolint
 func (b *Schema) fromJSON(js string) (proto.Message, error) {
 	pb, err := b.make()
 	if err != nil {

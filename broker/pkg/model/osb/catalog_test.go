@@ -14,14 +14,23 @@
 
 package osb
 
-import _ "github.com/golang/glog" // import glog flags
+import (
+	"reflect"
+	"testing"
 
-// Catalog defines OSB catalog request data structure.
-type Catalog struct {
-	Services []Service `json:"services"`
-}
+	"github.com/davecgh/go-spew/spew"
+)
 
-// AddService adds a service into the catalog services.
-func (c *Catalog) AddService(service *Service) {
-	c.Services = append(c.Services, *service)
+func TestAddService(t *testing.T) {
+	c := new(Catalog)
+	s := &Service{
+		Name: "test service",
+	}
+	c.AddService(s)
+
+	for _, got := range c.Services {
+		if !reflect.DeepEqual(got, *s) {
+			t.Errorf("failed: \ngot %+vwant %+v", spew.Sdump(got), spew.Sdump(s))
+		}
+	}
 }

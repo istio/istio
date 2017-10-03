@@ -1,6 +1,6 @@
 #!/bin/bash
 
-res=`grep -n commit WORKSPACE  | grep -v "#"`
+res=$(grep -n commit WORKSPACE  | grep -v "#")
 
 # found a commit line with no comment
 if [[ ! -z $res ]]; then

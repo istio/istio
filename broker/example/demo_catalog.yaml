@@ -20,7 +20,7 @@ spec:
     id: 58646b26-867a-4954-a1b9-233dac07815b
     description: monthly subscription
   services:
-    productpage-service-class
+    - service-class/default/productpage-service-class
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: ServicePlan
@@ -32,4 +32,4 @@ spec:
     id: cdd76b03-a28b-4638-b4e2-19ee44b36db7
     description: yearly subscription
   services:
-    productpage-service-class
+    - service-class/default/productpage-service-class

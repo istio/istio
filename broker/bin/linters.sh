@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -ex
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 $SCRIPTPATH/install_linters.sh
@@ -32,9 +32,11 @@ gometalinter --concurrency=${NUM_CPU} --enable-gc --deadline=300s --disable-all\
   --enable=vet\
   --enable=vetshadow\
   --exclude=vendor\
-  --exclude=.pb.go\
+  --exclude=.*.pb.go\
   --exclude=.*.gen.go\
   --exclude=.*_test.go\
+  --exclude=mock_.*\
+  --exclude=pkg/testing\
   --exclude="should have a package comment"\
   ./...
 

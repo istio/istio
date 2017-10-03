@@ -12,10 +12,12 @@ go_repositories()
 
 git_repository(
     name = "io_bazel_rules_docker",
-    commit = "146c9b946159a8fafbf81723c40652f192ee56ac",   # July 21 2017 (v0.1.0)
+    commit = "146c9b946159a8fafbf81723c40652f192ee56ac",  # July 21 2017 (v0.1.0)
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
+
 load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
+
 docker_repositories()
 
 git_repository(
@@ -26,7 +28,7 @@ git_repository(
 
 git_repository(
     name = "com_github_google_protobuf",
-    commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5", # Feb 17 (v3.2.0)
+    commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # Feb 17 (v3.2.0)
     remote = "https://github.com/google/protobuf.git",
 )
 
@@ -460,13 +462,13 @@ go_repository(
 
 go_repository(
     name = "com_github_googleapis_gax_go",
-    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b", # Mar 20, 2017 (no releases)
+    commit = "9af46dd5a1713e8b5cd71106287eba3cefdde50b",  # Mar 20, 2017 (no releases)
     importpath = "github.com/googleapis/gax-go",
 )
 
 go_repository(
     name = "com_github_hashicorp_golang_lru",
-    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6", # Aug 13, 2016 (no releases)
+    commit = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",  # Aug 13, 2016 (no releases)
     importpath = "github.com/hashicorp/golang-lru",
 )
 
@@ -476,7 +478,7 @@ go_repository(
 
 go_repository(
     name = "com_github_golang_mock",
-    commit = "13f360950a79f5864a972c786a10a50e44b69541", # Jul 22, 2017 (v 1.0.0)
+    commit = "13f360950a79f5864a972c786a10a50e44b69541",  # Jul 22, 2017 (v 1.0.0)
     importpath = "github.com/golang/mock",
 )
 
@@ -489,4 +491,3 @@ git_repository(
     commit = "9a3ac467ba862432c75e42cecff7aa5c2980e3b8",  # Jun 18, 2017 (no releases)
     remote = "https://github.com/istio/test-infra.git",
 )
-

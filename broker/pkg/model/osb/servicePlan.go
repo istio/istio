@@ -14,6 +14,8 @@
 
 package osb
 
+import brokerconfig "istio.io/api/broker/v1/config"
+
 // ServicePlan defines the OSB service plan data structure.
 type ServicePlan struct {
 	Name        string      `json:"name"`
@@ -21,4 +23,14 @@ type ServicePlan struct {
 	Description string      `json:"description"`
 	Metadata    interface{} `json:"metadata, omitempty"`
 	Free        bool        `json:"free, omitempty"`
+}
+
+// NewServicePlan creates a service plan from service plan config proto.
+func NewServicePlan(sp *brokerconfig.ServicePlan) *ServicePlan {
+	cp := sp.GetPlan()
+	s := new(ServicePlan)
+	s.Name = cp.GetName()
+	s.ID = cp.GetId()
+	s.Description = cp.GetDescription()
+	return s
 }

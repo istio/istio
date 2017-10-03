@@ -8,7 +8,6 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
 
-
 # Not running under git commit
 # install handler
 if [[ -z ${GIT_AUTHOR_DATE} ]];then

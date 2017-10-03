@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package util
 
 import (
 	"encoding/json"
@@ -20,7 +20,6 @@ import (
 	"os"
 )
 
-// nolint: unparam
 func readAndUnmarshal(object interface{}, dir string, fileName string) error {
 	path := dir + string(os.PathSeparator) + fileName
 

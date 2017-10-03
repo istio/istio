@@ -23,6 +23,8 @@ import (
 	"github.com/gorilla/mux"
 
 	"istio.io/broker/pkg/controller"
+	"istio.io/broker/pkg/model/config"
+	"istio.io/broker/pkg/platform/kube/crd"
 )
 
 // Server data
@@ -31,8 +33,12 @@ type Server struct {
 }
 
 // CreateServer creates a broker server.
-func CreateServer() (*Server, error) {
-	c, err := controller.CreateController()
+func CreateServer(kubeconfig string) (*Server, error) {
+	cc, err := crd.NewClient(kubeconfig, config.BrokerConfigTypes)
+	if err != nil {
+		return nil, err
+	}
+	c, err := controller.CreateController(config.MakeBrokerConfigStore(cc))
 	if err != nil {
 		return nil, err
 	}
