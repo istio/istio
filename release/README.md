@@ -97,6 +97,16 @@ $ githubctl --token_file=<github token file> \
     --next_release=<next release> --ref_sha=${RELEASE_SHA}
 ```
 
+Note: 
+1. `<next release>` is where the next release after the release draft that is being created.  For example, if you are creating 0.2.7 release, the next release could be 0.2.8.  
+2. For Mac, install `gcp` via ```brew install coreutils``` and install `gtar` via ```brew install gnu-tar```.  Execute the command below instead:
+
+```
+$ TAR=gtar CP=gcp githubctl --token_file=<github token file> \
+    --op=uploadArtifacts --base_branch=<release branch or master> \
+    --next_release=<next release> --ref_sha=${RELEASE_SHA}
+```
+ 
 Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions.
 
 If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
