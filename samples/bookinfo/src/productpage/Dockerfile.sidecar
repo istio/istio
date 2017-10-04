@@ -12,16 +12,23 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2-onbuild
+FROM python:2.7-slim
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p /etc/istio/proxy/
 RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
 RUN chown istio-proxy /etc/istio/proxy
 
-COPY ./envoy /usr/local/bin/
-COPY ./prepare_proxy.sh /opt/istio/
-COPY . /opt/microservices/
+COPY ./envoy.deb /opt/istio/
+RUN dpkg -i /opt/istio/envoy.deb
+
+COPY prepare_proxy.sh /opt/istio/
+COPY productpage.py /opt/microservices/
+COPY templates /opt/microservices/templates
+COPY requirements.txt /opt/microservices/
 EXPOSE 9080
 
 COPY ./start_service.sh /usr/local/bin/

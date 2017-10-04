@@ -12,20 +12,23 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM ruby:2.3
+FROM ruby:2.3-slim
 
 RUN mkdir -p /etc/istio/proxy/
 RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
 RUN chown istio-proxy /etc/istio/proxy
 
-COPY ./envoy /usr/local/bin/
-COPY ./prepare_proxy.sh /opt/istio/
-COPY . /opt/microservices/
+COPY envoy.deb /opt/istio/
+RUN dpkg -i /opt/istio/envoy.deb
+RUN rm /opt/istio/envoy.deb
+
+COPY prepare_proxy.sh /opt/istio/
+COPY details.rb /opt/microservices/
 EXPOSE 9080
 
-COPY ./start_service.sh /usr/local/bin/
+COPY start_service.sh /usr/local/bin/
 RUN chmod u+x /usr/local/bin/start_service.sh
-COPY ./pilot-agent /opt/istio/
+COPY pilot-agent /opt/istio/
 
 ENTRYPOINT /usr/local/bin/start_service.sh
