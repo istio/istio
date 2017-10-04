@@ -12,9 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM python:2-onbuild
+FROM python:2.7-slim
 
-COPY . /opt/microservices/
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY productpage.py /opt/microservices/
+COPY templates /opt/microservices/templates
+COPY requirements.txt /opt/microservices/
 EXPOSE 9080
 WORKDIR /opt/microservices
 CMD python productpage.py 9080
