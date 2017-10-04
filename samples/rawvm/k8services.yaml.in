@@ -1,0 +1,64 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echosrv
+spec:
+  ports:
+  - port: 8080
+    name: http-echo
+  - port: 8079
+    name: grpc-ping
+  selector:
+    app: echosrv
+---
+apiVersion: apps/v1beta1
+# 2 pods for service inside the cluster, will get istio injected
+kind: Deployment
+metadata:
+  name: raw-svc-deployment
+spec:
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+    spec:
+      containers:
+      - name: echosrv
+        image: FORTIO_IMAGE
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqlclient-istio
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  selector:
+    app: mysqlclient-istio
+---
+apiVersion: apps/v1beta1
+# 1 pod, will get istio injected
+kind: Deployment
+metadata:
+  name: mysqlclient-istio
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysqlclient-istio
+    spec:
+      containers:
+      - name: mysqlclient
+        image: mysql
+        command: # don't actually try to start mysql server, just the client
+          - sleep
+          - "360000"
+        ports:
+        - containerPort: 3306
