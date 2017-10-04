@@ -3,7 +3,7 @@
 export CA_HUB="docker.io/istio"
 export CA_TAG="0.2.7"
 export MIXER_HUB="gcr.io/istio-testing"
-export MIXER_TAG="762767524bfa25ebc0d7eaf5f4bbf2302b7bef6c"
+export MIXER_TAG="136866372429f1cc17bdb29edfebb96cd6a6d25f"
 export PILOT_HUB="docker.io/istio"
 export PILOT_TAG="0.2.7"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-release/releases/0.2.7/istioctl"
