@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: reviews
-        image: ijsnellf/examples-bookinfo-reviews-v2
+        image: istio/examples-bookinfo-reviews-v2:0.2.8
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

@@ -232,6 +232,18 @@ function merge_files_consul() {
   cat $SRC/istio.yaml.tmpl >> $ISTIO
 }
 
+# Generated merge yaml files for easy installation
+function merge_files_eureka() {
+  SRC=$TEMP_DIR/templates
+  DEST=$ROOT/install/eureka
+
+  ISTIO=$DEST/istio.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and Eureka" > $ISTIO
+  echo "# TO UPDATE, modify files in install/eureka/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+}
+
 if [[ ${GIT_COMMIT} == true ]]; then
     check_git_status \
       || error_exit "You have modified files. Please commit or reset your workspace."
@@ -247,6 +259,11 @@ rm -R $TEMP_DIR/templates
 cp -R $ROOT/install/consul/templates $TEMP_DIR/templates
 update_istio_install_consul
 merge_files_consul
+rm -R $TEMP_DIR/templates
+
+cp -R $ROOT/install/eureka/templates $TEMP_DIR/templates
+update_istio_install_consul
+merge_files_eureka
 rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then
