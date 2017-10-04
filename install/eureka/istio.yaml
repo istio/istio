@@ -45,3 +45,8 @@ services:
     command: ["discovery", "-v", "2", "--registries", "Eureka", "--eurekaserverURL", "http://eureka:8080", "--kubeconfig", "/istio/config"]
     volumes:
       - ./kubeconfig:/istio/config
+
+  zipkin:
+    image: docker.io/openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
