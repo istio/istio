@@ -553,10 +553,10 @@ func TestRateLimit(t *testing.T) {
 	if err != nil {
 		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
 		errorf(t, "Could not find 429s: %v", err)
-		got = 0 // want to see 200 rate even if a bug makes there is no 429s
+		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
 
-	// establish some baseline to protect against flakiness due to randomness in routing
+	// Lenient calculation TODO: tighten/simplify
 	want := math.Floor(want429s * .75)
 
 	got = got - prior429s
