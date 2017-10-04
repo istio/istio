@@ -22,16 +22,10 @@ Note that Istio pilot is running inside each app container so as to coordinate E
 
 The ingress controller is still under construction, routing functionalities can be tested by curling a service container directly.
 
-First step is to configure istioctl to use the apiserver created in the steps below:
-
-```
-istioctl context-create --api-server http://172.28.0.13:8080
-```
-
 To build all images for the bookinfo sample for the consul adapter, run:
 
   ```
-  ./build-docker-services.sh
+  samples/bookinfo/src/build-docker-services.sh
   ```
 
 For Linux users, configure the `DOCKER_GATEWAY` environment variable
@@ -67,7 +61,7 @@ If you refresh the page several times, you should see different versions of revi
 Configure `istioctl` to use the locally mapped port for the Istio api server
 
 ```
-istioctl context-create --context istio-local --api-server http://localhost:8080
+istioctl context-create --api-server http://localhost:8080
 ```
 
 You can create basic routing rules using istioctl from the `samples/bookinfo/consul` directory:

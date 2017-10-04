@@ -72,6 +72,7 @@ type KubeInfo struct {
 
 	localCluster     bool
 	namespaceCreated bool
+	AuthEnabled      bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -103,6 +104,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		localCluster:     *localCluster,
 		Istioctl:         i,
 		AppManager:       a,
+		AuthEnabled:      *authEnable,
 	}, nil
 }
 
