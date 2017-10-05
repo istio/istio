@@ -53,9 +53,5 @@ services:
 
   zipkin:
     image: docker.io/openzipkin/zipkin:latest
-    networks:
-      istiomesh:
-        aliases:
-          - zipkin
     ports:
       - "9411:9411"
