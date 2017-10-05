@@ -5,6 +5,7 @@ gogoslick_proto_library(
     importmap = {
         "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
         "google/rpc/status.proto": "github.com/googleapis/googleapis/google/rpc",
+        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
     },
     imports = [
         "external/com_github_gogo_protobuf",
@@ -23,6 +24,7 @@ gogoslick_proto_library(
     visibility = ["//adapter/denier:__pkg__"],
     deps = [
         "@com_github_gogo_protobuf//gogoproto:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )

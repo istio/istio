@@ -17,6 +17,7 @@ syntax = "proto3";
 package adapter.denier.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
 option go_package="config";
@@ -27,4 +28,10 @@ option (gogoproto.gostring_all) = false;
 message Params {
 	// The error to return when denying a request.
 	google.rpc.Status status = 1 [(gogoproto.nullable) = false];
+
+	// The duration for which the denial is valid.
+	google.protobuf.Duration valid_duration = 2 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+	// The number of times the denial may be used.
+	int32 valid_use_count = 3;
 }

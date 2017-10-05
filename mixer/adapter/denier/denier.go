@@ -31,25 +31,33 @@ import (
 )
 
 type handler struct {
-	status rpc.Status
+	result adapter.CheckResult
+}
+
+func defaultParam() *config.Params {
+	return &config.Params{
+		Status:        rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
+		ValidDuration: 5 * time.Second,
+		ValidUseCount: 1000,
+	}
+}
+
+func newResult(c *config.Params) adapter.CheckResult {
+	return adapter.CheckResult{
+		Status:        c.Status,
+		ValidDuration: c.ValidDuration,
+		ValidUseCount: c.ValidUseCount,
+	}
 }
 
 ////////////////// Runtime Methods //////////////////////////
 
 func (h *handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
-	return adapter.CheckResult{
-		Status:        h.status,
-		ValidDuration: 1000 * time.Second,
-		ValidUseCount: 1000,
-	}, nil
+	return h.result, nil
 }
 
 func (h *handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
-	return adapter.CheckResult{
-		Status:        h.status,
-		ValidDuration: 1000 * time.Second,
-		ValidUseCount: 1000,
-	}, nil
+	return h.result, nil
 }
 
 func (*handler) HandleQuota(context.Context, *quota.Instance, adapter.QuotaArgs) (adapter.QuotaResult, error) {
@@ -71,11 +79,8 @@ func GetInfo() adapter.Info {
 			listentry.TemplateName,
 			quota.TemplateName,
 		},
-		DefaultConfig: &config.Params{
-			Status: rpc.Status{Code: int32(rpc.FAILED_PRECONDITION)},
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		DefaultConfig: defaultParam(),
+		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 	}
 }
 
@@ -90,5 +95,7 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config)              { b.adapterC
 func (*builder) Validate() (ce *adapter.ConfigErrors)               { return }
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	return &handler{status: b.adapterConfig.Status}, nil
+	return &handler{
+		result: newResult(b.adapterConfig),
+	}, nil
 }
