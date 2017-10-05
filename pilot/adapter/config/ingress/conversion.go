@@ -107,6 +107,10 @@ func createIngressRule(name, host, path, domainSuffix string,
 				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
 			}
 		}
+	} else {
+		rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
+			MatchType: &proxyconfig.StringMatch_Prefix{Prefix: "/"},
+		}
 	}
 
 	return model.Config{

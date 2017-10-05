@@ -122,7 +122,8 @@ func buildListeners(env proxy.Environment, node proxy.Node) Listeners {
 			env.Services(), env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 		return listeners
 	case proxy.Ingress:
-		return buildIngressListeners(env.Mesh, env.ServiceDiscovery, env.IstioConfigStore, node)
+		instances := env.HostInstances(map[string]bool{node.IPAddress: true})
+		return buildIngressListeners(env.Mesh, instances, env.ServiceDiscovery, env.IstioConfigStore, node)
 	case proxy.Egress:
 		return buildEgressListeners(env.Mesh, node)
 	}
@@ -138,8 +139,8 @@ func buildClusters(env proxy.Environment, node proxy.Node) Clusters {
 		_, clusters = buildSidecarListenersClusters(env.Mesh, instances,
 			env.Services(), env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 	case proxy.Ingress:
-		// TODO: decide upon instances for ingress proxy
-		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, env.ServiceDiscovery, env.IstioConfigStore)
+		instances = env.HostInstances(map[string]bool{node.IPAddress: true})
+		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, instances, env.ServiceDiscovery, env.IstioConfigStore)
 		clusters = httpRouteConfigs.clusters().normalize()
 	case proxy.Egress:
 		// TODO: decide upon instances for egress proxy
@@ -244,7 +245,8 @@ func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName stri
 	var httpConfigs HTTPRouteConfigs
 	switch node.Type {
 	case proxy.Ingress:
-		httpConfigs, _ = buildIngressRoutes(mesh, discovery, config)
+		instances := discovery.HostInstances(map[string]bool{node.IPAddress: true})
+		httpConfigs, _ = buildIngressRoutes(mesh, instances, discovery, config)
 	case proxy.Egress:
 		httpConfigs = buildEgressRoutes(mesh, discovery)
 	case proxy.Sidecar:

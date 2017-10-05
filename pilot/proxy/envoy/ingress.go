@@ -28,18 +28,19 @@ import (
 )
 
 func buildIngressListeners(mesh *proxyconfig.MeshConfig,
+	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
 	ingress proxy.Node) Listeners {
 	listeners := Listeners{
-		buildHTTPListener(mesh, ingress, nil, nil, WildcardAddress, 80, "80", true, EgressTraceOperation),
+		buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 80, "80", true, EgressTraceOperation),
 	}
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
-	_, secret := buildIngressRoutes(mesh, discovery, config)
+	_, secret := buildIngressRoutes(mesh, instances, discovery, config)
 	if secret != "" {
-		listener := buildHTTPListener(mesh, ingress, nil, nil, WildcardAddress, 443, "443", true, EgressTraceOperation)
+		listener := buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 443, "443", true, EgressTraceOperation)
 		listener.SSLContext = &SSLContext{
 			CertChainFile:  path.Join(proxy.IngressCertsPath, proxy.IngressCertFilename),
 			PrivateKeyFile: path.Join(proxy.IngressCertsPath, proxy.IngressKeyFilename),
@@ -51,6 +52,7 @@ func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 }
 
 func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
+	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
 	// build vhosts
@@ -60,7 +62,7 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 
 	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
 	for _, rule := range rules {
-		routes, tls, err := buildIngressRoute(mesh, rule, discovery, config)
+		routes, tls, err := buildIngressRoute(mesh, instances, rule, discovery, config)
 		if err != nil {
 			glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
@@ -100,7 +102,7 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 		sort.Sort(RoutesByPath(routes))
 		rc.VirtualHosts = append(rc.VirtualHosts, &VirtualHost{
 			Name:    host,
-			Domains: []string{host},
+			Domains: buildIngressVhostDomains(host, 80),
 			Routes:  routes,
 		})
 	}
@@ -110,7 +112,7 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 		sort.Sort(RoutesByPath(routes))
 		rcTLS.VirtualHosts = append(rcTLS.VirtualHosts, &VirtualHost{
 			Name:    host,
-			Domains: []string{host},
+			Domains: buildIngressVhostDomains(host, 443),
 			Routes:  routes,
 		})
 	}
@@ -119,9 +121,21 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 	return configs.normalize(), tlsAll
 }
 
+// buildIngressVhostDomains returns an array of domain strings with the port attached
+func buildIngressVhostDomains(vhost string, port int) []string {
+	domains := make([]string, 0)
+	domains = append(domains, vhost)
+
+	if vhost != "*" {
+		domains = append(domains, fmt.Sprintf("%s:%d", vhost, port))
+	}
+
+	return domains
+}
+
 // buildIngressRoute translates an ingress rule to an Envoy route
 func buildIngressRoute(mesh *proxyconfig.MeshConfig,
-	rule model.Config,
+	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
 	ingress := rule.Spec.(*proxyconfig.IngressRule)
@@ -140,7 +154,7 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(service, servicePort, nil, config)
+	routes := buildDestinationHTTPRoutes(service, servicePort, instances, config)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)

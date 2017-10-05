@@ -3,7 +3,8 @@
    {
     "name": "world.com",
     "domains": [
-     "world.com"
+     "world.com",
+     "world.com:80"
     ],
     "routes": [
      {
