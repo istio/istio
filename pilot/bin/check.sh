@@ -26,6 +26,7 @@ $gometalinter \
   --enable=gotype\
   --exclude=.pb.go\
   --exclude=gen_test.go\
+  --exclude=wordlist.go\
   --enable=ineffassign\
   --enable=interfacer\
   --enable=lll --line-length=120\

@@ -34,13 +34,14 @@ func GlobalList() []string {
 }
 
 var (
+        // nolint: aligncheck
 	globalList = []string{
 EOF
 
 cat - |\
   sed '/^#/d' |\
   sed '/^\s*$/d' |\
-  sed 's/^- \(.*\)$/\t\t"\1",/'
+  sed 's/^- \(.*\)$/"\1",/'
 
 cat <<EOF
 	}
