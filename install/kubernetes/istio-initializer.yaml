@@ -15,11 +15,12 @@ data:
     initializerName: "sidecar.initializer.istio.io"
     params:
       initImage: docker.io/istio/proxy_init:0.2.7
-      proxyImage: docker.io/istio/proxy:0.2.7
+      proxyImage: docker.io/istio/proxy_debug:0.2.7
       verbosity: 2
       version: 0.2.7
       meshConfigMapName: istio
       imagePullPolicy: IfNotPresent
+      debugImage: true
 ---
 apiVersion: v1
 kind: ServiceAccount
