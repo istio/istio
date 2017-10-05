@@ -19,10 +19,8 @@ package denier
 
 import (
 	"context"
+	"reflect"
 	"testing"
-	"time"
-
-	rpc "github.com/googleapis/googleapis/google/rpc"
 
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
@@ -58,16 +56,10 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	if result.Status.Code != int32(rpc.FAILED_PRECONDITION) {
-		t.Errorf("Got %v, expected %v", result.Status.Code, rpc.PERMISSION_DENIED)
-	}
+	want := newResult(defaultParam())
 
-	if result.ValidUseCount < 1000 {
-		t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
-	}
-
-	if result.ValidDuration < 1000*time.Second {
-		t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+	if !reflect.DeepEqual(want, result) {
+		t.Errorf("Got %v, expected %v", result, want)
 	}
 
 	listEntryHandler := handler.(listentry.Handler)
@@ -76,16 +68,8 @@ func TestBasic(t *testing.T) {
 		t.Errorf("Got error %v, expecting success", err)
 	}
 
-	if result.Status.Code != int32(rpc.FAILED_PRECONDITION) {
-		t.Errorf("Got %v, expecting %v", result.Status.Code, rpc.OK)
-	}
-
-	if result.ValidUseCount < 1000 {
-		t.Errorf("Got use count of %d, expecting at least 1000", result.ValidUseCount)
-	}
-
-	if result.ValidDuration < 1000*time.Second {
-		t.Errorf("Got duration of %v, expecting at least 1000 seconds", result.ValidDuration)
+	if !reflect.DeepEqual(want, result) {
+		t.Errorf("Got %v, expected %v", result, want)
 	}
 
 	quotaHandler := handler.(quota.Handler)
