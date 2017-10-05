@@ -9,7 +9,7 @@ cd ${WORKSPACE}
 bazel ${BAZEL_STARTUP_ARGS} build ${BAZEL_RUN_ARGS} \
   //... $(bazel query 'tests(//...)') @com_github_bazelbuild_buildtools//buildifier
 
-alias buildifier="$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier"
+buildifier="$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier"
 
 NUM_CPU=$(getconf _NPROCESSORS_ONLN)
 
@@ -52,7 +52,7 @@ bin/check_license.sh
 echo 'licences OK'
 
 echo 'Running buildifier ...'
-buildifier -showlog -mode=check $(git ls-files \
+${buildifier} -showlog -mode=check $(git ls-files \
   | grep -e 'BUILD' -e 'WORKSPACE' -e '.*\.bazel' -e '.*\.bzl' \
   | grep -v vendor)
 echo 'buildifer OK'
