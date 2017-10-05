@@ -34,6 +34,17 @@
     ]
    },
    {
+    "name": "in.1110",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1110"
+     }
+    ]
+   },
+   {
     "name": "in.3333",
     "connect_timeout_ms": 1000,
     "type": "static",
@@ -65,6 +76,13 @@
       "url": "tcp://127.0.0.1:9999"
      }
     ]
+   },
+   {
+    "name": "out.12a577b4dd04c9a3fed313fc71fb850e7f9c345f",
+    "service_name": "world.default.svc.cluster.local|redis",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
    },
    {
     "name": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
@@ -108,6 +126,13 @@
    {
     "name": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
     "service_name": "world.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+    "service_name": "hello.default.svc.cluster.local|redis",
     "connect_timeout_ms": 1000,
     "type": "sds",
     "lb_type": "round_robin"

@@ -130,7 +130,8 @@ const (
 	metadataHTTP2 = "http2"
 	metadataHTTPS = "https"
 	metadataGRPC  = "grpc"
-	metadataMONGO = "mongo"
+	metadataMongo = "mongo"
+	metadataRedis = "redis"
 )
 
 func convertProtocol(md metadata) model.Protocol {
@@ -149,8 +150,10 @@ func convertProtocol(md metadata) model.Protocol {
 			return model.ProtocolHTTPS
 		case metadataGRPC:
 			return model.ProtocolGRPC
-		case metadataMONGO:
-			return model.ProtocolMONGO
+		case metadataMongo:
+			return model.ProtocolMongo
+		case metadataRedis:
+			return model.ProtocolRedis
 		case "":
 			// fallthrough to default protocol
 		default:

@@ -153,7 +153,9 @@ func convertProtocol(name string) model.Protocol {
 	case "https":
 		return model.ProtocolHTTPS
 	case "mongo":
-		return model.ProtocolMONGO
+		return model.ProtocolMongo
+	case "redis":
+		return model.ProtocolRedis
 	case "":
 		// fallthrough to default protocol
 	default:

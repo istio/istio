@@ -195,6 +195,24 @@
     "bind_to_port": false
    },
    {
+    "address": "tcp://10.1.0.0:110",
+    "name": "redis_10.1.0.0_110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
     "address": "tcp://10.1.0.0:90",
     "name": "tcp_10.1.0.0_90",
     "filters": [
@@ -372,6 +390,34 @@
     "bind_to_port": false
    },
    {
+    "address": "tcp://10.1.1.0:1110",
+    "name": "redis_10.1.1.0_1110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "destination.ip": "10.1.1.0",
+        "destination.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "in.1110",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
     "address": "tcp://10.1.1.0:3333",
     "name": "tcp_10.1.1.0_3333",
     "filters": [
@@ -523,6 +569,24 @@
          }
         ]
        }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:110",
+    "name": "redis_10.2.0.0_110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "out.12a577b4dd04c9a3fed313fc71fb850e7f9c345f",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
       }
      }
     ],

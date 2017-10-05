@@ -101,8 +101,10 @@ const (
 	// ProtocolUDP declares that the port uses UDP.
 	// Note that UDP protocol is not currently supported by the proxy.
 	ProtocolUDP Protocol = "UDP"
-	// ProtocolMONGO declares that the port carries mongoDB traffic
-	ProtocolMONGO Protocol = "MONGO"
+	// ProtocolMongo declares that the port carries mongoDB traffic
+	ProtocolMongo Protocol = "Mongo"
+	// ProtocolRedis declares that the port carries redis traffic
+	ProtocolRedis Protocol = "Redis"
 )
 
 // IsHTTP is true for protocols that use HTTP as transport protocol

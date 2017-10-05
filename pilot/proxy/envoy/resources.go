@@ -81,8 +81,16 @@ const (
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
-	// MONGOProxyFilter is the name of the MONGO Proxy network filter.
-	MONGOProxyFilter = "mongo_proxy"
+	// MongoProxyFilter is the name of the Mongo Proxy network filter.
+	MongoProxyFilter = "mongo_proxy"
+
+	// RedisProxyFilter is the name of the Redis Proxy network filter.
+	RedisProxyFilter = "redis_proxy"
+
+	// RedisDefaultOpTimeout is the op timeout used for Redis Proxy filter
+	// Currently it is set to 30ms (conversion happens in the filter)
+	// TODO - Allow this to be configured.
+	RedisDefaultOpTimeout = 30 * time.Second
 
 	// WildcardAddress binds to all IP addresses
 	WildcardAddress = "0.0.0.0"
@@ -505,13 +513,26 @@ type TCPRouteConfig struct {
 	Routes []*TCPRoute `json:"routes"`
 }
 
-// MONGOProxyFilterConfig definition
-type MONGOProxyFilterConfig struct {
+// MongoProxyFilterConfig definition
+type MongoProxyFilterConfig struct {
 	StatPrefix string `json:"stat_prefix"`
-	// TODO: support fault filter
 }
 
-func (*MONGOProxyFilterConfig) isNetworkFilterConfig() {}
+func (*MongoProxyFilterConfig) isNetworkFilterConfig() {}
+
+// RedisConnPool definition
+type RedisConnPool struct {
+	OperationTimeoutMS int64 `json:"op_timeout_ms"`
+}
+
+// RedisProxyFilterConfig definition
+type RedisProxyFilterConfig struct {
+	ClusterName string         `json:"cluster_name"`
+	ConnPool    *RedisConnPool `json:"conn_pool"`
+	StatPrefix  string         `json:"stat_prefix"`
+}
+
+func (*RedisProxyFilterConfig) isNetworkFilterConfig() {}
 
 // NetworkFilter definition
 type NetworkFilter struct {

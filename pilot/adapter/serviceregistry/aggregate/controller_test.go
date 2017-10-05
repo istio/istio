@@ -123,7 +123,7 @@ func TestHostInstances(t *testing.T) {
 
 	// Get Instances from mockAdapter1
 	instances := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
-	if len(instances) != 4 {
+	if len(instances) != 5 {
 		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
@@ -134,7 +134,7 @@ func TestHostInstances(t *testing.T) {
 
 	// Get Instances from mockAdapter2
 	instances = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
-	if len(instances) != 4 {
+	if len(instances) != 5 {
 		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
 	}
 	for _, inst := range instances {
