@@ -20,7 +20,7 @@ data:
       version: 0.2.7
       meshConfigMapName: istio
       imagePullPolicy: IfNotPresent
-      debugImage: true
+      debugMode: true
 ---
 apiVersion: v1
 kind: ServiceAccount
