@@ -46,6 +46,7 @@ go build ./cmd/pilot-discovery
 go build ./cmd/sidecar-initializer
 go build ./test/server
 go build ./test/client
+go build ./test/eurekamirror
 
 # Collect artifacts for pushing
 cp -f  client docker/client
@@ -53,6 +54,7 @@ cp -f  server docker/server
 cp -f  pilot-agent docker/pilot-agent
 cp -f  pilot-discovery docker/pilot-discovery
 cp -f  sidecar-initializer docker/sidecar-initializer
+cp -f  eurekamirror docker/eurekamirror
 
 # Build and push images
 if [[ "$hub" =~ ^gcr\.io ]]; then
