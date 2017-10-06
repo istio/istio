@@ -50,11 +50,12 @@ const (
 var (
 	platform string
 
-	kubeconfig     string
-	namespace      string
-	istioNamespace string
-	istioContext   string
-	istioAPIServer string
+	kubeconfig       string
+	namespace        string
+	istioNamespace   string
+	istioContext     string
+	istioAPIServer   string
+	defaultNamespace string
 
 	// input file name
 	file string
@@ -81,6 +82,9 @@ See http://istio.io/docs/reference for an overview of routing rules
 and destination policies.
 
 `, model.IstioConfigTypes.Types()),
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			defaultNamespace = getDefaultNamespace(kubeconfig)
+		},
 	}
 
 	postCmd = &cobra.Command{
@@ -102,8 +106,8 @@ and destination policies.
 				return errors.New("nothing to create")
 			}
 			for _, config := range varr {
-				if config.Namespace == "" {
-					config.Namespace = namespace
+				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+					return err
 				}
 
 				var configClient *crd.Client
@@ -174,8 +178,8 @@ and destination policies.
 				return errors.New("nothing to replace")
 			}
 			for _, config := range varr {
-				if config.Namespace == "" {
-					config.Namespace = namespace
+				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+					return err
 				}
 
 				var configClient *crd.Client
@@ -280,14 +284,15 @@ and destination policies.
 				return err
 			}
 
+			ns, _ := handleNamespaces(v1.NamespaceAll)
 			var configs []model.Config
 			if len(args) > 1 {
-				config, exists := configClient.Get(typ.Type, args[1], namespace)
+				config, exists := configClient.Get(typ.Type, args[1], ns)
 				if exists {
 					configs = append(configs, *config)
 				}
 			} else {
-				configs, err = configClient.List(typ.Type, namespace)
+				configs, err = configClient.List(typ.Type, ns)
 				if err != nil {
 					return err
 				}
@@ -362,8 +367,8 @@ and destination policies.
 				return errors.New("nothing to delete")
 			}
 			for _, config := range varr {
-				if config.Namespace == "" {
-					config.Namespace = namespace
+				if config.Namespace, err = handleNamespaces(config.Namespace); err != nil {
+					return err
 				}
 
 				// compute key if necessary
@@ -491,7 +496,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", kube.IstioNamespace,
 		"Istio system namespace")
 
-	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceDefault,
+	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
 		"Config namespace")
 
 	defaultContext := "istio"
@@ -621,9 +626,10 @@ func supportedTypes(configClient *crd.Client) []string {
 }
 
 func preprocMixerConfig(configs []crd.IstioKind) error {
+	var err error
 	for i, config := range configs {
-		if config.Namespace == "" {
-			configs[i].Namespace = namespace
+		if configs[i].Namespace, err = handleNamespaces(config.Namespace); err != nil {
+			return err
 		}
 		if config.APIVersion == "" {
 			configs[i].APIVersion = crd.IstioAPIGroupVersion.String()
@@ -678,4 +684,35 @@ func prepareClientForOthers(configs []crd.IstioKind) (*rest.RESTClient, map[stri
 		return nil, nil, err
 	}
 	return client, resources, nil
+}
+
+func getDefaultNamespace(kubeconfig string) string {
+	configAccess := clientcmd.NewDefaultPathOptions()
+	// use specified kubeconfig file for the location of the config to read
+	configAccess.GlobalFile = kubeconfig
+
+	// gets existing kubeconfig or returns new empty config
+	config, err := configAccess.GetStartingConfig()
+	if err != nil {
+		return v1.NamespaceDefault
+	}
+
+	return config.Contexts[config.CurrentContext].Namespace
+}
+
+func handleNamespaces(objectNamespace string) (string, error) {
+	if objectNamespace != "" && namespace != "" && namespace != objectNamespace {
+		return "", fmt.Errorf(`the namespace from the provided object "%s" does `+
+			`not match the namespace "%s". You must pass '--namespace=%s' to perform `+
+			`this operation`, objectNamespace, namespace, objectNamespace)
+	}
+
+	if namespace != "" {
+		return namespace, nil
+	}
+
+	if objectNamespace != "" {
+		return objectNamespace, nil
+	}
+	return defaultNamespace, nil
 }
