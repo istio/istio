@@ -26,7 +26,6 @@ goimports -w -local istio.io ${GO_FILES}
 
 bazel build @com_github_bazelbuild_buildtools//buildifier
 buildifier=$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier
-$buildifier -mode=fix $(find . \( -name BUILD -o -name BUILD.bazel \) -type f)
-$buildifier -mode=fix ./*.bzl
+$buildifier -mode=fix $(find . \( -name BUILD -o -name BUILD.bazel -o -name '*.bzl' \) -type f)
 $buildifier -mode=fix ./BUILD.ubuntu
 $buildifier -mode=fix ./WORKSPACE

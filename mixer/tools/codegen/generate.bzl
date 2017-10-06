@@ -7,19 +7,25 @@ MIXER_DEPS = [
     "@com_github_istio_api//:mixer/v1/template",
     "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
 ]
+
 MIXER_INPUTS = [
     "@com_github_istio_api//:mixer/v1/template_protos",
     "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
 ]
+
 MIXER_IMPORT_MAP = {
     "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
     "mixer/v1/template/extensions.proto": "istio.io/api/mixer/v1/template",
 }
+
 # TODO: develop better approach to import management.
 # including the "../.." is an ugly workaround for differing exec ctx for bazel rules
 # depending on whether or not we are building within mixer proper or in a third-party repo
 # that depends on mixer proper.
-MIXER_IMPORTS = ["external/com_github_istio_api", "../../external/com_github_istio_api",]
+MIXER_IMPORTS = [
+    "external/com_github_istio_api",
+    "../../external/com_github_istio_api",
+]
 
 # TODO: fill in with complete set of GOGO DEPS and IMPORT MAPPING
 GOGO_DEPS = [
@@ -27,6 +33,7 @@ GOGO_DEPS = [
     "@com_github_gogo_protobuf//types:go_default_library",
     "@com_github_gogo_protobuf//sortkeys:go_default_library",
 ]
+
 GOGO_IMPORT_MAP = {
     "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
     "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
@@ -36,8 +43,12 @@ GOGO_IMPORT_MAP = {
 # including the "../.." is an ugly workaround for differing exec ctx for bazel rules
 # depending on whether or not we are building within mixer proper or in a third-party repo
 # that depends on mixer proper.
-PROTO_IMPORTS = [ "external/com_github_google_protobuf/src", "../../external/com_github_google_protobuf/src"]
-PROTO_INPUTS = [ "@com_github_google_protobuf//:well_known_protos" ]
+PROTO_IMPORTS = [
+    "external/com_github_google_protobuf/src",
+    "../../external/com_github_google_protobuf/src",
+]
+
+PROTO_INPUTS = ["@com_github_google_protobuf//:well_known_protos"]
 
 def _gen_template_and_handler(name, importmap = {}):
    m = ""

@@ -20,9 +20,8 @@ load("@com_github_istio_mixer//:x_tools_imports.bzl", "go_x_tools_imports_reposi
 load("@com_github_istio_mixer//:googleapis.bzl", "go_googleapis_repositories")
 load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
 
-
 # This function should be used by others to use mock mixer.
-# Before loading this bzl file, following repositoies should be loaded. 
+# Before loading this bzl file, following repositoies should be loaded.
 #
 # Usage:
 #
