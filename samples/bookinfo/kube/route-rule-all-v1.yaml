@@ -1,6 +1,19 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
+  name: productpage-default
+spec:
+  ## Used by services inside the Kubernetes cluster
+  destination:
+    name: productpage
+  precedence: 1
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
   name: ingress-deny-all
 spec:
   destination:
@@ -9,7 +22,7 @@ spec:
     source:
       labels:
         istio: ingress
-  precedence: 1
+  precedence: 2
   route:
   - weight: 100
   httpFault:
@@ -32,7 +45,7 @@ spec:
       headers:
         uri:
           prefix: /api/v1/products
-  precedence: 2
+  precedence: 3
   route:
   - labels:
       version: v1
@@ -52,7 +65,7 @@ spec:
       headers:
         uri:
           exact: /logout
-  precedence: 2
+  precedence: 3
   route:
   - labels:
       version: v1
@@ -72,7 +85,7 @@ spec:
       headers:
         uri:
           exact: /login
-  precedence: 2
+  precedence: 3
   route:
   - labels:
       version: v1
@@ -92,19 +105,7 @@ spec:
       headers:
         uri:
           exact: /productpage
-  precedence: 2
-  route:
-  - labels:
-      version: v1
----
-apiVersion: config.istio.io/v1alpha2
-kind: RouteRule
-metadata:
-  name: productpage-default
-spec:
-  destination:
-    name: productpage
-  precedence: 1
+  precedence: 3
   route:
   - labels:
       version: v1
