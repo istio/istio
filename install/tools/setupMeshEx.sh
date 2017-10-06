@@ -48,7 +48,7 @@ function istioDnsmasq() {
   for i in {1..10}
   do
     PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    ISTIO_DNS=$(kubectl get -n istio-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+    ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
