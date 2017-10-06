@@ -52,7 +52,7 @@ spec:
       headers:
         uri:
           exact: /logout
-  precedence: 3
+  precedence: 2
   route:
   - labels:
       version: v1
@@ -72,7 +72,7 @@ spec:
       headers:
         uri:
           exact: /login
-  precedence: 4
+  precedence: 2
   route:
   - labels:
       version: v1
@@ -92,7 +92,7 @@ spec:
       headers:
         uri:
           exact: /productpage
-  precedence: 5
+  precedence: 2
   route:
   - labels:
       version: v1
