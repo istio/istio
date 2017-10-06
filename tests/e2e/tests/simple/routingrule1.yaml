@@ -8,8 +8,11 @@ spec:
   precedence: 1
   route:
   - labels:
-      version: test1
-    weight: 50
+      version: v1
+    weight: 33
   - labels:
-      version: test2
-    weight: 50
+      version: v2
+    weight: 33
+  - labels:
+      version: doesntexist1
+    weight: 34

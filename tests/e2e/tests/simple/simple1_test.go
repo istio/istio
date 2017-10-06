@@ -159,7 +159,7 @@ func Test404sDuringChanges(t *testing.T) {
 			return
 		}
 	}()
-	defer util.KubeDelete(tc.Kube.Namespace, rulePath)
+	defer util.KubeDelete(tc.Kube.Namespace, rulePath) // nolint:errcheck
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for any non 200s
 	opts := fortio.HTTPRunnerOptions{
@@ -177,7 +177,7 @@ func Test404sDuringChanges(t *testing.T) {
 	numRequests := res.DurationHistogram.Count
 	num200s := res.RetCodes[http.StatusOK]
 	if num200s != numRequests {
-		t.Errorf("Not all %d requests were succesful (%d 200s)", numRequests, num200s)
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}
 }
 
