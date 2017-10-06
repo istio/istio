@@ -429,7 +429,7 @@ go_repository(
 
 # Change this and the docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "5d544187a15e11b593e931902e2d74f8dca26ef7"
+ISTIO_PROXY_BUCKET = "67851b9648346112987cb1ccf79a30b912724475"
 
 http_file(
     name = "envoy_binary",
@@ -461,7 +461,7 @@ go_repository(
 )
 
 # This SHA is obtained from istio/api
-ISTIO_API = "3520b5436dd8d8bc7c27fc1f9f267093f7254cf6"
+ISTIO_API = "32e95fc675f9c4a41f3e88a9ef84d68ca220c968"
 
 new_git_repository(
     name = "io_istio_api",
