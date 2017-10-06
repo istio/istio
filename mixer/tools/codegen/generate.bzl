@@ -1,5 +1,5 @@
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_compile")
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library", "gogo_proto_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_compile")
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 MIXER_DEPS = [
@@ -29,6 +29,7 @@ MIXER_IMPORTS = [
 
 # TODO: fill in with complete set of GOGO DEPS and IMPORT MAPPING
 GOGO_DEPS = [
+    "@com_github_gogo_protobuf//proto:go_default_library",
     "@com_github_gogo_protobuf//gogoproto:go_default_library",
     "@com_github_gogo_protobuf//types:go_default_library",
     "@com_github_gogo_protobuf//sortkeys:go_default_library",
@@ -105,7 +106,6 @@ def mixer_proto_library(
    gogoslick_args += {
       "name": name + "_gogo_proto",
       "protos": [name + "_tmpl.proto"],
-      "deps": MIXER_DEPS + GOGO_DEPS + deps,
       "imports": imports + MIXER_IMPORTS + PROTO_IMPORTS,
       "importmap": dict(dict(MIXER_IMPORT_MAP, **GOGO_IMPORT_MAP), **importmap),
       "inputs": inputs + MIXER_INPUTS + PROTO_INPUTS,
@@ -114,13 +114,16 @@ def mixer_proto_library(
 
    # we run this proto library to get the generated pb.go files to link
    # in with the mixer generated files for a go library
-   gogoslick_proto_library(**gogoslick_args)
+   gogoslick_proto_compile(**gogoslick_args)
 
    go_library(
-      name = name,
-      srcs = [name + "_handler.gen.go"],
-      library = ":" + name + "_gogo_proto",
-      deps = deps + MIXER_DEPS)
+        name = name,
+        srcs = [
+            name + "_handler.gen.go",
+            name + "_gogo_proto",
+        ],
+        deps = deps + MIXER_DEPS + GOGO_DEPS,
+    )
 
 ###############
 
