@@ -1,5 +1,3 @@
-# GENERATED FILE. Use with Docker-Compose and Eureka
-# TO UPDATE, modify files in install/eureka/templates and run install/updateVersion.sh
 version: '2'
 services:
   etcd:
@@ -39,7 +37,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "-ttl-refresh=30", "-ttl=90", "eureka://eureka:8080/eureka/v2"]
 
   istio-pilot:
-    image: docker.io/istio/pilot:0.2.7
+    image: {PILOT_HUB}/pilot:{PILOT_TAG}
     expose:
       - "8080"
     ports:

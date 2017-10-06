@@ -64,6 +64,7 @@ type RunnerOptions struct {
 type RunnerResults struct {
 	DurationHistogram *Histogram
 	ActualQPS         float64
+	ActualDuration    time.Duration
 }
 
 // HasRunnerResult is the interface implictly implemented by HTTPRunnerResults
@@ -204,7 +205,7 @@ func (r *periodicRunner) Run() RunnerResults {
 	for _, p := range r.Percentiles[1:] {
 		fmt.Printf("# target %g%% %.6g\n", p, functionDuration.CalcPercentile(p))
 	}
-	return RunnerResults{functionDuration, actualQPS}
+	return RunnerResults{functionDuration, actualQPS, elapsed}
 }
 
 // runOne runs in 1 go routine.
