@@ -1,6 +1,105 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
+  name: ingress-deny-all
+spec:
+  destination:
+    name: productpage
+  match:
+    source:
+      labels:
+        istio: ingress
+  precedence: 1
+  route:
+  - weight: 100
+  httpFault:
+    abort:
+      percent: 100
+      httpStatus: 403
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ingress-products-api
+spec:
+  destination:
+    name: productpage
+  match:
+    source:
+      labels:
+        istio: ingress
+    request:
+      headers:
+        uri:
+          prefix: /api/v1/products
+  precedence: 2
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ingress-productpage-logout
+spec:
+  destination:
+    name: productpage
+  match:
+    source:
+      labels:
+        istio: ingress
+    request:
+      headers:
+        uri:
+          exact: /logout
+  precedence: 3
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ingress-productpage-login
+spec:
+  destination:
+    name: productpage
+  match:
+    source:
+      labels:
+        istio: ingress
+    request:
+      headers:
+        uri:
+          exact: /login
+  precedence: 4
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: ingress-productpage-landing
+spec:
+  destination:
+    name: productpage
+  match:
+    source:
+      labels:
+        istio: ingress
+    request:
+      headers:
+        uri:
+          exact: /productpage
+  precedence: 5
+  route:
+  - labels:
+      version: v1
+---
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
   name: productpage-default
 spec:
   destination:
