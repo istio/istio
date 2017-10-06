@@ -43,18 +43,46 @@ spec:
     rewrite:
         uri: /  # drop the /fortio prefix when talking to fortio such as /fortio/foo -> /foo
 ---
+# 2 deployments so we can change routing rules
+# 1st deployment, 1 pod for service inside the cluster, will get istio injected
 apiVersion: apps/v1beta1
-# 2 pods for service inside the cluster, will get istio injected
 kind: Deployment
 metadata:
-  name: echosrv-deployment
+  name: echosrv-deployment-1
 spec:
-  replicas: 2 # tells deployment to run 2 pods matching the template
+  replicas: 1 # tells deployment to run 2 pods matching the template
   template: # create pods using pod definition in this template
     metadata:
       # a unique name is generated from the deployment name
       labels:
         app: echosrv
+        version: v1
+    spec:
+      containers:
+      - name: echosrv
+        image: {{.FortioImage}}
+        ports:
+         - containerPort: 8080
+         - containerPort: 8079
+        args:
+          - server
+#          - -loglevel=debug  # to see all incoming connections
+#          - -echo-debug-path=/fortio/debug # can be changed
+---
+# 2nd deployment, 1 pod for service inside the cluster, will get istio injected
+# same as above (copy pasta ftw) except for the version
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: echosrv-deployment-2
+spec:
+  replicas: 1 # tells deployment to run 2 pods matching the template
+  template: # create pods using pod definition in this template
+    metadata:
+      # a unique name is generated from the deployment name
+      labels:
+        app: echosrv
+        version: v2
     spec:
       containers:
       - name: echosrv

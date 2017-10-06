@@ -16,6 +16,7 @@ go_test(
 filegroup(
     name = "test_yamls",
     srcs = [
+        "routingrule1.yaml",
         "servicesNotInjected.yaml",
         "servicesToBeInjected.yaml",
     ],
