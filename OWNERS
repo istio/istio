@@ -6,6 +6,9 @@ reviewers:
   - ldemailly
   - rshriram
   - sebastienvas
+  - mandarjog
+  - frankbu
+  - linsun
 approvers:
   - geeknoid
   - andraxylia
@@ -13,3 +16,6 @@ approvers:
   - Douglas-reid
   - ldemailly
   - rshriram
+  - mandarjog
+  - frankbu
+  - linsun
