@@ -88,7 +88,7 @@ const (
 	RedisProxyFilter = "redis_proxy"
 
 	// RedisDefaultOpTimeout is the op timeout used for Redis Proxy filter
-	// Currently it is set to 30ms (conversion happens in the filter)
+	// Currently it is set to 30s (conversion happens in the filter)
 	// TODO - Allow this to be configured.
 	RedisDefaultOpTimeout = 30 * time.Second
 

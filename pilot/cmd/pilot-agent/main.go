@@ -49,7 +49,7 @@ var (
 	discoveryRefreshDelay  time.Duration
 	zipkinAddress          string
 	connectTimeout         time.Duration
-	statsdUdpAddress       string // nolint: golint
+	statsdUDPAddress       string
 	proxyAdminPort         int
 
 	rootCmd = &cobra.Command{
@@ -72,11 +72,11 @@ var (
 			if role.IPAddress == "" {
 				if serviceregistry == platform.KubernetesRegistry {
 					role.IPAddress = os.Getenv("INSTANCE_IP")
-				} else if serviceregistry == platform.ConsulRegistry {
+				} else {
 					ipAddr := "127.0.0.1"
 					if ok := proxy.WaitForPrivateNetwork(); ok {
 						ipAddr = proxy.GetPrivateIP().String()
-						glog.V(2).Infof("obtained private IP %v", ipAddr)
+						glog.V(2).Infof("Obtained private IP %v", ipAddr)
 					}
 
 					role.IPAddress = ipAddr
@@ -87,6 +87,8 @@ var (
 					role.ID = os.Getenv("POD_NAME") + "." + os.Getenv("POD_NAMESPACE")
 				} else if serviceregistry == platform.ConsulRegistry {
 					role.ID = role.IPAddress + ".service.consul"
+				} else {
+					role.ID = role.IPAddress
 				}
 			}
 			if role.Domain == "" {
@@ -94,6 +96,8 @@ var (
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
 				} else if serviceregistry == platform.ConsulRegistry {
 					role.Domain = "service.consul"
+				} else {
+					role.Domain = ""
 				}
 			}
 
@@ -112,7 +116,7 @@ var (
 			proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(discoveryRefreshDelay)
 			proxyConfig.ZipkinAddress = zipkinAddress
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
-			proxyConfig.StatsdUdpAddress = statsdUdpAddress
+			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 
 			// resolve statsd address
@@ -176,8 +180,9 @@ func timeDuration(dur *duration.Duration) time.Duration {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
 		string(platform.KubernetesRegistry),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
-			string(platform.KubernetesRegistry), string(platform.ConsulRegistry)))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
+			string(platform.KubernetesRegistry), string(platform.ConsulRegistry),
+			string(platform.EurekaRegistry)))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -211,7 +216,7 @@ func init() {
 	proxyCmd.PersistentFlags().DurationVar(&connectTimeout, "connectTimeout",
 		timeDuration(values.ConnectTimeout),
 		"Connection timeout used by Envoy for supporting services")
-	proxyCmd.PersistentFlags().StringVar(&statsdUdpAddress, "statsdUdpAddress", values.StatsdUdpAddress,
+	proxyCmd.PersistentFlags().StringVar(&statsdUDPAddress, "statsdUdpAddress", values.StatsdUdpAddress,
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", int(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
