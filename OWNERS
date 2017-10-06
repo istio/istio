@@ -7,6 +7,8 @@ reviewers:
   - rshriram
   - sebastienvas
   - mandarjog
+  - frankbu
+  - linsun
 approvers:
   - geeknoid
   - andraxylia
@@ -15,3 +17,5 @@ approvers:
   - ldemailly
   - rshriram
   - mandarjog
+  - frankbu
+  - linsun
