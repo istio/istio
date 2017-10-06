@@ -14,7 +14,6 @@ def _inventory_gen(name, packages, out):
 
 DEPS = [
     "//pkg/adapter:go_default_library",
-
 ]
 
 def inventory_library(name, packages, deps):
@@ -25,4 +24,3 @@ def inventory_library(name, packages, deps):
       srcs = ["inventory.gen.go"],      
       deps = deps + DEPS,
   )
- 
