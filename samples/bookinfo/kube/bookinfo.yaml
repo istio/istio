@@ -203,24 +203,28 @@ spec:
   rules:
   - http:
       paths:
-      - path: /productpage
+      - path: /.*
         backend:
           serviceName: productpage
           servicePort: 9080
-      - path: /login
-        backend:
-          serviceName: productpage
-          servicePort: 9080
-      - path: /logout
-        backend:
-          serviceName: productpage
-          servicePort: 9080
-      - path: /api/v1/products
-        backend:
-          serviceName: productpage
-          servicePort: 9080
-      - path: /api/v1/products/.*
-        backend:
-          serviceName: productpage
-          servicePort: 9080
+      # - path: /productpage
+      #   backend:
+      #     serviceName: productpage
+      #     servicePort: 9080
+      # - path: /login
+      #   backend:
+      #     serviceName: productpage
+      #     servicePort: 9080
+      # - path: /logout
+      #   backend:
+      #     serviceName: productpage
+      #     servicePort: 9080
+      # - path: /api/v1/products
+      #   backend:
+      #     serviceName: productpage
+      #     servicePort: 9080
+      # - path: /api/v1/products/.*
+      #   backend:
+      #     serviceName: productpage
+      #     servicePort: 9080
 ---
