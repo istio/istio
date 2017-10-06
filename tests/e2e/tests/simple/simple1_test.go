@@ -43,6 +43,7 @@ import (
 const (
 	servicesYaml    = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
 	nonInjectedYaml = "tests/e2e/tests/simple/servicesNotInjected.yaml"
+	routingR1Yaml   = "tests/e2e/tests/simple/routingrule1.yaml"
 )
 
 type testConfig struct {
@@ -144,6 +145,39 @@ func TestAuth(t *testing.T) {
 		} else {
 			t.Fatalf("Unexpected error connect from non istio to istio without auth: %v", err)
 		}
+	}
+}
+
+func Test404sDuringChanges(t *testing.T) {
+	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	rulePath := util.GetResourcePath(routingR1Yaml)
+	go func() {
+		time.Sleep(9 * time.Second)
+		glog.Infof("Changing rules mid run")
+		if err := util.KubeApply(tc.Kube.Namespace, rulePath); err != nil {
+			t.Errorf("Kubectl apply %s failed", routingR1Yaml)
+			return
+		}
+	}()
+	defer util.KubeDelete(tc.Kube.Namespace, rulePath)
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fortio.HTTPRunnerOptions{
+		RunnerOptions: fortio.RunnerOptions{
+			QPS:        8,
+			Duration:   20 * time.Second,
+			NumThreads: 8,
+		},
+		URL: url,
+	}
+	res, err := fortio.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	if num200s != numRequests {
+		t.Errorf("Not all %d requests were succesful (%d 200s)", numRequests, num200s)
 	}
 }
 
