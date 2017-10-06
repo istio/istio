@@ -17,6 +17,8 @@ filegroup(
     name = "test_yamls",
     srcs = [
         "routingrule1.yaml",
+        "routingrule2.yaml",
+        "routingruleNoPods.yaml",
         "servicesNotInjected.yaml",
         "servicesToBeInjected.yaml",
     ],

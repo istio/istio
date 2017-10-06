@@ -44,6 +44,8 @@ const (
 	servicesYaml    = "tests/e2e/tests/simple/servicesToBeInjected.yaml"
 	nonInjectedYaml = "tests/e2e/tests/simple/servicesNotInjected.yaml"
 	routingR1Yaml   = "tests/e2e/tests/simple/routingrule1.yaml"
+	routingR2Yaml   = "tests/e2e/tests/simple/routingrule2.yaml"
+	routingRNPYaml  = "tests/e2e/tests/simple/routingruleNoPods.yaml"
 )
 
 type testConfig struct {
@@ -150,16 +152,25 @@ func TestAuth(t *testing.T) {
 
 func Test404sDuringChanges(t *testing.T) {
 	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
-	rulePath := util.GetResourcePath(routingR1Yaml)
+	rulePath1 := util.GetResourcePath(routingR1Yaml)
+	rulePath2 := util.GetResourcePath(routingR2Yaml)
 	go func() {
 		time.Sleep(9 * time.Second)
-		glog.Infof("Changing rules mid run")
-		if err := util.KubeApply(tc.Kube.Namespace, rulePath); err != nil {
-			t.Errorf("Kubectl apply %s failed", routingR1Yaml)
+		glog.Infof("Changing rules mid run to v1/v2")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath1); err != nil {
+			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
 			return
 		}
+		time.Sleep(4 * time.Second)
+		glog.Infof("Changing rules mid run to a/b")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath2); err != nil {
+			t.Errorf("istioctl rule create %s failed", routingR1Yaml)
+			return
+		}
+		time.Sleep(4 * time.Second)
+		util.KubeDelete(tc.Kube.Namespace, rulePath1) // nolint:errcheck
+		util.KubeDelete(tc.Kube.Namespace, rulePath2) // nolint:errcheck
 	}()
-	defer util.KubeDelete(tc.Kube.Namespace, rulePath) // nolint:errcheck
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for any non 200s
 	opts := fortio.HTTPRunnerOptions{
@@ -176,6 +187,40 @@ func Test404sDuringChanges(t *testing.T) {
 	}
 	numRequests := res.DurationHistogram.Count
 	num200s := res.RetCodes[http.StatusOK]
+	if num200s != numRequests {
+		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
+	}
+}
+
+func Test503sWithPartialRules(t *testing.T) {
+	url := "http://" + tc.Kube.Ingress + "/fortio/debug"
+	rulePath := util.GetResourcePath(routingRNPYaml)
+	go func() {
+		time.Sleep(9 * time.Second)
+		glog.Infof("Changing rules with some non existent destination, mid run")
+		if err := tc.Kube.Istioctl.CreateRule(rulePath); err != nil {
+			t.Errorf("istiocrl create rule %s failed", routingRNPYaml)
+			return
+		}
+	}()
+	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
+	// run at a low/moderate QPS for a while while changing the routing rules,
+	// check for any non 200s
+	opts := fortio.HTTPRunnerOptions{
+		RunnerOptions: fortio.RunnerOptions{
+			QPS:        8,
+			Duration:   20 * time.Second,
+			NumThreads: 8,
+		},
+		URL: url,
+	}
+	res, err := fortio.RunHTTPTest(&opts)
+	if err != nil {
+		t.Fatalf("Generating traffic via fortio failed: %v", err)
+	}
+	numRequests := res.DurationHistogram.Count
+	num200s := res.RetCodes[http.StatusOK]
+	// 1 or a handful of 503s is maybe ok, but not 1/2
 	if num200s != numRequests {
 		t.Errorf("Not all %d requests were successful (%v)", numRequests, res.RetCodes)
 	}

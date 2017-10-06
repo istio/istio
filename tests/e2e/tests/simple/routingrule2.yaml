@@ -1,15 +1,15 @@
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: rule-1
+  name: rule-2
 spec:
   destination:
     name: echosrv
-  precedence: 1
+  precedence: 2
   route:
   - labels:
-      version: v1
-    weight: 60
+      test: a
+    weight: 50
   - labels:
-      version: v2
-    weight: 40
+      test: b
+    weight: 50

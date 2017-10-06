@@ -57,6 +57,7 @@ spec:
       labels:
         app: echosrv
         version: v1
+        test: a
     spec:
       containers:
       - name: echosrv
@@ -83,6 +84,7 @@ spec:
       labels:
         app: echosrv
         version: v2
+        test: b
     spec:
       containers:
       - name: echosrv
