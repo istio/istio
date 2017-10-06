@@ -50,6 +50,22 @@ spec:
         - "2"
         - --discoveryAddress
         - istio-pilot:8080
+        - --discoveryRefreshDelay
+        - 1s #discoveryRefreshDelay
+        - --drainDuration
+        - 45s #drainDuration
+        - --parentShutdownDuration
+        - 1m0s #parentShutdownDuration
+        - --connectTimeout
+        - 10s #connectTimeout
+        - --serviceCluster
+        - istio-ingress
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-mixer:9125
+        - --proxyAdminPort
+        - 15000
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
