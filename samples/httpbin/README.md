@@ -6,7 +6,7 @@ with all kinds of Istio features.
 
 To use it:
 
-1. Install Istio by following the [istio install instructions](https://istio.io/docs/tasks/installing-istio.html).
+1. Install Istio by following the [istio install instructions](https://istio.io/docs/setup/kubernetes/quick-start.html).
 
 2. Start the httpbin service inside the Istio service mesh:
 
@@ -26,5 +26,5 @@ time kubectl run -i --rm --restart=Never dummy --image=dockerqa/curl:ubuntu-trus
 ```
 
 Alternatively, you can test the httpbin service by
-[configuring an ingress resource](https://istio.io/docs/tasks/ingress.html) or
+[configuring an ingress resource](https://istio.io/docs/tasks/traffic-management/ingress.html) or
 by starting the [sleep service](../sleep) and calling httpbin from it.
