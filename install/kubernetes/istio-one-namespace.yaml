@@ -1181,7 +1181,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
-        livelinessProbe:
+        livenessProbe:
           exec:
             command:
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
@@ -1287,7 +1287,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
-        livelinessProbe:
+        livenessProbe:
           exec:
             command:
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
