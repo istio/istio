@@ -1173,6 +1173,22 @@ spec:
         ports:
         - containerPort: 80
         - containerPort: 443
+        readinessProbe:
+          exec:
+            command:
+            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
+        livelinessProbe:
+          exec:
+            command:
+            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
         env:
         - name: POD_NAME
           valueFrom:
@@ -1263,6 +1279,22 @@ spec:
         - istio-mixer:9125
         - --proxyAdminPort
         - "15000"
+        readinessProbe:
+          exec:
+            command:
+            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
+        livelinessProbe:
+          exec:
+            command:
+            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
         env:
         - name: POD_NAME
           valueFrom:
