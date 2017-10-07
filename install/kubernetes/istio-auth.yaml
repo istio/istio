@@ -1176,6 +1176,8 @@ spec:
         readinessProbe:
           exec:
             command:
+            - /bin/sh
+            - -c
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
           initialDelaySeconds: 3
           periodSeconds: 5
@@ -1184,7 +1186,9 @@ spec:
         livenessProbe:
           exec:
             command:
-            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+            - /bin/sh
+            - -c
+            - /usr/bin/curl http://localhost:15000/clusters
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
@@ -1282,6 +1286,8 @@ spec:
         readinessProbe:
           exec:
             command:
+            - /bin/sh
+            - -c
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
           initialDelaySeconds: 3
           periodSeconds: 5
@@ -1290,7 +1296,9 @@ spec:
         livenessProbe:
           exec:
             command:
-            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
+            - /bin/sh
+            - -c
+            - curl http://localhost:15000/clusters
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
