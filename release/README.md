@@ -33,12 +33,12 @@ Before any release we need to make sure that all components are using the same
 version of [istio/api](https://github.com/istio/api/commits/master).
 
 As of today API is used in
-* [pilot](https://github.com/istio/pilot/blob/master/WORKSPACE#L480)
-* [mixer](https://github.com/istio/mixer/blob/master/istio_api.bzl#L18)
-* [mixerclient](https://github.com/istio/mixerclient/blob/master/repositories.bzl#L379)
+* [pilot](https://github.com/istio/pilot/blob/master/WORKSPACE#L464), value of `ISTIO_API`.
+* [mixer](https://github.com/istio/mixer/blob/master/istio_api.bzl#L18), value of `ISTIO_API_SHA`.
+* [mixerclient](https://github.com/istio/mixerclient/blob/master/repositories.bzl#L335), value of `ISTIO_API`.
 
 For mixerclient, it gets more complicated. We need to update proxy to use the
-last version, and then update pilot a second time to use the last proxy.
+last version, and then update pilot a second time to use the last proxy.  Further,  mixerclient requires someone who has write access to the repo to manually merge the [istio/api](https://github.com/istio/api/commits/master) version update.
 
 ## Semi-automated release since 0.2
 
@@ -47,6 +47,9 @@ It is still driven from a release engineer desktop but all actions are automated
 using [githubctl](https://github.com/istio/test-infra/blob/master/toolbox/githubctl/main.go),
 a tool of our own that acts as a GitHub client making REST calls through the GitHub API.
 One may get githubctl from the istio/test-infra repository
+
+
+You will need a ```<github token file>``` text file containing the github peronal access token setup following the [instruction](https://github.com/istio/istio/blob/master/devel/README.md#setting-up-a-personal-access-token)
 
 ```
 $ git clone https://github.com/istio/test-infra.git
@@ -73,31 +76,55 @@ $ githubctl --token_file=<github token file> \
     --base_branch=<release branch or master>
 ```
 
-Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth. 
+Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth.
  Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589).
 
 Step 3: Create an update PR in istio/istio.
 ```
 $ githubctl --token_file=<github token file> \
-    --op=updateIstioVersion --base_branch=<release branch or master> 
+    --op=updateIstioVersion --base_branch=<release branch or master>
 ```
 This will run all the presubmits on the istio repo, smoke testing the created artifacts.
 
-Step 4: Request PR approval and wait for the PR to be merged.
+Step 4: Request PR approval and wait for the PR to be merged. Note down the SHA
+of the merged PR in `RELEASE_SHA`. We will create the release tag from it.
 
-Step 5: Finalize the release. This creates the release in GitHub, uploads the artifacts,
+Step 5: Finalize the release. This creates the release draft in GitHub, uploads the artifacts,
  advances next release tag, and updates download script with latest release:
 ```
 $ githubctl --token_file=<github token file> \
     --op=uploadArtifacts --base_branch=<release branch or master> \
-    --next_release=0.2.2
+    --next_release=<next release> --ref_sha=${RELEASE_SHA}
 ```
 
-```<github token file>``` is a text file containing the github peronal access token setup following the [instruction](https://github.com/istio/istio/blob/master/devel/README.md#setting-up-a-personal-access-token)
+Note: 
+1. `<next release>` is where the next release after the release draft that is being created.  For example, if you are creating 0.2.7 release, the next release could be 0.2.8.  
+2. For Mac, install `gcp` via ```brew install coreutils``` and install `gtar` via ```brew install gnu-tar```.  Execute the command below instead:
+
+```
+$ TAR=gtar CP=gcp githubctl --token_file=<github token file> \
+    --op=uploadArtifacts --base_branch=<release branch or master> \
+    --next_release=<next release> --ref_sha=${RELEASE_SHA}
+```
+ 
+Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions.
+
+If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
+```Bash
+$ git clone https://github.com/istio/test-infra
+$ cd test-infra
+$ bazel build //toolbox/release_note_collector:release_note_collector
+$ bazel bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
+$ cat release-note
+```
+
+Go to Istio release [page](https://github.com/istio/istio/releases) to find your
+release. Click on the RELEASE_NOTES link and add your release notes. Once the
+release notes are to your taste, click on ```Publish the release```.
 
 ### Revert a failed release
 
-When a release failed, we need to clean up partial state before retry. A common case is that a build failed when doing Step 2 from the above. We need to rollback the Step 1 by doing the following: 
+When a release failed, we need to clean up partial state before retry. A common case is that a build failed when doing Step 2 from the above. We need to rollback the Step 1 by doing the following:
 
 1. Remove new tags on the repos by finding the release and click "delete tag".
    * https://github.com/istio/auth/releases
@@ -205,19 +232,4 @@ and edit the release that points to ```${RELEASE_TAG}```. Uploads the artifacts 
 
 Create a PR, where you increment ```istio.RELEASE``` for the next
 release and you update ```istio/downloadIstio.sh``` to point to ```${RELEASE_TAG}```
-
-### Generate release-note
-
-First make sure you finished tagging.
-
-This tool helps you to collect release-note left in PR descriptions.
-
-If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
-```Bash
-$ git clone https://github.com/istio/test-infra
-$ cd test-infra
-$ bazel build //toolbox/release_note_collector:release_note_collector
-$ bazel bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
-$ cat release-note
-```
 

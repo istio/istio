@@ -1,0 +1,46 @@
+# Client inside the cluster, not istio injected
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: raw-cli-deployement
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: fortio
+    spec:
+      containers:
+      - name: fortio
+        # That image runs the servers (so it will run forever) but has the
+        # /usr/local/bin/fortio client
+        image: FORTIO_IMAGE
+        imagePullPolicy: Always
+---
+# Extra debug / shell
+apiVersion: v1
+kind: Pod
+metadata:
+  name: shell
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: shell
+---
+# Mysql (client) debug
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysqlclient-noistio
+spec:
+  containers:
+  - image: mysql
+    command:
+      - sleep
+      - "360000"
+    imagePullPolicy: IfNotPresent
+    name: mysqlclient-noistio

@@ -161,15 +161,16 @@ export CA_HUB="${CA_HUB}"
 export CA_TAG="${CA_TAG}"
 export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
-export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
+export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PROXY_TAG="${PROXY_TAG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
 export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
-
+export FORTIO_HUB="${FORTIO_HUB}"
+export FORTIO_TAG="${FORTIO_TAG}"
 EOF
 }
 
@@ -213,6 +214,36 @@ function update_istio_addons() {
   popd
 }
 
+function update_istio_install_consul() {
+  pushd $TEMP_DIR/templates
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+  popd
+}
+
+# Generated merge yaml files for easy installation
+function merge_files_consul() {
+  SRC=$TEMP_DIR/templates
+  DEST=$ROOT/install/consul
+
+  ISTIO=$DEST/istio.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and Consul" > $ISTIO
+  echo "# TO UPDATE, modify files in install/consul/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+}
+
+# Generated merge yaml files for easy installation
+function merge_files_eureka() {
+  SRC=$TEMP_DIR/templates
+  DEST=$ROOT/install/eureka
+
+  ISTIO=$DEST/istio.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and Eureka" > $ISTIO
+  echo "# TO UPDATE, modify files in install/eureka/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+}
+
 if [[ ${GIT_COMMIT} == true ]]; then
     check_git_status \
       || error_exit "You have modified files. Please commit or reset your workspace."
@@ -223,6 +254,16 @@ update_version_file
 update_istio_install
 update_istio_addons
 merge_files
+rm -R $TEMP_DIR/templates
+
+cp -R $ROOT/install/consul/templates $TEMP_DIR/templates
+update_istio_install_consul
+merge_files_consul
+rm -R $TEMP_DIR/templates
+
+cp -R $ROOT/install/eureka/templates $TEMP_DIR/templates
+update_istio_install_consul
+merge_files_eureka
 rm -R $TEMP_DIR/templates
 
 if [[ ${GIT_COMMIT} == true ]]; then

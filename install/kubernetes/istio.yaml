@@ -270,7 +270,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:c2c6b0a9e8217f675cfd916bb87ca5e5d4fab2c8
+        image: gcr.io/istio-testing/mixer:3975f023a26c525f9a39a82d804bd6fffd23c3b9
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -953,6 +953,8 @@ data:
     rdsRefreshDelay: 1s
     #
     defaultConfig:
+      # NOTE: If you change any values in this section, make sure to make
+      # the same changes in start up args in istio-ingress and istio-egress pods.
       # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 1s
       #
@@ -1074,7 +1076,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:63e0701bda0a0aba18597ef933568b803b8cce95
+        image: gcr.io/istio-testing/pilot:a8dec7b84d253b3e9d532090e2e150175b991211
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
@@ -1143,7 +1145,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:63e0701bda0a0aba18597ef933568b803b8cce95
+        image: gcr.io/istio-testing/proxy_debug:a8dec7b84d253b3e9d532090e2e150175b991211
         args:
         - proxy
         - ingress
@@ -1151,6 +1153,22 @@ spec:
         - "2"
         - --discoveryAddress
         - istio-pilot:8080
+        - --discoveryRefreshDelay
+        - '1s' #discoveryRefreshDelay
+        - --drainDuration
+        - '45s' #drainDuration
+        - --parentShutdownDuration
+        - '1m0s' #parentShutdownDuration
+        - --connectTimeout
+        - '10s' #connectTimeout
+        - --serviceCluster
+        - istio-ingress
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-mixer:9125
+        - --proxyAdminPort
+        - "15000"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -1220,7 +1238,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:63e0701bda0a0aba18597ef933568b803b8cce95
+        image: gcr.io/istio-testing/proxy_debug:a8dec7b84d253b3e9d532090e2e150175b991211
         imagePullPolicy: IfNotPresent
         args:
         - proxy
@@ -1229,6 +1247,22 @@ spec:
         - "2"
         - --discoveryAddress
         - istio-pilot:8080
+        - --discoveryRefreshDelay
+        - '1s' #discoveryRefreshDelay
+        - --drainDuration
+        - '45s' #drainDuration
+        - --parentShutdownDuration
+        - '1m0s' #parentShutdownDuration
+        - --connectTimeout
+        - '10s' #connectTimeout
+        - --serviceCluster
+        - istio-egress
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-mixer:9125
+        - --proxyAdminPort
+        - "15000"
         env:
         - name: POD_NAME
           valueFrom:
@@ -1279,6 +1313,6 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.2.6
+        image: docker.io/istio/istio-ca:0.2.7
         imagePullPolicy: IfNotPresent
 ---

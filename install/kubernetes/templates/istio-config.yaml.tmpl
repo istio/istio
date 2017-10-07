@@ -32,6 +32,8 @@ data:
     rdsRefreshDelay: 1s
     #
     defaultConfig:
+      # NOTE: If you change any values in this section, make sure to make
+      # the same changes in start up args in istio-ingress and istio-egress pods.
       # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 1s
       #

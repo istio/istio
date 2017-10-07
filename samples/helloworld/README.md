@@ -1,11 +1,11 @@
 # Helloworld service
 
 This sample runs two versions of a simple helloworld service that return their version and instance (hostname)
-when called. It's used to demonstrate canary deployments working in conjuction with autoscaling.
+when called. It's used to demonstrate canary deployments working in conjunction with autoscaling.
 See [Canary deployments using istio](https://istio.io/blog/canary-deployments-using-istio.html).
 
 ## Start the services
- 
+
 Note that kubernetes horizontal pod autosclalers only work if every container in the pods requests
 cpu. Since the Istio proxy container added by kube-inject does not currently do it, we
 need to edit the yaml before creating the deployment.

@@ -22,9 +22,12 @@ RUN apt-get update && apt-get -y install iptables curl
 RUN adduser -disabled-password --gecos "" --uid 1337 istio-proxy
 RUN chown istio-proxy /etc/istio/proxy
 
-COPY ./envoy /usr/local/bin/
-COPY ./prepare_proxy.sh /opt/istio/
-COPY ./servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
+COPY envoy.deb /opt/istio/
+RUN dpkg -i /opt/istio/envoy.deb
+RUN rm /opt/istio/envoy.deb
+
+COPY prepare_proxy.sh /opt/istio/
+COPY servers/LibertyProjectServer /opt/ibm/wlp/usr/servers/defaultServer/
 
 RUN /opt/ibm/wlp/bin/installUtility install  --acceptLicense /opt/ibm/wlp/usr/servers/defaultServer/server.xml
 
@@ -35,8 +38,8 @@ ENV SERVICE_VERSION ${service_version:-v1}
 ENV ENABLE_RATINGS ${enable_ratings:-false}
 ENV STAR_COLOR ${star_color:-black}
 
-COPY ./start_service.sh /usr/local/bin/
+COPY start_service.sh /usr/local/bin/
 RUN chmod u+x /usr/local/bin/start_service.sh
-COPY ./pilot-agent /opt/istio/
+COPY pilot-agent /opt/istio/
 
 ENTRYPOINT /usr/local/bin/start_service.sh
