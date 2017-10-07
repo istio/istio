@@ -74,7 +74,7 @@ spec:
           exec:
             command:
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
-          initialDelaySeconds: 10
+          initialDelaySeconds: 3
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
@@ -82,7 +82,7 @@ spec:
           exec:
             command:
             - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
-          initialDelaySeconds: 15
+          initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
