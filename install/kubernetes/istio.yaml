@@ -1190,7 +1190,7 @@ spec:
             - -c
             - /usr/bin/curl http://localhost:15000/clusters
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 20
           timeoutSeconds: 3
           failureThreshold: 10
         env:
@@ -1300,7 +1300,7 @@ spec:
             - -c
             - curl http://localhost:15000/clusters
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 20
           timeoutSeconds: 3
           failureThreshold: 10
         env:
