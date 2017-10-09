@@ -7,10 +7,11 @@ pkg_tar(
     name = "mixer_servicegraph_tar",
     extension = "tar.gz",
     files = [
-        "//example/servicegraph/cmd/server:servicegraph",
+        "//example/servicegraph/cmd/server",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
+    symlinks = {"/usr/local/bin/servicegraph": "/usr/local/bin/server"},
     tags = ["manual"],
 )
 

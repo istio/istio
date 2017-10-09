@@ -4,13 +4,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 MIXER_DEPS = [
     "@com_github_istio_mixer//pkg/adapter:go_default_library",
-    "@com_github_istio_api//:mixer/v1/template",
-    "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+    "@io_istio_api//:mixer/v1/template",
+    "@io_istio_api//:mixer/v1/config/descriptor",  # keep
 ]
 
 MIXER_INPUTS = [
-    "@com_github_istio_api//:mixer/v1/template_protos",
-    "@com_github_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+    "@io_istio_api//:mixer/v1/template_protos",
+    "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
 ]
 
 MIXER_IMPORT_MAP = {
@@ -23,8 +23,8 @@ MIXER_IMPORT_MAP = {
 # depending on whether or not we are building within mixer proper or in a third-party repo
 # that depends on mixer proper.
 MIXER_IMPORTS = [
-    "external/com_github_istio_api",
-    "../../external/com_github_istio_api",
+    "external/io_istio_api",
+    "../../external/io_istio_api",
 ]
 
 # TODO: fill in with complete set of GOGO DEPS and IMPORT MAPPING
@@ -145,13 +145,13 @@ def _mixer_supported_template_gen(name, packages, out):
 
 DEPS_FOR_ALL_TMPLS = [
     "@com_github_istio_mixer//pkg/adapter:go_default_library",
-    "@com_github_istio_api//:mixer/v1/template",
     "@com_github_istio_mixer//pkg/attribute:go_default_library",
     "@com_github_istio_mixer//pkg/expr:go_default_library",
     "@com_github_istio_mixer//pkg/template:go_default_library",
     "@com_github_gogo_protobuf//proto:go_default_library",
     "@com_github_golang_glog//:go_default_library",
-    "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+    "@io_istio_api//:mixer/v1/config/descriptor",  # keep
+    "@io_istio_api//:mixer/v1/template",
 ]
 
 def mixer_supported_template_library(name, packages, deps):

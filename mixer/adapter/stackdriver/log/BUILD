@@ -25,5 +25,9 @@ go_test(
         "//adapter/stackdriver/config:go_default_library",
         "//pkg/adapter/test:go_default_library",
         "//template/logentry:go_default_library",
+        "@com_google_cloud_go//logging:go_default_library",
+        "@org_golang_google_api//option:go_default_library",
+        "@org_golang_google_genproto//googleapis/api/monitoredres:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
     ],
 )

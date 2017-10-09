@@ -2,23 +2,21 @@
 
 set -ex
 
-if ! type gazelle &> /dev/null ; then
-    go get github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
-fi
-
-# Force update of gazelle if build_file_name flag is not present.
-if ! gazelle --help 2>&1 | grep build_file_name >/dev/null; then
-    go get -u github.com/bazelbuild/rules_go/go/tools/gazelle/gazelle
-fi
-
 # Remove the symbolic link of generated pb.go files and .gen.go files
 # to prevent gazelle from creating wrong go_proto_library.
 find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
 
-gazelle \
-    -go_prefix istio.io/mixer
+bazel run //:gazelle
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  params=(-i "")
+else
+  params=(-i)
+fi
 
 find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
-    xargs -0 sed -i \
-          -e '/\/\/mixer\/v1.*:go_default_library/d' \
-          -e 's|google/rpc:go_default_library|:google/rpc|g'
+    xargs -0 sed "${params[@]}" \
+          -e 's|google/rpc:go_default_library|:google/rpc|g' \
+          -e 's|@io_istio_api//mixer/v1/config/descriptor:go_default_library|@io_istio_api//:mixer/v1/config/descriptor|g' \
+          -e 's|@io_istio_api//mixer/v1:go_default_library|@io_istio_api//:mixer/v1|g' \
+          -e 's|@io_istio_api//mixer/v1/template:go_default_library|@io_istio_api//:mixer/v1/template|g'

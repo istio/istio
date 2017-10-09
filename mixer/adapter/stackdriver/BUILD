@@ -20,6 +20,7 @@ go_test(
     srcs = ["stackdriver_test.go"],
     library = ":go_default_library",
     deps = [
+        "//adapter/stackdriver/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
         "//template/logentry:go_default_library",

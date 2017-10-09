@@ -35,11 +35,11 @@ go_library(
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_prometheus//:go_default_library",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_openzipkin_zipkin_go_opentracing//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//grpclog/glogger:go_default_library",
@@ -52,6 +52,7 @@ go_test(
     srcs = ["crd_test.go"],
     library = ":go_default_library",
     deps = [
+        "//adapter:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/template:go_default_library",
         "//template:go_default_library",

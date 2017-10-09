@@ -263,8 +263,8 @@ def tools_generated_files(WKSPC):
                     makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/modelgen/testdata/" + file)
 
 def config_proto(WKSPC, genfiles):
-    if os.path.exists(genfiles + "com_github_istio_api/fixed_cfg.pb.go"):
-        makelink(genfiles + "com_github_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
+    if os.path.exists(genfiles + "io_istio_api/fixed_cfg.pb.go"):
+        makelink(genfiles + "io_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
 
 def attributes_list(WKSPC, genfiles):
     if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):

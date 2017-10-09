@@ -1,19 +1,17 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = [
-        "testenv.go",
-    ],
+    srcs = ["testenv.go"],
     deps = [
         "//cmd/server/cmd:go_default_library",
         "//cmd/shared:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/attribute:go_default_library",
         "//pkg/template:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
+        "@io_istio_api//:mixer/v1",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
@@ -30,9 +28,8 @@ go_test(
         "//adapter/denier:go_default_library",
         "//pkg/adapter:go_default_library",
         "//template:go_default_library",
-        "//test/testenv:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
         "@com_github_pborman_uuid//:go_default_library",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_x_net//context:go_default_library",
     ],
 )

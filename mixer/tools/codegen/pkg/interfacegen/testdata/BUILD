@@ -66,10 +66,10 @@ proto_compile(
     ],
     imports = [
         "external/com_github_google_protobuf/src",
-        "external/com_github_istio_api",
+        "external/io_istio_api",
     ],
     inputs = [
-        "@com_github_istio_api//:mixer/v1/template_protos",
+        "@io_istio_api//:mixer/v1/template_protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = ["ErrorTemplate.proto"],
