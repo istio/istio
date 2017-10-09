@@ -1186,9 +1186,8 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - /usr/bin/curl http://localhost:15000/clusters
+            - curl
+            - http://localhost:15000/clusters
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 3
@@ -1296,9 +1295,8 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - curl http://localhost:15000/clusters
+            - curl
+            - http://localhost:15000/clusters
           initialDelaySeconds: 5
           periodSeconds: 20
           timeoutSeconds: 3
