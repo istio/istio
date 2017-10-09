@@ -9,10 +9,11 @@
 # It does so by making symlinks from WORKSPACE/vendor to the bazel
 # sandbox dirs
 #
+import ast
 import glob
 import os
+import subprocess
 
-import ast
 from urlparse import urlparse
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -124,8 +125,12 @@ def makelink(target, linksrc):
     print "Linked ", linksrc, '-->', target
 
 
+def bazel_info(name):
+    return subprocess.check_output(["bazel", "info", name]).strip()
+
+
 def bazel_to_vendor(WKSPC):
-    WKSPC = os.path.abspath(WKSPC)
+    WKSPC = bazel_info("workspace")
     workspace = os.path.join(WKSPC, "WORKSPACE")
 
     if not os.path.isfile(workspace):
@@ -134,14 +139,12 @@ def bazel_to_vendor(WKSPC):
         return -1
 
     vendor = os.path.join(WKSPC, "vendor")
-    root = os.path.join(WKSPC, "bazel-%s" % os.path.basename(WKSPC))
-    genfiles = os.path.join(WKSPC, "bazel-genfiles", "external")
-    lf = os.readlink(root)
-    EXEC_ROOT = os.path.dirname(lf)
-    BLD_DIR = os.path.dirname(EXEC_ROOT)
-    external = os.path.join(BLD_DIR, "external")
+    root = bazel_info("execution_root")
+    genfiles = bazel_info("bazel-genfiles")
+    genfiles_external = os.path.join(genfiles, "external")
+    external = os.path.join(root, "external")
 
-    links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles, vendor)}
+    links = {target: linksrc for(target, linksrc) in process(workspace, external, genfiles_external, vendor)}
 
     bysrc = {}
 
@@ -173,7 +176,7 @@ def bazel_to_vendor(WKSPC):
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
 
-    protos(WKSPC)
+    protos(WKSPC, genfiles, genfiles_external)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
@@ -185,11 +188,9 @@ def main(args):
 
     bazel_to_vendor(WKSPC)
 
-def protos(WKSPC):
-    genfiles = os.path.join(WKSPC, "bazel-genfiles")
-    external = os.path.join(genfiles, 'external')
+def protos(WKSPC, genfiles, genfiles_external):
     for directory, dirnames, filenames in os.walk(genfiles):
-        if directory.startswith(external):
+        if directory.startswith(genfiles_external):
             continue
         for file in filenames:
             if file.endswith(".pb.go"):
