@@ -8,10 +8,11 @@ pkg_tar(
     name = "mixer_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/server:mixs",
+        "//cmd/server",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
+    symlinks = {"/usr/local/bin/mixs": "/usr/local/bin/server"},
     tags = ["manual"],
 )
 

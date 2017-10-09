@@ -1,4 +1,3 @@
-# gazelle:ignore
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
@@ -41,14 +40,15 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/noopLegacy:go_default_library",
         "//pkg/adapter:go_default_library",
+        "//pkg/aspect:go_default_library",
+        "//pkg/attribute:go_default_library",
+        "//pkg/config:go_default_library",
         "//pkg/config/descriptor:go_default_library",
-        "//pkg/template:go_default_library",
-        "//template/sample:go_default_library",
-        "//template/sample/report:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
+        "//pkg/config/proto:go_default_library",
+        "//pkg/expr:go_default_library",
+        "//pkg/pool:go_default_library",
+        "//pkg/status:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
     ],
 )

@@ -17,11 +17,11 @@ go_library(
         "//pkg/tracing/zipkin:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//ext:go_default_library",
         "@com_github_openzipkin_zipkin_go_opentracing//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
+        "@io_istio_api//:mixer/v1",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

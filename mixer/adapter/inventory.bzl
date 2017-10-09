@@ -14,6 +14,8 @@ def _inventory_gen(name, packages, out):
 
 DEPS = [
     "//pkg/adapter:go_default_library",
+    "//adapter/kubernetes:go_default_library",
+    "//adapter/noopLegacy:go_default_library",
 ]
 
 def inventory_library(name, packages, deps):
@@ -21,6 +23,6 @@ def inventory_library(name, packages, deps):
 
   go_library(
       name = name,
-      srcs = ["inventory.gen.go"],      
+      srcs = ["inventory.gen.go", "inventory.go"],
       deps = deps + DEPS,
   )

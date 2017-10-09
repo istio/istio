@@ -31,6 +31,7 @@ go_test(
         "//adapter/prometheus/config:go_default_library",
         "//pkg/adapter:go_default_library",
         "//pkg/adapter/test:go_default_library",
+        "//template/metric:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_model//go:go_default_library",
     ],

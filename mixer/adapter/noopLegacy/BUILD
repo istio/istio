@@ -6,11 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = ["noop.go"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/status:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-    ],
+    deps = ["//pkg/adapter:go_default_library"],
 )
 
 go_test(

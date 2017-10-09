@@ -19,6 +19,6 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/config/proto:go_default_library",
         "//pkg/expr:go_default_library",
-        "@com_github_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@io_istio_api//:mixer/v1/config/descriptor",
     ],
 )

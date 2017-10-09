@@ -8,7 +8,7 @@ go_library(
         "bag.go",
         "dictState.go",
         "emptyBag.go",
-        "list.gen.go",
+        "list.gen.go",  # keep
         "mutableBag.go",
         "protoBag.go",
     ],
@@ -17,7 +17,7 @@ go_library(
         "//pkg/pool:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_istio_api//:mixer/v1",  # keep
+        "@io_istio_api//:mixer/v1",
     ],
 )
 
@@ -26,16 +26,14 @@ go_test(
     size = "small",
     srcs = ["bag_test.go"],
     library = ":go_default_library",
-    deps = [
-        "@com_github_istio_api//:mixer/v1",  # keep
-    ],
+    deps = ["@io_istio_api//:mixer/v1"],
 )
 
 genrule(
     name = "global_list",
-    srcs = ["@com_github_istio_api//:mixer/v1/attributes_file"],
+    srcs = ["@io_istio_api//:mixer/v1/attributes_file"],
     outs = ["list.gen.go"],
-    cmd = "$(location //:generate_word_list) $(location @com_github_istio_api//:mixer/v1/attributes_file) | $(location @org_golang_x_tools_imports//:goimports) > $@",
+    cmd = "$(location //:generate_word_list) $(location @io_istio_api//:mixer/v1/attributes_file) | $(location @org_golang_x_tools_imports//:goimports) > $@",
     message = "Generating word list",
     tools = [
         "//:generate_word_list",
