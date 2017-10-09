@@ -15,18 +15,18 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: ratings-v2
+  name: ratings-v2-mysql
 spec:
   replicas: 1
   template:
     metadata:
       labels:
         app: ratings
-        version: v2
+        version: v2-mysql
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v2:0.2.8
+        image: gcr.io/istio-testing/examples-bookinfo-ratings-v2:0.2.8
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.
