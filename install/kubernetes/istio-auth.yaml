@@ -1178,8 +1178,8 @@ spec:
             command:
             - /bin/sh
             - -c
-            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
-          initialDelaySeconds: 3
+            - curl -f http://localhost:15000/clusters && curl -f http://localhost:15000/listeners && curl -f http://localhost:15000/routes
+          initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
@@ -1187,8 +1187,9 @@ spec:
           exec:
             command:
             - curl
+            - -f
             - http://localhost:15000/clusters
-          initialDelaySeconds: 5
+          initialDelaySeconds: 17
           periodSeconds: 20
           timeoutSeconds: 3
           failureThreshold: 10
@@ -1287,8 +1288,8 @@ spec:
             command:
             - /bin/sh
             - -c
-            - curl http://localhost:15000/clusters && curl http://localhost:15000/listeners && curl http://localhost:15000/routes
-          initialDelaySeconds: 3
+            - curl -f http://localhost:15000/clusters && curl -f http://localhost:15000/listeners && curl -f http://localhost:15000/routes
+          initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 10
@@ -1296,8 +1297,9 @@ spec:
           exec:
             command:
             - curl
+            - -f
             - http://localhost:15000/clusters
-          initialDelaySeconds: 5
+          initialDelaySeconds: 17
           periodSeconds: 20
           timeoutSeconds: 3
           failureThreshold: 10
