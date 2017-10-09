@@ -1,3 +1,6 @@
+# TODO: Convert to a gazelle friendly go_binary.name and remove "ignore"
+# gazelle:ignore
+
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("//docker:mixer_docker.bzl", "mixer_docker_build")
 load(":cacerts.bzl", "cacerts")
@@ -8,11 +11,10 @@ pkg_tar(
     name = "mixer_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/server",
+        "//cmd/server:mixs",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
-    symlinks = {"/usr/local/bin/mixs": "/usr/local/bin/server"},
     tags = ["manual"],
 )
 
