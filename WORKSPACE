@@ -174,3 +174,9 @@ go_repository(
     commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
     importpath = "github.com/prometheus/client_golang",
 )
+
+go_repository(
+    name = "com_github_istio_fortio",
+    commit = "38403d11e5fd3ff7cc3a6f53a14220775f4b7e8f", # TODO replace with latest
+    importpath = "github.com/istio/fortio",
+)

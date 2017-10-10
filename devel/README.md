@@ -380,7 +380,7 @@ Assuming you did (once):
 4. You can then use
    - [update_all](update_all) : script to build from source
    - [setup_run](setup_run) : run locally
-   - [fortio](fortio/) (φορτίο) : load testing and minimal echo http and grpc server
+   - [fortio](https://github.com/istio/fortio/) (φορτίο) : load testing and minimal echo http and grpc server
    - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
    ```bash
