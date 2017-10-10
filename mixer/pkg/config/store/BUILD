@@ -8,6 +8,7 @@ go_library(
         "convert.go",
         "fsstore.go",
         "fsstore2.go",
+        "memstore.go",
         "queue.go",
         "store.go",
         "store2.go",
