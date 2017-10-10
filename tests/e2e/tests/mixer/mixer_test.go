@@ -34,7 +34,7 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/istio/fortio/http"
+	"istio.io/fortio/http"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )

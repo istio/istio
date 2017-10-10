@@ -176,7 +176,7 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_istio_fortio",
-    commit = "38403d11e5fd3ff7cc3a6f53a14220775f4b7e8f", # TODO replace with latest
-    importpath = "github.com/istio/fortio",
+    name = "@io_istio_fortio",
+    commit = "master",
+    importpath = "istio.io/fortio",
 )
