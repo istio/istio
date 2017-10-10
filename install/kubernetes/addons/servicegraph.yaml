@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: servicegraph
-        image: gcr.io/istio-testing/servicegraph:35cbd5d543b65d25f20711eec50b6f829c25220e
+        image: gcr.io/istio-testing/servicegraph:18f218a522b4454c460811825a4c991a04e298ad
         ports:
           - containerPort: 8088
         args:
