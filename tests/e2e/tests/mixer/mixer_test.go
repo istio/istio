@@ -34,7 +34,8 @@ import (
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
-	"istio.io/fortio/http"
+	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
@@ -496,8 +497,8 @@ func TestRateLimit(t *testing.T) {
 
 	// run at a large QPS (here 100) for a minute to ensure that enough
 	// traffic is generated to trigger 429s from the rate limit rule
-	opts := http.HTTPRunnerOptions{
-		RunnerOptions: http.RunnerOptions{
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
 			QPS:        10,
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
@@ -506,7 +507,7 @@ func TestRateLimit(t *testing.T) {
 	}
 
 	// productpage should still return 200s when ratings is rate-limited.
-	res, err := http.RunHTTPTest(&opts)
+	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
 		fatalf(t, "Generating traffic via fortio failed: %v", err)
 	}

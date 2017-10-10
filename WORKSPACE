@@ -28,6 +28,12 @@ cpp_proto_repositories()
 gogo_proto_repositories()
 
 go_repository(
+    name = "io_istio_fortio",
+    commit = "v0.2.8",
+    importpath = "istio.io/fortio",
+)
+
+go_repository(
     name = "com_github_golang_glog",
     commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
     importpath = "github.com/golang/glog",
@@ -173,10 +179,4 @@ go_repository(
     name = "com_github_prometheus_client_golang",
     commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
     importpath = "github.com/prometheus/client_golang",
-)
-
-go_repository(
-    name = "@io_istio_fortio",
-    commit = "master",
-    importpath = "istio.io/fortio",
 )

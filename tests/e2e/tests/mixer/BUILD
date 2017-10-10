@@ -16,6 +16,7 @@ go_test(
         "@com_github_prometheus_client_golang//api:go_default_library",
         "@com_github_prometheus_client_golang//api/prometheus/v1:go_default_library",
         "@com_github_prometheus_common//model:go_default_library",
-        "@io_istio_fortio//http:go_default_library",
+        "@io_istio_fortio//fhttp:go_default_library",
+        "@io_istio_fortio//periodic:go_default_library",
     ],
 )

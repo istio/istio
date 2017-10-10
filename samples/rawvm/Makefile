@@ -1,5 +1,5 @@
 
-FORTIO_IMAGE:='ldemailly/fortio:latest'
+FORTIO_IMAGE:='istio/fortio:latest'
 HUB:=gcr.io/istio-testing
 TAG:=ldemailly7
 VERBOSITY:=2
