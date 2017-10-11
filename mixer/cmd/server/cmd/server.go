@@ -39,7 +39,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/shared"
 	adptr "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
@@ -124,7 +123,7 @@ type ServerContext struct {
 	Server    *grpc.Server
 }
 
-func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := &serverArgs{}
 	serverCmd := cobra.Command{
 		Use:   "server",
@@ -141,7 +140,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, printf, f
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, info, adapters, printf, fatalf)
+			runServer(sa, info, adapters, legacyAdapters, printf, fatalf)
 		},
 	}
 
@@ -231,7 +230,8 @@ func configStore(url, serviceConfigFile, globalConfigFile string, printf, fatalf
 	return s
 }
 
-func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) *ServerContext {
+func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn,
+	legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) *ServerContext {
 	var err error
 	apiPoolSize := sa.apiWorkerPoolSize
 	adapterPoolSize := sa.adapterWorkerPoolSize
@@ -294,7 +294,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	// Legacy Runtime
 	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
-	adapterMgr := adapterManager.NewManager(adapter.InventoryLegacy(), aspect.Inventory(), evalForLegacy, gp, adapterGP)
+	adapterMgr := adapterManager.NewManager(legacyAdapters, aspect.Inventory(), evalForLegacy, gp, adapterGP)
 	configManager := config.NewManager(evalForLegacy, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
 		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
@@ -434,9 +434,9 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
 }
 
-func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with\n%s", sa)
-	context := setupServer(sa, info, adapters, printf, fatalf)
+	context := setupServer(sa, info, adapters, legacyAdapters, printf, fatalf)
 	defer context.GP.Close()
 	defer context.AdapterGP.Close()
 
