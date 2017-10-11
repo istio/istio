@@ -39,7 +39,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "-ttl-refresh=30", "-ttl=90", "eureka://eureka:8080/eureka/v2"]
 
   istio-pilot:
-    image: gcr.io/istio-testing/pilot:d2b0cedf57ef1ccc26f3d2a530274dec3fa1e07f
+    image: gcr.io/istio-testing/pilot:2610b60c1043c65bad2a4c8ef01ca67e1d75fd4f
     expose:
       - "8080"
     ports:
