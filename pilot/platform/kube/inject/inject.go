@@ -479,6 +479,16 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 	templateObjectMeta := templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 	templatePodSpec := templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
 
+	// Skip injection when host networking is enabled. The problem is
+	// that the iptable changes are assumed to be within the pod when,
+	// in fact, they are changing the routing at the host level. This
+	// often results in routing failures within a node which can
+	// affect the network provider within the cluster causing
+	// additional pod failures.
+	if templatePodSpec.HostNetwork {
+		return out, nil
+	}
+
 	for _, m := range []*metav1.ObjectMeta{objectMeta, templateObjectMeta} {
 		if m.Annotations == nil {
 			m.Annotations = make(map[string]string)

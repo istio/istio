@@ -152,6 +152,10 @@ func TestIntoResourceFile(t *testing.T) {
 			in:   "testdata/replicationcontroller.yaml",
 			want: "testdata/replicationcontroller.yaml.injected",
 		},
+		{
+			in:   "testdata/hello-host-network.yaml",
+			want: "testdata/hello-host-network.yaml.injected",
+		},
 	}
 
 	for _, c := range cases {
