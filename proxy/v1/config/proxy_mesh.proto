@@ -18,6 +18,14 @@ import "google/protobuf/duration.proto";
 
 package istio.proxy.v1.config;
 
+enum AuthPolicy {
+  // Do not encrypt Envoy to Envoy traffic.
+  NONE = 0;
+
+  // Envoy to Envoy traffic is wrapped into mutual TLS connections.
+  MUTUAL_TLS = 1;
+}
+
 // ProxyConfig defines variables for individual Envoy instances.
 message ProxyConfig {
   // Path to the generated configuration file directory.
@@ -73,6 +81,18 @@ message ProxyConfig {
   // Envoy as a sidecar in Kubernetes, this flag must be one of the availability
   // zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation.
   string availability_zone = 12;
+
+  // Authentication policy defines the global switch to control authentication
+  // for Envoy-to-Envoy communication for infra components Mixer and Pilot.
+  AuthPolicy infra_auth_policy = 13;
+
+  // Address of the mixer service (e.g. __istio-mixer:15004_).
+  // Used by the proxy in front of mixer as the port to listen to,
+  // The value must be the same as MeshConfig.mixer_address
+  string mixer_address = 14;
+
+  // Pilot subject alternate name used for mutual TLS
+  repeated string pilot_san = 15;
 }
 
 
@@ -82,7 +102,7 @@ message MeshConfig {
   // Address of the egress Envoy service (e.g. _istio-egress:80_).
   string egress_proxy_address = 1;
 
-  // Address of the mixer service (e.g. _istio-mixer:9090_).
+  // Address of the mixer service (e.g. _istio-mixer:15004_).
   // Empty value disables Mixer checks and telemetry.
   string mixer_address = 2;
 
@@ -131,6 +151,7 @@ message MeshConfig {
   // Defines whether to use Istio ingress controller for annotated or all ingress resources.
   IngressControllerMode ingress_controller_mode = 9;
 
+  // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above  
   enum AuthPolicy {
     // Do not encrypt Envoy to Envoy traffic.
     NONE = 0;
