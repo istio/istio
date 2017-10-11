@@ -2,7 +2,7 @@
 set -ex
 
 gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
-  --enable=aligncheck\
+  --enable=maligned\
   --enable=deadcode\
   --enable=errcheck\
   --enable=gas\

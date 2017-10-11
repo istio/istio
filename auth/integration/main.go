@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
@@ -102,7 +103,7 @@ func runTests(cmd *cobra.Command, args []string) {
 
 	// Delete the secret.
 	do := &metav1.DeleteOptions{}
-	if err := opts.clientset.Core().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
+	if err := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
 		glog.Fatal(err)
 	} else {
 		glog.Info(`Secret "istio.default" has been deleted`)
@@ -152,13 +153,64 @@ func createTestNamespace(clientset kubernetes.Interface) string {
 
 func deleteTestNamespace(clientset kubernetes.Interface) {
 	name := opts.namespace
-	if err := clientset.Core().Namespaces().Delete(name, &metav1.DeleteOptions{}); err != nil {
+	if err := clientset.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{}); err != nil {
 		glog.Fatalf("failed to delete namespace %q (error: %v)", name, err)
 	}
 	glog.Infof("Namespace %v is deleted", name)
 }
 
 func deployIstioCA(clientset kubernetes.Interface) {
+	// Create Role
+	role := v1alpha1.Role{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istio-ca-role",
+			Namespace: opts.namespace,
+		},
+		Rules: []v1alpha1.PolicyRule{
+			{
+				Verbs:     []string{"create", "get", "watch", "list", "update"},
+				APIGroups: []string{"core", ""},
+				Resources: []string{"secrets"},
+			},
+			{
+				Verbs:     []string{"get", "watch", "list"},
+				APIGroups: []string{"core", ""},
+				Resources: []string{"serviceaccounts"},
+			},
+		},
+	}
+	if _, err := clientset.RbacV1alpha1().Roles(opts.namespace).Create(&role); err != nil {
+		glog.Fatalf("failed to create role (error: %v)", err)
+	}
+	// Create RoleBinding
+	rolebinding := v1alpha1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istio-ca-role-binding",
+			Namespace: opts.namespace,
+		},
+		Subjects: []v1alpha1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "default",
+				Namespace: opts.namespace,
+			},
+		},
+		RoleRef: v1alpha1.RoleRef{
+			Kind:     "Role",
+			Name:     "istio-ca-role",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	if _, err := clientset.RbacV1alpha1().RoleBindings(opts.namespace).Create(&rolebinding); err != nil {
+		glog.Fatalf("failed to create rolebinding (error: %v)", err)
+	}
+	// Create Deployment
 	envVar := v1.EnvVar{
 		Name: "NAMESPACE",
 		ValueFrom: &v1.EnvVarSource{
@@ -173,7 +225,9 @@ func deployIstioCA(clientset kubernetes.Interface) {
 		Name:  "istio-ca-container",
 		Image: fmt.Sprintf("%v/%v:%v", opts.containerHub, opts.containerImage, opts.containerTag),
 	}
-	spec := v1.PodSpec{Containers: []v1.Container{container}}
+	spec := v1.PodSpec{
+		Containers: []v1.Container{container},
+	}
 	uuid := string(uuid.NewUUID())
 	objectMeta := metav1.ObjectMeta{
 		Labels: map[string]string{"uuid": uuid},
@@ -184,7 +238,7 @@ func deployIstioCA(clientset kubernetes.Interface) {
 		Spec:       spec,
 	}
 
-	if _, err := clientset.Core().Pods(opts.namespace).Create(pod); err != nil {
+	if _, err := clientset.CoreV1().Pods(opts.namespace).Create(pod); err != nil {
 		glog.Fatalf("failed to deploy Istio CA (error: %v)", err)
 	}
 
@@ -226,7 +280,7 @@ func waitForPodRunning(uuid string, timeToWait time.Duration) error {
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
 	}
-	watch, err := opts.clientset.Core().Pods(opts.namespace).Watch(listOptions)
+	watch, err := opts.clientset.CoreV1().Pods(opts.namespace).Watch(listOptions)
 	if err != nil {
 		return fmt.Errorf("failed to set up a watch for pod (error: %v)", err)
 	}
@@ -248,7 +302,7 @@ func waitForPodRunning(uuid string, timeToWait time.Duration) error {
 }
 
 func waitForSecretExist(secretName string, timeToWait time.Duration) (*v1.Secret, error) {
-	watch, err := opts.clientset.Core().Secrets(opts.namespace).Watch(metav1.ListOptions{})
+	watch, err := opts.clientset.CoreV1().Secrets(opts.namespace).Watch(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
 	}
