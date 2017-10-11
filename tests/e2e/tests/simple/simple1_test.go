@@ -35,7 +35,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/istio/devel/fortio"
+	"istio.io/fortio/fhttp"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
@@ -90,7 +90,7 @@ func TestSimpleIngress(t *testing.T) {
 		glog.Infof("Attempt %d: reply is\n%s\n---END--", i, bodyStr)
 		needle := "echo debug server on echosrv"
 		if !strings.Contains(bodyStr, needle) {
-			glog.Warningf("Not finding expected %s in %s", needle, fortio.DebugSummary(body, 128))
+			glog.Warningf("Not finding expected %s in %s", needle, fhttp.DebugSummary(body, 128))
 			continue
 		}
 		return // success
@@ -170,7 +170,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "ldemailly/fortio:latest" // TODO: change
+		image = "istio/fortio:latest" // TODO: change
 	}
 	glog.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
