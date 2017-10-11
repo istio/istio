@@ -1313,6 +1313,6 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.2.7
+        image: gcr.io/istio-testing/istio-ca:fd08656b83caa6f96fd11bb13a266bad04b468e1
         imagePullPolicy: IfNotPresent
 ---
