@@ -20,7 +20,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
-	"istio.io/mixer/adapter"
 	"istio.io/mixer/cmd/shared"
 	pkgadapter "istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapterManager"
@@ -28,7 +27,7 @@ import (
 	"istio.io/mixer/pkg/config"
 )
 
-func adapterCmd(printf shared.FormatFn) *cobra.Command {
+func adapterCmd(legacyAdapters []pkgadapter.RegisterFn, printf shared.FormatFn) *cobra.Command {
 	adapterCmd := cobra.Command{
 		Use:   "inventory",
 		Short: "InventoryLegacy of available adapters and aspects in Mixer",
@@ -38,7 +37,7 @@ func adapterCmd(printf shared.FormatFn) *cobra.Command {
 		Use:   "adapter",
 		Short: "List available adapter builders",
 		Run: func(cmd *cobra.Command, args []string) {
-			listBuilders(printf)
+			listBuilders(legacyAdapters, printf)
 		},
 	})
 
@@ -70,8 +69,8 @@ func listAspects(printf shared.FormatFn) {
 	}
 }
 
-func listBuilders(printf shared.FormatFn) {
-	builderMap := adapterManager.BuilderMap(adapter.InventoryLegacy())
+func listBuilders(legacyAdapters []pkgadapter.RegisterFn, printf shared.FormatFn) {
+	builderMap := adapterManager.BuilderMap(legacyAdapters)
 	keys := []string{}
 	for k := range builderMap {
 		keys = append(keys, k)

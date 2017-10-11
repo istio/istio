@@ -44,7 +44,7 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 		return nil, err
 	}
 
-	context := cmd.SetupTestServer(info, adapters, args.ConfigStoreURL, args.ConfigStore2URL,
+	context := cmd.SetupTestServer(info, adapters, []adapter.RegisterFn{}, args.ConfigStoreURL, args.ConfigStore2URL,
 		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
 	shutdown := make(chan struct{})
 
