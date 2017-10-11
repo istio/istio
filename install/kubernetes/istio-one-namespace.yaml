@@ -270,7 +270,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:3975f023a26c525f9a39a82d804bd6fffd23c3b9
+        image: gcr.io/istio-testing/mixer:553765f5c9c22719dff2fae57bd288b16fa99c6e
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -1076,7 +1076,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:a8dec7b84d253b3e9d532090e2e150175b991211
+        image: gcr.io/istio-testing/pilot:2610b60c1043c65bad2a4c8ef01ca67e1d75fd4f
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
@@ -1145,7 +1145,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:a8dec7b84d253b3e9d532090e2e150175b991211
+        image: gcr.io/istio-testing/proxy_debug:2610b60c1043c65bad2a4c8ef01ca67e1d75fd4f
         args:
         - proxy
         - ingress
@@ -1238,7 +1238,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:a8dec7b84d253b3e9d532090e2e150175b991211
+        image: gcr.io/istio-testing/proxy_debug:2610b60c1043c65bad2a4c8ef01ca67e1d75fd4f
         imagePullPolicy: IfNotPresent
         args:
         - proxy
@@ -1315,7 +1315,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: docker.io/istio/istio-ca:0.2.7
+        image: gcr.io/istio-testing/istio-ca:fd08656b83caa6f96fd11bb13a266bad04b468e1
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
