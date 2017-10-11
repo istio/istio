@@ -48,5 +48,3 @@ bazel test --test_output=all //...
 echo 'Checking that updateVersion has been called'
 install/updateVersion.sh -s
 
-echo 'Pushing Images'
-(cd devel/fortio && make authorize all TAG="${GIT_SHA}")
