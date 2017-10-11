@@ -36,6 +36,7 @@ import (
 	"github.com/golang/glog"
 
 	"istio.io/fortio/fhttp"
+	"istio.io/fortio/periodic"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/e2e/util"
 )
@@ -173,15 +174,15 @@ func Test404sDuringChanges(t *testing.T) {
 	}()
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for any non 200s
-	opts := fortio.HTTPRunnerOptions{
-		RunnerOptions: fortio.RunnerOptions{
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
 			QPS:        8,
 			Duration:   20 * time.Second,
 			NumThreads: 8,
 		},
 		URL: url,
 	}
-	res, err := fortio.RunHTTPTest(&opts)
+	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}
@@ -206,15 +207,15 @@ func Test503sWithPartialRules(t *testing.T) {
 	defer tc.Kube.Istioctl.DeleteRule(rulePath) // nolint:errcheck
 	// run at a low/moderate QPS for a while while changing the routing rules,
 	// check for any non 200s
-	opts := fortio.HTTPRunnerOptions{
-		RunnerOptions: fortio.RunnerOptions{
+	opts := fhttp.HTTPRunnerOptions{
+		RunnerOptions: periodic.RunnerOptions{
 			QPS:        8,
 			Duration:   20 * time.Second,
 			NumThreads: 8,
 		},
 		URL: url,
 	}
-	res, err := fortio.RunHTTPTest(&opts)
+	res, err := fhttp.RunHTTPTest(&opts)
 	if err != nil {
 		t.Fatalf("Generating traffic via fortio failed: %v", err)
 	}

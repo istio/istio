@@ -10,6 +10,7 @@ go_test(
         "//tests/e2e/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@io_istio_fortio//fhttp:go_default_library",
+        "@io_istio_fortio//periodic:go_default_library",
     ],
 )
 
