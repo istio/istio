@@ -25,3 +25,7 @@ set -e
 set -u
 # Print commands
 set -x
+
+echo "=== Bazel Build ==="
+bazel build //...
+
