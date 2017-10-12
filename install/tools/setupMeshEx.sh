@@ -69,13 +69,11 @@ function istioDnsmasq() {
   #/etc/dnsmasq.d/kubedns
   echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
   echo "address=/istio-mixer/$MIXER_IP" >> kubedns
-  echo "address=/mixer-server/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
   echo "address=/istio-ca/$CA_IP" >> kubedns
   # Also generate host entries for the istio-system. The generated config will work with both
   # 'cluster-wide' and 'per-namespace'.
   echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
-  echo "address=/mixer-server.$NS/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
   echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
 
