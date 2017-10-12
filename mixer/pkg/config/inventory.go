@@ -16,15 +16,12 @@ package config
 
 import (
 	"istio.io/mixer/pkg/config/crd"
-	"istio.io/mixer/pkg/config/redis"
 	"istio.io/mixer/pkg/config/store"
 )
 
 // StoreInventory returns the inventory of store backends.
 func StoreInventory() []store.RegisterFunc {
-	return []store.RegisterFunc{
-		redis.Register,
-	}
+	return nil
 }
 
 // Store2Inventory returns the inventory of Store2Backend.
