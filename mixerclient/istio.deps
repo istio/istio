@@ -3,7 +3,7 @@
 		"name": "ISTIO_API",
 		"repoName": "api",
 		"prodBranch": "master",
-		"file": "repositories.bzl",
+		"file": "WORKSPACE",
 		"lastStableSHA": "32e95fc675f9c4a41f3e88a9ef84d68ca220c968"
 	}
 ]
