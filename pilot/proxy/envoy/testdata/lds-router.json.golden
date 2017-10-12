@@ -1,0 +1,227 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:100",
+    "name": "mongo_0.0.0.0_100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:110",
+    "name": "redis_0.0.0.0_110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:443",
+    "name": "http_0.0.0.0_443",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "use_remote_address": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "443",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.3.3.5",
+           "destination.uid": "kubernetes://router.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.5",
+           "source.uid": "kubernetes://router.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:80",
+    "name": "http_0.0.0.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "use_remote_address": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "80",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.3.3.5",
+           "destination.uid": "kubernetes://router.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.5",
+           "source.uid": "kubernetes://router.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:81",
+    "name": "http_0.0.0.0_81",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "use_remote_address": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "81",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.3.3.5",
+           "destination.uid": "kubernetes://router.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.3.3.5",
+           "source.uid": "kubernetes://router.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": true
+   },
+   {
+    "address": "tcp://0.0.0.0:90",
+    "name": "tcp_0.0.0.0_90",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": true
+   }
+  ]
+ }

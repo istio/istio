@@ -183,6 +183,13 @@ func TestClusterDiscoveryIstioEgress(t *testing.T) {
 	compareResponse(response, "testdata/cds-istio-egress.json", t)
 }
 
+func TestClusterDiscoveryRouter(t *testing.T) {
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-router.json", t)
+}
+
 // Test listing all routes
 func TestRouteDiscoveryAllRoutes(t *testing.T) {
 	_, _, ds := commonSetup(t)
@@ -311,6 +318,15 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 	compareResponse(response, "testdata/rds-ingress-weighted.json", t)
 }
 
+func TestRouteDiscoveryRouterWeighted(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, weightedRouteRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-router-weighted.json", t)
+}
+
 func TestRouteDiscoveryIstioEgress(t *testing.T) {
 	_, _, ds := commonSetup(t)
 
@@ -319,7 +335,7 @@ func TestRouteDiscoveryIstioEgress(t *testing.T) {
 	compareResponse(response, "testdata/rds-istio-egress.json", t)
 }
 
-func TestSidecarListenerDiscovery(t *testing.T) {
+func TestListenerDiscoverySidecar(t *testing.T) {
 	testCases := []struct {
 		name string
 		file fileConfig
@@ -450,6 +466,21 @@ func TestListenerDiscoveryIstioEgress(t *testing.T) {
 	ds = makeDiscoveryService(t, registry, &mesh)
 	response = makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-istio-egress-auth.json", t)
+}
+
+func TestListenerDiscoveryRouter(t *testing.T) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+	ds := makeDiscoveryService(t, registry, &mesh)
+	addConfig(registry, egressRule, t)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-router.json", t)
+
+	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	ds = makeDiscoveryService(t, registry, &mesh)
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-router-auth.json", t)
 }
 
 func TestDiscoveryCache(t *testing.T) {

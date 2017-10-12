@@ -72,6 +72,12 @@ var (
 		ID:        "egress.default",
 		Domain:    "default.svc.cluster.local",
 	}
+	Router = proxy.Node{
+		Type:      proxy.Router,
+		IPAddress: "10.3.3.5",
+		ID:        "router.default",
+		Domain:    "default.svc.cluster.local",
+	}
 )
 
 // NewDiscovery builds a mock ServiceDiscovery

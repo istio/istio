@@ -1,0 +1,83 @@
+{
+  "virtual_hosts": [
+   {
+    "name": "hello.default.svc.cluster.local|http",
+    "domains": [
+     "hello:80",
+     "hello",
+     "hello.default:80",
+     "hello.default",
+     "hello.default.svc:80",
+     "hello.default.svc",
+     "hello.default.svc.cluster:80",
+     "hello.default.svc.cluster",
+     "hello.default.svc.cluster.local:80",
+     "hello.default.svc.cluster.local",
+     "10.1.0.0:80",
+     "10.1.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
+     }
+    ]
+   },
+   {
+    "name": "httpbin.default.svc.cluster.local|http",
+    "domains": [
+     "httpbin:80",
+     "httpbin",
+     "httpbin.default:80",
+     "httpbin.default",
+     "httpbin.default.svc:80",
+     "httpbin.default.svc",
+     "httpbin.default.svc.cluster:80",
+     "httpbin.default.svc.cluster",
+     "httpbin.default.svc.cluster.local:80",
+     "httpbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "host_rewrite": "httpbin.default.svc.cluster.local",
+      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
+     }
+    ]
+   },
+   {
+    "name": "world.default.svc.cluster.local|http",
+    "domains": [
+     "world:80",
+     "world",
+     "world.default:80",
+     "world.default",
+     "world.default.svc:80",
+     "world.default.svc",
+     "world.default.svc.cluster:80",
+     "world.default.svc.cluster",
+     "world.default.svc.cluster.local:80",
+     "world.default.svc.cluster.local",
+     "10.2.0.0:80",
+     "10.2.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "weighted_clusters": {
+       "clusters": [
+        {
+         "name": "out.c76febe0f151b2f8abe0f377d2052c0fbbfb959d",
+         "weight": 75
+        },
+        {
+         "name": "out.66fcc955b8875b19844f9eaf6cfda47c778c609e",
+         "weight": 25
+        }
+       ]
+      }
+     }
+    ]
+   }
+  ]
+ }

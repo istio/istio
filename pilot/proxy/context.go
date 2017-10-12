@@ -72,6 +72,9 @@ const (
 
 	// Egress type is used for cluster egress proxies
 	Egress NodeType = "egress"
+
+	// Router type is used for standalone proxies acting as L7/L4 routers
+	Router NodeType = "router"
 )
 
 // ServiceNode encodes the proxy node attributes into a URI-acceptable string

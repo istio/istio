@@ -317,17 +317,17 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 
 func makeProxyConfig() proxyconfig.ProxyConfig {
 	mesh := proxy.DefaultProxyConfig()
-	mesh.ZipkinAddress = "localhost:6000"
+	mesh.ZipkinAddress = "zipkin.istio-system:6000"
 	mesh.StatsdUdpAddress = "10.1.1.10:9125"
-	mesh.DiscoveryAddress = "localhost:8080"
+	mesh.DiscoveryAddress = "istio-pilot.istio-system:8080"
 	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }
 
 func makeMeshConfig() proxyconfig.MeshConfig {
 	mesh := proxy.DefaultMeshConfig()
-	mesh.MixerAddress = "localhost:9091"
-	mesh.EgressProxyAddress = "localhost:8888"
+	mesh.MixerAddress = "istio-mixer.istio-system:9091"
+	mesh.EgressProxyAddress = "istio-egress.istio-system:8888"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }
