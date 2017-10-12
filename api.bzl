@@ -1,44 +1,16 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 
-def protobuf_repositories(bind=True):
-    PROTOBUF_SHA = "c4083bb3d1231f8a94f2f000434e38528bdff64a" # Oct 10, 2017
-
-    native.http_archive(
-        name = "com_google_protobuf",
-        strip_prefix = "protobuf-" + PROTOBUF_SHA,
-        urls = ["https://github.com/google/protobuf/archive/" + PROTOBUF_SHA + ".tar.gz"],
-    )
-
-    native.http_archive(
-        name = "com_google_protobuf_cc",
-        strip_prefix = "protobuf-" + PROTOBUF_SHA,
-        urls = ["https://github.com/google/protobuf/archive/" + PROTOBUF_SHA + ".tar.gz"],
-    )
-
-    native.http_archive(
-        name = "com_github_google_protobuf",
-        strip_prefix = "protobuf-" + PROTOBUF_SHA,
-        urls = ["https://github.com/google/protobuf/archive/" + PROTOBUF_SHA + ".tar.gz"],
-    )
-
-    if bind:
-        native.bind(
-            name = "protoc",
-            actual = "@com_google_protobuf//:protoc",
-        )
-
-        native.bind(
-            name = "protocol_compiler",
-            actual = "@com_google_protobuf//:protoc",
-        )
-
-def go_istio_api_dependencies(bind=True):
-    protobuf_repositories(bind)
-
+def go_istio_api_dependencies():
     native.git_repository(
         name = "org_pubref_rules_protobuf",
         commit = "eafd42ce6471ce3ea265729c85e18e6180dea620",  # Sept 22, 2017 (genfiles path calculation fix)
         remote = "https://github.com/pubref/rules_protobuf",
+    )
+
+    native.git_repository(
+        name = "com_github_google_protobuf",
+        commit = "52ab3b07ac9a6889ed0ac9bf21afd8dab8ef0014",  # Oct 4, 2016 (match pubref dep)
+        remote = "https://github.com/google/protobuf.git",
     )
 
     go_repository(
@@ -141,7 +113,7 @@ cc_proto_library(
         "google/rpc/status.proto",
     ],
     imports = [
-        "../../external/com_google_protobuf/src",
+        "../../external/com_github_google_protobuf/src",
     ],
     verbose = 0,
 )
