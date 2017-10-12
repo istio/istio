@@ -40,7 +40,6 @@ else
 fi
 
 echo "=== Bazel Build ==="
-./bin/install-prereqs.sh
 bazel build //...
 
 echo "=== Go Build ==="

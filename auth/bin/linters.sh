@@ -1,8 +1,15 @@
 #!/bin/bash
+
 set -ex
 
-gometalinter --concurrency=4 --enable-gc --deadline=300s --disable-all\
-  --enable=maligned\
+LINTER_SHA='bfcc1d6942136fd86eb6f1a6fb328de8398fbd80'
+
+docker run \
+  -v $(bazel info output_base):$(bazel info output_base) \
+  -v $(pwd):/go/src/istio.io/auth \
+  -w /go/src/istio.io/auth gcr.io/istio-testing/linter:${LINTER_SHA} \
+  --concurrency=4 --enable-gc --deadline=300s --disable-all\
+  --enable=aligncheck\
   --enable=deadcode\
   --enable=errcheck\
   --enable=gas\
