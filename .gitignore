@@ -32,4 +32,3 @@
 *.pb.go
 
 .idea/
-bazel-*
