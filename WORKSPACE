@@ -13,13 +13,3 @@ go_repositories()
 load("//:api.bzl", "go_istio_api_dependencies")
 
 go_istio_api_dependencies()
-
-bind(
-    name = "protoc",
-    actual = "@com_github_google_protobuf//:protoc",
-)
-
-bind(
-    name = "protocol_compiler",
-    actual = "@com_github_google_protobuf//:protoc",
-)

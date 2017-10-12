@@ -16,12 +16,12 @@ gogo_proto_compile(
         "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
     },
     imports = [
-        "external/com_github_google_protobuf/src",
-        "../../external/com_github_google_protobuf/src",
+        "external/com_google_protobuf/src",
+        "../../external/com_google_protobuf/src",
     ],
     inputs = [
         "//mixer/v1/config/descriptor:protos",
-        "@com_github_google_protobuf//:well_known_protos",
+        "@com_google_protobuf//:well_known_protos",
     ],
     protos = [
         "cfg.proto",

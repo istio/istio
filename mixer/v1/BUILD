@@ -10,14 +10,14 @@ gogoslick_proto_library(
     },
     imports = [
         "external/com_github_gogo_protobuf",
-        "external/com_github_google_protobuf/src",
+        "external/com_google_protobuf/src",
         "external/com_github_googleapis_googleapis",
         "../../external/com_github_gogo_protobuf",
-        "../../external/com_github_google_protobuf/src",
+        "../../external/com_google_protobuf/src",
         "../../external/com_github_googleapis_googleapis",
     ],
     inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
+        "@com_google_protobuf//:well_known_protos",
         "@com_github_googleapis_googleapis//:status_proto",
         "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
     ],
@@ -31,6 +31,25 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//types:go_default_library",
         "//google/rpc:go_default_library",
     ],
+)
+
+cc_proto_library(
+    name = "cc_protos",
+    deps = [":mixer_protos"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "mixer_protos",
+    srcs = [":protos"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "//gogoproto:gogoproto_protos",
+        "//google/rpc:rpc_protos",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(

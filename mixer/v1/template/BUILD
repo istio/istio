@@ -6,11 +6,11 @@ gogoslick_proto_library(
         "google/protobuf/descriptor.proto": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
     },
     imports = [
-        "external/com_github_google_protobuf/src",
-        "../../external/com_github_google_protobuf/src",
+        "external/com_google_protobuf/src",
+        "../../external/com_google_protobuf/src",
     ],
     inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
+        "@com_google_protobuf//:well_known_protos",
     ],
     protos = [":protos"],
     verbose = 0,

@@ -10,16 +10,30 @@ gogoslick_proto_library(
         "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
     },
     imports = [
-        "external/com_github_google_protobuf/src",
-        "../../external/com_github_google_protobuf/src",
+        "external/com_google_protobuf/src",
+        "../../external/com_google_protobuf/src",
     ],
     inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
+        "@com_google_protobuf//:well_known_protos",
     ],
     deps = [
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
     verbose = 0,
+)
+
+cc_proto_library(
+    name = "cc_protos",
+    deps = [":rpc_protos"],
+)
+
+proto_library(
+    name = "rpc_protos",
+    srcs = [":protos"],
+    deps = [
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:duration_proto",
+    ],
 )
 
 filegroup(

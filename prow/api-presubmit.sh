@@ -27,5 +27,6 @@ set -u
 set -x
 
 echo "=== Bazel Build ==="
+bazel version
 bazel build //...
 
