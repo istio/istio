@@ -6,11 +6,11 @@ set -ex
 bin/bazel_to_go.py
 
 # Link generated proto files
-ln -sf ${PWD}/bazel-genfiles/proto/ca_service.pb.go proto/
+ln -sf $(bazel info bazel-genfiles)/proto/ca_service.pb.go proto/
 
 
 mkdir -p vendor/github.com/googleapis/googleapis/google/rpc
-for f in $(pwd)/bazel-genfiles/external/com_github_googleapis_googleapis/google/rpc/*.pb.go; do
+for f in $(bazel info bazel-genfiles)/external/com_github_googleapis_googleapis/google/rpc/*.pb.go; do
   ln -sf $f vendor/github.com/googleapis/googleapis/google/rpc/
 done
 
