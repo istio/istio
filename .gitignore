@@ -11,4 +11,6 @@ vendor
 *.pb.go
 # vi backups
 *.bak
-
+# Vm setup generated files
+cluster.env
+kubedns

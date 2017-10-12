@@ -25,8 +25,6 @@
 
 # Environment variables used:
 #
-# ISTIO_STAGING - directory where istio artifacts are downloaded, default to
-# current dir
 # ISTIO_NAMESPACE - control plane namespace, defaults to istio-system, only
 # needs to be set for custom deployments
 # K8S_CLUSTER - name of the K8S cluster.
@@ -56,7 +54,7 @@ function istioDnsmasq() {
     CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
     if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
-        echo Waiting for ILBs
+        echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
         sleep 5
     else
         break
@@ -90,6 +88,7 @@ function istioDnsmasq() {
 function istioClusterEnv() {
    local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
 
+   # TODO: parse it all from $(kubectl config current-context)
    CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
    echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 
@@ -190,7 +189,7 @@ elif [[ ${1:-} == "machineSetup" ]] ; then
   istioBootstrapVM $1
 else
   echo "$0 generateDnsmasq: Generate dnsmasq config files (one time)"
-  echo "$0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
+  echo "GCP_OPTS=\"--project P --zone Z\" $0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
   echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
   echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
 fi
