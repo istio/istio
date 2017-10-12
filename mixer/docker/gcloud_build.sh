@@ -2,6 +2,8 @@
 
 set -ex
 
+PROJECT=$(gcloud config get-value project)
+
 gcloud docker --authorize-only
 
 if [ -z $DOCKER_TAG ]
@@ -16,8 +18,5 @@ else
     bazel --output_base=$BAZEL_OUTBASE run //docker:mixer
 fi
 
-docker tag //docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG
-docker tag gcr.io/$PROJECT/mixer:$DOCKER_TAG gcr.io/$PROJECT/mixer:latest
-
+docker tag istio/docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG
 gcloud docker -- push gcr.io/$PROJECT/mixer:$DOCKER_TAG
-gcloud docker -- push gcr.io/$PROJECT/mixer:latest
