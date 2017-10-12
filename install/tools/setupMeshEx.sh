@@ -20,24 +20,27 @@
 # Helper functions for extending the mesh with external VMs.
 
 # Script can be sourced in other files or used from tools like ansible.
-# Currently the script include helpers for GKE, other providers will be added as we
-# test them.
+# Currently the script include helpers for GKE, other providers will be added as
+# they are contributed and we test them.
 
 # Environment variables used:
 #
-# ISTIO_STAGING - directory where istio artifacts are downloaded, default to current dir
-# ISTIO_VERSION - istio version.
-# ISTIO_NAMESPACE - defaults to istio-system, needs to be set for custom deployments
+# ISTIO_STAGING - directory where istio artifacts are downloaded, default to
+# current dir
+# ISTIO_VERSION - istio version (source istio.VERSION to set).
+# ISTIO_NAMESPACE - control plane namespace, defaults to istio-system, only
+# needs to be set for custom deployments
 # K8S_CLUSTER - name of the K8S cluster.
-# ISTIO_VERSION - current version of istio
-# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to istio.default.
-# SERVICE_NAMESPACE-  namespace where the service account and service are running. Defaults to
-#  the current workspace in kube config.
+# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to
+# istio.default.
+# SERVICE_NAMESPACE-  namespace where the service account and service are
+# running. Defaults to the current workspace in kube config.
 
-# GCLOUD_OPTS - optional parameters for gcloud command, for example "--project P --zone Z".
-#  If not set, defaults are used.
+# GCP_OPTS - optional parameters for gcloud command, for example
+# "--project P --zone Z".
+# If not set, defaults are used.
 # ISTIO_CP - command to use to copy files to the VM.
-# ISTIO_RUN - command to use to copy files to the VM.
+# ISTIO_RUN - command to use to run a command on the VM.
 
 # Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
 # It will need to be installed on each machine expanding the mesh.
