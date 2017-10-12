@@ -1,7 +1,9 @@
 steps:
-- name: gcr.io/cloud-builders/bazel
-  args: ['run', '//docker:mixer']
+- name: 'gcr.io/istio-io/istio-builder:0.1'
+  args: ['bazel', 'run', '//docker:mixer']
 - name: gcr.io/cloud-builders/docker
   args: ['tag', 'istio/docker:mixer', 'gcr.io/$PROJECT_ID/mixer:$BUILD_ID']
 images:
-- 'gcr.io/$PROJECT_ID/mixer:$BUILD_ID'
+- 'gcr.io/$PROJECT_ID/mixer'
+timeout: 1800s
+
