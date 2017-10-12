@@ -27,14 +27,14 @@
 #
 # ISTIO_STAGING - directory where istio artifacts are downloaded, default to
 # current dir
-# ISTIO_VERSION - istio version (source istio.VERSION to set).
 # ISTIO_NAMESPACE - control plane namespace, defaults to istio-system, only
 # needs to be set for custom deployments
 # K8S_CLUSTER - name of the K8S cluster.
-# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to
-# istio.default.
+# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to default.
 # SERVICE_NAMESPACE-  namespace where the service account and service are
 # running. Defaults to the current workspace in kube config.
+# ISTIO_SECRET_PREFIX - prefix where the istio CA generates secrets for each
+# service account. defaults to "istio."
 
 # GCP_OPTS - optional parameters for gcloud command, for example
 # "--project P --zone Z".
@@ -103,16 +103,17 @@ function istioClusterEnv() {
 # - service account -  defaults to istio.default or SERVICE_ACCOUNT env
 # - service namespace - defaults to current namespace.
 function istio_provision_certs() {
-  local SA=${1:-${SERVICE_ACCOUNT:-istio.default}}
+  local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
+  local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
 
-  kubectl get $NS secret $SA -o jsonpath='{.data.cert-chain\.pem}' |base64 -d  > cert-chain.pem
-  kubectl get $NS secret $SA -o jsonpath='{.data.root-cert\.pem}' |base64 -d  > root-cert.pem
-  kubectl get $NS secret $SA -o jsonpath='{.data.key\.pem}' |base64 -d  > key.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' |base64 -d  > cert-chain.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' |base64 -d  > root-cert.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' |base64 -d  > key.pem
 
   echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
   echo "The directory and files must be owned by 'istio-proxy' user"
@@ -128,12 +129,10 @@ function istio_provision_certs() {
 # - optional service account to be provisioned (defaults to istio.default)
 # - optional namespace of the service account and VM services, defaults to SERVICE_NAMESPACE env
 # or kube config.
+#
+# Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
 function istioBootstrapVM() {
  local NAME=${1}
-
- # Keep it in sync with the default in downloadIstio.sh, use same mechansim to update.
- ISTIO_VERSION=${ISTIO_VERSION:-0.2.4}
- ISTIO_STAGING=${ISTIO_STAGING:-istio-${ISTIO_VERSION}}
 
  local SA=${2:-${SERVICE_ACCOUNT:-istio.default}}
  local NS=${3:-${SERVICE_NAMESPACE:-}}
@@ -146,7 +145,7 @@ function istioBootstrapVM() {
    kubedns \
    *.pem \
    cluster.env \
-   $ISTIO_STAGING/install/tools/setupIstioVM.sh \
+   install/tools/setupIstioVM.sh \
 
  # Run the setup script.
  istioRun $NAME "sudo bash -c -x ./setupIstioVM.sh"
