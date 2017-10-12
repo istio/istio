@@ -221,6 +221,8 @@ spec:
   ports:
   - name: tcp
     port: 9091
+  - name: tcp
+    port: 15004
   - name: http-health
     port: 9093
   - name: configapi
@@ -284,7 +286,45 @@ spec:
           - --logtostderr
           - -v
           - "2"
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "{{.Verbosity}}"
+        - --infraAuthPolicy
+        - "{{.InfraAuthPolicy}}"
+        - --mixerAddress
+        - "{{.MixerAddress}}"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-envoy
+          mountPath: /etc/istio/proxy/
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
+      - name: istio-envoy
+        emptyDir:
+          medium: Memory
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
       - name: config-volume
         configMap:
           name: istio-mixer
@@ -940,7 +980,7 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following line
-    mixerAddress: istio-mixer.istio-system:9091
+    mixerAddress: istio-mixer.istio-system:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     egressProxyAddress: istio-egress.istio-system:80
@@ -981,7 +1021,7 @@ data:
       proxyAdminPort: 15000
       #
       # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-system:8080
+      discoveryAddress: istio-pilot.istio-system:15003
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.istio-system:9411
@@ -1047,6 +1087,8 @@ metadata:
 spec:
   ports:
   - port: 8080
+    name: tcp
+  - port: 15003
     name: http-discovery
   - port: 443
     name: http-admission-webhook
@@ -1096,10 +1138,48 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15003
+        args:
+        - proxy
+        - pilot
+        - -v
+        - "{{.Verbosity}}"
+        - "--discoveryAddress"
+        - "istio-pilot:15003"
+        - "--infraAuthPolicy"
+        - "{{.InfraAuthPolicy}}"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-envoy
+          mountPath: /etc/istio/proxy/
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-envoy
+        emptyDir:
+          medium: Memory
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
 ---
 ################################
 # Istio ingress
@@ -1152,7 +1232,7 @@ spec:
         - -v
         - "2"
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:15003
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration
@@ -1246,7 +1326,7 @@ spec:
         - -v
         - "2"
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:15003
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration
