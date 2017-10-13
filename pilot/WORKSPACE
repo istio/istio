@@ -2,13 +2,20 @@ workspace(name = "com_github_istio_pilot")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "eba68677493422112dd25f6a0b4bbdb02387e5a4",  # Aug 1, 2017
+    commit = "0e5a0e51b4e9fc3b5ef1436639a43fce27559744",  # Oct 3, 2017
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
+git_repository(
+    name = "com_github_google_protobuf",
+    commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # Jan 2017 3.2.0
+    remote = "https://github.com/google/protobuf.git",
+)
 
-go_repositories()
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_repository", "go_register_toolchains")
+
+go_rules_dependencies()
+go_register_toolchains()
 
 ##
 ## Kubernetes dependencies
@@ -446,12 +453,6 @@ go_repository(
     name = "com_github_golang_protobuf",
     commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",
     importpath = "github.com/golang/protobuf",
-)
-
-git_repository(
-    name = "com_github_google_protobuf",
-    commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # Jan 2017 3.2.0
-    remote = "https://github.com/google/protobuf.git",
 )
 
 go_repository(
