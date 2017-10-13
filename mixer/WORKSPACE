@@ -1,5 +1,9 @@
 workspace(name = "com_github_istio_mixer")
 
+load(":check_bazel_version.bzl", "check_version")
+
+check_version()
+
 git_repository(
     name = "io_bazel_rules_go",
     commit = "7991b6353e468ba5e8403af382241d9ce031e571",  # Aug 1, 2017 (gazelle fixes)
