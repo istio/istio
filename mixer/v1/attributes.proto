@@ -54,6 +54,40 @@ option (gogoproto.gostring_all) = false;
 // Each type of value is encoded into one of the so-called transport types present
 // in this message.
 //
+// Defines a list of attributes in uncompressed format.
+// Following places may use this message:
+// 1) Configure Istio/Proxy with static per-proxy attributes, such as source.uid.
+// 2) Service IDL definition to extract api attributes for active requests.
+// 3) Forward attributes from client proxy to server proxy for HTTP requests.
+message UncompressedAttributes {
+  // A list of attributes.
+  repeated Attribute attributes = 1;
+
+  // Specifies one attribute with name and value.
+  message Attribute {
+    // The attribute name.
+    string name = 1;
+
+    // The attribute value.
+    oneof value {
+      string string_value = 2;
+      int64 int64_value = 3;
+      double double_value = 4;
+      bool bool_value = 5;
+      bytes bytes_value = 6;
+      google.protobuf.Timestamp timestamp_value = 7;
+      google.protobuf.Duration duration_value = 8;
+      StringMap string_map_value = 9;
+    }
+
+    // Defines a strig map.
+    message StringMap {
+      map<string, string> entries = 1;
+    }
+  }
+}
+
+// Defines a list of attributes in compressed format optimized for transport.
 // Within this message, strings are referenced using integer indices into
 // one of two string dictionaries. Positive integers index into the global
 // deployment-wide dictionary, whereas negative integers index into the message-level
