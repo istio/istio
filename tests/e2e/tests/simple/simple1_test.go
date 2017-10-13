@@ -250,7 +250,7 @@ func setTestConfig() error {
 	tag := os.Getenv("FORTIO_TAG")
 	image := hub + "/fortio:" + tag
 	if hub == "" || tag == "" {
-		image = "istio/fortio:latest" // TODO: change
+		image = "istio/fortio:latest"
 	}
 	glog.Infof("Fortio hub %s tag %s -> image %s", hub, tag, image)
 	services := []framework.App{
