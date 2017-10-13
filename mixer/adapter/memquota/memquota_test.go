@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/mixer/adapter/memquota2/config"
+	"istio.io/mixer/adapter/memquota/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/adapter/test"
 	"istio.io/mixer/template/quota"
