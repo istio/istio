@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang/glog"
 	cred "istio.io/auth/pkg/credential"
+	"istio.io/auth/pkg/workload"
 )
 
 // NodeAgent interface that should be implemented by
@@ -33,7 +34,8 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 		glog.Fatalf("Nil configuration passed")
 	}
 	na := &nodeAgentInternal{
-		config: cfg,
+		config:   cfg,
+		certUtil: CertUtilImpl{},
 	}
 
 	switch cfg.Env {
@@ -47,5 +49,12 @@ func NewNodeAgent(cfg *Config) NodeAgent {
 
 	cAClient := &cAGrpcClientImpl{}
 	na.cAClient = cAClient
+
+	secretServer, err := workload.NewSecretServer(
+		workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile))
+	if err != nil {
+		glog.Fatalf("Workload IO creation error: %v", err)
+	}
+	na.secretServer = secretServer
 	return na
 }

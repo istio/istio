@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// defaultCSRInitialRetrialInterval is the default value of Config.CSRInitialRetrialInterval
+	// defaultCSRInitialRetrialInterval is the default value of Config.CSRInitialRetrialInterval.
 	defaultCSRInitialRetrialInterval = time.Second * 5
 	// defaultCSRMaxRetries is the default value of Config.CSRMaxRetries.
 	defaultCSRMaxRetries = 5
@@ -27,7 +27,7 @@ const (
 	defaultCSRGracePeriodPercentage = 50
 )
 
-// Config is Node agent configuration that is provided from CLI.
+// Config is Node agent configuration.
 type Config struct {
 	// Istio CA grpc server
 	IstioCAAddress string
