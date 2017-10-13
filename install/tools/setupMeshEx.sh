@@ -107,10 +107,12 @@ function istio_provision_certs() {
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
-
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' |base64 -d  > cert-chain.pem
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' |base64 -d  > root-cert.pem
-  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' |base64 -d  > key.pem
+  # on mac make sure you brew install base64 and use that one in path
+  # or change BASE64_DECODE="/usr/bin/base64 -D"
+  local B64_DECODE=${BASE64_DECODE:-base64 -d}
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
 
   echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
   echo "The directory and files must be owned by 'istio-proxy' user"
@@ -129,23 +131,23 @@ function istio_provision_certs() {
 #
 # Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
 function istioBootstrapVM() {
- local NAME=${1}
+ local DESTINATION=${1}
 
- local SA=${2:-${SERVICE_ACCOUNT:-istio.default}}
+ local SA=${2:-${SERVICE_ACCOUNT:-default}}
  local NS=${3:-${SERVICE_NAMESPACE:-}}
-
+ echo "Making certs for service account $SA (namespace $NS)"
  istio_provision_certs $SA $NS
 
  # Copy deb, helper and config files
- # Reviews not copied - VMs don't support labels yet.
- istioCopy $NAME \
+ istioCopy $DESTINATION \
    kubedns \
    *.pem \
    cluster.env \
-   install/tools/setupIstioVM.sh \
+   istio.VERSION \
+   install/tools/setupIstioVM.sh
 
  # Run the setup script.
- istioRun $NAME "sudo bash -c -x ./setupIstioVM.sh"
+ istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
 }
 
 
