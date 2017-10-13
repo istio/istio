@@ -29,4 +29,9 @@ spec:
       - name: istio-ca
         image: {CA_HUB}/istio-ca:{CA_TAG}
         imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --grpc-port=8060
+          - --grpc-hostname=istio-ca
+          - --self-signed-ca=true
 ---
