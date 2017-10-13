@@ -16,18 +16,16 @@ package na
 
 import (
 	"fmt"
-	"io/ioutil"
 	"time"
 
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"istio.io/auth/pkg/pki"
 	"istio.io/auth/pkg/pki/ca"
+	"istio.io/auth/pkg/workload"
 	pb "istio.io/auth/proto"
 )
 
-// This interface is provided for implementing platform specific code.
 type platformSpecificRequest interface {
 	GetDialOptions(*Config) ([]grpc.DialOption, error)
 	// Whether the node agent is running on the right platform, e.g., if gcpPlatformImpl should only
@@ -77,13 +75,15 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pr platformSpecificRequest, 
 // in the NodeAgent interface.
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
-	config   *Config
-	pr       platformSpecificRequest
-	cAClient CAGrpcClient
-	identity string
+	config       *Config
+	pr           platformSpecificRequest
+	cAClient     CAGrpcClient
+	identity     string
+	secretServer workload.SecretServer
+	certUtil     CertUtil
 }
 
-// Start the node Agent.
+// Start starts the node Agent.
 func (na *nodeAgentInternal) Start() error {
 	if na.config == nil {
 		return fmt.Errorf("node Agent configuration is nil")
@@ -104,7 +104,7 @@ func (na *nodeAgentInternal) Start() error {
 	na.identity = identity
 	var success bool
 	for {
-		privKey, req, reqErr := na.createRequest()
+		privateKey, req, reqErr := na.createRequest()
 		if reqErr != nil {
 			return reqErr
 		}
@@ -113,15 +113,17 @@ func (na *nodeAgentInternal) Start() error {
 
 		resp, err := na.cAClient.SendCSR(req, na.pr, na.config)
 		if err == nil && resp != nil && resp.IsApproved {
-			waitTime, ttlErr := na.getWaitTimeFromCert(
+			waitTime, ttlErr := na.certUtil.GetWaitTime(
 				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)
 			if ttlErr != nil {
 				glog.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false
 			} else {
-				writeErr := na.writeToFile(privKey, resp.SignedCertChain)
-				if writeErr != nil {
-					return fmt.Errorf("file write error: %v", writeErr)
+				if writeErr := na.secretServer.SetServiceIdentityCert(resp.SignedCertChain); writeErr != nil {
+					return writeErr
+				}
+				if writeErr := na.secretServer.SetServiceIdentityPrivateKey(privateKey); writeErr != nil {
+					return writeErr
 				}
 				glog.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
 				retries = 0
@@ -169,37 +171,4 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 	}
 
 	return privKey, &pb.Request{CsrPem: csr}, nil
-}
-
-func (na *nodeAgentInternal) getWaitTimeFromCert(
-	certBytes []byte, now time.Time, gracePeriodPercentage int) (time.Duration, error) {
-	cert, certErr := pki.ParsePemEncodedCertificate(certBytes)
-	if certErr != nil {
-		return time.Duration(0), certErr
-	}
-	timeToExpire := cert.NotAfter.Sub(now)
-	if timeToExpire < 0 {
-		return time.Duration(0), fmt.Errorf("certificate already expired at %s, but now is %s",
-			cert.NotAfter, now)
-	}
-	gracePeriod := cert.NotAfter.Sub(cert.NotBefore) * time.Duration(gracePeriodPercentage) / time.Duration(100)
-	// waitTime is the duration between now and the grace period starts.
-	// It is the time until cert expiration minus the length of grace period.
-	waitTime := timeToExpire - gracePeriod
-	if waitTime < 0 {
-		// We are within the grace period.
-		return time.Duration(0), fmt.Errorf("got a certificate that should be renewed now")
-	}
-	return waitTime, nil
-}
-
-func (na *nodeAgentInternal) writeToFile(privKey []byte, cert []byte) error {
-	glog.Infof("Write key and cert to local file.")
-	if err := ioutil.WriteFile(na.config.KeyFile, privKey, 0600); err != nil {
-		return fmt.Errorf("cannot write service identity private key file")
-	}
-	if err := ioutil.WriteFile(na.config.CertChainFile, cert, 0644); err != nil {
-		return fmt.Errorf("cannot write service identity certificate file")
-	}
-	return nil
 }
