@@ -20,24 +20,25 @@
 # Helper functions for extending the mesh with external VMs.
 
 # Script can be sourced in other files or used from tools like ansible.
-# Currently the script include helpers for GKE, other providers will be added as we
-# test them.
+# Currently the script include helpers for GKE, other providers will be added as
+# they are contributed and we test them.
 
 # Environment variables used:
 #
-# ISTIO_STAGING - directory where istio artifacts are downloaded, default to current dir
-# ISTIO_VERSION - istio version.
-# ISTIO_NAMESPACE - defaults to istio-system, needs to be set for custom deployments
+# ISTIO_NAMESPACE - control plane namespace, defaults to istio-system, only
+# needs to be set for custom deployments
 # K8S_CLUSTER - name of the K8S cluster.
-# ISTIO_VERSION - current version of istio
-# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to istio.default.
-# SERVICE_NAMESPACE-  namespace where the service account and service are running. Defaults to
-#  the current workspace in kube config.
+# SERVICE_ACCOUNT - what account to provision on the VM. Defaults to default.
+# SERVICE_NAMESPACE-  namespace where the service account and service are
+# running. Defaults to the current workspace in kube config.
+# ISTIO_SECRET_PREFIX - prefix where the istio CA generates secrets for each
+# service account. defaults to "istio."
 
-# GCLOUD_OPTS - optional parameters for gcloud command, for example "--project P --zone Z".
-#  If not set, defaults are used.
+# GCP_OPTS - optional parameters for gcloud command, for example
+# "--project P --zone Z".
+# If not set, defaults are used.
 # ISTIO_CP - command to use to copy files to the VM.
-# ISTIO_RUN - command to use to copy files to the VM.
+# ISTIO_RUN - command to use to run a command on the VM.
 
 # Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
 # It will need to be installed on each machine expanding the mesh.
@@ -53,7 +54,7 @@ function istioDnsmasq() {
     CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
     if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
-        echo Waiting for ILBs
+        echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
         sleep 5
     else
         break
@@ -68,13 +69,11 @@ function istioDnsmasq() {
   #/etc/dnsmasq.d/kubedns
   echo "server=/svc.cluster.local/$ISTIO_DNS" > kubedns
   echo "address=/istio-mixer/$MIXER_IP" >> kubedns
-  echo "address=/mixer-server/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot/$PILOT_IP" >> kubedns
   echo "address=/istio-ca/$CA_IP" >> kubedns
   # Also generate host entries for the istio-system. The generated config will work with both
   # 'cluster-wide' and 'per-namespace'.
   echo "address=/istio-mixer.$NS/$MIXER_IP" >> kubedns
-  echo "address=/mixer-server.$NS/$MIXER_IP" >> kubedns
   echo "address=/istio-pilot.$NS/$PILOT_IP" >> kubedns
   echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
 
@@ -87,6 +86,7 @@ function istioDnsmasq() {
 function istioClusterEnv() {
    local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
 
+   # TODO: parse it all from $(kubectl config current-context)
    CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
    echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 
@@ -100,16 +100,19 @@ function istioClusterEnv() {
 # - service account -  defaults to istio.default or SERVICE_ACCOUNT env
 # - service namespace - defaults to current namespace.
 function istio_provision_certs() {
-  local SA=${1:-${SERVICE_ACCOUNT:-istio.default}}
+  local SA=${1:-${SERVICE_ACCOUNT:-default}}
   local NS=${2:-${SERVICE_NAMESPACE:-}}
+  local CERT_NAME=${ISTIO_SECRET_PREFIX:-istio.}${SA}
 
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
-
-  kubectl get $NS secret $SA -o jsonpath='{.data.cert-chain\.pem}' |base64 -d  > cert-chain.pem
-  kubectl get $NS secret $SA -o jsonpath='{.data.root-cert\.pem}' |base64 -d  > root-cert.pem
-  kubectl get $NS secret $SA -o jsonpath='{.data.key\.pem}' |base64 -d  > key.pem
+  # on mac make sure you brew install base64 and use that one in path
+  # or change BASE64_DECODE="/usr/bin/base64 -D"
+  local B64_DECODE=${BASE64_DECODE:-base64 -d}
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
+  kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
 
   echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
   echo "The directory and files must be owned by 'istio-proxy' user"
@@ -125,28 +128,26 @@ function istio_provision_certs() {
 # - optional service account to be provisioned (defaults to istio.default)
 # - optional namespace of the service account and VM services, defaults to SERVICE_NAMESPACE env
 # or kube config.
+#
+# Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
 function istioBootstrapVM() {
- local NAME=${1}
+ local DESTINATION=${1}
 
- # Keep it in sync with the default in downloadIstio.sh, use same mechansim to update.
- ISTIO_VERSION=${ISTIO_VERSION:-0.2.4}
- ISTIO_STAGING=${ISTIO_STAGING:-istio-${ISTIO_VERSION}}
-
- local SA=${2:-${SERVICE_ACCOUNT:-istio.default}}
+ local SA=${2:-${SERVICE_ACCOUNT:-default}}
  local NS=${3:-${SERVICE_NAMESPACE:-}}
-
+ echo "Making certs for service account $SA (namespace $NS)"
  istio_provision_certs $SA $NS
 
  # Copy deb, helper and config files
- # Reviews not copied - VMs don't support labels yet.
- istioCopy $NAME \
+ istioCopy $DESTINATION \
    kubedns \
    *.pem \
    cluster.env \
-   $ISTIO_STAGING/install/tools/setupIstioVM.sh \
+   istio.VERSION \
+   install/tools/setupIstioVM.sh
 
  # Run the setup script.
- istioRun $NAME "sudo bash -c -x ./setupIstioVM.sh"
+ istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
 }
 
 
@@ -188,7 +189,7 @@ elif [[ ${1:-} == "machineSetup" ]] ; then
   istioBootstrapVM $1
 else
   echo "$0 generateDnsmasq: Generate dnsmasq config files (one time)"
-  echo "$0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
+  echo "GCP_OPTS=\"--project P --zone Z\" $0 generateClusterEnv K8S_CLUSTER_NAME: Generate cluster range config files (one time)"
   echo "$0 machineCerts SERVICE_ACCOUNT: Generate bootstrap machine certs. Uses 'default' account if no parameters (one time per host)"
   echo "$0 machineSetup HOST: Copy files to HOST, and run the setup script (one time per host)"
 fi
