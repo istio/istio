@@ -61,3 +61,50 @@ func TestGetServiceIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestGetTLSCredentials(t *testing.T) {
+	testCases := map[string]struct {
+		config      *Config
+		expectedErr string
+	}{
+		"Good cert": {
+			config: &Config{
+				CertChainFile:  "testdata/cert-from-root-good.pem",
+				KeyFile:        "testdata/key-from-root-good.pem",
+				RootCACertFile: "testdata/cert-root-good.pem",
+			},
+			expectedErr: "",
+		},
+		"Loading failure": {
+			config: &Config{
+				CertChainFile:  "testdata/cert-from-root-goo.pem",
+				KeyFile:        "testdata/cert-from-root-not-exist.pem",
+				RootCACertFile: "testdata/cert-root-good.pem",
+			},
+			expectedErr: "Cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
+		},
+		"Loading root cert failure": {
+			config: &Config{
+				CertChainFile:  "testdata/cert-from-root-good.pem",
+				KeyFile:        "testdata/key-from-root-good.pem",
+				RootCACertFile: "testdata/cert-root-not-exist.pem",
+			},
+			expectedErr: "Failed to read CA cert: open testdata/cert-root-not-exist.pem: no such file or directory",
+		},
+	}
+
+	for id, c := range testCases {
+		onprem := onPremPlatformImpl{""}
+
+		_, err := onprem.GetDialOptions(c.config)
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("Succeeded. Error expected: %v", err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("Unexpected Error: %v", err)
+		}
+	}
+}

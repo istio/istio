@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/golang/glog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -32,7 +31,11 @@ type onPremPlatformImpl struct {
 }
 
 func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
-	transportCreds := getTLSCredentials(cfg.CertChainFile, cfg.KeyFile, cfg.RootCACertFile)
+	transportCreds, err := getTLSCredentials(cfg.CertChainFile, cfg.KeyFile, cfg.RootCACertFile)
+	if err != nil {
+		return nil, err
+	}
+
 	var options []grpc.DialOption
 	options = append(options, grpc.WithTransportCredentials(transportCreds))
 	return options, nil
@@ -61,24 +64,24 @@ func (na *onPremPlatformImpl) GetServiceIdentity() (string, error) {
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
 func getTLSCredentials(certificateFile string, keyFile string,
-	caCertFile string) credentials.TransportCredentials {
+	caCertFile string) (credentials.TransportCredentials, error) {
 
 	// Load the certificate from disk
 	certificate, err := tls.LoadX509KeyPair(certificateFile, keyFile)
 	if err != nil {
-		glog.Fatalf("Cannot load key pair: %s", err)
+		return nil, fmt.Errorf("Cannot load key pair: %s", err)
 	}
 
 	// Create a certificate pool
 	certPool := x509.NewCertPool()
 	bs, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
-		glog.Fatalf("Failed to read CA cert: %s", err)
+		return nil, fmt.Errorf("Failed to read CA cert: %s", err)
 	}
 
 	ok := certPool.AppendCertsFromPEM(bs)
 	if !ok {
-		glog.Fatalf("Failed to append certificates")
+		return nil, fmt.Errorf("Failed to append certificates")
 	}
 
 	config := tls.Config{
@@ -86,5 +89,5 @@ func getTLSCredentials(certificateFile string, keyFile string,
 	}
 	config.RootCAs = certPool
 
-	return credentials.NewTLS(&config)
+	return credentials.NewTLS(&config), nil
 }

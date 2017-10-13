@@ -30,7 +30,9 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "config_test.go",
         "gcp_test.go",
+        "nafactory_test.go",
         "nodeagent_test.go",
         "onprem_test.go",
         "util_test.go",
@@ -39,6 +41,8 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pkg/util/mock:go_default_library",
+        "@com_github_googleapis_googleapis//:google/rpc",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//reflection:go_default_library",
     ],
 )

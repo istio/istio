@@ -17,11 +17,11 @@ package main
 import (
 	"os"
 
-	"istio.io/auth/cmd/node_agent/na"
-	"istio.io/auth/pkg/cmd"
-
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+
+	"istio.io/auth/cmd/node_agent/na"
+	"istio.io/auth/pkg/cmd"
 )
 
 var (
@@ -62,9 +62,15 @@ func main() {
 }
 
 func runNodeAgent() {
-	nodeAgent := na.NewNodeAgent(&naConfig)
+	nodeAgent, err := na.NewNodeAgent(&naConfig)
+	if err != nil {
+		glog.Error(err)
+		os.Exit(-1)
+	}
+
 	glog.Infof("Starting Node Agent")
 	if err := nodeAgent.Start(); err != nil {
 		glog.Errorf("Node agent terminated with error: %v.", err)
+		os.Exit(-1)
 	}
 }
