@@ -1,14 +1,9 @@
 # This file should be sourced before using go commands
 # it ensures that bazel's version of go is used
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODULE="$(basename ${ROOT})"
-BAZEL_DIR="${ROOT}/bazel-${MODULE}"
-[[ -d ${BAZEL_DIR} ]] || { echo "Need to bazel build ... first"; exit 1; }
+BAZEL_DIR="$(bazel info execution_root)"
 
-BDIR="$(dirname $(dirname $(readlink "${BAZEL_DIR}")))"
-
-export GOROOT="$(find ${BDIR}/external -type d -name 'go1_*')"
+export GOROOT="$(find ${BAZEL_DIR}/external -type d -name 'go1_*')"
 export PATH=$GOROOT/bin:$PATH
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
