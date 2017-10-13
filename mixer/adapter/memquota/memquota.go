@@ -31,7 +31,7 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/mixer/adapter/memquota2/config"
+	"istio.io/mixer/adapter/memquota/config"
 	"istio.io/mixer/pkg/adapter"
 	"istio.io/mixer/pkg/status"
 	"istio.io/mixer/template/quota"
