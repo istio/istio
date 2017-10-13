@@ -17,15 +17,21 @@
 ################################################################################
 
 # Script to install istio components for the raw VM.
+set -x
 
 # Environment variable pointing to the generated Istio configs and binaries.
 # TODO: use curl or tar to fetch the artifacts.
 ISTIO_STAGING=${ISTIO_STAGING:-.}
 
+function istioVersionSource() {
+  echo "Sourced ${ISTIO_STAGING}/istio.VERSION"
+  source ${ISTIO_STAGING}/istio.VERSION
+}
+
 # Configure network for istio use, using DNSMasq.
 # Will use the generated "kubedns" file.
 function istioNetworkInit() {
-  if [[ ! -r /usr/sbin/dnsmasq ]] ; then
+  if [[ ! -r /etc/dnsmasq.d ]] ; then
     apt-get update
     sudo apt-get -y install dnsmasq
   fi
@@ -47,6 +53,17 @@ function istioNetworkInit() {
 # Install istio components and certificates. The admin (directly or using tools like ansible)
 # will generate and copy the files and install the packages on each machine.
 function istioInstall() {
+
+  # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
+  curl -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
+  curl -L ${AUTH_DEBIAN_URL}/istio-auth-node-agent.deb > ${ISTIO_STAGING}/istio-auth-node-agent.deb
+  curl -L ${PROXY_DEBIAN_URL}/istio-proxy.deb > ${ISTIO_STAGING}/istio-proxy.deb
+
+  # Install istio binaries
+  dpkg -i ${ISTIO_STAGING}/istio-proxy.deb
+  dpkg -i ${ISTIO_STAGING}/istio-agent.deb
+  dpkg -i ${ISTIO_STAGING}/istio-auth-node-agent.deb
+
   mkdir -p /etc/certs
 
   cp ${ISTIO_STAGING}/*.pem /etc/certs
@@ -56,19 +73,6 @@ function istioInstall() {
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
-
-  ISTIO_VERSION=${ISTIO_VERSION:-0.2.4}
-
-  # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
-  DEBURL=http://gcsweb.istio.io/gcs/istio-release/releases/${ISTIO_VERSION}/deb
-  curl -L ${DEBURL}/istio-agent-release.deb > istio-agent-release.deb
-  curl -L ${DEBURL}/istio-auth-node-agent-release.deb > istio-auth-node-agent-release.deb
-  curl -L ${DEBURL}/istio-proxy-release.deb > istio-proxy-release.deb
-
-  # Install istio binaries
-  dpkg -i ${ISTIO_STAGING}/istio-proxy-envoy.deb
-  dpkg -i ${ISTIO_STAGING}/istio-agent.deb
-  dpkg -i ${ISTIO_STAGING}/istio-auth-node-agent.deb
 }
 
 function istioRestart() {
@@ -90,6 +94,7 @@ elif [[ ${1:-} == "help" ]] ; then
   echo "$0 initNetwork: Configure DNS"
   echo "$0 istioInstall: Install istio components"
 else
+  istioVersionSource
   istioNetworkInit
   istioInstall
   istioRestart
