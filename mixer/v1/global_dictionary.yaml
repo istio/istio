@@ -219,3 +219,9 @@
 - destination.user
 
 - source.service
+
+# api attributes
+- api.service
+- api.version
+- api.operation
+- api.protocol
