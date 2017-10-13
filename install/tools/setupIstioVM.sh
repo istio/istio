@@ -17,7 +17,6 @@
 ################################################################################
 
 # Script to install istio components for the raw VM.
-set -x
 
 # Environment variable pointing to the generated Istio configs and binaries.
 # TODO: use curl or tar to fetch the artifacts.
@@ -73,10 +72,19 @@ function istioInstall() {
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
+  # temp workaround for wrong name (for 0.2.7 auth package)
+  ln -s /usr/local/bin/node_agent /usr/local/bin/node-agent > /dev/null
 }
 
 function istioRestart() {
-    # Start or restart istio
+    # Node agent
+    systemctl status istio-auth-node-agent > /dev/null
+    if [[ $? = 0 ]]; then
+      systemctl restart istio-auth-node-agent
+    else
+      systemctl start istio-auth-node-agent
+    fi
+    # Start or restart istio envoy
     systemctl status istio > /dev/null
     if [[ $? = 0 ]]; then
       systemctl restart istio
