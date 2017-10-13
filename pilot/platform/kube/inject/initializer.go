@@ -111,8 +111,8 @@ func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Inter
 			return nil, err
 		}
 
-		for n := range i.config.Namespaces {
-			namespace := i.config.Namespaces[n]
+		for n := range i.config.IncludeNamespaces {
+			namespace := i.config.IncludeNamespaces[n]
 
 			watchlist := &cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -170,7 +170,7 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 
 	var inject bool
 namespaceSearch:
-	for _, namespace := range i.config.Namespaces {
+	for _, namespace := range i.config.IncludeNamespaces {
 		if namespace == v1.NamespaceAll {
 			inject = true
 			break namespaceSearch

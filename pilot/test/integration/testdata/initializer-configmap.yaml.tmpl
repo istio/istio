@@ -6,7 +6,7 @@ data:
   config: |-
     policy: "{{.Policy}}"
     namespaces:
-{{ range $namespace := .Namespaces}}
+{{ range $namespace := .IncludeNamespaces}}
     - "{{$namespace}}"
 {{ end }}
     initializerName: "sidecar.initializer.istio.io"

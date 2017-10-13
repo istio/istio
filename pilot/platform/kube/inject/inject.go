@@ -159,7 +159,10 @@ type Config struct {
 	Policy InjectionPolicy `json:"policy"`
 
 	// deprecate if InitializerConfiguration becomes namespace aware
-	Namespaces []string `json:"namespaces"`
+	IncludeNamespaces []string `json:"namespaces"`
+
+	// deprecate if InitializerConfiguration becomes namespace aware
+	ExcludeNamespaces []string `json:"excludeNamespaces"`
 
 	// Params specifies the parameters of the injected sidcar template
 	Params Params `json:"params"`
@@ -188,6 +191,20 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 	var c Config
 	if err := yaml.Unmarshal([]byte(data), &c); err != nil {
 		return nil, err
+	}
+
+	if c.IncludeNamespaces != nil && c.ExcludeNamespaces != nil {
+		return nil, fmt.Errorf("cannot configure both namespaces and excludeNamespaces")
+	}
+
+	if c.IncludeNamespaces == nil {
+		c.IncludeNamespaces = []string{v1.NamespaceAll}
+	}
+
+	for _, excludeNamespace := range c.ExcludeNamespaces {
+		if excludeNamespace == v1.NamespaceAll {
+			return nil, fmt.Errorf("cannot configure ExcludeNamespaces as NamespaceAll")
+		}
 	}
 
 	// apply safe defaults if not specified
@@ -456,6 +473,13 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 	// skip special kubernetes system namespaces
 	for _, namespace := range ignoredNamespaces {
 		if obj.GetNamespace() == namespace {
+			return out, nil
+		}
+	}
+
+	// skip customized exclude namespaces
+	for _, excludeNamespace := range c.ExcludeNamespaces {
+		if obj.GetNamespace() == excludeNamespace {
 			return out, nil
 		}
 	}

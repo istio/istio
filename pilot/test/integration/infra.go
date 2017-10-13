@@ -141,8 +141,8 @@ func (infra *infra) setup() error {
 	debugMode := infra.debugImagesAndMode
 	glog.Infof("mesh %s", spew.Sdump(mesh))
 	infra.InjectConfig = &inject.Config{
-		Policy:     inject.InjectionPolicyEnabled,
-		Namespaces: []string{infra.Namespace, infra.IstioNamespace},
+		Policy:            inject.InjectionPolicyEnabled,
+		IncludeNamespaces: []string{infra.Namespace, infra.IstioNamespace},
 		Params: inject.Params{
 			InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
 			ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),

@@ -34,8 +34,8 @@ import (
 var (
 	mesh           = proxy.DefaultMeshConfig()
 	httpTestConfig = &Config{
-		Policy:     InjectionPolicyEnabled,
-		Namespaces: []string{v1.NamespaceAll},
+		Policy:            InjectionPolicyEnabled,
+		IncludeNamespaces: []string{v1.NamespaceAll},
 		Params: Params{
 			InitImage:       InitImageName(unitTestHub, unitTestTag, unitTestDebugMode),
 			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, unitTestDebugMode),

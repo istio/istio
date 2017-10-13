@@ -55,9 +55,8 @@ const unitTestHub = "docker.io/istio"
 // Default unit test DebugMode parameter
 const unitTestDebugMode = true
 
-func TestIntoResourceFile(t *testing.T) {
+func TestIntoResourceFileWithIncludeNamespaces(t *testing.T) {
 	cases := []struct {
-		authConfigPath  string
 		enableAuth      bool
 		in              string
 		want            string
@@ -119,22 +118,19 @@ func TestIntoResourceFile(t *testing.T) {
 			enableCoreDump: true,
 		},
 		{
-			enableAuth:     true,
-			authConfigPath: "/etc/certs/",
-			in:             "testdata/auth.yaml",
-			want:           "testdata/auth.yaml.injected",
+			enableAuth: true,
+			in:         "testdata/auth.yaml",
+			want:       "testdata/auth.yaml.injected",
 		},
 		{
-			enableAuth:     true,
-			authConfigPath: "/etc/certs/",
-			in:             "testdata/auth.non-default-service-account.yaml",
-			want:           "testdata/auth.non-default-service-account.yaml.injected",
+			enableAuth: true,
+			in:         "testdata/auth.non-default-service-account.yaml",
+			want:       "testdata/auth.non-default-service-account.yaml.injected",
 		},
 		{
-			enableAuth:     true,
-			authConfigPath: "/etc/non-default-dir/",
-			in:             "testdata/auth.yaml",
-			want:           "testdata/auth.cert-dir.yaml.injected",
+			enableAuth: true,
+			in:         "testdata/auth.yaml",
+			want:       "testdata/auth.cert-dir.yaml.injected",
 		},
 		{
 			in:   "testdata/daemonset.yaml",
@@ -165,8 +161,63 @@ func TestIntoResourceFile(t *testing.T) {
 		}
 
 		config := &Config{
-			Policy:     InjectionPolicyEnabled,
-			Namespaces: []string{v1.NamespaceAll},
+			Policy:            InjectionPolicyEnabled,
+			IncludeNamespaces: []string{v1.NamespaceAll},
+			Params: Params{
+				InitImage:       InitImageName(unitTestHub, unitTestTag, c.debugMode),
+				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
+				ImagePullPolicy: "IfNotPresent",
+				Verbosity:       DefaultVerbosity,
+				SidecarProxyUID: DefaultSidecarProxyUID,
+				Version:         "12345678",
+				EnableCoreDump:  c.enableCoreDump,
+				Mesh:            &mesh,
+				DebugMode:       c.debugMode,
+			},
+		}
+
+		if c.imagePullPolicy != "" {
+			config.Params.ImagePullPolicy = c.imagePullPolicy
+		}
+
+		in, err := os.Open(c.in)
+		if err != nil {
+			t.Fatalf("Failed to open %q: %v", c.in, err)
+		}
+		defer func() { _ = in.Close() }()
+		var got bytes.Buffer
+		if err = IntoResourceFile(config, in, &got); err != nil {
+			t.Fatalf("IntoResourceFile(%v) returned an error: %v", c.in, err)
+		}
+
+		util.CompareContent(got.Bytes(), c.want, t)
+	}
+}
+
+func TestIntoResourceFileWithExcludeNamespaces(t *testing.T) {
+	cases := []struct {
+		enableAuth      bool
+		in              string
+		want            string
+		imagePullPolicy string
+		enableCoreDump  bool
+		debugMode       bool
+	}{
+		{
+			in:   "testdata/hello-ibm.yaml",
+			want: "testdata/hello-ibm.yaml.injected",
+		},
+	}
+
+	for _, c := range cases {
+		mesh := proxy.DefaultMeshConfig()
+		if c.enableAuth {
+			mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+		}
+
+		config := &Config{
+			Policy:            InjectionPolicyEnabled,
+			ExcludeNamespaces: []string{"ibm-system"},
 			Params: Params{
 				InitImage:       InitImageName(unitTestHub, unitTestTag, c.debugMode),
 				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.debugMode),
@@ -382,8 +433,9 @@ func TestGetInitializerConfig(t *testing.T) {
 	defer util.DeleteNamespace(cl, ns)
 
 	goodConfig := Config{
-		Policy:          InjectionPolicyDisabled,
-		InitializerName: DefaultInitializerName,
+		Policy:            InjectionPolicyDisabled,
+		InitializerName:   DefaultInitializerName,
+		IncludeNamespaces: []string{v1.NamespaceAll},
 		Params: Params{
 			InitImage:       InitImageName(unitTestHub, unitTestTag, false),
 			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, false),
@@ -392,6 +444,23 @@ func TestGetInitializerConfig(t *testing.T) {
 		},
 	}
 	goodConfigYAML, err := yaml.Marshal(&goodConfig)
+	if err != nil {
+		t.Fatalf("Failed to create test config data: %v", err)
+	}
+
+	badConfigWithIncludeAndExcludeNamespaces := Config{
+		Policy:            InjectionPolicyDisabled,
+		InitializerName:   DefaultInitializerName,
+		IncludeNamespaces: []string{v1.NamespaceAll},
+		ExcludeNamespaces: []string{"ibm-system"},
+		Params: Params{
+			InitImage:       InitImageName(unitTestHub, unitTestTag, false),
+			ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, false),
+			SidecarProxyUID: 1234,
+			ImagePullPolicy: "Always",
+		},
+	}
+	badConfigWithIncludeAndExcludeNamespacesYAML, err := yaml.Marshal(&badConfigWithIncludeAndExcludeNamespaces)
 	if err != nil {
 		t.Fatalf("Failed to create test config data: %v", err)
 	}
@@ -431,12 +500,13 @@ func TestGetInitializerConfig(t *testing.T) {
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: "default-config"},
 				Data: map[string]string{
-					InitializerConfigMapKey: "",
+					InitializerConfigMapKey: string(""),
 				},
 			},
 			want: Config{
-				Policy:          DefaultInjectionPolicy,
-				InitializerName: DefaultInitializerName,
+				Policy:            DefaultInjectionPolicy,
+				InitializerName:   DefaultInitializerName,
+				IncludeNamespaces: []string{v1.NamespaceAll},
 				Params: Params{
 					InitImage:       InitImageName(DefaultHub, version.Info.Version, false),
 					ProxyImage:      ProxyImageName(DefaultHub, version.Info.Version, false),
@@ -456,6 +526,18 @@ func TestGetInitializerConfig(t *testing.T) {
 				},
 			},
 			want: goodConfig,
+		},
+		{
+			name:      "bad config with includeNamespaces and excludeNamespaces",
+			queryName: "bad-config-with-include-and-exclude-namespaces",
+			configMap: &v1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Name: "bad-config-with-include-and-exclude-namespaces"},
+				Data: map[string]string{
+					InitializerConfigMapKey: string(badConfigWithIncludeAndExcludeNamespacesYAML),
+				},
+			},
+			wantErr: true,
 		},
 	}
 
