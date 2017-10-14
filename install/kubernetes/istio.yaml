@@ -1281,4 +1281,9 @@ spec:
       - name: istio-ca
         image: gcr.io/istio-testing/istio-ca:f6efb0ab402ae55b7ba5b7b249e3df312422258d
         imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --grpc-port=8060
+          - --grpc-hostname=istio-ca
+          - --self-signed-ca=true
 ---
