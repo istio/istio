@@ -30,7 +30,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // kind: checknothing
 // metadata:
 //   name: denyrequest
-//   namespace: istio-config-default
+//   namespace: istio-system
 // spec:
 // ```
 message Template {

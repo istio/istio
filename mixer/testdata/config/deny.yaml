@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: denier
 metadata:
   name: denyall
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   status:
     code: 7
@@ -12,7 +12,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: denyrequest
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
  
 ---
@@ -20,7 +20,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: mixerdenysome
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   match: request.headers["clnt"] == "abc"
   actions:

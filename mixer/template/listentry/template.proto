@@ -33,7 +33,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // kind: listentry
 // metadata:
 //   name: appversion
-//   namespace: istio-config-default
+//   namespace: istio-system
 // spec:
 //   value: source.labels["version"]
 // ```

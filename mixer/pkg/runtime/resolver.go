@@ -88,7 +88,7 @@ func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, de
 
 const (
 	// DefaultConfigNamespace holds istio wide configuration.
-	DefaultConfigNamespace = "istio-config-default"
+	DefaultConfigNamespace = "istio-system"
 
 	// DefaultIdentityAttribute is attribute that defines config scopes.
 	DefaultIdentityAttribute = "destination.service"

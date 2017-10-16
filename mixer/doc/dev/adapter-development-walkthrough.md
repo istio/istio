@@ -552,7 +552,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
  name: requestcount
- namespace: istio-config-default
+ namespace: istio-system
 spec:
  value: "1"
  dimensions:
@@ -569,7 +569,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: mysampleadapter
 metadata:
  name: hndlrTest
- namespace: istio-config-default
+ namespace: istio-system
 spec:
  file_path: "out.txt"
 ---
@@ -578,7 +578,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
  name: mysamplerule
- namespace: istio-config-default
+ namespace: istio-system
 spec:
  match: "true"
  actions:
@@ -637,8 +637,8 @@ You should see something like:
 
 <pre>
 HandleMetric invoke for
-       Instance Name  : requestcount.metric.istio-config-default
-       Instance Value : {requestcount.metric.istio-config-default 1 map[response_code:200 service:unknown source:unknown target:unknown version:unknown method:unknown] UNSPECIFIED map[]}
+       Instance Name  : requestcount.metric.istio-system
+       Instance Value : {requestcount.metric.istio-system 1 map[response_code:200 service:unknown source:unknown target:unknown version:unknown method:unknown] UNSPECIFIED map[]}
        Type           : {INT64 map[response_code:INT64 service:STRING source:STRING target:STRING version:STRING method:STRING] map[]}
 </pre>
 
@@ -694,7 +694,7 @@ func TestMySampleAdapter(t *testing.T) {
 		MixerServerAddr:               `127.0.0.1:0`,
 		ConfigStoreURL:                `fs://` + operatorCnfg,
 		ConfigStore2URL:               `fs://` + operatorCnfg,
-		ConfigDefaultNamespace:        "istio-config-default",
+		ConfigDefaultNamespace:        "istio-system",
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 	}

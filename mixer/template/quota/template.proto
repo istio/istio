@@ -33,7 +33,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_QUOTA;
 // kind: quota
 // metadata:
 //   name: requestcount
-//   namespace: istio-config-default
+//   namespace: istio-system
 // spec:
 //   dimensions:
 //     source: source.labels["app"] | source.service | "unknown"

@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytesent
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: connection.sent.bytes | 0
   dimensions:
@@ -16,7 +16,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: tcpbytereceived
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: connection.received.bytes | 0
   dimensions:
