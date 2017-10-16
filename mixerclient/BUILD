@@ -14,6 +14,8 @@
 
 licenses(["notice"])
 
+load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
+
 py_binary(
    name = "create_global_dictionary",
    srcs = ["create_global_dictionary.py"],
@@ -22,12 +24,12 @@ py_binary(
 genrule(
    name = "global_dictionary_header_gen",
    srcs = [
-       "@io_istio_api//mixer/v1:attributes_file",
+       "@mixerapi_git//:mixer/v1/global_dictionary.yaml",
    ],
    outs = [
        "src/global_dictionary.cc",
    ],
-   cmd = "$(location //:create_global_dictionary) $(location @io_istio_api//mixer/v1:attributes_file) > $@",
+   cmd = "$(location //:create_global_dictionary) $(location @mixerapi_git//:mixer/v1/global_dictionary.yaml) > $@",
    tools = [
         "//:create_global_dictionary",
    ],
@@ -68,9 +70,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
-        "//prefetch:quota_prefetch_lib",
+	"//prefetch:quota_prefetch_lib",
         "//external:boringssl_crypto",
-        "@io_istio_api//mixer/v1:cc_protos",
+        "//external:mixer_api_cc_proto",
     ],
 )
 
