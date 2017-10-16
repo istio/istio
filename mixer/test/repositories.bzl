@@ -14,8 +14,8 @@
 #
 ################################################################################
 #
-load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
+load("@io_bazel_rules_go//go:def.bzl", "go_repository")
+load("@com_github_istio_mixer//:adapter_author_deps.bzl", "mixer_adapter_repositories")
 load("@com_github_istio_mixer//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
 load("@com_github_istio_mixer//:googleapis.bzl", "go_googleapis_repositories")
 load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
@@ -27,15 +27,16 @@ load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
 #
 # git_repository(
 #     name = "io_bazel_rules_go",
-#     commit = "7991b6353e468ba5e8403af382241d9ce031e571",  # Aug 1, 2017 (gazelle fixes)
-#    remote = "https://github.com/bazelbuild/rules_go.git",
+#     commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
+#     remote = "https://github.com/bazelbuild/rules_go.git",
 # )
 #
-# git_repository(
-#     name = "org_pubref_rules_protobuf",
-#     commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",
-#     remote = "https://github.com/pubref/rules_protobuf",
-# )
+# load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+# go_rules_dependencies()
+# go_register_toolchains()
+#
+# load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+# proto_register_toolchains()
 #
 # git_repository(
 #     name = "com_github_istio_mixer",
@@ -47,8 +48,7 @@ load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
 # mixer_test_repositories(False)
 #
 def mixer_test_repositories(use_local_api=False):
-    go_repositories()
-    gogo_proto_repositories()
+    mixer_adapter_repositories()
     go_x_tools_imports_repositories()
     go_istio_api_repositories(use_local_api)
     go_googleapis_repositories()

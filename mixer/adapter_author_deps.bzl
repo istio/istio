@@ -4,24 +4,18 @@ def mixer_adapter_repositories():
 
     native.git_repository(
         name = "org_pubref_rules_protobuf",
-        commit = "eafd42ce6471ce3ea265729c85e18e6180dea620",  # Sept 22, 2017 (genfiles path calculation fix)
+        commit = "ff3b7e7963daa7cb3b42f8936bc11eda4b960926",  # Oct 03, 2017 (Updating External Import Paths)
         remote = "https://github.com/pubref/rules_protobuf",
-    )
-
-    native.git_repository(
-        name = "com_github_google_protobuf",
-        commit = "52ab3b07ac9a6889ed0ac9bf21afd8dab8ef0014",  # Oct 4, 2016 (match pubref dep)
-        remote = "https://github.com/google/protobuf.git",
     )
 
     native.bind(
         name = "protoc",
-        actual = "@com_github_google_protobuf//:protoc",
+        actual = "@com_google_protobuf//:protoc",
     )
 
     native.bind(
         name = "protocol_compiler",
-        actual = "@com_github_google_protobuf//:protoc",
+        actual = "@com_google_protobuf//:protoc",
     )
 
     go_repository(
@@ -38,7 +32,7 @@ def mixer_adapter_repositories():
 
     go_repository(
         name = "com_github_golang_protobuf",
-        commit = "8ee79997227bf9b34611aee7946ae64735e6fd93",  # Nov 16, 2016 (match pubref dep)
+        commit = "17ce1425424ab154092bbb43af630bd647f3bb0d",  # Nov 16, 2016 (match pubref dep)
         importpath = "github.com/golang/protobuf",
     )
 
@@ -46,11 +40,12 @@ def mixer_adapter_repositories():
         name = "com_github_gogo_protobuf",
         commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
         importpath = "github.com/gogo/protobuf",
+        build_file_proto_mode = "legacy",
     )
 
     go_repository(
         name = "org_golang_google_grpc",
-        commit = "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",  # April 28, 2017 (v1.3.0)
+        commit = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3",  # Aug 30, 2017 (v1.6.0)
         importpath = "google.golang.org/grpc",
     )
 
