@@ -64,7 +64,7 @@ class BatchConverter {
 class AttributeConverter {
  public:
   void Convert(const Attributes& attributes,
-               ::istio::mixer::v1::Attributes* attributes_pb) const;
+               ::istio::mixer::v1::CompressedAttributes* attributes_pb) const;
 
   // Create a batch converter.
   std::unique_ptr<BatchConverter> CreateBatchConverter() const;

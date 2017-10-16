@@ -270,14 +270,14 @@ class AttributeConverterTest : public ::testing::Test {
 TEST_F(AttributeConverterTest, ConvertTest) {
   // A converter with an empty global dictionary.
   AttributeConverter converter({});
-  ::istio::mixer::v1::Attributes attributes_pb;
+  ::istio::mixer::v1::CompressedAttributes attributes_pb;
   converter.Convert(attributes_, &attributes_pb);
 
   std::string out_str;
   TextFormat::PrintToString(attributes_pb, &out_str);
   GOOGLE_LOG(INFO) << "===" << out_str << "===";
 
-  ::istio::mixer::v1::Attributes expected_attributes_pb;
+  ::istio::mixer::v1::CompressedAttributes expected_attributes_pb;
   ASSERT_TRUE(
       TextFormat::ParseFromString(kAttributes, &expected_attributes_pb));
   EXPECT_TRUE(

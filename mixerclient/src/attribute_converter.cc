@@ -75,7 +75,7 @@ class MessageDictionary {
 
 bool ConvertToPb(const Attributes& attributes, MessageDictionary& dict,
                  DeltaUpdate& delta_update,
-                 ::istio::mixer::v1::Attributes* pb) {
+                 ::istio::mixer::v1::CompressedAttributes* pb) {
   delta_update.Start();
 
   // Fill attributes.
@@ -133,7 +133,7 @@ class BatchConverterImpl : public BatchConverter {
   }
 
   bool Add(const Attributes& attributes) override {
-    ::istio::mixer::v1::Attributes pb;
+    ::istio::mixer::v1::CompressedAttributes pb;
     if (!ConvertToPb(attributes, dict_, *delta_update_, &pb)) {
       return false;
     }
@@ -185,8 +185,9 @@ void GlobalDictionary::ShrinkToBase() {
   }
 }
 
-void AttributeConverter::Convert(const Attributes& attributes,
-                                 ::istio::mixer::v1::Attributes* pb) const {
+void AttributeConverter::Convert(
+    const Attributes& attributes,
+    ::istio::mixer::v1::CompressedAttributes* pb) const {
   MessageDictionary dict(global_dict_);
   std::unique_ptr<DeltaUpdate> delta_update = DeltaUpdate::CreateNoOp();
 
