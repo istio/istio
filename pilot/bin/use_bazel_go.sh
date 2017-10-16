@@ -4,7 +4,7 @@
 EXEC_ROOT="$(bazel info execution_root)"
 
 if [[ ! -e ${EXEC_ROOT} ]]; then
-  echo "*** ${EXEC_ROOT} does not exist - did you forget to bazel build ... ?"
+  echo "*** ${EXEC_ROOT} does not exist - did you forget to bazel build ...  (or run make build) ?"
   exit 1
 fi
 

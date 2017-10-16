@@ -5,6 +5,14 @@ set -o nounset
 set -o pipefail
 set -x
 
+detected_OS=`uname -s 2>/dev/null || echo not`
+BUILD_FLAGS="--output_groups=static"
+SUFFIX=".static"
+if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
+    BUILD_FLAGS="--cpu=k8"
+    SUFFIX=""
+fi
+
 # Ensure expected GOPATH setup
 PDIR=`pwd`
 if [ $PDIR != "${GOPATH-$HOME/go}/src/istio.io/pilot" ]; then
@@ -13,7 +21,7 @@ if [ $PDIR != "${GOPATH-$HOME/go}/src/istio.io/pilot" ]; then
 fi
 
 # Building and testing with Bazel
-bazel build //...
+bazel build ${BUILD_FLAGS} //...
 
 source "${PDIR}/bin/use_bazel_go.sh"
 go version

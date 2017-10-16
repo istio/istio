@@ -69,17 +69,7 @@ To run the complete set of tests, use the following commands:
     bazel test //...
     bin/e2e.sh [-hub docker.io/<username>]
     
-_Note1_: If you are running Bazel in a VM (e.g. in [Vagrant environment](build-vagrant.md)), copy
-the kube config file on the host to platform/kube instead of symlinking it,
-and change the paths to minikube certs.
-
-    cp ~/.kube/config platform/kube/
-    sed -i 's!/Users/<username>!/home/ubuntu!' platform/kube/config
-
-Also, copy the same file to `/home/ubuntu/.kube/config` in the VM, and make
-sure that the file is readable to user `ubuntu`.
-
-_Note2_: The optional `-h` flag should point to a Docker registry that you have access to push images.
+_Note_: The optional `-h` flag should point to a Docker registry that you have access to push images.
 
 ## Code linters
 

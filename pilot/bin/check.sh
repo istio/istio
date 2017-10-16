@@ -1,7 +1,13 @@
 #!/bin/bash
 set -ex
 
-bazel build @com_github_bazelbuild_buildtools//buildifier
+detected_OS=`uname -s 2>/dev/null || echo not`
+BUILD_FLAGS=""
+if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
+    BUILD_FLAGS="--cpu=k8"
+fi
+
+bazel build ${BUILD_FLAGS} @com_github_bazelbuild_buildtools//buildifier
 buildifier=$(bazel info bazel-bin)/external/com_github_bazelbuild_buildtools/buildifier/buildifier
 $buildifier -showlog -mode=check \
   $(find . -type f \( -name 'BUILD' -or -name 'WORKSPACE' -or -wholename '.*bazel$' -or -wholename '.*bzl$' \) -print )

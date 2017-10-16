@@ -14,6 +14,23 @@
 
 SHELL := /bin/bash
 
+detected_OS := $(shell sh -c 'uname -s 2>/dev/null || echo not')
+BUILD_FLAGS = ""
+ifeq ($(detected_OS),Darwin)  # Mac OS X
+    BUILD_FLAGS = --cpu=k8
+endif
+
+hub = ""
+tag = ""
+
+ifneq ($(strip $(HUB)),)
+	hub =-hub ${HUB}
+endif
+
+ifneq ($(strip $(TAG)),)
+	tag =-tag ${TAG}
+endif
+
 .PHONY: setup
 setup: platform/kube/config
 	@bin/install-prereqs.sh
@@ -25,22 +42,30 @@ fmt:
 
 .PHONY: build
 build:	
-	@bazel build //...
+	@bazel build ${BUILD_FLAGS} //...
+
+.PHONY: docker
+docker:
+	@bin/push-docker ${hub} ${tag}
 
 .PHONY: clean
 clean:
 	@bazel clean
 
 .PHONY: test
-test: build
+test:
 	@bazel test //...
+
+.PHONY: e2etest
+e2etest:
+	@bazel run //test/integration -- --logtostderr ${TESTOPTS} ${hub} ${tag}
 
 .PHONY: coverage
 coverage:
 	@bin/codecov.sh
 
 .PHONY: lint
-lint: build
+lint:
 	@bin/check.sh
 
 .PHONY: gazelle
@@ -49,7 +74,7 @@ gazelle:
 
 .PHONY: racetest
 racetest:
-	@bazel test --features=race //...
+	@bazel test ${BUILD_FLAGS} --features=race //...
 
 platform/kube/config:
 	@ln -s ~/.kube/config platform/kube/
