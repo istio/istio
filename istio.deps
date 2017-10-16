@@ -11,14 +11,14 @@
 		"repoName": "mixer",
 		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
-		"lastStableSHA": "2b1dfc7e89ffb98dd1170e9ea9108affe1185cb9"
+		"lastStableSHA": "4518a25173aa9198a27aae2dd8a58d83671e2e9e"
 	},
 	{
 		"name": "PILOT_TAG",
 		"repoName": "pilot",
 		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
-		"lastStableSHA": "a0875083e266c4a52531de41df2b11d47512f18c"
+		"lastStableSHA": "2ca40d0b7894fa8de7ab52b83c8d114cb86641b7"
 	},
 	{
 		"name": "PROXY_TAG",
