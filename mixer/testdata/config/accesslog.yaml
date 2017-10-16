@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: stdio
 metadata:
   name: handler
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   outputAsJson: true
 ---
@@ -10,7 +10,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: accesslog
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   severity: '"Default"'
   timestamp: request.time
@@ -31,7 +31,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: stdio
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   match: "true" # If omitted match is true.
   actions:

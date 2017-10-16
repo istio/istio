@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: stackdriver
 metadata:
   name: handler
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
   # pushInterval: 1m
@@ -19,20 +19,20 @@ spec:
   # Describes how to map Istio metrics into Stackdriver.
   # Note: most of this config is copied over from prometheus.yaml to keep our metrics consistent across backends
   metricInfo:
-    stackdriverrequestcount.metric.istio-config-default:
+    stackdriverrequestcount.metric.istio-system:
       # Due to a bug in gogoproto deserialization, Enums in maps must be
       # specified by their integer value, not variant name. See
       # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
       # MetricKind and ValueType for the values to provide.
       kind: 2 # DELTA
       value: 2 # INT64
-    stackdriverrequestduration.metric.istio-config-default:
+    stackdriverrequestduration.metric.istio-system:
       kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
         explicit_buckets:
           bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-    stackdriverrequestsize.metric.istio-config-default:
+    stackdriverrequestsize.metric.istio-system:
       kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
@@ -40,7 +40,7 @@ spec:
           numFiniteBuckets: 8
           scale: 1
           growthFactor: 10
-    stackdriverresponsesize.metric.istio-config-default:
+    stackdriverresponsesize.metric.istio-system:
       kind: 2 # DELTA
       value: 5 # DISTRIBUTION
       buckets:
@@ -51,7 +51,7 @@ spec:
 
   # Describes how to map Istio logs into Stackdriver.
   logInfo:
-    stackdriverglobalmr.logentry.istio-config-default:
+    stackdriverglobalmr.logentry.istio-system:
       payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
       httpMapping:
         status: responseCode
@@ -65,7 +65,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: stackdriver
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   match: "true" # If omitted match is true.
   actions:
@@ -81,7 +81,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: logentry
 metadata:
   name: stackdriverglobalmr
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   severity: '"Default"'
   timestamp: request.time
@@ -111,7 +111,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: stackdriverrequestcount
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: "1"
   dimensions:
@@ -130,7 +130,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: stackdriverrequestduration
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: response.duration | "0ms"
   dimensions:
@@ -149,7 +149,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: stackdriverrequestsize
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: request.size | 0
   dimensions:
@@ -168,7 +168,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: metric
 metadata:
   name: stackdriverresponsesize
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: response.size | 0
   dimensions:

@@ -2,7 +2,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: listchecker
 metadata:
   name: staticversion
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   # providerUrl: ordinarily black and white lists are maintained
   # externally and fetched asynchronously using the providerUrl.
@@ -13,7 +13,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: listentry
 metadata:
   name: appversion
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: source.labels["version"]
 
@@ -22,7 +22,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: checkwl
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   # If an attribute could be potentially absent, use the '|' operator
   # to provide a default value. In the below example if 'destination.labels'

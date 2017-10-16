@@ -88,7 +88,7 @@ func TestDenierAdapter(t *testing.T) {
 		MixerServerAddr:               `127.0.0.1:0`,
 		ConfigStoreURL:                `fs://` + configStore,
 		ConfigStore2URL:               `fs://` + configStore,
-		ConfigDefaultNamespace:        "istio-config-default",
+		ConfigDefaultNamespace:        "istio-system",
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		UseAstEvaluator:               true,

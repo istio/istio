@@ -60,7 +60,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
   name: fakeHandlerConfig
-  namespace: istio-config-default
+  namespace: istio-system
 
 ---
 
@@ -68,7 +68,7 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: samplereport
 metadata:
   name: reportInstance
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   value: "2"
   dimensions:
@@ -81,12 +81,13 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: rule1
-  namespace: istio-config-default
+  namespace: istio-system
 spec:
   selector: target.name == "*"
   actions:
-  - handler: fakeHandlerConfig.fakeHandler.istio-config-default
-    instances: [ reportInstance.samplereport.istio-config-default ]
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - reportInstance.samplereport
 
 ---
 `
@@ -122,7 +123,7 @@ func TestReport(t *testing.T) {
 
 				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
 					map[string]interface{}{
-						"reportInstance.samplereport.istio-config-default": &reportTmpl.Type{
+						"reportInstance.samplereport.istio-system": &reportTmpl.Type{
 							Value:      pb.INT64,
 							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
 						},
@@ -132,7 +133,7 @@ func TestReport(t *testing.T) {
 				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
-							Name:       "reportInstance.samplereport.istio-config-default",
+							Name:       "reportInstance.samplereport.istio-system",
 							Value:      int64(2),
 							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
 						},
@@ -156,7 +157,7 @@ func TestReport(t *testing.T) {
 			MixerServerAddr:               `127.0.0.1:0`,
 			ConfigStoreURL:                `fs://` + configDir,
 			ConfigStore2URL:               `fs://` + configDir,
-			ConfigDefaultNamespace:        "istio-config-default",
+			ConfigDefaultNamespace:        "istio-system",
 			ConfigIdentityAttribute:       "destination.service",
 			ConfigIdentityAttributeDomain: "svc.cluster.local",
 			UseAstEvaluator:               true,

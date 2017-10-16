@@ -34,7 +34,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 // kind: logentry
 // metadata:
 //   name: accesslog
-//   namespace: istio-config-default
+//   namespace: istio-system
 // spec:
 //   severity: '"Default"'
 //   timestamp: request.time
