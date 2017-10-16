@@ -56,10 +56,14 @@ func ConvertConfig(schema model.ProtoSchema, config model.Config) (IstioObject, 
 	if err != nil {
 		return nil, err
 	}
+	namespace := config.Namespace
+	if namespace == "" {
+		namespace = meta_v1.NamespaceDefault
+	}
 	out := knownTypes[schema.Type].object.DeepCopyObject().(IstioObject)
 	out.SetObjectMeta(meta_v1.ObjectMeta{
 		Name:            config.Name,
-		Namespace:       config.Namespace,
+		Namespace:       namespace,
 		ResourceVersion: config.ResourceVersion,
 		Labels:          config.Labels,
 		Annotations:     config.Annotations,
