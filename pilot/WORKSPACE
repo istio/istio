@@ -462,7 +462,7 @@ go_repository(
 )
 
 # This SHA is obtained from istio/api
-ISTIO_API = "782bac5065b0cd1dc04fc24b9e35b244a48905b1"
+ISTIO_API = "ce599cdd0517de3e0275f72aac01b7a8022091cf"
 
 new_git_repository(
     name = "io_istio_api",

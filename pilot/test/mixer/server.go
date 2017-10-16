@@ -62,7 +62,7 @@ func NewServer() *Server {
 	return out
 }
 
-func (s *Server) decode(attrs *istio_mixer_v1.Attributes) map[string]string {
+func (s *Server) decode(attrs *istio_mixer_v1.CompressedAttributes) map[string]string {
 	word := func(i int32) string {
 		if i < 0 {
 			// -1 translates to 0
