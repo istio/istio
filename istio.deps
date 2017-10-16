@@ -2,28 +2,28 @@
 	{
 		"name": "CA_TAG",
 		"repoName": "auth",
-		"prodBranch": "stable",
+		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
 		"lastStableSHA": "f6efb0ab402ae55b7ba5b7b249e3df312422258d"
 	},
 	{
 		"name": "MIXER_TAG",
 		"repoName": "mixer",
-		"prodBranch": "stable",
+		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
 		"lastStableSHA": "4518a25173aa9198a27aae2dd8a58d83671e2e9e"
 	},
 	{
 		"name": "PILOT_TAG",
 		"repoName": "pilot",
-		"prodBranch": "stable",
+		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
 		"lastStableSHA": "2ca40d0b7894fa8de7ab52b83c8d114cb86641b7"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
-		"prodBranch": "master",
+		"prodBranch": "release-0.2",
 		"file": "istio.VERSION",
 		"lastStableSHA": "67851b9648346112987cb1ccf79a30b912724475"
 	}
