@@ -40,7 +40,7 @@ message CheckRequest {
   //
   // Mixer's configuration determines how these attributes are used to
   // establish the result returned in the response.
-  Attributes attributes = 1 [(gogoproto.nullable) = false];
+  CompressedAttributes attributes = 1 [(gogoproto.nullable) = false];
 
   // The number of words in the global dictionary, used with to populate the attributes.
   // This value is used as a quick way to determine whether the client is using a dictionary that
@@ -73,7 +73,7 @@ message CheckResponse {
     // adapters Mixer is configured with. These attributes are used to
     // ferry new attributes that Mixer derived based on the input set of
     // attributes and its configuration.
-    Attributes attributes = 4 [(gogoproto.nullable) = false];
+    CompressedAttributes attributes = 4 [(gogoproto.nullable) = false];
 
     // The total set of attributes that were used in producing the result
     // along with matching conditions.
@@ -113,7 +113,7 @@ message ReferencedAttributes {
 
   message AttributeMatch {
     // The name of the attribute. This is a dictionary index encoded in a manner identical
-    // to all strings in the [Attributes][istio.mixer.v1.Attributes] message.
+    // to all strings in the [CompressedAttributes][istio.mixer.v1.CompressedAttributes] message.
     sint32 name = 1;
 
     // The kind of match against the attribute value.
@@ -123,7 +123,7 @@ message ReferencedAttributes {
     string regex = 3;
   }
 
-  // The message-level dictionary. Refer to [Attributes][istio.mixer.v1.Attributes] for information
+  // The message-level dictionary. Refer to [CompressedAttributes][istio.mixer.v1.CompressedAttributes] for information
   // on using dictionaries.
   repeated string words = 1;
 

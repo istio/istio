@@ -41,7 +41,7 @@ message ReportRequest {
   //
   // If a client is not sophisticated and doesn't want to use delta-encoding,
   // a degenerate case is to include all attributes in every individual message.
-  repeated Attributes attributes = 1 [(gogoproto.nullable) = false];
+  repeated CompressedAttributes attributes = 1 [(gogoproto.nullable) = false];
 
   // The default message-level dictionary for all the attributes.
   // Individual attribute messages can have their own dictionaries, but if they don't

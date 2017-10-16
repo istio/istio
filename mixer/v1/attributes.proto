@@ -59,7 +59,7 @@ option (gogoproto.gostring_all) = false;
 // 1) Configure Istio/Proxy with static per-proxy attributes, such as source.uid.
 // 2) Service IDL definition to extract api attributes for active requests.
 // 3) Forward attributes from client proxy to server proxy for HTTP requests.
-message UncompressedAttributes {
+message Attributes {
   // A list of attributes.
   repeated Attribute attributes = 1;
 
@@ -94,7 +94,7 @@ message UncompressedAttributes {
 // dictionary instead. The message-level dictionary is carried by the
 // `words` field of this message, the deployment-wide dictionary is determined via
 // configuration.
-message Attributes {
+message CompressedAttributes {
   // The message-level dictionary.
   repeated string words = 1;
 
