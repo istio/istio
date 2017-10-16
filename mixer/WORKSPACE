@@ -6,17 +6,22 @@ check_version()
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "7991b6353e468ba5e8403af382241d9ce031e571",  # Aug 1, 2017 (gazelle fixes)
+    commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+go_rules_dependencies()
+go_register_toolchains(go_version="1.8.3")
 
-go_repositories()
+load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+proto_register_toolchains()
+
+load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 
 git_repository(
     name = "io_bazel_rules_docker",
-    commit = "e770f81cef4165828df955f37b827874a884a1de",  # June 21, 2017 (v0.0.2)
+    commit = "9dd92c73e7c8cf07ad5e0dca89a3c3c422a3ab7d",  # Sep 27, 2017 (v0.3.0)
     remote = "https://github.com/bazelbuild/rules_docker.git",
 )
 
@@ -27,17 +32,6 @@ docker_repositories()
 load(":adapter_author_deps.bzl", "mixer_adapter_repositories")
 
 mixer_adapter_repositories()
-
-git_repository(
-    name = "com_github_grpc_grpc",
-    commit = "3808b6efe66b87269d43847bc113e94e2d3d28fb",  # Oct 14, 2016 (match pubref dep)
-    init_submodules = True,
-    remote = "https://github.com/grpc/grpc.git",
-)
-
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
-
-cpp_proto_repositories()
 
 go_repository(
     name = "com_github_ghodss_yaml",
@@ -103,6 +97,7 @@ go_repository(
     name = "com_github_opentracing_basictracer_go",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",  # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
+    build_file_proto_mode = "legacy",
 )
 
 load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
@@ -209,6 +204,7 @@ go_repository(
     name = "io_k8s_api",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
+    build_file_proto_mode = "legacy",
     commit = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7",  # Jul 19, 2017 (no releases)
     importpath = "k8s.io/api",
 )
@@ -217,6 +213,7 @@ go_repository(
     name = "io_k8s_apimachinery",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
+    build_file_proto_mode = "legacy",
     commit = "6134cb2da6d90597b0434e349f90f94fafc9ae51",  # Jun 19, 2017 (no releases)
     importpath = "k8s.io/apimachinery",
 )
@@ -225,6 +222,7 @@ go_repository(
     name = "io_k8s_client_go",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
+    build_file_proto_mode = "legacy",
     commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017 (no releases)
     importpath = "k8s.io/client-go",
 )
@@ -233,6 +231,7 @@ go_repository(
     name = "io_k8s_apiextensions_apiserver",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
+    build_file_proto_mode = "legacy",
     commit = "c682349b0d1c12975d8e24a9799b66747255d7a5",  #  Jul 18, 2017 (no releases)
     importpath = "k8s.io/apiextensions-apiserver",
 )
@@ -271,6 +270,7 @@ go_repository(
     name = "com_github_googleapis_gnostic",
     commit = "0c5108395e2debce0d731cf0287ddf7242066aba",  # Jul 29, 2017 (no releases)
     importpath = "github.com/googleapis/gnostic",
+    build_file_proto_mode = "legacy",
 )
 
 go_repository(
@@ -407,7 +407,7 @@ go_repository(
 
 go_repository(
     name = "com_github_grpc_ecosystem_grpc_opentracing",
-    commit = "c94552f01d20ad74ec45a8cd967833a9d0b106cf",  # Feb 24, 2017 (no releases)
+    commit = "6c130eed1e297e1aa4d415a50c90d0c81c52677e",  # May 11, 2017 (no releases)
     importpath = "github.com/grpc-ecosystem/grpc-opentracing",
 )
 
@@ -542,6 +542,7 @@ go_repository(
     name = "com_github_openzipkin_zipkin_go_opentracing",
     commit = "90d57f421daae5e385ce2429580f0d695c41823b",  # Jul 5, 2017 (has releases but we need a newer commit)
     importpath = "github.com/openzipkin/zipkin-go-opentracing",
+    build_file_proto_mode = "legacy",
 )
 
 go_repository(
