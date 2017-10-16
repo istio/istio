@@ -18,7 +18,7 @@
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "c7fb1cc3fae4c74af36c9981051df1bf7cfd1bf5"
+		"lastStableSHA": "73e607007f9f5181a6635b559cc45f3afe215ae7"
 	},
 	{
 		"name": "PROXY_TAG",
