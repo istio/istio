@@ -178,7 +178,7 @@ func TestReport(t *testing.T) {
 		defer closeHelper(conn)
 
 		req := istio_mixer_v1.ReportRequest{
-			Attributes: []istio_mixer_v1.Attributes{
+			Attributes: []istio_mixer_v1.CompressedAttributes{
 				testEnv.GetAttrBag(tt.attrs,
 					args.ConfigIdentityAttribute,
 					args.ConfigIdentityAttributeDomain)},

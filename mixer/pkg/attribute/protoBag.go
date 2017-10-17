@@ -29,7 +29,7 @@ import (
 
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type ProtoBag struct {
-	proto               *mixerpb.Attributes
+	proto               *mixerpb.CompressedAttributes
 	globalDict          map[string]int32
 	globalWordList      []string
 	messageDict         map[string]int32
@@ -42,7 +42,7 @@ type ProtoBag struct {
 }
 
 // NewProtoBag creates a new proto-based attribute bag.
-func NewProtoBag(proto *mixerpb.Attributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
+func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
 	glog.V(4).Infof("Creating bag with attributes: %v", proto)
 
 	// build the message-level dictionary

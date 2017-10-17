@@ -87,14 +87,14 @@ func (env *testEnv) Close() error {
 }
 
 // GetAttrBag creates Attributes proto.
-func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.Attributes {
+func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) mixerpb.CompressedAttributes {
 	requestBag := attribute.GetMutableBag(nil)
 	requestBag.Set(identityAttr, identityAttrDomain)
 	for k, v := range attrs {
 		requestBag.Set(k, v)
 	}
 
-	var attrProto mixerpb.Attributes
+	var attrProto mixerpb.CompressedAttributes
 	requestBag.ToProto(&attrProto, nil, 0)
 	return attrProto
 }

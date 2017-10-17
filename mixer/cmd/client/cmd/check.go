@@ -75,7 +75,7 @@ func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command
 }
 
 func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string]int64) {
-	var attrs *mixerpb.Attributes
+	var attrs *mixerpb.CompressedAttributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
