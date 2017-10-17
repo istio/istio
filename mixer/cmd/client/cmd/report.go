@@ -40,7 +40,7 @@ func reportCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Comman
 }
 
 func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
-	var attrs *mixerpb.Attributes
+	var attrs *mixerpb.CompressedAttributes
 	var err error
 
 	if attrs, err = parseAttributes(rootArgs); err != nil {
@@ -56,7 +56,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	span, ctx := ot.StartSpanFromContext(context.Background(), "mixc Report", ext.SpanKindRPCClient)
 
 	for i := 0; i < rootArgs.repeat; i++ {
-		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{*attrs}}
+		request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{*attrs}}
 		_, err := cs.client.Report(ctx, &request)
 
 		printf("Report RPC returned %s", decodeError(err))

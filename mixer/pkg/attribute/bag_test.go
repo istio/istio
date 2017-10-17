@@ -41,7 +41,7 @@ func TestBag(t *testing.T) {
 	m1 := map[string]string{"N16": "N16"}
 	m3 := map[string]string{"N42": "FourtyTwo"}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:      []string{"N1", "N2", "N3", "N4", "N5", "N6", "N7", "N8", "N9", "N10", "N11", "N12", "N13", "N14", "N15", "N16", "N17"},
 		Strings:    map[int32]int32{-1: -1, -2: -2},
 		Int64S:     map[int32]int64{-3: 3, -4: 4},
@@ -169,8 +169,8 @@ func TestEmpty(t *testing.T) {
 }
 
 func TestEmptyRoundTrip(t *testing.T) {
-	attrs0 := mixerpb.Attributes{}
-	attrs1 := mixerpb.Attributes{}
+	attrs0 := mixerpb.CompressedAttributes{}
+	attrs1 := mixerpb.CompressedAttributes{}
 	mb := GetMutableBag(nil)
 	mb.ToProto(&attrs1, nil, 0)
 
@@ -190,7 +190,7 @@ func TestProtoBag(t *testing.T) {
 
 	sm := mixerpb.StringMap{Entries: map[int32]int32{-6: -7}}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:      messageWordList,
 		Strings:    map[int32]int32{4: 5},
 		Int64S:     map[int32]int64{6: 42},
@@ -267,7 +267,7 @@ func TestProtoBag(t *testing.T) {
 				mb.Set(n, v)
 			}
 
-			var a2 mixerpb.Attributes
+			var a2 mixerpb.CompressedAttributes
 			mb.ToProto(&a2, globalDict, len(globalDict))
 
 			pb.Done()
@@ -288,7 +288,7 @@ func TestMessageDict(t *testing.T) {
 	b.Set("M2", int64(2))
 	b.Set("M3", "M2")
 
-	var attrs mixerpb.Attributes
+	var attrs mixerpb.CompressedAttributes
 	b.ToProto(&attrs, globalDict, len(globalDict))
 	b2, _ := GetBagFromProto(&attrs, globalWordList)
 
@@ -308,7 +308,7 @@ func TestUpdateFromProto(t *testing.T) {
 
 	sm := mixerpb.StringMap{Entries: map[int32]int32{-6: -7}}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:      messageDict,
 		Strings:    map[int32]int32{4: 5},
 		Int64S:     map[int32]int64{6: 42},
@@ -331,7 +331,7 @@ func TestUpdateFromProto(t *testing.T) {
 	}
 
 	sm = mixerpb.StringMap{Entries: map[int32]int32{-7: -6}}
-	attrs = mixerpb.Attributes{
+	attrs = mixerpb.CompressedAttributes{
 		Words:      messageDict,
 		Int64S:     map[int32]int64{6: 142},
 		Doubles:    map[int32]float64{7: 142.0},
@@ -342,7 +342,7 @@ func TestUpdateFromProto(t *testing.T) {
 		t.Errorf("Got %v, expected success", err)
 	}
 
-	attrs = mixerpb.Attributes{
+	attrs = mixerpb.CompressedAttributes{
 		Words:      messageDict,
 		StringMaps: map[int32]mixerpb.StringMap{-1: sm},
 	}
@@ -388,7 +388,7 @@ func TestProtoBag_Errors(t *testing.T) {
 	globalWordList := []string{"G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"}
 	messageWordList := []string{"M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:   messageWordList,
 		Strings: map[int32]int32{-24: 25},
 	}
@@ -509,7 +509,7 @@ func TestBogusProto(t *testing.T) {
 	sm1 := mixerpb.StringMap{Entries: map[int32]int32{-42: 0}}
 	sm2 := mixerpb.StringMap{Entries: map[int32]int32{0: -42}}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:      messageWordList,
 		Strings:    map[int32]int32{42: 1, 1: 42},
 		StringMaps: map[int32]mixerpb.StringMap{-1: sm1, -2: sm2},
@@ -547,7 +547,7 @@ func TestMessageDictEdge(t *testing.T) {
 	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1}
 	messageWordList := []string{"N1", "N2"}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:   messageWordList,
 		Strings: map[int32]int32{0: -2},
 	}
@@ -577,7 +577,7 @@ func TestDoubleStrings(t *testing.T) {
 	globalDict := map[string]int32{globalWordList[0]: 0}
 	messageWordList := []string{"HELLO", "GOOD", "BAD"}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words:   messageWordList,
 		Strings: map[int32]int32{-1: -2},
 	}
@@ -613,7 +613,7 @@ func TestReferenceTracking(t *testing.T) {
 	globalDict := map[string]int32{globalWordList[0]: 0, globalWordList[1]: 1, globalWordList[2]: 2}
 	messageWordList := []string{"N1", "N2", "N3"}
 
-	attrs := mixerpb.Attributes{
+	attrs := mixerpb.CompressedAttributes{
 		Words: messageWordList,
 		Strings: map[int32]int32{
 			0:  0, // "G0":"G0"
@@ -698,7 +698,7 @@ func TestGlobalWordCount(t *testing.T) {
 	for i := 0; i < len(longGlobalWordList); i++ {
 		b.Set(longGlobalWordList[i], int64(i))
 	}
-	var output mixerpb.Attributes
+	var output mixerpb.CompressedAttributes
 	b.ToProto(&output, longGlobalDict, len(shortGlobalWordList)) // use the long word list, but short list's count
 
 	for i := 0; i < 2; i++ {

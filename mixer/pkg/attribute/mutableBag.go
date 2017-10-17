@@ -204,7 +204,7 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 }
 
 // ToProto fills-in an Attributes proto based on the content of the bag.
-func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]int32, globalWordCount int) {
+func (mb *MutableBag) ToProto(output *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordCount int) {
 	ds := newDictState(globalDict, globalWordCount)
 
 	for k, v := range mb.values {
@@ -270,7 +270,7 @@ func (mb *MutableBag) ToProto(output *mixerpb.Attributes, globalDict map[string]
 }
 
 // GetBagFromProto returns an initialized bag from an Attribute proto.
-func GetBagFromProto(attrs *mixerpb.Attributes, globalWordList []string) (*MutableBag, error) {
+func GetBagFromProto(attrs *mixerpb.CompressedAttributes, globalWordList []string) (*MutableBag, error) {
 	mb := GetMutableBag(nil)
 	err := mb.UpdateBagFromProto(attrs, globalWordList)
 	if err != nil {
@@ -285,7 +285,7 @@ func GetBagFromProto(attrs *mixerpb.Attributes, globalWordList []string) (*Mutab
 //
 // Note that in the case of semantic errors in the supplied proto which leads to
 // an error return, it's likely that the bag will have been partially updated.
-func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.Attributes, globalWordList []string) error {
+func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, globalWordList []string) error {
 	messageWordList := attrs.Words
 	var e error
 	var name string

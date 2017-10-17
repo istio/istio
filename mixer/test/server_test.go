@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	attrs = mixerpb.Attributes{
+	attrs = mixerpb.CompressedAttributes{
 		Words:   []string{"test.attribute", "test.value"},
 		Strings: map[int32]int32{-1: -2},
 	}
@@ -97,9 +97,9 @@ func TestCheck(t *testing.T) {
 
 	refAttrs := srcBag.GetReferencedAttributes(attrSrv.GlobalDict, len(attribute.GlobalList()))
 
-	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(status.OK, mixerpb.Attributes{}, refAttrs)}
+	okCheckResp := &mixerpb.CheckResponse{Precondition: precondition(status.OK, mixerpb.CompressedAttributes{}, refAttrs)}
 	quotaResp := &mixerpb.CheckResponse{
-		Precondition: precondition(status.OK, mixerpb.Attributes{}, refAttrs),
+		Precondition: precondition(status.OK, mixerpb.CompressedAttributes{}, refAttrs),
 		Quotas: map[string]mixerpb.CheckResponse_QuotaResult{
 			"foo": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: refAttrs},
 			"bar": {ValidDuration: 55 * time.Second, GrantedAmount: 999, ReferencedAttributes: refAttrs},
@@ -207,7 +207,7 @@ func TestReport(t *testing.T) {
 
 	client := mixerpb.NewMixerClient(conn)
 
-	attrs := []mixerpb.Attributes{
+	attrs := []mixerpb.CompressedAttributes{
 		{
 			Words:   []string{"some_user"},
 			Strings: map[int32]int32{6: -1}, // 6 is global index for "source_user"
@@ -229,7 +229,7 @@ func TestReport(t *testing.T) {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
 	}
 
-	finalAttr := &mixerpb.Attributes{Words: words, Strings: attrs[2].Strings}
+	finalAttr := &mixerpb.CompressedAttributes{Words: words, Strings: attrs[2].Strings}
 	finalBag := attribute.CopyBag(middleBag)
 	if err = finalBag.UpdateBagFromProto(finalAttr, attribute.GlobalList()); err != nil {
 		t.Fatalf("Could not set up attribute bags for testing: %v", err)
@@ -304,7 +304,7 @@ func startGRPCService(attrSrv *AttributesServer) (*grpc.Server, string, error) {
 	return grpcSrv, fmt.Sprintf("localhost:%d", port), nil
 }
 
-func precondition(status rpc.Status, attrs mixerpb.Attributes, refAttrs mixerpb.ReferencedAttributes) mixerpb.CheckResponse_PreconditionResult {
+func precondition(status rpc.Status, attrs mixerpb.CompressedAttributes, refAttrs mixerpb.ReferencedAttributes) mixerpb.CheckResponse_PreconditionResult {
 	return mixerpb.CheckResponse_PreconditionResult{
 		Status:               status,
 		ValidUseCount:        DefaultValidUseCount,

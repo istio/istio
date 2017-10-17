@@ -194,7 +194,7 @@ func TestCheck(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := mixerpb.Attributes{
+	attr0 := mixerpb.CompressedAttributes{
 		Words: []string{"A1", "A2", "A3"},
 		Int64S: map[int32]int64{
 			-1: 25,
@@ -252,7 +252,7 @@ func TestCheckQuota(t *testing.T) {
 		}, nil
 	}
 
-	attr0 := mixerpb.Attributes{
+	attr0 := mixerpb.CompressedAttributes{
 		Words: []string{"A1", "A2", "A3"},
 		Int64S: map[int32]int64{
 			-1: 25,
@@ -299,7 +299,7 @@ func TestReport(t *testing.T) {
 		return nil
 	}
 
-	request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{{}}}
+	request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}}
 	_, err = ts.client.Report(context.Background(), &request)
 	if err != nil {
 		t.Errorf("Expected success, got error: %v", err)
@@ -315,7 +315,7 @@ func TestReport(t *testing.T) {
 	}
 
 	// test out delta encoding of attributes
-	attr0 := mixerpb.Attributes{
+	attr0 := mixerpb.CompressedAttributes{
 		Words: []string{"A1", "A2", "A3"},
 		Int64S: map[int32]int64{
 			-1: 25,
@@ -324,7 +324,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 
-	attr1 := mixerpb.Attributes{
+	attr1 := mixerpb.CompressedAttributes{
 		Words: []string{"A1", "A2", "A3"},
 		Int64S: map[int32]int64{
 			-2: 42,
@@ -357,7 +357,7 @@ func TestReport(t *testing.T) {
 		return nil
 	}
 
-	request = mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{attr0, attr1}}
+	request = mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{attr0, attr1}}
 	_, _ = ts.client.Report(context.Background(), &request)
 
 	if callCount == 0 {
@@ -417,7 +417,7 @@ func TestFailingPreproc(t *testing.T) {
 	}
 
 	{
-		request := mixerpb.ReportRequest{Attributes: []mixerpb.Attributes{{}}}
+		request := mixerpb.ReportRequest{Attributes: []mixerpb.CompressedAttributes{{}}}
 		resp, err := ts.client.Report(context.Background(), &request)
 		if resp != nil {
 			t.Error("Expecting no response, got one")

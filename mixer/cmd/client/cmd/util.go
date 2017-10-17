@@ -174,7 +174,7 @@ func process(b *attribute.MutableBag, s string, f convertFn) error {
 	return nil
 }
 
-func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
+func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, error) {
 	b := attribute.GetMutableBag(nil)
 
 	if err := process(b, rootArgs.stringAttributes, parseString); err != nil {
@@ -213,7 +213,7 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.Attributes, error) {
 		return nil, err
 	}
 
-	var attrs mixerpb.Attributes
+	var attrs mixerpb.CompressedAttributes
 	b.ToProto(&attrs, nil, 0)
 
 	return &attrs, nil
@@ -243,7 +243,7 @@ func decodeStatus(status rpc.Status) string {
 	return result
 }
 
-func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.Attributes) {
+func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAttributes) {
 	if attrs == nil {
 		return
 	}
