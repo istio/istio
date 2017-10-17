@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.mixer.v1.config;
+package istio.mixer.v1.config.client;
 
 import "proxy/v1/config/route_rule.proto";
 
