@@ -48,7 +48,7 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 BINARY_NAME="istio-proxy-${SHA}.deb"
 SHA256_NAME="istio-proxy-${SHA}.sha256"
 bazel build --config=release //tools/deb:istio-proxy
-BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2.1_amd64.deb"
+BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2-dev_amd64.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 
@@ -72,7 +72,7 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 BINARY_NAME="istio-proxy-debug-${SHA}.deb"
 SHA256_NAME="istio-proxy-debug${SHA}.sha256"
 bazel build -c dbg //tools/deb:istio-proxy
-BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2.1_amd64.deb"
+BAZEL_TARGET="bazel-bin/tools/deb/istio-proxy_0.2-dev_amd64.deb"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 
