@@ -649,6 +649,14 @@ spec:
       valueType: TIMESTAMP
     context.time:
       valueType: TIMESTAMP
+    api.service:
+      valueType: STRING
+    api.version:
+      valueType: STRING
+    api.operation:
+      valueType: STRING
+    api.protocol:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
