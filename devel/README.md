@@ -244,6 +244,22 @@ make build
 
 This build command figures out what it needs to do and does not need any input from you.
 
+For Pilot, use the command below to set up the initial build:
+
+```shell
+cd $ISTIO/pilot
+make setup
+```
+
+After the initial build, you can simply use the command below to build:
+
+```shell
+cd $ISTIO/pilot
+make
+```
+
+This build command figures out what it needs to do and does not need any input from you.
+
 ### Setup bazel and go links
 
 Symlinks bazel artifacts into the standard go structure so standard go
