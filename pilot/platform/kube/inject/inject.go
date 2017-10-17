@@ -232,7 +232,21 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 	return &c, nil
 }
 
-func injectRequired(namespacePolicy InjectionPolicy, obj metav1.Object) bool {
+func injectRequired(ignored, excluded []string, namespacePolicy InjectionPolicy, obj metav1.Object) bool {
+	// skip special kubernetes system namespaces
+	for _, namespace := range ignored {
+		if obj.GetNamespace() == namespace {
+			return false
+		}
+	}
+
+	// skip customized exclude namespaces
+	for _, excludeNamespace := range excluded {
+		if obj.GetNamespace() == excludeNamespace {
+			return false
+		}
+	}
+
 	var useDefault bool
 	var inject bool
 
@@ -470,21 +484,7 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	// skip special kubernetes system namespaces
-	for _, namespace := range ignoredNamespaces {
-		if obj.GetNamespace() == namespace {
-			return out, nil
-		}
-	}
-
-	// skip customized exclude namespaces
-	for _, excludeNamespace := range c.ExcludeNamespaces {
-		if obj.GetNamespace() == excludeNamespace {
-			return out, nil
-		}
-	}
-
-	if !injectRequired(c.Policy, obj) {
+	if !injectRequired(ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
 		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
 		return out, nil
 	}

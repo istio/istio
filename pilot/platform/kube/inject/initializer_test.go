@@ -237,3 +237,61 @@ func TestInitialize(t *testing.T) {
 		}
 	}
 }
+
+func TestModifyRequired(t *testing.T) {
+	cases := []struct {
+		namespace string
+		exclude   []string
+		ignore    []string
+		include   []string
+		want      bool
+	}{
+		{
+			namespace: "istio-system",
+			ignore:    []string{"istio-system"},
+			include:   []string{"b"},
+			want:      true,
+		},
+		{
+			namespace: "default",
+			ignore:    []string{"istio-system"},
+			include:   []string{"b"},
+			want:      false,
+		},
+		{
+			namespace: "istio-system",
+			ignore:    []string{"istio-system"},
+			include:   []string{"istio-system"},
+			want:      true,
+		},
+		{
+			namespace: "default",
+			ignore:    []string{"istio-system"},
+			exclude:   []string{"default"},
+			want:      true,
+		},
+		{
+			namespace: "default",
+			ignore:    []string{"istio-system"},
+			include:   []string{v1.NamespaceAll},
+			want:      true,
+		},
+		{
+			namespace: "foo-bar",
+			ignore:    []string{"istio-system"},
+			include:   []string{"foo-bar"},
+			want:      true,
+		},
+		{
+			namespace: "foo-bar",
+			include:   []string{"baz"},
+			want:      false,
+		},
+	}
+
+	for _, c := range cases {
+		if got := modifyRequired(c.namespace, c.exclude, c.ignore, c.include); got != c.want {
+			t.Errorf("modifyRequired(%+v) failed: got %v want %v", c, got, c.want)
+		}
+	}
+}

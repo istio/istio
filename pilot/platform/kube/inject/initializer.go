@@ -162,29 +162,38 @@ func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Inter
 	return i, nil
 }
 
+func modifyRequired(objNamespace string, ignore, exclude, include []string) bool {
+	for _, namespace := range ignore {
+		if namespace == objNamespace {
+			return true
+		}
+	}
+	for _, namespace := range exclude {
+		if namespace == objNamespace {
+			return true
+		}
+	}
+	for _, namespace := range include {
+		if namespace == v1.NamespaceAll {
+			return true
+		} else if namespace == objNamespace {
+			// Don't skip. The initializer should initialize this
+			// resource.
+			return true
+		}
+		// else, keep searching
+	}
+	return false
+}
+
 func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 	obj, err := meta.Accessor(in)
 	if err != nil {
 		return err
 	}
 
-	var inject bool
-namespaceSearch:
-	for _, namespace := range i.config.IncludeNamespaces {
-		if namespace == v1.NamespaceAll {
-			inject = true
-			break namespaceSearch
-		} else if namespace == obj.GetNamespace() {
-			// Don't skip. The initializer should initialize this
-			// resource.
-			inject = true
-			break namespaceSearch
-		}
-		// else, keep searching
-	}
-	if !inject {
-		// Skip namespace(s) that we're not responsible for if
-		// len(pendingInitializers) == 0 { initializing.
+	namespace := obj.GetNamespace()
+	if !modifyRequired(namespace, ignoredNamespaces, i.config.ExcludeNamespaces, i.config.IncludeNamespaces) {
 		glog.V(2).Infof("Skipping %s/%s: non-managed namespace",
 			obj.GetNamespace(), obj.GetName())
 		return nil
