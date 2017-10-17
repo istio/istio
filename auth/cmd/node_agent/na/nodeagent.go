@@ -33,6 +33,10 @@ type platformSpecificRequest interface {
 	IsProperPlatform() bool
 	// Get the service identity.
 	GetServiceIdentity() (string, error)
+	// Get node agent credential
+	GetAgentCredential() ([]byte, error)
+	// Get type of the credential
+	GetCredentialType() string
 }
 
 // CAGrpcClient is for implementing the GRPC client to talk to CA.
@@ -165,10 +169,18 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		Org:        na.config.ServiceIdentityOrg,
 		RSAKeySize: na.config.RSAKeySize,
 	})
-
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate CSR: %v", err)
 	}
 
-	return privKey, &pb.Request{CsrPem: csr}, nil
+	cred, err := na.pr.GetAgentCredential()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get node agent credential: %v", err)
+	}
+
+	return privKey, &pb.Request{
+		CsrPem:              csr,
+		NodeAgentCredential: cred,
+		CredentialType:      na.pr.GetCredentialType(),
+	}, nil
 }

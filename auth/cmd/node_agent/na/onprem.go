@@ -61,6 +61,19 @@ func (na *onPremPlatformImpl) GetServiceIdentity() (string, error) {
 	return serviceIDs[0], nil
 }
 
+// Pass the certificate to control plane to authenticate
+func (na *onPremPlatformImpl) GetAgentCredential() ([]byte, error) {
+	certBytes, err := ioutil.ReadFile(na.certFile)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read cert file: %s", na.certFile)
+	}
+	return certBytes, nil
+}
+
+func (na *onPremPlatformImpl) GetCredentialType() string {
+	return "onprem"
+}
+
 // getTLSCredentials creates transport credentials that are common to
 // node agent and CA.
 func getTLSCredentials(certificateFile string, keyFile string,

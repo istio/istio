@@ -17,6 +17,8 @@ package na
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/golang/glog"
 
 	cred "istio.io/auth/pkg/credential"
@@ -44,6 +46,8 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		na.pr = &onPremPlatformImpl{cfg.CertChainFile}
 	case "gcp":
 		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", cfg.IstioCAAddress)}}
+	case "aws":
+		na.pr = &awsPlatformImpl{ec2metadata.New(session.Must(session.NewSession()))}
 	default:
 		return nil, fmt.Errorf("Invalid env %s specified", cfg.Env)
 	}

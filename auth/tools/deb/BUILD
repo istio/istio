@@ -3,7 +3,7 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 # TODO: also rename the binary to istio-auth-node-agent
 pkg_tar(
     name = "agent-bin",
-    files = [
+    srcs = [
         "//cmd/node_agent",
     ],
     mode = "0755",
@@ -12,7 +12,7 @@ pkg_tar(
 
 pkg_tar(
     name = "istio-systemd",
-    files = ["istio-auth-node-agent.service"],
+    srcs = ["istio-auth-node-agent.service"],
     mode = "644",
     package_dir = "/lib/systemd/system",
 )

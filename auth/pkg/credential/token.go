@@ -35,7 +35,7 @@ func (fetcher *GcpTokenFetcher) getTokenURI() string {
 	return "instance/service-accounts/default/identity?audience=" + fetcher.Aud
 }
 
-// FetchToken fetchs the GCE VM identity jwt token from its metadata server.
+// FetchToken fetches the GCE VM identity jwt token from its metadata server.
 // Note: this function only works in a GCE VM environment.
 func (fetcher *GcpTokenFetcher) FetchToken() (string, error) {
 	return metadata.Get(fetcher.getTokenURI())

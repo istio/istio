@@ -4,5 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["token.go"],
     visibility = ["//visibility:public"],
-    deps = ["@com_google_cloud_go//compute/metadata:go_default_library"],
+    deps = [
+         "@com_google_cloud_go//compute/metadata:go_default_library",
+    ],
 )
