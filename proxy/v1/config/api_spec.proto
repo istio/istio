@@ -16,6 +16,9 @@ syntax = "proto3";
 
 package istio.proxy.v1.config;
 
+import "mixer/v1/attributes.proto";
+import "proxy/v1/config/route_rule.proto";
+
 // APISpec defines the canonical configuration for generating
 // API-related attributes from HTTP requests based on the method and
 // uri templated path matches. It is sufficient for defining the API
@@ -61,7 +64,7 @@ message APISpec {
   // List of attributes that are generated when *any* of the HTTP
   // patterns match. This list typically includes the "api.service"
   // and "api.version" attributes.
-  Attributes attributes = 1;
+  istio.mixer.v1.Attributes attributes = 1;
 
   // List of HTTP patterns to match.
   repeated APISpecHTTPPattern patterns = 2;
@@ -83,7 +86,7 @@ message APISpecHTTPPattern {
   // List of attributes that are generated if the HTTP request matches
   // the specified http_method and uri_template. This typically
   // includes the "api.operation" attribute.
-  Attributes attributes = 1;
+  istio.mixer.v1.Attributes attributes = 1;
 
   // HTTP request method to match against as defined by
   // [rfc7231](https://tools.ietf.org/html/rfc7231#page-21). For
