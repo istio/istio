@@ -2,7 +2,6 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: denier
 metadata:
   name: denyreviewsv3handler
-  namespace: istio-system
 spec:
   status:
     code: 7
@@ -12,16 +11,14 @@ apiVersion: "config.istio.io/v1alpha2"
 kind: checknothing
 metadata:
   name: denyreviewsv3request
-  namespace: istio-system
 spec:
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: denyreviewsv3
-  namespace: istio-system
 spec:
   match: destination.labels["app"] == "ratings" && source.labels["app"]=="reviews" && source.labels["version"] == "v3"
   actions:
-  - handler: denyreviewsv3handler.denier.istio-system
-    instances: [ denyreviewsv3request.checknothing.istio-system ]
+  - handler: denyreviewsv3handler.denier.default
+    instances: [ denyreviewsv3request.checknothing.default ]
