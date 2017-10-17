@@ -40,17 +40,10 @@ service IstioCAService {
 message Request {
   // PEM-encoded certificate signing request
   bytes csr_pem = 1;
-  NodeAgentCredentials node_agent_credentials = 2;
-}
-
-message NodeAgentCredentials {
-  oneof node_credential {
-    GcpInstanceCredential gcp_instance_credential = 1;
-  }
-}
-
-message GcpInstanceCredential {
-  bytes signed_instance_metadata = 1;
+  // opaque credential for node agent
+  bytes node_agent_credential = 2;
+  // type of the node_agent_credential (aws/gcp/onprem/custom...)
+  string credential_type = 3;
 }
 
 message Response {

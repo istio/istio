@@ -1,12 +1,20 @@
 git_repository(
     name = "io_bazel_rules_go",
     remote = "https://github.com/bazelbuild/rules_go.git",
-    tag = "0.5.2",
+    tag = "0.5.5",
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
 
 go_repositories()
+
+git_repository(
+    name = "io_bazel_rules_docker",
+    remote = "https://github.com/bazelbuild/rules_docker.git",
+    tag = "v0.3.0",
+)
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
+docker_repositories()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
@@ -280,6 +288,24 @@ go_repository(
     name = "org_golang_google_genproto",
     commit = "411e09b969b1170a9f0c467558eb4c4c110d9c77",
     importpath = "google.golang.org/genproto",
+)
+
+go_repository(
+    name = "com_github_aws_aws-sdk-go",
+    importpath = "github.com/aws/aws-sdk-go",
+    tag = "v1.12.5",
+)
+
+go_repository(
+    name = "com_github_go_ini_ini",
+    importpath = "github.com/go-ini/ini",
+    tag = "v1.28.2",
+)
+
+go_repository(
+    name = "com_github_jmespath_go_jmespath",
+    importpath = "github.com/jmespath/go-jmespath",
+    tag = "0.2.2",
 )
 
 new_http_archive(

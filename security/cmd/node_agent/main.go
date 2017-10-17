@@ -49,7 +49,7 @@ func init() {
 		"ca-address", "istio-ca:8060", "Istio CA address")
 	flags.StringVar(&naConfig.RootCACertFile, "root-cert",
 		"/etc/certs/root-cert.pem", "Root Certificate file")
-	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp")
+	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")
 
 	cmd.InitializeFlags(rootCmd)
 }
