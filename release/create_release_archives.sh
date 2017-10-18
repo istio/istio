@@ -62,7 +62,7 @@ function create_linux_archive() {
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czvf \
-    "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-linux.tar.gz" . \
+    "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-linux.tar.gz" istio-${ISTIO_VERSION} \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
 }
@@ -76,7 +76,7 @@ function create_osx_archive() {
   chmod 755 "${istioctl_path}"
 
   ${TAR} --owner releng --group releng -czvf \
-    "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-osx.tar.gz" . \
+    "${ARCHIVES_DIR}/istio-${ISTIO_VERSION}-osx.tar.gz" istio-${ISTIO_VERSION} \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
 }
@@ -88,7 +88,7 @@ function create_windows_archive() {
   wget -O "${istioctl_path}" "${url}" \
     || error_exit "Could not download ${istioctl_path}"
 
-  zip -r "${ARCHIVES_DIR}/istio_${ISTIO_VERSION}_win.zip" . \
+  zip -r "${ARCHIVES_DIR}/istio_${ISTIO_VERSION}_win.zip" istio-${ISTIO_VERSION} \
     || error_exit 'Could not create linux archive'
   rm -rf "${istioctl_path}"
 }
