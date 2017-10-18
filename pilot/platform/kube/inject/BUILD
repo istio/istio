@@ -10,6 +10,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//platform/kube:go_default_library",
         "//proxy:go_default_library",
         "//tools/version:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",

@@ -96,7 +96,8 @@ func TestInitialize(t *testing.T) {
 		in                     string
 		wantPatchBytesFilename string
 		policy                 InjectionPolicy
-		managedNamespace       string
+		includeNamespaces      []string
+		excludeNamespaces      []string
 		objNamespace           string
 		wantPatched            bool
 		wantDebug              bool
@@ -106,7 +107,7 @@ func TestInitialize(t *testing.T) {
 			in:                     "testdata/hello.yaml",
 			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
-			managedNamespace:       v1.NamespaceAll,
+			includeNamespaces:      []string{v1.NamespaceAll},
 			wantPatchBytesFilename: "testdata/hello.yaml.patch",
 		},
 		{
@@ -114,7 +115,7 @@ func TestInitialize(t *testing.T) {
 			in:                     "testdata/required.yaml",
 			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
-			managedNamespace:       v1.NamespaceAll,
+			includeNamespaces:      []string{v1.NamespaceAll},
 			wantPatchBytesFilename: "testdata/required.yaml.patch",
 			wantPatched:            true,
 		},
@@ -123,7 +124,7 @@ func TestInitialize(t *testing.T) {
 			in:                     "testdata/required.yaml",
 			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
-			managedNamespace:       v1.NamespaceDefault,
+			includeNamespaces:      []string{v1.NamespaceDefault},
 			wantPatchBytesFilename: "testdata/required.yaml.patch",
 			wantPatched:            true,
 		},
@@ -132,7 +133,7 @@ func TestInitialize(t *testing.T) {
 			in:                     "testdata/first-initializer.yaml",
 			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
-			managedNamespace:       v1.NamespaceDefault,
+			includeNamespaces:      []string{v1.NamespaceDefault},
 			wantPatchBytesFilename: "testdata/first-initializer.yaml.patch",
 			wantPatched:            true,
 		},
@@ -141,8 +142,69 @@ func TestInitialize(t *testing.T) {
 			in:                     "testdata/second-initializer.yaml",
 			policy:                 InjectionPolicyEnabled,
 			objNamespace:           v1.NamespaceDefault,
-			managedNamespace:       v1.NamespaceDefault,
+			includeNamespaces:      []string{v1.NamespaceDefault},
 			wantPatchBytesFilename: "testdata/second-initializer.yaml.patch",
+			wantDebug:              true,
+		},
+		{
+			name:                   "skip object from non-include namespace",
+			in:                     "testdata/skip-object-from-non-include-namespace.yaml",
+			policy:                 InjectionPolicyEnabled,
+			objNamespace:           "not-default",
+			includeNamespaces:      []string{v1.NamespaceDefault},
+			wantPatchBytesFilename: "testdata/skip-object-from-non-include-namespace.yaml.patch",
+			wantPatched:            true,
+			wantDebug:              true,
+		},
+		{
+			name:                   "exclude specific namespace from initialization",
+			in:                     "testdata/exclude-specific-namespace-from-initialization.yaml",
+			policy:                 InjectionPolicyEnabled,
+			objNamespace:           v1.NamespaceDefault,
+			excludeNamespaces:      []string{v1.NamespaceDefault},
+			wantPatchBytesFilename: "testdata/exclude-specific-namespace-from-initialization.yaml.patch",
+			wantPatched:            true,
+			wantDebug:              true,
+		},
+		{
+			name:                   "skip initialization with policy disabled",
+			in:                     "testdata/skip-initialization-with-policy-disabled.yaml",
+			policy:                 InjectionPolicyDisabled,
+			objNamespace:           v1.NamespaceDefault,
+			includeNamespaces:      []string{v1.NamespaceAll},
+			wantPatchBytesFilename: "testdata/skip-initialization-with-policy-disabled.yaml.patch",
+			wantPatched:            true,
+			wantDebug:              true,
+		},
+		{
+			name:                   "initialization with policy disabled",
+			in:                     "testdata/initialization-with-policy-disabled.yaml",
+			policy:                 InjectionPolicyDisabled,
+			objNamespace:           v1.NamespaceDefault,
+			includeNamespaces:      []string{v1.NamespaceAll},
+			wantPatchBytesFilename: "testdata/initialization-with-policy-disabled.yaml.patch",
+			wantPatched:            true,
+			wantDebug:              true,
+		},
+		{
+			name:                   "deploy in non-included namespace",
+			in:                     "testdata/deploy-in-non-included-namespace.yaml",
+			policy:                 InjectionPolicyEnabled,
+			objNamespace:           "foo",
+			includeNamespaces:      []string{"bar"},
+			wantPatchBytesFilename: "testdata/deploy-in-non-included-namespace.yaml.patch",
+			wantPatched:            true,
+			wantDebug:              true,
+		},
+		{
+			name:                   "deploy in non-excluded namespace",
+			in:                     "testdata/deploy-in-non-excluded-namespace.yaml",
+			policy:                 InjectionPolicyEnabled,
+			objNamespace:           "foo",
+			includeNamespaces:      []string{v1.NamespaceAll},
+			excludeNamespaces:      []string{"bar"},
+			wantPatchBytesFilename: "testdata/deploy-in-non-excluded-namespace.yaml.patch",
+			wantPatched:            true,
 			wantDebug:              true,
 		},
 	}
@@ -150,7 +212,8 @@ func TestInitialize(t *testing.T) {
 	for _, c := range cases {
 		config := &Config{
 			Policy:            c.policy,
-			IncludeNamespaces: []string{c.managedNamespace},
+			IncludeNamespaces: c.includeNamespaces,
+			ExcludeNamespaces: c.excludeNamespaces,
 			Params: Params{
 				InitImage:       InitImageName(unitTestHub, unitTestTag, c.wantDebug),
 				ProxyImage:      ProxyImageName(unitTestHub, unitTestTag, c.wantDebug),
@@ -207,6 +270,12 @@ func TestInitialize(t *testing.T) {
 			t.Fatalf("%v: Unmarshal(obj) failed: %v", c.name, err)
 		}
 
+		m, err := meta.Accessor(obj)
+		if err != nil {
+			t.Fatalf("%v: failed to create accessor object: %v", c.name, err)
+		}
+		m.SetNamespace(c.objNamespace)
+
 		if err := i.initialize(obj, mockPatch); err != nil {
 			t.Fatalf("%v: initialize() returned an error: %v", c.name, err)
 		}
@@ -216,11 +285,6 @@ func TestInitialize(t *testing.T) {
 		}
 
 		if gotPatched {
-			m, err := meta.Accessor(obj)
-			if err != nil {
-				t.Fatalf("%v: failed to create accessor object: %v", c.name, err)
-			}
-
 			if gotNamespace != m.GetNamespace() {
 				t.Errorf("%v: wrong namespace: got %q want %q", c.name, gotNamespace, m.GetNamespace())
 			}
@@ -234,64 +298,6 @@ func TestInitialize(t *testing.T) {
 			}
 
 			util.CompareContent(gotPatchBytes, c.wantPatchBytesFilename, t)
-		}
-	}
-}
-
-func TestModifyRequired(t *testing.T) {
-	cases := []struct {
-		namespace string
-		exclude   []string
-		ignore    []string
-		include   []string
-		want      bool
-	}{
-		{
-			namespace: "istio-system",
-			ignore:    []string{"istio-system"},
-			include:   []string{"b"},
-			want:      true,
-		},
-		{
-			namespace: "default",
-			ignore:    []string{"istio-system"},
-			include:   []string{"b"},
-			want:      false,
-		},
-		{
-			namespace: "istio-system",
-			ignore:    []string{"istio-system"},
-			include:   []string{"istio-system"},
-			want:      true,
-		},
-		{
-			namespace: "default",
-			ignore:    []string{"istio-system"},
-			exclude:   []string{"default"},
-			want:      true,
-		},
-		{
-			namespace: "default",
-			ignore:    []string{"istio-system"},
-			include:   []string{v1.NamespaceAll},
-			want:      true,
-		},
-		{
-			namespace: "foo-bar",
-			ignore:    []string{"istio-system"},
-			include:   []string{"foo-bar"},
-			want:      true,
-		},
-		{
-			namespace: "foo-bar",
-			include:   []string{"baz"},
-			want:      false,
-		},
-	}
-
-	for _, c := range cases {
-		if got := modifyRequired(c.namespace, c.exclude, c.ignore, c.include); got != c.want {
-			t.Errorf("modifyRequired(%+v) failed: got %v want %v", c, got, c.want)
 		}
 	}
 }

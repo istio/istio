@@ -56,12 +56,6 @@ const (
 type InjectionPolicy string
 
 const (
-	// InjectionPolicyOff disables the initializer from modifying
-	// resources. The pending 'status.sidecar.istio.io initializer'
-	// initializer is still removed to avoid blocking creation of
-	// resources.
-	InjectionPolicyOff InjectionPolicy = "off"
-
 	// InjectionPolicyDisabled specifies that the initializer will not
 	// inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can enable injection
@@ -209,7 +203,7 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 
 	// apply safe defaults if not specified
 	switch c.Policy {
-	case InjectionPolicyOff, InjectionPolicyDisabled, InjectionPolicyEnabled:
+	case InjectionPolicyDisabled, InjectionPolicyEnabled:
 	default:
 		c.Policy = DefaultInjectionPolicy
 	}
@@ -232,7 +226,7 @@ func GetInitializerConfig(kube kubernetes.Interface, namespace, injectConfigName
 	return &c, nil
 }
 
-func injectRequired(ignored, excluded []string, namespacePolicy InjectionPolicy, obj metav1.Object) bool {
+func injectRequired(include, ignored, excluded []string, namespacePolicy InjectionPolicy, obj metav1.Object) bool {
 	// skip special kubernetes system namespaces
 	for _, namespace := range ignored {
 		if obj.GetNamespace() == namespace {
@@ -245,6 +239,24 @@ func injectRequired(ignored, excluded []string, namespacePolicy InjectionPolicy,
 		if obj.GetNamespace() == excludeNamespace {
 			return false
 		}
+	}
+
+	var included bool
+IncludeNamespaceSearch:
+	for _, namespace := range include {
+		if namespace == v1.NamespaceAll {
+			included = true
+			break IncludeNamespaceSearch
+		} else if obj.GetNamespace() == namespace {
+			// Don't skip. The initializer should initialize this
+			// resource.
+			included = true
+			break IncludeNamespaceSearch
+		}
+		// else, keep searching
+	}
+	if !included {
+		return false
 	}
 
 	var useDefault bool
@@ -484,7 +496,7 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	if !injectRequired(ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
+	if !injectRequired(c.IncludeNamespaces, ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
 		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
 		return out, nil
 	}

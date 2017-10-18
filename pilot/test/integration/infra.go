@@ -140,9 +140,17 @@ func (infra *infra) setup() error {
 	}
 	debugMode := infra.debugImagesAndMode
 	glog.Infof("mesh %s", spew.Sdump(mesh))
+
+	// Default to NamespaceAll to mirror kube-inject behavior. Only
+	// use a specific include namespace for the automatic injection.
+	includeNamespaces := []string{v1.NamespaceAll}
+	if infra.UseInitializer {
+		includeNamespaces = []string{infra.Namespace}
+	}
+
 	infra.InjectConfig = &inject.Config{
 		Policy:            inject.InjectionPolicyEnabled,
-		IncludeNamespaces: []string{infra.Namespace, infra.IstioNamespace},
+		IncludeNamespaces: includeNamespaces,
 		Params: inject.Params{
 			InitImage:       inject.InitImageName(infra.Hub, infra.Tag, debugMode),
 			ProxyImage:      inject.ProxyImageName(infra.Hub, infra.Tag, debugMode),
