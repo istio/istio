@@ -374,6 +374,39 @@ cc_proto_library(
         "//external:servicecontrol",
     ],
 )
+
+cc_proto_library(
+    name = "proxy_config_cc_proto",
+    srcs = glob(
+        ["proxy/v1/config/*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":mixer_api_cc_proto",
+        "//external:cc_wkt_protos",
+        "//external:cc_gogoproto",
+        "//external:servicecontrol",
+    ],
+)
+
+cc_proto_library(
+    name = "mixer_client_config_cc_proto",
+    srcs = glob(
+        ["mixer/v1/config/client/*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":mixer_api_cc_proto",
+        ":proxy_config_cc_proto",
+        "//external:cc_wkt_protos",
+        "//external:cc_gogoproto",
+        "//external:servicecontrol",
+    ],
+)
 """.format(protobuf_repo)
 
     native.new_git_repository(
