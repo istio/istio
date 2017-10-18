@@ -1,0 +1,72 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+import "mixer/v1/attributes.proto";
+import "mixer/v1/config/client/api_spec.proto";
+import "mixer/v1/config/client/quota.proto";
+
+package istio.mixer.v1.config.client;
+
+// Defines mixer control config.
+// It is per-route for upstream if it is from Envoy route opaque config.
+message MixerControlConfig {
+  // If true, call Mixer Check.
+  bool enable_mixer_check = 1;
+
+  // If true, call Mixer Report.
+  bool enable_mixer_Report = 2;
+
+  // If true, disable forwarding any attributes to upstream.
+  bool disable_forward_attributes = 3;
+
+  // Send these attributes to Mixer in both Check and Report.
+  Attributes mixer_attributes = 4;
+
+  // Forward these attributes to upstream.
+  Attributes forward_attributes = 5;
+
+  // API specifications to generate API attributes.
+  repeated APISpec api_spec = 6;
+
+  // Quota specifications to generate quota requirements.
+  repeated QuotaSpec quota_spec = 7;
+}
+
+// Specifies config for Envoy Mixer HTTP filter and TCP filter.
+message MixerFilterConfig {
+  // The flag to disable check cache.
+  bool disable_check_cache = 1;
+
+  // The flag to disable quota cache.
+  bool disable_quota_cache = 2;
+
+  // The flag to disable report batch.
+  bool disable_report_batch = 3;
+
+  enum NetworkFailPolicy {
+    // If network fails, request is passed to the backend.
+    FAIL_OPEN = 0;
+    // If network fails, request is rejected.
+    FAIL_CLOSE = 1;
+  }
+  // Specifies the policy when failed to connect to Mixer server.
+  NetworkFailPolicy network_fail_policy = 4;
+
+  // Specifies the default Mixer control config.
+  // If one is defined in upstream route table, per-route mixer control config
+  // takes precedence over the default mixer control config.
+  MixerControlConfig control_config = 5;
+}
