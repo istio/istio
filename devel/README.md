@@ -301,7 +301,7 @@ to generate new manifests with the specified Mixer containers.
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -rgcr.io/my-project,tag
+install/updateVersion.sh -xgcr.io/my-project,tag
 ```
 
 where
@@ -310,7 +310,7 @@ where
   `publish-docker-images.sh`.
 * `my-tag` is equivalent to the `-t` parameter specified to
   `publish-docker-images.sh`.
-* `-r` and `,` and the parameters are not delimited by a space.
+* `-x` and `,` and the parameters are not delimited by a space.
 
 ### Cleaning outputs
 
