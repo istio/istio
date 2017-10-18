@@ -18,7 +18,7 @@ sudo mysql
    create user 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'password';
    GRANT SELECT ON test.* TO 'root'@'%';
 # Create tables :
-mysql -u root -h 127.0.0.1 --password=password < ~/github/istio/samples/apps/bookinfo/src/mysql/mysqldb-init.sql
+mysql -u root -h 127.0.0.1 --password=password < ~/github/istio/samples/bookinfo/src/mysql/mysqldb-init.sql
 # And to be able to connect remotely (only needed to test before injection)
 sudo vi /etc/mysql/mysql.conf.d/mysqld.cnf
 # comment out:
@@ -64,14 +64,14 @@ You need 5 nodes in your cluster to add mysql (until we tune the requests)
 # source istio.VERSION
 wget https://storage.googleapis.com/istio-artifacts/pilot/$PILOT_TAG/artifacts/istioctl/istioctl-osx
 chmod 755 istioctl-osx
-./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/apps/bookinfo/bookinfo.yaml > bookinfo-istio.yaml
+./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/bookinfo/kube/bookinfo.yaml > bookinfo-istio.yaml
 kubectl apply -f bookinfo-istio.yaml
-./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/apps/bookinfo/bookinfo-mysql.yaml > bookinfo-mysql-istio.yaml
+./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/bookinfo/kube/bookinfo-mysql.yaml > bookinfo-mysql-istio.yaml
 kubectl apply -f bookinfo-mysql-istio.yaml
-./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/apps/bookinfo/bookinfo-ratings-v2.yaml > bookinfo-ratings-v2-istio.yaml
+./istioctl-osx kube-inject --hub $PILOT_HUB --tag $PILOT_TAG -f samples/bookinfo/kube/bookinfo-ratings-v2.yaml > bookinfo-ratings-v2-istio.yaml
 kubectl apply -f bookinfo-ratings-v2-istio.yaml
 # use it (ratings v2 and mysql)
-kubectl apply -f samples/apps/bookinfo/rules/route-rule-ratings-mysql.yaml
+kubectl apply -f samples/bookinfo/kube/route-rule-ratings-mysql.yaml
 # wait a bit / reload product page
 # see mysql in grafana and 5,6 stars
 kubectl port-forward mysqldb-v1-325529163-9x1r0 3306:3306 # use actual mysql pod
