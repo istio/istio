@@ -3,7 +3,7 @@
 export CA_HUB="gcr.io/istio-testing"
 export CA_TAG="0a8c61630ce4a62451bd3687f49c31e2b889f132"
 export MIXER_HUB="gcr.io/istio-testing"
-export MIXER_TAG="bae7e9b525196654932db67d901c8d5834b9a074"
+export MIXER_TAG="a71adf572e1a946488642376b13b836ce764e78d"
 export PILOT_HUB="gcr.io/istio-testing"
 export PILOT_TAG="48c1acfefd9327c0fed71ada42ab8052c27422e9"
 export ISTIOCTL_URL="https://storage.googleapis.com/istio-artifacts/pilot/48c1acfefd9327c0fed71ada42ab8052c27422e9/artifacts/istioctl"
