@@ -464,21 +464,18 @@ func ValidateSubnet(subnet string) error {
 	return ValidateIPv4Subnet(subnet)
 }
 
-// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
-func ValidateIPv4Subnet(subnet string) error {
-	// We expect a string in "CIDR notation" or "Dot-decimal notation"
-	// E.g., a.b.c.d/xx form or just a.b.c.d
-	parts := strings.Split(subnet, "/")
-	if len(parts) > 2 {
-		return fmt.Errorf("%q is not valid CIDR notation", subnet)
+// validateCIDR checks that a string is in "CIDR notation"
+func validateCIDR(cidr string) error {
+	// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
+	parts := strings.Split(cidr, "/")
+	if len(parts) != 2 {
+		return fmt.Errorf("%q is not valid CIDR notation", cidr)
 	}
 
 	var errs error
 
-	if len(parts) == 2 {
-		if err := ValidateCIDRBlock(parts[1]); err != nil {
-			errs = multierror.Append(errs, err)
-		}
+	if err := ValidateCIDRBlock(parts[1]); err != nil {
+		errs = multierror.Append(errs, err)
 	}
 
 	if err := ValidateIPv4Address(parts[0]); err != nil {
@@ -486,6 +483,16 @@ func ValidateIPv4Subnet(subnet string) error {
 	}
 
 	return errs
+}
+
+// ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
+func ValidateIPv4Subnet(subnet string) error {
+	// We expect a string in "CIDR notation" or "Dot-decimal notation"
+	// E.g., a.b.c.d/xx form or just a.b.c.d
+	if strings.Count(subnet, "/") == 1 {
+		return validateCIDR(subnet)
+	}
+	return ValidateIPv4Address(subnet)
 }
 
 // ValidateCIDRBlock validates that a string in "CIDR notation" or "Dot-decimal notation"
