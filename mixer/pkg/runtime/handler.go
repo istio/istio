@@ -94,6 +94,7 @@ func NewHandlerFactory(tmplRepo TemplateFinder, expr expr.TypeChecker, df expr.A
 func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, env adapter.Env) (adapter.Handler, error) {
 	infrdTypsByTmpl, err := h.inferTypesGrpdByTmpl(instances)
 	if err != nil {
+		glog.Error(err.Error())
 		return nil, err
 	}
 
