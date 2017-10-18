@@ -121,21 +121,22 @@ var (
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
-				if addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress); err == nil {
-					proxyConfig.StatsdUdpAddress = addr
-				} else {
+				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
+				if err != nil {
 					return err
 				}
+
+				proxyConfig.StatsdUdpAddress = addr
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
 				return err
 			}
 
-			if out, err := model.ToYAML(&proxyConfig); err == nil {
-				glog.V(2).Infof("Effective config: %s", out)
-			} else {
+			if out, err := model.ToYAML(&proxyConfig); err != nil {
 				glog.V(2).Infof("Failed to serialize to YAML: %v", err)
+			} else {
+				glog.V(2).Infof("Effective config: %s", out)
 			}
 
 			certs := []envoy.CertSource{
