@@ -9,7 +9,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27"
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -32,7 +35,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
+      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -54,7 +60,10 @@
      {
       "prefix": "/",
       "host_rewrite": "httpbin.default.svc.cluster.local",
-      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
+      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -77,7 +86,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
+      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    }

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -50,28 +51,28 @@ func (t *routing) run() error {
 			description: "routing all traffic to c-v1",
 			config:      "rule-default-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0})
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
 			},
 		},
 		{
 			description: "routing 75 percent to c-v1, 25 percent to c-v2",
 			config:      "rule-weighted-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 75, "v2": 25})
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 75, "v2": 25}, "")
 			},
 		},
 		{
 			description: "routing 100 percent to c-v2 using header",
 			config:      "rule-content-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "version", "v2", 100, map[string]int{"v1": 0, "v2": 100})
+				return t.verifyRouting("http", "a", "c", "version", "v2", 100, map[string]int{"v1": 0, "v2": 100}, "")
 			},
 		},
 		{
 			description: "routing 100 percent to c-v2 using regex header",
 			config:      "rule-regex-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("http", "a", "c", "foo", "bar", 100, map[string]int{"v1": 0, "v2": 100})
+				return t.verifyRouting("http", "a", "c", "foo", "bar", 100, map[string]int{"v1": 0, "v2": 100}, "")
 			},
 		},
 		{
@@ -98,7 +99,7 @@ func (t *routing) run() error {
 			description: "routing 100 percent to c-v1 with websocket upgrades",
 			config:      "rule-websocket-route.yaml.tmpl",
 			check: func() error {
-				return t.verifyRouting("ws", "a", "c", "testwebsocket", "enabled", 100, map[string]int{"v1": 100, "v2": 0})
+				return t.verifyRouting("ws", "a", "c", "testwebsocket", "enabled", 100, map[string]int{"v1": 100, "v2": 0}, "")
 			},
 		},
 	}
@@ -137,7 +138,7 @@ func counts(elts []string) map[string]int {
 
 // verifyRouting verifies if the traffic is split as specified across different deployments in a service
 func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
-	samples int, expectedCount map[string]int) error {
+	samples int, expectedCount map[string]int, operation string) error {
 	url := fmt.Sprintf("%s://%s/%s", scheme, dst, src)
 	glog.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
@@ -154,7 +155,32 @@ func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 		}
 	}
 
+	if operation != "" {
+		errs = t.verifyDecorator(operation)
+	}
+
 	return errs
+}
+
+// verify that the traces were picked up by Zipkin and decorator has been applied
+func (t *routing) verifyDecorator(operation string) error {
+	response := t.infra.clientRequest(
+		"t",
+		fmt.Sprintf("http://zipkin.%s:9411/api/v1/traces",
+			t.IstioNamespace),
+		1, "",
+	)
+
+	if len(response.code) == 0 || response.code[0] != httpOk {
+		return errAgain
+	}
+
+	text := fmt.Sprintf("\"name\":\"%s\"", operation)
+	if strings.Count(response.body, text) != 10 {
+		return errAgain
+	}
+
+	return nil
 }
 
 // verifyFaultInjection verifies if the fault filter was setup properly

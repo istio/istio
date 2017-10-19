@@ -317,6 +317,9 @@
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
+            },
+            "decorator": {
+             "operation": "default-route"
             }
            }
           ]
@@ -512,6 +515,9 @@
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
+            },
+            "decorator": {
+             "operation": "default-route"
             }
            }
           ]

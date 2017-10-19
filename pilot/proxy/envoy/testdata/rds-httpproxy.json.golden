@@ -8,7 +8,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c"
+      "cluster": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -21,7 +24,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27"
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -33,7 +39,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.02875f9311443c8773650d3fa21cee271505806f"
+      "cluster": "out.02875f9311443c8773650d3fa21cee271505806f",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -56,7 +65,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd"
+      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -73,7 +85,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d"
+      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -95,7 +110,10 @@
      {
       "prefix": "/",
       "host_rewrite": "httpbin.default.svc.cluster.local",
-      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e"
+      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -112,7 +130,10 @@
      {
       "prefix": "/",
       "host_rewrite": "httpsbin.default.svc.cluster.local",
-      "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d"
+      "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -135,7 +156,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74"
+      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    },
@@ -152,7 +176,10 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8"
+      "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",
+      "decorator": {
+       "operation": "default-route"
+      }
      }
     ]
    }

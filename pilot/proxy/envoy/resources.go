@@ -224,6 +224,11 @@ type Runtime struct {
 	Default int    `json:"default"`
 }
 
+// Decorator definition
+type Decorator struct {
+	Operation string `json:"operation"`
+}
+
 // HTTPRoute definition
 type HTTPRoute struct {
 	Runtime *Runtime `json:"runtime,omitempty"`
@@ -247,6 +252,8 @@ type HTTPRoute struct {
 
 	AutoHostRewrite  bool `json:"auto_host_rewrite,omitempty"`
 	WebsocketUpgrade bool `json:"use_websocket,omitempty"`
+
+	Decorator *Decorator `json:"decorator,omitempty"`
 
 	// clusters contains the set of referenced clusters in the route; the field is special
 	// and used only to aggregate cluster information after composing routes

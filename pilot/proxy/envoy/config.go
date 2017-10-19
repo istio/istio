@@ -705,17 +705,15 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 				model.SortRouteRules(rules)
 				for _, config := range rules {
 					rule := config.Spec.(*proxyconfig.RouteRule)
-					if rule.WebsocketUpgrade {
-						websocketRoute := buildInboundWebsocketRoute(rule, cluster)
-
+					if route := buildInboundRoute(config, rule, cluster); route != nil {
 						// set server-side mixer filter config for inbound HTTP routes
 						// Note: websocket routes do not call the filter chain. Will be
 						// resolved in future.
 						if mesh.MixerAddress != "" {
-							websocketRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
+							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
 						}
 
-						host.Routes = append(host.Routes, websocketRoute)
+						host.Routes = append(host.Routes, route)
 					}
 				}
 			}

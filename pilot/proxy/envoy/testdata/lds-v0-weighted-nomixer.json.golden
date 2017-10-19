@@ -212,7 +212,10 @@
           "routes": [
            {
             "prefix": "/",
-            "cluster": "in.1081"
+            "cluster": "in.1081",
+            "decorator": {
+             "operation": "default-route"
+            }
            }
           ]
          }
@@ -356,7 +359,10 @@
           "routes": [
            {
             "prefix": "/",
-            "cluster": "in.80"
+            "cluster": "in.80",
+            "decorator": {
+             "operation": "default-route"
+            }
            }
           ]
          }

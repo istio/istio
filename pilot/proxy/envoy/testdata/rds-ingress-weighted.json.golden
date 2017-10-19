@@ -25,6 +25,9 @@
        "mixer_check": "on",
        "mixer_forward": "on",
        "mixer_report": "on"
+      },
+      "decorator": {
+       "operation": "weighted"
       }
      }
     ]
