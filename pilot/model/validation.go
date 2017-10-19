@@ -17,6 +17,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -467,22 +468,16 @@ func ValidateSubnet(subnet string) error {
 // validateCIDR checks that a string is in "CIDR notation"
 func validateCIDR(cidr string) error {
 	// We expect a string in "CIDR notation", i.e. a.b.c.d/xx form
-	parts := strings.Split(cidr, "/")
-	if len(parts) != 2 {
-		return fmt.Errorf("%q is not valid CIDR notation", cidr)
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return fmt.Errorf("%v is not a valid CIDR block", cidr)
+	}
+	// The current implementation only supports IP v4 addresses
+	if ip.To4() == nil {
+		return fmt.Errorf("%v is not a valid IPv4 address", cidr)
 	}
 
-	var errs error
-
-	if err := ValidateCIDRBlock(parts[1]); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	if err := ValidateIPv4Address(parts[0]); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	return errs
+	return nil
 }
 
 // ValidateIPv4Subnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
@@ -495,26 +490,16 @@ func ValidateIPv4Subnet(subnet string) error {
 	return ValidateIPv4Address(subnet)
 }
 
-// ValidateCIDRBlock validates that a string in "CIDR notation" or "Dot-decimal notation"
-func ValidateCIDRBlock(cidr string) error {
-	if bits, err := strconv.Atoi(cidr); err != nil || bits <= 0 || bits > 32 {
-		return fmt.Errorf("/%v is not a valid CIDR block", cidr)
-	}
-
-	return nil
-}
-
 // ValidateIPv4Address validates that a string in "CIDR notation" or "Dot-decimal notation"
 func ValidateIPv4Address(addr string) error {
-	octets := strings.Split(addr, ".")
-	if len(octets) != 4 {
-		return fmt.Errorf("%q is not a valid IP address", addr)
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return fmt.Errorf("%v is not a valid IP", addr)
 	}
 
-	for _, octet := range octets {
-		if n, err := strconv.Atoi(octet); err != nil || n < 0 || n > 255 {
-			return fmt.Errorf("%q is not a valid IP address", addr)
-		}
+	// The current implementation only supports IP v4 addresses
+	if ip.To4() == nil {
+		return fmt.Errorf("%v is not a valid IPv4 address", addr)
 	}
 
 	return nil
