@@ -19,7 +19,7 @@ package istio.mixer.v1.config.client;
 import "mixer/v1/attributes.proto";
 import "proxy/v1/config/route_rule.proto";
 
-// APISpec defines the canonical configuration for generating
+// HTTPAPISpec defines the canonical configuration for generating
 // API-related attributes from HTTP requests based on the method and
 // uri templated path matches. It is sufficient for defining the API
 // surface of a service for the purposes of API attribute
@@ -31,10 +31,10 @@ import "proxy/v1/config/route_rule.proto";
 // HTTP methods and paths can be normalized to this format for use in
 // Istio. For example, a simple petstore API described by OpenAPIv2
 // [here](https://github.com/googleapis/gnostic/blob/master/examples/v2.0/yaml/petstore-simple.yaml)
-// can be represented with the following APISpec.
+// can be represented with the following HTTPAPISpec.
 //
 //     apiVersion: config.istio.io/v1alpha2
-//     kind: APISpec
+//     kind: HTTPAPISpec
 //     metadata:
 //       name: petstore
 //       namespace: default
@@ -60,20 +60,20 @@ import "proxy/v1/config/route_rule.proto";
 //         httpMethod: DELETE
 //         uriTemplate: /api/pets/{id}
 //
-message APISpec {
+message HTTPAPISpec {
   // List of attributes that are generated when *any* of the HTTP
   // patterns match. This list typically includes the "api.service"
   // and "api.version" attributes.
   Attributes attributes = 1;
 
   // List of HTTP patterns to match.
-  repeated APISpecHTTPPattern patterns = 2;
+  repeated HTTPAPISpecPattern patterns = 2;
 }
 
-// APISpecHTTPPattern defines a single pattern to match against
+// HTTPAPISpecPattern defines a single pattern to match against
 // incoming HTTP requests. The per-pattern list of attributes is
 // generated if both the http_method and uri_template match. In
-// addition, the top-level list of attributes in the APISpec is also
+// addition, the top-level list of attributes in the HTTPAPISpec is also
 // generated.
 //
 //     pattern:
@@ -82,7 +82,7 @@ message APISpec {
 //       httpMethod: GET
 //       uriTemplate: /foo/bar
 //
-message APISpecHTTPPattern {
+message HTTPAPISpecPattern {
   // List of attributes that are generated if the HTTP request matches
   // the specified http_method and uri_template. This typically
   // includes the "api.operation" attribute.
@@ -93,42 +93,54 @@ message APISpecHTTPPattern {
   // example: GET, HEAD, POST, PUT, DELETE.
   string http_method = 2;
 
-  // URI template to match against as defined by
-  // [rfc6570](https://tools.ietf.org/html/rfc6570). For example, the
-  // following are valid URI templates:
-  //
-  //     /pets
-  //     /pets/{id}
-  //     /dictionary/{term:1}/{term}
-  //     /search{?q*,lang}
-  //
-  string uri_template = 3;
+  oneof pattern {
+    // URI template to match against as defined by
+    // [rfc6570](https://tools.ietf.org/html/rfc6570). For example, the
+    // following are valid URI templates:
+    //
+    //     /pets
+    //     /pets/{id}
+    //     /dictionary/{term:1}/{term}
+    //     /search{?q*,lang}
+    //
+    string uri_template = 3;
+
+    // EXPERIMENTAL:
+    //
+    // ecmascript style regex-based match as defined by
+    // [EDCA-262](http://en.cppreference.com/w/cpp/regex/ecmascript). For
+    // example,
+    //
+    //     "^/pets/(.*?)?"
+    //
+    string regex = 4;
+  }
 }
 
-// APISpecReference defines a reference to an APISpec. This is
-// typically used for establishing bindings between an APISpec and an
+// HTTPAPISpecReference defines a reference to an HTTPAPISpec. This is
+// typically used for establishing bindings between an HTTPAPISpec and an
 // IstioService. For example, the following defines an
-// APISpecReference for service `foo` in namespace `bar`.
+// HTTPAPISpecReference for service `foo` in namespace `bar`.
 //
 //     - name: foo
 //       namespace: bar
 //
-message APISpecReference {
-  // REQUIRED. The short name of the APISpec. This is the resource
+message HTTPAPISpecReference {
+  // REQUIRED. The short name of the HTTPAPISpec. This is the resource
   // name defined by the metadata name field.
   string name = 1;
 
-  // Optional namespace of the APISpec. Defaults to the encompassing
-  // APISpecBinding's metadata namespace field.
+  // Optional namespace of the HTTPAPISpec. Defaults to the encompassing
+  // HTTPAPISpecBinding's metadata namespace field.
   string namespace = 2;
 }
 
-// APISpecBinding defines the binding between APISpecs and one or more
+// HTTPAPISpecBinding defines the binding between HTTPAPISpecs and one or more
 // IstioService. For example, the following establishes a binding
-// between the APISpec `petstore` and service `foo` in namespace `bar`.
+// between the HTTPAPISpec `petstore` and service `foo` in namespace `bar`.
 //
 //     apiVersion: config.istio.io/v1alpha2
-//     kind: APISpecBinding
+//     kind: HTTPAPISpecBinding
 //     metadata:
 //       name: my-binding
 //       namespace: default
@@ -136,16 +148,16 @@ message APISpecReference {
 //       services:
 //       - name: foo
 //         namespace: bar
-//       apispecs:
+//       api_specs:
 //       - name: petstore
 //         namespace: default
 //
-message APISpecBinding {
-  // REQUIRED. One or more services to map the listed APISpec onto.
+message HTTPAPISpecBinding {
+  // REQUIRED. One or more services to map the listed HTTPAPISpec onto.
   repeated istio.proxy.v1.config.IstioService services = 1;
 
-  // REQUIRED. One or more APISpec references that should be mapped to
+  // REQUIRED. One or more HTTPAPISpec references that should be mapped to
   // the specified service(s). The aggregate collection of match
-  // conditions defined in the APISpecs should not overlap.
-  repeated APISpecReference api_specs = 2;
+  // conditions defined in the HTTPAPISpecs should not overlap.
+  repeated HTTPAPISpecReference api_specs = 2;
 }

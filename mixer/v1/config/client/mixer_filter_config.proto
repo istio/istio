@@ -38,8 +38,8 @@ message MixerControlConfig {
   // Forward these attributes to upstream.
   Attributes forward_attributes = 5;
 
-  // API specifications to generate API attributes.
-  repeated APISpec api_spec = 6;
+  // HTTP API specifications to generate API attributes.
+  repeated HTTPAPISpec http_api_spec = 6;
 
   // Quota specifications to generate quota requirements.
   repeated QuotaSpec quota_spec = 7;
