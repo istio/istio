@@ -20,6 +20,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -54,6 +55,8 @@ var _ config.ChangeListener = &IL{}
 
 const ipFnName = "ip"
 const ipEqualFnName = "ip_equal"
+const timestampFnName = "timestamp"
+const timestampEqualFnName = "timestamp_equal"
 const matchFnName = "match"
 
 var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
@@ -70,6 +73,19 @@ var ipEqualExternFn = interpreter.ExternFromFn(ipEqualFnName, func(a []byte, b [
 	return ip1.Equal(ip2)
 })
 
+var timestampExternFn = interpreter.ExternFromFn(timestampFnName, func(in string) (time.Time, error) {
+	layout := time.RFC3339
+	t, err := time.Parse(layout, in)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", in, layout)
+	}
+	return t, nil
+})
+
+var timestampEqualExternFn = interpreter.ExternFromFn(timestampEqualFnName, func(t1 time.Time, t2 time.Time) bool {
+	return t1.Equal(t2)
+})
+
 var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, pattern string) bool {
 	if strings.HasSuffix(pattern, "*") {
 		return strings.HasPrefix(str, pattern[:len(pattern)-1])
@@ -81,9 +97,11 @@ var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, patte
 })
 
 var externMap = map[string]interpreter.Extern{
-	ipFnName:      ipExternFn,
-	ipEqualFnName: ipEqualExternFn,
-	matchFnName:   matchExternFn,
+	ipFnName:             ipExternFn,
+	ipEqualFnName:        ipEqualExternFn,
+	timestampFnName:      timestampExternFn,
+	timestampEqualFnName: timestampEqualExternFn,
+	matchFnName:          matchExternFn,
 }
 
 type cacheEntry struct {

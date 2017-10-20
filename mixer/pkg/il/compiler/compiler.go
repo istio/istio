@@ -209,6 +209,9 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "ip":
 		g.generate(f.Args[0], depth+1, nmNone, "")
 		g.builder.Call("ip")
+	case "timestamp":
+		g.generate(f.Args[0], depth+1, nmNone, "")
+		g.builder.Call("timestamp")
 	case "match":
 		g.generate(f.Args[0], depth+1, nmNone, "")
 		g.generate(f.Args[1], depth+1, nmNone, "")
@@ -264,6 +267,8 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 		switch dvt {
 		case dpb.IP_ADDRESS:
 			g.builder.Call("ip_equal")
+		case dpb.TIMESTAMP:
+			g.builder.Call("timestamp_equal")
 		default:
 			g.internalError("equality for type not yet implemented: %v", exprType)
 		}

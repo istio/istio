@@ -21,6 +21,7 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -347,6 +348,40 @@ func (f *matchFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[strin
 	return matchWithWildcards(str, pattern), nil
 }
 
+// func (string) []uint8
+type timestampFunc struct {
+	*baseFunc
+}
+
+// newTIMESTAMP returns a fn that converts strings to TIMESTAMPs.
+func newTIMESTAMP() Func {
+	return &timestampFunc{
+		baseFunc: &baseFunc{
+			name:     "timestamp",
+			retType:  config.TIMESTAMP,
+			argTypes: []config.ValueType{config.STRING},
+		},
+	}
+}
+
+func (f *timestampFunc) Call(attrs attribute.Bag, args []*Expression, fMap map[string]FuncBase) (interface{}, error) {
+	val, err := args[0].Eval(attrs, fMap)
+	if err != nil {
+		return nil, err
+	}
+	rawTime, ok := val.(string)
+	if !ok {
+		return nil, errors.New("input to 'timestamp' func was not a string")
+	}
+	layout := time.RFC3339
+	t, err := time.Parse(layout, rawTime)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", rawTime, layout)
+	}
+	return t, nil
+
+}
+
 func inventory() []FuncBase {
 	return []FuncBase{
 		newEQ(),
@@ -356,6 +391,7 @@ func inventory() []FuncBase {
 		newLAND(),
 		newIndex(),
 		newIP(),
+		newTIMESTAMP(),
 		newMatch(),
 	}
 }

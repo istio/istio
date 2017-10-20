@@ -76,6 +76,13 @@ func TestNewIP(t *testing.T) {
 	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING})
 }
 
+func TestNewTIMESTAMP(t *testing.T) {
+	fn := newTIMESTAMP()
+
+	check(t, "ReturnType", fn.ReturnType(), config.TIMESTAMP)
+	check(t, "ArgTypes", fn.ArgTypes(), []config.ValueType{config.STRING})
+}
+
 func TestNewMatch(t *testing.T) {
 	fn := newMatch()
 

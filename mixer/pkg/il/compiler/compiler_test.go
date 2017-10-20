@@ -42,6 +42,8 @@ var duration19, _ = time.ParseDuration("19ms")
 var duration20, _ = time.ParseDuration("20ms")
 var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
 var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
+var t, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:35Z")
+var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 
 var tests = []testInfo{
 	{
@@ -1002,6 +1004,73 @@ end`,
   ret
 end`,
 	},
+	{
+		expr:   `timestamp("2015-01-02T15:04:35Z")`,
+		result: t,
+		code: `fn eval() interface
+  apush_s "2015-01-02T15:04:35Z"
+  call timestamp
+  ret
+end`,
+	},
+	{
+		expr: `t1 == t2`,
+		input: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		result: false,
+		code: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  ret
+end`,
+	},
+	{
+		expr: `t1 == t2`,
+		input: map[string]interface{}{
+			"t1": t,
+			"t2": t,
+		},
+		result: true,
+		code: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  ret
+end`,
+	},
+	{
+		expr: `t1 != t2`,
+		input: map[string]interface{}{
+			"t1": t,
+			"t2": t,
+		},
+		result: false,
+		code: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  not
+  ret
+end`,
+	},
+	{
+		expr: `t1 | t2`,
+		input: map[string]interface{}{
+			"t2": t2,
+		},
+		result: t2,
+	},
+	{
+		expr: `t1 | t2`,
+		input: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		result: t,
+	},
 }
 
 var globalConfig = pb.GlobalConfig{
@@ -1051,6 +1120,12 @@ var globalConfig = pb.GlobalConfig{
 					ValueType: pbv.DURATION,
 				},
 				"bt": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"t1": {
+					ValueType: pbv.TIMESTAMP,
+				},
+				"t2": {
 					ValueType: pbv.TIMESTAMP,
 				},
 				"bip": {
@@ -1110,9 +1185,21 @@ func TestCompile(t *testing.T) {
 				return ip1.Equal(ip2)
 			})
 
+			var timestampExternFn = interpreter.ExternFromFn("timestamp", func(in string) time.Time {
+				layout := time.RFC3339
+				t, _ := time.Parse(layout, in)
+				return t
+			})
+
+			var timestampEqualExternFn = interpreter.ExternFromFn("timestamp_equal", func(t1 time.Time, t2 time.Time) bool {
+				return t1.Equal(t2)
+			})
+
 			externMap := map[string]interpreter.Extern{
-				"ip":       ipExtern,
-				"ip_equal": ipEqualExtern,
+				"ip":              ipExtern,
+				"ip_equal":        ipEqualExtern,
+				"timestamp":       timestampExternFn,
+				"timestamp_equal": timestampEqualExternFn,
 			}
 
 			i := interpreter.New(result.Program, externMap)

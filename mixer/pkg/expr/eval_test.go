@@ -20,11 +20,13 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/mixer/pkg/attribute"
 )
 
 func TestGoodEval(tt *testing.T) {
+	t, _ := time.Parse(time.RFC3339, "2015-01-02T15:04:35Z")
 	tests := []struct {
 		src    string
 		tmap   map[string]interface{}
@@ -301,6 +303,27 @@ func TestGoodEval(tt *testing.T) {
 				"target.ip": "",
 			},
 			nil, "could not convert '10.1.12' to IP_ADDRESS",
+		},
+		{
+			`request.time | timestamp("2015-01-02T15:04:35Z")`,
+			map[string]interface{}{
+				"request.time": "",
+			},
+			t, "",
+		},
+		{
+			`request.time | timestamp(2)`,
+			map[string]interface{}{
+				"request.time": "",
+			},
+			nil, "input to 'timestamp' func was not a string",
+		},
+		{
+			`request.time | timestamp("242233")`,
+			map[string]interface{}{
+				"request.time": "",
+			},
+			nil, "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		},
 	}
 
