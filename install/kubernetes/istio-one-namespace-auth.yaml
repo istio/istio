@@ -1084,7 +1084,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:e60f5da6fe95a566cecf83aba5f1e0c132270749
+        image: gcr.io/istio-testing/pilot:d8f580aa71b71fd1ec4862e2e05b8f9156a0009e
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
@@ -1153,7 +1153,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:e60f5da6fe95a566cecf83aba5f1e0c132270749
+        image: gcr.io/istio-testing/proxy_debug:d8f580aa71b71fd1ec4862e2e05b8f9156a0009e
         args:
         - proxy
         - ingress
@@ -1246,7 +1246,7 @@ spec:
       serviceAccountName: istio-egress-service-account
       containers:
       - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:e60f5da6fe95a566cecf83aba5f1e0c132270749
+        image: gcr.io/istio-testing/proxy_debug:d8f580aa71b71fd1ec4862e2e05b8f9156a0009e
         imagePullPolicy: IfNotPresent
         args:
         - proxy
