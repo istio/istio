@@ -18,7 +18,7 @@ import "google/protobuf/duration.proto";
 
 package istio.proxy.v1.config;
 
-enum AuthPolicy {
+enum AuthenticationPolicy {
   // Do not encrypt Envoy to Envoy traffic.
   NONE = 0;
 
@@ -83,16 +83,12 @@ message ProxyConfig {
   string availability_zone = 12;
 
   // Authentication policy defines the global switch to control authentication
-  // for Envoy-to-Envoy communication for infra components Mixer and Pilot.
-  AuthPolicy infra_auth_policy = 13;
-
-  // Address of the mixer service (e.g. __istio-mixer:15004_).
-  // Used by the proxy in front of mixer as the port to listen to,
-  // The value must be the same as MeshConfig.mixer_address
-  string mixer_address = 14;
-
-  // Pilot subject alternate name used for mutual TLS
-  repeated string pilot_san = 15;
+  // for Envoy-to-Envoy communication for istio components Mixer and Pilot.
+  AuthenticationPolicy control_plane_auth_policy = 13;
+  
+  // File path of custom proxy configuration, currently used by proxies
+  // in front of Mixer and Pilot.
+  string custom_config_file = 14;
 }
 
 
