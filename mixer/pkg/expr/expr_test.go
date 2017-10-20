@@ -47,6 +47,7 @@ func TestGoodParse(t *testing.T) {
 		{`a/b`, `QUO($a, $b)`},
 		{`request.header["X-FORWARDED-HOST"] == "aaa"`, `EQ(INDEX($request.header, "X-FORWARDED-HOST"), "aaa")`},
 		{`source.ip | ip("0.0.0.0")`, `OR($source.ip, ip("0.0.0.0"))`},
+		{`context.time | timestamp("2015-01-02T15:04:05Z")`, `OR($context.time, timestamp("2015-01-02T15:04:05Z"))`},
 		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
 		{`a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
 			`LOR(LAND(LAND(EQ($a.b, 3.14), EQ($c, "d")), EQ(INDEX($r.h, "abc"), "pqr")), EQ(INDEX($r.h, "abc"), "xyz"))`},
