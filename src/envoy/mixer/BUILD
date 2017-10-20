@@ -22,6 +22,7 @@ load(
     "envoy_proto_library",
     "envoy_cc_library",
     "envoy_cc_binary",
+    "envoy_cc_test",
     "envoy_linkopts",
 )
 
@@ -32,6 +33,30 @@ cc_proto_library(
     linkstatic = 1,
     protoc = "//external:protoc",
     visibility = ["//visibility:public"],
+)
+
+envoy_cc_library(
+    name = "quota_config_lib",
+    srcs = [
+        "quota_config.cc",
+        "quota_config.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        "//external:mixer_client_lib",
+	"@mixerapi_git//:mixer_client_config_cc_proto",
+    ],
+)
+
+envoy_cc_test(
+    name = "quota_config_test",
+    srcs = [
+        "quota_config_test.cc",
+    ],
+    repository = "@envoy",
+    deps = [
+        ":quota_config_lib",
+    ],
 )
 
 envoy_cc_library(
