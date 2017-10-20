@@ -12,7 +12,7 @@
 
 # This is the latest release candidate (matches ../istio.VERSION after basic
 # sanity checks)
-ISTIO_VERSION=${ISTIO_VERSION:-0.2.7}
+ISTIO_VERSION=${ISTIO_VERSION:-0.2.9}
 
 NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
