@@ -44,11 +44,13 @@ function docker_push() {
 hubs="gcr.io/istio-testing"
 local_tag=$(whoami)_$(date +%y%m%d_%H%M%S)
 tags="${local_tag}"
+build_only="false"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -tag) tags="$2"; shift ;;
         -hub) hubs="$2"; shift ;;
+        -build-only) build_only="true";;
         *) ;;
     esac
     shift
@@ -78,7 +80,9 @@ pushd docker
       for hub in ${hubs[@]}; do
         tagged_image="${hub}/${image}:${tag}"
         docker tag "${local_image}" "${tagged_image}"
-        docker_push "${tagged_image}"
+        if [ "${build_only}" != "true" ]; then
+            docker_push "${tagged_image}"
+        fi
       done
     done
   done

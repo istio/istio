@@ -46,7 +46,7 @@ build:
 
 .PHONY: docker
 docker:
-	@bin/push-docker ${hub} ${tag}
+	@bin/push-docker ${hub} ${tag} -build-only
 
 .PHONY: clean
 clean:

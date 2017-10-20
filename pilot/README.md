@@ -60,7 +60,7 @@ the dependencies.
 
 1. *Dockerize:* Run `make docker HUB=docker.io/<username> TAG=<sometag>`. 
 This will build a docker container for Pilot, the sidecar, and other 
-utilities, and push them to Docker hub.
+utilities.
 
 1. *Integration test:* Run `make e2etest HUB=docker.io/<username> TAG=<sometag>` 
 with same image tags as the one you used in the dockerize stage. This step will
