@@ -17,7 +17,9 @@ jobs:
             curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
-            sudo -E minikube start --vm-driver=none --kubernetes-version=v1.7.4
+            sudo -E minikube start \
+            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+            --kubernetes-version=v1.7.5 --vm-driver=none
       - run:
           command: |
             sudo -E minikube update-context
@@ -31,6 +33,6 @@ jobs:
           command: |
             ln -s ~/.kube/config platform/kube/
       - run: bazel build //...
-      #- run: bazel test //...
+      - run: bazel test //...
       - run: make docker HUB=docker.io/rshriram TAG=test
       - run: make e2etest HUB=docker.io/rshriram TAG=test
