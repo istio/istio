@@ -231,6 +231,24 @@ func TestCheck(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got %v, expected success", err)
 	}
+
+	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+		responseBag.Set("A1", "override")
+		return status.OK
+	}
+
+	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
+		if val, _ := requestBag.Get("A1"); val == "override" {
+			return nil, errors.New("attribute overriding not allowed in Check")
+		}
+		return &adapter.CheckResult{
+			Status: status.WithPermissionDenied("Not Implemented"),
+		}, nil
+	}
+
+	if _, err = ts.client.Check(context.Background(), &request); err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	}
 }
 
 func TestCheckQuota(t *testing.T) {
@@ -362,6 +380,22 @@ func TestReport(t *testing.T) {
 
 	if callCount == 0 {
 		t.Errorf("Got %d, expected call count of 2", callCount)
+	}
+
+	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+		responseBag.Set("A1", "override")
+		return status.OK
+	}
+
+	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
+		if val, _ := requestBag.Get("A1"); val == "override" {
+			return errors.New("attribute overriding NOT allowed in Check")
+		}
+		return nil
+	}
+
+	if _, err = ts.client.Report(context.Background(), &request); err != nil {
+		t.Errorf("Got unexpected error: %v", err)
 	}
 }
 

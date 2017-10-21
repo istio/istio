@@ -153,6 +153,21 @@ func TestMergeErrors(t *testing.T) {
 		t.Errorf("Expected error to contain the word FOO, got %s", err.Error())
 	}
 }
+func TestPreserveMerge(t *testing.T) {
+	mb := GetMutableBag(empty)
+
+	c1 := GetMutableBag(mb)
+	c2 := GetMutableBag(mb)
+
+	c1.Set("FOO", "X")
+	c2.Set("FOO", "Y")
+
+	if err := mb.PreserveMerge(c1, c2); err != nil {
+		t.Errorf("Got unexpected error: %v", err)
+	} else if val, _ := mb.Get("FOO"); val != "X" {
+		t.Errorf("Bad attribute value for FOO: got '%s', want '%s' ", val, "X")
+	}
+}
 
 func TestEmpty(t *testing.T) {
 	b := &emptyBag{}

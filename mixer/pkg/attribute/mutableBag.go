@@ -132,6 +132,10 @@ func (mb *MutableBag) Get(name string) (interface{}, bool) {
 
 // Names returns the names of all the attributes known to this bag.
 func (mb *MutableBag) Names() []string {
+	if mb == nil {
+		return []string{}
+	}
+
 	if mb.parent == nil {
 		panic(fmt.Errorf("attempt to use a bag after its Done method has been called"))
 	}
@@ -170,12 +174,23 @@ func (mb *MutableBag) Reset() {
 	}
 }
 
+// PreserveMerge combines an array of bags into the current bag.
+//
+// Any conflicting attribute values in the input bags are ignored.
+func (mb *MutableBag) PreserveMerge(bags ...*MutableBag) error {
+	return mb.merge(true, bags)
+}
+
 // Merge combines an array of bags into the current bag.
 //
 // The individual bags may not contain any conflicting attribute
 // values. If that happens, then the merge fails and no mutation
 // will have occurred to the current bag.
 func (mb *MutableBag) Merge(bags ...*MutableBag) error {
+	return mb.merge(false, bags)
+}
+
+func (mb *MutableBag) merge(skipOverrides bool, bags []*MutableBag) error {
 	// first step is to make sure there are no redundant definitions of the same attribute
 	keys := make(map[string]bool)
 	for _, bag := range bags {
@@ -183,20 +198,28 @@ func (mb *MutableBag) Merge(bags ...*MutableBag) error {
 			continue
 		}
 		for k := range bag.values {
-			if keys[k] {
+			if keys[k] && !skipOverrides {
 				return fmt.Errorf("conflicting value for attribute %s", k)
 			}
 			keys[k] = true
 		}
 	}
 
-	// now that we know there are no conflicting definitions, do the actual merging...
+	names := make(map[string]bool)
+	for _, name := range mb.Names() {
+		names[name] = true
+	}
+
 	for _, bag := range bags {
 		if bag == nil {
 			continue
 		}
 		for k, v := range bag.values {
-			mb.values[k] = copyValue(v)
+			_, found := names[k]
+			if !found {
+				mb.values[k] = copyValue(v)
+				names[k] = true
+			}
 		}
 	}
 
