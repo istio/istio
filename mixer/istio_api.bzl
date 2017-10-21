@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "26e98ec08eeaa97ed0bbcdc28fabd79199256073"
+ISTIO_API_SHA = "d80e4d55d86452dbb5de8ee24b37bf5c5124a9bc"
 
 def go_istio_api_repositories(use_local=False):
     ISTIO_API_BUILD_FILE = """

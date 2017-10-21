@@ -4,6 +4,6 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "istio_api.bzl",
-		"lastStableSHA": "26e98ec08eeaa97ed0bbcdc28fabd79199256073"
+		"lastStableSHA": "d80e4d55d86452dbb5de8ee24b37bf5c5124a9bc"
 	}
 ]
