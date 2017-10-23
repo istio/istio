@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/mixer/pkg/attribute"
@@ -27,6 +28,8 @@ import (
 	pb "istio.io/mixer/pkg/config/proto"
 	iltesting "istio.io/mixer/pkg/il/testing"
 )
+
+const maxStringTableSizeForPurge int = 1024
 
 func TestEval(t *testing.T) {
 	e := initEvaluator(t, configInt)
@@ -280,6 +283,73 @@ func TestConfigChange(t *testing.T) {
 	}
 }
 
+func Test_StringTableSizeBasedEviction(t *testing.T) {
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(src)
+	e := initEvaluator(t, configString)
+
+	expr := `attr == "boo"`
+
+	for i := 0; i < maxStringTableSizeForPurge*10; i++ {
+		bag := initBag(generateRandomStr(rnd))
+		_, err := e.Eval(expr, bag)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
+			t.Fatalf("%d > %d", entry.interpreter.StringTableSize(), maxStringTableSizeForPurge)
+		}
+	}
+}
+
+func Test_Stress(t *testing.T) {
+	src := rand.NewSource(time.Now().UnixNano())
+	rnd := rand.New(src)
+
+	e := initEvaluator(t, configString)
+
+	exprs := []string{
+		`attr`,
+		`attr == "foo"`,
+		`attr != "bar"`,
+		`attr | "baz"`,
+	}
+
+	for i := 0; i < 1000000; i++ {
+
+		for j, exp := range exprs {
+			str := generateRandomStr(rnd)
+			bag := initBag(str)
+
+			r, err := e.Eval(exp, bag)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if j == 0 {
+				if r != str {
+					t.Fatalf("%v != %v", r, str)
+				}
+			}
+		}
+	}
+}
+
+func generateRandomStr(r *rand.Rand) string {
+	size := r.Intn(20) + 1
+	bytes := make([]byte, size)
+
+	for i := 0; i < size; i++ {
+		b := byte('a') + byte(r.Intn(26))
+		bytes[i] = b
+	}
+
+	return string(bytes)
+}
+
 func initBag(attrValue interface{}) attribute.Bag {
 	attrs := make(map[string]interface{})
 	attrs["attr"] = attrValue
@@ -288,7 +358,7 @@ func initBag(attrValue interface{}) attribute.Bag {
 }
 
 func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
-	e, err := NewILEvaluator(10)
+	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}

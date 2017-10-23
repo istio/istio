@@ -84,6 +84,20 @@ func TestInterpreter_Eval_FunctionNotFound(t *testing.T) {
 	}
 }
 
+func TestInterpreter_StringTableSize(t *testing.T) {
+	p, _ := text.ReadText(`
+	fn main() bool
+		apush_b false
+		ret
+	end
+	`)
+
+	i := New(p, map[string]Extern{})
+	if i.StringTableSize() != p.Strings().Size() {
+		t.Fatalf("Size mismatch: %d != %d", i.StringTableSize(), p.Strings().Size())
+	}
+}
+
 func TestInterpreter_Eval(t *testing.T) {
 	duration20ms, _ := time.ParseDuration("20ms")
 

@@ -78,6 +78,11 @@ func (i *Interpreter) EvalFnID(fnID uint32, bag attribute.Bag) (Result, error) {
 	return i.run(fn, bag, false)
 }
 
+// StringTableSize returns the number of entries in the StringTable.
+func (i *Interpreter) StringTableSize() int {
+	return i.program.Strings().Size()
+}
+
 func newIntr(p *il.Program, es map[string]Extern, s *Stepper) *Interpreter {
 	i := Interpreter{
 		program: p,
