@@ -117,3 +117,13 @@ func TestExpansion(t *testing.T) {
 		}
 	}
 }
+
+func TestSize(t *testing.T) {
+	s := newStringTable()
+
+	_ = s.GetID("AAA")
+
+	if s.Size() != int(s.nextID) {
+		t.Fatalf("Size mismatch")
+	}
+}

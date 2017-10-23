@@ -37,10 +37,11 @@ import (
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
 // Specifically, it can listen to config change events.
 type IL struct {
-	cacheSize   int
-	context     *attrContext
-	contextLock sync.RWMutex
-	fMap        map[string]expr.FuncBase
+	cacheSize                  int
+	maxStringTableSizeForPurge int
+	context                    *attrContext
+	contextLock                sync.RWMutex
+	fMap                       map[string]expr.FuncBase
 }
 
 // attrContext captures the set of fields that needs to be kept & evicted together based on
@@ -144,9 +145,11 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 
 // EvalType evaluates expr using the attr attribute bag and returns the type of the result.
 func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	ctx := e.getAttrContext()
+
 	var entry cacheEntry
 	var err error
-	if entry, err = e.getOrCreateCacheEntry(expr); err != nil {
+	if entry, err = ctx.getOrCreateCacheEntry(expr); err != nil {
 		glog.Infof("evaluator.EvalType failed expr:'%s', err: %v", expr, err)
 		return pb.VALUE_TYPE_UNSPECIFIED, err
 	}
@@ -201,19 +204,29 @@ func (e *IL) getAttrContext() *attrContext {
 }
 
 func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, error) {
+	ctx := e.getAttrContext()
+	return ctx.evalResult(expr, attrs, e.maxStringTableSizeForPurge)
+}
+
+func (ctx *attrContext) evalResult(
+	expr string, attrs attribute.Bag, maxStringTableSizeForPurge int) (interpreter.Result, error) {
+
 	var entry cacheEntry
 	var err error
-	if entry, err = e.getOrCreateCacheEntry(expr); err != nil {
+	if entry, err = ctx.getOrCreateCacheEntry(expr); err != nil {
 		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
 
-	return entry.interpreter.Eval("eval", attrs)
+	r, err := entry.interpreter.Eval("eval", attrs)
+	if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
+		ctx.cache.Remove(expr)
+	}
+	return r, err
 }
 
-func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
+func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
-	ctx := e.getAttrContext()
 	if entry, found := ctx.cache.Get(expr); found {
 		return entry.(cacheEntry), nil
 	}
@@ -245,7 +258,7 @@ func (e *IL) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 }
 
 // NewILEvaluator returns a new instance of IL.
-func NewILEvaluator(cacheSize int) (*IL, error) {
+func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) {
 	// check the cacheSize here, to ensure that we can ignore errors in lru.New calls.
 	// cacheSize restriction is the only reason lru.New returns an error.
 	if cacheSize <= 0 {
@@ -253,7 +266,8 @@ func NewILEvaluator(cacheSize int) (*IL, error) {
 	}
 
 	return &IL{
-		cacheSize: cacheSize,
-		fMap:      expr.FuncMap(),
+		cacheSize:                  cacheSize,
+		maxStringTableSizeForPurge: maxStringTableSizeForPurge,
+		fMap: expr.FuncMap(),
 	}, nil
 }

@@ -82,6 +82,7 @@ type serverArgs struct {
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
 	useAst                        bool
+	stringTablePurgeLimit         int
 
 	// @deprecated
 	serviceConfigFile string
@@ -113,6 +114,7 @@ func (sa *serverArgs) String() string {
 	b.WriteString(fmt.Sprint("configIdentityAttribute: ", s.configIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("configIdentityAttributeDomain: ", s.configIdentityAttributeDomain, "\n"))
 	b.WriteString(fmt.Sprint("useAst: ", s.useAst, "\n"))
+	b.WriteString(fmt.Sprint("stringTablePurgeLimit: ", s.stringTablePurgeLimit, "\n"))
 	return b.String()
 }
 
@@ -199,7 +201,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 
 	serverCmd.PersistentFlags().BoolVarP(&sa.useAst, "useAst", "", false,
 		"Use AST instead of Mixer IL to evaluate configuration against the adapters.")
-
+	serverCmd.PersistentFlags().IntVar(&sa.stringTablePurgeLimit, "stringTablePurgeLimit", 1024, "Upper limit for String table size to purge at.")
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
@@ -259,11 +261,11 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 			fatalf("Failed to create CEXL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
 	} else {
-		eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
 		if err != nil {
 			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
-		ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
+		ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
 		if err != nil {
 			fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 		}
