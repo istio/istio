@@ -1,4 +1,4 @@
-# GENERATED FILE. Use with Docker-Compose and Eureka
+# GENERATED FILE. Use with Docker-Compose and eureka
 # TO UPDATE, modify files in install/eureka/templates and run install/updateVersion.sh
 version: '2'
 services:

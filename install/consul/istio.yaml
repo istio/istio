@@ -1,4 +1,4 @@
-# GENERATED FILE. Use with Docker-Compose and Consul
+# GENERATED FILE. Use with Docker-Compose and consul
 # TO UPDATE, modify files in install/consul/templates and run install/updateVersion.sh
 version: '2'
 services:
