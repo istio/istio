@@ -1,5 +1,6 @@
 # Istio Pilot #
-[Build Status](https://prow.istio.io/?job=pilot-postsubmit)
+[Prow build Status](https://prow.istio.io/?job=pilot-postsubmit)
+[![CircleCI](https://circleci.com/gh/istio/pilot/tree/master.svg?style=svg)](https://circleci.com/gh/istio/pilot/tree/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/pilot)](https://goreportcard.com/report/github.com/istio/pilot)
 [![GoDoc](https://godoc.org/github.com/istio/pilot?status.svg)](https://godoc.org/github.com/istio/pilot)
 [![codecov.io](https://codecov.io/github/istio/pilot/coverage.svg?branch=master)](https://codecov.io/github/istio/pilot?branch=master)
