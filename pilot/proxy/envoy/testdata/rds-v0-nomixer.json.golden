@@ -59,7 +59,6 @@
     "routes": [
      {
       "prefix": "/",
-      "host_rewrite": "httpbin.default.svc.cluster.local",
       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
       "decorator": {
        "operation": "default-route"

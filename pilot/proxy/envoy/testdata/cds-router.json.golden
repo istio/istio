@@ -2,14 +2,10 @@
   "clusters": [
    {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
+    "service_name": "httpsbin.default.svc.cluster.local|https",
     "connect_timeout_ms": 1000,
-    "type": "strict_dns",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://istio-egress.istio-system:8888"
-     }
-    ]
+    "type": "sds",
+    "lb_type": "round_robin"
    },
    {
     "name": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
@@ -41,14 +37,10 @@
    },
    {
     "name": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+    "service_name": "httpbin.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
-    "type": "strict_dns",
-    "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://istio-egress.istio-system:8888"
-     }
-    ]
+    "type": "sds",
+    "lb_type": "round_robin"
    },
    {
     "name": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",

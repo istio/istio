@@ -126,14 +126,10 @@
    },
    {
     "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
+    "service_name": "httpsbin.default.svc.cluster.local|https",
     "connect_timeout_ms": 1000,
-    "type": "strict_dns",
+    "type": "sds",
     "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://istio-egress.istio-system:8888"
-     }
-    ],
     "ssl_context": {
      "cert_chain_file": "/etc/certs/cert-chain.pem",
      "private_key_file": "/etc/certs/key.pem",
@@ -222,14 +218,10 @@
    },
    {
     "name": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+    "service_name": "httpbin.default.svc.cluster.local|http",
     "connect_timeout_ms": 1000,
-    "type": "strict_dns",
+    "type": "sds",
     "lb_type": "round_robin",
-    "hosts": [
-     {
-      "url": "tcp://istio-egress.istio-system:8888"
-     }
-    ],
     "ssl_context": {
      "cert_chain_file": "/etc/certs/cert-chain.pem",
      "private_key_file": "/etc/certs/key.pem",

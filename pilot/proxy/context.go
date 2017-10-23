@@ -70,9 +70,6 @@ const (
 	// Ingress type is used for cluster ingress proxies
 	Ingress NodeType = "ingress"
 
-	// Egress type is used for cluster egress proxies
-	Egress NodeType = "egress"
-
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
 )
@@ -148,7 +145,7 @@ func DefaultProxyConfig() proxyconfig.ProxyConfig {
 func DefaultMeshConfig() proxyconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return proxyconfig.MeshConfig{
-		EgressProxyAddress:    "istio-egress:80",
+		EgressProxyAddress:    "",
 		MixerAddress:          "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,

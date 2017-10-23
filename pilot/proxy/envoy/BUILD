@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "config.go",
         "discovery.go",
-        "egress.go",
         "fault.go",
         "header.go",
         "ingress.go",

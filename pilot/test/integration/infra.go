@@ -61,7 +61,6 @@ type infra struct { // nolint: aligncheck
 	// switches for infrastructure components
 	Mixer     bool
 	Ingress   bool
-	Egress    bool
 	Zipkin    bool
 	DebugPort int
 
@@ -246,12 +245,6 @@ func (infra *infra) setup() error {
 			return err
 		}
 	}
-	if infra.Egress {
-		if err := deploy("egress-proxy.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-	}
-
 	if infra.Zipkin {
 		if err := deploy("zipkin.yaml", infra.IstioNamespace); err != nil {
 			return err

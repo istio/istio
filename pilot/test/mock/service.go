@@ -66,12 +66,6 @@ var (
 		ID:        "ingress.default",
 		Domain:    "default.svc.cluster.local",
 	}
-	Egress = proxy.Node{
-		Type:      proxy.Egress,
-		IPAddress: "10.3.3.4",
-		ID:        "egress.default",
-		Domain:    "default.svc.cluster.local",
-	}
 	Router = proxy.Node{
 		Type:      proxy.Router,
 		IPAddress: "10.3.3.5",

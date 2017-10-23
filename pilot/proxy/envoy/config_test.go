@@ -327,7 +327,6 @@ func makeProxyConfig() proxyconfig.ProxyConfig {
 func makeMeshConfig() proxyconfig.MeshConfig {
 	mesh := proxy.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
-	mesh.EgressProxyAddress = "istio-egress.istio-system:8888"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh
 }

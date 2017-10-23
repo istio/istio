@@ -109,7 +109,6 @@
     "routes": [
      {
       "prefix": "/",
-      "host_rewrite": "httpbin.default.svc.cluster.local",
       "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
       "decorator": {
        "operation": "default-route"
@@ -129,7 +128,6 @@
     "routes": [
      {
       "prefix": "/",
-      "host_rewrite": "httpsbin.default.svc.cluster.local",
       "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
       "decorator": {
        "operation": "default-route"
