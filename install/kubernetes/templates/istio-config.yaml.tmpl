@@ -22,7 +22,6 @@ data:
     mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
-    egressProxyAddress: istio-egress.{ISTIO_NAMESPACE}:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
@@ -33,7 +32,7 @@ data:
     #
     defaultConfig:
       # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress and istio-egress pods.
+      # the same changes in start up args in istio-ingress pods.
       # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 1s
       #
