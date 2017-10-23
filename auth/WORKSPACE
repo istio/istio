@@ -308,6 +308,12 @@ go_repository(
     tag = "0.2.2",
 )
 
+go_repository(
+    name = "com_github_fullsailor_pkcs7",
+    importpath = "github.com/fullsailor/pkcs7",
+    commit = "a009d8d7de53d9503c797cb8ec66fa3b21eed209",
+)
+
 new_http_archive(
     name = "docker_ubuntu",
     build_file = "BUILD.ubuntu",

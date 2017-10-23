@@ -26,6 +26,7 @@ go_library(
         "@org_golang_x_net//context:go_default_library",
         "@com_github_aws_aws-sdk-go//aws/ec2metadata:go_default_library",
         "@com_github_aws_aws-sdk-go//aws/session:go_default_library",
+        "@com_github_fullsailor_pkcs7//:go_default_library",
     ],
 )
 
@@ -39,6 +40,7 @@ go_test(
         "nodeagent_test.go",
         "onprem_test.go",
         "util_test.go",
+        "aws_test.go",
     ],
     data = glob(["testdata/*"]),
     library = ":go_default_library",
@@ -47,5 +49,8 @@ go_test(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//reflection:go_default_library",
+        "@com_github_aws_aws-sdk-go//aws:go_default_library",
+        "@com_github_aws_aws-sdk-go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws-sdk-go//awstesting/unit:go_default_library",
     ],
 )
