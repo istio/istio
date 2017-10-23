@@ -225,3 +225,8 @@
 - api.version
 - api.operation
 - api.protocol
+
+# auth attributes
+- request.auth.principal
+- request.auth.audiences
+- request.auth.presenter
