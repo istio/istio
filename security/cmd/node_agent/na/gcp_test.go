@@ -109,7 +109,7 @@ func TestGetDialOptions(t *testing.T) {
 
 		// Make sure there're two dial options, one for TLS and one for JWT.
 		if len(options) != len(c.expectedOptions) {
-			t.Errorf("%s: Wrong dial options size. Exptcted %v, Actual %v", id, len(c.expectedOptions), len(options))
+			t.Errorf("%s: Wrong dial options size. Expected %v, Actual %v", id, len(c.expectedOptions), len(options))
 		}
 
 		for index, option := range c.expectedOptions {
