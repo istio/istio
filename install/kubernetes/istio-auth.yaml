@@ -157,20 +157,6 @@ roleRef:
   name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Egress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-egress-admin-role-binding-istio-system
-subjects:
-- kind: ServiceAccount
-  name: istio-egress-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-  apiGroup: rbac.authorization.k8s.io
----
 # Grant permissions to the sidecar.
 # TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
 # granted only to that account !
@@ -951,7 +937,6 @@ data:
     mixerAddress: istio-mixer.istio-system:9091
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
-    egressProxyAddress: istio-egress.istio-system:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
@@ -962,7 +947,7 @@ data:
     #
     defaultConfig:
       # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress and istio-egress pods.
+      # the same changes in start up args in istio-ingress pods.
       # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 1s
       #
