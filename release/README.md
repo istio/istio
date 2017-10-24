@@ -107,20 +107,30 @@ $ TAR=gtar CP=gcp githubctl --token_file=<github token file> \
     --next_release=<next release> --ref_sha=${RELEASE_SHA}
 ```
  
-Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions.
+Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions. Before doing this step, make sure you already finalized and published the release, meaning it shouldn't be "draft" status and there is the version tag in release repos. This tool will return error if there is not version tag being created.
 
-If you want to get this kind of release-note from 0.2.4 to 0.2.6, run the following command:
+Checkout and build the tool
+
 ```Bash
 $ git clone https://github.com/istio/test-infra
 $ cd test-infra
 $ bazel build //toolbox/release_note_collector:release_note_collector
-$ bazel bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
-$ cat release-note
 ```
 
+If you want to get this kind of release-note between 0.2.4 and 0.2.6 from master, run the following command:
+```Bash
+$ bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.4 --current_release 0.2.6 --repos istio,mixer,pilot --pr_link
+$ cat release-note
+```
+If you are doing a patch release on a release branch, you need to specify a release branch (default is `master`)
+```Bash
+$ bazel-bin/toolbox/release_note_collector/release_note_collector --previous_release 0.2.7 --current_release 0.2.9 --repos istio,mixer,pilot --pr_link --branch release-0.2
+$ cat release-note
+```
+**You cannot specify a range acrossing different branch.**
+
 Go to Istio release [page](https://github.com/istio/istio/releases) to find your
-release. Click on the RELEASE_NOTES link and add your release notes. Once the
-release notes are to your taste, click on ```Publish the release```.
+release. Click on the RELEASE_NOTES link and add your release notes. 
 
 ### Revert a failed release
 
