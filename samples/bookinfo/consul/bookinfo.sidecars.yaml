@@ -18,7 +18,7 @@
 version: '2'
 services:
   details-v1-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_details-v1_1"
@@ -28,7 +28,7 @@ services:
       - -u
       - "1337"
   details-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_details-v1_1"
     entrypoint:
       - su
@@ -36,7 +36,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Consul --serviceCluster details-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   ratings-v1-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_ratings-v1_1"
@@ -46,7 +46,7 @@ services:
       - -u
       - "1337"
   ratings-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_ratings-v1_1"
     entrypoint:
       - su
@@ -54,7 +54,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Consul --serviceCluster ratings-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   productpage-v1-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_productpage-v1_1"
@@ -64,7 +64,7 @@ services:
       - -u
       - "1337"
   productpage-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_productpage-v1_1"
     entrypoint:
       - su
@@ -72,7 +72,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Consul --serviceCluster productpage-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v1-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_reviews-v1_1"
@@ -82,7 +82,7 @@ services:
       - -u
       - "1337"
   reviews-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_reviews-v1_1"
     entrypoint:
       - su
@@ -90,7 +90,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Consul --serviceCluster reviews-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v2-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_reviews-v2_1"
@@ -100,7 +100,7 @@ services:
       - -u
       - "1337"
   reviews-v2-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_reviews-v2_1"
     entrypoint:
       - su
@@ -108,7 +108,7 @@ services:
       - -c
       - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Consul --serviceCluster reviews-v2 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v3-init:
-    image: gcr.io/istio-testing/proxy_init:0d5adce10a9937e915eca2973656ee83baa05409
+    image: gcr.io/istio-testing/proxy_init:f3fef1fc4f75a73be7cf2636dd4dddaa3fd9fbcf
     cap_add:
       - NET_ADMIN
     network_mode: "container:consul_reviews-v3_1"
@@ -118,7 +118,7 @@ services:
       - -u
       - "1337"
   reviews-v3-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:f8b4de9a80f1d6b500b3148e0e3364daffbb9dfc
+    image: gcr.io/istio-testing/proxy_debug:688d3020e5701a4b7b3523cc379fda0e5f2a97e0
     network_mode: "container:consul_reviews-v3_1"
     entrypoint:
       - su
