@@ -88,6 +88,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
+        - containerPort: 8080
         - containerPort: 443
         env:
         - name: POD_NAME

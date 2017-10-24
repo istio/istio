@@ -17,6 +17,8 @@ metadata:
 spec:
   ports:
   - name: tcp
+    port: 9091
+  - name: tcp
     port: 15004
   - name: http-health
     port: 9093
@@ -70,6 +72,7 @@ spec:
         image: {MIXER_HUB}/mixer:{MIXER_TAG}
         imagePullPolicy: IfNotPresent
         ports:
+        - containerPort: 9091
         - containerPort: 9094
         - containerPort: 42422
         args:

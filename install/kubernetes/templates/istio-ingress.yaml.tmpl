@@ -66,6 +66,8 @@ spec:
         - istio-mixer:9125
         - --proxyAdminPort
         - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80

@@ -206,6 +206,8 @@ metadata:
 spec:
   ports:
   - name: tcp
+    port: 9091
+  - name: tcp
     port: 15004
   - name: http-health
     port: 9093
@@ -259,6 +261,7 @@ spec:
         image: gcr.io/istio-testing/mixer:5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
         imagePullPolicy: IfNotPresent
         ports:
+        - containerPort: 9091
         - containerPort: 9094
         - containerPort: 42422
         args:
@@ -1111,6 +1114,7 @@ spec:
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "-a", "istio-system", "--admission-service", "istio-pilot-external"]
         ports:
+        - containerPort: 8080
         - containerPort: 443
         env:
         - name: POD_NAME
@@ -1234,6 +1238,8 @@ spec:
         - istio-mixer:9125
         - --proxyAdminPort
         - "15000"
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
