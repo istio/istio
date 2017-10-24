@@ -34,7 +34,7 @@ def boringssl_repositories(bind=True):
 
 def protobuf_repositories(bind=True):
     native.git_repository(
-        name = "protobuf_bzl",
+        name = "com_google_protobuf",
         commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # v3.2.0
         remote = "https://github.com/google/protobuf.git",
     )
@@ -42,32 +42,32 @@ def protobuf_repositories(bind=True):
     if bind:
         native.bind(
             name = "protoc",
-            actual = "@protobuf_bzl//:protoc",
+            actual = "@com_google_protobuf//:protoc",
         )
 
         native.bind(
             name = "protobuf",
-            actual = "@protobuf_bzl//:protobuf",
+            actual = "@com_google_protobuf//:protobuf",
         )
 
         native.bind(
             name = "cc_wkt_protos",
-            actual = "@protobuf_bzl//:cc_wkt_protos",
+            actual = "@com_google_protobuf//:cc_wkt_protos",
         )
 
         native.bind(
             name = "cc_wkt_protos_genproto",
-            actual = "@protobuf_bzl//:cc_wkt_protos_genproto",
+            actual = "@com_google_protobuf//:cc_wkt_protos_genproto",
         )
 
         native.bind(
             name = "protobuf_compiler",
-            actual = "@protobuf_bzl//:protoc_lib",
+            actual = "@com_google_protobuf//:protoc_lib",
         )
 
         native.bind(
             name = "protobuf_clib",
-            actual = "@protobuf_bzl//:protoc_lib",
+            actual = "@com_google_protobuf//:protoc_lib",
         )
 
 def googletest_repositories(bind=True):
@@ -149,7 +149,7 @@ cc_library(
             actual = "@googletest_git//:googletest_prod",
         )
 
-def googleapis_repositories(protobuf_repo="@protobuf_bzl//", bind=True):
+def googleapis_repositories(protobuf_repo="@com_google_protobuf//", bind=True):
     BUILD = """
 # Copyright 2017 Istio Authors. All Rights Reserved.
 #
@@ -296,7 +296,7 @@ def gogoproto_repositories(bind=True):
 
 licenses(["notice"])
 
-load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 exports_files(glob(["google/**"]))
 
@@ -334,7 +334,7 @@ cc_proto_library(
 
 ISTIO_API = "e9acfad1a0716033e06f5508c4277a486b94d9db"
 
-def mixerapi_repositories(protobuf_repo="@protobuf_bzl//", bind=True):
+def mixerapi_repositories(protobuf_repo="@com_google_protobuf//", bind=True):
     gogoproto_repositories(bind)
 
     BUILD = """

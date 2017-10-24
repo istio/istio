@@ -14,7 +14,7 @@
 
 licenses(["notice"])
 
-load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 py_binary(
    name = "create_global_dictionary",
