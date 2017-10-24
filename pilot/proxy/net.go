@@ -22,8 +22,8 @@ import (
 // Network-related utility functions
 
 const (
-	waitInterval = time.Duration(100) * time.Millisecond
-	waitTimeout  = time.Duration(2) * time.Minute
+	waitInterval = 100 * time.Millisecond
+	waitTimeout  = 2 * time.Minute
 )
 
 // GetPrivateIP returns a private IP address, or panics if no IP is available.

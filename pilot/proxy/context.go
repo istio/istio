@@ -41,6 +41,9 @@ type Environment struct {
 
 	// Mesh is the mesh config (to be merged into the config store)
 	Mesh *proxyconfig.MeshConfig
+
+	// Mixer subject alternate name for mutual TLS
+	MixerSAN []string
 }
 
 // Node defines the proxy attributes used by xDS identification
@@ -132,12 +135,14 @@ func DefaultProxyConfig() proxyconfig.ProxyConfig {
 		AvailabilityZone:       "", //no service zone by default, i.e. AZ-aware routing is disabled
 		DrainDuration:          ptypes.DurationProto(2 * time.Second),
 		ParentShutdownDuration: ptypes.DurationProto(3 * time.Second),
-		DiscoveryAddress:       "istio-pilot:8080",
+		DiscoveryAddress:       "istio-pilot:15003",
 		DiscoveryRefreshDelay:  ptypes.DurationProto(1 * time.Second),
 		ZipkinAddress:          "",
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
+		ControlPlaneAuthPolicy: proxyconfig.AuthenticationPolicy_NONE,
+		CustomConfigFile:       "",
 	}
 }
 

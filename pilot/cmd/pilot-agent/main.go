@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -51,6 +52,8 @@ var (
 	connectTimeout         time.Duration
 	statsdUDPAddress       string
 	proxyAdminPort         int
+	controlPlaneAuthPolicy string
+	customConfigFile       string
 
 	rootCmd = &cobra.Command{
 		Use:   "agent",
@@ -91,9 +94,11 @@ var (
 					role.ID = role.IPAddress
 				}
 			}
+			pilotDomain := role.Domain
 			if role.Domain == "" {
 				if serviceregistry == platform.KubernetesRegistry {
 					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+					pilotDomain = "cluster.local"
 				} else if serviceregistry == platform.ConsulRegistry {
 					role.Domain = "service.consul"
 				} else {
@@ -106,6 +111,7 @@ var (
 			proxyConfig := proxyconfig.ProxyConfig{}
 
 			// set all flags
+			proxyConfig.CustomConfigFile = customConfigFile
 			proxyConfig.ConfigPath = configPath
 			proxyConfig.BinaryPath = binaryPath
 			proxyConfig.ServiceCluster = serviceCluster
@@ -118,6 +124,30 @@ var (
 			proxyConfig.ConnectTimeout = ptypes.DurationProto(connectTimeout)
 			proxyConfig.StatsdUdpAddress = statsdUDPAddress
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
+
+			var pilotSAN []string
+			switch controlPlaneAuthPolicy {
+			case proxyconfig.AuthenticationPolicy_NONE.String():
+				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_NONE
+			case proxyconfig.AuthenticationPolicy_MUTUAL_TLS.String():
+				var ns string
+				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+				if serviceregistry == platform.KubernetesRegistry {
+					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
+					discoveryHostname := partDiscoveryAddress[0]
+					parts := strings.Split(discoveryHostname, ".")
+					if len(parts) == 1 {
+						// namespace of pilot is not part of discovery address use
+						// pod namespace e.g. istio-pilot:15003
+						ns = os.Getenv("POD_NAMESPACE")
+					} else {
+						// namespace is found in the discovery address
+						// e.g. istio-pilot.istio-system:15003
+						ns = parts[1]
+					}
+				}
+				pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
+			}
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -157,7 +187,7 @@ var (
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode())
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
-			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs)
+			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
 			go watcher.Run(ctx)
 
@@ -221,6 +251,10 @@ func init() {
 		"IP Address and Port of a statsd UDP listener (e.g. 10.75.241.127:9125)")
 	proxyCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxyAdminPort", int(values.ProxyAdminPort),
 		"Port on which Envoy should listen for administrative commands")
+	proxyCmd.PersistentFlags().StringVar(&controlPlaneAuthPolicy, "controlPlaneAuthPolicy",
+		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
+	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
+		"Path to the generated configuration file directory")
 
 	cmd.AddFlags(rootCmd)
 

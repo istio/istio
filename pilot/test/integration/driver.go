@@ -61,6 +61,12 @@ const (
 
 	// retry budget
 	budget = 90
+
+	mixerConfigFile     = "/etc/istio/proxy/envoy_mixer.json"
+	mixerConfigAuthFile = "/etc/istio/proxy/envoy_mixer_auth.json"
+
+	pilotConfigFile     = "/etc/istio/proxy/envoy_pilot.json"
+	pilotConfigAuthFile = "/etc/istio/proxy/envoy_pilot_auth.json"
 )
 
 func init() {
@@ -128,6 +134,8 @@ func main() {
 	params.Mixer = true
 	params.Ingress = true
 	params.Zipkin = true
+	params.MixerCustomConfigFile = mixerConfigFile
+	params.PilotCustomConfigFile = pilotConfigFile
 
 	if len(params.Namespace) != 0 && authmode == "both" {
 		glog.Infof("When namespace(=%s) is specified, auth mode(=%s) must be one of enable or disable.",
@@ -157,6 +165,9 @@ func setAuth(params infra) infra {
 	out := params
 	out.Name = "(auth infra)"
 	out.Auth = proxyconfig.MeshConfig_MUTUAL_TLS
+	out.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	out.MixerCustomConfigFile = mixerConfigAuthFile
+	out.PilotCustomConfigFile = pilotConfigAuthFile
 	return out
 }
 

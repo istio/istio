@@ -79,7 +79,8 @@ type FilterMixerConfig struct {
 
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
-func buildMixerCluster(mesh *proxyconfig.MeshConfig) *Cluster {
+// buildMixerCluster builds an outbound mixer cluster
+func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
@@ -88,6 +89,16 @@ func buildMixerCluster(mesh *proxyconfig.MeshConfig) *Cluster {
 		},
 	}
 	mixerCluster.Features = ClusterFeatureHTTP2
+
+	// apply auth policies
+	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
+	case proxyconfig.AuthenticationPolicy_NONE:
+		// do nothing
+	case proxyconfig.AuthenticationPolicy_MUTUAL_TLS:
+		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
+		mixerCluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, mixerSAN)
+	}
+
 	return mixerCluster
 }
 

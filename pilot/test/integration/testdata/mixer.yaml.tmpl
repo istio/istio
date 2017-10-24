@@ -8,7 +8,7 @@ metadata:
 spec:
   ports:
   - name: grpc
-    port: 9091
+    port: 15004
   selector:
     app: mixer
 ---
@@ -35,6 +35,38 @@ spec:
       - name: mixer
         image: {{.Hub}}/testmixer:{{.Tag}}
         imagePullPolicy: IfNotPresent
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 9091
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "{{.Verbosity}}"
+        - --controlPlaneAuthPolicy
+        - "{{.ControlPlaneAuthPolicy.String}}"
+        - --customConfigFile
+        - "{{.MixerCustomConfigFile}}"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
 ---

@@ -222,7 +222,8 @@ type fileConfig struct {
 }
 
 const (
-	envoyConfig = "testdata/envoy.json"
+	envoySidecarConfig     = "testdata/envoy-sidecar.json"
+	envoySidecarAuthConfig = "testdata/envoy-sidecar-auth.json"
 )
 
 var (
@@ -316,12 +317,22 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 }
 
 func makeProxyConfig() proxyconfig.ProxyConfig {
-	mesh := proxy.DefaultProxyConfig()
-	mesh.ZipkinAddress = "zipkin.istio-system:6000"
-	mesh.StatsdUdpAddress = "10.1.1.10:9125"
-	mesh.DiscoveryAddress = "istio-pilot.istio-system:8080"
-	mesh.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
-	return mesh
+	proxyConfig := proxy.DefaultProxyConfig()
+	proxyConfig.ZipkinAddress = "localhost:6000"
+	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
+	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
+	proxyConfig.DiscoveryRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
+	return proxyConfig
+}
+
+var (
+	pilotSAN = []string{"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
+)
+
+func makeProxyConfigControlPlaneAuth() proxyconfig.ProxyConfig {
+	proxyConfig := makeProxyConfig()
+	proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	return proxyConfig
 }
 
 func makeMeshConfig() proxyconfig.MeshConfig {
@@ -331,18 +342,54 @@ func makeMeshConfig() proxyconfig.MeshConfig {
 	return mesh
 }
 
-func TestSidecarConfig(t *testing.T) {
-	config := buildConfig(Listeners{}, Clusters{}, true, makeProxyConfig())
-	if config == nil {
-		t.Fatal("Failed to generate config")
+func TestProxyConfig(t *testing.T) {
+	cases := []struct {
+		envoyConfigFilename string
+	}{
+		{
+			envoySidecarConfig,
+		},
 	}
 
-	err := config.WriteFile(envoyConfig)
-	if err != nil {
-		t.Fatalf(err.Error())
+	proxyConfig := makeProxyConfig()
+	for _, c := range cases {
+		config := buildConfig(proxyConfig, nil)
+		if config == nil {
+			t.Fatal("Failed to generate config")
+		}
+
+		err := config.WriteFile(c.envoyConfigFilename)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
+		util.CompareYAML(c.envoyConfigFilename, t)
+	}
+}
+
+func TestProxyConfigControlPlaneAuth(t *testing.T) {
+	cases := []struct {
+		envoyConfigFilename string
+	}{
+		{
+			envoySidecarAuthConfig,
+		},
 	}
 
-	util.CompareYAML(envoyConfig, t)
+	proxyConfig := makeProxyConfigControlPlaneAuth()
+	for _, c := range cases {
+		config := buildConfig(proxyConfig, pilotSAN)
+		if config == nil {
+			t.Fatal("Failed to generate config")
+		}
+
+		err := config.WriteFile(c.envoyConfigFilename)
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+
+		util.CompareYAML(c.envoyConfigFilename, t)
+	}
 }
 
 /*

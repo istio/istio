@@ -51,20 +51,23 @@ type CertSource struct {
 }
 
 type watcher struct {
-	agent  proxy.Agent
-	role   proxy.Node
-	config proxyconfig.ProxyConfig
-	certs  []CertSource
+	agent    proxy.Agent
+	role     proxy.Node
+	config   proxyconfig.ProxyConfig
+	certs    []CertSource
+	pilotSAN []string
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.Node, certs []CertSource) Watcher {
+func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.Node,
+	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
-		agent:  agent,
-		role:   role,
-		config: config,
-		certs:  certs,
+		agent:    agent,
+		role:     role,
+		config:   config,
+		certs:    certs,
+		pilotSAN: pilotSAN,
 	}
 }
 
@@ -90,8 +93,7 @@ func (w *watcher) Run(ctx context.Context) {
 }
 
 func (w *watcher) Reload() {
-	// use LDS instead of static listeners and clusters
-	config := buildConfig(Listeners{}, Clusters{}, true, w.config)
+	config := buildConfig(w.config, w.pilotSAN)
 
 	// compute hash of dependent certificates
 	h := sha256.New()
@@ -241,15 +243,24 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 		return fmt.Errorf("unexpected config type: %#v", config)
 	}
 
-	// create parent directories if necessary
-	if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
-		return multierror.Prefix(err, "failed to create directory for proxy configuration")
-	}
+	var fname string
+	// Note: the cert checking still works, the generated file is updated if certs are changed.
+	// We just don't save the generated file, but use a custom one instead. Pilot will keep
+	// monitoring the certs and restart if the content of the certs changes.
+	if len(proxy.config.CustomConfigFile) > 0 {
+		// there is a custom configuration. Don't write our own config - but keep watching the certs.
+		fname = proxy.config.CustomConfigFile
+	} else {
+		// create parent directories if necessary
+		if err := os.MkdirAll(proxy.config.ConfigPath, 0700); err != nil {
+			return multierror.Prefix(err, "failed to create directory for proxy configuration")
+		}
 
-	// attempt to write file
-	fname := configFile(proxy.config.ConfigPath, epoch)
-	if err := envoyConfig.WriteFile(fname); err != nil {
-		return err
+		// attempt to write file
+		fname = configFile(proxy.config.ConfigPath, epoch)
+		if err := envoyConfig.WriteFile(fname); err != nil {
+			return err
+		}
 	}
 
 	// spin up a new Envoy process

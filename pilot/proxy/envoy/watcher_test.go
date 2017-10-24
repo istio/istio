@@ -54,7 +54,7 @@ func TestRunReload(t *testing.T) {
 		Type: proxy.Ingress,
 		ID:   "random",
 	}
-	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}})
+	watcher := NewWatcher(config, agent, node, []CertSource{{Directory: "random"}}, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// watcher starts agent and schedules a config update
@@ -219,7 +219,8 @@ func TestEnvoyRun(t *testing.T) {
 	}
 	config.BinaryPath = path.Join(dir, "envoy")
 	config.ConfigPath = "tmp"
-	envoyConfig := buildConfig(Listeners{}, Clusters{}, true, config)
+
+	envoyConfig := buildConfig(config, nil)
 	proxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
 	abortCh := make(chan error, 1)
 

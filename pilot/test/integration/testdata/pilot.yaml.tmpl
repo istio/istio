@@ -42,7 +42,7 @@ spec:
   type: LoadBalancer
 {{end}}
   ports:
-  - port: 8080
+  - port: 15003
     name: http-discovery
 {{if .DebugPort}}
   - port: {{.DebugPort}}
@@ -119,10 +119,45 @@ spec:
         - mountPath: "/data/debug"
           name: debug
 {{end}}
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15003
+        args:
+        - proxy
+        - pilot
+        - -v
+        - "{{.Verbosity}}"
+        - "--discoveryAddress"
+        - "istio-pilot:15003"
+        - "--controlPlaneAuthPolicy"
+        - "{{.ControlPlaneAuthPolicy.String}}"
+        - --customConfigFile
+        - "{{.PilotCustomConfigFile}}"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
 {{if .DebugPort}}
       - name: debug
         persistentVolumeClaim:

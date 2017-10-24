@@ -41,11 +41,13 @@ spec:
         - -v
         - "{{.Verbosity}}"
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:15003
 {{if .Zipkin}}
         - --zipkinAddress
         - zipkin:9411
 {{end}}
+        - --controlPlaneAuthPolicy
+        - "{{.ControlPlaneAuthPolicy.String}}"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 443

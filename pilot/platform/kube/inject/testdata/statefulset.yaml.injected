@@ -44,7 +44,7 @@ spec:
         - --parentShutdownDuration
         - 3s
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:15003
         - --discoveryRefreshDelay
         - 1s
         - --zipkinAddress
@@ -55,6 +55,8 @@ spec:
         - ""
         - --proxyAdminPort
         - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE
         env:
         - name: POD_NAME
           valueFrom:

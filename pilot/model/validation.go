@@ -1136,5 +1136,12 @@ func ValidateProxyConfig(config *proxyconfig.ProxyConfig) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy admin port:"))
 	}
 
+	switch config.ControlPlaneAuthPolicy {
+	case proxyconfig.AuthenticationPolicy_NONE, proxyconfig.AuthenticationPolicy_MUTUAL_TLS:
+	default:
+		errs = multierror.Append(errs,
+			fmt.Errorf("unrecognized control plane auth policy %q", config.ControlPlaneAuthPolicy))
+	}
+
 	return
 }

@@ -186,12 +186,17 @@ var (
 					return multierror.Prefix(err, "Service registry "+r+" is not supported.")
 				}
 			}
+			var mixerSAN []string
+			if mesh.DefaultConfig.ControlPlaneAuthPolicy == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+				mixerSAN = envoy.GetMixerSAN(flags.controllerOptions.DomainSuffix, flags.namespace)
+			}
 
 			environment := proxy.Environment{
 				Mesh:             mesh,
 				IstioConfigStore: model.MakeIstioStore(configController),
 				ServiceDiscovery: serviceControllers,
 				ServiceAccounts:  serviceControllers,
+				MixerSAN:         mixerSAN,
 			}
 
 			// Set up discovery service
