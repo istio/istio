@@ -11,7 +11,7 @@
 		"repoName": "mixer",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "76287adcd0a860c79f46c3feeeb5b663fffe189d"
+		"lastStableSHA": "a3f8292aaf950cb134b60811754a77892e76c5d5"
 	},
 	{
 		"name": "PILOT_TAG",
@@ -25,6 +25,6 @@
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "57587594a2185d8011b67d6d5aa472ac23272689"
+		"lastStableSHA": "f6d3234387e00c0544a487e3094c91635d377d6b"
 	}
 ]
