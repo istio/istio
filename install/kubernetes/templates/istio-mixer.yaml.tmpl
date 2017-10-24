@@ -17,7 +17,7 @@ metadata:
 spec:
   ports:
   - name: tcp
-    port: 9091
+    port: 15004
   - name: http-health
     port: 9093
   - name: configapi
@@ -70,7 +70,6 @@ spec:
         image: {MIXER_HUB}/mixer:{MIXER_TAG}
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 9091
         - containerPort: 9094
         - containerPort: 42422
         args:
@@ -81,7 +80,40 @@ spec:
           - --logtostderr
           - -v
           - "2"
+      - name: istio-proxy
+        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "2"
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_mixer.json
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
       - name: config-volume
         configMap:
           name: istio-mixer
