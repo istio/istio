@@ -53,7 +53,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
 
   pilot:
-    image: gcr.io/istio-testing/pilot:e3f2b2252f76ba579e658764735cd0de10597557
+    image: gcr.io/istio-testing/pilot:0d5adce10a9937e915eca2973656ee83baa05409
     networks:
       istiomesh:
         aliases:
