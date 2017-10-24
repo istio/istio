@@ -22,27 +22,15 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"istio.io/auth/pkg/pki/ca"
+	"istio.io/auth/pkg/platform"
 	"istio.io/auth/pkg/workload"
 	pb "istio.io/auth/proto"
 )
 
-type platformSpecificRequest interface {
-	GetDialOptions(*Config) ([]grpc.DialOption, error)
-	// Whether the node agent is running on the right platform, e.g., if gcpPlatformImpl should only
-	// run on GCE.
-	IsProperPlatform() bool
-	// Get the service identity.
-	GetServiceIdentity() (string, error)
-	// Get node agent credential
-	GetAgentCredential() ([]byte, error)
-	// Get type of the credential
-	GetCredentialType() string
-}
-
 // CAGrpcClient is for implementing the GRPC client to talk to CA.
 type CAGrpcClient interface {
 	// Send CSR to the CA and gets the response or error.
-	SendCSR(*pb.Request, platformSpecificRequest, *Config) (*pb.Response, error)
+	SendCSR(*pb.Request, platform.Client, *Config) (*pb.Response, error)
 }
 
 // cAGrpcClientImpl is an implementation of GRPC client to talk to CA.
@@ -50,11 +38,11 @@ type cAGrpcClientImpl struct {
 }
 
 // SendCSR sends CSR to CA through GRPC.
-func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pr platformSpecificRequest, cfg *Config) (*pb.Response, error) {
+func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Config) (*pb.Response, error) {
 	if cfg.IstioCAAddress == "" {
 		return nil, fmt.Errorf("Istio CA address is empty")
 	}
-	dialOptions, err := pr.GetDialOptions(cfg)
+	dialOptions, err := pc.GetDialOptions(&cfg.PlatformConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +68,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pr platformSpecificRequest, 
 type nodeAgentInternal struct {
 	// Configuration specific to Node Agent
 	config       *Config
-	pr           platformSpecificRequest
+	pc           platform.Client
 	cAClient     CAGrpcClient
 	identity     string
 	secretServer workload.SecretServer
@@ -93,7 +81,7 @@ func (na *nodeAgentInternal) Start() error {
 		return fmt.Errorf("node Agent configuration is nil")
 	}
 
-	if !na.pr.IsProperPlatform() {
+	if !na.pc.IsProperPlatform() {
 		return fmt.Errorf("node Agent is not running on the right platform")
 	}
 
@@ -101,7 +89,7 @@ func (na *nodeAgentInternal) Start() error {
 
 	retries := 0
 	retrialInterval := na.config.CSRInitialRetrialInterval
-	identity, err := na.pr.GetServiceIdentity()
+	identity, err := na.pc.GetServiceIdentity()
 	if err != nil {
 		return err
 	}
@@ -115,7 +103,7 @@ func (na *nodeAgentInternal) Start() error {
 
 		glog.Infof("Sending CSR (retrial #%d) ...", retries)
 
-		resp, err := na.cAClient.SendCSR(req, na.pr, na.config)
+		resp, err := na.cAClient.SendCSR(req, na.pc, na.config)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(
 				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)
@@ -173,7 +161,7 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		return nil, nil, fmt.Errorf("failed to generate CSR: %v", err)
 	}
 
-	cred, err := na.pr.GetAgentCredential()
+	cred, err := na.pc.GetAgentCredential()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get node agent credential: %v", err)
 	}
@@ -181,6 +169,6 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 	return privKey, &pb.Request{
 		CsrPem:              csr,
 		NodeAgentCredential: cred,
-		CredentialType:      na.pr.GetCredentialType(),
+		CredentialType:      na.pc.GetCredentialType(),
 	}, nil
 }

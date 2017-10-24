@@ -16,6 +16,8 @@ package na
 
 import (
 	"time"
+
+	"istio.io/auth/pkg/platform"
 )
 
 const (
@@ -31,15 +33,6 @@ const (
 type Config struct {
 	// Istio CA grpc server
 	IstioCAAddress string
-
-	// Root CA cert file to validate the gRPC service in CA.
-	RootCACertFile string
-
-	// The private key file
-	KeyFile string
-
-	// The cert chain file
-	CertChainFile string
 
 	// Organization of service
 	ServiceIdentityOrg string
@@ -58,6 +51,9 @@ type Config struct {
 	// CSRGracePeriodPercentage indicates the length of the grace period in the
 	// percentage of the entire certificate TTL.
 	CSRGracePeriodPercentage int
+
+	// The Configuration for talking to the platform metadata server.
+	PlatformConfig platform.ClientConfig
 }
 
 // InitializeConfig initializes Config with default values.
@@ -65,4 +61,5 @@ func InitializeConfig(config *Config) {
 	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
 	config.CSRMaxRetries = defaultCSRMaxRetries
 	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
+	config.PlatformConfig = platform.ClientConfig{}
 }

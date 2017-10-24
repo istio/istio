@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+package platform
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func TestIsProperPlatform(t *testing.T) {
 	)
 
 	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
-	na := &awsPlatformImpl{client: c}
+	na := &AwsClientImpl{client: c}
 	if !na.IsProperPlatform() {
 		t.Errorf("On Proper Platform: expected true")
 	}
@@ -76,10 +76,10 @@ hqssNI4P1pjVxBwCFFLyWgwduQHC8uZQNc49icJDXvziAAAAAAAA`,
 	defer server.Close()
 
 	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
-	na := &awsPlatformImpl{client: c}
+	na := &AwsClientImpl{client: c}
 
 	testcase := "Get Identity Document"
-	docBytes, err := na.GetInstanceIdentityDocument()
+	docBytes, err := na.getInstanceIdentityDocument()
 	if err != nil {
 		t.Fatalf("%s: Unexpected Error: %v", testcase, err)
 	}

@@ -17,11 +17,9 @@ package na
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/golang/glog"
 
-	cred "istio.io/auth/pkg/credential"
+	"istio.io/auth/pkg/platform"
 	"istio.io/auth/pkg/workload"
 )
 
@@ -41,22 +39,18 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 		certUtil: CertUtilImpl{},
 	}
 
-	switch cfg.Env {
-	case "onprem":
-		na.pr = &onPremPlatformImpl{cfg.CertChainFile}
-	case "gcp":
-		na.pr = &gcpPlatformImpl{&cred.GcpTokenFetcher{Aud: fmt.Sprintf("grpc://%s", cfg.IstioCAAddress)}}
-	case "aws":
-		na.pr = &awsPlatformImpl{ec2metadata.New(session.Must(session.NewSession()))}
-	default:
-		return nil, fmt.Errorf("Invalid env %s specified", cfg.Env)
+	if pc, err := platform.NewClient(cfg.Env, cfg.PlatformConfig, cfg.IstioCAAddress); err == nil {
+		na.pc = pc
+	} else {
+		return nil, err
 	}
 
 	cAClient := &cAGrpcClientImpl{}
 	na.cAClient = cAClient
 
+	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.CertChainFile, cfg.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.PlatformConfig.CertChainFile, cfg.PlatformConfig.KeyFile))
 	if err != nil {
 		glog.Fatalf("Workload IO creation error: %v", err)
 	}

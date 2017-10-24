@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+package platform
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func TestGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := onPremPlatformImpl{c.filename}
+		onprem := OnPremClientImpl{c.filename}
 		identity, err := onprem.GetServiceIdentity()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -65,11 +65,11 @@ func TestGetServiceIdentity(t *testing.T) {
 
 func TestGetTLSCredentials(t *testing.T) {
 	testCases := map[string]struct {
-		config      *Config
+		config      *ClientConfig
 		expectedErr string
 	}{
 		"Good cert": {
-			config: &Config{
+			config: &ClientConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
@@ -77,7 +77,7 @@ func TestGetTLSCredentials(t *testing.T) {
 			expectedErr: "",
 		},
 		"Loading failure": {
-			config: &Config{
+			config: &ClientConfig{
 				CertChainFile:  "testdata/cert-from-root-goo.pem",
 				KeyFile:        "testdata/cert-from-root-not-exist.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
@@ -85,7 +85,7 @@ func TestGetTLSCredentials(t *testing.T) {
 			expectedErr: "Cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
 		},
 		"Loading root cert failure": {
-			config: &Config{
+			config: &ClientConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-not-exist.pem",
@@ -95,17 +95,17 @@ func TestGetTLSCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := onPremPlatformImpl{""}
+		onprem := OnPremClientImpl{""}
 
 		_, err := onprem.GetDialOptions(c.config)
 		if len(c.expectedErr) > 0 {
 			if err == nil {
-				t.Errorf("Succeeded. Error expected: %v", err)
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
 			} else if err.Error() != c.expectedErr {
 				t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
 			}
 		} else if err != nil {
-			t.Errorf("Unexpected Error: %v", err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
 		}
 	}
 }
@@ -135,7 +135,7 @@ func TestGetAgentCredential(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := onPremPlatformImpl{c.filename}
+		onprem := OnPremClientImpl{c.filename}
 		cred, err := onprem.GetAgentCredential()
 		if c.expectedErr != "" {
 			if err == nil {
