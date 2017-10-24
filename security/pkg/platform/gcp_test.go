@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+package platform
 
 import (
 	"fmt"
@@ -49,14 +49,14 @@ func TestGetDialOptions(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		config          *Config
+		cfg             *ClientConfig
 		token           string
 		tokenFetchErr   string
 		expectedErr     string
 		expectedOptions []grpc.DialOption
 	}{
 		"nil configuration": {
-			config: &Config{
+			cfg: &ClientConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         "abcdef",
@@ -64,7 +64,7 @@ func TestGetDialOptions(t *testing.T) {
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Token fetch error": {
-			config: &Config{
+			cfg: &ClientConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         "",
@@ -72,7 +72,7 @@ func TestGetDialOptions(t *testing.T) {
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Root certificate file read error": {
-			config: &Config{
+			cfg: &ClientConfig{
 				RootCACertFile: "testdata/cert-chain-good_not_exist.pem",
 			},
 			token:         token,
@@ -80,7 +80,7 @@ func TestGetDialOptions(t *testing.T) {
 			expectedErr:   "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
 		},
 		"Token fetched": {
-			config: &Config{
+			cfg: &ClientConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         token,
@@ -93,9 +93,9 @@ func TestGetDialOptions(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := gcpPlatformImpl{&mockTokenFetcher{c.token, c.tokenFetchErr}}
+		gcp := GcpClientImpl{&mockTokenFetcher{c.token, c.tokenFetchErr}}
 
-		options, err := gcp.GetDialOptions(c.config)
+		options, err := gcp.GetDialOptions(c.cfg)
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

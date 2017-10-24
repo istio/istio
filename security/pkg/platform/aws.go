@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+package platform
 
 import (
 	"crypto/x509"
@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
+
 	"github.com/fullsailor/pkcs7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -50,11 +52,18 @@ vSeDCOUMYQR7R9LINYwouHIziqQYMAkGByqGSM44BAMDLwAwLAIUWXBlk40xTwSw
 -----END CERTIFICATE-----`
 )
 
-type awsPlatformImpl struct {
+// AwsClientImpl is the implementation of AWS metadata client.
+type AwsClientImpl struct {
 	client *ec2metadata.EC2Metadata
 }
 
-func (na *awsPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
+// NewAwsClientImpl creates a new AwsClientImpl.
+func NewAwsClientImpl() *AwsClientImpl {
+	return &AwsClientImpl{ec2metadata.New(session.Must(session.NewSession()))}
+}
+
+// GetDialOptions returns the GRPC dial options to connect to the CA.
+func (ci *AwsClientImpl) GetDialOptions(cfg *ClientConfig) ([]grpc.DialOption, error) {
 	creds, err := credentials.NewClientTLSFromFile(cfg.RootCACertFile, "")
 	if err != nil {
 		return nil, err
@@ -64,22 +73,24 @@ func (na *awsPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error
 	return options, nil
 }
 
-func (na *awsPlatformImpl) IsProperPlatform() bool {
-	return na.client.Available()
+// IsProperPlatform returns whether the AWS platform client is available.
+func (ci *AwsClientImpl) IsProperPlatform() bool {
+	return ci.client.Available()
 }
 
-// This function should be pluggable for different AWS deployments.
-func (na *awsPlatformImpl) GetServiceIdentity() (string, error) {
+// GetServiceIdentity extracts service identity from userdata. This function should be
+// pluggable for different AWS deployments in the future.
+func (ci *AwsClientImpl) GetServiceIdentity() (string, error) {
 	return "", nil
 }
 
-func (na *awsPlatformImpl) GetInstanceIdentityDocument() ([]byte, error) {
+func (ci *AwsClientImpl) getInstanceIdentityDocument() ([]byte, error) {
 	cert, err := pki.ParsePemEncodedCertificate([]byte(AWSCertificatePem))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse AWS public certificate: %v", err)
 	}
 
-	resp, err := na.client.GetDynamicData("instance-identity/pkcs7")
+	resp, err := ci.client.GetDynamicData("instance-identity/pkcs7")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get EC2 instance PKCS7 signature: %v", err)
 	}
@@ -104,8 +115,8 @@ func (na *awsPlatformImpl) GetInstanceIdentityDocument() ([]byte, error) {
 
 // GetAgentCredential retrieves the instance identity document as the
 // agent credential used by node agent
-func (na *awsPlatformImpl) GetAgentCredential() ([]byte, error) {
-	doc, err := na.GetInstanceIdentityDocument()
+func (ci *AwsClientImpl) GetAgentCredential() ([]byte, error) {
+	doc, err := ci.getInstanceIdentityDocument()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get EC2 instance identity document: %v", err)
 	}
@@ -118,6 +129,7 @@ func (na *awsPlatformImpl) GetAgentCredential() ([]byte, error) {
 	return bytes, nil
 }
 
-func (na *awsPlatformImpl) GetCredentialType() string {
+// GetCredentialType returns the credential type as "aws".
+func (ci *AwsClientImpl) GetCredentialType() string {
 	return "aws"
 }

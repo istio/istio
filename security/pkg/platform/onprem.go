@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package na
+package platform
 
 import (
 	"crypto/tls"
@@ -26,11 +26,18 @@ import (
 	"istio.io/auth/pkg/pki"
 )
 
-type onPremPlatformImpl struct {
+// OnPremClientImpl is the implementation of on premise metadata client.
+type OnPremClientImpl struct {
 	certFile string
 }
 
-func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, error) {
+// NewOnPremClientImpl creates a new OnPremClientImpl.
+func NewOnPremClientImpl(certChainFile string) *OnPremClientImpl {
+	return &OnPremClientImpl{certChainFile}
+}
+
+// GetDialOptions returns the GRPC dial options to connect to the CA.
+func (ci *OnPremClientImpl) GetDialOptions(cfg *ClientConfig) ([]grpc.DialOption, error) {
 	transportCreds, err := getTLSCredentials(cfg.CertChainFile, cfg.KeyFile, cfg.RootCACertFile)
 	if err != nil {
 		return nil, err
@@ -41,12 +48,14 @@ func (na *onPremPlatformImpl) GetDialOptions(cfg *Config) ([]grpc.DialOption, er
 	return options, nil
 }
 
-func (na *onPremPlatformImpl) IsProperPlatform() bool {
+// IsProperPlatform returns whether the platform is on premise.
+func (ci *OnPremClientImpl) IsProperPlatform() bool {
 	return true
 }
 
-func (na *onPremPlatformImpl) GetServiceIdentity() (string, error) {
-	certBytes, err := ioutil.ReadFile(na.certFile)
+// GetServiceIdentity gets the service account from the cert SAN field.
+func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
+	certBytes, err := ioutil.ReadFile(ci.certFile)
 	if err != nil {
 		return "", err
 	}
@@ -56,21 +65,22 @@ func (na *onPremPlatformImpl) GetServiceIdentity() (string, error) {
 	}
 	serviceIDs := pki.ExtractIDs(cert.Extensions)
 	if len(serviceIDs) != 1 {
-		return "", fmt.Errorf("Cert have %v SAN fields, should be 1", len(serviceIDs))
+		return "", fmt.Errorf("Cert has %v SAN fields, should be 1", len(serviceIDs))
 	}
 	return serviceIDs[0], nil
 }
 
-// Pass the certificate to control plane to authenticate
-func (na *onPremPlatformImpl) GetAgentCredential() ([]byte, error) {
-	certBytes, err := ioutil.ReadFile(na.certFile)
+// GetAgentCredential passes the certificate to control plane to authenticate
+func (ci *OnPremClientImpl) GetAgentCredential() ([]byte, error) {
+	certBytes, err := ioutil.ReadFile(ci.certFile)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read cert file: %s", na.certFile)
+		return nil, fmt.Errorf("Failed to read cert file: %s", ci.certFile)
 	}
 	return certBytes, nil
 }
 
-func (na *onPremPlatformImpl) GetCredentialType() string {
+// GetCredentialType returns "onprem".
+func (ci *OnPremClientImpl) GetCredentialType() string {
 	return "onprem"
 }
 
