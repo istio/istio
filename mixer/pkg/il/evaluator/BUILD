@@ -21,7 +21,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    size = "small",
+    size = "medium",
     srcs = ["evaluator_test.go"],
     library = ":go_default_library",
     deps = [
