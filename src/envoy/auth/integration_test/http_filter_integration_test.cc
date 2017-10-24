@@ -74,11 +74,13 @@ class JwtVerificationFilterIntegrationTest
       const Http::HeaderMap& headers) {
     std::map<std::string, std::string> ret;
     headers.iterate(
-        [](const Http::HeaderEntry& entry, void* context) -> void {
+        [](const Http::HeaderEntry& entry,
+           void* context) -> Http::HeaderMap::Iterate {
           auto ret = static_cast<std::map<std::string, std::string>*>(context);
           Http::LowerCaseString lower_key{entry.key().c_str()};
           (*ret)[std::string(lower_key.get())] =
               std::string(entry.value().c_str());
+          return Http::HeaderMap::Iterate::Continue;
         },
         &ret);
     return ret;
@@ -122,7 +124,8 @@ class JwtVerificationFilterIntegrationTest
 
     fake_upstream_connection_issuer =
         fake_upstreams_[1]->waitForHttpConnection(*dispatcher_);
-    request_stream_issuer = fake_upstream_connection_issuer->waitForNewStream();
+    request_stream_issuer =
+        fake_upstream_connection_issuer->waitForNewStream(*dispatcher_);
     request_stream_issuer->waitForEndStream(*dispatcher_);
 
     // Mock a response from an issuer server.
@@ -140,7 +143,7 @@ class JwtVerificationFilterIntegrationTest
       fake_upstream_connection_backend =
           fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
       request_stream_backend =
-          fake_upstream_connection_backend->waitForNewStream();
+          fake_upstream_connection_backend->waitForNewStream(*dispatcher_);
       request_stream_backend->waitForEndStream(*dispatcher_);
 
       EXPECT_TRUE(request_stream_backend->complete());

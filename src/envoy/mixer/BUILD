@@ -16,7 +16,6 @@
 #
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@protobuf_bzl//:protobuf.bzl", "cc_proto_library")
 load(
     "@envoy//bazel:envoy_build_system.bzl",
     "envoy_proto_library",
@@ -26,13 +25,9 @@ load(
     "envoy_linkopts",
 )
 
-cc_proto_library(
+envoy_proto_library(
     name = "string_map_proto",
     srcs = ["string_map.proto"],
-    default_runtime = "//external:protobuf",
-    linkstatic = 1,
-    protoc = "//external:protoc",
-    visibility = ["//visibility:public"],
 )
 
 envoy_cc_library(
@@ -77,7 +72,6 @@ envoy_cc_library(
     deps = [
         ":string_map_proto",
         "//external:mixer_client_lib",
-        "@envoy//source/common/grpc:rpc_channel_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

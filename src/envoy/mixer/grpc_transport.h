@@ -21,7 +21,6 @@
 #include "common/common/logger.h"
 #include "envoy/event/dispatcher.h"
 #include "envoy/grpc/async_client.h"
-#include "envoy/grpc/rpc_channel.h"
 
 #include "envoy/upstream/cluster_manager.h"
 #include "include/client.h"
@@ -53,10 +52,11 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
   // Grpc::AsyncRequestCallbacks<ResponseType>
   void onCreateInitialMetadata(Http::HeaderMap& metadata) override;
 
-  void onSuccess(std::unique_ptr<ResponseType>&& response) override;
+  void onSuccess(std::unique_ptr<ResponseType>&& response,
+                 Tracing::Span& span) override;
 
-  void onFailure(Grpc::Status::GrpcStatus status,
-                 const std::string& message) override;
+  void onFailure(Grpc::Status::GrpcStatus status, const std::string& message,
+                 Tracing::Span& span) override;
 
  private:
   static const google::protobuf::MethodDescriptor& descriptor();
