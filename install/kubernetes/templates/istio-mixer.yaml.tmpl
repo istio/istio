@@ -634,7 +634,7 @@ metadata:
   namespace: {ISTIO_NAMESPACE}
 spec:
   metrics:
-  - name: request_count
+  - name: istio_mixer_request_count
     instance_name: requestcount.metric.{ISTIO_NAMESPACE}
     kind: COUNTER
     label_names:
@@ -643,7 +643,7 @@ spec:
     - destination_service
     - destination_version
     - response_code
-  - name: request_duration
+  - name: istio_mixer_request_duration
     instance_name: requestduration.metric.{ISTIO_NAMESPACE}
     kind: DISTRIBUTION
     label_names:
@@ -655,7 +655,7 @@ spec:
     buckets:
       explicit_buckets:
         bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-  - name: request_size
+  - name: istio_mixer_request_size
     instance_name: requestsize.metric.{ISTIO_NAMESPACE}
     kind: DISTRIBUTION
     label_names:
@@ -669,7 +669,7 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
-  - name: response_size
+  - name: istio_mixer_response_size
     instance_name: responsesize.metric.{ISTIO_NAMESPACE}
     kind: DISTRIBUTION
     label_names:
@@ -683,7 +683,7 @@ spec:
         numFiniteBuckets: 8
         scale: 1
         growthFactor: 10
-  - name: tcp_bytes_sent
+  - name: istio_mixer_tcp_bytes_sent
     instance_name: tcpbytesent.metric.{ISTIO_NAMESPACE}
     kind: COUNTER
     label_names:
@@ -691,7 +691,7 @@ spec:
     - source_version
     - destination_service
     - destination_version
-  - name: tcp_bytes_received
+  - name: istio_mixer_tcp_bytes_received
     instance_name: tcpbytereceived.metric.{ISTIO_NAMESPACE}
     kind: COUNTER
     label_names:
