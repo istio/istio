@@ -643,6 +643,12 @@ spec:
       valueType: STRING
     api.protocol:
       valueType: STRING
+    request.auth.principal:
+      valueType: STRING
+    request.auth.audiences:
+      valueType: STRING
+    request.auth.presenter:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
