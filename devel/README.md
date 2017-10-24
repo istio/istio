@@ -18,6 +18,7 @@ branch, but release branches should not change.
   - [Setting up Docker](#setting-up-docker)
   - [Setting up environment variables](#setting-up-environment-variables)
   - [Setting up personal access token](#setting-up-a-personal-access-token)
+  - [Setting up a container registry](#setting-up-a-container-registry)
 - [Git workflow](#git-workflow)
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
@@ -31,6 +32,8 @@ branch, but release branches should not change.
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
+  - [Building the containers](#building-the-containers)
+  - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Running tests](#running-tests)
   - [Getting coverage numbers](#getting-coverage-numbers)
@@ -110,6 +113,11 @@ you must setup a personal access token to enable push via HTTPS. Please follow [
 instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
+
+### Setting up a container registry
+
+Follow the
+[Google Container Registry Quickstart](https://cloud.google.com/container-registry/docs/quickstart).
 
 ## Git workflow
 
@@ -276,6 +284,39 @@ tooling functions correctly
 ```
 (You can safely ignore some errors like
 `com_github_opencontainers_go_digest Does not exist`)
+
+### Building the containers
+
+This tool builds and publishes Mixer container images to the specified
+registry.
+
+```
+bin/publish-docker-images.sh -h gcr.io/my-project -t my-tag
+```
+
+where
+
+* The `-h` parameter `gcr.io/my-project` is the composition of the registry
+  hostname and the project id. This should be customized.
+* The `-t` parameter `my-tag` is the desired tag. This should be customized.
+
+### Building the Istio manfiests
+
+Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
+to generate new manifests with the specified Mixer containers.
+
+```
+cd $ISTIO/istio
+install/updateVersion.sh -xgcr.io/my-project,tag
+```
+
+where
+
+* `gcr.io/my-project` is equivalent to the `-h` parameter specified to
+  `publish-docker-images.sh`.
+* `my-tag` is equivalent to the `-t` parameter specified to
+  `publish-docker-images.sh`.
+* `-x` and `,` and the parameters are not delimited by a space.
 
 ### Cleaning outputs
 

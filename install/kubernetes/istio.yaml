@@ -157,20 +157,6 @@ roleRef:
   name: istio-pilot-istio-system
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Egress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-egress-admin-role-binding-istio-system
-subjects:
-- kind: ServiceAccount
-  name: istio-egress-service-account
-  namespace: istio-system
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot-istio-system
-  apiGroup: rbac.authorization.k8s.io
----
 # Grant permissions to the sidecar.
 # TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
 # granted only to that account !
@@ -270,7 +256,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:18dd6ebf365c09948fb09d2db165533e7a3642a3
+        image: gcr.io/istio-testing/mixer:61a0174b6a5d00b3233335810c5b415cb59b189c
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -657,6 +643,12 @@ spec:
       valueType: STRING
     api.protocol:
       valueType: STRING
+    request.auth.principal:
+      valueType: STRING
+    request.auth.audiences:
+      valueType: STRING
+    request.auth.presenter:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"
@@ -951,7 +943,6 @@ data:
     mixerAddress: istio-mixer.istio-system:9091
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
-    egressProxyAddress: istio-egress.istio-system:80
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
@@ -962,7 +953,7 @@ data:
     #
     defaultConfig:
       # NOTE: If you change any values in this section, make sure to make
-      # the same changes in start up args in istio-ingress and istio-egress pods.
+      # the same changes in start up args in istio-ingress pods.
       # See rdsRefreshDelay for explanation about this setting.
       discoveryRefreshDelay: 1s
       #
@@ -1084,7 +1075,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:b54007730ce775ea011e53d2f988e5ea04edd3c8
+        image: gcr.io/istio-testing/pilot:e3f2b2252f76ba579e658764735cd0de10597557
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot-external"]
         ports:
@@ -1153,7 +1144,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:b54007730ce775ea011e53d2f988e5ea04edd3c8
+        image: gcr.io/istio-testing/proxy_debug:e3f2b2252f76ba579e658764735cd0de10597557
         args:
         - proxy
         - ingress
@@ -1207,89 +1198,6 @@ spec:
       - name: ingress-certs
         secret:
           secretName: istio-ingress-certs
-          optional: true
----
-################################
-# Istio egress
-################################
-apiVersion: v1
-kind: Service
-metadata:
-  name: istio-egress
-  namespace: istio-system
-spec:
-  ports:
-  - port: 80
-  selector:
-    istio: egress
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-egress-service-account
-  namespace: istio-system
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: istio-egress
-  namespace: istio-system
-  annotations:
-    sidecar.istio.io/inject: "false"
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        istio: egress
-    spec:
-      serviceAccountName: istio-egress-service-account
-      containers:
-      - name: proxy
-        image: gcr.io/istio-testing/proxy_debug:b54007730ce775ea011e53d2f988e5ea04edd3c8
-        imagePullPolicy: IfNotPresent
-        args:
-        - proxy
-        - egress
-        - -v
-        - "2"
-        - --discoveryAddress
-        - istio-pilot:8080
-        - --discoveryRefreshDelay
-        - '1s' #discoveryRefreshDelay
-        - --drainDuration
-        - '45s' #drainDuration
-        - --parentShutdownDuration
-        - '1m0s' #parentShutdownDuration
-        - --connectTimeout
-        - '10s' #connectTimeout
-        - --serviceCluster
-        - istio-egress
-        - --zipkinAddress
-        - zipkin:9411
-        - --statsdUdpAddress
-        - istio-mixer:9125
-        - --proxyAdminPort
-        - "15000"
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        volumeMounts:
-        - name: istio-certs
-          mountPath: /etc/certs
-          readOnly: true
-      volumes:
-      - name: istio-certs
-        secret:
-          secretName: istio.default
           optional: true
 ---
 ################################
