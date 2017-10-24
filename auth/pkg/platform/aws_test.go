@@ -17,6 +17,7 @@ package platform
 import (
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,21 +27,21 @@ import (
 	"github.com/aws/aws-sdk-go/awstesting/unit"
 )
 
-func initTestServer(path string, resp string) *httptest.Server {
+func initTestServer(path string, resp []byte) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.RequestURI != path {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
 
-		_, _ = w.Write([]byte(resp))
+		_, _ = w.Write(resp)
 	}))
 }
 
 func TestIsProperPlatform(t *testing.T) {
 	server := initTestServer(
 		"/latest/meta-data/instance-id",
-		"instance-id",
+		[]byte("instance-id"),
 	)
 
 	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
@@ -56,22 +57,15 @@ func TestIsProperPlatform(t *testing.T) {
 }
 
 func TestGetInstanceIdentityDocument(t *testing.T) {
+	sigFile := "testdata/sig.pem"
+	sigBytes, err := ioutil.ReadFile(sigFile)
+	if err != nil {
+		t.Fatalf("unable to read file %s", sigFile)
+	}
+
 	server := initTestServer(
 		"/latest/dynamic/instance-identity/pkcs7",
-		`MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAaCAJIAEggGvewog
-ICJkZXZwYXlQcm9kdWN0Q29kZXMiIDogbnVsbCwKICAicHJpdmF0ZUlwIiA6ICIxMC4xNi4xNy4y
-NDgiLAogICJhdmFpbGFiaWxpdHlab25lIiA6ICJ1cy13ZXN0LTJiIiwKICAidmVyc2lvbiIgOiAi
-MjAxMC0wOC0zMSIsCiAgImluc3RhbmNlSWQiIDogImktMDY0NmM5ZWZlMmU2MmRjNjMiLAogICJi
-aWxsaW5nUHJvZHVjdHMiIDogbnVsbCwKICAiaW5zdGFuY2VUeXBlIiA6ICJjMy5sYXJnZSIsCiAg
-ImFjY291bnRJZCIgOiAiOTc3Nzc3NjU3NjExIiwKICAiYXJjaGl0ZWN0dXJlIiA6ICJ4ODZfNjQi
-LAogICJrZXJuZWxJZCIgOiBudWxsLAogICJyYW1kaXNrSWQiIDogbnVsbCwKICAiaW1hZ2VJZCIg
-OiAiYW1pLWZhYmY1YzgyIiwKICAicGVuZGluZ1RpbWUiIDogIjIwMTctMDgtMjdUMTc6MTg6MjBa
-IiwKICAicmVnaW9uIiA6ICJ1cy13ZXN0LTIiCn0AAAAAAAAxggEXMIIBEwIBATBpMFwxCzAJBgNV
-BAYTAlVTMRkwFwYDVQQIExBXYXNoaW5ndG9uIFN0YXRlMRAwDgYDVQQHEwdTZWF0dGxlMSAwHgYD
-VQQKExdBbWF6b24gV2ViIFNlcnZpY2VzIExMQwIJAJa6SNnlXhpnMAkGBSsOAwIaBQCgXTAYBgkq
-hkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0xNzA4MjcxNzE4MjRaMCMGCSqG
-SIb3DQEJBDEWBBT/JZmQFucrfvwLw54W9uifbbXfMDAJBgcqhkjOOAQDBC4wLAIUeWe3iWxCp7Dv
-hqssNI4P1pjVxBwCFFLyWgwduQHC8uZQNc49icJDXvziAAAAAAAA`,
+		sigBytes,
 	)
 	defer server.Close()
 
