@@ -286,17 +286,6 @@ spec:
         - MUTUAL_TLS
         - --customConfigFile
         - /etc/istio/proxy/envoy_mixer_auth.json
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
@@ -1146,17 +1135,6 @@ spec:
         - MUTUAL_TLS
         - --customConfigFile
         - /etc/istio/proxy/envoy_pilot_auth.json
-        env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
         volumeMounts:
         - name: istio-certs
           mountPath: /etc/certs
