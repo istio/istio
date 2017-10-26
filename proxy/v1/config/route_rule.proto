@@ -16,6 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 import "proxy/v1/config/http_fault.proto";
 import "proxy/v1/config/l4_fault.proto";
 
@@ -134,6 +135,22 @@ message RouteRule {
 
   //(-- L4 fault injection policy applies to Tcp/Udp (not HTTP) traffic --)
   L4FaultInjection l4_fault = 11;
+
+  // Mirror HTTP traffic to a another destination in addition to forwarding
+  // the requests to the intended destination. Mirrored traffic is on best
+  // effort basis where Envoy will not wait for the mirrored cluster to
+  // respond before returning the response from the original destination.
+  // Statistics will be generated for the mirrored destination.
+  IstioService mirror = 12;
+
+  // Cross-Origin Resource Sharing policy (CORS). Refer to
+  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS for
+  // further details about cross origin resource sharing.
+  CorsPolicy cors_policy = 13;
+
+  // Additional HTTP headers to add before forwarding a request to the
+  // destnation service.
+  map<string, string> append_headers = 14;
 }
 
 // IstioService identifies a service and optionally service version.
@@ -248,11 +265,11 @@ message MatchRequest {
 //         weight: 75
 //
 message DestinationWeight {
-  // Optional destination uniquely identifies the destination service. If not
+  // Sometimes required. Optional destination uniquely identifies the destination service. If not
   // specified, the value is inherited from the parent route rule.
   IstioService destination = 1;
 
-  // Service version identifier for the destination service.
+  // Sometimes required. Service version identifier for the destination service.
   // (-- N.B. The map is used instead of pstruct due to lack of serialization support
   // in golang protobuf library (see https://github.com/golang/protobuf/pull/208) --)
   map<string, string> labels = 2;
@@ -260,7 +277,8 @@ message DestinationWeight {
   // REQUIRED. The proportion of traffic to be forwarded to the service
   // version. (0-100). Sum of weights across destinations SHOULD BE ==
   // 100. If there is only destination in a rule, the weight value is
-  // assumed to be 100.
+  // assumed to be 100. When using multiple weights, either destination or labels must be
+  // specified.
   int32 weight = 3;
 }
 
@@ -422,4 +440,56 @@ message HTTPRetry {
     // (-- For proxies that support custom retry policies --)
     google.protobuf.Any custom = 2 ;
   }
+}
+
+// Describes the Cross-Origin Resource Sharing (CORS) policy, for a given
+// service. Refer to
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
+// for further details about cross origin resource sharing. For example,
+// the following rule restricts cross origin requests to those originating
+// from example.com domain using HTTP POST/GET, and sets the
+// Access-Control-Allow-Credentials header to false. In addition, it only exposes
+// X-Foo-bar header and sets an expiry period of 1 day.
+//
+//     metadata:
+//       name: my-rule
+//       namespace: default
+//     spec:
+//       destination:
+//         name: ratings
+//       route:
+//       - labels:
+//           version: v1
+//       corsPolicy:
+//         allowOrigin:
+//         - example.com
+//         allowMethods:
+//         - POST
+//         - GET
+//         allowCredentials: false
+//         allowHeaders:
+//         - X-Foo-Bar
+//         maxAge: "1d"
+//
+message CorsPolicy {
+  // The list of origins that are allowed to perform CORS requests. The content will
+  // be serialized into the Access-Control-Allow-Origin header. Wildcard * will allow
+  // all origins.
+  repeated string allow_origin = 1;
+  // List of HTTP methods allowed to access the resource. The content will
+  // be serialized into the Access-Control-Allow-Methods header.
+  repeated string allow_methods = 2;
+  // List of HTTP headers that can be used when requesting the
+  // resource. Serialized to Access-Control-Allow-Methods header.
+  repeated string allow_headers = 3;
+  // A white list of HTTP headers that the browsers are allowed to
+  // access. Serialized into Access-Control-Expose-Headers header.
+  repeated string expose_headers = 4;
+  // Specifies how long the the results of a preflight request can be
+  // cached. Translates to the Access-Control-Max-Age header.
+  google.protobuf.Duration max_age = 5;
+  // Indicates whether the caller is allowed to send the actual request
+  // (not the preflight) using credentials. Translates to
+  // Access-Control-Allow-Credentials header.
+  google.protobuf.BoolValue allow_credentials = 6;
 }

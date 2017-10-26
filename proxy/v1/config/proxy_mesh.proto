@@ -89,6 +89,13 @@ message ProxyConfig {
   // File path of custom proxy configuration, currently used by proxies
   // in front of Mixer and Pilot.
   string custom_config_file = 14;
+
+  // Maximum length of name field in Envoy's metrics. The length of the name field
+  // is determined by the length of a name field in a service and the set of labels that
+  // comprise a particular version of the service. The default value is set to 189 characters.
+  // Envoy's internal metrics take up 67 characters, for a total of 256 character name per metric.
+  // Increase the value of this field if you find that the metrics from Envoys are truncated.
+  int32 stat_name_length = 15;
 }
 
 
