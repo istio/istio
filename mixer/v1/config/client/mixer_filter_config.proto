@@ -20,8 +20,7 @@ import "mixer/v1/config/client/quota.proto";
 
 package istio.mixer.v1.config.client;
 
-// Defines mixer control config.
-// It is per-route for upstream if it is from Envoy route opaque config.
+// Defines the per-service mixerclient control configuration.
 message MixerControlConfig {
   // If true, call Mixer Check.
   bool enable_mixer_check = 1;
@@ -29,23 +28,19 @@ message MixerControlConfig {
   // If true, call Mixer Report.
   bool enable_mixer_Report = 2;
 
-  // If true, disable forwarding any attributes to upstream.
-  bool disable_forward_attributes = 3;
-
-  // Send these attributes to Mixer in both Check and Report.
-  Attributes mixer_attributes = 4;
-
-  // Forward these attributes to upstream.
-  Attributes forward_attributes = 5;
+  // Send these attributes to Mixer in both Check and Report. This
+  // typically includes the "destination.service" attribute.
+  Attributes mixer_attributes = 3;
 
   // HTTP API specifications to generate API attributes.
-  repeated HTTPAPISpec http_api_spec = 6;
+  repeated HTTPAPISpec http_api_spec = 4;
 
   // Quota specifications to generate quota requirements.
-  repeated QuotaSpec quota_spec = 7;
+  repeated QuotaSpec quota_spec = 5;
 }
 
-// Specifies config for Envoy Mixer HTTP filter and TCP filter.
+// Defines the Mixerclient's envoy HTTP filter and TCP filter
+// configuration.
 message MixerFilterConfig {
   // The flag to disable check cache.
   bool disable_check_cache = 1;
@@ -65,8 +60,21 @@ message MixerFilterConfig {
   // Specifies the policy when failed to connect to Mixer server.
   NetworkFailPolicy network_fail_policy = 4;
 
-  // Specifies the default Mixer control config.
-  // If one is defined in upstream route table, per-route mixer control config
-  // takes precedence over the default mixer control config.
-  MixerControlConfig control_config = 5;
+  // Map of control configuration indexed by destination.service. This
+  // is used to support per-service configuration for cases where a
+  // mixerclient serves multiple services. 
+  map<string, MixerControlConfig> control_configs = 5;
+  
+  // Default destination service name if none was specified in the 
+  // client request.
+  string default_destination_service = 6;
+
+  // Default attributes to send to Mixer in both Check and
+  // Report. This typically includes "destination.ip" and
+  // "destination.uid" attributes.
+  Attributes mixer_attributes = 7;
+
+  // Default attributes to forward to upstream. This typically
+  // includes the "source.ip" and "source.uid" attributes.
+  Attributes forward_attributes = 8;
 }
