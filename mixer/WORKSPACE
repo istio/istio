@@ -465,7 +465,7 @@ go_repository(
 go_repository(
     name = "com_github_apache_thrift",
     build_file_name = "BUILD.bazel",
-    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Jan 6, 2017 (0.10.0)
+    commit = "d4df91709b724174aaf8a957f3edac3573be354e",  # Oct 26, 2017 (HEAD) required by openzipkin dependency.
     importpath = "github.com/apache/thrift",
 )
 
@@ -544,8 +544,10 @@ go_repository(
 go_repository(
     name = "com_github_openzipkin_zipkin_go_opentracing",
     build_file_proto_mode = "legacy",
-    commit = "90d57f421daae5e385ce2429580f0d695c41823b",  # Jul 5, 2017 (has releases but we need a newer commit)
+    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
     importpath = "github.com/openzipkin/zipkin-go-opentracing",
+    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
+    vcs = "git",
 )
 
 go_repository(
