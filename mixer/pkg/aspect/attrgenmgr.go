@@ -111,7 +111,7 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 			case net.IP:
 				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
 				// TODO: remove
-				glog.Warningf("---- converting net.IP to []byte")
+				glog.V(4).Info("converting net.IP to []byte")
 				if v4 := v.To4(); v4 != nil {
 					bag.Set(attrName, []byte(v4))
 					continue
@@ -122,7 +122,9 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 			}
 			continue
 		}
-		glog.Warningf("Generated value '%s' was not mapped to an attribute.", key)
+		if glog.V(4) {
+			glog.Infof("Generated value '%s' was not mapped to an attribute.", key)
+		}
 	}
 	// TODO: check that all attributes in map have been assigned a value?
 	return &PreprocessResult{Attrs: bag}, status.OK
