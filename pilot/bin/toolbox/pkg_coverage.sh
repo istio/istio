@@ -4,7 +4,7 @@ set -ex
 detected_OS=`uname -s 2>/dev/null || echo not`
 BUILD_FLAGS=""
 if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
-    BUILD_FLAGS="--cpu=k8"
+    BUILD_FLAGS="--cpu=darwin"
 fi
 
 bazel build ${BUILD_FLAGS} @com_github_istio_test_infra//toolbox/pkg_check \

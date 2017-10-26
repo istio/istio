@@ -17,7 +17,7 @@ SHELL := /bin/bash
 detected_OS := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 BUILD_FLAGS = ""
 ifeq ($(detected_OS),Darwin)  # Mac OS X
-    BUILD_FLAGS = --cpu=k8
+    BUILD_FLAGS = --cpu=darwin
 endif
 
 hub = ""
