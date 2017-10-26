@@ -139,6 +139,7 @@ function merge_files() {
 
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_AUTH
   sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_AUTH
   sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_AUTH
@@ -149,6 +150,7 @@ function merge_files() {
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH

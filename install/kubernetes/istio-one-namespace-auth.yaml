@@ -1012,6 +1012,8 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
+      # Uncomment the following line to enable mutual TLS for traffic to pilot and mixer
+      controlPlaneAuthPolicy: MUTUAL_TLS
 ---
 ################################
 # Pilot
