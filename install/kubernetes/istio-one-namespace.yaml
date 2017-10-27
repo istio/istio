@@ -205,9 +205,9 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: tcp-old
+  - name: tcp-plain
     port: 9091
-  - name: tcp
+  - name: tcp-mtls
     port: 15004
   - name: http-health
     port: 9093
@@ -1012,7 +1012,8 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
-      # Uncomment the following line to enable mutual TLS for traffic to pilot and mixer
+      # Uncomment the following line to enable mutual TLS authentication between
+      # sidecars and istio control plane.
       # controlPlaneAuthPolicy: MUTUAL_TLS
 ---
 ################################

@@ -16,9 +16,9 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: tcp-old
+  - name: tcp-plain
     port: 9091
-  - name: tcp
+  - name: tcp-mtls
     port: 15004
   - name: http-health
     port: 9093
