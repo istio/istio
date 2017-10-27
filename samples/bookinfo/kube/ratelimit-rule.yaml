@@ -1,0 +1,22 @@
+apiVersion: config.istio.io/v1alpha2
+kind: quota
+metadata:
+  name: requestcount
+  namespace: istio-config-default
+spec:
+  dimensions:
+    source: source.labels["app"] | source.service | "unknown"
+    sourceVersion: source.labels["version"] | "unknown"
+    destination: destination.labels["app"] | destination.service | "unknown"
+    destinationVersion: destination.labels["version"] | "unknown"
+---
+apiVersion: config.istio.io/v1alpha2
+kind: rule
+metadata:
+  name: quota
+  namespace: istio-config-default
+spec:
+  actions:
+  - handler: handler.memquota
+    instances:
+    - requestcount.quota
