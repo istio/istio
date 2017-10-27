@@ -273,7 +273,7 @@ spec:
           - -v
           - "2"
       - name: istio-proxy
-        image: gcr.io/istio-testing/proxy_debug:6f20fc31474dae9a944d47a364ded3bb3439c477
+        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15004
@@ -1123,7 +1123,7 @@ spec:
         - name: config-volume
           mountPath: /etc/istio/config
       - name: istio-proxy
-        image: gcr.io/istio-testing/proxy_debug:6f20fc31474dae9a944d47a364ded3bb3439c477
+        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
