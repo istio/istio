@@ -182,7 +182,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 // Services implements a service catalog operation
-func (c *Controller) Services() []*model.Service {
+func (c *Controller) Services() ([]*model.Service, error) {
 	list := c.services.informer.GetStore().List()
 	out := make([]*model.Service, 0, len(list))
 
@@ -191,23 +191,23 @@ func (c *Controller) Services() []*model.Service {
 			out = append(out, svc)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // GetService implements a service catalog operation
-func (c *Controller) GetService(hostname string) (*model.Service, bool) {
+func (c *Controller) GetService(hostname string) (*model.Service, error) {
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		glog.V(2).Infof("GetService(%s) => error %v", hostname, err)
-		return nil, false
+		return nil, err
 	}
 	item, exists := c.serviceByKey(name, namespace)
 	if !exists {
-		return nil, false
+		return nil, nil
 	}
 
 	svc := convertService(*item, c.domainSuffix)
-	return svc, svc != nil
+	return svc, nil
 }
 
 // serviceByKey retrieves a service by name and namespace
@@ -263,23 +263,23 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 
 // Instances implements a service catalog operation
 func (c *Controller) Instances(hostname string, ports []string,
-	labelsList model.LabelsCollection) []*model.ServiceInstance {
+	labelsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	// Get actual service by name
 	name, namespace, err := parseHostname(hostname)
 	if err != nil {
 		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil
+		return nil, err
 	}
 
 	item, exists := c.serviceByKey(name, namespace)
 	if !exists {
-		return nil
+		return nil, nil
 	}
 
 	// Locate all ports in the actual service
 	svc := convertService(*item, c.domainSuffix)
 	if svc == nil {
-		return nil
+		return nil, nil
 	}
 	svcPorts := make(map[string]*model.Port)
 	for _, port := range ports {
@@ -326,14 +326,14 @@ func (c *Controller) Instances(hostname string, ports []string,
 					}
 				}
 			}
-			return out
+			return out, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // HostInstances implements a service catalog operation
-func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
+func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
 	var out []*model.ServiceInstance
 	for _, item := range c.endpoints.informer.GetStore().List() {
 		ep := *item.(*v1.Endpoints)
@@ -376,7 +376,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstan
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
@@ -388,7 +388,12 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 
 	// Get the service accounts running service within Kubernetes. This is reflected by the pods that
 	// the service is deployed on, and the service accounts of the pods.
-	for _, si := range c.Instances(hostname, ports, model.LabelsCollection{}) {
+	instances, err := c.Instances(hostname, ports, model.LabelsCollection{})
+	if err != nil {
+		glog.Warningf("Instances(%s) error: %v", hostname, err)
+		return nil
+	}
+	for _, si := range instances {
 		if si.ServiceAccount != "" {
 			saSet[si.ServiceAccount] = true
 		}
@@ -396,8 +401,12 @@ func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []
 
 	// Get the service accounts running the service, if it is deployed on VMs. This is retrieved
 	// from the service annotation explicitly set by the operators.
-	svc, exists := c.GetService(hostname)
-	if !exists {
+	svc, err := c.GetService(hostname)
+	if err != nil {
+		glog.Warningf("GetService(%s) error: %v", hostname, err)
+		return nil
+	}
+	if svc == nil {
 		glog.V(2).Infof("GetService(%s) error: service does not exist", hostname)
 		return nil
 	}

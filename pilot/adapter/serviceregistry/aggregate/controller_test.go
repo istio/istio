@@ -15,6 +15,8 @@
 package aggregate
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
 	"istio.io/pilot/model"
@@ -35,14 +37,17 @@ func (c *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, mo
 
 func (c *MockController) Run(<-chan struct{}) {}
 
+var discovery1 *mock.ServiceDiscovery
+var discovery2 *mock.ServiceDiscovery
+
 func buildMockController() *Controller {
-	discovery1 := mock.NewDiscovery(
+	discovery1 = mock.NewDiscovery(
 		map[string]*model.Service{
 			mock.HelloService.Hostname:   mock.HelloService,
 			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
 		}, 2)
 
-	discovery2 := mock.NewDiscovery(
+	discovery2 = mock.NewDiscovery(
 		map[string]*model.Service{
 			mock.WorldService.Hostname:    mock.WorldService,
 			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
@@ -69,10 +74,22 @@ func buildMockController() *Controller {
 	return ctls
 }
 
+func TestServicesError(t *testing.T) {
+	aggregateCtl := buildMockController()
+
+	discovery1.ServicesError = errors.New("Mock Services() error")
+
+	// List Services from aggregate controller
+	_, err := aggregateCtl.Services()
+	if err == nil {
+		t.Fatal("Aggregate controller should return error if one discovery client experience error")
+	}
+}
+
 func TestServices(t *testing.T) {
 	aggregateCtl := buildMockController()
 	// List Services from aggregate controller
-	services := aggregateCtl.Services()
+	services, err := aggregateCtl.Services()
 
 	// Set up ground truth hostname values
 	serviceMap := map[string]bool{
@@ -80,6 +97,10 @@ func TestServices(t *testing.T) {
 		mock.ExtHTTPService.Hostname:  false,
 		mock.WorldService.Hostname:    false,
 		mock.ExtHTTPSService.Hostname: false,
+	}
+
+	if err != nil {
+		t.Fatalf("Services() encountered unexpected error: %v", err)
 	}
 
 	svcCount := 0
@@ -100,8 +121,11 @@ func TestGetService(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get service from mockAdapter1
-	svc, exists := aggregateCtl.GetService(mock.HelloService.Hostname)
-	if !exists {
+	svc, err := aggregateCtl.GetService(mock.HelloService.Hostname)
+	if err != nil {
+		t.Fatalf("GetService() encountered unexpected error: %v", err)
+	}
+	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
 	if svc.Hostname != mock.HelloService.Hostname {
@@ -109,8 +133,40 @@ func TestGetService(t *testing.T) {
 	}
 
 	// Get service from mockAdapter2
-	svc, exists = aggregateCtl.GetService(mock.WorldService.Hostname)
-	if !exists {
+	svc, err = aggregateCtl.GetService(mock.WorldService.Hostname)
+	if err != nil {
+		t.Fatalf("GetService() encountered unexpected error: %v", err)
+	}
+	if svc == nil {
+		t.Fatal("Fail to get service")
+	}
+	if svc.Hostname != mock.WorldService.Hostname {
+		t.Fatal("Returned service is incorrect")
+	}
+}
+
+func TestGetServiceError(t *testing.T) {
+	aggregateCtl := buildMockController()
+
+	discovery1.GetServiceError = errors.New("Mock GetService() error")
+
+	// Get service from client with error
+	svc, err := aggregateCtl.GetService(mock.HelloService.Hostname)
+	if err == nil {
+		fmt.Println(svc)
+		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
+			"error and no service is found")
+	}
+	if svc != nil {
+		t.Fatal("GetService() should return nil if no service found")
+	}
+
+	// Get service from client without error
+	svc, err = aggregateCtl.GetService(mock.WorldService.Hostname)
+	if err != nil {
+		t.Fatal("Aggregate controller should not return error if service is found")
+	}
+	if svc == nil {
 		t.Fatal("Fail to get service")
 	}
 	if svc.Hostname != mock.WorldService.Hostname {
@@ -122,7 +178,10 @@ func TestHostInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	if err != nil {
+		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
+	}
 	if len(instances) != 5 {
 		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
 	}
@@ -133,7 +192,40 @@ func TestHostInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	if err != nil {
+		t.Fatalf("HostInstances() encountered unexpected error: %v", err)
+	}
+	if len(instances) != 5 {
+		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
+	}
+	for _, inst := range instances {
+		if inst.Service.Hostname != mock.WorldService.Hostname {
+			t.Fatal("Returned Instance is incorrect")
+		}
+	}
+}
+
+func TestHostInstancesError(t *testing.T) {
+	aggregateCtl := buildMockController()
+
+	discovery1.HostInstancesError = errors.New("Mock HostInstances() error")
+
+	// Get Instances from client with error
+	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
+	if err == nil {
+		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
+			"error and no instances are found")
+	}
+	if len(instances) != 0 {
+		t.Fatal("HostInstances() should return no instances is client experiences error")
+	}
+
+	// Get Instances from client without error
+	instances, err = aggregateCtl.HostInstances(map[string]bool{mock.MakeIP(mock.WorldService, 1): true})
+	if err != nil {
+		t.Fatal("Aggregate controller should not return error if instances are found")
+	}
 	if len(instances) != 5 {
 		t.Fatalf("Returned HostInstances' amount %d is not correct", len(instances))
 	}
@@ -148,7 +240,12 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.Instances(mock.HelloService.Hostname, []string{mock.PortHTTP.Name}, model.LabelsCollection{})
+	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
+		[]string{mock.PortHTTP.Name},
+		model.LabelsCollection{})
+	if err != nil {
+		t.Fatalf("Instances() encountered unexpected error: %v", err)
+	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -162,7 +259,49 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.Instances(mock.WorldService.Hostname, []string{mock.PortHTTP.Name}, model.LabelsCollection{})
+	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
+		[]string{mock.PortHTTP.Name},
+		model.LabelsCollection{})
+	if err != nil {
+		t.Fatalf("Instances() encountered unexpected error: %v", err)
+	}
+	if len(instances) != 2 {
+		t.Fatal("Returned wrong number of instances from controller")
+	}
+	for _, instance := range instances {
+		if instance.Service.Hostname != mock.WorldService.Hostname {
+			t.Fatal("Returned instance's hostname does not match desired value")
+		}
+		if _, ok := instance.Service.Ports.Get(mock.PortHTTP.Name); !ok {
+			t.Fatal("Returned instance does not contain desired port")
+		}
+	}
+}
+
+func TestInstancesError(t *testing.T) {
+	aggregateCtl := buildMockController()
+
+	discovery1.InstancesError = errors.New("Mock Instances() error")
+
+	// Get Instances from client with error
+	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
+		[]string{mock.PortHTTP.Name},
+		model.LabelsCollection{})
+	if err == nil {
+		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
+			"error and no instances are found")
+	}
+	if len(instances) != 0 {
+		t.Fatal("Returned wrong number of instances from controller")
+	}
+
+	// Get Instances from client without error
+	instances, err = aggregateCtl.Instances(mock.WorldService.Hostname,
+		[]string{mock.PortHTTP.Name},
+		model.LabelsCollection{})
+	if err != nil {
+		t.Fatalf("Instances() should not return error is instances are found: %v", err)
+	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}

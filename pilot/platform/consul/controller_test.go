@@ -109,7 +109,9 @@ func newServer() *mockServer {
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else {
-			fmt.Fprintln(w, r.URL.Path)
+			data, _ := json.Marshal(&[]*api.CatalogService{})
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintln(w, string(data))
 		}
 	}))
 
@@ -126,7 +128,10 @@ func TestInstances(t *testing.T) {
 	}
 
 	hostname := serviceHostname("reviews")
-	instances := controller.Instances(hostname, []string{}, model.LabelsCollection{})
+	instances, err := controller.Instances(hostname, []string{}, model.LabelsCollection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
 	if len(instances) != 3 {
 		t.Errorf("Instances() returned wrong # of service instances => %q, want 3", len(instances))
 	}
@@ -139,9 +144,12 @@ func TestInstances(t *testing.T) {
 
 	filterTagKey := "version"
 	filterTagVal := "v3"
-	instances = controller.Instances(hostname, []string{}, model.LabelsCollection{
+	instances, err = controller.Instances(hostname, []string{}, model.LabelsCollection{
 		model.Labels{filterTagKey: filterTagVal},
 	})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
 	if len(instances) != 1 {
 		t.Errorf("Instances() did not filter by tags => %q, want 1", len(instances))
 	}
@@ -158,7 +166,10 @@ func TestInstances(t *testing.T) {
 	}
 
 	filterPort := "http"
-	instances = controller.Instances(hostname, []string{filterPort}, model.LabelsCollection{})
+	instances, err = controller.Instances(hostname, []string{filterPort}, model.LabelsCollection{})
+	if err != nil {
+		t.Errorf("client encountered error during Instances(): %v", err)
+	}
 	if len(instances) != 2 {
 		t.Errorf("Instances() did not filter by port => %q, want 2", len(instances))
 	}
@@ -178,9 +189,30 @@ func TestInstancesBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	instances := controller.Instances("badhostname", []string{}, model.LabelsCollection{})
+	instances, err := controller.Instances("", []string{}, model.LabelsCollection{})
+	if err == nil {
+		t.Error("Instances() should return error when provided bad hostname")
+	}
 	if len(instances) != 0 {
 		t.Errorf("Instances() returned wrong # of service instances => %q, want 0", len(instances))
+	}
+}
+
+func TestInstancesError(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		ts.Server.Close()
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Server.Close()
+	instances, err := controller.Instances(serviceHostname("reviews"), []string{}, model.LabelsCollection{})
+	if err == nil {
+		t.Error("Instances() should return error when client experiences connection problem")
+	}
+	if len(instances) != 0 {
+		t.Errorf("Instances() returned wrong # of instances: %q, want 0", len(instances))
 	}
 }
 
@@ -192,14 +224,35 @@ func TestGetService(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	service, exists := controller.GetService("productpage.service.consul")
-	if !exists {
+	service, err := controller.GetService("productpage.service.consul")
+	if err != nil {
+		t.Errorf("client encountered error during GetService(): %v", err)
+	}
+	if service == nil {
 		t.Error("service should exist")
 	}
 
 	if service.Hostname != serviceHostname("productpage") {
 		t.Errorf("GetService() incorrect service returned => %q, want %q",
 			service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestGetServiceError(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		ts.Server.Close()
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Server.Close()
+	service, err := controller.GetService("productpage.service.consul")
+	if err == nil {
+		t.Error("GetService() should return error when client experiences connection problem")
+	}
+	if service != nil {
+		t.Error("GetService() should return nil when client experiences connection problem")
 	}
 }
 
@@ -211,13 +264,12 @@ func TestGetServiceBadHostname(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	service, exists := controller.GetService("badshostname")
-	if exists {
-		t.Error("service should not exist")
+	service, err := controller.GetService("")
+	if err == nil {
+		t.Error("GetService() should thow error for bad hostnames")
 	}
-
 	if service != nil {
-		t.Error("service should be nil")
+		t.Error("service should not exist")
 	}
 }
 
@@ -231,13 +283,12 @@ func TestGetServiceNoInstances(t *testing.T) {
 
 	ts.Productpage = []*api.CatalogService{}
 
-	service, exists := controller.GetService("productpage.service.consul")
-	if exists {
-		t.Error("service should not exist")
+	service, err := controller.GetService("productpage.service.consul")
+	if err != nil {
+		t.Errorf("GetService() encountered unexpected error: %v", err)
 	}
-
 	if service != nil {
-		t.Error("service should be nil")
+		t.Error("service should not exist")
 	}
 }
 
@@ -249,7 +300,10 @@ func TestServices(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services := controller.Services()
+	services, err := controller.Services()
+	if err != nil {
+		t.Errorf("client encountered error during Services(): %v", err)
+	}
 	serviceMap := make(map[string]*model.Service)
 	for _, svc := range services {
 		name, err := parseHostname(svc.Hostname)
@@ -278,7 +332,10 @@ func TestServicesError(t *testing.T) {
 	}
 
 	ts.Server.Close()
-	services := controller.Services()
+	services, err := controller.Services()
+	if err == nil {
+		t.Error("Services() should return error when client experiences connection problem")
+	}
 	if len(services) != 0 {
 		t.Errorf("Services() returned wrong # of services: %q, want 0", len(services))
 	}
@@ -292,7 +349,10 @@ func TestHostInstances(t *testing.T) {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
 
-	services := controller.HostInstances(map[string]bool{"172.19.0.11": true})
+	services, err := controller.HostInstances(map[string]bool{"172.19.0.11": true})
+	if err != nil {
+		t.Errorf("client encountered error during HostInstances(): %v", err)
+	}
 	if len(services) != 1 {
 		t.Errorf("HostInstances() returned wrong # of endpoints => %q, want 1", len(services))
 	}
@@ -300,5 +360,23 @@ func TestHostInstances(t *testing.T) {
 	if services[0].Service.Hostname != serviceHostname("productpage") {
 		t.Errorf("HostInstances() wrong service instance returned => hostname %q, want %q",
 			services[0].Service.Hostname, serviceHostname("productpage"))
+	}
+}
+
+func TestHostInstancesError(t *testing.T) {
+	ts := newServer()
+	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	if err != nil {
+		ts.Server.Close()
+		t.Errorf("could not create Consul Controller: %v", err)
+	}
+
+	ts.Server.Close()
+	instances, err := controller.HostInstances(map[string]bool{"172.19.0.11": true})
+	if err == nil {
+		t.Error("HostInstances() should return error when client experiences connection problem")
+	}
+	if len(instances) != 0 {
+		t.Errorf("HostInstances() returned wrong # of instances: %q, want 0", len(instances))
 	}
 }

@@ -140,8 +140,11 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
 	ingress := rule.Spec.(*proxyconfig.IngressRule)
 	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
-	service, exists := discovery.GetService(destination)
-	if !exists {
+	service, err := discovery.GetService(destination)
+	if err != nil {
+		return nil, "", err
+	}
+	if service == nil {
 		return nil, "", fmt.Errorf("cannot find service %q", destination)
 	}
 	tls := ingress.TlsSecret

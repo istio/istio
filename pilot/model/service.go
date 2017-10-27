@@ -186,10 +186,10 @@ type ServiceInstance struct {
 // ServiceDiscovery enumerates Istio service instances.
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
-	Services() []*Service
+	Services() ([]*Service, error)
 
 	// GetService retrieves a service by host name if it exists
-	GetService(hostname string) (*Service, bool)
+	GetService(hostname string) (*Service, error)
 
 	// Instances retrieves instances for a service and its ports that match
 	// any of the supplied labels. All instances match an empty tag list.
@@ -208,10 +208,10 @@ type ServiceDiscovery interface {
 	//
 	// Similar concepts apply for calling this function with a specific
 	// port, hostname and labels.
-	Instances(hostname string, ports []string, labels LabelsCollection) []*ServiceInstance
+	Instances(hostname string, ports []string, labels LabelsCollection) ([]*ServiceInstance, error)
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
-	HostInstances(addrs map[string]bool) []*ServiceInstance
+	HostInstances(addrs map[string]bool) ([]*ServiceInstance, error)
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management

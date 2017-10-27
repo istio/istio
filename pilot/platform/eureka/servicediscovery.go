@@ -32,11 +32,11 @@ type serviceDiscovery struct {
 }
 
 // Services implements a service catalog operation
-func (sd *serviceDiscovery) Services() []*model.Service {
+func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		glog.Warningf("could not list Eureka instances: %v", err)
-		return nil
+		return nil, err
 	}
 	services := convertServices(apps, nil)
 
@@ -44,30 +44,30 @@ func (sd *serviceDiscovery) Services() []*model.Service {
 	for _, service := range services {
 		out = append(out, service)
 	}
-	return out
+	return out, nil
 }
 
 // GetService implements a service catalog operation
-func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, bool) {
+func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		glog.Warningf("could not list Eureka instances: %v", err)
-		return nil, false
+		return nil, err
 	}
 
 	services := convertServices(apps, map[string]bool{hostname: true})
 	service := services[hostname]
-	return service, service != nil
+	return service, nil
 }
 
 // Instances implements a service catalog operation
 func (sd *serviceDiscovery) Instances(hostname string, ports []string,
-	tagsList model.LabelsCollection) []*model.ServiceInstance {
+	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 
 	apps, err := sd.client.Applications()
 	if err != nil {
 		glog.Warningf("could not list Eureka instances: %v", err)
-		return nil
+		return nil, err
 	}
 	portSet := make(map[string]bool)
 	for _, port := range ports {
@@ -87,15 +87,15 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 
 		out = append(out, instance)
 	}
-	return out
+	return out, nil
 }
 
 // HostInstances implements a service catalog operation
-func (sd *serviceDiscovery) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
+func (sd *serviceDiscovery) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
 		glog.Warningf("could not list Eureka instances: %v", err)
-		return nil
+		return nil, err
 	}
 	services := convertServices(apps, nil)
 
@@ -105,7 +105,7 @@ func (sd *serviceDiscovery) HostInstances(addrs map[string]bool) []*model.Servic
 			out = append(out, instance)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // ManagementPorts retries set of health check ports by instance IP.

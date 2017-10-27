@@ -16,6 +16,7 @@ package aggregate
 
 import (
 	"github.com/golang/glog"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/pilot/model"
 	"istio.io/pilot/platform"
@@ -47,22 +48,36 @@ func (c *Controller) AddRegistry(registry Registry) {
 }
 
 // Services lists services from all platforms
-func (c *Controller) Services() []*model.Service {
+func (c *Controller) Services() ([]*model.Service, error) {
 	services := make([]*model.Service, 0)
+	var errs error
 	for _, r := range c.registries {
-		services = append(services, r.Services()...)
+		svcs, err := r.Services()
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else {
+			services = append(services, svcs...)
+		}
 	}
-	return services
+	return services, errs
 }
 
 // GetService retrieves a service by hostname if exists
-func (c *Controller) GetService(hostname string) (*model.Service, bool) {
+func (c *Controller) GetService(hostname string) (*model.Service, error) {
+	var errs error
 	for _, r := range c.registries {
-		if service, exists := r.GetService(hostname); exists {
-			return service, true
+		service, err := r.GetService(hostname)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if service != nil {
+			if errs != nil {
+				glog.Warningf("GetService() found match but encountered an error: %v", errs)
+			}
+			return service, nil
 		}
+
 	}
-	return nil, false
+	return nil, errs
 }
 
 // ManagementPorts retrieves set of health check ports by instance IP
@@ -79,23 +94,45 @@ func (c *Controller) ManagementPorts(addr string) model.PortList {
 // Instances retrieves instances for a service and its ports that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) Instances(hostname string, ports []string,
-	labels model.LabelsCollection) []*model.ServiceInstance {
+	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	var instances []*model.ServiceInstance
+	var errs error
 	for _, r := range c.registries {
-		if instances = r.Instances(hostname, ports, labels); len(instances) > 0 {
-			break
+		var err error
+		instances, err = r.Instances(hostname, ports, labels)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else if len(instances) > 0 {
+			if errs != nil {
+				glog.Warningf("Instances() found match but encountered an error: %v", errs)
+			}
+			return instances, nil
 		}
 	}
-	return instances
+	return instances, errs
 }
 
 // HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]bool) []*model.ServiceInstance {
-	instances := make([]*model.ServiceInstance, 0)
+func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+	out := make([]*model.ServiceInstance, 0)
+	var errs error
 	for _, r := range c.registries {
-		instances = append(instances, r.HostInstances(addrs)...)
+		instances, err := r.HostInstances(addrs)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		} else {
+			out = append(out, instances...)
+		}
 	}
-	return instances
+
+	if len(out) > 0 {
+		if errs != nil {
+			glog.Warningf("HostInstances() found match but encountered an error: %v", errs)
+		}
+		return out, nil
+	}
+
+	return out, errs
 }
 
 // Run starts all the controllers

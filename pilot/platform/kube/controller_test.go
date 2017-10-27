@@ -97,7 +97,10 @@ func TestServices(t *testing.T) {
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
 	eventually(func() bool {
-		out := sds.Services()
+		out, clientErr := sds.Services()
+		if clientErr != nil {
+			return false
+		}
 		glog.Info("Services: %#v", out)
 
 		for _, item := range out {
@@ -110,18 +113,24 @@ func TestServices(t *testing.T) {
 		return false
 	}, t)
 
-	svc, exists := sds.GetService(hostname)
-	if !exists {
-		t.Errorf("GetService(%q) => %t, want true", hostname, exists)
+	svc, err := sds.GetService(hostname)
+	if err != nil {
+		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
+	}
+	if svc == nil {
+		t.Errorf("GetService(%q) => should exists", hostname)
 	}
 	if svc.Hostname != hostname {
 		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
 	}
 
 	missing := serviceHostname("does-not-exist", ns, domainSuffix)
-	_, exists = sds.GetService(missing)
-	if exists {
-		t.Errorf("GetService(%q) => %t, want false", missing, exists)
+	svc, err = sds.GetService(missing)
+	if err != nil {
+		t.Errorf("GetService(%q) encountered unexpected error: %v", missing, err)
+	}
+	if svc != nil {
+		t.Errorf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
 	}
 }
 
