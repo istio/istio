@@ -19,7 +19,7 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following line
-    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:9091
+    mixerAddress: istio-mixer.{ISTIO_NAMESPACE}:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     #
@@ -59,7 +59,7 @@ data:
       proxyAdminPort: 15000
       #
       # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:8080
+      discoveryAddress: istio-pilot.{ISTIO_NAMESPACE}:15003
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{ISTIO_NAMESPACE}:9411
@@ -67,4 +67,7 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.{ISTIO_NAMESPACE}:9125
+      # Uncomment the following line to enable mutual TLS authentication between
+      # sidecars and istio control plane.
+      # controlPlaneAuthPolicy: MUTUAL_TLS
 ---
