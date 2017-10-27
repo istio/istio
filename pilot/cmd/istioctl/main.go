@@ -68,7 +68,7 @@ var (
 		Short:             "Istio control interface",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
-		Long: fmt.Sprintf(`
+		Long: `
 Istio configuration command line utility.
 
 Create, list, modify, and delete configuration resources in the Istio
@@ -76,12 +76,12 @@ system.
 
 Available routing and traffic management configuration types:
 
-	%v
+	[routerule ingressrule egressrule destinationpolicy]
 
 See http://istio.io/docs/reference for an overview of routing rules
 and destination policies.
 
-`, model.IstioConfigTypes.Types()),
+`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			defaultNamespace = getDefaultNamespace(kubeconfig)
 		},
