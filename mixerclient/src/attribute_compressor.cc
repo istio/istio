@@ -13,10 +13,15 @@
  * limitations under the License.
  */
 
-#include "attribute_converter.h"
+#include "attribute_compressor.h"
 #include "delta_update.h"
 #include "global_dictionary.h"
 #include "utils/protobuf.h"
+
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer::v1::Attributes_AttributeValue;
+using ::istio::mixer::v1::Attributes_StringMap;
+using ::istio::mixer::v1::CompressedAttributes;
 
 namespace istio {
 namespace mixer_client {
@@ -63,59 +68,59 @@ class MessageDictionary {
 };
 
 ::istio::mixer::v1::StringMap CreateStringMap(
-    const std::map<std::string, std::string>& string_map,
-    MessageDictionary& dict) {
-  ::istio::mixer::v1::StringMap map_msg;
-  auto* map_pb = map_msg.mutable_entries();
-  for (const auto& it : string_map) {
+    const Attributes_StringMap& raw_map, MessageDictionary& dict) {
+  ::istio::mixer::v1::StringMap compressed_map;
+  auto* map_pb = compressed_map.mutable_entries();
+  for (const auto& it : raw_map.entries()) {
     (*map_pb)[dict.GetIndex(it.first)] = dict.GetIndex(it.second);
   }
-  return map_msg;
+  return compressed_map;
 }
 
-bool ConvertToPb(const Attributes& attributes, MessageDictionary& dict,
-                 DeltaUpdate& delta_update,
-                 ::istio::mixer::v1::CompressedAttributes* pb) {
+bool CompressByDict(const Attributes& attributes, MessageDictionary& dict,
+                    DeltaUpdate& delta_update, CompressedAttributes* pb) {
   delta_update.Start();
 
   // Fill attributes.
-  for (const auto& it : attributes.attributes) {
+  for (const auto& it : attributes.attributes()) {
     const std::string& name = it.first;
+    const Attributes_AttributeValue& value = it.second;
 
     int index = dict.GetIndex(name);
 
     // Check delta update. If same, skip it.
-    if (delta_update.Check(index, it.second)) {
+    if (delta_update.Check(index, value)) {
       continue;
     }
 
     // Fill the attribute to proper map.
-    switch (it.second.type) {
-      case Attributes::Value::ValueType::STRING:
-        (*pb->mutable_strings())[index] = dict.GetIndex(it.second.str_v);
+    switch (value.value_case()) {
+      case Attributes_AttributeValue::kStringValue:
+        (*pb->mutable_strings())[index] = dict.GetIndex(value.string_value());
         break;
-      case Attributes::Value::ValueType::BYTES:
-        (*pb->mutable_bytes())[index] = it.second.str_v;
+      case Attributes_AttributeValue::kBytesValue:
+        (*pb->mutable_bytes())[index] = value.bytes_value();
         break;
-      case Attributes::Value::ValueType::INT64:
-        (*pb->mutable_int64s())[index] = it.second.value.int64_v;
+      case Attributes_AttributeValue::kInt64Value:
+        (*pb->mutable_int64s())[index] = value.int64_value();
         break;
-      case Attributes::Value::ValueType::DOUBLE:
-        (*pb->mutable_doubles())[index] = it.second.value.double_v;
+      case Attributes_AttributeValue::kDoubleValue:
+        (*pb->mutable_doubles())[index] = value.double_value();
         break;
-      case Attributes::Value::ValueType::BOOL:
-        (*pb->mutable_bools())[index] = it.second.value.bool_v;
+      case Attributes_AttributeValue::kBoolValue:
+        (*pb->mutable_bools())[index] = value.bool_value();
         break;
-      case Attributes::Value::ValueType::TIME:
-        (*pb->mutable_timestamps())[index] = CreateTimestamp(it.second.time_v);
+      case Attributes_AttributeValue::kTimestampValue:
+        (*pb->mutable_timestamps())[index] = value.timestamp_value();
         break;
-      case Attributes::Value::ValueType::DURATION:
-        (*pb->mutable_durations())[index] =
-            CreateDuration(it.second.duration_nanos_v);
+      case Attributes_AttributeValue::kDurationValue:
+        (*pb->mutable_durations())[index] = value.duration_value();
         break;
-      case Attributes::Value::ValueType::STRING_MAP:
+      case Attributes_AttributeValue::kStringMapValue:
         (*pb->mutable_string_maps())[index] =
-            CreateStringMap(it.second.string_map_v, dict);
+            CreateStringMap(value.string_map_value(), dict);
+        break;
+      case Attributes_AttributeValue::VALUE_NOT_SET:
         break;
     }
   }
@@ -123,9 +128,9 @@ bool ConvertToPb(const Attributes& attributes, MessageDictionary& dict,
   return delta_update.Finish();
 }
 
-class BatchConverterImpl : public BatchConverter {
+class BatchCompressorImpl : public BatchCompressor {
  public:
-  BatchConverterImpl(const GlobalDictionary& global_dict)
+  BatchCompressorImpl(const GlobalDictionary& global_dict)
       : dict_(global_dict),
         delta_update_(DeltaUpdate::Create()),
         report_(new ::istio::mixer::v1::ReportRequest) {
@@ -133,8 +138,8 @@ class BatchConverterImpl : public BatchConverter {
   }
 
   bool Add(const Attributes& attributes) override {
-    ::istio::mixer::v1::CompressedAttributes pb;
-    if (!ConvertToPb(attributes, dict_, *delta_update_, &pb)) {
+    CompressedAttributes pb;
+    if (!CompressByDict(attributes, dict_, *delta_update_, &pb)) {
       return false;
     }
     pb.GetReflection()->Swap(report_->add_attributes(), &pb);
@@ -185,22 +190,23 @@ void GlobalDictionary::ShrinkToBase() {
   }
 }
 
-void AttributeConverter::Convert(
+void AttributeCompressor::Compress(
     const Attributes& attributes,
     ::istio::mixer::v1::CompressedAttributes* pb) const {
   MessageDictionary dict(global_dict_);
   std::unique_ptr<DeltaUpdate> delta_update = DeltaUpdate::CreateNoOp();
 
-  ConvertToPb(attributes, dict, *delta_update, pb);
+  CompressByDict(attributes, dict, *delta_update, pb);
 
   for (const std::string& word : dict.GetWords()) {
     pb->add_words(word);
   }
 }
 
-std::unique_ptr<BatchConverter> AttributeConverter::CreateBatchConverter()
+std::unique_ptr<BatchCompressor> AttributeCompressor::CreateBatchCompressor()
     const {
-  return std::unique_ptr<BatchConverter>(new BatchConverterImpl(global_dict_));
+  return std::unique_ptr<BatchCompressor>(
+      new BatchCompressorImpl(global_dict_));
 }
 
 }  // namespace mixer_client

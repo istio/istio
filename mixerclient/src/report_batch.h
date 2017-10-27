@@ -19,7 +19,7 @@
 #include <mutex>
 
 #include "include/client.h"
-#include "src/attribute_converter.h"
+#include "src/attribute_compressor.h"
 
 namespace istio {
 namespace mixer_client {
@@ -28,12 +28,12 @@ namespace mixer_client {
 class ReportBatch {
  public:
   ReportBatch(const ReportOptions& options, TransportReportFunc transport,
-              TimerCreateFunc timer_create, AttributeConverter& converter);
+              TimerCreateFunc timer_create, AttributeCompressor& compressor);
 
   virtual ~ReportBatch();
 
   // Make batched report call
-  void Report(const Attributes& request);
+  void Report(const ::istio::mixer::v1::Attributes& request);
 
   // Flush out batched reports.
   void Flush();
@@ -50,8 +50,8 @@ class ReportBatch {
   // timer create func
   TimerCreateFunc timer_create_;
 
-  // Attribute converter.
-  AttributeConverter& converter_;
+  // Attribute compressor.
+  AttributeCompressor& compressor_;
 
   // Mutex guarding the access of batch data;
   std::mutex mutex_;
@@ -59,8 +59,8 @@ class ReportBatch {
   // timer to flush out batched data.
   std::unique_ptr<Timer> timer_;
 
-  // batched report converter
-  std::unique_ptr<BatchConverter> batch_converter_;
+  // batched report compressor
+  std::unique_ptr<BatchCompressor> batch_compressor_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ReportBatch);
 };

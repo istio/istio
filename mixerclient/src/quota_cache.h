@@ -24,7 +24,6 @@
 
 #include "include/client.h"
 #include "prefetch/quota_prefetch.h"
-#include "src/attribute_converter.h"
 #include "src/referenced.h"
 #include "utils/simple_lru_cache.h"
 #include "utils/simple_lru_cache_inl.h"
@@ -61,7 +60,7 @@ class QuotaCache {
     ::google::protobuf::util::Status status() const { return status_; }
 
     void SetResponse(const ::google::protobuf::util::Status& status,
-                     const Attributes& attributes,
+                     const ::istio::mixer::v1::Attributes& attributes,
                      const ::istio::mixer::v1::CheckResponse& response);
 
    private:
@@ -81,7 +80,7 @@ class QuotaCache {
 
       // The function to set the quota response from server.
       using OnResponseFunc = std::function<bool(
-          const Attributes& attributes,
+          const ::istio::mixer::v1::Attributes& attributes,
           const ::istio::mixer::v1::CheckResponse::QuotaResult* result)>;
       OnResponseFunc response_func;
     };
@@ -93,11 +92,12 @@ class QuotaCache {
   };
 
   // Check quota cache for a request, result will be stored in CacaheResult.
-  void Check(const Attributes& request, bool use_cache, CheckResult* result);
+  void Check(const ::istio::mixer::v1::Attributes& request, bool use_cache,
+             CheckResult* result);
 
  private:
   // Check quota cache.
-  void CheckCache(const Attributes& request, bool use_cache,
+  void CheckCache(const ::istio::mixer::v1::Attributes& request, bool use_cache,
                   CheckResult::Quota* quota);
 
   // Invalidates expired check responses.
@@ -144,7 +144,8 @@ class QuotaCache {
 
   // Set a quota response.
   void SetResponse(
-      const Attributes& attributes, const std::string& quota_name,
+      const ::istio::mixer::v1::Attributes& attributes,
+      const std::string& quota_name,
       const ::istio::mixer::v1::CheckResponse::QuotaResult* result);
 
   // A map from quota name to PerQuotaReferenced.

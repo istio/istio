@@ -16,7 +16,6 @@
 #ifndef MIXERCLIENT_CLIENT_H
 #define MIXERCLIENT_CLIENT_H
 
-#include "attribute.h"
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/service.pb.h"
 #include "options.h"
@@ -94,11 +93,11 @@ class MixerClient {
   // The response data from mixer will be consumed by mixer client.
 
   // A check call.
-  virtual CancelFunc Check(const Attributes& attributes,
+  virtual CancelFunc Check(const ::istio::mixer::v1::Attributes& attributes,
                            TransportCheckFunc transport, DoneFunc on_done) = 0;
 
   // A report call.
-  virtual void Report(const Attributes& attributes) = 0;
+  virtual void Report(const ::istio::mixer::v1::Attributes& attributes) = 0;
 };
 
 // Creates a MixerClient object.

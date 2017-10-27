@@ -16,8 +16,10 @@
 #include "include/client.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "include/attributes_builder.h"
 #include "utils/status_test_util.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
@@ -47,8 +49,7 @@ class MockCheckTransport {
 class MixerClientImplTest : public ::testing::Test {
  public:
   MixerClientImplTest() {
-    request_.attributes[Attributes::kQuotaName] =
-        Attributes::StringValue(kRequestCount);
+    AttributesBuilder(&request_).AddString("quota.name", kRequestCount);
 
     CreateClient(true /* check_cache */, true /* quota_cache */);
   }
@@ -78,7 +79,7 @@ TEST_F(MixerClientImplTest, TestSuccessCheck) {
       }));
 
   // Remove quota, not to test quota
-  request_.attributes.erase(Attributes::kQuotaName);
+  request_.mutable_attributes()->erase("quota.name");
   Status done_status = Status::UNKNOWN;
   client_->Check(request_, empty_transport_,
                  [&done_status](Status status) { done_status = status; });
@@ -107,7 +108,7 @@ TEST_F(MixerClientImplTest, TestPerRequestTransport) {
       }));
 
   // Remove quota, not to test quota
-  request_.attributes.erase(Attributes::kQuotaName);
+  request_.mutable_attributes()->erase("quota.name");
   Status done_status = Status::UNKNOWN;
   client_->Check(request_, local_check_transport.GetFunc(),
                  [&done_status](Status status) { done_status = status; });

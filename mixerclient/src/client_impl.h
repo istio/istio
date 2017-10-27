@@ -17,7 +17,7 @@
 #define MIXERCLIENT_CLIENT_IMPL_H
 
 #include "include/client.h"
-#include "src/attribute_converter.h"
+#include "src/attribute_compressor.h"
 #include "src/check_cache.h"
 #include "src/quota_cache.h"
 #include "src/report_batch.h"
@@ -35,16 +35,16 @@ class MixerClientImpl : public MixerClient {
   // Destructor
   virtual ~MixerClientImpl();
 
-  virtual CancelFunc Check(const Attributes& attributes,
+  virtual CancelFunc Check(const ::istio::mixer::v1::Attributes& attributes,
                            TransportCheckFunc transport, DoneFunc on_done);
-  virtual void Report(const Attributes& attributes);
+  virtual void Report(const ::istio::mixer::v1::Attributes& attributes);
 
  private:
   // Store the options
   MixerClientOptions options_;
 
-  // To convert attributes into protobuf
-  AttributeConverter converter_;
+  // To compress attributes.
+  AttributeCompressor compressor_;
 
   // Cache for Check call.
   std::unique_ptr<CheckCache> check_cache_;

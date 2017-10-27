@@ -16,7 +16,9 @@
 #include "src/report_batch.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "include/attributes_builder.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
 using ::google::protobuf::util::Status;
@@ -49,10 +51,10 @@ class MockTimer : public Timer {
 
 class ReportBatchTest : public ::testing::Test {
  public:
-  ReportBatchTest() : mock_timer_(nullptr), converter_({}) {
+  ReportBatchTest() : mock_timer_(nullptr), compressor_({}) {
     batch_.reset(new ReportBatch(ReportOptions(3, 1000),
                                  mock_report_transport_.GetFunc(),
-                                 GetTimerFunc(), converter_));
+                                 GetTimerFunc(), compressor_));
   }
 
   TimerCreateFunc GetTimerFunc() {
@@ -65,7 +67,7 @@ class ReportBatchTest : public ::testing::Test {
 
   MockReportTransport mock_report_transport_;
   MockTimer* mock_timer_;
-  AttributeConverter converter_;
+  AttributeCompressor compressor_;
   std::unique_ptr<ReportBatch> batch_;
 };
 
@@ -73,7 +75,7 @@ TEST_F(ReportBatchTest, TestBatchDisabled) {
   // max_batch_entries = 0 or 1 to disable batch
   batch_.reset(new ReportBatch(ReportOptions(1, 1000),
                                mock_report_transport_.GetFunc(), nullptr,
-                               converter_));
+                               compressor_));
 
   // Expect report transport to be called.
   EXPECT_CALL(mock_report_transport_, Report(_, _, _))
@@ -114,12 +116,12 @@ TEST_F(ReportBatchTest, TestNoDeltaUpdate) {
       }));
 
   Attributes report;
-  report.attributes["key"] = Attributes::StringValue("value");
+  AttributesBuilder(&report).AddString("key", "value");
   batch_->Report(report);
   EXPECT_EQ(report_call_count, 0);
 
   // Erase a key, so delta update fail to push the batched result.
-  report.attributes.erase("key");
+  report.mutable_attributes()->erase("key");
   batch_->Report(report);
   EXPECT_EQ(report_call_count, 1);
 

@@ -13,13 +13,13 @@
  * limitations under the License.
  */
 
-#ifndef MIXERCLIENT_ATTRIBUTE_CONVERTER_H
-#define MIXERCLIENT_ATTRIBUTE_CONVERTER_H
+#ifndef MIXERCLIENT_ATTRIBUTE_COMPRESSOR_H
+#define MIXERCLIENT_ATTRIBUTE_COMPRESSOR_H
 
 #include <unordered_map>
 
-#include "include/attribute.h"
-#include "mixer/v1/service.pb.h"
+#include "mixer/v1/attributes.pb.h"
+#include "mixer/v1/report.pb.h"
 
 namespace istio {
 namespace mixer_client {
@@ -44,14 +44,14 @@ class GlobalDictionary {
   int top_index_;
 };
 
-// A attribute batch converter for report.
-class BatchConverter {
+// A attribute batch compressor for report.
+class BatchCompressor {
  public:
-  virtual ~BatchConverter() {}
+  virtual ~BatchCompressor() {}
 
   // Add an attribute set to the batch.
   // Return false if it could not be added for delta update.
-  virtual bool Add(const Attributes& attributes) = 0;
+  virtual bool Add(const ::istio::mixer::v1::Attributes& attributes) = 0;
 
   // Get the batched size.
   virtual int size() const = 0;
@@ -60,14 +60,14 @@ class BatchConverter {
   virtual std::unique_ptr<::istio::mixer::v1::ReportRequest> Finish() = 0;
 };
 
-// Convert attributes from struct to protobuf
-class AttributeConverter {
+// Compress attributes.
+class AttributeCompressor {
  public:
-  void Convert(const Attributes& attributes,
-               ::istio::mixer::v1::CompressedAttributes* attributes_pb) const;
+  void Compress(const ::istio::mixer::v1::Attributes& attributes,
+                ::istio::mixer::v1::CompressedAttributes* attributes_pb) const;
 
-  // Create a batch converter.
-  std::unique_ptr<BatchConverter> CreateBatchConverter() const;
+  // Create a batch compressor.
+  std::unique_ptr<BatchCompressor> CreateBatchCompressor() const;
 
   int global_word_count() const { return global_dict_.size(); }
 
@@ -81,4 +81,4 @@ class AttributeConverter {
 }  // namespace mixer_client
 }  // namespace istio
 
-#endif  // MIXERCLIENT_ATTRIBUTE_CONVERTER_H
+#endif  // MIXERCLIENT_ATTRIBUTE_COMPRESSOR_H

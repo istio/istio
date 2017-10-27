@@ -17,6 +17,7 @@
 #include "utils/protobuf.h"
 
 using namespace std::chrono;
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckResponse;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;

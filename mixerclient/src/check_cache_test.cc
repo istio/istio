@@ -16,10 +16,12 @@
 #include "src/check_cache.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "include/attributes_builder.h"
 #include "utils/protobuf.h"
 #include "utils/status_test_util.h"
 
 using namespace std::chrono;
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReferencedAttributes;
 using ::google::protobuf::util::Status;
@@ -39,8 +41,8 @@ class CheckCacheTest : public ::testing::Test {
     cache_ = std::unique_ptr<CheckCache>(new CheckCache(options));
     ASSERT_TRUE((bool)(cache_));
 
-    attributes_.attributes["target.service"] =
-        Attributes::StringValue("this-is-a-string-value");
+    AttributesBuilder(&attributes_)
+        .AddString("target.service", "this-is-a-string-value");
   }
 
   void VerifyDisabledCache() {
@@ -249,8 +251,8 @@ TEST_F(CheckCacheTest, TestTwoCacheKeys) {
   EXPECT_TRUE(result1.IsCacheHit());
 
   Attributes attributes1;
-  attributes1.attributes["target.service"] =
-      Attributes::StringValue("different target service");
+  AttributesBuilder(&attributes1)
+      .AddString("target.service", "different target service");
 
   // Not in the cache since it has different value
   CheckCache::CheckResult result2;
@@ -287,8 +289,7 @@ TEST_F(CheckCacheTest, TestTwoReferenced) {
   result.SetResponse(Status::OK, attributes_, ok_response);
 
   Attributes attributes1;
-  attributes1.attributes["target.name"] =
-      Attributes::StringValue("target name");
+  AttributesBuilder(&attributes1).AddString("target.name", "target name");
 
   // Not in the cache since it has different value
   CheckCache::CheckResult result1;

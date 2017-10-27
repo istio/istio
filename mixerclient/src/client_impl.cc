@@ -15,6 +15,7 @@
 #include "src/client_impl.h"
 #include "utils/protobuf.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReportRequest;
@@ -31,7 +32,7 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
   report_batch_ = std::unique_ptr<ReportBatch>(
       new ReportBatch(options.report_options, options_.report_transport,
-                      options.timer_create_func, converter_));
+                      options.timer_create_func, compressor_));
   quota_cache_ =
       std::unique_ptr<QuotaCache>(new QuotaCache(options.quota_options));
 
@@ -71,8 +72,8 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
     }
   }
 
-  converter_.Convert(attributes, request.mutable_attributes());
-  request.set_global_word_count(converter_.global_word_count());
+  compressor_.Compress(attributes, request.mutable_attributes());
+  request.set_global_word_count(compressor_.global_word_count());
   request.set_deduplication_id(deduplication_id_base_ +
                                std::to_string(deduplication_id_.fetch_add(1)));
 
@@ -103,7 +104,7 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
         delete response;
 
         if (InvalidDictionaryStatus(status)) {
-          converter_.ShrinkGlobalDictionary();
+          compressor_.ShrinkGlobalDictionary();
         }
       });
 }

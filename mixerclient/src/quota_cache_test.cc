@@ -17,8 +17,10 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "include/attributes_builder.h"
 #include "utils/status_test_util.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReferencedAttributes;
@@ -40,8 +42,7 @@ class QuotaCacheTest : public ::testing::Test {
     cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(options));
     ASSERT_TRUE((bool)(cache_));
 
-    request_.attributes[Attributes::kQuotaName] =
-        Attributes::StringValue(kQuotaName);
+    AttributesBuilder(&request_).AddString("quota.name", kQuotaName);
   }
 
   void TestRequest(const Attributes& request, bool pass,
@@ -193,11 +194,12 @@ TEST_F(QuotaCacheTest, TestInvalidQuotaReferenced) {
   (*response.mutable_quotas())[kQuotaName] = quota_result;
 
   Attributes attr(request_);
-  attr.attributes["source.name"] = Attributes::StringValue("user1");
+  AttributesBuilder builder(&attr);
+  builder.AddString("source.name", "user1");
   // response has invalid referenced, cache item still in pending.
   TestRequest(attr, true, response);
 
-  attr.attributes["source.name"] = Attributes::StringValue("user2");
+  builder.AddString("source.name", "user2");
   // it is a cache miss, use pending request.
   // Previous request has used up token, this request will be rejected.
   TestRequest(attr, false, response);
@@ -219,13 +221,14 @@ TEST_F(QuotaCacheTest, TestMismatchedReferenced) {
   (*response.mutable_quotas())[kQuotaName] = quota_result;
 
   Attributes attr(request_);
-  attr.attributes["source.name"] = Attributes::StringValue("user1");
+  AttributesBuilder builder(&attr);
+  builder.AddString("source.name", "user1");
   // Since respones has mismatched Referenced, cache item still in pending.
   // Prefetch always allow the first call.
   TestRequest(attr, true, response);
 
   // second request with different users still use the pending request.
-  attr.attributes["source.name"] = Attributes::StringValue("user2");
+  builder.AddString("source.name", "user2");
   // it is a cache miss, use pending request.
   // Previous request has used up token, this request will be rejected.
   TestRequest(attr, false, response);
@@ -245,9 +248,9 @@ TEST_F(QuotaCacheTest, TestOneReferencedWithTwoKeys) {
   (*response.mutable_quotas())[kQuotaName] = quota_result;
 
   Attributes attr1(request_);
-  attr1.attributes["source.name"] = Attributes::StringValue("user1");
+  AttributesBuilder(&attr1).AddString("source.name", "user1");
   Attributes attr2(request_);
-  attr2.attributes["source.name"] = Attributes::StringValue("user2");
+  AttributesBuilder(&attr2).AddString("source.name", "user2");
 
   // cache item is updated with 0 token in the pool.
   // it will be saved into cache key with user1.
@@ -286,9 +289,9 @@ TEST_F(QuotaCacheTest, TestTwoReferencedWith) {
   (*response2.mutable_quotas())[kQuotaName] = quota_result2;
 
   Attributes attr1(request_);
-  attr1.attributes["source.name"] = Attributes::StringValue("name");
+  AttributesBuilder(&attr1).AddString("source.name", "name");
   Attributes attr2(request_);
-  attr2.attributes["source.uid"] = Attributes::StringValue("uid");
+  AttributesBuilder(&attr2).AddString("source.uid", "uid");
 
   // name request with 0 granted response
   TestRequest(attr1, true, response1);

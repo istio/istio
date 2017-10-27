@@ -18,9 +18,12 @@
 #include "global_dictionary.h"
 #include "utils/md5.h"
 
+#include <map>
 #include <set>
 #include <sstream>
 
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::ReferencedAttributes;
 
 namespace istio {
@@ -76,56 +79,74 @@ bool Referenced::Fill(const ReferencedAttributes& reference) {
 bool Referenced::Signature(const Attributes& attributes,
                            const std::string& extra_key,
                            std::string* signature) const {
+  const auto& attributes_map = attributes.attributes();
   for (const std::string& key : absence_keys_) {
     // if an "absence" key exists, return false for mis-match.
-    if (attributes.attributes.find(key) != attributes.attributes.end()) {
+    if (attributes_map.find(key) != attributes_map.end()) {
       return false;
     }
   }
 
   MD5 hasher;
   for (const std::string& key : exact_keys_) {
-    const auto it = attributes.attributes.find(key);
+    const auto it = attributes_map.find(key);
     // if an "exact" attribute not present, return false for mismatch.
-    if (it == attributes.attributes.end()) {
+    if (it == attributes_map.end()) {
       return false;
     }
 
     hasher.Update(it->first);
     hasher.Update(kDelimiter, kDelimiterLength);
-    switch (it->second.type) {
-      case Attributes::Value::ValueType::STRING:
-        hasher.Update(it->second.str_v);
+
+    const Attributes_AttributeValue& value = it->second;
+    switch (value.value_case()) {
+      case Attributes_AttributeValue::kStringValue:
+        hasher.Update(value.string_value());
         break;
-      case Attributes::Value::ValueType::BYTES:
-        hasher.Update(it->second.str_v);
+      case Attributes_AttributeValue::kBytesValue:
+        hasher.Update(value.bytes_value());
         break;
-      case Attributes::Value::ValueType::INT64:
-        hasher.Update(&it->second.value.int64_v,
-                      sizeof(it->second.value.int64_v));
-        break;
-      case Attributes::Value::ValueType::DOUBLE:
-        hasher.Update(&it->second.value.double_v,
-                      sizeof(it->second.value.double_v));
-        break;
-      case Attributes::Value::ValueType::BOOL:
-        hasher.Update(&it->second.value.bool_v,
-                      sizeof(it->second.value.bool_v));
-        break;
-      case Attributes::Value::ValueType::TIME:
-        hasher.Update(&it->second.time_v, sizeof(it->second.time_v));
-        break;
-      case Attributes::Value::ValueType::DURATION:
-        hasher.Update(&it->second.duration_nanos_v,
-                      sizeof(it->second.duration_nanos_v));
-        break;
-      case Attributes::Value::ValueType::STRING_MAP:
-        for (const auto& sub_it : it->second.string_map_v) {
+      case Attributes_AttributeValue::kInt64Value: {
+        auto data = value.int64_value();
+        hasher.Update(&data, sizeof(data));
+      } break;
+      case Attributes_AttributeValue::kDoubleValue: {
+        auto data = value.double_value();
+        hasher.Update(&data, sizeof(data));
+      } break;
+      case Attributes_AttributeValue::kBoolValue: {
+        auto data = value.bool_value();
+        hasher.Update(&data, sizeof(data));
+      } break;
+      case Attributes_AttributeValue::kTimestampValue: {
+        auto seconds = value.timestamp_value().seconds();
+        auto nanos = value.timestamp_value().nanos();
+        hasher.Update(&seconds, sizeof(seconds));
+        hasher.Update(kDelimiter, kDelimiterLength);
+        hasher.Update(&nanos, sizeof(nanos));
+      } break;
+      case Attributes_AttributeValue::kDurationValue: {
+        auto seconds = value.duration_value().seconds();
+        auto nanos = value.duration_value().nanos();
+        hasher.Update(&seconds, sizeof(seconds));
+        hasher.Update(kDelimiter, kDelimiterLength);
+        hasher.Update(&nanos, sizeof(nanos));
+      } break;
+      case Attributes_AttributeValue::kStringMapValue: {
+        // protobuf map doesn't have deterministic order:
+        // each run the order is different.
+        // copy to std::map with deterministic order.
+        const auto& pb_map = value.string_map_value().entries();
+        std::map<std::string, std::string> stl_map(pb_map.begin(),
+                                                   pb_map.end());
+        for (const auto& sub_it : stl_map) {
           hasher.Update(sub_it.first);
           hasher.Update(kDelimiter, kDelimiterLength);
           hasher.Update(sub_it.second);
           hasher.Update(kDelimiter, kDelimiterLength);
         }
+      } break;
+      case Attributes_AttributeValue::VALUE_NOT_SET:
         break;
     }
     hasher.Update(kDelimiter, kDelimiterLength);

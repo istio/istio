@@ -38,9 +38,8 @@ genrule(
 cc_library(
     name = "mixer_client_lib",
     srcs = [
-        "src/attribute.cc",
-        "src/attribute_converter.cc",
-        "src/attribute_converter.h",
+        "src/attribute_compressor.cc",
+        "src/attribute_compressor.h",
         "src/check_cache.cc",
         "src/check_cache.h",
         "src/client_impl.cc",
@@ -62,7 +61,7 @@ cc_library(
         "utils/status_test_util.h",
     ],
     hdrs = [
-        "include/attribute.h",
+        "include/attributes_builder.h",
         "include/client.h",
         "include/options.h",
         "include/timer.h",
@@ -102,20 +101,9 @@ cc_test(
 )
 
 cc_test(
-    name = "attribute_test",
+    name = "attribute_compressor_test",
     size = "small",
-    srcs = ["src/attribute_test.cc"],
-    linkstatic = 1,
-    deps = [
-        ":mixer_client_lib",
-        "//external:googletest_main",
-    ],
-)
-
-cc_test(
-    name = "attribute_converter_test",
-    size = "small",
-    srcs = ["src/attribute_converter_test.cc"],
+    srcs = ["src/attribute_compressor_test.cc"],
     linkstatic = 1,
     deps = [
         ":mixer_client_lib",

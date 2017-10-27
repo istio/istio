@@ -16,6 +16,7 @@
 #include "src/report_batch.h"
 #include "utils/protobuf.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::ReportRequest;
 using ::istio::mixer::v1::ReportResponse;
 using ::google::protobuf::util::Status;
@@ -27,31 +28,31 @@ namespace mixer_client {
 ReportBatch::ReportBatch(const ReportOptions& options,
                          TransportReportFunc transport,
                          TimerCreateFunc timer_create,
-                         AttributeConverter& converter)
+                         AttributeCompressor& compressor)
     : options_(options),
       transport_(transport),
       timer_create_(timer_create),
-      converter_(converter) {}
+      compressor_(compressor) {}
 
 ReportBatch::~ReportBatch() { Flush(); }
 
 void ReportBatch::Report(const Attributes& request) {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (!batch_converter_) {
-    batch_converter_ = converter_.CreateBatchConverter();
+  if (!batch_compressor_) {
+    batch_compressor_ = compressor_.CreateBatchCompressor();
   }
 
-  if (!batch_converter_->Add(request)) {
+  if (!batch_compressor_->Add(request)) {
     FlushWithLock();
 
-    batch_converter_ = converter_.CreateBatchConverter();
-    batch_converter_->Add(request);
+    batch_compressor_ = compressor_.CreateBatchCompressor();
+    batch_compressor_->Add(request);
   }
 
-  if (batch_converter_->size() >= options_.max_batch_entries) {
+  if (batch_compressor_->size() >= options_.max_batch_entries) {
     FlushWithLock();
   } else {
-    if (batch_converter_->size() == 1 && timer_create_) {
+    if (batch_compressor_->size() == 1 && timer_create_) {
       if (!timer_) {
         timer_ = timer_create_([this]() { Flush(); });
       }
@@ -61,12 +62,12 @@ void ReportBatch::Report(const Attributes& request) {
 }
 
 void ReportBatch::FlushWithLock() {
-  if (!batch_converter_) {
+  if (!batch_compressor_) {
     return;
   }
 
-  std::unique_ptr<ReportRequest> request = batch_converter_->Finish();
-  batch_converter_.reset();
+  std::unique_ptr<ReportRequest> request = batch_compressor_->Finish();
+  batch_compressor_.reset();
   if (timer_) {
     timer_->Stop();
   }
@@ -77,7 +78,7 @@ void ReportBatch::FlushWithLock() {
     if (!status.ok()) {
       GOOGLE_LOG(ERROR) << "Mixer Report failed with: " << status.ToString();
       if (InvalidDictionaryStatus(status)) {
-        converter_.ShrinkGlobalDictionary();
+        compressor_.ShrinkGlobalDictionary();
       }
     }
   });

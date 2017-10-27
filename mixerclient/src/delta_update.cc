@@ -14,7 +14,12 @@
  */
 #include "src/delta_update.h"
 
+#include "google/protobuf/util/message_differencer.h"
+
 #include <set>
+
+using ::istio::mixer::v1::Attributes_AttributeValue;
+using ::google::protobuf::util::MessageDifferencer;
 
 namespace istio {
 namespace mixer_client {
@@ -30,11 +35,11 @@ class DeltaUpdateImpl : public DeltaUpdate {
     }
   }
 
-  bool Check(int index, const Attributes::Value& value) override {
+  bool Check(int index, const Attributes_AttributeValue& value) override {
     bool same = false;
     const auto& it = prev_map_.find(index);
     if (it != prev_map_.end()) {
-      if (it->second.type == value.type && it->second == value) {
+      if (MessageDifferencer::Equals(it->second, value)) {
         same = true;
       }
     }
@@ -54,14 +59,14 @@ class DeltaUpdateImpl : public DeltaUpdate {
   std::set<int> prev_set_;
 
   // The attribute map from previous.
-  std::map<int, Attributes::Value> prev_map_;
+  std::map<int, Attributes_AttributeValue> prev_map_;
 };
 
 // An optimization for non-delta update case.
 class DeltaUpdateNoOpImpl : public DeltaUpdate {
  public:
   void Start() override {}
-  bool Check(int index, const Attributes::Value& value) override {
+  bool Check(int index, const Attributes_AttributeValue& value) override {
     return false;
   }
   bool Finish() override { return true; }

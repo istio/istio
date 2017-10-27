@@ -57,7 +57,7 @@ class CheckCache {
     ::google::protobuf::util::Status status() const { return status_; }
 
     void SetResponse(const ::google::protobuf::util::Status& status,
-                     const Attributes& attributes,
+                     const ::istio::mixer::v1::Attributes& attributes,
                      const ::istio::mixer::v1::CheckResponse& response) {
       if (on_response_) {
         status_ = on_response_(status, attributes, response);
@@ -71,12 +71,14 @@ class CheckCache {
 
     // The function to set check response.
     using OnResponseFunc = std::function<::google::protobuf::util::Status(
-        const ::google::protobuf::util::Status&, const Attributes& attributes,
+        const ::google::protobuf::util::Status&,
+        const ::istio::mixer::v1::Attributes& attributes,
         const ::istio::mixer::v1::CheckResponse&)>;
     OnResponseFunc on_response_;
   };
 
-  void Check(const Attributes& attributes, CheckResult* result);
+  void Check(const ::istio::mixer::v1::Attributes& attributes,
+             CheckResult* result);
 
  private:
   friend class CheckCacheTest;
@@ -84,13 +86,13 @@ class CheckCache {
 
   // If the check could not be handled by the cache, returns NOT_FOUND,
   // caller has to send the request to mixer.
-  ::google::protobuf::util::Status Check(const Attributes& request,
-                                         Tick time_now);
+  ::google::protobuf::util::Status Check(
+      const ::istio::mixer::v1::Attributes& request, Tick time_now);
 
   // Caches a response from a remote mixer call.
   // Return the converted status from response.
   ::google::protobuf::util::Status CacheResponse(
-      const Attributes& attributes,
+      const ::istio::mixer::v1::Attributes& attributes,
       const ::istio::mixer::v1::CheckResponse& response, Tick time_now);
 
   // Flushes out all cached check responses; clears all cache items.

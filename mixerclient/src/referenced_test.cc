@@ -14,11 +14,14 @@
  */
 
 #include "src/referenced.h"
+
+#include "include/attributes_builder.h"
 #include "utils/md5.h"
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 
+using ::istio::mixer::v1::Attributes;
 using ::google::protobuf::TextFormat;
 
 namespace istio {
@@ -136,12 +139,12 @@ TEST(ReferencedTest, NegativeSignature1Test) {
 
   Attributes attributes1;
   // "target.service" should be absence.
-  attributes1.attributes["target.service"] = Attributes::StringValue("foo");
+  AttributesBuilder(&attributes1).AddString("target.service", "foo");
   EXPECT_FALSE(referenced.Signature(attributes1, "", &signature));
 
   Attributes attributes2;
   // many keys should exist.
-  attributes2.attributes["bytes-key"] = Attributes::StringValue("foo");
+  AttributesBuilder(&attributes2).AddString("bytes-key", "foo");
   EXPECT_FALSE(referenced.Signature(attributes2, "", &signature));
 }
 
@@ -152,29 +155,28 @@ TEST(ReferencedTest, OKSignature1Test) {
   EXPECT_TRUE(referenced.Fill(pb));
 
   Attributes attributes;
-  attributes.attributes["string-key"] =
-      Attributes::StringValue("this is a string value");
-  attributes.attributes["bytes-key"] =
-      Attributes::BytesValue("this is a bytes value");
-  attributes.attributes["double-key"] = Attributes::DoubleValue(99.9);
-  attributes.attributes["int-key"] = Attributes::Int64Value(35);
-  attributes.attributes["bool-key"] = Attributes::BoolValue(true);
+  AttributesBuilder builder(&attributes);
+  builder.AddString("string-key", "this is a string value");
+  builder.AddBytes("bytes-key", "this is a bytes value");
+  builder.AddDouble("double-key", 99.9);
+  builder.AddInt64("int-key", 35);
+  builder.AddBool("bool-key", true);
 
   std::chrono::time_point<std::chrono::system_clock> time0;
-  attributes.attributes["time-key"] = Attributes::TimeValue(time0);
   std::chrono::seconds secs(5);
-  attributes.attributes["duration-key"] = Attributes::DurationValue(
+  builder.AddTimestamp("time-key", time0);
+  builder.AddDuration(
+      "duration-key",
       std::chrono::duration_cast<std::chrono::nanoseconds>(secs));
 
   std::map<std::string, std::string> string_map = {{"key1", "value1"},
                                                    {"key2", "value2"}};
-  attributes.attributes["string-map-key"] =
-      Attributes::StringMapValue(std::move(string_map));
+  builder.AddStringMap("string-map-key", std::move(string_map));
 
   std::string signature;
   EXPECT_TRUE(referenced.Signature(attributes, "extra", &signature));
 
-  EXPECT_EQ(MD5::DebugString(signature), "cfcf5f20f58a44da8832456742bf7b88");
+  EXPECT_EQ(MD5::DebugString(signature), "cd3ee7fbe836b973f84f5075ef4ac29d");
 }
 
 }  // namespace
