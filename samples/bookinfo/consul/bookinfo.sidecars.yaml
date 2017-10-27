@@ -28,7 +28,7 @@ services:
       - -u
       - "1337"
   details-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_details-v1_1"
     entrypoint:
       - su
@@ -46,7 +46,7 @@ services:
       - -u
       - "1337"
   ratings-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_ratings-v1_1"
     entrypoint:
       - su
@@ -64,7 +64,7 @@ services:
       - -u
       - "1337"
   productpage-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_productpage-v1_1"
     entrypoint:
       - su
@@ -82,7 +82,7 @@ services:
       - -u
       - "1337"
   reviews-v1-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_reviews-v1_1"
     entrypoint:
       - su
@@ -100,7 +100,7 @@ services:
       - -u
       - "1337"
   reviews-v2-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_reviews-v2_1"
     entrypoint:
       - su
@@ -118,7 +118,7 @@ services:
       - -u
       - "1337"
   reviews-v3-sidecar:
-    image: gcr.io/istio-testing/proxy_debug:5a9070aad08985815d57220a3d2c0001b62d586e
+    image: gcr.io/istio-testing/proxy_debug:2458e4e27bc588df858711b66de0970183e0cf66
     network_mode: "container:consul_reviews-v3_1"
     entrypoint:
       - su
