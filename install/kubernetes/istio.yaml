@@ -205,8 +205,10 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: tcp
+  - name: tcp-plain
     port: 9091
+  - name: tcp-mtls
+    port: 15004
   - name: http-health
     port: 9093
   - name: configapi
@@ -270,7 +272,29 @@ spec:
           - --logtostderr
           - -v
           - "2"
+      - name: istio-proxy
+        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "2"
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_mixer.json
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
       - name: config-volume
         configMap:
           name: istio-mixer
@@ -940,7 +964,7 @@ data:
     #
     # To disable the mixer completely (including metrics), comment out
     # the following line
-    mixerAddress: istio-mixer.istio-system:9091
+    mixerAddress: istio-mixer.istio-system:15004
     # This is the ingress service name, update if you used a different name
     ingressService: istio-ingress
     #
@@ -980,7 +1004,7 @@ data:
       proxyAdminPort: 15000
       #
       # Address where Istio Pilot service is running
-      discoveryAddress: istio-pilot.istio-system:8080
+      discoveryAddress: istio-pilot.istio-system:15003
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.istio-system:9411
@@ -988,6 +1012,9 @@ data:
       # Statsd metrics collector. Istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.istio-system:9125
+      # Uncomment the following line to enable mutual TLS authentication between
+      # sidecars and istio control plane.
+      # controlPlaneAuthPolicy: MUTUAL_TLS
 ---
 ################################
 # Pilot
@@ -1045,7 +1072,7 @@ metadata:
     istio: pilot
 spec:
   ports:
-  - port: 8080
+  - port: 15003
     name: http-discovery
   - port: 443
     name: http-admission-webhook
@@ -1095,10 +1122,34 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/istio/config
+      - name: istio-proxy
+        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15003
+        args:
+        - proxy
+        - pilot
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:15003
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_pilot.json
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
 ---
 ################################
 # Istio ingress
@@ -1151,7 +1202,7 @@ spec:
         - -v
         - "2"
         - --discoveryAddress
-        - istio-pilot:8080
+        - istio-pilot:15003
         - --discoveryRefreshDelay
         - '1s' #discoveryRefreshDelay
         - --drainDuration
@@ -1168,6 +1219,8 @@ spec:
         - istio-mixer:9125
         - --proxyAdminPort
         - "15000"
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
