@@ -139,6 +139,10 @@ function merge_files() {
 
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_AUTH
+  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_AUTH
+  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_AUTH
 
   # restrict pilot controllers to a single namespace in the test file
   sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
@@ -146,6 +150,10 @@ function merge_files() {
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_INITIALIZER
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_INITIALIZER
@@ -186,7 +194,9 @@ function update_istio_install() {
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
 
