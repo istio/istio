@@ -17,10 +17,12 @@
 
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
+#include "include/attributes_builder.h"
 
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer_client::AttributesBuilder;
 using ::google::protobuf::TextFormat;
 using ::istio::mixer::v1::config::client::QuotaSpec;
-using ::istio::mixer_client::Attributes;
 
 namespace Envoy {
 namespace Http {
@@ -112,26 +114,25 @@ TEST_F(QuotaConfigTest, TestMatch) {
   QuotaConfig config(quota_spec);
 
   Attributes attributes;
+  AttributesBuilder builder(&attributes);
   ASSERT_EQ(config.Check(attributes), QuotaVector());
 
   // Wrong http_method
-  attributes.attributes["request.http_method"] =
-      Attributes::StringValue("POST");
-  attributes.attributes["request.path"] = Attributes::StringValue("/books/1");
+  builder.AddString("request.http_method", "POST");
+  builder.AddString("request.path", "/books/1");
   ASSERT_EQ(config.Check(attributes), QuotaVector());
 
   // Matched
-  attributes.attributes["request.http_method"] = Attributes::StringValue("GET");
+  builder.AddString("request.http_method", "GET");
   ASSERT_EQ(config.Check(attributes), QuotaVector({{"quota-name", 1}}));
 
-  attributes.attributes.clear();
+  attributes.mutable_attributes()->clear();
   // Wrong api.operation
-  attributes.attributes["api.operation"] =
-      Attributes::StringValue("get_shelves");
+  builder.AddString("api.operation", "get_shelves");
   ASSERT_EQ(config.Check(attributes), QuotaVector());
 
   // Matched
-  attributes.attributes["api.operation"] = Attributes::StringValue("get_books");
+  builder.AddString("api.operation", "get_books");
   ASSERT_EQ(config.Check(attributes), QuotaVector({{"quota-name", 1}}));
 }
 
@@ -141,14 +142,13 @@ TEST_F(QuotaConfigTest, TestRegexMatch) {
   QuotaConfig config(quota_spec);
 
   Attributes attributes;
+  AttributesBuilder builder(&attributes);
   // Not match
-  attributes.attributes["request.path"] =
-      Attributes::StringValue("/shelves/1/bar");
+  builder.AddString("request.path", "/shelves/1/bar");
   ASSERT_EQ(config.Check(attributes), QuotaVector());
 
   // match
-  attributes.attributes["request.path"] =
-      Attributes::StringValue("/shelves/10/books");
+  builder.AddString("request.path", "/shelves/10/books");
   ASSERT_EQ(config.Check(attributes), QuotaVector({{"quota-name", 1}}));
 }
 

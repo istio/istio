@@ -14,8 +14,10 @@
  */
 
 #include "src/envoy/mixer/config.h"
+#include "include/attributes_builder.h"
 
-using ::istio::mixer_client::Attributes;
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer_client::AttributesBuilder;
 
 namespace Envoy {
 namespace Http {
@@ -79,14 +81,14 @@ void MixerConfig::Load(const Json::Object& json) {
 
 void MixerConfig::ExtractQuotaAttributes(Attributes* attr) const {
   if (!quota_name.empty()) {
-    attr->attributes[Attributes::kQuotaName] =
-        Attributes::StringValue(quota_name);
-
     int64_t amount = 1;  // default amount to 1.
     if (!quota_amount.empty()) {
       amount = std::stoi(quota_amount);
     }
-    attr->attributes[Attributes::kQuotaAmount] = Attributes::Int64Value(amount);
+
+    AttributesBuilder builder(attr);
+    builder.AddString("quota.name", quota_name);
+    builder.AddInt64("quota.amount", amount);
   }
 }
 

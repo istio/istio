@@ -29,7 +29,6 @@
 #include "include/client.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
-#include "src/envoy/mixer/string_map.pb.h"
 #include "src/envoy/mixer/utils.h"
 
 namespace Envoy {
@@ -38,7 +37,7 @@ namespace Mixer {
 
 // Store data from Check to report
 struct HttpRequestData {
-  ::istio::mixer_client::Attributes attributes;
+  ::istio::mixer::v1::Attributes attributes;
 };
 typedef std::shared_ptr<HttpRequestData> HttpRequestDataPtr;
 
@@ -58,7 +57,7 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
 
   // Build check request attributes for HTTP.
   void BuildHttpCheck(HttpRequestDataPtr request_data, HeaderMap& headers,
-                      const ::istio::proxy::mixer::StringMap& map_pb,
+                      const ::istio::mixer::v1::Attributes_StringMap& map_pb,
                       const std::string& source_user,
                       const Utils::StringMap& route_attributes,
                       const Network::Connection* connection) const;
@@ -97,7 +96,7 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
  private:
   // Set the mesh attributes from Pilot
   void SetMeshAttribute(const std::string& name, const std::string& value,
-                        ::istio::mixer_client::Attributes* attr) const;
+                        ::istio::mixer::v1::Attributes* attr) const;
 
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
@@ -105,8 +104,6 @@ class MixerControl final : public ThreadLocal::ThreadLocalObject,
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;
   // The mixer config
   const MixerConfig& mixer_config_;
-  // Quota attributes; extracted from envoy filter config.
-  ::istio::mixer_client::Attributes quota_attributes_;
 
   CheckTransport::AsyncClientPtr check_client_;
   ReportTransport::AsyncClientPtr report_client_;

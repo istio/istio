@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "envoy/json/json_object.h"
-#include "include/attribute.h"
+#include "mixer/v1/attributes.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -54,7 +54,7 @@ struct MixerConfig {
   void Load(const Json::Object& json);
 
   // Extract quota attributes.
-  void ExtractQuotaAttributes(::istio::mixer_client::Attributes* attr) const;
+  void ExtractQuotaAttributes(::istio::mixer::v1::Attributes* attr) const;
 };
 
 }  // namespace Mixer

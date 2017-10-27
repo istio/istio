@@ -16,7 +16,8 @@
 #include "src/envoy/mixer/quota_config.h"
 #include <regex>
 
-using ::istio::mixer_client::Attributes;
+using ::istio::mixer::v1::Attributes;
+using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::config::client::AttributeMatch;
 using ::istio::mixer::v1::config::client::QuotaSpec;
 
@@ -27,18 +28,19 @@ namespace {
 
 bool MatchAttributes(const AttributeMatch& match,
                      const Attributes& attributes) {
+  const auto& attributes_map = attributes.attributes();
   for (const auto& map_it : match.clause()) {
     // map is attribute_name to StringMatch.
     const std::string& name = map_it.first;
     const auto& match = map_it.second;
 
     // Check if required attribure exists with string type.
-    const auto& it = attributes.attributes.find(name);
-    if (it == attributes.attributes.end() ||
-        it->second.type != Attributes::Value::STRING) {
+    const auto& it = attributes_map.find(name);
+    if (it == attributes_map.end() ||
+        it->second.value_case() != Attributes_AttributeValue::kStringValue) {
       return false;
     }
-    const std::string& value = it->second.str_v;
+    const std::string& value = it->second.string_value();
 
     switch (match.match_type_case()) {
       case ::istio::proxy::v1::config::StringMatch::kExact:

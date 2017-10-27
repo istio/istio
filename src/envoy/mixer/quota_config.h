@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "include/attribute.h"
+#include "mixer/v1/attributes.pb.h"
 #include "mixer/v1/config/client/quota.pb.h"
 
 namespace Envoy {
@@ -42,7 +42,7 @@ class QuotaConfig {
   };
   // Generate required quotas for a request attributes.
   std::vector<Quota> Check(
-      const ::istio::mixer_client::Attributes& attributes) const;
+      const ::istio::mixer::v1::Attributes& attributes) const;
 
  private:
   // The quota spec proto

@@ -25,11 +25,6 @@ load(
     "envoy_linkopts",
 )
 
-envoy_proto_library(
-    name = "string_map_proto",
-    srcs = ["string_map.proto"],
-)
-
 envoy_cc_library(
     name = "quota_config_lib",
     srcs = [
@@ -70,7 +65,6 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
-        ":string_map_proto",
         "//external:mixer_client_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],

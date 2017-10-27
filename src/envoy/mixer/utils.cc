@@ -14,7 +14,7 @@
  */
 
 #include "src/envoy/mixer/utils.h"
-#include "src/envoy/mixer/string_map.pb.h"
+#include "mixer/v1/attributes.pb.h"
 
 namespace Envoy {
 namespace Http {
@@ -24,8 +24,9 @@ const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
 std::string SerializeTwoStringMaps(const StringMap& map1,
                                    const StringMap& map2) {
-  ::istio::proxy::mixer::StringMap pb;
-  ::google::protobuf::Map<std::string, std::string>* map_pb = pb.mutable_map();
+  ::istio::mixer::v1::Attributes_StringMap pb;
+  ::google::protobuf::Map<std::string, std::string>* map_pb =
+      pb.mutable_entries();
   for (const auto& it : map1) {
     (*map_pb)[it.first] = it.second;
   }
