@@ -16,8 +16,14 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.client;
 
+import "gogoproto/gogo.proto";
+
 import "mixer/v1/attributes.proto";
-import "proxy/v1/config/route_rule.proto";
+import "mixer/v1/config/client/service.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // HTTPAPISpec defines the canonical configuration for generating
 // API-related attributes from HTTP requests based on the method and
@@ -154,7 +160,7 @@ message HTTPAPISpecReference {
 //
 message HTTPAPISpecBinding {
   // REQUIRED. One or more services to map the listed HTTPAPISpec onto.
-  repeated istio.proxy.v1.config.IstioService services = 1;
+  repeated IstioService services = 1;
 
   // REQUIRED. One or more HTTPAPISpec references that should be mapped to
   // the specified service(s). The aggregate collection of match

@@ -16,7 +16,12 @@ syntax = "proto3";
 
 package istio.mixer.v1.config.client;
 
-import "proxy/v1/config/route_rule.proto";
+import "gogoproto/gogo.proto";
+import "mixer/v1/config/client/service.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // Specifies runtime quota rules.
 //  * Uses Istio attributes to match individual requests
@@ -73,6 +78,19 @@ message QuotaRule {
   repeated Quota quotas = 2;
 }
 
+// Describes how to match a given string in HTTP headers. Match is
+// case-sensitive.
+message StringMatch {
+  oneof match_type {
+    // exact string match
+    string exact = 1;
+    // prefix-based match
+    string prefix = 2;
+    // ECMAscript style regex-based match
+    string regex = 3;
+  }
+}
+
 // Specifies a match clause to match Istio attributes
 message AttributeMatch {
   // Map of attribute names to StringMatch type.
@@ -85,7 +103,7 @@ message AttributeMatch {
   //       exact: SOURCE_UID
   //     request.http_method:
   //       exact: POST
-  map<string, istio.proxy.v1.config.StringMatch> clause = 1;
+  map<string, StringMatch> clause = 1;
 }
 
 // Specifies a quota to use with quota name and amount.
@@ -101,7 +119,7 @@ message Quota {
 // IstioService.
 message QuotaSpecBinding {
   // REQUIRED. One or more services to map the listed QuotaSpec onto.
-  repeated istio.proxy.v1.config.IstioService services = 1;
+  repeated IstioService services = 1;
 
   message QuotaSpecReference {
     // REQUIRED. The short name of the QuotaSpec. This is the resource

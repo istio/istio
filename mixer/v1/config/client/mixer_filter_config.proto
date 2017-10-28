@@ -14,11 +14,17 @@
 
 syntax = "proto3";
 
+import "gogoproto/gogo.proto";
+
 import "mixer/v1/attributes.proto";
 import "mixer/v1/config/client/api_spec.proto";
 import "mixer/v1/config/client/quota.proto";
 
 package istio.mixer.v1.config.client;
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
 
 // Defines the per-service mixerclient control configuration.
 message MixerControlConfig {
@@ -62,10 +68,10 @@ message MixerFilterConfig {
 
   // Map of control configuration indexed by destination.service. This
   // is used to support per-service configuration for cases where a
-  // mixerclient serves multiple services. 
+  // mixerclient serves multiple services.
   map<string, MixerControlConfig> control_configs = 5;
-  
-  // Default destination service name if none was specified in the 
+
+  // Default destination service name if none was specified in the
   // client request.
   string default_destination_service = 6;
 
@@ -77,4 +83,7 @@ message MixerFilterConfig {
   // Default attributes to forward to upstream. This typically
   // includes the "source.ip" and "source.uid" attributes.
   Attributes forward_attributes = 8;
+
+  // If set to true, disables mixer check calls for TCP connections
+  bool DisableTCPCheckCalls = 9;
 }
