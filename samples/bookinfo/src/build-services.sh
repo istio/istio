@@ -17,7 +17,7 @@
 set -o errexit
 
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-ISTIO_VERSION=$(cat ../../../../istio.RELEASE)
+ISTIO_VERSION=$(cat $SCRIPTDIR/../../../istio.RELEASE)
 
 pushd $SCRIPTDIR/productpage
   docker build -t istio/examples-bookinfo-productpage-v1:${ISTIO_VERSION} .

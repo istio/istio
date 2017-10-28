@@ -133,13 +133,16 @@ function merge_files() {
   cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
-  cat $SRC/istio-egress.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_AUTH
+  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_AUTH
+  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_AUTH
 
   # restrict pilot controllers to a single namespace in the test file
   sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
@@ -147,6 +150,10 @@ function merge_files() {
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
+  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_INITIALIZER
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_INITIALIZER
@@ -161,15 +168,16 @@ export CA_HUB="${CA_HUB}"
 export CA_TAG="${CA_TAG}"
 export MIXER_HUB="${MIXER_HUB}"
 export MIXER_TAG="${MIXER_TAG}"
-export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PILOT_HUB="${PILOT_HUB}"
 export PILOT_TAG="${PILOT_TAG}"
+export ISTIOCTL_URL="${ISTIOCTL_URL}"
 export PROXY_TAG="${PROXY_TAG}"
 export ISTIO_NAMESPACE="${ISTIO_NAMESPACE}"
 export AUTH_DEBIAN_URL="${AUTH_DEBIAN_URL}"
 export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
 export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
-
+export FORTIO_HUB="${FORTIO_HUB}"
+export FORTIO_TAG="${FORTIO_TAG}"
 EOF
 }
 
@@ -180,14 +188,15 @@ function update_istio_install() {
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-egress.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
   sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-mixer.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
   sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
 
@@ -195,7 +204,6 @@ function update_istio_install() {
   sed -i=.bak "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
   sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-egress.yaml.tmpl
 
   popd
 }
@@ -213,6 +221,36 @@ function update_istio_addons() {
   popd
 }
 
+function update_istio_install_docker() {
+  pushd $TEMP_DIR/templates
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" bookinfo.sidecars.yaml.tmpl
+  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  popd
+}
+
+# Generated merge yaml files for easy installation
+function merge_files_docker() {
+  TYPE=$1    
+  SRC=$TEMP_DIR/templates
+
+  # Merge istio.yaml install file
+  INSTALL_DEST=$ROOT/install/$TYPE
+  ISTIO=${INSTALL_DEST}/istio.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $ISTIO
+  echo "# TO UPDATE, modify files in install/${TYPE}/templates and run install/updateVersion.sh" >> $ISTIO
+  cat $SRC/istio.yaml.tmpl >> $ISTIO
+
+  # Merge bookinfo.sidecars.yaml sample file
+  SAMPLES_DEST=$ROOT/samples/bookinfo/$TYPE
+  BOOKINFO=${SAMPLES_DEST}/bookinfo.sidecars.yaml
+
+  echo "# GENERATED FILE. Use with Docker-Compose and ${TYPE}" > $BOOKINFO
+  echo "# TO UPDATE, modify files in samples/bookinfo/${TYPE}/templates and run install/updateVersion.sh" >> $BOOKINFO
+  cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
+}
+
 if [[ ${GIT_COMMIT} == true ]]; then
     check_git_status \
       || error_exit "You have modified files. Please commit or reset your workspace."
@@ -224,6 +262,15 @@ update_istio_install
 update_istio_addons
 merge_files
 rm -R $TEMP_DIR/templates
+
+for platform in consul eureka
+do
+    cp -R $ROOT/install/$platform/templates $TEMP_DIR/templates
+    cp -a $ROOT/samples/bookinfo/$platform/templates/. $TEMP_DIR/templates/
+    update_istio_install_docker
+    merge_files_docker $platform
+    rm -R $TEMP_DIR/templates
+done
 
 if [[ ${GIT_COMMIT} == true ]]; then
     create_commit

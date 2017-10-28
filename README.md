@@ -38,6 +38,8 @@ Istio is composed of these components:
 * **Pilot** - A component responsible for configuring the
   proxies at runtime.
 
+* **CA** - A component responsible for cert issuance and rotation.
+
 * **Broker** - A component implementing the open service broker API for Istio-based services. (Under development)
 
 Istio currently supports Kubernetes, Consul, Eureka-based environments. We plan support for additional platforms such as Cloud Foundry, and Mesos in the near future.
@@ -54,6 +56,9 @@ repository contains information about how to build and test it.
 
 - [istio/api](https://github.com/istio/api). This repository defines
 component-level APIs and common configuration formats for the Istio platform.
+
+- [istio/auth](https://github.com/istio/auth). This repository contains auth related code,
+including CA (Cert Authority), node agent, etc.
 
 - [istio/istio](README.md). This is the repo you are
 currently looking at. It hosts the various Istio sample programs

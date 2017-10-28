@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: istio/examples-bookinfo-ratings-v2:0.2.3
+        image: istio/examples-bookinfo-ratings-v2:0.2.8
         imagePullPolicy: IfNotPresent
         env:
           # ratings-v2 will use mongodb as the default db backend.

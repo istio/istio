@@ -72,6 +72,7 @@ type KubeInfo struct {
 
 	localCluster     bool
 	namespaceCreated bool
+	AuthEnabled      bool
 
 	// Istioctl installation
 	Istioctl *Istioctl
@@ -103,6 +104,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 		localCluster:     *localCluster,
 		Istioctl:         i,
 		AppManager:       a,
+		AuthEnabled:      *authEnable,
 	}, nil
 }
 
@@ -344,6 +346,12 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(k, content, "connectTimeout: 10s", "connectTimeout: 1s")
 	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
 	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
+
+	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
+	content = replacePattern(k, content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
+	content = replacePattern(k, content, "'10s' #connectTimeout", "'1s' #connectTimeout")
+	content = replacePattern(k, content, "'45s' #drainDuration", "'2s' #drainDuration")
+	content = replacePattern(k, content, "'1m0s' #parentShutdownDuration", "'3s' #parentShutdownDuration")
 
 	if *mixerHub != "" && *mixerTag != "" {
 		content = updateIstioYaml("mixer", *mixerHub, *mixerTag, content)

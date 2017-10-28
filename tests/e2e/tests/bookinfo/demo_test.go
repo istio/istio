@@ -35,18 +35,21 @@ import (
 )
 
 const (
-	u1                    = "normal-user"
-	u2                    = "test-user"
-	bookinfoYaml          = "samples/bookinfo/kube/bookinfo.yaml"
-	bookinfoRatingsv2Yaml = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
-	bookinfoDbYaml        = "samples/bookinfo/kube/bookinfo-db.yaml"
-	modelDir              = "tests/apps/bookinfo/output"
-	rulesDir              = "samples/bookinfo/kube"
-	allRule               = "route-rule-all-v1.yaml"
-	delayRule             = "route-rule-ratings-test-delay.yaml"
-	fiftyRule             = "route-rule-reviews-50-v3.yaml"
-	testRule              = "route-rule-reviews-test-v2.yaml"
-	testDbRule            = "route-rule-ratings-db.yaml"
+	u1                       = "normal-user"
+	u2                       = "test-user"
+	bookinfoYaml             = "samples/bookinfo/kube/bookinfo.yaml"
+	bookinfoRatingsv2Yaml    = "samples/bookinfo/kube/bookinfo-ratings-v2.yaml"
+	bookinfoRatingsMysqlYaml = "samples/bookinfo/kube/bookinfo-ratings-v2-mysql.yaml"
+	bookinfoDbYaml           = "samples/bookinfo/kube/bookinfo-db.yaml"
+	bookinfoMysqlYaml        = "samples/bookinfo/kube/bookinfo-mysql.yaml"
+	modelDir                 = "tests/apps/bookinfo/output"
+	rulesDir                 = "samples/bookinfo/kube"
+	allRule                  = "route-rule-all-v1.yaml"
+	delayRule                = "route-rule-ratings-test-delay.yaml"
+	fiftyRule                = "route-rule-reviews-50-v3.yaml"
+	testRule                 = "route-rule-reviews-test-v2.yaml"
+	testDbRule               = "route-rule-ratings-db.yaml"
+	testMysqlRule            = "route-rule-ratings-mysql.yaml"
 )
 
 var (
@@ -86,7 +89,7 @@ func closeResponseBody(r *http.Response) {
 func (t *testConfig) Setup() error {
 	t.gateway = "http://" + tc.Kube.Ingress
 	//generate rule yaml files, replace "jason" with actual user
-	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule} {
+	for _, rule := range []string{allRule, delayRule, fiftyRule, testRule, testDbRule, testMysqlRule} {
 		src := util.GetResourcePath(filepath.Join(rulesDir, rule))
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
@@ -305,7 +308,7 @@ func TestFaultDelay(t *testing.T) {
 			break
 		}
 
-		if i == 4 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Fault delay failed! Delay in %ds while expected between %ds and %ds, %s",
 				duration, minDuration, maxDuration, err)
 			break
@@ -347,12 +350,12 @@ func TestVersionMigration(t *testing.T) {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
-				t.Errorf("unexpected response status %d", resp.StatusCode)
+				glog.Errorf("unexpected response status %d", resp.StatusCode)
 				continue
 			}
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				t.Error(err)
+				glog.Error(err)
 				continue
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
@@ -371,7 +374,7 @@ func TestVersionMigration(t *testing.T) {
 			break
 		}
 
-		if i == 4 {
+		if i == testRetryTimes-1 {
 			t.Errorf("Failed version migration test, "+
 				"old version hit %d, new version hit %d", c1, c3)
 		}
@@ -395,7 +398,13 @@ func setTestConfig() error {
 		{AppYaml: util.GetResourcePath(bookinfoRatingsv2Yaml),
 			KubeInject: true,
 		},
+		{AppYaml: util.GetResourcePath(bookinfoRatingsMysqlYaml),
+			KubeInject: true,
+		},
 		{AppYaml: util.GetResourcePath(bookinfoDbYaml),
+			KubeInject: true,
+		},
+		{AppYaml: util.GetResourcePath(bookinfoMysqlYaml),
 			KubeInject: true,
 		},
 	}
@@ -405,9 +414,27 @@ func setTestConfig() error {
 	return nil
 }
 
-func TestDbRouting(t *testing.T) {
+func TestDbRoutingMongo(t *testing.T) {
 	var err error
 	var rules = []string{testDbRule}
+	inspect(applyRules(rules), "failed to apply rules", "", t)
+	defer func() {
+		inspect(deleteRules(rules), "failed to delete rules", "", t)
+	}()
+
+	// TODO: update the rating in the db and check the value on page
+
+	respExpr := "glyphicon-star" // not great test for v2 or v3 being alive
+
+	_, err = checkHTTPResponse(u1, tc.gateway, respExpr, 10)
+	inspect(
+		err, fmt.Sprintf("Failed database routing! %s in v1", u1),
+		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
+}
+
+func TestDbRoutingMysql(t *testing.T) {
+	var err error
+	var rules = []string{testMysqlRule}
 	inspect(applyRules(rules), "failed to apply rules", "", t)
 	defer func() {
 		inspect(deleteRules(rules), "failed to delete rules", "", t)

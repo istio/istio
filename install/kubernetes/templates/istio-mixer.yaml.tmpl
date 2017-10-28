@@ -16,8 +16,10 @@ metadata:
     istio: mixer
 spec:
   ports:
-  - name: tcp
+  - name: tcp-plain
     port: 9091
+  - name: tcp-mtls
+    port: 15004
   - name: http-health
     port: 9093
   - name: configapi
@@ -81,7 +83,29 @@ spec:
           - --logtostderr
           - -v
           - "2"
+      - name: istio-proxy
+        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15004
+        args:
+        - proxy
+        - mixer
+        - -v
+        - "2"
+        - --controlPlaneAuthPolicy
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_mixer.json
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
       volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-mixer-service-account
+          optional: true
       - name: config-volume
         configMap:
           name: istio-mixer
@@ -446,6 +470,20 @@ spec:
       valueType: TIMESTAMP
     context.time:
       valueType: TIMESTAMP
+    api.service:
+      valueType: STRING
+    api.version:
+      valueType: STRING
+    api.operation:
+      valueType: STRING
+    api.protocol:
+      valueType: STRING
+    request.auth.principal:
+      valueType: STRING
+    request.auth.audiences:
+      valueType: STRING
+    request.auth.presenter:
+      valueType: STRING
 
 ---
 apiVersion: "config.istio.io/v1alpha2"

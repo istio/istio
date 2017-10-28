@@ -106,7 +106,7 @@ def index():
     """ Display productpage with normal user and test user buttons"""
     global productpage
 
-    table = json2html.convert(json = json.dumps(productpage),
+    table = json2html.convert(json=json.dumps(productpage),
                               table_attributes="class=\"table table-condensed table-bordered table-hover\"")
 
     return render_template('index.html', serviceTable=table)
@@ -138,8 +138,8 @@ def front():
     headers = getForwardHeaders(request)
     user = request.cookies.get("user", "")
     product = getProduct(product_id)
-    (detailsStatus, details) = getProductDetails(product_id, headers)
-    (reviewsStatus, reviews) = getProductReviews(product_id, headers)
+    detailsStatus, details = getProductDetails(product_id, headers)
+    reviewsStatus, reviews = getProductReviews(product_id, headers)
     return render_template(
         'productpage.html',
         detailsStatus=detailsStatus,
@@ -159,21 +159,21 @@ def productsRoute():
 @app.route('/api/v1/products/<product_id>')
 def productRoute(product_id):
     headers = getForwardHeaders(request)
-    (status, details) = getProductDetails(product_id, headers)
+    status, details = getProductDetails(product_id, headers)
     return json.dumps(details), status, {'Content-Type': 'application/json'}
 
 
 @app.route('/api/v1/products/<product_id>/reviews')
 def reviewsRoute(product_id):
     headers = getForwardHeaders(request)
-    (status, reviews) = getProductReviews(product_id, headers)
+    status, reviews = getProductReviews(product_id, headers)
     return json.dumps(reviews), status, {'Content-Type': 'application/json'}
 
 
 @app.route('/api/v1/products/<product_id>/ratings')
 def ratingsRoute(product_id):
     headers = getForwardHeaders(request)
-    (status, ratings) = getProductRatings(product_id, headers)
+    status, ratings = getProductRatings(product_id, headers)
     return json.dumps(ratings), status, {'Content-Type': 'application/json'}
 
 
@@ -204,25 +204,25 @@ def getProductDetails(product_id, headers):
     except:
         res = None
     if res and res.status_code == 200:
-        return (200, res.json())
+        return 200, res.json()
     else:
-        status = (res.status_code if res != None and res.status_code else 500)
-        return (status, {'error': 'Sorry, product details are currently unavailable for this book.'})
+        status = res.status_code if res is not None and res.status_code else 500
+        return status, {'error': 'Sorry, product details are currently unavailable for this book.'}
 
 
 def getProductReviews(product_id, headers):
     ## Do not remove. Bug introduced explicitly for illustration in fault injection task
     ## TODO: Figure out how to achieve the same effect using Envoy retries/timeouts
-    for i in range(2):
+    for _ in range(2):
         try:
             url = reviews['name'] + "/" + reviews['endpoint'] + "/" + str(product_id)
             res = requests.get(url, headers=headers, timeout=3.0)
         except:
             res = None
         if res and res.status_code == 200:
-            return (200, res.json())        
-    status = (res.status_code if res != None and res.status_code else 500)
-    return (status, {'error': 'Sorry, product reviews are currently unavailable for this book.'})
+            return 200, res.json()
+    status = res.status_code if res is not None and res.status_code else 500
+    return status, {'error': 'Sorry, product reviews are currently unavailable for this book.'}
 
 
 def getProductRatings(product_id, headers):
@@ -232,10 +232,10 @@ def getProductRatings(product_id, headers):
     except:
         res = None
     if res and res.status_code == 200:
-        return (200, res.json())        
+        return 200, res.json()
     else:
-        status = (res.status_code if res != None and res.status_code else 500)
-        return (status, {'error': 'Sorry, product ratings are currently unavailable for this book.'})
+        status = res.status_code if res is not None and res.status_code else 500
+        return status, {'error': 'Sorry, product ratings are currently unavailable for this book.'}
 
 class Writer(object):
     def __init__(self, filename):
@@ -254,5 +254,5 @@ if __name__ == '__main__':
     sys.stderr = Writer('stderr.log')
     sys.stdout = Writer('stdout.log')
     print "start at port %s" % (p)
-    app.run(host='0.0.0.0', port=p, debug = True, threaded=True)
+    app.run(host='0.0.0.0', port=p, debug=True, threaded=True)
 

@@ -6,26 +6,78 @@ workspace(name = "com_github_istio_istio")
 
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "de4f17a549ec4b21566877f5a0f3fff0ba40931e",  # July 17 2017 (0.5.2)
+    commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_repositories", "go_repository")
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+go_rules_dependencies()
+go_register_toolchains(go_version="1.8.3")
 
-go_repositories()
+load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+proto_register_toolchains()
 
 git_repository(
     name = "org_pubref_rules_protobuf",
-    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",  # Mar 31 2017 (gogo* support)
+    commit = "ff3b7e7963daa7cb3b42f8936bc11eda4b960926",  # Oct 03, 2017 (Updating External Import Paths)
     remote = "https://github.com/pubref/rules_protobuf",
 )
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogo_proto_repositories")
-load("@org_pubref_rules_protobuf//cpp:rules.bzl", "cpp_proto_repositories")
+load("@io_bazel_rules_go//go:def.bzl", "go_repository")
 
-cpp_proto_repositories()
+bind(
+    name = "protoc",
+    actual = "@com_google_protobuf//:protoc",
+)
 
-gogo_proto_repositories()
+bind(
+    name = "protocol_compiler",
+    actual = "@com_google_protobuf//:protoc",
+)
+
+go_repository(
+    name = "org_golang_x_net",
+    commit = "f5079bd7f6f74e23c4d65efa0f4ce14cbd6a3c0f",  # Jul 26, 2017 (no releases)
+    importpath = "golang.org/x/net",
+)
+
+go_repository(
+    name = "com_github_golang_glog",
+    commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
+    importpath = "github.com/golang/glog",
+)
+
+go_repository(
+    name = "com_github_golang_protobuf",
+    commit = "17ce1425424ab154092bbb43af630bd647f3bb0d",  # Nov 16, 2016 (match pubref dep)
+    importpath = "github.com/golang/protobuf",
+)
+
+go_repository(
+    name = "com_github_gogo_protobuf",
+    commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
+    importpath = "github.com/gogo/protobuf",
+    build_file_proto_mode = "legacy",
+)
+
+go_repository(
+    name = "org_golang_google_grpc",
+    commit = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3",  # Aug 30, 2017 (v1.6.0)
+    importpath = "google.golang.org/grpc",
+)
+
+go_repository(
+    name = "org_golang_x_text",
+    build_file_name = "BUILD.bazel",
+    commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
+    importpath = "golang.org/x/text",
+)
+
+go_repository(
+    name = "io_istio_fortio",
+    commit = "0.2.8",
+    importpath = "istio.io/fortio",
+)
 
 go_repository(
     name = "com_github_golang_glog",
