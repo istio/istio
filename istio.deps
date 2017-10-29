@@ -18,13 +18,13 @@
 		"repoName": "pilot",
 		"prodBranch": "stable",
 		"file": "istio.VERSION",
-		"lastStableSHA": "3101ea9d82a5f83b699c2d3245b371a19fa6bef4"
+		"lastStableSHA": "43f959cef4e71826244bf537e05362240ea8f3e2"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "2458e4e27bc588df858711b66de0970183e0cf66"
+		"lastStableSHA": "212a8e48188b38870717b2704c593ed3ae0d60f2"
 	}
 ]
