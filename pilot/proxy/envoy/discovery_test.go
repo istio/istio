@@ -231,7 +231,18 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
 }
 
-func TestClusterDiscoveryWithSSLContext(t *testing.T) {
+func TestClusterDiscoveryWithAuthOptIn(t *testing.T) {
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationEnable
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-optin.json", t)
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
+}
+
+func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	mesh := makeMeshConfig()
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
@@ -240,6 +251,24 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
+}
+
+func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDisable
+
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-optout.json", t)
+
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
@@ -544,6 +573,33 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			compareResponse(response, fmt.Sprintf("testdata/lds-v1-%s-auth.json", testCase.name), t)
 		})
 	}
+}
+
+func TestListenerDiscoverySidecarAuthOptIn(t *testing.T) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+
+	// Auth opt-in on port 80
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationEnable
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-optin.json", t)
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
+}
+
+func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	registry := memory.Make(model.IstioConfigTypes)
+
+	// Auth opt-out on port 80
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDisable
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
 }
 
 func TestRouteDiscoverySidecarError(t *testing.T) {

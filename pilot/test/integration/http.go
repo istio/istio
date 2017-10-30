@@ -51,8 +51,11 @@ func (r *http) run() error {
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
 func (r *http) makeRequests() error {
+	// Auth is enabled for d:80, and disabled for d:8080 using per-service policy.
+	// We expect request from non-envoy client ("t") to d:80 should always fail,
+	// while to d:8080 should always success.
 	srcPods := []string{"a", "b", "t"}
-	dstPods := []string{"a", "b"}
+	dstPods := []string{"a", "b", "d"}
 	if r.Auth == proxyconfig.MeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
@@ -73,9 +76,16 @@ func (r *http) makeRequests() error {
 						url := fmt.Sprintf("http://%s%s%s/%s", dst, domain, port, src)
 						return func() status {
 							resp := r.clientRequest(src, url, 1, "")
-							if r.Auth == proxyconfig.MeshConfig_MUTUAL_TLS && src == "t" {
+							// Auth is enabled for d:80 and disable for d:8080 using per-service
+							// policy.
+							if src == "t" &&
+								((r.Auth == proxyconfig.MeshConfig_MUTUAL_TLS && !(dst == "d" && port == ":8080")) ||
+									dst == "d" && (port == ":80" || port == "")) {
 								if len(resp.id) == 0 {
-									// Expected no match for t->a
+									// Expected no match for:
+									//   t->a (or b) when auth is on
+									//   t->d:80 (all the time)
+									// t->d:8000 should always be fine.
 									return nil
 								}
 								return errAgain

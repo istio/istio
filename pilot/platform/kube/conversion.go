@@ -43,6 +43,10 @@ const (
 
 	// IstioURIPrefix is the URI prefix in the Istio service account scheme
 	IstioURIPrefix = "spiffe"
+
+	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
+	// authentication policy.
+	PortAuthenticationAnnotationKeyPrefix = "tls.istio.io"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -53,11 +57,29 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 	return out
 }
 
-func convertPort(port v1.ServicePort) *model.Port {
+// Extracts security option for given port from annotation. If there is no such
+// annotation, or the annotation value is not recognized, returns
+// model.SecurityDefault.
+func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) model.AuthenticationPolicy {
+	if obj.Annotations == nil {
+		return model.AuthenticationDefault
+	}
+	switch obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))] {
+	case "disable":
+		return model.AuthenticationDisable
+	case "enable":
+		return model.AuthenticationEnable
+	default:
+		return model.AuthenticationDefault
+	}
+}
+
+func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
-		Name:     port.Name,
-		Port:     int(port.Port),
-		Protocol: ConvertProtocol(port.Name, port.Protocol),
+		Name:                 port.Name,
+		Port:                 int(port.Port),
+		Protocol:             ConvertProtocol(port.Name, port.Protocol),
+		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
 	}
 }
 
@@ -73,7 +95,7 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
 	for _, port := range svc.Spec.Ports {
-		ports = append(ports, convertPort(port))
+		ports = append(ports, convertPort(port, svc.ObjectMeta))
 	}
 
 	loadBalancingDisabled := addr == "" && external == "" // headless services should not be load balanced
@@ -111,6 +133,10 @@ func serviceHostname(name, namespace, domainSuffix string) string {
 // canonicalToIstioServiceAccount converts a Canonical service account to an Istio service account
 func canonicalToIstioServiceAccount(saname string) string {
 	return fmt.Sprintf("%v://%v", IstioURIPrefix, saname)
+}
+
+func portAuthenticationAnnotationKey(port int) string {
+	return fmt.Sprintf("%s/%d", PortAuthenticationAnnotationKeyPrefix, port)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
