@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -ex
+
+# Remove the symbolic link of generated pb.go files and .gen.go files
+# to prevent gazelle from creating wrong go_proto_library.
+find . -type l \( -name '*.pb.go' -o -name '*.gen.go' \) | xargs rm -f
+
+bazel run //:gazelle -- -proto legacy
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  params=(-i "")
+else
+  params=(-i)
+fi
+
+find . -type f \( -name BUILD -o -name BUILD.bazel \) -print0 | \
+    xargs -0 sed "${params[@]}" \
+          -e 's|google/rpc:go_default_library|:google/rpc|g' \
+          -e 's|@io_istio_api//mixer/v1/config/descriptor:go_default_library|@io_istio_api//:mixer/v1/config/descriptor|g' \
+          -e 's|@io_istio_api//mixer/v1:go_default_library|@io_istio_api//:mixer/v1|g' \
+          -e 's|@io_istio_api//mixer/v1/template:go_default_library|@io_istio_api//:mixer/v1/template|g' \
+          -e '/importpath =/d'

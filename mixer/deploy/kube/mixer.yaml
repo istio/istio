@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: mixer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mixer
+    spec:
+      containers:
+      - name: mixer
+        image: gcr.io/istio-testing/mixer:latest
+        ports:
+          - containerPort: 9091
+          - containerPort: 42422
+        volumeMounts:
+        - mountPath: /etc/opt/mixer
+          name: config
+        args:
+          - --globalConfigFile=/etc/opt/mixer/globalconfig.yml
+          - --serviceConfigFile=/etc/opt/mixer/serviceconfig.yml
+          - -v=4
+      volumes:
+      - name: config
+        configMap:
+          name: mixer-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mixer
+spec:
+  type: NodePort
+  ports:
+  - name: grpc
+    port: 9091
+  - name: prometheus
+    port: 42422
+  selector:
+    app: mixer

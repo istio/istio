@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package istio.mixer.template.quota;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+option (istio.mixer.v1.config.template.template_name) = "Quota";
+
+
+message Template {
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 1;
+}

@@ -1,0 +1,68 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pkg.aspect.config;
+
+import "gogoproto/gogo.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configures an AttributesGenerator aspect.
+//
+// The following config specifies two adapters (mixer_info and k8s_pod_info)
+// that will be used to generate attributes for use within in Mixer:
+//
+// aspects:
+// - kind: attributes
+//   adapter: mixer_info
+//   params:
+//     attribute_bindings:
+//       mixer_version: version
+//       mixer_build_id: buildID
+//       mixer_build_status: buildStatus
+// - kind: attributes
+//   adapter: k8s_pod_info
+//   params:
+//     input_expressions:
+//       srcIP: source.ip | "unknown"
+//       tgtIP: target.ip | "unknown"
+//     attribute_bindings:
+//       source_name: srcName
+//       target_name: tgtName
+//
+// The mixer_info adapter takes no input arguments and produces three output
+// values (version, buildID, and buildStatus). Those three output values are
+// mapped into three attributes (mixer_version, mixer_build_id, and
+// mixer_build_status) via the attribute_bindings.
+//
+// Similarly, the k8s_pod_info adapter takes two inputs (srcIp and tgtIp). Their
+// values are generated from the expressions that reference mixer attributes.
+// The adapter produces two outputs (srcName and tgtName) that are mapped into
+// mixer attributes (source_name and target_name) by the attribute_bindings.
+message AttributesGeneratorParams {
+    // Map of input params name to attribute expressions. At runtime, each
+    // expression will be evaluated to determine the input value provided to the
+    // aspect.
+    map<string, string> input_expressions = 1;
+
+    // Map of attribute descriptor names to the names of values produced by
+    // an adapter. This map will be used to translate from adapter outputs into
+    // mixer attributes.
+    map<string, string> attribute_bindings = 2;
+}
