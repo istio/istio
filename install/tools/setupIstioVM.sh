@@ -52,6 +52,7 @@ function istioNetworkInit() {
 # Install istio components and certificates. The admin (directly or using tools like ansible)
 # will generate and copy the files and install the packages on each machine.
 function istioInstall() {
+  sudo rm "/usr/local/bin/node-agent"
 
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
   curl -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
@@ -77,6 +78,7 @@ function istioInstall() {
 }
 
 function istioRestart() {
+    echo "restart istio" 
     # Node agent
     systemctl status istio-auth-node-agent > /dev/null
     if [[ $? = 0 ]]; then

@@ -450,6 +450,22 @@ func TestDbRoutingMysql(t *testing.T) {
 		fmt.Sprintf("Success! Response matches with expected! %s", respExpr), t)
 }
 
+func TestVMExtendsIstio(t *testing.T) {
+	if *framework.TestVM {
+		// TODO (chx) vm_provider flag to select venders
+		vm := framework.NewGCPRawVM(tc.CommonConfig.Kube.Namespace)
+		// VM setup and teardown is manual for now
+		// will be replaced with proprovision server calls
+		err := vm.Setup()
+		inspect(err, "VM setup failed", "VM setup succeeded", t)
+		// Dev to add more tests
+		_, err = vm.SecureShell("curl -v istio-pilot:8080")
+		inspect(err, "VM failed to extend istio", "VM extends istio service mesh", t)
+		err = vm.Teardown()
+		inspect(err, "VM teardown failed", "VM teardown succeeded", t)
+	}
+}
+
 func TestMain(m *testing.M) {
 	flag.Parse()
 	check(framework.InitGlog(), "cannot setup glog")
