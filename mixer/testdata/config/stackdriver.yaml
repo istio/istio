@@ -1,0 +1,184 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: stackdriver
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  # We'll use the default value from the adapter, once per minute, so we don't need to supply a value.
+  # pushInterval: 1m
+  # Must be supplied for the stackdriver adapter to work
+  project_id: <your project ID>
+  # One of the following must be set; the preferred method is `appCredentials`, which corresponds to
+  # Google Application Default Credentials. See:
+  #    https://developers.google.com/identity/protocols/application-default-credentials
+  # If none is provided we default to app credentials.
+  # appCredentials:
+  # apiKey:
+  # serviceAccountPath:
+
+  # Describes how to map Istio metrics into Stackdriver.
+  # Note: most of this config is copied over from prometheus.yaml to keep our metrics consistent across backends
+  metricInfo:
+    stackdriverrequestcount.metric.istio-system:
+      # Due to a bug in gogoproto deserialization, Enums in maps must be
+      # specified by their integer value, not variant name. See
+      # https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
+      # MetricKind and ValueType for the values to provide.
+      kind: 2 # DELTA
+      value: 2 # INT64
+    stackdriverrequestduration.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    stackdriverrequestsize.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    stackdriverresponsesize.metric.istio-system:
+      kind: 2 # DELTA
+      value: 5 # DISTRIBUTION
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+
+  # Describes how to map Istio logs into Stackdriver.
+  logInfo:
+    stackdriverglobalmr.logentry.istio-system:
+      payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "02/Jan/2006:15:04:05 -0700") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+      httpMapping:
+        status: responseCode
+        requestSize: requestSize
+        responseSize: responseSize
+        latency: latency
+        localIp: originIp
+        remoteIp: targetIp
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: stackdriver
+  namespace: istio-system
+spec:
+  match: "true" # If omitted match is true.
+  actions:
+  - handler: handler.stackdriver
+    instances:
+    - stackdriverrequestcount.metric
+    - stackdriverrequestduration.metric
+    - stackdriverrequestsize.metric
+    - stackdriverresponsesize.metric
+    - stackdriverglobalmr.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: stackdriverglobalmr
+  namespace: istio-system
+spec:
+  severity: '"Default"'
+  timestamp: request.time
+  variables:
+    originIp: origin.ip | ip("0.0.0.0")
+    targetIp: target.ip | ip("0.0.0.0")
+    sourceUser: origin.user | ""
+    method: request.method | ""
+    url: request.path | ""
+    protocol: request.scheme | "http"
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
+    latency: response.duration | "0ms"
+  # The Monitored Resource must match a Stackdriver Monitored resource type defined at:
+  #     https://cloud.google.com/monitoring/api/resources
+  # Sending invalid MRs will result in the entire metric entry being rejected.
+  monitoredResourceType: '"global"'
+  monitoredResourceDimensions:
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id: '"<your project ID>"'
+---
+# Note, we're trying to keep the following metric definitions in line with metrics.yaml - we add extra here to handle
+# populating monitored resource values.
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: stackdriverrequestcount
+  namespace: istio-system
+spec:
+  value: "1"
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitoredResourceType: '"global"'
+  monitoredResourceDimensions:
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id: '"<your project ID>"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: stackdriverrequestduration
+  namespace: istio-system
+spec:
+  value: response.duration | "0ms"
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitoredResourceType: '"global"'
+  monitoredResourceDimensions:
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id: '"<your project ID>"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: stackdriverrequestsize
+  namespace: istio-system
+spec:
+  value: request.size | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitoredResourceType: '"global"'
+  monitoredResourceDimensions:
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id: '"<your project ID>"'
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: metric
+metadata:
+  name: stackdriverresponsesize
+  namespace: istio-system
+spec:
+  value: response.size | 0
+  dimensions:
+    source_service: source.service | "unknown"
+    source_version: source.labels["version"] | "unknown"
+    destination_service: destination.service | "unknown"
+    destination_version: destination.labels["version"] | "unknown"
+    response_code: response.code | 200
+  monitoredResourceType: '"global"'
+  monitoredResourceDimensions:
+    # When using the global MR, this must be filled in, preferably matching the
+    # project_id given above in stackdriver config.
+    project_id: '"<your project ID>"'

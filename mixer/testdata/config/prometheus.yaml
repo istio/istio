@@ -1,0 +1,102 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: prometheus
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: request_duration
+    instance_name: requestduration.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      explicit_buckets:
+        bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+  - name: request_size
+    instance_name: requestsize.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+  - name: response_size
+    instance_name: responsesize.metric.istio-system
+    kind: DISTRIBUTION
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+    buckets:
+      exponentialBuckets:
+        numFiniteBuckets: 8
+        scale: 1
+        growthFactor: 10
+  - name: tcp_bytes_sent
+    instance_name: tcpbytesent.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+  - name: tcp_bytes_received
+    instance_name: tcpbytereceived.metric.istio-system
+    kind: COUNTER
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp
+  namespace: istio-system
+  labels:
+    istio-protocol: http
+spec:
+  actions:
+  - handler: handler.prometheus
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: handler.prometheus
+    instances:    
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
+---

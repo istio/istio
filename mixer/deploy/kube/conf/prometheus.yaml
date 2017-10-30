@@ -1,0 +1,16 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'mixer'
+    scrape_interval: 5s
+
+    kubernetes_sd_configs:
+    - role: service
+
+    relabel_configs:
+    # only select k8s services named "mixer" with a port named "prometheus"
+    - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_service_port_name]
+      action: keep
+      regex: mixer;prometheus

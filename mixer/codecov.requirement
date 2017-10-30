@@ -1,0 +1,4 @@
+Requirements of code coverage percentage for packages
+Use this format: "Package name \t Required percentage"
+istio.io/mixer/pkg/api  100
+istio.io/mixer/pkg/attribute    100

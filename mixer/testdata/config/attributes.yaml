@@ -1,0 +1,129 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: istio-proxy
+  namespace: istio-system
+spec:
+   attributes:
+      origin.ip:
+        valueType: IP_ADDRESS
+      origin.uid:
+        valueType: STRING
+      origin.user:
+        valueType: STRING
+      request.headers:
+        valueType: STRING_MAP
+      request.id:
+        valueType: STRING
+      request.host:
+        valueType: STRING
+      request.method:
+        valueType: STRING
+      request.path:
+        valueType: STRING
+      request.reason:
+        valueType: STRING
+      request.referer:
+        valueType: STRING
+      request.scheme:
+        valueType: STRING
+      request.size:
+        valueType: INT64
+      request.time:
+        valueType: TIMESTAMP
+      request.useragent:
+        valueType: STRING
+      response.code:
+        valueType: INT64
+      response.duration:
+        valueType: DURATION
+      response.headers:
+        valueType: STRING_MAP
+      response.size:
+        valueType: INT64
+      response.time:
+        valueType: TIMESTAMP
+      source.uid:
+        valueType: STRING
+      source.user:
+        valueType: STRING
+      target.uid:
+        valueType: STRING
+      destination.uid:
+        valueType: STRING
+      connection.id:
+        valueType: STRING
+      connection.received.bytes:
+        valueType: INT64
+      connection.received.bytes_total:
+        valueType: INT64
+      connection.sent.bytes:
+        valueType: INT64
+      connection.sent.bytes_total:
+        valueType: INT64
+      connection.duration:
+        valueType: DURATION
+      context.protocol:
+        valueType: STRING
+      context.timestamp:
+        valueType: TIMESTAMP
+      context.time:
+        valueType: TIMESTAMP
+      api.service:
+        valueType: STRING
+      api.version:
+        valueType: STRING
+      api.operation:
+        valueType: STRING
+      api.protocol:
+        valueType: STRING
+      request.auth.principal:
+        valueType: STRING
+      request.auth.audiences:
+        valueType: STRING
+      request.auth.presenter:
+        valueType: STRING
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: attributemanifest
+metadata:
+  name: kubernetes
+  namespace: istio-system
+spec:
+   attributes:
+      source.ip:
+        valueType: IP_ADDRESS
+      source.labels:
+        valueType: STRING_MAP
+      source.name:
+        valueType: STRING
+      source.namespace:
+        valueType: STRING
+      source.service:
+        valueType: STRING
+      source.serviceAccount:
+        valueType: STRING
+      target.ip:
+        valueType: IP_ADDRESS
+      target.labels:
+        valueType: STRING_MAP
+      target.name:
+        valueType: STRING
+      target.namespace:
+        valueType: STRING
+      target.service:
+        valueType: STRING
+      target.serviceAccount:
+        valueType: STRING
+      destination.ip:
+        valueType: IP_ADDRESS
+      destination.labels:
+        valueType: STRING_MAP
+      destination.name:
+        valueType: STRING
+      destination.namespace:
+        valueType: STRING
+      destination.service:
+        valueType: STRING
+      destination.serviceAccount:
+        valueType: STRING
