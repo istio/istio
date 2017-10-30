@@ -5,6 +5,13 @@ metadata:
   name: {{.service}}
   labels:
     app: {{.service}}
+{{if eq .perServiceAuth "true"}}
+  annotations:
+    tls.istio.io/80: enable
+    tls.istio.io/8080: disable
+    tls.istio.io/7070: enable
+    tls.istio.io/9090: enable
+{{end}}
 spec:
   ports:
   - port: 80

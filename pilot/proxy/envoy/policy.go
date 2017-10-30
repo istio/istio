@@ -40,12 +40,8 @@ func applyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		// apply auth policies
-		switch mesh.AuthPolicy {
-		case proxyconfig.MeshConfig_NONE:
-			// do nothing
-		case proxyconfig.MeshConfig_MUTUAL_TLS:
-			// apply SSL context to enable mutual TLS between Envoy proxies for outbound clusters
+		if shouldApplyAuth(mesh, cluster.port.AuthenticationPolicy) {
+			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
 			cluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, serviceAccounts)

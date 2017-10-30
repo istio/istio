@@ -1,0 +1,278 @@
+{
+  "clusters": [
+   {
+    "name": "in.1081",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1081"
+     }
+    ]
+   },
+   {
+    "name": "in.1090",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1090"
+     }
+    ]
+   },
+   {
+    "name": "in.1100",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1100"
+     }
+    ]
+   },
+   {
+    "name": "in.1110",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1110"
+     }
+    ]
+   },
+   {
+    "name": "in.3333",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:3333"
+     }
+    ]
+   },
+   {
+    "name": "in.80",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:80"
+     }
+    ]
+   },
+   {
+    "name": "in.9999",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:9999"
+     }
+    ]
+   },
+   {
+    "name": "out.02875f9311443c8773650d3fa21cee271505806f",
+    "service_name": "*.google.com|external-HTTP2-8080",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb",
+    "features": "http2"
+   },
+   {
+    "name": "out.12a577b4dd04c9a3fed313fc71fb850e7f9c345f",
+    "service_name": "world.default.svc.cluster.local|redis",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": [
+      "spiffe://cluster.local/ns/default/sa/serviceaccount1",
+      "spiffe://cluster.local/ns/default/sa/serviceaccount2"
+     ]
+    }
+   },
+   {
+    "name": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+    "service_name": "world.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": [
+      "spiffe://cluster.local/ns/default/sa/serviceaccount1",
+      "spiffe://cluster.local/ns/default/sa/serviceaccount2"
+     ]
+    }
+   },
+   {
+    "name": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+    "service_name": "*.google.com|external-HTTP-80",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb"
+   },
+   {
+    "name": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
+    "service_name": "httpsbin.default.svc.cluster.local|https",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c",
+    "service_name": "*.google.com|external-HTTPS-443",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb",
+    "ssl_context": {}
+   },
+   {
+    "name": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
+    "service_name": "world.default.svc.cluster.local|custom",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": [
+      "spiffe://cluster.local/ns/default/sa/serviceaccount1",
+      "spiffe://cluster.local/ns/default/sa/serviceaccount2"
+     ]
+    }
+   },
+   {
+    "name": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+    "service_name": "hello.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
+    "service_name": "hello.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+    "service_name": "world.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+    "service_name": "hello.default.svc.cluster.local|redis",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+    "service_name": "httpbin.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",
+    "service_name": "world.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": [
+      "spiffe://cluster.local/ns/default/sa/serviceaccount1",
+      "spiffe://cluster.local/ns/default/sa/serviceaccount2"
+     ]
+    }
+   },
+   {
+    "name": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
+    "service_name": "hello.default.svc.cluster.local|custom",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin",
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "verify_subject_alt_name": []
+    }
+   },
+   {
+    "name": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+    "service_name": "hello.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "mixer_server",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://istio-mixer.istio-system:9091"
+     }
+    ],
+    "features": "http2",
+    "circuit_breakers": {
+     "default": {
+      "max_pending_requests": 10000,
+      "max_requests": 10000
+     }
+    }
+   }
+  ]
+ }

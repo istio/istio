@@ -405,11 +405,17 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	}
 }
 
-func applyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig) {
-	switch mesh.AuthPolicy {
-	case proxyconfig.MeshConfig_NONE:
-		// do nothing
-	case proxyconfig.MeshConfig_MUTUAL_TLS:
+// shouldApplyAuth returns true if service's authentication policy is enable, or the mesh's auth
+// policy is on and service's policy is NOT disable.
+func shouldApplyAuth(mesh *proxyconfig.MeshConfig, serviceAuthPolicy model.AuthenticationPolicy) bool {
+	return serviceAuthPolicy == model.AuthenticationEnable ||
+		(mesh.AuthPolicy == proxyconfig.MeshConfig_MUTUAL_TLS && serviceAuthPolicy != model.AuthenticationDisable)
+}
+
+// mayApplyInboundAuth adds ssl_context to the listener if shouldApplyAuth.
+func mayApplyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig,
+	serviceAuthPolicy model.AuthenticationPolicy) {
+	if shouldApplyAuth(mesh, serviceAuthPolicy) {
 		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
@@ -695,6 +701,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
 		clusters = append(clusters, cluster)
 
+		var listener *Listener
+
 		// Local service instances can be accessed through one of three
 		// addresses: localhost, endpoint IP, and service
 		// VIP. Localhost bypasses the proxy and doesn't need any TCP
@@ -742,12 +750,11 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 			host.Routes = append(host.Routes, defaultRoute)
 
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
-			listeners = append(listeners,
-				buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
-					endpoint.Port, "", false, IngressTraceOperation))
+			listener = buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
+				endpoint.Port, "", false, IngressTraceOperation)
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
-			listener := buildTCPListener(&TCPRouteConfig{
+			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{buildTCPRoute(cluster, []string{endpoint.Address})},
 			}, endpoint.Address, endpoint.Port, protocol)
 
@@ -761,15 +768,14 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
 			}
 
-			listeners = append(listeners, listener)
-
 		default:
 			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
 		}
-	}
 
-	for _, listener := range listeners {
-		applyInboundAuth(listener, mesh)
+		if listener != nil {
+			mayApplyInboundAuth(listener, mesh, endpoint.ServicePort.AuthenticationPolicy)
+			listeners = append(listeners, listener)
+		}
 	}
 
 	return listeners, clusters

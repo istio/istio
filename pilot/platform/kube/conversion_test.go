@@ -175,6 +175,62 @@ func TestServiceConversionWithEmptyServiceAccountsAnnotation(t *testing.T) {
 	}
 }
 
+func TestServiceSecurityAnnotation(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	ip := "10.0.0.1"
+
+	testCases := []struct {
+		port            int
+		annotationValue string
+		want            model.AuthenticationPolicy
+	}{
+		{8080, "enable", model.AuthenticationEnable},
+		{8080, "disable", model.AuthenticationDisable},
+		{8080, "invalid-option", model.AuthenticationDefault},
+		{9999, "enable", model.AuthenticationDefault},
+	}
+	for _, test := range testCases {
+		localSvc := v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+				Annotations: map[string]string{
+					portAuthenticationAnnotationKey(test.port): test.annotationValue,
+				},
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: ip,
+				Ports: []v1.ServicePort{
+					{
+						Name:     "http",
+						Port:     8080,
+						Protocol: v1.ProtocolTCP,
+					},
+				},
+			},
+		}
+
+		service := convertService(localSvc, domainSuffix)
+		if service == nil {
+			t.Errorf("could not convert service")
+		}
+
+		if len(service.Ports) != 1 {
+			t.Errorf("incorrect number of ports => %v, want 1\n",
+				len(service.Ports))
+		}
+
+		if service.Ports[0].AuthenticationPolicy != test.want {
+			t.Errorf("incorrect authentication policy => %v, want %v\n",
+				service.Ports[0].AuthenticationPolicy,
+				test.want)
+		}
+	}
+
+}
+
 func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"
