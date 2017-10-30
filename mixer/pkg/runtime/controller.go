@@ -23,12 +23,12 @@ import (
 	"github.com/golang/glog"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/mixer/pkg/adapter"
-	cpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/config/store"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/pkg/template"
+	"istio.io/istio/mixer/pkg/adapter"
+	cpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 // Controller is responsible for watching configuration using the Store2 API.

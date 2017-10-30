@@ -31,12 +31,12 @@ import (
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adpTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
-	sample_check "istio.io/mixer/template/sample/check"
-	sample_quota "istio.io/mixer/template/sample/quota"
-	sample_report "istio.io/mixer/template/sample/report"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/expr"
+	sample_check "istio.io/istio/mixer/template/sample/check"
+	sample_quota "istio.io/istio/mixer/template/sample/quota"
+	sample_report "istio.io/istio/mixer/template/sample/report"
 )
 
 // Does not implement any template interfaces.

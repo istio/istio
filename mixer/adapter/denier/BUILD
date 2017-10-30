@@ -7,11 +7,11 @@ go_library(
     srcs = ["denier.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/denier/config:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//template/checknothing:go_default_library",
-        "//template/listentry:go_default_library",
-        "//template/quota:go_default_library",
+        "//mixer/adapter/denier/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/checknothing:go_default_library",
+        "//mixer/template/listentry:go_default_library",
+        "//mixer/template/quota:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
     ],
 )
@@ -22,10 +22,10 @@ go_test(
     srcs = ["denier_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/adapter/test:go_default_library",
-        "//template/checknothing:go_default_library",
-        "//template/listentry:go_default_library",
-        "//template/quota:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/adapter/test:go_default_library",
+        "//mixer/template/checknothing:go_default_library",
+        "//mixer/template/listentry:go_default_library",
+        "//mixer/template/quota:go_default_library",
     ],
 )

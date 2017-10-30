@@ -28,11 +28,11 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 
-	"istio.io/mixer/adapter/stackdriver/config"
-	"istio.io/mixer/adapter/stackdriver/helper"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/template/logentry"
+	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/helper"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/template/logentry"
 )
 
 type (

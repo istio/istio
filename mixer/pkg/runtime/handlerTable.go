@@ -24,8 +24,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 
-	"istio.io/mixer/pkg/adapter"
-	cpb "istio.io/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/adapter"
+	cpb "istio.io/istio/mixer/pkg/config/proto"
 )
 
 // handlerTable initializes and maintains handlers.

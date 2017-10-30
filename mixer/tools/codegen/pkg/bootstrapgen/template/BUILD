@@ -1,4 +1,4 @@
-package(default_visibility = ["//tools/codegen/pkg/bootstrapgen:__pkg__"])
+package(default_visibility = ["//mixer/tools/codegen/pkg/bootstrapgen:__pkg__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 

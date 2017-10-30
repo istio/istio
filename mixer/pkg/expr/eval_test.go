@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 func TestGoodEval(tt *testing.T) {

@@ -19,7 +19,7 @@ package test
 import (
 	gt "testing"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type fakeRegistrar struct {

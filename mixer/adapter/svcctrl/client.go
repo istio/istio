@@ -22,7 +22,7 @@ import (
 	"golang.org/x/oauth2/google"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // Creates a service control client. The client is authenticated with service control with Oauth2.

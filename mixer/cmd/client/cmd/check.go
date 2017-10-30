@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/mixer/cmd/shared"
+	"istio.io/istio/mixer/cmd/shared"
 )
 
 func checkCmd(rootArgs *rootArgs, printf, fatalf shared.FormatFn) *cobra.Command {

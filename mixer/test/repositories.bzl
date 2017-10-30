@@ -15,10 +15,10 @@
 ################################################################################
 #
 load("@io_bazel_rules_go//go:def.bzl", "go_repository")
-load("@com_github_istio_mixer//:adapter_author_deps.bzl", "mixer_adapter_repositories")
-load("@com_github_istio_mixer//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("@com_github_istio_mixer//:googleapis.bzl", "go_googleapis_repositories")
-load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
+load("@io_istio_istio//mixer/:adapter_author_deps.bzl", "mixer_adapter_repositories")
+load("@io_istio_istio//mixer/:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("@io_istio_istio//mixer/:googleapis.bzl", "go_googleapis_repositories")
+load("@io_istio_istio//mixer/:istio_api.bzl", "go_istio_api_repositories")
 
 # This function should be used by others to use mock mixer.
 # Before loading this bzl file, following repositoies should be loaded.
@@ -44,7 +44,7 @@ load("@com_github_istio_mixer//:istio_api.bzl", "go_istio_api_repositories")
 #     importpath = "github.com/istio/mixer",
 # )
 #
-# load("@com_github_istio_mixer//test:repositories.bzl", "mixer_test_repositories")
+# load("@io_istio_istio//mixer/test:repositories.bzl", "mixer_test_repositories")
 # mixer_test_repositories(False)
 #
 def mixer_test_repositories(use_local_api=False):

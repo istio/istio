@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sort"
 
-	"istio.io/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/il"
 )
 
 // WriteText writes the program in the textual assembly form and returns it as string.

@@ -29,7 +29,7 @@ type Info struct {
 	// example: mycompany-denier
 	Name string
 	// Impl is the package implementing the adapter.
-	// example: "istio.io/mixer/adapter/denier"
+	// example: "istio.io/istio/mixer/adapter/denier"
 	Impl string
 	// Description returns a user-friendly description of the adapter.
 	Description string

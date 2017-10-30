@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/mixer/cmd/shared"
+	"istio.io/istio/mixer/cmd/shared"
 )
 
 type rootArgs struct {

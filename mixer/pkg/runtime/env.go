@@ -15,8 +15,8 @@
 package runtime
 
 import (
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
 )
 
 // TODO this file is copied from pkg/adapterManager.

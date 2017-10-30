@@ -18,9 +18,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/il"
-	"istio.io/mixer/pkg/il/text"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/il/text"
 )
 
 // Stepper executes a program using single steps. It is useeful for debugging through an executing

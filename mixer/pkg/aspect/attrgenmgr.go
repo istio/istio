@@ -21,14 +21,14 @@ import (
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/pkg/adapter"
-	apb "istio.io/mixer/pkg/aspect/config"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	"istio.io/mixer/pkg/config/descriptor"
-	cpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/adapter"
+	apb "istio.io/istio/mixer/pkg/aspect/config"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/config/descriptor"
+	cpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/status"
 )
 
 type (

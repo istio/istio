@@ -19,8 +19,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config"
 )
 
 // BuilderInfo provides information about an individual builder.

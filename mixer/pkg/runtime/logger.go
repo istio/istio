@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type logger struct {

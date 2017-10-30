@@ -17,9 +17,9 @@ package noopLegacy
 import (
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapterManager"
-	"istio.io/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapterManager"
+	"istio.io/istio/mixer/pkg/config"
 )
 
 func TestRegisteredForAllAspects(t *testing.T) {

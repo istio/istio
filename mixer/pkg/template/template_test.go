@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 func TestGetTemplateInfo(t *testing.T) {

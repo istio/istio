@@ -12,11 +12,11 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/memquota/config:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//pkg/pool:go_default_library",
-        "//pkg/status:go_default_library",
-        "//template/quota:go_default_library",
+        "//mixer/adapter/memquota/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/pool:go_default_library",
+        "//mixer/pkg/status:go_default_library",
+        "//mixer/template/quota:go_default_library",
     ],
 )
 
@@ -29,9 +29,9 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/memquota/config:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//pkg/adapter/test:go_default_library",
-        "//template/quota:go_default_library",
+        "//mixer/adapter/memquota/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/adapter/test:go_default_library",
+        "//mixer/template/quota:go_default_library",
     ],
 )

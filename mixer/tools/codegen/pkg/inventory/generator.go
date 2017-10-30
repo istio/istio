@@ -14,7 +14,7 @@
 
 // Package inventory is used to generate the mixer adapter inventory source
 // file.
-package inventory // import "istio.io/mixer/tools/codegen/pkg/inventory"
+package inventory // import "istio.io/istio/mixer/tools/codegen/pkg/inventory"
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ package adapter
 
 import(
 		{{range .}}{{.Package}} "{{.Path}}"; {{end}}
-        adptr "istio.io/mixer/pkg/adapter"
+        adptr "istio.io/istio/mixer/pkg/adapter"
 )
 
 // Inventory returns the inventory of all available adapters.

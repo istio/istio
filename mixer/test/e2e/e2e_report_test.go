@@ -23,11 +23,11 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/template"
-	spyAdapter "istio.io/mixer/test/spyAdapter"
-	e2eTmpl "istio.io/mixer/test/template"
-	reportTmpl "istio.io/mixer/test/template/report"
-	testEnv "istio.io/mixer/test/testenv"
+	"istio.io/istio/mixer/pkg/template"
+	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
+	e2eTmpl "istio.io/istio/mixer/test/template"
+	reportTmpl "istio.io/istio/mixer/test/template/report"
+	testEnv "istio.io/istio/mixer/test/testenv"
 )
 
 const (

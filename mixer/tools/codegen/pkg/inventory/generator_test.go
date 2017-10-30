@@ -40,7 +40,7 @@ package adapter
 
 var empty = header + `
 import (
-	adptr "istio.io/mixer/pkg/adapter"
+	adptr "istio.io/istio/mixer/pkg/adapter"
 )
 
 // Inventory returns the inventory of all available adapters.
@@ -51,10 +51,10 @@ func Inventory() []adptr.InfoFn {
 
 var example = header + `
 import (
-	kubernetes "istio.io/mixer/adapter/kubernetes"
-	noop "istio.io/mixer/adapter/noop"
-	prometheus "istio.io/mixer/adapter/prometheus"
-	adptr "istio.io/mixer/pkg/adapter"
+	kubernetes "istio.io/istio/mixer/adapter/kubernetes"
+	noop "istio.io/istio/mixer/adapter/noop"
+	prometheus "istio.io/istio/mixer/adapter/prometheus"
+	adptr "istio.io/istio/mixer/pkg/adapter"
 )
 
 // Inventory returns the inventory of all available adapters.
@@ -69,9 +69,9 @@ func Inventory() []adptr.InfoFn {
 
 func TestGenerate(t *testing.T) {
 	exampleDeps := map[string]string{
-		"noop":       "istio.io/mixer/adapter/noop",
-		"prometheus": "istio.io/mixer/adapter/prometheus",
-		"kubernetes": "istio.io/mixer/adapter/kubernetes",
+		"noop":       "istio.io/istio/mixer/adapter/noop",
+		"prometheus": "istio.io/istio/mixer/adapter/prometheus",
+		"kubernetes": "istio.io/istio/mixer/adapter/kubernetes",
 	}
 	tests := []struct {
 		name    string

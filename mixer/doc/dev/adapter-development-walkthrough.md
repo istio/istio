@@ -37,7 +37,7 @@ git clone https://github.com/istio/mixer
 
 Install bazel (version 0.5.2 or higher) from [https://bazel.build/](https://bazel.build/) and add it to your PATH
 
-Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/mixer`
+Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer`
 
 Successfully build the repo.
 
@@ -66,8 +66,8 @@ import (
   "context"
 
   "github.com/gogo/protobuf/types"
-  "istio.io/mixer/pkg/adapter"
-  "istio.io/mixer/template/metric"
+  "istio.io/istio/mixer/pkg/adapter"
+  "istio.io/istio/mixer/template/metric"
 )
 
 type (
@@ -157,7 +157,7 @@ The build output on the terminal should look like
 ```
 INFO: Found 1 target...
 Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
 ```
 
 Now we have the basic skeleton of an adapter with empty implementation for interfaces for the 'metric' templates. Later steps
@@ -241,7 +241,7 @@ The build output on the terminal should look like
 ```
 INFO: Found 1 target...
 Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
 ```
 # Step 3: Link adapter config with adapter code.
 
@@ -284,9 +284,9 @@ import (
 	<b>"os"</b>
 	<b>"path/filepath"</b>
 
-	</b>"istio.io/mixer/adapter/mysampleadapter/config"</b>
-	"istio.io/mixer/pkg/adapter"
-    "istio.io/mixer/template/metric"
+	</b>"istio.io/istio/mixer/adapter/mysampleadapter/config"</b>
+	"istio.io/istio/mixer/pkg/adapter"
+    "istio.io/istio/mixer/template/metric"
 )
 
 type (
@@ -367,7 +367,7 @@ The build output on the terminal should look like
 ```
 INFO: Found 1 target...
 Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
 ```
 
 # Step 4: Write business logic into your adapter.
@@ -388,9 +388,9 @@ import (
 	<b>"fmt"</b>
 	"os"
 	"path/filepath"
-	config "istio.io/mixer/adapter/mysampleadapter/config"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/metric"
+	config "istio.io/istio/mixer/adapter/mysampleadapter/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type (
@@ -487,7 +487,7 @@ The build output on the terminal should look like
 ```
 INFO: Found 1 target...
 Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/mixer/adapter/mysampleadapter
+bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
 ```
 
 This concludes the implementation part of the adapter code. Next steps show how to plug an adapter into a build of Mixer
@@ -505,9 +505,9 @@ inventory_library(
    packages = {
        # list of all adapters
        # "friendlyName" : "go_import_path"
-       "svcctrl": "istio.io/mixer/adapter/svcctrl",
+       "svcctrl": "istio.io/istio/mixer/adapter/svcctrl",
        ...
-       <b>"mysampleadapter": "istio.io/mixer/adapter/mysampleadapter",</b>
+       <b>"mysampleadapter": "istio.io/istio/mixer/adapter/mysampleadapter",</b>
    },
    deps = [
        # list of all go_default_library rule for adapters.
@@ -610,7 +610,7 @@ Now let's call 'report' using mixer client. This step should cause the mixer ser
 instance objects constructed using the operator configuration.
 
 Start a new terminal window and set the MIXER_REPO variable to the path where the mixer repository is on the local
-machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/mixer``
+machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer``
 
 In the new window call the following
 
@@ -677,9 +677,9 @@ import (
 	"golang.org/x/net/context"
 
 	mixerapi "istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/test/testenv"
-	"istio.io/mixer/template"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/test/testenv"
+	"istio.io/istio/mixer/template"
 	"path/filepath"
 )
 

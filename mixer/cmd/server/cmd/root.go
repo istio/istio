@@ -21,9 +21,9 @@ import (
 	"github.com/spf13/cobra"
 	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
-	"istio.io/mixer/cmd/shared"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/template"
+	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.

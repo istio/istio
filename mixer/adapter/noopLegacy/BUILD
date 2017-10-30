@@ -6,7 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = ["noop.go"],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/adapter:go_default_library"],
+    deps = ["//mixer/pkg/adapter:go_default_library"],
 )
 
 go_test(
@@ -15,8 +15,8 @@ go_test(
     srcs = ["noop_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/adapterManager:go_default_library",
-        "//pkg/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/adapterManager:go_default_library",
+        "//mixer/pkg/config:go_default_library",
     ],
 )

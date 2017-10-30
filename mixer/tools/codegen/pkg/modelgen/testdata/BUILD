@@ -1,4 +1,4 @@
-package(default_visibility = ["//tools/codegen/pkg/modelgen:__pkg__"])
+package(default_visibility = ["//mixer/tools/codegen/pkg/modelgen:__pkg__"])
 
 load("@org_pubref_rules_protobuf//protobuf:rules.bzl", "proto_compile")
 

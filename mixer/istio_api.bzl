@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "3e776983668552a2dea57266352e82367a27c6cf"
+ISTIO_API_SHA = "49952607e93f623fbf0f74cb1e71d96ff39ad086"
 
 def go_istio_api_repositories(use_local=False):
     ISTIO_API_BUILD_FILE = """
@@ -27,7 +27,34 @@ load("@io_bazel_rules_go//go:def.bzl", "go_prefix", "go_library")
 
 go_prefix("istio.io/api")
 
+# load("@io_bazel_rules_go//proto:go_proto_library.bzl", "go_proto_library")
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library", "gogo_proto_compile")
+load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+
+go_proto_library(
+    name = "broker/v1/config",
+    protos = glob(["broker/v1/config/*.proto"]),
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+)
+
+go_proto_library(
+    name = "proxy/v1/config",
+    imports = [
+        "../../external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+    protos = glob(["proxy/v1/config/*.proto"]),
+    verbose = 0,
+    deps = [
+        "@com_github_golang_protobuf//ptypes/any:go_default_library",
+        "@com_github_golang_protobuf//ptypes/duration:go_default_library",
+        "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+    ],
+)
 
 gogoslick_proto_library(
     name = "mixer/v1",

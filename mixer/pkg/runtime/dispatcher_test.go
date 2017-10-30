@@ -27,14 +27,14 @@ import (
 	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
-	cpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/pkg/status"
-	"istio.io/mixer/pkg/template"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/aspect"
+	"istio.io/istio/mixer/pkg/attribute"
+	cpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 func TestDispatcher_safeDispatch(t *testing.T) {

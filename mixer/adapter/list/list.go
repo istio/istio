@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package list // import "istio.io/mixer/adapter/list"
+package list // import "istio.io/istio/mixer/adapter/list"
 
 import (
 	"context"
@@ -29,9 +29,9 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/adapter/list/config"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/listentry"
+	"istio.io/istio/mixer/adapter/list/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/listentry"
 )
 
 type (
@@ -236,7 +236,7 @@ func (h *handler) purgeList() {
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:               "listchecker",
-		Impl:               "istio.io/mixer/adapter/list",
+		Impl:               "istio.io/istio/mixer/adapter/list",
 		Description:        "Checks whether an entry is present in a list",
 		SupportedTemplates: []string{listentry.TemplateName},
 		DefaultConfig: &config.Params{

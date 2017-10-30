@@ -27,10 +27,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/adapter/stdio/config"
-	"istio.io/mixer/pkg/adapter/test"
-	"istio.io/mixer/template/logentry"
-	"istio.io/mixer/template/metric"
+	"istio.io/istio/mixer/adapter/stdio/config"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/logentry"
+	"istio.io/istio/mixer/template/metric"
 )
 
 func TestBasic(t *testing.T) {

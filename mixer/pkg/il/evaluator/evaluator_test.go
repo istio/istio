@@ -23,10 +23,10 @@ import (
 	"time"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
-	iltesting "istio.io/mixer/pkg/il/testing"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/descriptor"
+	pb "istio.io/istio/mixer/pkg/config/proto"
+	iltesting "istio.io/istio/mixer/pkg/il/testing"
 )
 
 const maxStringTableSizeForPurge int = 1024

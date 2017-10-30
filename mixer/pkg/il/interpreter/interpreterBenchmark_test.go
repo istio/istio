@@ -18,10 +18,10 @@ import (
 	"testing"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/il/testing"
-	"istio.io/mixer/pkg/il/text"
+	pb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/testing"
+	"istio.io/istio/mixer/pkg/il/text"
 )
 
 // 5/17/2017

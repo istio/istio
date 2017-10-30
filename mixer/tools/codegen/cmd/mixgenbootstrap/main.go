@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/mixer/tools/codegen/pkg/bootstrapgen"
+	"istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen"
 )
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
@@ -41,9 +41,9 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			"This code generator is meant to be used for creating a new mixer build. The output file suppose to be integrated \n" +
 			"in the mixer's build system.\n" +
 			"Example: " +
-			"mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/mixer/template/metric " +
-			"quotaTemplateFileDescriptorSet.pb:istio.io/mixer/template/quota " +
-			"listTemplateFileDescriptorSet.pb:istio.io/mixer/template/list " +
+			"mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/metric " +
+			"quotaTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/quota " +
+			"listTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/list " +
 			"-o template.gen.go",
 		Run: func(cmd *cobra.Command, args []string) {
 
@@ -66,7 +66,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 				if len(m) != 2 {
 					errorf("Invalid argument '%s'. Argument should contain one colon and be of the form <Path To File DescriptorSet "+
 						"that defines the template>:<Package import path for the template>. "+
-						"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/mixer/template/metric", arg)
+						"Example: mixgenbootstrap metricTemplateFileDescriptorSet.pb:istio.io/istio/mixer/template/metric", arg)
 				}
 				fdsFiles[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
 			}

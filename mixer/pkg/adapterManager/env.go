@@ -15,8 +15,8 @@
 package adapterManager
 
 import (
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
 )
 
 type env struct {

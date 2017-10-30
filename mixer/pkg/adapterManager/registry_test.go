@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config"
 )
 
 type testBuilder struct {

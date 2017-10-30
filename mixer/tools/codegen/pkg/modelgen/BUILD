@@ -21,7 +21,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["model_test.go"],
-    data = ["//tools/codegen/pkg/modelgen/testdata:test_descriptors"],
+    data = ["//mixer/tools/codegen/pkg/modelgen/testdata:test_descriptors"],
     library = ":go_default_library",
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",

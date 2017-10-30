@@ -1,4 +1,4 @@
-package(default_visibility = ["//adapter/stackdriver:__subpackages__"])
+package(default_visibility = ["//mixer/adapter/stackdriver:__subpackages__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
@@ -11,10 +11,10 @@ go_library(
         "metric.go",
     ],
     deps = [
-        "//adapter/stackdriver/config:go_default_library",
-        "//adapter/stackdriver/helper:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//template/metric:go_default_library",
+        "//mixer/adapter/stackdriver/config:go_default_library",
+        "//mixer/adapter/stackdriver/helper:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",
@@ -39,9 +39,9 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//adapter/stackdriver/config:go_default_library",
-        "//pkg/adapter/test:go_default_library",
-        "//template/metric:go_default_library",
+        "//mixer/adapter/stackdriver/config:go_default_library",
+        "//mixer/pkg/adapter/test:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/timestamp:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",

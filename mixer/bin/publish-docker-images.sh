@@ -49,7 +49,7 @@ popd
 
 # Build Bazel based docker images
 for IMAGE in "${BAZEL_IMAGES[@]}"; do
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//docker:${IMAGE}"
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//mixer/docker:${IMAGE}"
   docker tag "istio/docker:${IMAGE}" "${IMAGE}"
   IMAGES+=("${IMAGE}")
 done

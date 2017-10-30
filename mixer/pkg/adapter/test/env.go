@@ -19,7 +19,7 @@ import (
 	"sync"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // Env is an adapter environment that defers to the testing context t. Tracks all messages logged so they can be tested against.

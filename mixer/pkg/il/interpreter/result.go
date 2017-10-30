@@ -21,7 +21,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/il"
 )
 
 // Result contains the result of an evaluation performed by the interpreter.

@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 type testcase struct {
