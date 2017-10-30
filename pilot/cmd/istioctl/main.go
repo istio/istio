@@ -697,7 +697,11 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 
-	return config.Contexts[config.CurrentContext].Namespace
+	namespace := config.Contexts[config.CurrentContext].Namespace
+	if namespace == "" {
+		return v1.NamespaceDefault
+	}
+	return namespace
 }
 
 func handleNamespaces(objectNamespace string) (string, error) {
