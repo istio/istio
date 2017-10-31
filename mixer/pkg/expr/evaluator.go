@@ -16,7 +16,7 @@ package expr
 
 import (
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 type (

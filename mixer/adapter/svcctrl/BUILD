@@ -10,9 +10,9 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/svcctrl/config:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//template/metric:go_default_library",
+        "//mixer/adapter/svcctrl/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_pborman_uuid//:go_default_library",
         "@org_golang_google_api//servicecontrol/v1:go_default_library",
         "@org_golang_x_net//context:go_default_library",

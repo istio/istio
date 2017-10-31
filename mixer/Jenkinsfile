@@ -45,7 +45,7 @@ mainFlow(utils) {
 }
 
 def presubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/mixer') {
+  goBuildNode(gitUtils, 'istio.io/istio/mixer') {
     bazel.updateBazelRc()
     stage('Bazel Build') {
       bazel.fetch('-k //...')
@@ -74,7 +74,7 @@ def presubmit(gitUtils, bazel, utils) {
 }
 
 def postsubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/mixer') {
+  goBuildNode(gitUtils, 'istio.io/istio/mixer') {
     bazel.updateBazelRc()
     stage('Code Coverage') {
       bazel.fetch('-k //...')
@@ -97,7 +97,7 @@ def postsubmit(gitUtils, bazel, utils) {
 }
 
 def release(gitUtils, bazel) {
-  goBuildNode(gitUtils, 'istio.io/mixer') {
+  goBuildNode(gitUtils, 'istio.io/istio/mixer') {
     bazel.updateBazelRc()
     stage('Docker Push') {
       def tags = "${env.GIT_SHORT_SHA},${env.ISTIO_VERSION}-${env.GIT_SHORT_SHA}"

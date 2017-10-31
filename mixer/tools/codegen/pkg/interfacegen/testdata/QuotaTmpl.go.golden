@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // Fully qualified name of the template

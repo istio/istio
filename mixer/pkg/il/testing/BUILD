@@ -4,5 +4,5 @@ go_library(
     name = "go_default_library",
     srcs = ["fakebag.go"],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/attribute:go_default_library"],
+    deps = ["//mixer/pkg/attribute:go_default_library"],
 )

@@ -12,11 +12,11 @@ pkg_tar(
     package_dir = "/etc/opt/mixer",
     strip_prefix = "./",
     tags = ["manual"],
-    visibility = ["//docker:__pkg__"],
+    visibility = ["//mixer/docker:__pkg__"],
 )
 
 filegroup(
     name = "testdata",
     srcs = glob(["**/*.yml"]) + glob(["**/*.yaml"]),
-    visibility = ["//test/testenv:__subpackages__"],
+    visibility = ["//mixer/test/testenv:__subpackages__"],
 )

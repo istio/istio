@@ -28,13 +28,13 @@ import (
 	"google.golang.org/grpc/codes"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapterManager"
-	"istio.io/mixer/pkg/aspect"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/pool"
-	"istio.io/mixer/pkg/runtime"
-	"istio.io/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapterManager"
+	"istio.io/istio/mixer/pkg/aspect"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/status"
 )
 
 // We have a slightly messy situation around the use of context objects. gRPC stubs are

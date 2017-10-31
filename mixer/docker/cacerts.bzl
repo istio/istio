@@ -18,7 +18,7 @@ cacerts = rule(
         ),
         # Implicit dependencies.
         "_extract": attr.label(
-            default = Label("//docker:extract_certs"),
+            default = Label("//mixer/docker:extract_certs"),
             cfg = "host",
             executable = True,
             allow_files = True,

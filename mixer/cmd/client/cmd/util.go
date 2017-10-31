@@ -31,9 +31,9 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/mixer/cmd/shared"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/tracing/zipkin"
+	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/tracing/zipkin"
 )
 
 type clientState struct {

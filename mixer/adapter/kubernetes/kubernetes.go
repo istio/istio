@@ -35,8 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/mixer/adapter/kubernetes/config"
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/adapter/kubernetes/config"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type (

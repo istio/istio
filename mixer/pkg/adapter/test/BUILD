@@ -10,5 +10,5 @@ go_library(
         "env.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/adapter:go_default_library"],
+    deps = ["//mixer/pkg/adapter:go_default_library"],
 )

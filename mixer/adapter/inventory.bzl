@@ -8,14 +8,14 @@ def _inventory_gen(name, packages, out):
   native.genrule(
       name = name+"_gen",
       outs = [out],
-      cmd = "$(location //tools/codegen/cmd/mixgeninventory) " + args + " -o $(location %s)" % (out),
-      tools = ["//tools/codegen/cmd/mixgeninventory"],
+      cmd = "$(location //mixer/tools/codegen/cmd/mixgeninventory) " + args + " -o $(location %s)" % (out),
+      tools = ["//mixer/tools/codegen/cmd/mixgeninventory"],
   )
 
 DEPS = [
-    "//pkg/adapter:go_default_library",
-    "//adapter/kubernetes:go_default_library",
-    "//adapter/noopLegacy:go_default_library",
+    "//mixer/pkg/adapter:go_default_library",
+    "//mixer/adapter/kubernetes:go_default_library",
+    "//mixer/adapter/noopLegacy:go_default_library",
 ]
 
 def inventory_library(name, packages, deps):

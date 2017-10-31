@@ -33,7 +33,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/store"
 )
 
 // The "retryTimeout" used by the test.

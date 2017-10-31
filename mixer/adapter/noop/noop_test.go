@@ -25,14 +25,14 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/test"
-	"istio.io/mixer/template/checknothing"
-	"istio.io/mixer/template/listentry"
-	"istio.io/mixer/template/logentry"
-	"istio.io/mixer/template/metric"
-	"istio.io/mixer/template/quota"
-	"istio.io/mixer/template/reportnothing"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/checknothing"
+	"istio.io/istio/mixer/template/listentry"
+	"istio.io/istio/mixer/template/logentry"
+	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/mixer/template/reportnothing"
 )
 
 func TestBasic(t *testing.T) {

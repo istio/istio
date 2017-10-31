@@ -16,7 +16,7 @@ package test
 
 import (
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	cfgpb "istio.io/mixer/pkg/config/proto"
+	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 )
 
 // DescriptorFinder implements the descriptor.Finder interface more simply than the real object

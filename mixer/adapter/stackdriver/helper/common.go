@@ -19,7 +19,7 @@ import (
 
 	gapiopts "google.golang.org/api/option"
 
-	"istio.io/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/config"
 )
 
 // ToOpts converts the Stackdriver config params to options for configuring Stackdriver clients.

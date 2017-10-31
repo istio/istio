@@ -22,11 +22,11 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/test"
-	"istio.io/mixer/template/checknothing"
-	"istio.io/mixer/template/listentry"
-	"istio.io/mixer/template/quota"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/checknothing"
+	"istio.io/istio/mixer/template/listentry"
+	"istio.io/istio/mixer/template/quota"
 )
 
 func TestBasic(t *testing.T) {

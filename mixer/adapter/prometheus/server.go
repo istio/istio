@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 type (

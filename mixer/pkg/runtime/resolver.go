@@ -26,8 +26,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 // Rule represents a runtime view of cpb.Rule.

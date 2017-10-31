@@ -15,9 +15,9 @@
 package adapter
 
 import (
-	"istio.io/mixer/adapter/kubernetes"
-	"istio.io/mixer/adapter/noopLegacy"
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/adapter/kubernetes"
+	"istio.io/istio/mixer/adapter/noopLegacy"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 // InventoryLegacy returns the inventory of all available adapters.

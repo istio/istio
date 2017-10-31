@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//docker:mixer_docker.bzl", "mixer_docker_build")
+load("//mixer/docker:mixer_docker.bzl", "mixer_docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
@@ -7,7 +7,7 @@ pkg_tar(
     name = "mixer_servicegraph_tar",
     extension = "tar.gz",
     files = [
-        "//example/servicegraph/cmd/server",
+        "//mixer/example/servicegraph/cmd/server",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
@@ -37,6 +37,6 @@ mixer_docker_build(
     tags = ["manual"],
     tars = [
         ":mixer_servicegraph_tar",
-        "//example/servicegraph/js:js_tar",
+        "//mixer/example/servicegraph/js:js_tar",
     ],
 )

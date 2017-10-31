@@ -30,8 +30,8 @@ import (
 	"golang.org/x/tools/imports"
 
 	"istio.io/api/mixer/v1/config/descriptor"
-	tmplPkg "istio.io/mixer/tools/codegen/pkg/bootstrapgen/template"
-	"istio.io/mixer/tools/codegen/pkg/modelgen"
+	tmplPkg "istio.io/istio/mixer/tools/codegen/pkg/bootstrapgen/template"
+	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
 // Generator creates a Go file that will be build inside mixer framework. The generated file contains all the

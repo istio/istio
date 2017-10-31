@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 // run micro benchmark using expression evaluator.
@@ -36,7 +36,7 @@ BenchmarkExpressionDirect/ok_1stDirect-8   	100000000	        12.4 ns/op	       
 BenchmarkExpressionDirect/ok_2ndDirect-8   	50000000	        31.1 ns/op	       0 B/op	       0 allocs/op
 BenchmarkExpressionDirect/ok_notfoundDirect-8         	50000000	        29.5 ns/op	       0 B/op	       0 allocs/op
 PASS
-ok  	istio.io/mixer/pkg/expr	10.049s
+ok  	istio.io/istio/mixer/pkg/expr	10.049s
 */
 
 type exprFunc func(a attribute.Bag) (bool, error)

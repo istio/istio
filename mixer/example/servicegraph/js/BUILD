@@ -13,7 +13,7 @@ pkg_tar(
     package_dir = "/example/servicegraph/js",
     strip_prefix = "./",
     tags = ["manual"],
-    visibility = ["//example/servicegraph/docker:__pkg__"],
+    visibility = ["//mixer/example/servicegraph/docker:__pkg__"],
 )
 
 exports_files(["viz/viz-lite.js"])

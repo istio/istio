@@ -13,9 +13,9 @@ fi
 
 if [ -z $BAZEL_OUTBASE ]
 then
-    bazel run //docker:mixer
+    bazel run //mixer/docker:mixer
 else
-    bazel --output_base=$BAZEL_OUTBASE run //docker:mixer
+    bazel --output_base=$BAZEL_OUTBASE run //mixer/docker:mixer
 fi
 
 docker tag istio/docker:mixer gcr.io/$PROJECT/mixer:$DOCKER_TAG

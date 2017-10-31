@@ -14,7 +14,7 @@
 
 package ilt
 
-import "istio.io/mixer/pkg/attribute"
+import "istio.io/istio/mixer/pkg/attribute"
 
 // FakeBag is a fake implementation of the Bag for testing purposes.
 type FakeBag struct {

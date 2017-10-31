@@ -22,8 +22,8 @@ package main
 import (
 	"os"
 
-	"istio.io/mixer/cmd/collateral/cmd"
-	"istio.io/mixer/cmd/shared"
+	"istio.io/istio/mixer/cmd/collateral/cmd"
+	"istio.io/istio/mixer/cmd/shared"
 )
 
 func main() {

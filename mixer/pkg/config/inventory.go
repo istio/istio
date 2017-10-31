@@ -15,8 +15,8 @@
 package config
 
 import (
-	"istio.io/mixer/pkg/config/crd"
-	"istio.io/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/crd"
+	"istio.io/istio/mixer/pkg/config/store"
 )
 
 // StoreInventory returns the inventory of store backends.

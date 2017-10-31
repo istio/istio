@@ -2,8 +2,8 @@
 # gazelle:ignore
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//docker:mixer_docker.bzl", "mixer_docker_build")
-load(":cacerts.bzl", "cacerts")
+load("//mixer/docker:mixer_docker.bzl", "mixer_docker_build")
+load("//mixer/docker:cacerts.bzl", "cacerts")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
@@ -11,7 +11,7 @@ pkg_tar(
     name = "mixer_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/server:mixs",
+        "//mixer/cmd/server:mixs",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",
@@ -63,7 +63,7 @@ mixer_docker_build(
     tags = ["manual"],
     tars = [
         ":mixer_tar",
-        "//testdata:configs_tar",
+        "//mixer/testdata:configs_tar",
         ":cacerts.tar",
     ],
 )

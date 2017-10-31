@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"testing"
 
-	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func doesNothing(http.ResponseWriter, *http.Request) {}

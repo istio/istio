@@ -146,7 +146,7 @@ package metric
 
 import (
   "context"
-  "istio.io/mixer/pkg/adapter"
+  "istio.io/istio/mixer/pkg/adapter"
 )
 
 const TemplateName = "metric"
@@ -205,7 +205,7 @@ package listentry
 import (
 	"context"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 const TemplateName = "listentry"
@@ -268,7 +268,7 @@ package quota
 import (
 	"context"
 
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 const TemplateName = "quota"
@@ -348,7 +348,7 @@ type Info struct {
 	Name string
 	
 	// Impl is the package implementing the adapter.
-	// example: "istio.io/mixer/adapter/denier"
+	// example: "istio.io/istio/mixer/adapter/denier"
 	Impl string
 	
 	// Description returns a user-friendly description of the adapter.
@@ -475,7 +475,7 @@ func (handler) Close() error { return nil }
 
 func GetInfo() adapter.BuilderInfo {
   return adapter.BuilderInfo{
-     Name:        "istio.io/mixer/adapter/noop1",
+     Name:        "istio.io/istio/mixer/adapter/noop1",
      Description: "Does nothing",
      SupportedTemplates: []string{
         metric.TemplateName,
@@ -529,7 +529,7 @@ func (handler) Close() error { return nil }
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.BuilderInfo {
   return adapter.BuilderInfo{
-     Name:        "istio.io/mixer/adapter/noop2",
+     Name:        "istio.io/istio/mixer/adapter/noop2",
      Description: "Does nothing",
      SupportedTemplates: []string{
         listentry.TemplateName,
@@ -581,7 +581,7 @@ func (handler) Close() error { return nil }
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.BuilderInfo {
   return adapter.BuilderInfo{
-     Name:        "istio.io/mixer/adapter/noop2",
+     Name:        "istio.io/istio/mixer/adapter/noop2",
      Description: "Does nothing",
      SupportedTemplates: []string{
         quota.TemplateName,
