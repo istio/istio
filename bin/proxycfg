@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+
+set -e
+
+#In k8s environment, PILOT_URL can be automatically discovered by this script.
+#By default, it assumes that istio is deployed in the istio-system namespace
+#with the service name as 'istio-pilot'. User can set shell environment variables
+#ISTIO_NAMESPACE and ISTIO_PILOT otherwise.  In a non-k8s environment, user can set
+#PILOT_URL before calling this script.
+: ${PILOT_URL:=}
+: ${ISTIO_NAMESPACE:=istio-system}
+: ${ISTIO_PILOT:=istio-pilot}
+: ${CLUSTER_NAME:=istio-proxy}
+
+subcommand=$1
+
+function print_help {
+    echo 'proxycfg lds sidecar|ingress|egress'
+    echo "    Get listeners built by istio pilot."
+    echo ""
+    echo 'proxycfg cds sidecar|ingress|egress'
+    echo "    Get clusters built by istio pilot."
+    echo ""
+    echo 'proxycfg rds sidecar|ingress|egress -p <route_name>'
+    echo "    Get routes built by istio pilot."
+    echo "    <route_name> is normally a port number that a service is bound to."
+    echo ""
+    echo 'proxycfg sds [-s <"service_key">]'
+    echo "    Get service endpoints built by istio pilot."
+    echo "    <service_key> is a service_name, which can be obtained"
+    echo "    from the cds query output. It's optional and must be"
+    echo "    quoted if provided. Without it, all services and their"
+    echo "    endpoints are displayed."
+    echo ""
+    echo "proxycfg help"
+    echo "    print help message."
+    echo ""
+    echo "Aliases: lds, l, listeners"
+    echo "         cds, c, clusters"
+    echo "         rds, r, routes"
+    echo "         sds, s, endpoints"
+    echo "         sidecar, side, s"
+    echo "         ingress, ing, i"
+    echo "         egress, eg, e"
+}
+
+function error_exit {
+    echo "$1" 1>&2
+    exit 1
+}
+
+function check_endof_cmdline {
+    if [[ -n $@ ]]; then
+        error_exit "Unknown arguments $@"
+        print_help
+    fi
+}
+
+function get_pilot_url {
+    if [[ -z $PILOT_URL ]]; then
+        pilot_ipport=(`kubectl get svc -n ${ISTIO_NAMESPACE} | grep ${ISTIO_PILOT} | awk '{print $2,$4}'`)
+        pilot_ip=${pilot_ipport[0]}
+        pilot_port=${pilot_ipport[1]}
+        pilot_port=${pilot_port/:/ }
+        pilot_port=(${pilot_port/\// })
+        pilot_port=${pilot_port[0]}
+        echo $pilot_ip:$pilot_port
+    else
+        echo $PILOT_URL
+    fi
+}
+
+function query {
+    echo curl $1 
+    curl $1 
+}
+
+function query_lds {
+    role=$1
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/v1/listeners/${CLUSTER_NAME}/${role}~ip~podname~domain
+}
+
+function query_cds {
+    role=$1
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/v1/clusters/${CLUSTER_NAME}/${role}~ip~podname~domain
+}
+
+function query_rds {
+    role=$1
+    route_name=$2
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/v1/routes/${route_name}/${CLUSTER_NAME}/${role}~ip~podname~domain
+}
+
+function query_sds {
+    servicekey=$1
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/v1/registration/${servicekey}
+}
+
+case ${subcommand} in
+    l|lds|listeners) queryfor=lds;;
+    c|cds|clusters) queryfor=cds;;
+    r|rds|routes) queryfor=rds;;
+    s|sds|endpoints) queryfor=sds;;
+    help) 
+        print_help
+        exit
+        ;;
+    *) error_exit "Unrecognized subcommand ${subcommand}";;
+esac
+
+if [[ $queryfor != sds ]]; then
+    role=$2
+    case ${role} in
+        sidecar|side|s) role=sidecar;;
+        ingress|ing|i) role=ingress;;
+        egress|eg|e) role=egress;;
+        *) error_exit "Unrecognized role ${role}";;
+    esac
+    shift 2
+else
+    shift
+fi
+
+case ${queryfor} in
+    lds) 
+        check_endof_cmdline $@
+        query_lds $role
+        ;;
+    cds) 
+        check_endof_cmdline $@ 
+        query_cds $role
+        ;;
+    rds) 
+        while getopts :p: opt; do
+          case $opt in
+            p) route_name=${OPTARG};;
+            *) error_exit "Unrecognized rds option -$OPTARG";;
+          esac
+        done
+        shift $((OPTIND -1))
+        check_endof_cmdline $@
+        if [[ -z $route_name ]]; then
+            error_exit "Route Name is required"
+        fi
+        query_rds $role $route_name
+        ;;
+    sds)
+        while getopts :s: opt; do
+            case $opt in
+                s) servicekey=${OPTARG};;
+                *) error_exit "Unrecognized rds option -$OPTARG";;
+            esac
+        done
+        shift $((OPTIND -1))
+        check_endof_cmdline $@
+        query_sds $servicekey
+        ;;
+esac
+echo ""
