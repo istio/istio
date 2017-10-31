@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package denier // import "istio.io/mixer/adapter/denier"
+package denier // import "istio.io/istio/mixer/adapter/denier"
 
 // NOTE: This adapter will eventually be auto-generated so that it automatically supports all CHECK and QUOTA
 //       templates known to Mixer. For now, it's manually curated.
@@ -23,11 +23,11 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/adapter/denier/config"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/checknothing"
-	"istio.io/mixer/template/listentry"
-	"istio.io/mixer/template/quota"
+	"istio.io/istio/mixer/adapter/denier/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/checknothing"
+	"istio.io/istio/mixer/template/listentry"
+	"istio.io/istio/mixer/template/quota"
 )
 
 type handler struct {
@@ -72,7 +72,7 @@ func (*handler) Close() error { return nil }
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "denier",
-		Impl:        "istio.io/mixer/adapter/denier",
+		Impl:        "istio.io/istio/mixer/adapter/denier",
 		Description: "Rejects any check and quota request with a configurable error",
 		SupportedTemplates: []string{
 			checknothing.TemplateName,

@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	interfacegen "istio.io/mixer/tools/codegen/pkg/interfacegen"
+	interfacegen "istio.io/istio/mixer/tools/codegen/pkg/interfacegen"
 )
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {

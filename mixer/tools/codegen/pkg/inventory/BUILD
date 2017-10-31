@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["generator.go"],
-    visibility = ["//tools:__subpackages__"],
+    visibility = ["//mixer/tools:__subpackages__"],
     deps = ["@org_golang_x_tools//imports:go_default_library"],
 )
 

@@ -20,7 +20,7 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/status"
 )
 
 // TODO revisit the comment on this adapter struct.

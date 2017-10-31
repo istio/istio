@@ -33,8 +33,8 @@ else
   # Note: WriteHeaderAndJson excluded because the interface is defined in a 3rd party library.
   gometalinter="docker run \
     -v $(bazel info output_base):$(bazel info output_base) \
-    -v $(pwd):/go/src/istio.io/mixer \
-    -w /go/src/istio.io/mixer \
+    -v $(pwd):/go/src/istio.io/istio/mixer \
+    -w /go/src/istio.io/istio/mixer \
     gcr.io/istio-testing/linter:${LINTER_SHA}"
 fi
 

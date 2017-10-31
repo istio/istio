@@ -32,7 +32,7 @@ import (
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
-	"istio.io/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/config/store"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.

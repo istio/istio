@@ -27,8 +27,8 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
-	tmpl "istio.io/mixer/tools/codegen/pkg/interfacegen/template"
-	"istio.io/mixer/tools/codegen/pkg/modelgen"
+	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
+	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
 // Generator generates Go interfaces for adapters to implement for a given Template.

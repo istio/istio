@@ -21,15 +21,15 @@ import (
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/adapter/test"
-	apb "istio.io/mixer/pkg/aspect/config"
-	atest "istio.io/mixer/pkg/aspect/test"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	cfgpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter/test"
+	apb "istio.io/istio/mixer/pkg/aspect/config"
+	atest "istio.io/istio/mixer/pkg/aspect/test"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config"
+	cfgpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/status"
 )
 
 var (

@@ -19,12 +19,12 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/mixer/adapter/stackdriver/config"
-	"istio.io/mixer/adapter/stackdriver/log"
-	sdmetric "istio.io/mixer/adapter/stackdriver/metric"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/logentry"
-	"istio.io/mixer/template/metric"
+	"istio.io/istio/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/log"
+	sdmetric "istio.io/istio/mixer/adapter/stackdriver/metric"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/logentry"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type (
@@ -51,7 +51,7 @@ var (
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "stackdriver",
-		Impl:        "istio.io/mixer/adapte/stackdriver",
+		Impl:        "istio.io/istio/mixer/adapte/stackdriver",
 		Description: "Publishes StackDriver metrics and logs.",
 		SupportedTemplates: []string{
 			metric.TemplateName,

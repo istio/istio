@@ -3,7 +3,7 @@ load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_compile")
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 MIXER_DEPS = [
-    "@com_github_istio_mixer//pkg/adapter:go_default_library",
+    "@io_istio_istio//mixer/pkg/adapter:go_default_library",
     "@io_istio_api//:mixer/v1/template",
     "@io_istio_api//:mixer/v1/config/descriptor",  # keep
 ]
@@ -64,9 +64,9 @@ def _gen_template_and_handler(name, importmap = {}):
        "name": name + "_handler",
        "srcs": [ src_desc ],
        "outs": [ gen_handler, gen_tmpl ],
-       "tools": [ "@com_github_istio_mixer//tools/codegen/cmd/mixgenproc" ],
+       "tools": [ "@io_istio_istio//mixer/tools/codegen/cmd/mixgenproc" ],
        "message": "Generating handler code from descriptor",
-       "cmd": "$(location @com_github_istio_mixer//tools/codegen/cmd/mixgenproc) "
+       "cmd": "$(location @io_istio_istio//mixer/tools/codegen/cmd/mixgenproc) "
             + "$(location %s) -o=$(location %s) -t=$(location %s) %s" % (src_desc, gen_handler, gen_tmpl, m)
    }
 
@@ -139,15 +139,15 @@ def _mixer_supported_template_gen(name, packages, out):
       name = name+"_gen",
       srcs = descriptors,
       outs = [out],
-      cmd = "$(location @com_github_istio_mixer//tools/codegen/cmd/mixgenbootstrap) " + args + " -o $(location %s)" % (out),
-      tools = ["@com_github_istio_mixer//tools/codegen/cmd/mixgenbootstrap"],
+      cmd = "$(location @io_istio_istio//mixer/tools/codegen/cmd/mixgenbootstrap) " + args + " -o $(location %s)" % (out),
+      tools = ["@io_istio_istio//mixer/tools/codegen/cmd/mixgenbootstrap"],
   )
 
 DEPS_FOR_ALL_TMPLS = [
-    "@com_github_istio_mixer//pkg/adapter:go_default_library",
-    "@com_github_istio_mixer//pkg/attribute:go_default_library",
-    "@com_github_istio_mixer//pkg/expr:go_default_library",
-    "@com_github_istio_mixer//pkg/template:go_default_library",
+    "@io_istio_istio//mixer/pkg/adapter:go_default_library",
+    "@io_istio_istio//mixer/pkg/attribute:go_default_library",
+    "@io_istio_istio//mixer/pkg/expr:go_default_library",
+    "@io_istio_istio//mixer/pkg/template:go_default_library",
     "@com_github_gogo_protobuf//proto:go_default_library",
     "@com_github_golang_glog//:go_default_library",
     "@io_istio_api//:mixer/v1/config/descriptor",  # keep

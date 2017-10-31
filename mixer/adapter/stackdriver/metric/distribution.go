@@ -21,7 +21,7 @@ import (
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/adapter/stackdriver/config"
+	"istio.io/istio/mixer/adapter/stackdriver/config"
 )
 
 func toDist(val interface{}, i info) (*monitoringpb.TypedValue, error) {

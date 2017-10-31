@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/adapter"
 )
 
 func TestFromPbType(t *testing.T) {

@@ -8,7 +8,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/config/store:go_default_library",
+        "//mixer/pkg/config/store:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
@@ -29,7 +29,7 @@ go_test(
     srcs = ["store_test.go"],
     library = ":go_default_library",
     deps = [
-        "//pkg/config/store:go_default_library",
+        "//mixer/pkg/config/store:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

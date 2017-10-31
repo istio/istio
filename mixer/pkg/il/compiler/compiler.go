@@ -23,8 +23,8 @@ import (
 	"github.com/golang/glog"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/expr"
-	"istio.io/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il"
 )
 
 type generator struct {

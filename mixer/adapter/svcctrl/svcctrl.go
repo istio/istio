@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl // import "istio.io/mixer/adapter/svcctrl"
+package svcctrl // import "istio.io/istio/mixer/adapter/svcctrl"
 
 import (
 	"bytes"
@@ -22,9 +22,9 @@ import (
 	"github.com/pborman/uuid"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/mixer/adapter/svcctrl/config"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/metric"
+	"istio.io/istio/mixer/adapter/svcctrl/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type handler struct {
@@ -91,7 +91,7 @@ func (h *handler) Close() error {
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "svcctrl",
-		Impl:        "istio.io/mixer/adapter/svcctrl",
+		Impl:        "istio.io/istio/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
 		SupportedTemplates: []string{
 			metric.TemplateName,

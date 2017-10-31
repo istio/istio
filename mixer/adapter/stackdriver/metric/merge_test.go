@@ -28,7 +28,7 @@ import (
 	"google.golang.org/genproto/googleapis/api/monitoredres"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 var (

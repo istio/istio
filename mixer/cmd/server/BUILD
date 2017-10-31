@@ -9,12 +9,12 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     deps = [
-        "//adapter:go_default_library",
-        "//cmd/server/cmd:go_default_library",
-        "//cmd/shared:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//pkg/template:go_default_library",
-        "//template:go_default_library",
+        "//mixer/adapter:go_default_library",
+        "//mixer/cmd/server/cmd:go_default_library",
+        "//mixer/cmd/shared:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/template:go_default_library",
+        "//mixer/template:go_default_library",
     ],
 )
 

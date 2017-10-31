@@ -21,13 +21,13 @@ import (
 	"testing"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/adapter/noopLegacy"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/pkg/aspect/test"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/pkg/config"
-	cfgpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/expr"
+	"istio.io/istio/mixer/adapter/noopLegacy"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/aspect/test"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config"
+	cfgpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 func TestEvalAll(t *testing.T) {

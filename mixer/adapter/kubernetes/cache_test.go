@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestEventType_String(t *testing.T) {
@@ -77,7 +77,7 @@ func (f *fakeInformer) Run(<-chan struct{}) {
 }
 
 // timeout is to ensure that racetest does not fail before giving it some time.
-// ?   	istio.io/mixer/adapter/ipListChecker/config	[no test files]
+// ?   	istio.io/istio/mixer/adapter/ipListChecker/config	[no test files]
 // --- FAIL: TestClusterInfoCache_RunLoggerStopInSelect (0.00s)
 func (f *fakeInformer) RunCalled(timeout time.Duration) bool {
 	f.Lock()

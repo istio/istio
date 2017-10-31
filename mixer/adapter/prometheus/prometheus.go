@@ -29,9 +29,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"istio.io/mixer/adapter/prometheus/config"
-	"istio.io/mixer/pkg/adapter"
-	"istio.io/mixer/template/metric"
+	"istio.io/istio/mixer/adapter/prometheus/config"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/template/metric"
 )
 
 type (
@@ -76,7 +76,7 @@ func GetInfo() adapter.Info {
 	singletonBuilder.clearState()
 	return adapter.Info{
 		Name:        "prometheus",
-		Impl:        "istio.io/mixer/adapter/prometheus",
+		Impl:        "istio.io/istio/mixer/adapter/prometheus",
 		Description: "Publishes prometheus metrics",
 		SupportedTemplates: []string{
 			metric.TemplateName,

@@ -8,7 +8,7 @@ go_library(
         "write.go",
     ],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/il:go_default_library"],
+    deps = ["//mixer/pkg/il:go_default_library"],
 )
 
 go_test(
@@ -20,5 +20,5 @@ go_test(
         "write_test.go",
     ],
     library = ":go_default_library",
-    deps = ["//pkg/il:go_default_library"],
+    deps = ["//mixer/pkg/il:go_default_library"],
 )

@@ -29,7 +29,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/mixer/pkg/config/proto"
+	pb "istio.io/istio/mixer/pkg/config/proto"
 )
 
 type (

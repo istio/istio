@@ -24,7 +24,7 @@ import (
 	xcontext "golang.org/x/net/context"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
-	"istio.io/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
 func TestBuffered_Record(t *testing.T) {

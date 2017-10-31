@@ -28,9 +28,9 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/mixer/pkg/attribute"
-	cfgpb "istio.io/mixer/pkg/config/proto"
-	"istio.io/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/attribute"
+	cfgpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/pool"
 )
 
 // This private variable is an extract from go/token

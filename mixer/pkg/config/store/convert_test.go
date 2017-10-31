@@ -20,7 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	cfg "istio.io/mixer/pkg/config/proto"
+	cfg "istio.io/istio/mixer/pkg/config/proto"
 )
 
 func TestConvert(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/mixer/tools/codegen/pkg/inventory"
+	"istio.io/istio/mixer/tools/codegen/pkg/inventory"
 )
 
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
@@ -32,7 +32,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 		Use:   "mixgeninventory",
 		Short: "Generates mixer adapter inventory source code",
 		Long: "Generates mixer adapter inventory source code from an input map of adapter packages to include in the inventory.\n" +
-			"Example: mixgeninventory -p prometheus:istio.io/mixer/adapter/prometheus -p stdio:istio.io/mixer/adapter/stdio",
+			"Example: mixgeninventory -p prometheus:istio.io/istio/mixer/adapter/prometheus -p stdio:istio.io/istio/mixer/adapter/stdio",
 		Run: func(cmd *cobra.Command, args []string) {
 			packageMap := make(map[string]string)
 			for _, maps := range mappings {
@@ -59,7 +59,7 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	rootCmd.SetArgs(args)
 
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "packages", "p", []string{},
-		"colon-separated mapping of Go packages to their full import paths. Example: -p prometheus:istio.io/mixer/adapter/prometheus")
+		"colon-separated mapping of Go packages to their full import paths. Example: -p prometheus:istio.io/istio/mixer/adapter/prometheus")
 
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "name of file to generate")
 
