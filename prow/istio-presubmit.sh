@@ -36,7 +36,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   GIT_SHA="${PULL_PULL_SHA}"
 
   # check if rewrite history is present
-  PR_BRANCH=$(git show-ref | grep refs/pull | awk '{print $2}')
+  PR_BRANCH=$(git show-ref | grep refs/pr | awk '{print $2}')
 
   if [[ -z $PR_BRANCH ]];then
     echo "Could not get PR branch"
