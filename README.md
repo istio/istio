@@ -59,7 +59,7 @@ the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [auth](auth/). This directory contains auth related code,
 including CA (Cert Authority), node agent, etc.
-  - [istio/pilot](pilot/). This directory
+  - [pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
