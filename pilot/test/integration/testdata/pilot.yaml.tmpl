@@ -1,0 +1,166 @@
+# pilot service for discovery
+
+{{if .DebugPort}}
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: debug
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Delete
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/debug"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pilot-debug-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+{{end}}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  labels:
+    infra: pilot
+spec:
+{{if .DebugPort}}
+  type: LoadBalancer
+{{end}}
+  ports:
+  - port: 15003
+    name: http-discovery
+{{if .DebugPort}}
+  - port: {{.DebugPort}}
+    name: tcp-debug
+{{end}}
+{{if .UseAdmissionWebhook}}
+  - port: 443
+    name: webhook
+{{end}}
+  selector:
+    infra: pilot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.istio.io/inject: "false"
+  name: istio-pilot
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: pilot
+    spec:
+      serviceAccountName: istio-pilot-service-account
+      containers:
+      - name: discovery
+        image: {{.Hub}}/pilot:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        args:
+        - discovery
+        - --v={{.Verbosity}}
+        - -a
+        - {{.Namespace}}
+        - --registries
+        - {{.Registry}}
+        - --eurekaserverURL
+        - http://eureka:8080
+{{if .UseAdmissionWebhook}}
+        - --admission-service={{.AdmissionServiceName}}
+{{end}}
+        ports:
+        - containerPort: 8080
+{{if .DebugPort}}
+        - containerPort: {{.DebugPort}}
+        volumeMounts:
+          - mountPath: "/data/debug"
+            name: debug
+{{end}}
+{{if .UseAdmissionWebhook}}
+        - containerPort: 443
+{{end}}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
+{{if .DebugPort}}
+        - mountPath: "/data/debug"
+          name: debug
+{{end}}
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15003
+        args:
+        - proxy
+        - pilot
+        - -v
+        - "{{.Verbosity}}"
+        - "--discoveryAddress"
+        - "istio-pilot:15003"
+        - "--controlPlaneAuthPolicy"
+        - "{{.ControlPlaneAuthPolicy.String}}"
+        - --customConfigFile
+        - "{{.PilotCustomConfigFile}}"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
+{{if .DebugPort}}
+      - name: debug
+        persistentVolumeClaim:
+          claimName: pilot-debug-claim
+{{end}}
+---

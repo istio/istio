@@ -1,0 +1,4 @@
+coverage:
+  ignore:
+    - "**/*.pb.go" # Auto-generated proto files
+    - "test/" # Test infrastructure coverage does not affect core coverage

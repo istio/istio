@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  initializers:
+    pending:
+    - name: sidecar.initializer.istio.io
+  name: hello
+spec:
+  replicas: 7
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+status: {}

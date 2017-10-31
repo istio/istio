@@ -1,0 +1,185 @@
+{
+  "virtual_hosts": [
+   {
+    "name": "*.google.com:443",
+    "domains": [
+     "*.google.com:443"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.55be44fb22f17cf2c3204372ebee71e7723bcb1c",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "*.google.com:80",
+    "domains": [
+     "*.google.com",
+     "*.google.com:80"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "*.google.com:8080",
+    "domains": [
+     "*.google.com:8080"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.02875f9311443c8773650d3fa21cee271505806f",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "hello.default.svc.cluster.local|http",
+    "domains": [
+     "hello:80",
+     "hello",
+     "hello.default:80",
+     "hello.default",
+     "hello.default.svc:80",
+     "hello.default.svc",
+     "hello.default.svc.cluster:80",
+     "hello.default.svc.cluster",
+     "hello.default.svc.cluster.local:80",
+     "hello.default.svc.cluster.local",
+     "10.1.0.0:80",
+     "10.1.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "hello.default.svc.cluster.local|http-status",
+    "domains": [
+     "hello:81",
+     "hello.default:81",
+     "hello.default.svc:81",
+     "hello.default.svc.cluster:81",
+     "hello.default.svc.cluster.local:81",
+     "10.1.0.0:81"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "httpbin.default.svc.cluster.local|http",
+    "domains": [
+     "httpbin:80",
+     "httpbin",
+     "httpbin.default:80",
+     "httpbin.default",
+     "httpbin.default.svc:80",
+     "httpbin.default.svc",
+     "httpbin.default.svc.cluster:80",
+     "httpbin.default.svc.cluster",
+     "httpbin.default.svc.cluster.local:80",
+     "httpbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "httpsbin.default.svc.cluster.local|https",
+    "domains": [
+     "httpsbin:443",
+     "httpsbin.default:443",
+     "httpsbin.default.svc:443",
+     "httpsbin.default.svc.cluster:443",
+     "httpsbin.default.svc.cluster.local:443"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.242bc3028e0f3fe0682e6d972e167ab415b2321d",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "world.default.svc.cluster.local|http",
+    "domains": [
+     "world:80",
+     "world",
+     "world.default:80",
+     "world.default",
+     "world.default.svc:80",
+     "world.default.svc",
+     "world.default.svc.cluster:80",
+     "world.default.svc.cluster",
+     "world.default.svc.cluster.local:80",
+     "world.default.svc.cluster.local",
+     "10.2.0.0:80",
+     "10.2.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "world.default.svc.cluster.local|http-status",
+    "domains": [
+     "world:81",
+     "world.default:81",
+     "world.default.svc:81",
+     "world.default.svc.cluster:81",
+     "world.default.svc.cluster.local:81",
+     "10.2.0.0:81"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   }
+  ]
+ }

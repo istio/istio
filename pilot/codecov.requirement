@@ -1,0 +1,29 @@
+#Coverage data from SHA:70952e93c04c1d855aa65e72e24199b0c99413a1
+#If the requirement is not set below, it must satisfy default requirement.
+Default:20
+#Package requirement
+#Package name, coverage requirement, actually coverage at specific SHA
+istio.io/pilot/adapter/config/aggregate:90 [92.6]
+istio.io/pilot/adapter/config/crd:60 [65.7]
+istio.io/pilot/adapter/config/ingress:70 [71.9]
+istio.io/pilot/adapter/config/memory:90 [95.5]
+istio.io/pilot/cmd:0 [0]
+istio.io/pilot/cmd/istioctl:0 [0]
+istio.io/pilot/cmd/pilot-agent:0 [0]
+istio.io/pilot/cmd/pilot-discovery:0 [0]
+istio.io/pilot/cmd/sidecar-initializer:0 [0]
+istio.io/pilot/model:83 [85.8]
+istio.io/pilot/model/test:0 [0]
+istio.io/pilot/platform:0 [0]
+istio.io/pilot/platform/consul:40 [43.6]
+istio.io/pilot/platform/eureka:80 [82.9]
+istio.io/pilot/platform/kube:60 [63.8]
+istio.io/pilot/platform/kube/inject:66 [71.4]
+istio.io/pilot/proxy:95 [98.8]
+istio.io/pilot/proxy/envoy:72 [75.4]
+istio.io/pilot/test/client:0 [0]
+istio.io/pilot/test/integration:0 [0]
+istio.io/pilot/test/mock:0 [14.6]
+istio.io/pilot/test/server:0 [0]
+istio.io/pilot/test/util:0 [0]
+istio.io/pilot/tools/version:95 [100.0]

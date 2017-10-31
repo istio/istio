@@ -1,0 +1,44 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:15003",
+    "name": "tcp_0.0.0.0_15003",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.8080"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": true
+   }
+  ],
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": "tcp://127.0.0.1:15000"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "in.8080",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:8080"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    alpha.istio.io/sidecar: injected(deprecated)
+    status.sidecar.istio.io: injected-version-@--
+  creationTimestamp: null
+  initializers:
+    pending:
+    - name: some.other.initializer
+  name: hello
+spec:
+  replicas: 7
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        alpha.istio.io/sidecar: injected(deprecated)
+        status.sidecar.istio.io: injected-version-@--
+      creationTimestamp: null
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      - args:
+        - proxy
+        - sidecar
+        - -v
+        - "2"
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: docker.io/istio/proxy_debug:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-proxy
+        resources: {}
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: istio-config
+          readOnly: true
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+      initContainers:
+      - args:
+        - -p
+        - "15001"
+        - -u
+        - "1337"
+        image: docker.io/istio/proxy_init:unittest
+        imagePullPolicy: IfNotPresent
+        name: istio-init
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+          privileged: true
+      - args:
+        - -c
+        - sysctl -w kernel.core_pattern=/etc/istio/proxy/core.%e.%p.%t && ulimit -c
+          unlimited
+        command:
+        - /bin/sh
+        image: alpine
+        imagePullPolicy: IfNotPresent
+        name: enable-core-dump
+        resources: {}
+        securityContext:
+          privileged: true
+      volumes:
+      - configMap:
+          name: istio
+        name: istio-config
+      - emptyDir:
+          medium: Memory
+          sizeLimit: "0"
+        name: istio-envoy
+status: {}
