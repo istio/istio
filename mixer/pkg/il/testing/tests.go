@@ -22,7 +22,12 @@ import (
 	pb "istio.io/istio/mixer/pkg/config/proto"
 )
 
+var duration19, _ = time.ParseDuration("19ms")
+var duration20, _ = time.ParseDuration("20ms")
+var time1999 = time.Date(1999, time.December, 31, 23, 59, 0, 0, time.UTC)
+var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
 var t, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:35Z")
+var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 
 var TestData = []TestInfo{
 
@@ -410,6 +415,1041 @@ var TestData = []TestInfo{
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
 		Conf:   TestConfigs["Expr/Eval"],
+	},
+
+	// Tests from compiler/compiler_test.go
+	{
+		E: "true",
+		R: true,
+		IL: `
+fn eval() bool
+  apush_b true
+  ret
+end`,
+	},
+	{
+		E: "false",
+		R: false,
+		IL: `
+fn eval() bool
+  apush_b false
+  ret
+end`,
+	},
+	{
+		E: `"ABC"`,
+		R: "ABC",
+		IL: `
+fn eval() string
+  apush_s "ABC"
+  ret
+end`,
+	},
+	{
+		E: `456789`,
+		R: int64(456789),
+		IL: `
+fn eval() integer
+  apush_i 456789
+  ret
+end`,
+	},
+	{
+		E: `456.789`,
+		R: float64(456.789),
+		IL: `
+fn eval() double
+  apush_d 456.789000
+  ret
+end`,
+	},
+	{
+		E: `true || false`,
+		R: true,
+		IL: `
+fn eval() bool
+  apush_b true
+  jz L0
+  apush_b true
+  ret
+L0:
+  apush_b false
+  ret
+end`,
+	},
+
+	{
+		E: `false || true`,
+		R: true,
+		IL: `
+fn eval() bool
+  apush_b false
+  jz L0
+  apush_b true
+  ret
+L0:
+  apush_b true
+  ret
+end`,
+	},
+
+	{
+		E: `false || false`,
+		R: false,
+	},
+	{
+		E: `true || false`,
+		R: true,
+	},
+	{
+		E: `false || true`,
+		R: true,
+	},
+
+	{
+		E: `false || true || false`,
+		R: true,
+		IL: `
+fn eval() bool
+  apush_b false
+  jz L0
+  apush_b true
+  jmp L1
+L0:
+  apush_b true
+L1:
+  jz L2
+  apush_b true
+  ret
+L2:
+  apush_b false
+  ret
+end`,
+	},
+	{
+		E: `false || false || false`,
+		R: false,
+	},
+	{
+		E: `false && true`,
+		R: false,
+		IL: `
+fn eval() bool
+  apush_b false
+  apush_b true
+  and
+  ret
+end`,
+	},
+	{
+		E: `true && false`,
+		R: false,
+		IL: `
+ fn eval() bool
+  apush_b true
+  apush_b false
+  and
+  ret
+end`,
+	},
+	{
+		E: `true && true`,
+		R: true,
+	},
+	{
+		E: `false && false`,
+		R: false,
+	},
+	{
+		E: "b1 && b2",
+		I: map[string]interface{}{
+			"b1": false,
+			"b2": true,
+		},
+		R: false,
+	},
+	{
+		E: "b1 && b2",
+		I: map[string]interface{}{
+			"b1": true,
+			"b2": true,
+		},
+		R: true,
+	},
+	{
+		E: "3 == 2",
+		R: false,
+		IL: `
+fn eval() bool
+  apush_i 3
+  aeq_i 2
+  ret
+end`,
+	},
+
+	{
+		E: "true == false",
+		R: false,
+		IL: `
+fn eval() bool
+  apush_b true
+  aeq_b false
+  ret
+end`,
+	},
+
+	{
+		E: "false == false",
+		R: true,
+	},
+	{
+		E: "false == true",
+		R: false,
+	},
+	{
+		E: "true == true",
+		R: true,
+	},
+
+	{
+		E: `"ABC" == "ABC"`,
+		R: true,
+		IL: `
+fn eval() bool
+  apush_s "ABC"
+  aeq_s "ABC"
+  ret
+end`,
+	},
+
+	{
+		E: `"ABC" == "CBA"`,
+		R: false,
+		IL: `
+fn eval() bool
+  apush_s "ABC"
+  aeq_s "CBA"
+  ret
+end`,
+	},
+
+	{
+		E: `23.45 == 45.23`,
+		R: false,
+		IL: `
+fn eval() bool
+  apush_d 23.450000
+  aeq_d 45.230000
+  ret
+end`,
+	},
+
+	{
+		E: "3 != 2",
+		R: true,
+		IL: `
+fn eval() bool
+  apush_i 3
+  aeq_i 2
+  not
+  ret
+end`,
+	},
+
+	{
+		E: "true != false",
+		R: true,
+		IL: `
+fn eval() bool
+  apush_b true
+  aeq_b false
+  not
+  ret
+end`,
+	},
+
+	{
+		E: `"ABC" != "ABC"`,
+		R: false,
+		IL: `
+fn eval() bool
+  apush_s "ABC"
+  aeq_s "ABC"
+  not
+  ret
+end`,
+	},
+
+	{
+		E: `23.45 != 45.23`,
+		R: true,
+		IL: `
+fn eval() bool
+  apush_d 23.450000
+  aeq_d 45.230000
+  not
+  ret
+end`,
+	},
+	{
+		E: `ab`,
+		I: map[string]interface{}{
+			"ab": true,
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_b "ab"
+  ret
+end`,
+	},
+	{
+		E: `as`,
+		I: map[string]interface{}{
+			"as": "AAA",
+		},
+		R: "AAA",
+		IL: `
+fn eval() string
+  resolve_s "as"
+  ret
+end`,
+	},
+	{
+		E: `ad`,
+		I: map[string]interface{}{
+			"ad": float64(23.46),
+		},
+		R: float64(23.46),
+		IL: `
+fn eval() double
+  resolve_d "ad"
+  ret
+end`,
+	},
+	{
+		E: `ai`,
+		I: map[string]interface{}{
+			"ai": int64(2346),
+		},
+		R: int64(2346),
+		IL: `
+fn eval() integer
+  resolve_i "ai"
+  ret
+end`,
+	},
+	{
+		E: `ar["b"]`,
+		I: map[string]interface{}{
+			"ar": map[string]string{
+				"b": "c",
+			},
+		},
+		R: "c",
+		IL: `
+fn eval() string
+  resolve_f "ar"
+  anlookup "b"
+  ret
+end
+`,
+	},
+	{
+		E: `ai == 20 || ar["b"] == "c"`,
+		I: map[string]interface{}{
+			"ai": int64(19),
+			"ar": map[string]string{
+				"b": "c",
+			},
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_i "ai"
+  aeq_i 20
+  jz L0
+  apush_b true
+  ret
+L0:
+  resolve_f "ar"
+  anlookup "b"
+  aeq_s "c"
+  ret
+end`,
+	},
+	{
+		E: `as | "user1"`,
+		R: "user1",
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  apush_s "user1"
+L0:
+  ret
+end`,
+	},
+	{
+		E: `as | "user1"`,
+		R: "a2",
+		I: map[string]interface{}{
+			"as": "a2",
+		},
+	},
+	{
+		E: `as | bs | "user1"`,
+		R: "user1",
+		IL: `
+fn eval() string
+  tresolve_s "as"
+  jnz L0
+  tresolve_s "bs"
+  jnz L0
+  apush_s "user1"
+L0:
+  ret
+end`,
+	},
+	{
+		E: `as | bs | "user1"`,
+		I: map[string]interface{}{
+			"as": "a2",
+		},
+		R: "a2",
+	},
+	{
+		E: `as | bs | "user1"`,
+		I: map[string]interface{}{
+			"bs": "b2",
+		},
+		R: "b2",
+	},
+	{
+		E: `as | bs | "user1"`,
+		I: map[string]interface{}{
+			"as": "a2",
+			"bs": "b2",
+		},
+		R: "a2",
+	},
+
+	{
+		E: `ab | true`,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: false,
+		IL: `
+ fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  apush_b true
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ab | true`,
+		I: map[string]interface{}{},
+		R: true,
+	},
+	{
+		E: `ab | bb | true`,
+		I: map[string]interface{}{
+			"ab": false,
+		},
+		R: false,
+		IL: `
+fn eval() bool
+  tresolve_b "ab"
+  jnz L0
+  tresolve_b "bb"
+  jnz L0
+  apush_b true
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ab | bb | true`,
+		I: map[string]interface{}{
+			"bb": false,
+		},
+		R: false,
+	},
+	{
+		E: `ab | bb | true`,
+		I: map[string]interface{}{},
+		R: true,
+	},
+
+	{
+		E: `ai | 42`,
+		I: map[string]interface{}{
+			"ai": int64(10),
+		},
+		R: int64(10),
+		IL: `
+fn eval() integer
+  tresolve_i "ai"
+  jnz L0
+  apush_i 42
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ai | 42`,
+		I: map[string]interface{}{},
+		R: int64(42),
+	},
+	{
+		E: `ai | bi | 42`,
+		I: map[string]interface{}{
+			"ai": int64(10),
+		},
+		R: int64(10),
+		IL: `
+fn eval() integer
+  tresolve_i "ai"
+  jnz L0
+  tresolve_i "bi"
+  jnz L0
+  apush_i 42
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ai | bi | 42`,
+		I: map[string]interface{}{
+			"bi": int64(20),
+		},
+		R: int64(20),
+	},
+	{
+		E: `ai | bi | 42`,
+		I: map[string]interface{}{},
+		R: int64(42),
+	},
+
+	{
+		E: `ad | 42.1`,
+		I: map[string]interface{}{
+			"ad": float64(10),
+		},
+		R: float64(10),
+		IL: `
+fn eval() double
+  tresolve_d "ad"
+  jnz L0
+  apush_d 42.100000
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ad | 42.1`,
+		I: map[string]interface{}{},
+		R: float64(42.1),
+	},
+	{
+		E: `ad | bd | 42.1`,
+		I: map[string]interface{}{
+			"ad": float64(10),
+		},
+		R: float64(10),
+		IL: `
+fn eval() double
+  tresolve_d "ad"
+  jnz L0
+  tresolve_d "bd"
+  jnz L0
+  apush_d 42.100000
+L0:
+  ret
+end`,
+	},
+	{
+		E: `ad | bd | 42.1`,
+		I: map[string]interface{}{
+			"bd": float64(20),
+		},
+		R: float64(20),
+	},
+	{
+		E: `ad | bd | 42.1`,
+		I: map[string]interface{}{},
+		R: float64(42.1),
+	},
+
+	{
+		E:       `(ar | br)["foo"]`,
+		SkipAst: true,
+		I: map[string]interface{}{
+			"ar": map[string]string{
+				"foo": "bar",
+			},
+			"br": map[string]string{
+				"foo": "far",
+			},
+		},
+		R: "bar",
+		IL: `
+fn eval() string
+  tresolve_f "ar"
+  jnz L0
+  resolve_f "br"
+L0:
+  anlookup "foo"
+  ret
+end`,
+	},
+	{
+		E:       `(ar | br)["foo"]`,
+		SkipAst: true,
+		I: map[string]interface{}{
+			"br": map[string]string{
+				"foo": "far",
+			},
+		},
+		R: "far",
+	},
+
+	{
+		E: "ai == 2",
+		I: map[string]interface{}{
+			"ai": int64(2),
+		},
+		R: true,
+		IL: `
+ fn eval() bool
+  resolve_i "ai"
+  aeq_i 2
+  ret
+end`,
+	},
+	{
+		E: "ai == 2",
+		I: map[string]interface{}{
+			"ai": int64(0x7F000000FF000000),
+		},
+		R: false,
+	},
+	{
+		E: "as == bs",
+		I: map[string]interface{}{
+			"as": "ABC",
+			"bs": "ABC",
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  eq_s
+  ret
+end`,
+	},
+	{
+		E: "ab == bb",
+		I: map[string]interface{}{
+			"ab": true,
+			"bb": true,
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_b "ab"
+  resolve_b "bb"
+  eq_b
+  ret
+end`,
+	},
+	{
+		E: "ai == bi",
+		I: map[string]interface{}{
+			"ai": int64(0x7F000000FF000000),
+			"bi": int64(0x7F000000FF000000),
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_i "ai"
+  resolve_i "bi"
+  eq_i
+  ret
+end`,
+	},
+	{
+		E: "ad == bd",
+		I: map[string]interface{}{
+			"ad": float64(345345.45),
+			"bd": float64(345345.45),
+		},
+		R: true,
+		IL: `
+fn eval() bool
+  resolve_d "ad"
+  resolve_d "bd"
+  eq_d
+  ret
+end`,
+	},
+	{
+		E: "ai != 2",
+		I: map[string]interface{}{
+			"ai": int64(2),
+		},
+		R: false,
+		IL: `
+ fn eval() bool
+  resolve_i "ai"
+  aeq_i 2
+  not
+  ret
+end`,
+	},
+
+	{
+		E: `sm["foo"]`,
+		I: map[string]interface{}{
+			"sm": map[string]string{"foo": "bar"},
+		},
+		R: "bar",
+		IL: `
+fn eval() string
+  resolve_f "sm"
+  anlookup "foo"
+  ret
+end`,
+	},
+	{
+		E: `sm[as]`,
+		I: map[string]interface{}{
+			"as": "foo",
+			"sm": map[string]string{"foo": "bar"},
+		},
+		R: "bar",
+		IL: `
+fn eval() string
+  resolve_f "sm"
+  resolve_s "as"
+  nlookup
+  ret
+end`,
+	},
+	{
+		E: `ar["c"] | "foo"`,
+		I: map[string]interface{}{},
+		R: "foo",
+		IL: `
+fn eval() string
+  tresolve_f "ar"
+  jnz L0
+  jmp L1
+L0:
+  apush_s "c"
+  tlookup
+  jnz L2
+L1:
+  apush_s "foo"
+L2:
+  ret
+end`,
+	},
+	{
+		E: `ar["c"] | "foo"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{"c": "b"},
+		},
+		R: "b",
+	},
+	{
+		E: `ar[as] | "foo"`,
+		I: map[string]interface{}{},
+		R: "foo",
+		IL: `
+fn eval() string
+  tresolve_f "ar"
+  jnz L0
+  jmp L1
+L0:
+  tresolve_s "as"
+  jnz L2
+  jmp L1
+L2:
+  tlookup
+  jnz L3
+L1:
+  apush_s "foo"
+L3:
+  ret
+end`,
+	},
+	{
+		E: `ar[as] | "foo"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{"as": "bar"},
+		},
+		R: "foo",
+	},
+	{
+		E: `ar[as] | "foo"`,
+		I: map[string]interface{}{
+			"as": "bar",
+		},
+		R: "foo",
+	},
+	{
+		E: `ar[as] | "foo"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{"as": "bar"},
+			"as": "!!!!",
+		},
+		R: "foo",
+	},
+	{
+		E: `ar[as] | "foo"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{"asval": "bar"},
+			"as": "asval",
+		},
+		R: "bar",
+	},
+	{
+		E: `ar["b"] | ar["c"] | "null"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{
+				"b": "c",
+				"c": "b",
+			},
+		},
+		R: "c",
+		IL: `
+fn eval() string
+  tresolve_f "ar"
+  jnz L0
+  jmp L1
+L0:
+  apush_s "b"
+  tlookup
+  jnz L2
+L1:
+  tresolve_f "ar"
+  jnz L3
+  jmp L4
+L3:
+  apush_s "c"
+  tlookup
+  jnz L2
+L4:
+  apush_s "null"
+L2:
+  ret
+end`,
+	},
+	{
+		E: `ar["b"] | ar["c"] | "null"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{},
+		},
+		R: "null",
+	},
+	{
+		E: `ar["b"] | ar["c"] | "null"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{
+				"b": "c",
+			},
+		},
+		R: "c",
+	},
+	{
+		E: `ar["b"] | ar["c"] | "null"`,
+		I: map[string]interface{}{
+			"ar": map[string]string{
+				"c": "b",
+			},
+		},
+		R: "b",
+	},
+	{
+		E: `adur`,
+		I: map[string]interface{}{
+			"adur": duration20,
+		},
+		R: duration20,
+		IL: `
+fn eval() duration
+  resolve_i "adur"
+  ret
+end`,
+	},
+	{
+		E: `adur | "19ms"`,
+		I: map[string]interface{}{},
+		R: duration19,
+		IL: `
+fn eval() duration
+  tresolve_i "adur"
+  jnz L0
+  apush_i 19000000
+L0:
+  ret
+end`,
+	},
+	{
+		E: `adur | "19ms"`,
+		I: map[string]interface{}{
+			"adur": duration20,
+		},
+		R: duration20,
+	},
+	{
+		E: `at`,
+		I: map[string]interface{}{
+			"at": time1977,
+		},
+		R: time1977,
+	},
+	{
+		E: `at | bt`,
+		I: map[string]interface{}{
+			"at": time1999,
+			"bt": time1977,
+		},
+		R: time1999,
+	},
+	{
+		E: `at | bt`,
+		I: map[string]interface{}{
+			"bt": time1977,
+		},
+		R: time1977,
+	},
+	{
+		E: `aip`,
+		I: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+		},
+		R: []byte{0x1, 0x2, 0x3, 0x4},
+	},
+	{
+		E: `aip | bip`,
+		I: map[string]interface{}{
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		R: []byte{0x4, 0x5, 0x6, 0x7},
+	},
+	{
+		E: `aip | bip`,
+		I: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		R: []byte{0x1, 0x2, 0x3, 0x4},
+	},
+	{
+		E: `ip("0.0.0.0")`,
+		R: []byte(net.IPv4zero),
+		IL: `fn eval() interface
+  apush_s "0.0.0.0"
+  call ip
+  ret
+end`,
+	},
+	{
+		E: `aip == bip`,
+		I: map[string]interface{}{
+			"aip": []byte{0x1, 0x2, 0x3, 0x4},
+			"bip": []byte{0x4, 0x5, 0x6, 0x7},
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "aip"
+  resolve_f "bip"
+  call ip_equal
+  ret
+end`,
+	},
+	{
+		E: `timestamp("2015-01-02T15:04:35Z")`,
+		R: t,
+		IL: `fn eval() interface
+  apush_s "2015-01-02T15:04:35Z"
+  call timestamp
+  ret
+end`,
+	},
+	{
+		E: `t1 == t2`,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  ret
+end`,
+	},
+	{
+		E: `t1 == t2`,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t,
+		},
+		R: true,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  ret
+end`,
+	},
+	{
+		E: `t1 != t2`,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t,
+		},
+		R: false,
+		IL: `fn eval() bool
+  resolve_f "t1"
+  resolve_f "t2"
+  call timestamp_equal
+  not
+  ret
+end`,
+	},
+	{
+		E: `t1 | t2`,
+		I: map[string]interface{}{
+			"t2": t2,
+		},
+		R: t2,
+	},
+	{
+		E: `t1 | t2`,
+		I: map[string]interface{}{
+			"t1": t,
+			"t2": t2,
+		},
+		R: t,
+	},
+	{
+		E:          `@23`,
+		CompileErr: "unable to parse expression '@23': 1:1: illegal character U+0040 '@'",
+		AstErr:     "unable to parse expression '@23': 1:1: illegal character U+0040 '@'",
+	},
+	{
+		E:          `ai == true`,
+		CompileErr: "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64",
+		SkipAst:    true,
 	},
 }
 

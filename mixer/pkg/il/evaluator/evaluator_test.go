@@ -144,66 +144,6 @@ func testWithASTEvaluator(test ilt.TestInfo, t *testing.T) {
 	}
 }
 
-func TestEval(t *testing.T) {
-	e := initEvaluator(t, configInt)
-	bag := initBag(int64(23))
-	r, err := e.Eval("attr", bag)
-	if err != nil {
-		t.Fatalf("error: %s", err)
-	}
-	if r != int64(23) {
-		t.Fatalf("Unexpected result: r:%v, expected: %v", r, 23)
-	}
-}
-
-func TestEval_Error(t *testing.T) {
-	e := initEvaluator(t, configInt)
-	bag := initBag(int64(23))
-	_, err := e.Eval("foo", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
-	}
-}
-
-func TestEval_IPError(t *testing.T) {
-	e := initEvaluator(t, configInt)
-	bag := initBag(int64(23))
-	_, err := e.Eval("ip(\"not-an-ip-addr\")", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
-	}
-}
-
-func TestEval_TIMESTAMPError(t *testing.T) {
-	e := initEvaluator(t, configInt)
-	bag := initBag(int64(23))
-	_, err := e.Eval("timestamp(\"not-a-timestamp\")", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
-	}
-}
-
-func TestEvalString(t *testing.T) {
-	e := initEvaluator(t, configString)
-	bag := initBag("foo")
-	r, err := e.EvalString("attr", bag)
-	if err != nil {
-		t.Fatalf("error: %s", err)
-	}
-	if r != "foo" {
-		t.Fatalf("Unexpected result: r: %v, expected: %v", r, "foo")
-	}
-}
-
-func TestEvalString_Error(t *testing.T) {
-	e := initEvaluator(t, configString)
-	bag := initBag("foo")
-	_, err := e.EvalString("bar", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
-	}
-}
-
 func TestEvalString_DifferentType(t *testing.T) {
 	e := initEvaluator(t, configInt)
 	bag := initBag(int64(23))
@@ -213,6 +153,15 @@ func TestEvalString_DifferentType(t *testing.T) {
 	}
 	if r != "23" {
 		t.Fatalf("Unexpected result: r: %v, expected: %v", r, "23")
+	}
+}
+
+func TestEvalPredicate_WrongType(t *testing.T) {
+	e := initEvaluator(t, configBool)
+	bag := initBag(int64(23))
+	_, err := e.EvalPredicate("attr", bag)
+	if err == nil {
+		t.Fatal("Was expecting an error")
 	}
 }
 
@@ -268,65 +217,6 @@ func TestConcurrent(t *testing.T) {
 
 	if len(errChan) > 0 {
 		t.Fatalf("Failed with %d errors: %v", len(errChan), <-errChan)
-	}
-}
-
-func TestEvalPredicate(t *testing.T) {
-	e := initEvaluator(t, configBool)
-	bag := initBag(true)
-	r, err := e.EvalPredicate("attr", bag)
-	if err != nil {
-		t.Fatalf("error: %s", err)
-	}
-	if !r {
-		t.Fatal("Expected result to be true.")
-	}
-}
-
-func TestEval_Match(t *testing.T) {
-	var tests = []struct {
-		str     string
-		pattern string
-		result  bool
-	}{
-		{"abc", "abc", true},
-		{"ns1.svc.local", "ns1.*", true},
-		{"ns1.svc.local", "ns2.*", false},
-		{"svc1.ns1.cluster", "*.ns1.cluster", true},
-		{"svc1.ns1.cluster", "*.ns1.cluster1", false},
-	}
-
-	bag := initBag(int64(23))
-	e := initEvaluator(t, configInt)
-	for _, test := range tests {
-		expr := fmt.Sprintf("match(\"%s\", \"%s\")", test.str, test.pattern)
-		r, err := e.Eval(expr, bag)
-		if err != nil {
-			t.Logf("Expression: %s", expr)
-			t.Fatalf("Unexpected error: %+v", err)
-		}
-		if r != test.result {
-			t.Logf("Expression: %s", expr)
-			t.Fatalf("Result mismatch: E:%v != A:%v", test.result, r)
-		}
-	}
-}
-
-func TestEvalPredicate_Error(t *testing.T) {
-	e := initEvaluator(t, configBool)
-	bag := initBag(true)
-	_, err := e.EvalPredicate("boo", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
-	}
-}
-
-func TestEvalPredicate_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
-	bag := initBag(int64(23))
-	_, err := e.EvalPredicate("attr", bag)
-	if err == nil {
-		t.Fatal("Was expecting an error")
 	}
 }
 
