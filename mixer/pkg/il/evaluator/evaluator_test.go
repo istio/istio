@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -26,10 +27,122 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
-	iltesting "istio.io/istio/mixer/pkg/il/testing"
+	"istio.io/istio/mixer/pkg/expr"
+	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
 const maxStringTableSizeForPurge int = 1024
+
+func TestExpressions(t *testing.T) {
+	for _, test := range ilt.TestData {
+		if test.E == "" {
+			// Skip tests that don't have expression.
+			continue
+		}
+
+		name := "IL/" + test.E
+		t.Run(name, func(tt *testing.T) {
+			testWithILEvaluator(test, tt)
+		})
+
+		name = "AST/" + test.E
+		t.Run(name, func(tt *testing.T) {
+			if test.SkipAst {
+				tt.Skip("Skipping: %s", name)
+				return
+			}
+
+			testWithASTEvaluator(test, tt)
+		})
+	}
+}
+
+func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
+	config := test.Conf
+	if config == nil {
+		config = ilt.TestConfigs["Default"]
+	}
+
+	evaluator := initEvaluator(t, *config)
+	bag := &ilt.FakeBag{Attrs: test.I}
+
+	r, err := evaluator.Eval(test.E, bag)
+	if test.Err != "" || test.CompileErr != "" {
+		expectedErr := test.Err
+		if expectedErr == "" {
+			expectedErr = test.CompileErr
+		}
+
+		if err == nil {
+			t.Errorf("Expected error was not thrown: %s", expectedErr)
+			return
+		}
+		if !strings.EqualFold(expectedErr, err.Error()) {
+			t.Errorf("Error mismatch: '%s' != '%s'", err.Error(), expectedErr)
+		}
+		return
+	}
+
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if !ilt.AreEqual(test.R, r) {
+		t.Errorf("Result mismatch: %v != %v", r, test.R)
+	}
+
+	// Depending on the type, try testing specialized methods as well.
+
+	if estr, ok := test.R.(string); ok {
+		astr, err := evaluator.EvalString(test.E, bag)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if astr != estr {
+			t.Errorf("EvalString failed: '%s' != '%s'", astr, estr)
+		}
+	}
+
+	if ebool, ok := test.R.(bool); ok {
+		abool, err := evaluator.EvalPredicate(test.E, bag)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if abool != ebool {
+			t.Errorf("EvalString failed: '%s' != '%s'", abool, ebool)
+		}
+	}
+}
+
+func testWithASTEvaluator(test ilt.TestInfo, t *testing.T) {
+	ev, er := expr.NewCEXLEvaluator(1024)
+	if er != nil {
+		t.Errorf("Failed to create expression evaluator: %v", er)
+	}
+
+	input := test.I
+	if input == nil {
+		input = map[string]interface{}{}
+	}
+	attrs := &ilt.FakeBag{Attrs: input}
+	ret, err := ev.Eval(test.E, attrs)
+	if (err == nil) != (test.AstErr == "") {
+		t.Errorf("got %v, want %v", err, test.AstErr)
+		return
+	}
+
+	// check if error is of the correct type
+	if err != nil {
+		if !strings.Contains(err.Error(), test.AstErr) {
+			t.Errorf("got %s, want %s", err, test.AstErr)
+		}
+		return
+	}
+	// check result
+	if !ilt.AreEqual(test.R, ret) {
+		t.Errorf("got %v, want %v", ret, test.R)
+	}
+}
 
 func TestEval(t *testing.T) {
 	e := initEvaluator(t, configInt)
@@ -121,7 +234,7 @@ func TestConcurrent(t *testing.T) {
 
 	for i := 0; i < maxNum; i++ {
 		v := randString(6)
-		bags = append(bags, &iltesting.FakeBag{
+		bags = append(bags, &ilt.FakeBag{
 			Attrs: map[string]interface{}{
 				"attr": v,
 			},
@@ -354,7 +467,7 @@ func initBag(attrValue interface{}) attribute.Bag {
 	attrs := make(map[string]interface{})
 	attrs["attr"] = attrValue
 
-	return &iltesting.FakeBag{Attrs: attrs}
+	return &ilt.FakeBag{Attrs: attrs}
 }
 
 func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
