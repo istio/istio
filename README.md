@@ -51,39 +51,34 @@ by teams from Google and IBM, in partnership with the Envoy team at Lyft.
 
 ## Repositories
 
-The Istio project is divided across multiple GitHub repositories. Each
-repository contains information about how to build and test it.
+The Istio project is divided across a few GitHub repositories.
 
-- [istio/api](https://github.com/istio/api). This repository defines
-component-level APIs and common configuration formats for the Istio platform.
-
-- [istio/auth](https://github.com/istio/auth). This repository contains auth related code,
+- [istio/istio](README.md). This is the main repo that you are
+currently looking at. It hosts the core components of Istio and also
+the sample programs and the various documents that govern the Istio open source
+project. It includes:
+  - [auth](auth/). This directory contains auth related code,
 including CA (Cert Authority), node agent, etc.
-
-- [istio/istio](README.md). This is the repo you are
-currently looking at. It hosts the various Istio sample programs
-along with the various documents that govern the Istio open source
-project.
-
-- [istio/pilot](https://github.com/istio/pilot). This repository
+  - [istio/pilot](pilot/). This directory
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/overview.html), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
 [routing rules](https://istio.io/docs/reference/config/traffic-rules/routing-rules.html) into proxy specific configuration.  The
 [_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility is also available in
-this repository.
-
-- [istio/mixer](https://github.com/istio/mixer). This repository
+this directory.
+  - [mixer](mixer/). This directory
 contains code to enforce various policies for traffic passing through the
 proxies, and collect telemetry data from proxies and services. There
 are plugins for interfacing with various cloud platforms, policy
 management services, and monitoring services.
+  - [broker](broker/). This directory
+contains code for Istio's implementation of the Open Service Broker API.
+
+- [istio/api](https://github.com/istio/api). This repository defines
+component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
 for the mixer API.
-
-- [istio/broker](https://github.com/istio/broker). This repository
-contains code for Istio's implementation of the Open Service Broker API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
