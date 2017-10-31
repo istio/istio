@@ -4,7 +4,7 @@ licenses(["notice"])
 
 load("@io_bazel_rules_go//go:def.bzl", "gazelle", "go_prefix")
 
-go_prefix("istio.io/broker")
+go_prefix("istio.io/istio/broker")
 
 gazelle(
     name = "gazelle",

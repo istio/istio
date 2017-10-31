@@ -22,8 +22,8 @@ import (
 	"github.com/golang/mock/gomock"
 
 	brokerconfig "istio.io/api/broker/v1/config"
-	"istio.io/broker/pkg/model/config"
-	"istio.io/broker/pkg/model/osb"
+	"istio.io/istio/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/model/osb"
 )
 
 type testStore struct {

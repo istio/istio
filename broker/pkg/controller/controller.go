@@ -22,8 +22,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/broker/pkg/model/config"
-	"istio.io/broker/pkg/model/osb"
+	"istio.io/istio/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/model/osb"
 )
 
 // Controller data

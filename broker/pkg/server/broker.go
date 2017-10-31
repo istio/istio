@@ -22,9 +22,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 
-	"istio.io/broker/pkg/controller"
-	"istio.io/broker/pkg/model/config"
-	"istio.io/broker/pkg/platform/kube/crd"
+	"istio.io/istio/broker/pkg/controller"
+	"istio.io/istio/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/platform/kube/crd"
 )
 
 // Server data

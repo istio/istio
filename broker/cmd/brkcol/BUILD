@@ -12,7 +12,7 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     deps = [
-        "//cmd/brkcol/cmd:go_default_library",
-        "//cmd/shared:go_default_library",
+        "//broker/cmd/brkcol/cmd:go_default_library",
+        "//broker/cmd/shared:go_default_library",
     ],
 )

@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/broker/cmd/shared"
+	"istio.io/istio/broker/cmd/shared"
 )
 
 // GetRootCmd generates the root command for broker server.

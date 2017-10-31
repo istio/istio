@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("//docker:broker_docker.bzl", "broker_docker_build")
+load("//broker/docker:broker_docker.bzl", "broker_docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
@@ -7,7 +7,7 @@ pkg_tar(
     name = "broker_tar",
     extension = "tar.gz",
     files = [
-        "//cmd/brks",
+        "//broker/cmd/brks",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin/",

@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/model/config"
 )
 
 // IstioObject is a k8s wrapper interface for config objects

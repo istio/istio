@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	brks "istio.io/broker/cmd/brks/cmd"
-	"istio.io/broker/cmd/shared"
+	brks "istio.io/istio/broker/cmd/brks/cmd"
+	"istio.io/istio/broker/cmd/shared"
 )
 
 // GetRootCmd returns the root of the cobra command-tree.

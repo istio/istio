@@ -23,9 +23,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/broker/pkg/model/config"
-	"istio.io/broker/pkg/testing/mock"
-	"istio.io/broker/pkg/testing/util"
+	"istio.io/istio/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/testing/mock"
+	"istio.io/istio/broker/pkg/testing/util"
 )
 
 func kubeconfig(t *testing.T) string {

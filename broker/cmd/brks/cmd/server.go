@@ -17,8 +17,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"istio.io/broker/cmd/shared"
-	"istio.io/broker/pkg/server"
+	"istio.io/istio/broker/cmd/shared"
+	"istio.io/istio/broker/pkg/server"
 )
 
 type serverArgs struct {
