@@ -1,0 +1,49 @@
+################################
+# Istio CA with plugged key/certs. Run this after istio-auth.yaml
+################################
+# Service account CA
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: istio-system
+---
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: gcr.io/istio-testing/istio-ca:d8928ed10bdbd180cbad39f9a4eaf8a70ddb37a2
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --grpc-port=8060
+          - --grpc-hostname=istio-ca
+          - --self-signed-ca=false
+          - --signing-cert=/etc/cacerts/ca-cert.pem
+          - --signing-key=/etc/cacerts/ca-key.pem
+          - --root-cert=/etc/cacerts/root-cert.pem
+          - --cert-chain=/etc/cacerts/cert-chain.pem
+        volumeMounts:
+        - name: cacerts
+          mountPath: /etc/cacerts
+          readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+---
