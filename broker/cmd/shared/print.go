@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/broker/pkg/version"
+	"istio.io/istio/broker/pkg/version"
 )
 
 // FormatFn formats the supplied arguments according to the format string

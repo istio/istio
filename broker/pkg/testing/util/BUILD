@@ -1,4 +1,4 @@
-package(default_visibility = ["//pkg:__subpackages__"])
+package(default_visibility = ["//broker/pkg:__subpackages__"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 

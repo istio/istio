@@ -19,7 +19,7 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/broker/pkg/model/config"
+	"istio.io/istio/broker/pkg/model/config"
 )
 
 // convertObject translates k8s config JSON to Broker config
