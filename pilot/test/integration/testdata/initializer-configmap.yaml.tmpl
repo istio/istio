@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+data:
+  config: |-
+    policy: "{{.Policy}}"
+    namespaces:
+{{ range $namespace := .IncludeNamespaces}}
+    - "{{$namespace}}"
+{{ end }}
+    initializerName: "sidecar.initializer.istio.io"
+    params:
+      initImage: "{{.Params.InitImage}}"
+      proxyImage: "{{.Params.ProxyImage}}"
+      verbosity: {{.Params.Verbosity}}
+      SidecarProxyUID: {{.Params.SidecarProxyUID}}
+      Version: "{{.Params.Version}}"
+      DebugMode: {{.Params.DebugMode}}
+      EnableCoreDump: {{.Params.EnableCoreDump}}
+      ImagePullPolicy: "{{.Params.ImagePullPolicy}}"
+      IncludeIPRanges: "{{.Params.IncludeIPRanges}}"

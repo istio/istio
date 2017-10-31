@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  labels:
+    infra: zipkin
+spec:
+  ports:
+  - port: 9411
+    name: zipkin
+  selector:
+    infra: zipkin
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.istio.io/inject: "false"
+  name: zipkin
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        infra: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image: docker.io/openzipkin/zipkin
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9411
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace

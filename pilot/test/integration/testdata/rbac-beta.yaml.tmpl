@@ -1,0 +1,128 @@
+# Permissions and roles for istio
+# To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
+# Also helps to enable logging on apiserver 'wrap' to see the URLs.
+# Each RBAC deny needs to be mapped into a rule for the role.
+# If using minikube, start with '--extra-config=apiserver.Authorization.Mode=RBAC'
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-pilot-{{.IstioNamespace}}
+rules:
+- apiGroups: ["config.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io/v1beta1"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses", "ingresses/status"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "nodes", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["externaladmissionhookconfigurations"]
+  verbs: ["create", "delete"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca-{{.IstioNamespace}}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["get", "watch", "list"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer-{{.IstioNamespace}}
+rules:
+- apiGroups: ["*"]
+  resources: ["deployments", "statefulsets", "jobs", "cronjobs", "daemonsets", "replicasets", "replicationcontrollers"]
+  verbs: ["initialize", "patch", "watch", "list"]
+- apiGroups: ["*"]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+---
+# Grant permissions to the Pilot/discovery.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-pilot-admin-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-pilot-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ca-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-ca-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-ca-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Ingress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-ingress-admin-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-ingress-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---
+# Grant permissions to the Egress controller.
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-egress-admin-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-egress-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-pilot-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---
+# Gran permissions to the Sidecar initializer
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: istio-sidecar-initializer-admin-role-binding-{{.IstioNamespace}}
+subjects:
+- kind: ServiceAccount
+  name: istio-sidecar-initializer-service-account
+  namespace: {{.IstioNamespace}}
+roleRef:
+  kind: ClusterRole
+  name: istio-sidecar-initializer-{{.IstioNamespace}}
+  apiGroup: rbac.authorization.k8s.io
+---

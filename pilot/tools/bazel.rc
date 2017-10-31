@@ -1,0 +1,6 @@
+# This is so we understand failures better
+build --verbose_failures
+test --test_output=errors
+
+build --workspace_status_command=bin/get_workspace_status --action_env=ISTIO_VERSION
+build --sandbox_tmpfs_path=/dev/shm

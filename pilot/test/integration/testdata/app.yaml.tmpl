@@ -1,0 +1,98 @@
+# Test service without the proxy
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.service}}
+  labels:
+    app: {{.service}}
+spec:
+  ports:
+  - port: 80
+    targetPort: {{.port1}}
+    name: http
+  - port: 8080
+    targetPort: {{.port2}}
+    name: http-two
+  - port: 90
+    targetPort: {{.port3}}
+    name: tcp
+  - port: 9090
+    targetPort: {{.port4}}
+    name: https
+  - port: 70
+    targetPort: {{.port5}}
+    name: http2-example
+  - port: 7070
+    targetPort: {{.port6}}
+    name: grpc
+  selector:
+    app: {{.service}}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+{{if eq .injectProxy "false"}}
+  annotations:
+    sidecar.istio.io/inject: "false"
+{{end}}
+  name: {{.deployment}}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{.service}}
+        version: {{.version}}
+    spec:
+      containers:
+      - name: app
+        image: {{.Hub}}/app:{{.Tag}}
+        imagePullPolicy: IfNotPresent
+        args:
+          - --port
+          - "{{.port1}}"
+          - --port
+          - "{{.port2}}"
+          - --port
+          - "{{.port3}}"
+          - --port
+          - "{{.port4}}"
+          - --grpc
+          - "{{.port5}}"
+          - --grpc
+          - "{{.port6}}"
+          - --port
+          - "10090"
+          - --port
+          - "19090"
+{{if eq .healthPort "true"}}
+          - --port
+          - "3333"
+{{end}}
+          - --version
+          - "{{.version}}"
+        ports:
+        - containerPort: {{.port1}}
+        - containerPort: {{.port2}}
+        - containerPort: {{.port3}}
+        - containerPort: {{.port4}}
+        - containerPort: 10090
+        - containerPort: 19090
+{{if eq .healthPort "true"}}
+        - name: tcp-health-port
+          containerPort: 3333
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3333
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+        readinessProbe:
+          tcpSocket:
+            port: tcp-health-port
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 10
+{{end}}
+---
