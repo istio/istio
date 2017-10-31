@@ -7,7 +7,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/platform:go_default_library",
+        "//auth/pkg/platform:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

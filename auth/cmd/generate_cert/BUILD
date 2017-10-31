@@ -5,7 +5,7 @@ go_library(
     srcs = ["main.go"],
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/pki/ca:go_default_library",
+        "//auth/pkg/pki/ca:go_default_library",
         "@com_github_golang_glog//:go_default_library",
     ],
 )

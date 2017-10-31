@@ -20,11 +20,11 @@ import (
 	"os"
 	"time"
 
-	"istio.io/auth/cmd/istio_ca/version"
-	"istio.io/auth/pkg/cmd"
-	"istio.io/auth/pkg/pki/ca"
-	"istio.io/auth/pkg/pki/ca/controller"
-	"istio.io/auth/pkg/server/grpc"
+	"istio.io/istio/auth/cmd/istio_ca/version"
+	"istio.io/istio/auth/pkg/cmd"
+	"istio.io/istio/auth/pkg/pki/ca"
+	"istio.io/istio/auth/pkg/pki/ca/controller"
+	"istio.io/istio/auth/pkg/server/grpc"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"

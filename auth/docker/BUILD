@@ -5,7 +5,7 @@ pkg_tar(
     name = "istio_ca_tar",
     extension = "tar.gz",
     srcs = [
-        "//cmd/istio_ca:istio_ca",
+        "//auth/cmd/istio_ca:istio_ca",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin",

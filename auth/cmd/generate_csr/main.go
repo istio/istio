@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/auth/pkg/pki/ca"
+	"istio.io/istio/auth/pkg/pki/ca"
 
 	"github.com/golang/glog"
 )

@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-	"istio.io/auth/pkg/platform"
+	"istio.io/istio/auth/pkg/platform"
 )
 
 // FakeClient is mocked platform metadata client.

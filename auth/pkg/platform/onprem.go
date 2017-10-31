@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"istio.io/auth/pkg/pki"
+	"istio.io/istio/auth/pkg/pki"
 )
 
 // OnPremClientImpl is the implementation of on premise metadata client.

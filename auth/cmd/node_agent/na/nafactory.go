@@ -19,8 +19,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/auth/pkg/platform"
-	"istio.io/auth/pkg/workload"
+	"istio.io/istio/auth/pkg/platform"
+	"istio.io/istio/auth/pkg/workload"
 )
 
 // NodeAgent interface that should be implemented by

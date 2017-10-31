@@ -8,11 +8,11 @@ go_library(
     ],
     visibility = ["//visibility:private"],
     deps = [
-        "//cmd/istio_ca/version:go_default_library",
-        "//pkg/cmd:go_default_library",
-        "//pkg/pki/ca:go_default_library",
-        "//pkg/pki/ca/controller:go_default_library",
-        "//pkg/server/grpc:go_default_library",
+        "//auth/cmd/istio_ca/version:go_default_library",
+        "//auth/pkg/cmd:go_default_library",
+        "//auth/pkg/pki/ca:go_default_library",
+        "//auth/pkg/pki/ca/controller:go_default_library",
+        "//auth/pkg/server/grpc:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_cobra//doc:go_default_library",
@@ -26,6 +26,6 @@ go_library(
 go_binary(
     name = "istio_ca",
     library = ":go_default_library",
-    linkstamp = "istio.io/auth/cmd/istio_ca/version",
+    linkstamp = "istio.io/istio/auth/cmd/istio_ca/version",
     visibility = ["//visibility:public"],
 )

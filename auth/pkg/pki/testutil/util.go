@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/auth/pkg/pki"
+	"istio.io/istio/auth/pkg/pki"
 )
 
 // VerifyFields contains the certficate fields to verify in the test.

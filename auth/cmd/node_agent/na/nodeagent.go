@@ -21,10 +21,10 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"istio.io/auth/pkg/pki/ca"
-	"istio.io/auth/pkg/platform"
-	"istio.io/auth/pkg/workload"
-	pb "istio.io/auth/proto"
+	"istio.io/istio/auth/pkg/pki/ca"
+	"istio.io/istio/auth/pkg/platform"
+	"istio.io/istio/auth/pkg/workload"
+	pb "istio.io/istio/auth/proto"
 )
 
 // CAGrpcClient is for implementing the GRPC client to talk to CA.

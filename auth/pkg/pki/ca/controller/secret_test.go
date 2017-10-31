@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/auth/pkg/pki/ca"
+	"istio.io/istio/auth/pkg/pki/ca"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 	ktesting "k8s.io/client-go/testing"
 )
 

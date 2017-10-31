@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/auth/pkg/pki"
-	tu "istio.io/auth/pkg/pki/testutil"
+	"istio.io/istio/auth/pkg/pki"
+	tu "istio.io/istio/auth/pkg/pki/testutil"
 )
 
 var now = time.Now().Round(time.Second).UTC()

@@ -9,6 +9,6 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/util:go_default_library",
+        "//auth/pkg/util:go_default_library",
     ],
 )

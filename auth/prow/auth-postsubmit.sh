@@ -30,7 +30,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports.
     ln -s ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
-    cd "${GOPATH}/src/istio.io/auth"
+    cd "${GOPATH}/src/istio.io/istio/auth"
 
     # Use the provided base sha, from prow.
     GIT_SHA="${PULL_BASE_SHA}"

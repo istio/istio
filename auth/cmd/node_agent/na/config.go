@@ -17,7 +17,7 @@ package na
 import (
 	"time"
 
-	"istio.io/auth/pkg/platform"
+	"istio.io/istio/auth/pkg/platform"
 )
 
 const (

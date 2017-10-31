@@ -29,9 +29,9 @@ import (
 
 	"golang.org/x/net/context"
 
-	"istio.io/auth/pkg/pki"
-	"istio.io/auth/pkg/pki/ca"
-	pb "istio.io/auth/proto"
+	"istio.io/istio/auth/pkg/pki"
+	"istio.io/istio/auth/pkg/pki/ca"
+	pb "istio.io/istio/auth/proto"
 )
 
 const certExpirationBuffer = time.Minute

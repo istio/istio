@@ -27,11 +27,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/auth/pkg/platform"
-	mockpc "istio.io/auth/pkg/platform/mock"
-	mockutil "istio.io/auth/pkg/util/mock"
-	"istio.io/auth/pkg/workload"
-	pb "istio.io/auth/proto"
+	"istio.io/istio/auth/pkg/platform"
+	mockpc "istio.io/istio/auth/pkg/platform/mock"
+	mockutil "istio.io/istio/auth/pkg/util/mock"
+	"istio.io/istio/auth/pkg/workload"
+	pb "istio.io/istio/auth/proto"
 )
 
 const (
@@ -250,7 +250,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "CSR request failed rpc error: code = 14 desc = grpc: the connection is unavailable",
+                        expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
 		},
 		"Without Insecure option": {
 			config: &Config{
@@ -314,7 +314,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
 			} else if err.Error() != c.expectedErr {
-				t.Errorf("%s: incorrect error message: [%s] VS [%s]", id, err.Error(), c.expectedErr)
+				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
 			}
 		} else {
 			if err != nil {
