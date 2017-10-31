@@ -1,0 +1,626 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:15001",
+    "name": "virtual",
+    "filters": [],
+    "bind_to_port": true,
+    "use_original_dst": true
+   },
+   {
+    "address": "tcp://0.0.0.0:443",
+    "name": "http_0.0.0.0_443",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "egress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "443",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://0.0.0.0:80",
+    "name": "http_0.0.0.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "egress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "80",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://0.0.0.0:81",
+    "name": "http_0.0.0.0_81",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "egress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "81",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.0.0:100",
+    "name": "mongo_10.1.0.0_100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.0.0:110",
+    "name": "redis_10.1.0.0_110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.0.0:90",
+    "name": "tcp_10.1.0.0_90",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1081",
+    "name": "http_10.1.1.0_1081",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "route_config": {
+        "virtual_hosts": [
+         {
+          "name": "inbound|1081",
+          "domains": [
+           "*"
+          ],
+          "routes": [
+           {
+            "prefix": "/websocket",
+            "cluster": "in.1081",
+            "opaque_config": {
+             "mixer_check": "on",
+             "mixer_forward": "off",
+             "mixer_report": "on"
+            },
+            "use_websocket": true
+           },
+           {
+            "prefix": "/",
+            "cluster": "in.1081",
+            "opaque_config": {
+             "mixer_check": "on",
+             "mixer_forward": "off",
+             "mixer_report": "on"
+            },
+            "decorator": {
+             "operation": "default-route"
+            }
+           }
+          ]
+         }
+        ]
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1090",
+    "name": "tcp_10.1.1.0_1090",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "destination.ip": "10.1.1.0",
+        "destination.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1090",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1100",
+    "name": "mongo_10.1.1.0_1100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "destination.ip": "10.1.1.0",
+        "destination.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1100",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:1110",
+    "name": "redis_10.1.1.0_1110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mixer",
+      "config": {
+       "mixer_attributes": {
+        "destination.ip": "10.1.1.0",
+        "destination.uid": "kubernetes://v0.default"
+       }
+      }
+     },
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "in.1110",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:3333",
+    "name": "tcp_10.1.1.0_3333",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.3333",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:80",
+    "name": "http_10.1.1.0_80",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "ingress"
+       },
+       "route_config": {
+        "virtual_hosts": [
+         {
+          "name": "inbound|80",
+          "domains": [
+           "*"
+          ],
+          "routes": [
+           {
+            "prefix": "/websocket",
+            "cluster": "in.80",
+            "opaque_config": {
+             "mixer_check": "on",
+             "mixer_forward": "off",
+             "mixer_report": "on"
+            },
+            "use_websocket": true
+           },
+           {
+            "prefix": "/",
+            "cluster": "in.80",
+            "opaque_config": {
+             "mixer_check": "on",
+             "mixer_forward": "off",
+             "mixer_report": "on"
+            },
+            "decorator": {
+             "operation": "default-route"
+            }
+           }
+          ]
+         }
+        ]
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.1.1.0:9999",
+    "name": "tcp_10.1.1.0_9999",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.9999",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:100",
+    "name": "mongo_10.2.0.0_100",
+    "filters": [
+     {
+      "type": "both",
+      "name": "mongo_proxy",
+      "config": {
+       "stat_prefix": "mongo"
+      }
+     },
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+          "destination_ip_list": [
+           "10.2.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:110",
+    "name": "redis_10.2.0.0_110",
+    "filters": [
+     {
+      "type": "both",
+      "name": "redis_proxy",
+      "config": {
+       "cluster_name": "out.12a577b4dd04c9a3fed313fc71fb850e7f9c345f",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
+      }
+     }
+    ],
+    "bind_to_port": false
+   },
+   {
+    "address": "tcp://10.2.0.0:90",
+    "name": "tcp_10.2.0.0_90",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
+          "destination_ip_list": [
+           "10.2.0.0/32"
+          ]
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "bind_to_port": false
+   }
+  ]
+ }

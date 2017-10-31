@@ -1,0 +1,38 @@
+version: 2
+
+jobs:
+  build:
+    machine: true
+    working_directory: ~/go/src/istio.io/pilot
+    environment:
+      CHANGE_MINIKUBE_NONE_USER: true
+    steps:
+      - checkout
+      - run: bin/install-bazel.sh
+      - run:
+          command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+      - run:
+          command: |
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+      - run:
+          command: |
+            sudo -E minikube start \
+            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+            --kubernetes-version=v1.7.5 --vm-driver=none
+      - run:
+          command: |
+            sudo -E minikube update-context
+      - run:
+          command: |
+            JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
+      - run:
+          command: |
+            sudo -E kubectl cluster-info
+      - run:
+          command: |
+            ln -s ~/.kube/config platform/kube/
+      - run: bazel build //...
+      - run: bazel test //...
+      - run: make docker HUB=docker.io/rshriram TAG=test
+      - run: make e2etest HUB=docker.io/rshriram TAG=test

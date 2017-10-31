@@ -1,0 +1,35 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServiceClass
+metadata:
+  name: productpage-service-class
+spec:
+  deployment:
+    instance: productpage
+  entry:
+    name: istio-bookinfo-productpage
+    id: 4395a443-f49a-41b0-8d14-d17294cf612f
+    description: A book info service
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServicePlan
+metadata:
+  name: monthly-service-plan
+spec:
+  plan:
+    name: istio-monthly
+    id: 58646b26-867a-4954-a1b9-233dac07815b
+    description: monthly subscription
+  services:
+    - service-class/default/productpage-service-class
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: ServicePlan
+metadata:
+  name: yearly-service-plan
+spec:
+  plan: 
+    name: istio-yearly
+    id: cdd76b03-a28b-4638-b4e2-19ee44b36db7
+    description: yearly subscription
+  services:
+    - service-class/default/productpage-service-class

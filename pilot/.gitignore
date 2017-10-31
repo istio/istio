@@ -1,0 +1,20 @@
+/bazel-*
+platform/kube/config
+proxy/envoy/envoy
+vendor
+.idea*
+*.iml
+*.bak
+.vagrant
+
+# Eclipse artifacts
+.project
+
+# codecov.io test coverage
+coverage.out
+
+# auto-generated test files, e.g. mockgen
+*_gen_test.go
+
+# auto-generated build files
+*BUILD-e

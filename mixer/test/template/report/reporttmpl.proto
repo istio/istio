@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package SampleReport;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+message Template {
+    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+}

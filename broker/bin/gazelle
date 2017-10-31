@@ -1,0 +1,13 @@
+#!/bin/bash
+set -ex
+
+bazel run //:gazelle
+
+# rewrite auto-generated protobuf dependencies due to custom BUILD files in WORKSPACE.
+find . -type f -name BUILD -print0 | \
+    xargs -0 sed -i \
+         -e 's|google/rpc:go_default_library|:go_default_library|g'
+
+find . -type f -name BUILD -print0 | \
+    xargs -0 sed -i \
+          -e '/\/\/api\/broker\/v1:go_default_library/d'

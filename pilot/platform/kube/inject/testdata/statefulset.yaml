@@ -1,0 +1,27 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: hello
+spec:
+  serviceName: hello
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        volumeMounts:
+        - name: "data"
+          mountPath: "/var/lib/data"
+      volumes:
+        - name: data
+          hostPath:
+            path: "/mnt/disks/ssd0"

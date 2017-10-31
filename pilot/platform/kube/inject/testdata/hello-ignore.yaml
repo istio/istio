@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+        - name: hello
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80

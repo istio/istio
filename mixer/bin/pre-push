@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Run local pre-push hook
+#
+# If called directly install pre-push hook
+
+
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
+if [[ $ROOT == */.git ]]; then
+  echo "in git dir, moving up"
+  ROOT=$ROOT/..
+fi
+
+# check that we're installed, if not link the script in and exit
+cd $ROOT/.git/hooks/
+if [[ ! -e pre-push ]]; then
+  echo "Installing pre-push hook"
+  ln -s ../../bin/pre-push
+  exit 0
+fi
+
+cd $ROOT
+# if found WORKSPACE file we're in the right spot
+if ! [[ -f WORKSPACE ]]; then
+  echo "want to be in istio root dir, in unknown dir:" $PWD
+  exit 1
+fi
+
+bazel test --features=race //...
+bin/linters.sh -c upstream/master

@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello-ibm
+  namespace: ibm-system
+spec:
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: hello-ibm
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - name: hello-ibm
+        image: "fake.docker.io/google-samples/hello-ibm-go-gke:1.0"
+        ports:
+        - name: http
+          containerPort: 80

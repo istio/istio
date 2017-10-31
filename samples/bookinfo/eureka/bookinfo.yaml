@@ -1,9 +1,22 @@
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+############################################################################
 version: '2'
 services:
   details-v1:
-    image: istio/examples-bookinfo-details-v1-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-details-v1:0.2.8
     networks:
       default:
         aliases:
@@ -15,9 +28,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: istio/examples-bookinfo-ratings-v1-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-ratings-v1:0.2.8
     networks:
       default:
         aliases:
@@ -29,9 +40,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: istio/examples-bookinfo-reviews-v1-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-reviews-v1:0.2.8
     networks:
       default:
         aliases:
@@ -44,9 +53,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: istio/examples-bookinfo-reviews-v2-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-reviews-v2:0.2.8
     networks:
       default:
         aliases:
@@ -59,9 +66,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: istio/examples-bookinfo-reviews-v3-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-reviews-v3:0.2.8
     networks:
       default:
         aliases:
@@ -74,9 +79,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: istio/examples-bookinfo-productpage-v1-envoy:0.2.8
-    cap_add:
-      - NET_ADMIN
+    image: istio/examples-bookinfo-productpage-v1:0.2.8
     networks:
       default:
         aliases:

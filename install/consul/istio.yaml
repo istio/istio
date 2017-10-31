@@ -1,4 +1,4 @@
-# GENERATED FILE. Use with Docker-Compose and Consul
+# GENERATED FILE. Use with Docker-Compose and consul
 # TO UPDATE, modify files in install/consul/templates and run install/updateVersion.sh
 version: '2'
 services:
@@ -53,7 +53,7 @@ services:
     command: ["-internal", "-retry-attempts=-1", "consul://consul:8500"]
 
   pilot:
-    image: gcr.io/istio-testing/pilot:a0875083e266c4a52531de41df2b11d47512f18c
+    image: gcr.io/istio-testing/pilot:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     networks:
       istiomesh:
         aliases:

@@ -1,0 +1,56 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://127.0.0.1:15002",
+    "name": "http_127.0.0.1_15002",
+    "filters": [
+     {
+      "type": "read",
+      "name": "http_connection_manager",
+      "config": {
+       "codec_type": "auto",
+       "stat_prefix": "http",
+       "generate_request_id": true,
+       "tracing": {
+        "operation_name": "egress"
+       },
+       "rds": {
+        "cluster": "rds",
+        "route_config_name": "http_proxy",
+        "refresh_delay_ms": 10
+       },
+       "filters": [
+        {
+         "type": "decoder",
+         "name": "mixer",
+         "config": {
+          "mixer_attributes": {
+           "destination.ip": "10.1.1.0",
+           "destination.service": "hello.default.svc.cluster.local",
+           "destination.uid": "kubernetes://v0.default"
+          },
+          "forward_attributes": {
+           "source.ip": "10.1.1.0",
+           "source.uid": "kubernetes://v0.default"
+          },
+          "quota_name": "RequestCount"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "router",
+         "config": {}
+        }
+       ],
+       "access_log": [
+        {
+         "path": "/dev/stdout"
+        }
+       ]
+      }
+     }
+    ],
+    "bind_to_port": true
+   }
+  ]
+ }

@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: client
+  labels:
+    app: client
+    iter: TEMPLATE_ITER
+spec:
+  ports:
+  - port: CLIENT_PORT
+    targetPort: CLIENT_PORT
+    name: http
+  selector:
+    app: client
+    iter: TEMPLATE_ITER
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: client
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: client
+        iter: TEMPLATE_ITER
+    spec:
+      containers:
+      - image: TEMPLATE_HUB/app:TEMPLATE_TAG
+        imagePullPolicy: IfNotPresent
+        name: app
+        args: [ "--port", "CLIENT_PORT" ]
+        ports:
+          - containerPort: CLIENT_PORT
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  labels:
+    app: server
+    iter: TEMPLATE_ITER
+spec:
+  ports:
+  - port: SERVER_PORT
+    targetPort: SERVER_PORT
+    name: http
+  selector:
+    app: server
+    iter: TEMPLATE_ITER
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: server
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: server
+        iter: TEMPLATE_ITER
+    spec:
+      containers:
+      - image: TEMPLATE_HUB/init:TEMPLATE_TAG
+        imagePullPolicy: IfNotPresent
+        name: init
+        securityContext:
+          capabilities:
+            add: [ NET_ADMIN ]
+        command: [ "sh", "-c", "tail -f /dev/null" ]
+      - image: TEMPLATE_HUB/proxy:TEMPLATE_TAG
+        imagePullPolicy: IfNotPresent
+        name: proxy
+        command: [ "sh", "-c", "tail -f /dev/null" ]
+        securityContext:
+          runAsUser: 1337
+      - image: TEMPLATE_HUB/app:TEMPLATE_TAG
+        imagePullPolicy: IfNotPresent
+        name: app
+        args: [ "--port", "SERVER_PORT" ]
+        ports:
+          - containerPort: SERVER_PORT
+---

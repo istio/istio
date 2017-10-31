@@ -1,0 +1,34 @@
+#!/bin/bash
+# Run local pre-commit hook
+#
+# If called directly install pre-commit hook
+
+
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
+# Not running under git commit
+# install handler
+if [[ -z ${GIT_AUTHOR_DATE} ]];then
+  cd $ROOT/.git/hooks/
+  if [[ ! -e pre-commit ]]; then
+    echo "Installing pre-commit hook"
+    ln -s ../../bin/pre-commit
+  fi
+  exit 0
+fi
+
+# if found WORKSPACE file, we are good
+if [[ -f WORKSPACE ]]; then
+  ROOT=$PWD
+fi
+
+# If we don't have a branch then we're in a detached state (e.g. mid rebase) and don't want to execute our checks.
+BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
+if [ $BRANCH_NAME != '(no branch)' ]; then
+  cd $ROOT
+
+  echo "formatting..."
+  make fmt
+fi
