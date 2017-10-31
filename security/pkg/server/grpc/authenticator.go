@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/auth/pkg/pki"
+	"istio.io/istio/security/pkg/pki"
 )
 
 const (
@@ -122,7 +122,7 @@ func (ja *idTokenAuthenticator) authenticate(ctx context.Context) *user {
 }
 
 func extractBearerToken(ctx context.Context) string {
-	md, ok := metadata.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		glog.Warning("no metadata is attached")
 		return ""

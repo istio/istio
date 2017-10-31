@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/auth/pkg/pki"
-	"istio.io/auth/pkg/pki/testutil"
+	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/testutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 )
 
 func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {

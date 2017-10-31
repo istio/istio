@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/auth/pkg/pki"
+	"istio.io/istio/security/pkg/pki"
 
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -121,7 +121,7 @@ func TestExtractBearerToken(t *testing.T) {
 	for id, tc := range testCases {
 		ctx := context.Background()
 		if tc.metadata != nil {
-			ctx = metadata.NewContext(ctx, tc.metadata)
+			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 		}
 		if actual := extractBearerToken(ctx); actual != tc.expectedToken {
 			t.Errorf("Case %q: unexpected token: want %s but got %s", id, tc.expectedToken, actual)

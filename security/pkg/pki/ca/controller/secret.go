@@ -22,8 +22,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/auth/pkg/pki"
-	"istio.io/auth/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/ca"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 

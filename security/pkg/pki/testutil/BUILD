@@ -4,5 +4,5 @@ go_library(
     name = "go_default_library",
     srcs = ["util.go"],
     visibility = ["//visibility:public"],
-    deps = ["//pkg/pki:go_default_library"],
+    deps = ["//security/pkg/pki:go_default_library"],
 )

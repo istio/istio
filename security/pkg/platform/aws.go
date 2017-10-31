@@ -26,7 +26,7 @@ import (
 	"github.com/fullsailor/pkcs7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"istio.io/auth/pkg/pki"
+	"istio.io/istio/security/pkg/pki"
 )
 
 const (

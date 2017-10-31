@@ -5,8 +5,8 @@ go_library(
     srcs = ["main.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//cmd/node_agent/na:go_default_library",
-        "//pkg/cmd:go_default_library",
+        "//security/cmd/node_agent/na:go_default_library",
+        "//security/pkg/cmd:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
     ],

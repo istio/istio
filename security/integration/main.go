@@ -20,16 +20,16 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/auth/pkg/cmd"
-	"istio.io/auth/pkg/pki/ca/controller"
-	"istio.io/auth/pkg/pki/testutil"
+	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/pki/testutil"
 
+	"k8s.io/api/core/v1"
+	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/rbac/v1alpha1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
@@ -161,7 +161,7 @@ func deleteTestNamespace(clientset kubernetes.Interface) {
 
 func deployIstioCA(clientset kubernetes.Interface) {
 	// Create Role
-	role := v1alpha1.Role{
+	role := rbac.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
 		},
@@ -169,7 +169,7 @@ func deployIstioCA(clientset kubernetes.Interface) {
 			Name:      "istio-ca-role",
 			Namespace: opts.namespace,
 		},
-		Rules: []v1alpha1.PolicyRule{
+		Rules: []rbac.PolicyRule{
 			{
 				Verbs:     []string{"create", "get", "watch", "list", "update"},
 				APIGroups: []string{"core", ""},
@@ -182,11 +182,11 @@ func deployIstioCA(clientset kubernetes.Interface) {
 			},
 		},
 	}
-	if _, err := clientset.RbacV1alpha1().Roles(opts.namespace).Create(&role); err != nil {
+	if _, err := clientset.RbacV1beta1().Roles(opts.namespace).Create(&role); err != nil {
 		glog.Fatalf("failed to create role (error: %v)", err)
 	}
 	// Create RoleBinding
-	rolebinding := v1alpha1.RoleBinding{
+	rolebinding := rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
 		},
@@ -194,20 +194,20 @@ func deployIstioCA(clientset kubernetes.Interface) {
 			Name:      "istio-ca-role-binding",
 			Namespace: opts.namespace,
 		},
-		Subjects: []v1alpha1.Subject{
+		Subjects: []rbac.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Name:      "default",
 				Namespace: opts.namespace,
 			},
 		},
-		RoleRef: v1alpha1.RoleRef{
+		RoleRef: rbac.RoleRef{
 			Kind:     "Role",
 			Name:     "istio-ca-role",
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	if _, err := clientset.RbacV1alpha1().RoleBindings(opts.namespace).Create(&rolebinding); err != nil {
+	if _, err := clientset.RbacV1beta1().RoleBindings(opts.namespace).Create(&rolebinding); err != nil {
 		glog.Fatalf("failed to create rolebinding (error: %v)", err)
 	}
 	// Create Deployment
