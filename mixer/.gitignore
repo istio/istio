@@ -1,0 +1,61 @@
+coverage.txt
+coverage.out
+
+*.swp
+
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Generated files
+*.pb.go
+*.pb.cc
+*.pb.h
+*.gen.go
+*.descriptor_set
+
+# Folders
+_obj
+_test
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.test
+*.prof
+_builds
+_projects
+_steps
+.DS_Store
+_builds/
+_projects/
+.project
+.settings/*
+.externalToolBuilders/*
+vendor
+vendor/*
+dep-prep
+*.pyc
+.cache/*
+__pycache__/*
+.cache
+.cover/*
+bazel-*
+
+.idea/
+*.iml
+CMakeLists.txt
+
+# key file
+istio-testing.json

@@ -1,0 +1,185 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package adapter.stackdriver.config;
+
+import "gogoproto/gogo.proto";
+import "google/api/metric.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message Params {
+    // Endpoint URL to send stackdriver data - leave empty to use the
+    // StackDriver SDK's default value (monitoring.googleapis.com).
+    string endpoint = 1;
+
+    // GCP Project to attach metrics to.
+    string project_id = 2;
+
+    // This adapter batches the data it sends to Stackdriver; we will push to stackdriver every push_interval.
+    // If no value is provided we default to once per minute.
+    google.protobuf.Duration push_interval = 3 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+
+    // Credentials must be attached to every call made to StackDriver. This
+    // can be an API key, a service account secret key, or Oauth2 tokens.
+    //
+    // TODO: do we want to support oauth?
+    oneof creds {
+        // Use Google's Application Default Credentials to authorize calls made
+        // by the StackDriver SDK.
+        //
+        // [See Google's documentation](https://developers.google.com/identity/protocols/application-default-credentials).
+        bool app_credentials = 4;
+
+        // The API Key to be used for auth.
+        string api_key = 5;
+
+        // The path to a Google service account credential file, relative to
+        // the Mixer. E.g. `/etc/opt/mixer/gcp-serviceaccount-creds.json`
+        // or `./testdata/my-test-account-creds.json`.
+        string service_account_path = 6;
+    }
+
+    // Describes how to represent an Istio metric in Stackdriver.
+    // See https://github.com/googleapis/googleapis/blob/master/google/api/metric.proto
+    message MetricInfo {
+        google.api.MetricDescriptor.MetricKind kind = 1;
+        google.api.MetricDescriptor.ValueType value = 2;
+
+        // Describes buckets for DISTRIBUTION valued metrics.
+        // TODO: look into using google.api.distribution.proto instead - we would pull it in but it has a ton of
+        // dependencies it doesn't actually use.
+        message BucketsDefinition {
+            // Specifies a linear sequence of buckets that all have the same width
+            // (except overflow and underflow). Each bucket represents a constant
+            // absolute uncertainty on the specific value in the bucket.
+            //
+            // There are `num_finite_buckets + 2` (= `N`) buckets. The two additional
+            // buckets are the underflow and overflow buckets.
+            //
+            // Bucket `i` has the following boundaries:
+            //
+            // * Upper bound (`0 <= i < N-1`): `offset + (width * i)`
+            // * Lower bound (`1 <= i < N`): `offset + (width * (i - 1))`
+            message Linear {
+                // Must be greater than 0.
+                int32 num_finite_buckets = 1;
+
+                // Must be greater than 0.
+                double width = 2;
+
+                // Lower bound of the first bucket.
+                double offset = 3;
+            }
+
+            // Specifies an exponential sequence of buckets that have a width that is
+            // proportional to the value of the lower bound. Each bucket represents a
+            // constant relative uncertainty on a specific value in the bucket.
+            //
+            // There are `num_finite_buckets + 2` (= `N`) buckets. The two additional
+            // buckets are the underflow and overflow buckets.
+            //
+            // Bucket `i` has the following boundaries:
+            //
+            // * Upper bound (0 <= i < N-1): `scale * (growth_factor ^ i)`
+            // * Lower bound (1 <= i < N): `scale * (growth_factor ^ (i - 1))`
+            message Exponential {
+                // Must be greater than 0.
+                int32 num_finite_buckets = 1;
+
+                // Must be greater than 1.
+                double growth_factor = 2;
+
+                // Must be greater than 0.
+                double scale = 3;
+            }
+
+            // Specifies a set of buckets with arbitrary widths.
+            //
+            // There are `size(bounds) + 1` (= `N`) buckets. Bucket `i` has the following
+            // boundaries:
+            //
+            // * Upper bound (`0 <= i < N-1`): `bounds[i]`
+            // * Lower bound (`1 <= i < N`): `bounds[i - 1]`
+            //
+            // The `bounds` field must contain at least one element. If `bounds` has
+            // only one element, then there are no finite buckets, and that single
+            // element is the common boundary of the overflow and underflow buckets.
+            message Explicit {
+                // The values must be monotonically increasing.
+                repeated double bounds = 1;
+            }
+
+            // Exactly one of these three fields must be set.
+            oneof definition {
+                // The linear buckets.
+                Linear linear_buckets = 1;
+
+                // The exponential buckets.
+                Exponential exponential_buckets = 2;
+
+                // The explicit buckets.
+                Explicit explicit_buckets = 3;
+            }
+        }
+
+        // For metrics with a metric value of DISTRIBUTION, this provides a mechanism
+        // for configuring the buckets that will be used to store the aggregated values.
+        // This field must be provided for metrics declared to be of type DISTRIBUTION.
+        // This field will be ignored for non-distribution metric kinds.
+        BucketsDefinition buckets = 3;
+
+    }
+    // A map of Istio metric name to Stackdriver metric info.
+    map<string, MetricInfo> metric_info = 8;
+
+    // Describes how to represent an Istio Log in Stackdriver.
+    message LogInfo {
+        // The logging template provides a set of variables; these list the subset of variables that should be used to
+        // form Stackdriver labels for the log entry.
+        repeated string label_names = 1;
+
+        // A golang text/template template that will be executed to construct the payload for this log entry.
+        // It will be given the full set of variables for the log to use to construct its result.
+        string payload_template = 2;
+
+        // Maps from template variable names to the various fields of Stackdriver's HTTP request struct.
+        // See https://godoc.org/cloud.google.com/go/logging#HTTPRequest
+        message HttpRequestMapping {
+            // template variable name to map into HTTPRequest.Status
+            string status = 1;
+            // template variable name to map into HTTPRequest.RequestSize
+            string request_size = 2;
+            // template variable name to map into HTTPRequest.ResponseSize
+            string response_size = 3;
+            // template variable name to map into HTTPRequest.Latency
+            string latency = 4;
+            // template variable name to map into HTTPRequest.LocalIP
+            string local_ip = 5;
+            // template variable name to map into HTTPRequest.RemoteIP
+            string remote_ip = 6;
+        }
+        // If an HttpRequestMapping is provided, a HttpRequest object will be filled out for this log entry using the
+        // variables named in the mapping to populate the fields of the request struct from the instance's variables.
+        HttpRequestMapping http_mapping = 3;
+    }
+    // A map of Istio LogEntry name to Stackdriver log info.
+    map<string, LogInfo> log_info = 9;
+}

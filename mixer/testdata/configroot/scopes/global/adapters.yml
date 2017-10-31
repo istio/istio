@@ -1,0 +1,12 @@
+subject: global
+adapters:
+  - name: default
+    kind: attributes
+    impl: kubernetes
+    params:
+      # when running from mixer root, use the following config after adding a
+      # symbolic link to a kubernetes config file via:
+      #
+      # $ ln -s ~/.kube/config adapter/kubernetes/kubeconfig
+      #
+      # kubeconfig_path: "adapter/kubernetes/kubeconfig"

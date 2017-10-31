@@ -1,0 +1,139 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package adapter.prometheus.config;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+message Params {
+    // Describes how a metric should be represented in Prometheus.
+    message MetricInfo {
+        // Recommended. The name is used to register the prometheus metric.
+        // It must be unique across all prometheus metrics as prometheus does not allow duplicate names.
+        // If name is not specified a sanitized version of instance_name is used.
+        string name = 1;
+
+        // Required. The name is the fully qualified name of the Istio metric instance
+        // that this MetricInfo processes.
+        string instance_name = 2;
+
+        // Optional. A human readable description of this metric.
+        string description = 3;
+
+        // Describes what kind of metric this is.
+        enum Kind {
+            UNSPECIFIED = 0;
+            GAUGE = 1;
+            COUNTER = 2;
+            DISTRIBUTION = 3;
+        }
+        Kind kind = 4;
+
+        // Describes buckets for DISTRIBUTION kind metrics.
+        message BucketsDefinition {
+            // Specifies a linear sequence of buckets that all have the same width
+            // (except overflow and underflow). Each bucket represents a constant
+            // absolute uncertainty on the specific value in the bucket.
+            //
+            // There are `num_finite_buckets + 2` (= `N`) buckets. The two additional
+            // buckets are the underflow and overflow buckets.
+            //
+            // Bucket `i` has the following boundaries:
+            //
+            // * Upper bound (`0 <= i < N-1`): `offset + (width * i)`
+            // * Lower bound (`1 <= i < N`): `offset + (width * (i - 1))`
+            message Linear {
+                // Must be greater than 0.
+                int32 num_finite_buckets = 1;
+
+                // Must be greater than 0.
+                double width = 2;
+
+                // Lower bound of the first bucket.
+                double offset = 3;
+            }
+
+            // Specifies an exponential sequence of buckets that have a width that is
+            // proportional to the value of the lower bound. Each bucket represents a
+            // constant relative uncertainty on a specific value in the bucket.
+            //
+            // There are `num_finite_buckets + 2` (= `N`) buckets. The two additional
+            // buckets are the underflow and overflow buckets.
+            //
+            // Bucket `i` has the following boundaries:
+            //
+            // * Upper bound (0 <= i < N-1): `scale * (growth_factor ^ i)`
+            // * Lower bound (1 <= i < N): `scale * (growth_factor ^ (i - 1))`
+            message Exponential {
+                // Must be greater than 0.
+                int32 num_finite_buckets = 1;
+
+                // Must be greater than 1.
+                double growth_factor = 2;
+
+                // Must be greater than 0.
+                double scale = 3;
+            }
+
+            // Specifies a set of buckets with arbitrary widths.
+            //
+            // There are `size(bounds) + 1` (= `N`) buckets. Bucket `i` has the following
+            // boundaries:
+            //
+            // * Upper bound (`0 <= i < N-1`): `bounds[i]`
+            // * Lower bound (`1 <= i < N`): `bounds[i - 1]`
+            //
+            // The `bounds` field must contain at least one element. If `bounds` has
+            // only one element, then there are no finite buckets, and that single
+            // element is the common boundary of the overflow and underflow buckets.
+            message Explicit {
+                // The values must be monotonically increasing.
+                repeated double bounds = 1;
+            }
+
+            // Exactly one of these three fields must be set.
+            oneof definition {
+                // The linear buckets.
+                Linear linear_buckets = 1;
+
+                // The exponential buckets.
+                Exponential exponential_buckets = 2;
+
+                // The explicit buckets.
+                Explicit explicit_buckets = 3;
+            }
+        }
+
+        // For metrics with a metric kind of DISTRIBUTION, this provides a mechanism
+        // for configuring the buckets that will be used to store the aggregated values.
+        // This field must be provided for metrics declared to be of type DISTRIBUTION.
+        // This field will be ignored for non-distribution metric kinds.
+        BucketsDefinition buckets = 5;
+
+        // The names of labels to use: these need to match the dimensions of the Istio metric.
+        // TODO: see if we can remove this and rely on only the dimensions in the future.
+        repeated string label_names = 6;
+
+    }
+    // The set of metrics to represent in Prometheus. If a metric is defined in Istio but doesn't have a corresponding
+    // shape here, it will not be populated at runtime.
+    repeated MetricInfo metrics = 1;
+}

@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+
+message NOTEMPLATEMESSAGE {
+}

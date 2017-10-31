@@ -1,0 +1,73 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package logEntry;
+
+import "google/protobuf/timestamp.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// LogEntry represents an individual entry within a log.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
+//
+// Example config:
+// ```
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: logentry
+// metadata:
+//   name: accesslog
+//   namespace: istio-system
+// spec:
+//   severity: '"Default"'
+//   timestamp: request.time
+//   variables:
+//     sourceIp: source.ip | ip("0.0.0.0")
+//     destinationIp: destination.ip | ip("0.0.0.0")
+//     sourceUser: source.user | ""
+//     method: request.method | ""
+//     url: request.path | ""
+//     protocol: request.scheme | "http"
+//     responseCode: response.code | 0
+//     responseSize: response.size | 0
+//     requestSize: request.size | 0
+//     latency: response.duration | "0ms"
+//   monitored_resource_type: '"UNSPECIFIED"'
+// ```
+message Template {
+    // Variables that are delivered for each log entry.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> variables = 1;
+
+    // Timestamp is the time value for the log entry
+    google.protobuf.Timestamp timestamp = 2;
+
+    // Severity indicates the importance of the log entry.
+    string severity = 3;
+
+    // Optional. An expression to compute the type of the monitored resource this log entry is being recorded on.
+    // If the logging backend supports monitored resources, these fields are used to populate that resource.
+    // Otherwise these fields will be ignored by the adapter.
+    string monitored_resource_type = 4;
+
+    // Optional. A set of expressions that will form the dimensions of the monitored resource this log entry is being
+    // recorded on. If the logging backend supports monitored resources, these fields are used to populate that resource.
+    // Otherwise these fields will be ignored by the adapter.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> monitored_resource_dimensions = 5;
+}
