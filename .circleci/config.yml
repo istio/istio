@@ -31,7 +31,7 @@ jobs:
             sudo -E kubectl cluster-info
       - run:
           command: |
-            ln -s ~/.kube/config platform/kube/
+            ln -s ~/.kube/config pilot/platform/kube/
       - run: bazel build //...
       - run: bazel test //...
       - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
