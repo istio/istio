@@ -17,7 +17,7 @@ package eureka
 import (
 	"github.com/golang/glog"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 // NewServiceDiscovery instantiates an implementation of service discovery for Eureka

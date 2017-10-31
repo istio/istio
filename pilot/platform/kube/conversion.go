@@ -25,7 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 const (

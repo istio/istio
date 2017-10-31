@@ -31,9 +31,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/pilot/platform/kube"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/test/util"
 )
 
 func makeClient(t *testing.T) (*rest.Config, kubernetes.Interface) {

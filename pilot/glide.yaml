@@ -1,4 +1,4 @@
-package: istio.io/pilot
+package: istio.io/istio/pilot
 import:
 - package: github.com/davecgh/go-spew
   subpackages:

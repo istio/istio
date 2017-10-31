@@ -17,7 +17,7 @@ package memory
 import (
 	"github.com/golang/glog"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 	"sort"
 	"testing"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 type mockClient struct {

@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 // Make creates an aggregate config store from several config stores and

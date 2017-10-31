@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/proxy"
+	"istio.io/istio/pilot/proxy"
 )
 
 func TestDecodeIngressRuleName(t *testing.T) {

@@ -58,14 +58,14 @@ done
 
 # Collect artifacts for pushing
 bin=$(bazel info bazel-bin)
-bazel build ${BUILD_FLAGS} //cmd/... //test/...
-\cp -f "${bin}/test/client/client${SUFFIX}" docker/client
-\cp -f "${bin}/test/server/server${SUFFIX}" docker/server
-\cp -f "${bin}/test/mixer/cmd/cmd${SUFFIX}" docker/testmixer
-\cp -f "${bin}/cmd/pilot-agent/pilot-agent${SUFFIX}" docker/pilot-agent
-\cp -f "${bin}/cmd/pilot-discovery/pilot-discovery${SUFFIX}" docker/pilot-discovery
-\cp -f "${bin}/cmd/sidecar-initializer/sidecar-initializer${SUFFIX}" docker/sidecar-initializer
-\cp -f "${bin}/test/eurekamirror/eurekamirror${SUFFIX}" docker/eurekamirror
+
+bazel build ${BUILD_FLAGS} //pilot/cmd/... //pilot/test/...
+\cp -f "${bin}/pilot/test/client/client${SUFFIX}" docker/client
+\cp -f "${bin}/pilot/test/server/server${SUFFIX}" docker/server
+\cp -f "${bin}/pilot/cmd/pilot-agent/pilot-agent${SUFFIX}" docker/pilot-agent
+\cp -f "${bin}/pilot/cmd/pilot-discovery/pilot-discovery${SUFFIX}" docker/pilot-discovery
+\cp -f "${bin}/pilot/cmd/sidecar-initializer/sidecar-initializer${SUFFIX}" docker/sidecar-initializer
+\cp -f "${bin}/pilot/test/eurekamirror/eurekamirror${SUFFIX}" docker/eurekamirror
 
 # Build and push images
 
@@ -73,7 +73,7 @@ IFS=',' read -ra tags <<< "${tags}"
 IFS=',' read -ra hubs <<< "${hubs}"
 
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer testmixer eurekamirror; do
+  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
     for tag in ${tags[@]}; do

@@ -30,11 +30,11 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/adapter/config/crd"
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform"
-	"istio.io/pilot/platform/kube/inject"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/adapter/config/crd"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/test/util"
 )
 
 const (

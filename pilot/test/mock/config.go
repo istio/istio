@@ -24,9 +24,9 @@ import (
 	"github.com/golang/glog"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/model/test"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/model/test"
+	"istio.io/istio/pilot/test/util"
 )
 
 var (

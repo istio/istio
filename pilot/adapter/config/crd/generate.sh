@@ -38,7 +38,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 var knownTypes = map[string]struct {
@@ -69,5 +69,5 @@ cat <<EOF
 EOF
 
 for crd in $CRDS; do
-  sed -e "1,20d;s/IstioKind/$crd/g" adapter/config/crd/config.go
+  sed -e "1,20d;s/IstioKind/$crd/g" $1
 done

@@ -25,7 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the

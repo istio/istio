@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = ["config.go"],
     visibility = ["//visibility:public"],
-    deps = ["//model:go_default_library"],
+    deps = ["//pilot/model:go_default_library"],
 )
 
 go_test(
@@ -13,8 +13,8 @@ go_test(
     srcs = ["config_test.go"],
     deps = [
         ":go_default_library",
-        "//adapter/config/memory:go_default_library",
-        "//model:go_default_library",
-        "//test/mock:go_default_library",
+        "//pilot/adapter/config/memory:go_default_library",
+        "//pilot/model:go_default_library",
+        "//pilot/test/mock:go_default_library",
     ],
 )

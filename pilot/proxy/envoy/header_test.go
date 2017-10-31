@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 func TestHTTPMatch(t *testing.T) {

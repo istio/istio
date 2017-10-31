@@ -37,8 +37,8 @@ import (
 	admissionClient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pilot/adapter/config/crd"
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/adapter/config/crd"
+	"istio.io/istio/pilot/model"
 )
 
 const (

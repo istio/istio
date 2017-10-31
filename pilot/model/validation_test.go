@@ -25,7 +25,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model/test"
+	"istio.io/istio/pilot/model/test"
 )
 
 func TestConfigDescriptorValidate(t *testing.T) {

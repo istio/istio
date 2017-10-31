@@ -44,7 +44,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	pb "istio.io/pilot/test/grpcecho"
+	pb "istio.io/istio/pilot/test/grpcecho"
 )
 
 var (
@@ -131,7 +131,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h handler) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
 	body := bytes.Buffer{}
-	md, ok := metadata.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key, vals := range md {
 			body.WriteString(key + "=" + strings.Join(vals, " ") + "\n")

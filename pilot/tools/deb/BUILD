@@ -3,7 +3,7 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 pkg_tar(
     name = "agent-bin",
     files = [
-        "//cmd/pilot-agent",
+        "//pilot/cmd/pilot-agent",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin",

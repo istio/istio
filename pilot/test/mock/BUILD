@@ -8,12 +8,12 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//model:go_default_library",
-        "//model/test:go_default_library",
-        "//proxy:go_default_library",
-        "//test/util:go_default_library",
+        "//pilot/model:go_default_library",
+        "//pilot/model/test:go_default_library",
+        "//pilot/proxy:go_default_library",
+        "//pilot/test/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@io_istio_api//:go_default_library",
+        "@io_istio_api//:proxy/v1/config",
     ],
 )
 

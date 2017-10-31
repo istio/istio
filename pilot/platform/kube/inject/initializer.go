@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pilot/platform/kube"
+	"istio.io/istio/pilot/platform/kube"
 )
 
 var ignoredNamespaces = []string{

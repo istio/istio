@@ -20,7 +20,7 @@ import (
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pilot/adapter/config/crd"
+	"istio.io/istio/pilot/adapter/config/crd"
 )
 
 func TestKind(t *testing.T) {

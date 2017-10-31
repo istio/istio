@@ -9,7 +9,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//model:go_default_library",
+        "//pilot/model:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_consul//api:go_default_library",
     ],
@@ -25,7 +25,7 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//model:go_default_library",
+        "//pilot/model:go_default_library",
         "@com_github_hashicorp_consul//api:go_default_library",
     ],
 )
