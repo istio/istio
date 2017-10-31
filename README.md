@@ -109,8 +109,7 @@ support is disabled for our organization.
 
 ## Contributing to the project
 
-We promote and encourage a set of [shared values](VALUES.md) to improve our
-productivity and inter-personal interactions.
+We adhere to the  [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) to foster an open and welcoming community.
 
 See the [working groups](GROUPS.md) for a list of working groups to participate in.
 
