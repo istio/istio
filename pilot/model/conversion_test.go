@@ -22,7 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 func TestProtoSchemaConversions(t *testing.T) {

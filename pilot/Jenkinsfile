@@ -51,7 +51,7 @@ mainFlow(utils) {
 }
 
 def presubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/pilot') {
+  goBuildNode(gitUtils, 'istio.io/istio/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
@@ -88,7 +88,7 @@ def presubmit(gitUtils, bazel, utils) {
 }
 
 def postsubmit(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/pilot') {
+  goBuildNode(gitUtils, 'istio.io/istio/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     sh('ln -s ~/.kube/config platform/kube/')
@@ -113,7 +113,7 @@ def postsubmit(gitUtils, bazel, utils) {
 }
 
 def release(gitUtils, bazel) {
-  goBuildNode(gitUtils, 'istio.io/pilot') {
+  goBuildNode(gitUtils, 'istio.io/istio/pilot') {
     bazel.updateBazelRc()
     sh('touch platform/kube/config')
     stage('Build istioctl') {
@@ -137,7 +137,7 @@ def release(gitUtils, bazel) {
 }
 
 def regression(gitUtils, bazel, utils) {
-  goBuildNode(gitUtils, 'istio.io/pilot') {
+  goBuildNode(gitUtils, 'istio.io/istio/pilot') {
     bazel.updateBazelRc()
     utils.initTestingCluster()
     stage('Bazel Build') {

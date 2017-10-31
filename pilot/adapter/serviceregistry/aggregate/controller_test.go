@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform"
-	"istio.io/pilot/test/mock"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/test/mock"
 )
 
 // MockController specifies a mock Controller for testing

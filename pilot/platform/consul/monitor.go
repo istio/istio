@@ -22,7 +22,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 type consulServices map[string][]string

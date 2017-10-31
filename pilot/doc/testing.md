@@ -88,7 +88,7 @@ Each test creates a temporary namespace and deletes it on completion.
 
 For tests that require systems integration, such as invoking the proxy with a special configuration, we capture the desired output as golden artifacts and save the artifacts in the repository. Validation tests compare generated output against the desired output. For example, [Envoy configuration test data](../proxy/envoy/testdata) contains auto-generated proxy configuration. If you make changes to the config generation, you also need to create or update the golden artifact in the same pull request. The test library can automatically refresh all golden artifacts if you pass a special environment variable:
 
-    env REFRESH_GOLDEN=true go test -v istio.io/pilot/...
+    env REFRESH_GOLDEN=true go test -v istio.io/istio/pilot/...
 
 ## Integration tests
 

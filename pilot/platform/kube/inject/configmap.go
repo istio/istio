@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/proxy"
+	"istio.io/istio/pilot/proxy"
 )
 
 // GetMeshConfig fetches the ProxyMesh configuration from Kubernetes ConfigMap.

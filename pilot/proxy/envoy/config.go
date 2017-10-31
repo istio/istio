@@ -30,8 +30,8 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/proxy"
 )
 
 // Config generation main functions.

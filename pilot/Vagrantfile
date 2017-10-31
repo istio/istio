@@ -63,7 +63,7 @@ if ! grep -Fq "/usr/local/go/bin" /home/ubuntu/.profile; then
 fi
 rm /tmp/go1.8.linux-amd64.tar.gz
 
-mkdir -p /home/ubuntu/go/src/istio.io/pilot
+mkdir -p /home/ubuntu/go/src/istio.io/istio/pilot
 chown -R ubuntu:ubuntu /home/ubuntu/go
 
 SCRIPT
@@ -71,7 +71,7 @@ SCRIPT
 Vagrant.configure('2') do |config|
   config.vm.box = "ubuntu/xenial64"
 
-  config.vm.synced_folder ".", "/home/ubuntu/go/src/istio.io/pilot"
+  config.vm.synced_folder ".", "/home/ubuntu/go/src/istio.io/istio/pilot"
 
   # Mount ~/.minikube into the VM
   ## Snippet borrowed from https://groups.google.com/forum/#!msg/vagrant-up/a1xrXU6AEXk/tcN_Tl94qAEJ

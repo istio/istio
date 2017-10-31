@@ -20,7 +20,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"istio.io/pilot/platform/kube"
+	"istio.io/istio/pilot/platform/kube"
 )
 
 var (

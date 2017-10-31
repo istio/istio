@@ -6,7 +6,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 func addIngressRoutes(r model.ConfigStore, t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pilot/platform"
+	"istio.io/istio/pilot/platform"
 )
 
 type ingress struct {

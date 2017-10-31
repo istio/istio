@@ -5,7 +5,7 @@ go_library(
     srcs = ["echo.go"],
     visibility = ["//visibility:private"],
     deps = [
-        "//test/grpcecho:go_default_library",
+        "//pilot/test/grpcecho:go_default_library",
         "@com_github_gorilla_websocket//:go_default_library",
         "@com_github_spf13_pflag//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",

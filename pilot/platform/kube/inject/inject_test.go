@@ -25,9 +25,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/util"
-	"istio.io/pilot/tools/version"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pilot/tools/version"
 )
 
 func TestImageName(t *testing.T) {

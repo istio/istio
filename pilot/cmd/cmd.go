@@ -27,8 +27,8 @@ import (
 	"github.com/spf13/cobra"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/tools/version"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/tools/version"
 )
 
 // ReadMeshConfig gets mesh configuration from a config file

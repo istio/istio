@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 type serviceHandler func(*model.Service, model.Event)

@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform/kube"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform/kube"
 )
 
 func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {

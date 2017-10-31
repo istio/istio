@@ -5,8 +5,8 @@ go_library(
     srcs = ["eurekamirror.go"],
     visibility = ["//visibility:private"],
     deps = [
-        "//model:go_default_library",
-        "//platform/kube:go_default_library",
+        "//pilot/model:go_default_library",
+        "//pilot/platform/kube:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

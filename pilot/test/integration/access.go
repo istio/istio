@@ -21,8 +21,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/pilot/platform/kube/inject"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/platform/kube/inject"
+	"istio.io/istio/pilot/test/util"
 )
 
 // envoy access log testing utilities

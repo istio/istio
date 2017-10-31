@@ -24,9 +24,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/test/util"
 )
 
 func TestRoutesByPath(t *testing.T) {

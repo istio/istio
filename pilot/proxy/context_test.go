@@ -19,9 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/pilot/model"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/mock"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/test/mock"
 )
 
 func TestServiceNode(t *testing.T) {

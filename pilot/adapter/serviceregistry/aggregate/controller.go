@@ -18,8 +18,8 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform"
 )
 
 // Registry specifies the collection of service registry related interfaces

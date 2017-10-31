@@ -17,7 +17,7 @@ package memory
 import (
 	"errors"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 type controller struct {

@@ -20,7 +20,7 @@ import (
 	"sort"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {

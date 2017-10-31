@@ -25,11 +25,11 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform/kube"
-	"istio.io/pilot/proxy"
-	"istio.io/pilot/test/mock"
-	"istio.io/pilot/test/util"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/pilot/test/util"
 )
 
 const (

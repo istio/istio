@@ -19,7 +19,7 @@ import (
 	"errors"
 	"time"
 
-	"istio.io/pilot/model"
+	"istio.io/istio/pilot/model"
 )
 
 var (

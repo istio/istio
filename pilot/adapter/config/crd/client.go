@@ -37,8 +37,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/pilot/model"
-	"istio.io/pilot/platform/kube"
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform/kube"
 )
 
 // IstioAPIGroupVersion defines schema.GroupVersion for Istio configuration
