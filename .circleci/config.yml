@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     machine: true
-    working_directory: istio.io/istio
+    working_directory: ~/go/src/istio.io/istio
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
     steps:
