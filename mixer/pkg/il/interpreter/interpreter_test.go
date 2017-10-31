@@ -1179,7 +1179,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			input: map[string]interface{}{
 				"a": map[string]string{"b": "c"},
 			},
-			expected: nil,
+			expected: "",
 		},
 		"alookup/success": {
 			code: `
@@ -1227,7 +1227,7 @@ func TestInterpreter_Eval(t *testing.T) {
 			input: map[string]interface{}{
 				"a": map[string]string{"b": "c"},
 			},
-			expected: nil,
+			expected: "",
 		},
 		"tlookup/success": {
 			code: `
