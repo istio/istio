@@ -23,15 +23,15 @@ package istio.proxy.v1.config;
 // non-INHERIT value will be used.
 // Mesh policy cannot be INHERIT.
 enum AuthenticationPolicy {
-  // Use the policy defined by the parent scope. Should not be used for mesh
-  // policy.
-  INHERIT = 1000;
-
   // Do not encrypt Envoy to Envoy traffic.
   NONE = 0;
 
   // Envoy to Envoy traffic is wrapped into mutual TLS connections.
   MUTUAL_TLS = 1;
+
+  // Use the policy defined by the parent scope. Should not be used for mesh
+  // policy.
+  INHERIT = 1000;
 }
 
 // ProxyConfig defines variables for individual Envoy instances.
