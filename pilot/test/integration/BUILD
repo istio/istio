@@ -39,7 +39,7 @@ go_binary(
     name = "integration",
     data = glob(["testdata/*"]) + [
         "//pilot/platform/kube:kubeconfig",
-        "//docker:certs",
+        "//pilot/docker:certs",
     ],
     library = ":go_default_library",
     tags = ["manual"],
