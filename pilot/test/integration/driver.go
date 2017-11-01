@@ -278,7 +278,7 @@ func fill(inFile string, values interface{}) (string, error) {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
 
-	tmpl, err := template.ParseFiles("test/integration/testdata/" + inFile)
+	tmpl, err := template.ParseFiles("pilot/test/integration/testdata/" + inFile)
 	if err != nil {
 		return "", err
 	}
