@@ -4,9 +4,6 @@ jobs:
   build:
     machine: true
     working_directory: ~/go/src/istio.io/istio
-    branches:
-      only:
-        - master
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
     steps:
