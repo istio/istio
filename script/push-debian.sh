@@ -9,7 +9,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 VERSION_FILE="${ROOT}/tools/deb/version"
-BAZEL_ARGS=()
+BAZEL_ARGS=""
 BAZEL_TARGET='//tools/deb:istio-proxy'
 BAZEL_BINARY="${ROOT}/bazel-bin/tools/deb/istio-proxy"
 ISTIO_VERSION=''
@@ -29,7 +29,7 @@ function usage() {
 
 while getopts ":c:p:v:" arg; do
   case ${arg} in
-    c) BAZEL_ARGS+=("--config=${OPTARG}");;
+    c) BAZEL_ARGS+=" -c ${OPTARG}";;
     p) GCS_PATH="${OPTARG}";;
     v) ISTIO_VERSION="${OPTARG}";;
     *) usage;;
@@ -45,6 +45,6 @@ fi
 
 [[ -z "${GCS_PATH}" ]] && usage
 
-bazel build ${BAZEL_ARGS[@]} ${BAZEL_TARGET}
+bazel build ${BAZEL_ARGS} ${BAZEL_TARGET}
 
 gsutil -m cp -r "${BAZEL_BINARY}.deb" ${GCS_PATH}/
