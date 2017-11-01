@@ -81,7 +81,7 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
 	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 
-	flag.StringVar(&kubeconfig, "kubeconfig", "platform/kube/config",
+	flag.StringVar(&kubeconfig, "kubeconfig", "pilot/platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
@@ -131,7 +131,7 @@ func main() {
 
 	params.Name = "(default infra)"
 	params.Auth = proxyconfig.MeshConfig_NONE
-	params.Mixer = true
+	params.Mixer = false
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
@@ -278,7 +278,7 @@ func fill(inFile string, values interface{}) (string, error) {
 	var bytes bytes.Buffer
 	w := bufio.NewWriter(&bytes)
 
-	tmpl, err := template.ParseFiles("test/integration/testdata/" + inFile)
+	tmpl, err := template.ParseFiles("pilot/test/integration/testdata/" + inFile)
 	if err != nil {
 		return "", err
 	}

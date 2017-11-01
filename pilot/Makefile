@@ -58,7 +58,7 @@ test:
 
 .PHONY: e2etest
 e2etest:
-	@bazel run //test/integration -- --logtostderr ${TESTOPTS} ${hub} ${tag}
+	@bazel run //pilot/test/integration -- --logtostderr ${TESTOPTS} ${hub} ${tag}
 
 .PHONY: coverage
 coverage:
