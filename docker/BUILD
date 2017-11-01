@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
 
 # Use "manual" target tag to skip rules in the wildcard expansion
 
