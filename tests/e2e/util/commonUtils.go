@@ -29,7 +29,7 @@ import (
 
 const (
 	testSrcDir     = "TEST_SRCDIR"
-	pathPrefix     = "com_github_istio_istio"
+	pathPrefix     = "io_istio_istio"
 	runfilesSuffix = ".runfiles"
 )
 
