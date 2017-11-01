@@ -19,7 +19,6 @@ import (
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
@@ -140,28 +139,6 @@ func BenchmarkIL(b *testing.B) {
 		b.Run(n, func(bb *testing.B) {
 			for i := 0; i < bb.N; i++ {
 				_, _ = in.EvalFnID(id, bg)
-			}
-		})
-	}
-}
-
-func BenchmarkExpr(b *testing.B) {
-	for n, bt := range interpreterBenchmarkTests {
-		exf, _ := expr.Parse(bt.program.expression)
-		fm := expr.FuncMap()
-
-		bg := &ilt.FakeBag{Attrs: bt.attrs}
-
-		r, e := exf.Eval(bg, fm)
-		if e != nil {
-			b.Fatalf("evaluation failed: '%v'", e)
-		}
-		if r != bt.result {
-			b.Fatalf("expected result not found: E:'%v' != A:'%v'", bt.result, r)
-		}
-		b.Run(n, func(bb *testing.B) {
-			for i := 0; i < bb.N; i++ {
-				_, _ = exf.Eval(bg, fm)
 			}
 		})
 	}
