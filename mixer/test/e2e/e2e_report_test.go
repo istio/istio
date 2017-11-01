@@ -83,7 +83,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: target.name == "*"
+  selector: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
@@ -160,7 +160,7 @@ func TestReport(t *testing.T) {
 			ConfigDefaultNamespace:        "istio-system",
 			ConfigIdentityAttribute:       "destination.service",
 			ConfigIdentityAttributeDomain: "svc.cluster.local",
-			UseAstEvaluator:               true,
+			UseAstEvaluator:               false,
 		}
 
 		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
