@@ -81,7 +81,7 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
 	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 
-	flag.StringVar(&kubeconfig, "kubeconfig", "platform/kube/config",
+	flag.StringVar(&kubeconfig, "kubeconfig", "pilot/platform/kube/config",
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
