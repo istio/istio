@@ -18,7 +18,15 @@ import "google/protobuf/duration.proto";
 
 package istio.proxy.v1.config;
 
+// AuthenticationPolicy defines authentication policy. It can be set for
+// different scopes (mesh, service …), and the most narrow scope with
+// non-INHERIT value will be used.
+// Mesh policy cannot be INHERIT.
 enum AuthenticationPolicy {
+  // Use the policy defined by the parent scope. Should not be used for mesh
+  // policy.
+  INHERIT = 1000;
+
   // Do not encrypt Envoy to Envoy traffic.
   NONE = 0;
 
@@ -76,7 +84,6 @@ message ProxyConfig {
 
   // Port on which Envoy should listen for administrative commands.
   int32 proxy_admin_port = 11;
-  
   // The availability zone where this Envoy instance is running. When running
   // Envoy as a sidecar in Kubernetes, this flag must be one of the availability
   // zones assigned to a node using failure-domain.beta.kubernetes.io/zone annotation.
@@ -85,7 +92,6 @@ message ProxyConfig {
   // Authentication policy defines the global switch to control authentication
   // for Envoy-to-Envoy communication for istio components Mixer and Pilot.
   AuthenticationPolicy control_plane_auth_policy = 13;
-  
   // File path of custom proxy configuration, currently used by proxies
   // in front of Mixer and Pilot.
   string custom_config_file = 14;
@@ -154,7 +160,7 @@ message MeshConfig {
   // Defines whether to use Istio ingress controller for annotated or all ingress resources.
   IngressControllerMode ingress_controller_mode = 9;
 
-  // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above  
+  // TODO AuthPolicy needs to be removed and merged with AuthPolicy defined above
   enum AuthPolicy {
     // Do not encrypt Envoy to Envoy traffic.
     NONE = 0;
