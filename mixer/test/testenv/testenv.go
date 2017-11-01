@@ -34,7 +34,6 @@ type Args struct {
 	ConfigDefaultNamespace        string
 	ConfigIdentityAttribute       string
 	ConfigIdentityAttributeDomain string
-	UseAstEvaluator               bool
 }
 
 // NewEnv creates a TestEnv instance.
@@ -45,7 +44,7 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 	}
 
 	context := cmd.SetupTestServer(info, adapters, []adapter.RegisterFn{}, args.ConfigStoreURL, args.ConfigStore2URL,
-		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain, args.UseAstEvaluator)
+		args.ConfigDefaultNamespace, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 	shutdown := make(chan struct{})
 
 	go func() {

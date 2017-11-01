@@ -91,7 +91,6 @@ func TestDenierAdapter(t *testing.T) {
 		ConfigDefaultNamespace:        "istio-system",
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		UseAstEvaluator:               false,
 	}
 
 	env, err := NewEnv(&args, template.SupportedTmplInfo, []adapter.InfoFn{denier.GetInfo})

@@ -160,7 +160,6 @@ func TestReport(t *testing.T) {
 			ConfigDefaultNamespace:        "istio-system",
 			ConfigIdentityAttribute:       "destination.service",
 			ConfigIdentityAttributeDomain: "svc.cluster.local",
-			UseAstEvaluator:               false,
 		}
 
 		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
