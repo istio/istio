@@ -85,5 +85,5 @@ message MixerFilterConfig {
   Attributes forward_attributes = 8;
 
   // If set to true, disables mixer check calls for TCP connections
-  bool DisableTCPCheckCalls = 9;
+  bool disable_tcp_check_calls = 9;
 }
