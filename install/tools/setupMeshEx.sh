@@ -78,6 +78,7 @@ function istioDnsmasq() {
   echo "address=/istio-ca.$NS/$CA_IP" >> kubedns
 
   echo "Generated Dnsmaq config file 'kubedns'. Install it in /etc/dnsmasq.d and restart dnsmasq."
+  echo "$0 machineSetup does this for you."
 }
 
 # Generate a cluster.env config file.
@@ -91,7 +92,8 @@ function istioClusterEnv() {
    echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
-  echo "The /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
+  echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
+  echo "$0 machineSetup does this for you."
 }
 
 
@@ -115,7 +117,8 @@ function istio_provision_certs() {
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
 
   echo "Generated cert-chain.pem, root-cert.pem and key.pem. Please install them on /etc/certs"
-  echo "The directory and files must be owned by 'istio-proxy' user"
+  echo "the directory and files must be owned by 'istio-proxy' user"
+  echo "$0 machineSetup does this for you."
 }
 
 
