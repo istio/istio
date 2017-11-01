@@ -31,8 +31,10 @@ function istioVersionSource() {
 # Will use the generated "kubedns" file.
 function istioNetworkInit() {
   if [[ ! -r /etc/dnsmasq.d ]] ; then
-    apt-get update
-    sudo apt-get -y install dnsmasq
+    echo "*** Running apt-get update..."
+    apt-get update > /dev/null
+    echo "*** Running apt-get install dnsmasq..."
+    apt-get --no-install-recommends -y install dnsmasq
   fi
 
   # Copy config files for DNS
@@ -52,7 +54,7 @@ function istioNetworkInit() {
 # Install istio components and certificates. The admin (directly or using tools like ansible)
 # will generate and copy the files and install the packages on each machine.
 function istioInstall() {
-
+  echo "*** Fetching istio packages..."
   # Current URL for the debian files artifacts. Will be replaced by a proper apt repo.
   curl -L ${PILOT_DEBIAN_URL}/istio-agent.deb > ${ISTIO_STAGING}/istio-agent.deb
   curl -L ${AUTH_DEBIAN_URL}/istio-auth-node-agent.deb > ${ISTIO_STAGING}/istio-auth-node-agent.deb
@@ -72,8 +74,6 @@ function istioInstall() {
 
   chown -R istio-proxy /etc/certs
   chown -R istio-proxy /var/lib/istio/envoy
-  # temp workaround for wrong name (for 0.2.7 auth package)
-  ln -s /usr/local/bin/node_agent /usr/local/bin/node-agent > /dev/null
 }
 
 function istioRestart() {

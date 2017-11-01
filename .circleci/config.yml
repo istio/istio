@@ -3,12 +3,12 @@ version: 2
 jobs:
   build:
     machine: true
-    working_directory: ~/go/src/istio.io/istio/pilot
+    working_directory: ~/go/src/istio.io/istio
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
     steps:
       - checkout
-      - run: bin/install-bazel.sh
+      - run: pilot/bin/install-bazel.sh
       - run:
           command: |
             curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
@@ -31,8 +31,8 @@ jobs:
             sudo -E kubectl cluster-info
       - run:
           command: |
-            ln -s ~/.kube/config platform/kube/
-      - run: bazel build //...
-      - run: bazel test //...
-      - run: make docker HUB=docker.io/rshriram TAG=test
-      - run: make e2etest HUB=docker.io/rshriram TAG=test
+            ln -s ~/.kube/config pilot/platform/kube/
+      - run: bazel build //pilot/...
+      - run: bazel test //pilot/...
+      - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
+      - run: cd pilot; TESTOPTS="-auth disable" make e2etest HUB=docker.io/rshriram TAG=test
