@@ -13,7 +13,7 @@ spec:
 apiVersion: config.istio.io/v1alpha2
 kind: RouteRule
 metadata:
-  name: reviews-test-ratings-v2
+  name: reviews-test-ratings-v2-vm
 spec:
   destination:
     name: reviews
