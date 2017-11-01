@@ -673,6 +673,30 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
+		{name: "invalid cors policy bad allow method", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "GET", "UNSUPPORTED"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: false},
+		{name: "invalid cors policy bad allow method 2", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "get"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
 		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {

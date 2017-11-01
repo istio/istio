@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -55,6 +56,19 @@ var (
 	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
 )
+
+// golang supported methods: https://golang.org/src/net/http/method.go
+var supportedMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodPatch:   true,
+	http.MethodDelete:  true,
+	http.MethodConnect: true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
 // DNS (RFC 1123).
@@ -775,9 +789,11 @@ func ValidateRouteRule(msg proto.Message) error {
 			}
 		}
 
-		// TODO verify AllowMethods are only defined http methods?
-		//for _, method := range value.CorsPolicy.AllowMethods {
-		//}
+		for _, method := range value.CorsPolicy.AllowMethods {
+			if !supportedMethods[method] {
+				errs = multierror.Append(errs, fmt.Errorf("%q is not a supported HTTP method", method))
+			}
+		}
 	}
 
 	if value.HttpReqTimeout != nil {
