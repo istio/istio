@@ -43,4 +43,4 @@ while [[ $# -gt 0 ]]; do
 done
 
 bin/push-docker -hub $hub -tag $tag
-bazel run //test/integration -- --logtostderr $args -hub $hub -tag $tag
+bazel run //pilot/test/integration -- --logtostderr $args -hub $hub -tag $tag
