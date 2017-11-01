@@ -109,9 +109,7 @@ function istio_provision_certs() {
   if [[ -n "$NS" ]] ; then
     NS="-n $NS"
   fi
-  # on mac make sure you brew install base64 and use that one in path
-  # or change BASE64_DECODE="/usr/bin/base64 -D"
-  local B64_DECODE=${BASE64_DECODE:-base64 -d}
+  local B64_DECODE=${BASE64_DECODE:-base64 --decode}
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.cert-chain\.pem}' | $B64_DECODE  > cert-chain.pem
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.root-cert\.pem}' | $B64_DECODE   > root-cert.pem
   kubectl get $NS secret $CERT_NAME -o jsonpath='{.data.key\.pem}' | $B64_DECODE   > key.pem
