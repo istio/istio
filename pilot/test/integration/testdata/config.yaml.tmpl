@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+data:
+  mesh: |-
+    defaultConfig:
+      configPath:             "/etc/istio/proxy"
+      binaryPath:             "/usr/local/bin/envoy"
+      serviceCluster:         istio-proxy
+      drainDuration:          2s
+      parentShutdownDuration: 3s
+      discoveryAddress:       istio-pilot.{{.IstioNamespace}}:15003
+      discoveryRefreshDelay:  1s
+      connectTimeout:         1s
+      proxyAdminPort:         15000
+      controlPlaneAuthPolicy:        {{ .Auth }}
+{{if .Zipkin}}
+      zipkinAddress:          zipkin.{{.IstioNamespace}}:9411
+{{end}}
+    egressProxyAddress:       istio-egress.{{.IstioNamespace}}:80
+{{if .Mixer}}
+    mixerAddress:             istio-mixer.{{.IstioNamespace}}:15004
+{{end}}
+    authPolicy:               {{ .Auth }}
+    connectTimeout:           1s
+    rdsRefreshDelay:          1s
+    disablePolicyChecks:      false
+    ingressClass:             {{.IstioNamespace}}
+    ingressControllerMode:    STRICT
+    enableTracing:            true
+    accessLogFile:            /dev/stdout

@@ -347,7 +347,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 	content = replacePattern(k, content, "drainDuration: 45s", "drainDuration: 2s")
 	content = replacePattern(k, content, "parentShutdownDuration: 1m0s", "parentShutdownDuration: 3s")
 
-	// A very flimsy and unreliable regexp to replace delays in ingress/egress pod Spec
+	// A very flimsy and unreliable regexp to replace delays in ingress pod Spec
 	content = replacePattern(k, content, "'30s' #discoveryRefreshDelay", "'1s' #discoveryRefreshDelay")
 	content = replacePattern(k, content, "'10s' #connectTimeout", "'1s' #connectTimeout")
 	content = replacePattern(k, content, "'45s' #drainDuration", "'2s' #drainDuration")

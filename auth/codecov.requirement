@@ -1,0 +1,6 @@
+Requirements of code coverage percentage for packages
+Use this format: "Package name     Required percentage"
+istio.io/istio/auth/cmd/istio_ca/version  100
+istio.io/istio/auth/pkg/pki               100
+istio.io/istio/auth/pkg/pki/ca            80
+istio.io/istio/auth/pkg/pki/ca/controller 75

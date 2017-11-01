@@ -1,0 +1,25 @@
+destination:
+  name: world
+match:
+  source:
+    name: hello
+    labels:
+      version: v0
+  request:
+    headers:
+      scooby:
+        exact: doo
+      animal:
+        prefix: dog.cat
+      name:
+        regex: "sco+do+"
+route:
+  - labels:
+       version: v1
+httpFault:
+  delay:
+    percent: 100
+    fixed_delay: 5s
+  abort:
+    percent: 100
+    http_status: 503

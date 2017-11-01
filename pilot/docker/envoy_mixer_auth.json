@@ -1,0 +1,50 @@
+{
+  "listeners": [
+   {
+    "address": "tcp://0.0.0.0:15004",
+    "name": "tcp_0.0.0.0_15004",
+    "filters": [
+     {
+      "type": "read",
+      "name": "tcp_proxy",
+      "config": {
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.9091"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "ssl_context": {
+     "cert_chain_file": "/etc/certs/cert-chain.pem",
+     "private_key_file": "/etc/certs/key.pem",
+     "ca_cert_file": "/etc/certs/root-cert.pem",
+     "require_client_certificate": true
+    },
+    "bind_to_port": true
+   }
+  ],
+  "admin": {
+    "access_log_path": "/dev/stdout",
+    "address": "tcp://127.0.0.1:15000"
+  },
+  "cluster_manager": {
+    "clusters": [
+      {
+        "name": "in.9091",
+        "connect_timeout_ms": 1000,
+        "type": "static",
+        "lb_type": "round_robin",
+        "hosts": [
+          {
+            "url": "tcp://127.0.0.1:9091"
+          }
+        ]
+      }
+    ]
+  }
+}

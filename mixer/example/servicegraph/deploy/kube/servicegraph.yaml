@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: servicegraph
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: servicegraph
+    spec:
+      containers:
+      - name: servicegraph
+        image: gcr.io/istio-testing/servicegraph:latest
+        ports:
+          - containerPort: 8088
+        args:
+        - --prometheusAddr=http://prometheus:9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicegraph
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 8088
+  selector:
+    app: servicegraph

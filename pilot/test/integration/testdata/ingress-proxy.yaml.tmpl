@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  labels:
+    app: ingress
+spec:
+  ports:
+  - name: https
+    port: 443
+  - name: http
+    port: 80
+  selector:
+    app: ingress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    sidecar.istio.io/inject: "false"
+  name: istio-ingress
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ingress
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-proxy
+        image: {{.Hub}}/proxy_debug:{{.Tag}}
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "{{.Verbosity}}"
+        - --discoveryAddress
+        - istio-pilot:15003
+{{if .Zipkin}}
+        - --zipkinAddress
+        - zipkin:9411
+{{end}}
+        - --controlPlaneAuthPolicy
+        - "{{.ControlPlaneAuthPolicy.String}}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 443
+        - containerPort: 80
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - mountPath: /etc/istio/proxy/
+          name: istio-envoy
+        - mountPath: /etc/istio/ingress-certs
+          name: ingress-certs
+        - mountPath: /etc/certs
+          name: istio-certs
+          readOnly: true
+      volumes:
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true

@@ -1,0 +1,7 @@
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
+
+docker_build(
+    name = "xenial",
+    tars = ["docker-brew-ubuntu-core-b6f1fe19228e5b6b7aed98dcba02f18088282f90/xenial/ubuntu-xenial-core-cloudimg-amd64-root.tar.gz"],
+    visibility = ["//visibility:public"],
+)

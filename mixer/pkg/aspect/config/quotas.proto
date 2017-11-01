@@ -1,0 +1,49 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package pkg.aspect.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configures a quotas aspect.
+message QuotasParams {
+    message Quota {
+        // Must match the name of some quota_descriptor in the global config.
+        string descriptor_name = 1;
+
+        // Map of quota_descriptor label name to attribute expression. At run time each
+        // expression will be evaluated to determine the value provided to the aspect. The
+        // result of evaluating the expression must match the ValueType of the label in the quota_descriptor.
+        map<string, string> labels = 2;
+
+        // The upper limit for this quota.
+        int64 max_amount = 3;
+
+        // The amount of time allocated quota remains valid before it is
+        // automatically released. This is only meaningful for quotas
+        // annotated as rate limits, otherwise the value must be zero.
+        google.protobuf.Duration expiration = 4 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+    }
+
+    // The set of quotas that will be populated and handed to aspects at run time.
+    repeated Quota quotas = 1;
+}

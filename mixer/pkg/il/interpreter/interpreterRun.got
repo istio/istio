@@ -1,0 +1,789 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package interpreter
+
+import (
+	"errors"
+	"fmt"
+	"math"
+	"time"
+
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il"
+)
+
+#define ERR(...) tErr = errors.New(__VA_ARGS__); goto RETURN_ERR;
+#define ERRF(...) tErr = fmt.Errorf(__VA_ARGS__); goto RETURN_ERR;
+
+#define STACK_OVERFLOW_GUARD(i) if sp > opStackSize - i { goto STACK_OVERFLOW };
+#define STACK_UNDERFLOW_GUARD(i) if sp < i { goto STACK_UNDERFLOW };
+#define HEAP_ACCESS_GUARD(i) if i >= hp { goto INVALID_HEAP_ACCESS };
+#define HEAP_OVERFLOW_GUARD if hp == heapSize - 1 { goto HEAP_OVERFLOW };
+#define STACK_OVERFLOW_BLOCK STACK_OVERFLOW: ERR("stack overflow");
+#define STACK_UNDERFLOW_BLOCK STACK_UNDERFLOW: ERR("stack underflow");
+#define INVALID_HEAP_ACCESS_BLOCK  INVALID_HEAP_ACCESS: ERR("invalid heap access")
+#define HEAP_OVERFLOW_BLOCK HEAP_OVERFLOW: ERR("heap overflow");
+
+#define LOAD_OP_CODE(target) \
+      target = body[ip]; \
+      ip++;
+
+#define LOAD_OP_CODE2(target1, target2) \
+      target1 = body[ip]; \
+      target2 = body[ip + 1]; \
+      ip = ip + 2;
+
+#define SET_REGISTER(index, value) \
+      registers[index] = value
+
+#define GET_REGISTER(index, target) \
+      target = registers[index]
+
+#define REGISTER(id) registers[id]
+
+#define STACK_REMOVE() \
+      sp--;
+
+#define STACK_REMOVE2() \
+      sp = sp - 2;
+
+#define STACK_POP(target) \
+      sp--; \
+      target = opstack[sp];
+
+#define STACK_PEEK(target) \
+      target = opstack[sp-1];
+
+#define STACK_PEEK2(t1, t2) \
+      t1 = opstack[sp-1]; \
+      t2 = opstack[sp-2];
+
+#define STACK_POP2(t1, t2) \
+      STACK_PEEK2(t1, t2) \
+      sp = sp - 2;
+
+#define STACK_PUSH(value) \
+      opstack[sp] = value; \
+      sp++;
+
+#define STACK_PUSH2(t1, t2) \
+      opstack[sp] = t1; \
+      opstack[sp + 1] = t2; \
+      sp = sp + 2;
+
+#define GET_HEAP_VALUE(index, target) \
+  HEAP_ACCESS_GUARD(index) \
+  target = heap[index];
+
+#define NEW_HEAP_VALUE(value, target) \
+  HEAP_OVERFLOW_GUARD \
+  target = hp; \
+  heap[hp] = value; \
+  hp++;
+
+#define U64(i0, i1) (uint64(i0) + uint64(i1)<<32)
+
+
+
+func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Result, error) {
+
+	var registers [registerCount]uint32
+	var sp uint32 // stack-top pointer
+	var ip uint32 // instruction pointer
+	var fp uint32 // frame0top pointer
+
+	// TODO(ozben): We should consider switching these slices to arrays, if it helps with
+	// performance. Our current benchmarks cover a small surface area, but they seem to favor
+	 // slices over arrays. This may change in the future.
+	var opstack []uint32    // operand stack
+	var frames []stackFrame // call frames
+
+	var heap []interface{} // heap
+	var hp uint32          // heap-top pointer
+
+	// Initialize locals
+	strings := in.program.Strings()
+	body := in.code
+
+	// Temporaries
+	var code uint32
+	var t1 uint32
+	var t2 uint32
+	var t3 uint32
+	var ti64 int64
+	var tu64 uint64
+	var tf64 float64
+	var tVal interface{}
+	var tStr string
+	var tDur time.Duration
+	var tBool bool
+	var tFound bool
+	var tErr error
+
+	opstack = make([]uint32, opStackSize)
+	frames = make([]stackFrame, callStackSize)
+	heap = make([]interface{}, heapSize)
+	ip = fn.Address
+
+	if len(fn.Parameters) != 0 {
+		ERR("init function must have 0 args")
+	}
+
+	if step {
+		copy(registers[:], in.stepper.registers[:])
+		sp = in.stepper.sp
+		ip = in.stepper.ip
+		fp = in.stepper.fp
+		copy(opstack, in.stepper.opstack)
+		copy(frames, in.stepper.frames)
+		copy(heap, in.stepper.heap)
+		hp = in.stepper.hp
+	}
+
+	for {
+		LOAD_OP_CODE(code)
+		switch il.Opcode(code) {
+
+		case il.Halt:
+			ERR("catching fire as instructed")
+
+		case il.Nop:
+
+		case il.Err:
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			ERR(tStr)
+
+		case il.Errz:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			STACK_POP(t2)
+			if t2 == 0 {
+				tStr = strings.GetString(t1)
+				ERR(tStr)
+			}
+
+		case il.Errnz:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			STACK_POP(t2)
+			if t2 != 0 {
+				tStr = strings.GetString(t1)
+				ERR(tStr)
+			}
+
+		case il.PopS, il.PopB:
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_REMOVE()
+
+		case il.PopI, il.PopD:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_REMOVE2()
+
+		case il.DupS, il.DupB:
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_OVERFLOW_GUARD(1)
+			opstack[sp] = opstack[sp-1]
+			sp++
+
+		case il.DupI, il.DupD:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_OVERFLOW_GUARD(2)
+			opstack[sp] = opstack[sp-2]
+			opstack[sp+1] = opstack[sp-1]
+			sp += 2
+
+		case il.RLoadS, il.RLoadB:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			STACK_POP(REGISTER(t1))
+
+		case il.RLoadI, il.RLoadD:
+			STACK_UNDERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			STACK_POP2(REGISTER(t1), REGISTER(t1+1))
+
+		case il.ALoadS, il.ALoadB:
+			LOAD_OP_CODE(t1)
+			LOAD_OP_CODE(REGISTER(t1))
+
+		case il.ALoadI, il.ALoadD:
+			LOAD_OP_CODE(t1)
+			LOAD_OP_CODE2(REGISTER(t1), REGISTER(t1+1))
+
+		case il.RPushS, il.RPushB:
+			LOAD_OP_CODE(t1)
+			STACK_OVERFLOW_GUARD(1)
+			STACK_PUSH(REGISTER(t1))
+
+		case il.RPushI, il.RPushD:
+			LOAD_OP_CODE(t1)
+			STACK_OVERFLOW_GUARD(1)
+			STACK_PUSH2(REGISTER(t1+1), REGISTER(t1))
+
+		case il.APushS, il.APushB:
+			LOAD_OP_CODE(t1)
+			STACK_OVERFLOW_GUARD(1)
+			STACK_PUSH(t1)
+
+		case il.APushI, il.APushD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_OVERFLOW_GUARD(2)
+			STACK_PUSH2(t2, t1)
+
+		case il.EqS, il.EqB:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			if t1 == t2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.EqI, il.EqD:
+			STACK_UNDERFLOW_GUARD(4)
+			if opstack[sp-1] == opstack[sp-3] && opstack[sp-2] == opstack[sp-4] {
+				sp -= 4
+				STACK_PUSH(1)
+			} else {
+				sp -= 4
+				STACK_PUSH(0)
+			}
+
+		case il.AEqS, il.AEqB:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			if t1 == t2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.AEqI, il.AEqD:
+			LOAD_OP_CODE2(t1, t2)
+			STACK_UNDERFLOW_GUARD(2)
+			if opstack[sp-1] == t1 && opstack[sp-2] == t2 {
+				STACK_REMOVE2()
+				STACK_PUSH(1)
+			} else {
+				STACK_REMOVE2()
+				STACK_PUSH(0)
+			}
+
+		case il.Xor:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			if (t1 == 0 && t2 == 0) || (t1 != 0 && t2 != 0) {
+				STACK_PUSH(0)
+			} else {
+				STACK_PUSH(1)
+			}
+
+		case il.And:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			if t1 != 0 && t2 != 0 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.Or:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			if t1 == 0 && t2 == 0 {
+				STACK_PUSH(0)
+			} else {
+				STACK_PUSH(1)
+			}
+
+		case il.AXor:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			if (t1 == 0 && t2 == 0) || (t1 != 0 && t2 != 0) {
+				STACK_PUSH(0)
+			} else {
+				STACK_PUSH(1)
+			}
+
+		case il.AAnd:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			if t1 != 0 && t2 != 0 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.AOr:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			if t1 == 0 && t2 == 0 {
+				STACK_PUSH(0)
+			} else {
+				STACK_PUSH(1)
+			}
+
+		case il.Not:
+			STACK_UNDERFLOW_GUARD(1)
+			if opstack[sp-1] == 0 {
+				opstack[sp-1] = 1
+			} else {
+				opstack[sp-1] = 0
+			}
+
+		case il.ResolveS:
+			STACK_OVERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				ERRF("lookup failed: '%v'", tStr)
+			}
+			tStr, tFound = tVal.(string)
+			if !tFound {
+				ERRF("error converting value to string: '%v'", tVal)
+			}
+			STACK_PUSH(strings.GetID(tStr))
+
+		case il.ResolveB:
+			STACK_OVERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				ERRF("lookup failed: '%v'", tStr)
+			}
+			tBool, tFound = tVal.(bool)
+			if !tFound {
+				ERRF("error converting value to bool: '%v'", tVal)
+			}
+			if tBool {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.ResolveI:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				ERRF("lookup failed: '%v'", tStr)
+			}
+			ti64, tFound = tVal.(int64)
+			if !tFound {
+				tDur, tFound = tVal.(time.Duration)
+				if !tFound {
+					ERRF("error converting value to integer or duration: '%v'", tVal)
+				}
+				ti64 = int64(tDur)
+			}
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
+		case il.ResolveD:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				ERRF("lookup failed: '%v'", tStr)
+			}
+			tf64, tFound = tVal.(float64)
+			if !tFound {
+				ERRF("error converting value to double: '%v'", tVal)
+			}
+
+			tu64 = math.Float64bits(tf64)
+			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+
+		case il.ResolveF:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				ERRF("lookup failed: '%v'", tStr)
+			}
+			NEW_HEAP_VALUE(tVal, t2)
+			STACK_PUSH(t2)
+
+		case il.TResolveS:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				STACK_PUSH(0)
+			} else {
+				tStr, tFound = tVal.(string)
+				if !tFound {
+					ERRF("error converting value to string: '%v'", tVal)
+				}
+				STACK_PUSH(strings.GetID(tStr))
+				STACK_PUSH(1)
+			}
+
+		case il.TResolveB:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				STACK_PUSH(0)
+			} else {
+				tBool, tFound = tVal.(bool)
+				if !tFound {
+					ERRF("error converting value to bool: '%v'", tVal)
+				}
+				if tBool {
+					STACK_PUSH(1)
+				} else {
+					STACK_PUSH(0)
+				}
+				STACK_PUSH(1)
+			}
+
+		case il.TResolveI:
+			STACK_OVERFLOW_GUARD(3)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				STACK_PUSH(0)
+			} else {
+				ti64, tFound = tVal.(int64)
+				if !tFound {
+					tDur, tFound = tVal.(time.Duration)
+					if !tFound {
+						ERRF("error converting value to integer or duration: '%v'", tVal)
+					}
+					ti64 = int64(tDur)
+				}
+				STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+				STACK_PUSH(1)
+			}
+
+		case il.TResolveD:
+			STACK_OVERFLOW_GUARD(3)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				STACK_PUSH(0)
+			} else {
+				tf64, tFound = tVal.(float64)
+				if !tFound {
+					ERRF("error converting value to double: '%v'", tVal)
+				}
+
+				tu64 = math.Float64bits(tf64)
+				STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+				STACK_PUSH(1)
+			}
+
+		case il.TResolveF:
+			STACK_OVERFLOW_GUARD(2)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			tVal, tFound = bag.Get(tStr)
+			if !tFound {
+				STACK_PUSH(0)
+			} else {
+				NEW_HEAP_VALUE(tVal, t2)
+				STACK_PUSH(t2)
+				STACK_PUSH(1)
+			}
+
+		case il.AddI:
+			STACK_UNDERFLOW_GUARD(4)
+			STACK_POP2(t1, t2)
+			ti64 = int64(t1) + int64(t2)<<32
+			STACK_POP2(t1, t2)
+			ti64 += int64(t1) + int64(t2)<<32
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
+		case il.SubI:
+			STACK_UNDERFLOW_GUARD(4)
+			STACK_POP2(t1, t2)
+			ti64 = int64(t1) + int64(t2)<<32
+			ti64 *= -1
+			STACK_POP2(t1, t2)
+			ti64 += int64(t1) + int64(t2)<<32
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
+		case il.AAddI:
+			STACK_UNDERFLOW_GUARD(2)
+			LOAD_OP_CODE2(t1, t2)
+			ti64 = int64(t1) + int64(t2)<<32
+			STACK_POP2(t1, t2)
+			ti64 += int64(t1) + int64(t2)<<32
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
+		case il.ASubI:
+			STACK_UNDERFLOW_GUARD(2)
+			LOAD_OP_CODE2(t1, t2)
+			ti64 = int64(t1) + int64(t2)<<32
+			ti64 *= -1
+			STACK_POP2(t1, t2)
+			ti64 += int64(t1) + int64(t2)<<32
+			STACK_PUSH2(uint32(ti64>>32), uint32(ti64&0xFFFFFFFF))
+
+		case il.AddD:
+			STACK_UNDERFLOW_GUARD(4)
+			STACK_POP2(t1, t2)
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			STACK_POP2(t1, t2)
+			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tu64 = math.Float64bits(tf64)
+			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+
+		case il.SubD:
+			STACK_UNDERFLOW_GUARD(4)
+			STACK_POP2(t1, t2)
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tf64 *= -1
+			STACK_POP2(t1, t2)
+			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tu64 = math.Float64bits(tf64)
+			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+
+		case il.AAddD:
+			STACK_UNDERFLOW_GUARD(2)
+			LOAD_OP_CODE2(t1, t2)
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			STACK_POP2(t1, t2)
+			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tu64 = math.Float64bits(tf64)
+			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+
+		case il.ASubD:
+			STACK_UNDERFLOW_GUARD(2)
+			LOAD_OP_CODE2(t1, t2)
+			tf64 = math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tf64 *= -1
+			STACK_POP2(t1, t2)
+			tf64 += math.Float64frombits(uint64(t1) + uint64(t2)<<32)
+			tu64 = math.Float64bits(tf64)
+			STACK_PUSH2(uint32(tu64>>32), uint32(tu64&0xFFFFFFFF))
+
+		case il.Jmp:
+			LOAD_OP_CODE(t1)
+			ip = t1
+
+		case il.Jz:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			STACK_POP(t2)
+			if t2 == 0 {
+				ip = t1
+			}
+
+		case il.Jnz:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			STACK_POP(t2)
+			if t2 != 0 {
+				ip = t1
+			}
+
+		case il.Call:
+			LOAD_OP_CODE(t1)
+			frames[fp].save(&registers, sp-typesStackAllocSize(fn.Parameters), ip, fn)
+			fp++
+			fn := in.program.Functions.GetByID(t1)
+
+			if fn == nil {
+				ERRF("function not found: '%s'", strings.GetString(t1))
+			}
+			if fn.Address == 0 { // This is an extern method
+				fp--
+
+				ext := in.externs[strings.GetString(t1)]
+				t2 = typesStackAllocSize(fn.Parameters)
+				STACK_UNDERFLOW_GUARD(t2)
+				t1, t3, tErr = ext.invoke(strings, heap, &hp, opstack, sp)
+				if tErr != nil {
+					goto RETURN_ERR
+				}
+
+				opstack[sp-t2] = t1
+				opstack[sp-t2+1] = t3
+				sp -= t2 - typeStackAllocSize(fn.ReturnType)
+				break
+			}
+
+			ip = fn.Address
+
+		case il.Ret:
+			if fp == 0 {
+
+				// End of the evaluation call. Return from run.
+				r := Result{
+					t: fn.ReturnType,
+				}
+				switch fn.ReturnType {
+				case il.Void, il.Integer, il.Double, il.Bool, il.Duration:
+					// Just copy the values of scalar types.
+					switch typeStackAllocSize(fn.ReturnType) {
+					case 0:
+
+					case 1:
+						STACK_UNDERFLOW_GUARD(1)
+						STACK_PEEK(r.v1)
+
+					case 2:
+						STACK_UNDERFLOW_GUARD(2)
+						STACK_PEEK2(r.v1, r.v2)
+
+					default:
+						panic("interpreter.run: unhandled parameter size")
+					}
+
+				case il.String:
+					STACK_UNDERFLOW_GUARD(1)
+					STACK_PEEK(r.v1)
+					r.vs = strings.GetString(r.v1)
+
+				case il.Interface:
+					STACK_UNDERFLOW_GUARD(1)
+					STACK_PEEK(r.v1)
+					r.vi = heap[r.v1]
+
+				default:
+					panic("interpreter.run: unhandled return type")
+				}
+
+				if step {
+					copy(in.stepper.registers[:], registers[:])
+					in.stepper.sp = sp
+					in.stepper.ip = ip
+					in.stepper.fp = fp
+					copy(in.stepper.opstack, opstack)
+					copy(in.stepper.frames, frames)
+					copy(in.stepper.heap, heap)
+					in.stepper.hp = hp
+					in.stepper.completed = true
+				}
+
+				return r, nil
+			}
+
+			t1 = typeStackAllocSize(fn.ReturnType)
+			t2 = sp // Capture the current stack pointer
+			fp--
+			frames[fp].restore(&registers, &sp, &ip, &fn)
+			for t3 = 0; t3 < t1; t3++ {
+				opstack[sp+t3] = opstack[t2-t1+t3]
+			}
+			sp += t1
+
+		case il.TLookup:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if tFound {
+				t3 = strings.GetID(tStr)
+				STACK_PUSH2(t3, 1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.Lookup:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				ERRF("member lookup failed: '%v'", strings.GetString(t1))
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
+		case il.NLookup:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
+		case il.ALookup:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				ERRF("member lookup failed: '%v'", strings.GetString(t1))
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
+		case il.ANLookup:
+			STACK_UNDERFLOW_GUARD(1)
+			LOAD_OP_CODE(t1)
+			tStr = strings.GetString(t1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE(t2, tVal)
+			tStr, tFound = tVal.(map[string]string)[tStr]
+			if !tFound {
+				tStr = ""
+			}
+			t3 = strings.GetID(tStr)
+			STACK_PUSH(t3)
+
+		default:
+			ERRF("invalid opcode: '%v'", il.Opcode(code))
+		}
+
+		if step {
+			copy(in.stepper.registers[:], registers[:])
+			in.stepper.sp = sp
+			in.stepper.ip = ip
+			in.stepper.fp = fp
+			copy(in.stepper.opstack, opstack)
+			copy(in.stepper.frames, frames)
+			copy(in.stepper.heap, heap)
+			in.stepper.hp = hp
+
+			return Result{}, nil
+		}
+	}
+
+	STACK_OVERFLOW_BLOCK
+	STACK_UNDERFLOW_BLOCK
+	INVALID_HEAP_ACCESS_BLOCK
+	HEAP_OVERFLOW_BLOCK
+
+RETURN_ERR:
+	if step {
+		in.stepper.completed = true
+	}
+	return Result{}, tErr
+}

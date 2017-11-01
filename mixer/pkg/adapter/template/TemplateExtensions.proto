@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package istio.mixer.v1.config.template;
+import "google/protobuf/descriptor.proto";
+
+enum TemplateVariety {
+    TEMPLATE_VARIETY_CHECK = 0;
+    TEMPLATE_VARIETY_REPORT = 1;
+    TEMPLATE_VARIETY_QUOTA = 2;
+}
+
+extend google.protobuf.FileOptions {
+    TemplateVariety template_variety = 72295727;
+}
+
+message Expr {
+    // This will be deleted in the next PR once the initial codegen implementation is fixed to not use it. Curren plan
+    // is to treate field of type ValueType as expressions.
+}

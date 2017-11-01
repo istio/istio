@@ -147,20 +147,6 @@ roleRef:
   name: istio-pilot-{ISTIO_NAMESPACE}
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Egress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-egress-admin-role-binding-{ISTIO_NAMESPACE}
-subjects:
-- kind: ServiceAccount
-  name: istio-egress-service-account
-  namespace: {ISTIO_NAMESPACE}
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot-{ISTIO_NAMESPACE}
-  apiGroup: rbac.authorization.k8s.io
----
 # Grant permissions to the sidecar.
 # TEMPORARY: the istioctl should generate a separate service account for the proxy, and permission
 # granted only to that account !

@@ -1,0 +1,3 @@
+errors during parsing:
+Error: mixer/tools/codegen/pkg/interfacegen/testdata/ErrorTemplate.proto: package name missing.
+Error: mixer/tools/codegen/pkg/interfacegen/testdata/ErrorTemplate.proto: message 'Template' not defined.
