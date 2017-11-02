@@ -21,7 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"ioutil"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
