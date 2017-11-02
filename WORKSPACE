@@ -108,14 +108,8 @@ http_file(
 )
 
 go_repository(
-    name = "com_github_prometheus_client_golang_v08",
-    commit = "c5b7fccd204277076155f10851dad72b76a49317",  # Aug 17, 2016 (v0.8.0)
-    importpath = "github.com/prometheus/client_golang",
-)
-
-go_repository(
     name = "com_github_prometheus_client_golang",
-    commit = "de4d4ffe63b9eff7f27484fdef6e421597e6abb4",  # June 6, 2017
+    commit = "5cec1d0429b02e4323e042eb04dafdb079ddf568",  # Jun 30, 2017 (latest, pending 0.9 release)
     importpath = "github.com/prometheus/client_golang",
 )
 
