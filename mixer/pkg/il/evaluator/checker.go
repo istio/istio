@@ -19,6 +19,6 @@ import (
 )
 
 // NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (expr.TypeChecker, error) {
-	return expr.NewTypeChecker(cacheSize, expr.FuncMap())
+func NewTypeChecker() expr.TypeChecker {
+	return expr.NewTypeChecker(expr.FuncMap())
 }

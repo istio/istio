@@ -113,7 +113,7 @@ func TestDispatchToHandlers(t *testing.T) {
 
 	// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
 	// and config packages is broken.
-	ex, _ := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
+	ex := expr.NewTypeChecker(expr.FuncMap())
 	for _, tt := range tests {
 		actualCallTrackInfo := make(instancesPerCall, 0)
 		tmplRepo := newFakeTmplRepo2("", &actualCallTrackInfo)
@@ -181,7 +181,7 @@ func TestDispatchToHandlersPanicRecover(t *testing.T) {
 	for _, tt := range tests {
 		// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
 		// and config packages is broken.
-		ex, _ := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
+		ex := expr.NewTypeChecker(expr.FuncMap())
 		actualCallTrackInfo := make(instancesPerCall, 0)
 		tmplRepo := newFakeTmplRepo2(tt.cnfgTypePanicsForTmpl, &actualCallTrackInfo)
 		hc := handlerFactory{typeChecker: ex, tmplRepo: tmplRepo}
@@ -236,7 +236,7 @@ func TestInferTypes(t *testing.T) {
 	}
 	// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
 	// and config packages is broken.
-	ex, _ := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
+	ex := expr.NewTypeChecker(expr.FuncMap())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hc := handlerFactory{typeChecker: ex, tmplRepo: tt.tmplRepo}
@@ -345,7 +345,7 @@ func TestGroupByTmpl(t *testing.T) {
 
 	// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
 	// and config packages is broken.
-	ex, _ := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
+	ex := expr.NewTypeChecker(expr.FuncMap())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 

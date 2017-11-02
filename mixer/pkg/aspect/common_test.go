@@ -107,7 +107,7 @@ func TestValidateLabels(t *testing.T) {
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := evaluator.NewTypeChecker(evaluator.DefaultCacheSize)
+			eval := evaluator.NewTypeChecker()
 			if err := validateLabels(tt.name, tt.labels, tt.descs, eval, dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateLabels() = '%s', wanted no err", err.Error())
