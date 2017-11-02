@@ -415,35 +415,3 @@ func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
 		extractEQMatches(arg, eqMap)
 	}
 }
-
-// Evaluator for a c-like expression language.
-type cexl struct {
-	// function Map
-	fMap map[string]FunctionMetadata
-}
-
-func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
-	v, err := Parse(expr)
-	if err != nil {
-		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
-	}
-	return v.EvalType(attrFinder, e.fMap)
-}
-
-func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := e.EvalType(expr, finder); err != nil {
-		return err
-	} else if t != expectedType {
-		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
-	}
-	return nil
-}
-
-// NewTypeChecker returns a new TypeChecker.
-// Warning: This version of the type checker should only be called by the il-code.
-// TODO(ozben): This version of the type checker should eventually be subsumed into the il/compiler code.
-func NewTypeChecker(functions []FunctionMetadata) TypeChecker {
-	return &cexl{
-		fMap: FuncMap(functions),
-	}
-}
