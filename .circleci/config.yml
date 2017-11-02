@@ -43,6 +43,6 @@ jobs:
           paths:
             - /home/circleci/.cache/bazel
       - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
-      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorLogsDir=/home/circleci/logs"
+      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
       - store_artifacts:
           path: /home/circleci/logs
