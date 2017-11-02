@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 func TestCompile(t *testing.T) {

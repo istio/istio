@@ -31,6 +31,7 @@ type generator struct {
 	program *il.Program
 	builder *il.Builder
 	finder  expr.AttributeDescriptorFinder
+	functions map[string]expr.FunctionMetadata
 	err     error
 }
 
@@ -57,7 +58,7 @@ type Result struct {
 }
 
 // Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error) {
+func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) (Result, error) {
 	p := il.NewProgram()
 
 	expression, err := expr.Parse(text)
@@ -65,7 +66,7 @@ func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error)
 		return Result{}, err
 	}
 
-	exprType, err := expression.EvalType(finder, expr.FuncMap())
+	exprType, err := expression.EvalType(finder, functions)
 	if err != nil {
 		return Result{}, err
 	}
@@ -74,6 +75,7 @@ func Compile(text string, finder expr.AttributeDescriptorFinder) (Result, error)
 		program: p,
 		builder: il.NewBuilder(p.Strings()),
 		finder:  finder,
+		functions: functions,
 	}
 
 	returnType := g.toIlType(exprType)
@@ -121,7 +123,7 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 }
 
 func (g *generator) evalType(e *expr.Expression) il.Type {
-	dvt, _ := e.EvalType(g.finder, expr.FuncMap())
+	dvt, _ := e.EvalType(g.finder, g.functions)
 	return g.toIlType(dvt)
 }
 
@@ -263,7 +265,7 @@ func (g *generator) generateEq(f *expr.Function, depth int) {
 		}
 
 	case il.Interface:
-		dvt, _ := f.Args[0].EvalType(g.finder, expr.FuncMap())
+		dvt, _ := f.Args[0].EvalType(g.finder, g.functions)
 		switch dvt {
 		case dpb.IP_ADDRESS:
 			g.builder.Call("ip_equal")
