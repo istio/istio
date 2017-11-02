@@ -269,7 +269,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	if err != nil {
 		fatalf("Failed to connect to the configuration server. %v", err)
 	}
-	dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), gp, adapterGP,
 		sa.configIdentityAttribute, sa.configDefaultNamespace,
 		store2, adapterMap, info,
 	)
@@ -281,13 +281,13 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	adapterMgr := adapterManager.NewManager(legacyAdapters, aspect.Inventory(), evalForLegacy, gp, adapterGP)
-	configManager := config.NewManager(evalForLegacy, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
+	configManager := config.NewManager(evalForLegacy, evaluator.NewTypeChecker(), adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
 		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
-	configAPIServer := config.NewAPI("v1", sa.configAPIPort, evalForLegacy,
+	configAPIServer := config.NewAPI("v1", sa.configAPIPort, evaluator.NewTypeChecker(),
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds, store, repo)
 

@@ -51,7 +51,7 @@ func (r Rule) String() string {
 // resolver is the runtime view of the configuration database.
 type resolver struct {
 	// evaluator evaluates selectors
-	evaluator expr.PredicateEvaluator
+	evaluator expr.Evaluator
 
 	// identityAttribute defines which configuration scopes apply to a request.
 	// default: target.service
@@ -75,7 +75,7 @@ type resolver struct {
 }
 
 // newResolver returns a Resolver.
-func newResolver(evaluator expr.PredicateEvaluator, identityAttribute string, defaultConfigNamespace string,
+func newResolver(evaluator expr.Evaluator, identityAttribute string, defaultConfigNamespace string,
 	rules map[string][]*Rule, id int) *resolver {
 	return &resolver{
 		evaluator:              evaluator,
