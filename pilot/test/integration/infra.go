@@ -70,6 +70,9 @@ type infra struct { // nolint: aligncheck
 	// check proxy logs
 	checkLogs bool
 
+	// store error logs in specific directory
+	errorLogsDir string
+	
 	namespaceCreated      bool
 	istioNamespaceCreated bool
 	debugImagesAndMode    bool
