@@ -69,9 +69,6 @@ fi
 echo 'Running Unit Tests'
 bazel test --test_output=all //...
 
-echo 'Checking that updateVersion has been called'
-install/updateVersion.sh -s
-
 # ensure that source remains go buildable
 ${ROOT}/bin/init.sh
 
