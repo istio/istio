@@ -78,7 +78,7 @@ pushd docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror mixer; do
     if [[ $image == "mixer" ]];then
       # build mixer docker image, it is tagged as istio/mixer/docker:mixer
-      bazel run //mixer/docker:mixer
+      bazel run ${BUILD_FLAGS} //mixer/docker:mixer
       local_image=${MIXER_LOCAL_IMG}
     else
       local_image="${image}:${local_tag}"
