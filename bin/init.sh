@@ -51,4 +51,4 @@ linkpkg ${ROOT} ${genfiles} security
 
 
 # Remove doubly-vendorized k8s dependencies
-rm -rf {ROOT}/vendor/k8s.io/*/vendor
+rm -rf ${ROOT}/vendor/k8s.io/*/vendor
