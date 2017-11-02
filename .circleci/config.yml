@@ -38,10 +38,10 @@ jobs:
       - run: bazel build //pilot/...
       - run: bazel test //pilot/...
       - run: bazel run //mixer/docker:mixer
-      - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
-      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test
       - save_cache:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel
+      - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
+      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test
  
