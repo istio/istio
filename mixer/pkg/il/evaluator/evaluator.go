@@ -224,6 +224,6 @@ func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) 
 	return &IL{
 		cacheSize:                  cacheSize,
 		maxStringTableSizeForPurge: maxStringTableSizeForPurge,
-		functions:                  expr.FuncMap(),
+		functions:                  expr.FuncMap(runtime.ExternFunctionMetadata),
 	}, nil
 }

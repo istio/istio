@@ -272,7 +272,7 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev := NewTypeChecker(FuncMap())
+			ev := NewTypeChecker([]FunctionMetadata{})
 			vt, err := ev.EvalType(tt.in, af)
 			if tt.err != "" || err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
@@ -306,7 +306,7 @@ func TestAssertType(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev := NewTypeChecker(FuncMap())
+			ev := NewTypeChecker([]FunctionMetadata{})
 			if err := ev.AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
 				if tt.err == "" {
 					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
@@ -338,7 +338,7 @@ func TestInternalTypeCheck(t *testing.T) {
 		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "arity mismatch"},
 		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, "unknown function"},
 	}
-	fMap := FuncMap()
+	fMap := FuncMap([]FunctionMetadata{})
 	for idx, c := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
 			var ex *Expression

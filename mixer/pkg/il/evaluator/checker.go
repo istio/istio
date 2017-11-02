@@ -16,9 +16,10 @@ package evaluator
 
 import (
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/runtime"
 )
 
 // NewTypeChecker returns a new TypeChecker.
 func NewTypeChecker() expr.TypeChecker {
-	return expr.NewTypeChecker(expr.FuncMap())
+	return expr.NewTypeChecker(runtime.ExternFunctionMetadata)
 }

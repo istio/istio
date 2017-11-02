@@ -442,8 +442,8 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 // NewTypeChecker returns a new TypeChecker.
 // Warning: This version of the type checker should only be called by the il-code.
 // TODO(ozben): This version of the type checker should eventually be subsumed into the il/compiler code.
-func NewTypeChecker(functions map[string]FunctionMetadata) TypeChecker {
+func NewTypeChecker(functions []FunctionMetadata) TypeChecker {
 	return &cexl{
-		fMap: functions,
+		fMap: FuncMap(functions),
 	}
 }
