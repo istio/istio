@@ -39,7 +39,7 @@ type IL struct {
 	maxStringTableSizeForPurge int
 	context                    *attrContext
 	contextLock                sync.RWMutex
-	fMap                       map[string]expr.FuncBase
+	fMap                       map[string]expr.FunctionMetadata
 }
 
 // attrContext captures the set of fields that needs to be kept & evicted together based on
