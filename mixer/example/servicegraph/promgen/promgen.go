@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/api/prometheus"
+	prometheus "github.com/prometheus/client_golang/api/prometheus"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/mixer/example/servicegraph"

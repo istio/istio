@@ -72,10 +72,20 @@ bazel build ${BUILD_FLAGS} //pilot/cmd/... //pilot/test/...
 IFS=',' read -ra tags <<< "${tags}"
 IFS=',' read -ra hubs <<< "${hubs}"
 
+MIXER_LOCAL_IMG="istio/mixer/docker:mixer"
+
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
-    local_image="${image}:${local_tag}"
-    docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
+  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror mixer; do
+    if [[ $image == "mixer" ]];then
+      # use bazel run //mixer/docker:mixer to build mixer docker image. in CircleCI this is
+      # built as a separate step
+      # build mixer docker image, it is tagged as istio/mixer/docker:mixer
+      local_image=${MIXER_LOCAL_IMG}
+    else
+      local_image="${image}:${local_tag}"
+      docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
+    fi
+
     for tag in ${tags[@]}; do
       for hub in ${hubs[@]}; do
         tagged_image="${hub}/${image}:${tag}"

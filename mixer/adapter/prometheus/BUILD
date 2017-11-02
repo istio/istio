@@ -14,8 +14,8 @@ go_library(
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/template/metric:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_prometheus_client_golang_v08//prometheus:go_default_library",
-        "@com_github_prometheus_client_golang_v08//prometheus/promhttp:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
     ],
 )
 
@@ -32,7 +32,7 @@ go_test(
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/adapter/test:go_default_library",
         "//mixer/template/metric:go_default_library",
-        "@com_github_prometheus_client_golang_v08//prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_model//go:go_default_library",
     ],
 )
