@@ -15,6 +15,22 @@ if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
+function linkpkg() {
+  root=$1
+  shift
+  genfiles=$1
+  shift
+  comp=$1
+
+  pushd $genfiles
+  for fl in $(find $comp -type f);do
+    ln -sf ${genfiles}/$fl ${root}/$(dirname $fl)
+  done
+
+  popd
+}
+
+# This step is to fetch resources and create genfiles
 bazel build //...
 
 source "${ROOT}/bin/use_bazel_go.sh"
@@ -26,18 +42,13 @@ mkdir -p ${ROOT}/vendor
 # Vendorize bazel dependencies
 ${ROOT}/mixer/bin/bazel_to_go.py ${ROOT}
 
-# link Pilot specific stuff
 genfiles=$(bazel info bazel-genfiles)
-# Link CRD generated files
-ln -sf "$genfiles/pilot/adapter/config/crd/types.go" \
-  ${ROOT}/pilot/adapter/config/crd/
+# Link generated files
 
-# Link envoy binary
-ln -sf "$genfiles/pilot/proxy/envoy/envoy" ${ROOT}/pilot/proxy/envoy/
+linkpkg ${ROOT} ${genfiles} pilot
+linkpkg ${ROOT} ${genfiles} broker
+linkpkg ${ROOT} ${genfiles} security
 
-ln -sf "$genfiles/security/proto/ca_service.pb.go" ${ROOT}/security/proto
 
 # Remove doubly-vendorized k8s dependencies
 rm -rf {ROOT}/vendor/k8s.io/*/vendor
-
-
