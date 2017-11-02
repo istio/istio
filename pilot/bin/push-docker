@@ -77,8 +77,9 @@ MIXER_LOCAL_IMG="istio/mixer/docker:mixer"
 pushd docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror mixer; do
     if [[ $image == "mixer" ]];then
+      # use bazel run //mixer/docker:mixer to build mixer docker image. in CircleCI this is
+      # built as a separate step
       # build mixer docker image, it is tagged as istio/mixer/docker:mixer
-      bazel run ${BUILD_FLAGS} //mixer/docker:mixer
       local_image=${MIXER_LOCAL_IMG}
     else
       local_image="${image}:${local_tag}"
