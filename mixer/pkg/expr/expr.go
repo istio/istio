@@ -470,12 +470,15 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 }
 
 // NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (TypeChecker, error) {
+// Warning: This version of the type checker should only be called by the il-code.
+// TODO(ozben): This version of the type checker should eventually be subsumed into the il/compiler code.
+func NewTypeChecker(cacheSize int, functions map[string]FunctionMetadata) (TypeChecker, error) {
 	cache, err := lru.New(cacheSize)
 	if err != nil {
 		return nil, err
 	}
 	return &cexl{
-		fMap: FuncMap(), cache: cache,
+		fMap: functions,
+		cache: cache,
 	}, nil
 }
