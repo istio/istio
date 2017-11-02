@@ -131,7 +131,7 @@ func main() {
 
 	params.Name = "(default infra)"
 	params.Auth = proxyconfig.MeshConfig_NONE
-	params.Mixer = true
+	params.Mixer = false
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
