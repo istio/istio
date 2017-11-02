@@ -46,8 +46,6 @@ var (
 
 	// Enable/disable auth, or run both for the tests.
 	authmode string
-	// Enable/disable mixer
-	mixermode string
 	verbose   bool
 	count     int
 
@@ -88,7 +86,7 @@ func init() {
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
-	flag.StringVar(&mixermode, "mixer", "enable", "Enable / disable mixer.")
+	flag.BoolVar(&params.Mixer, "mixer", true, "Enable / disable mixer.")
 	flag.StringVar(&params.errorLogsDir, "errorlogsdir", "", "Store per pod logs as individual files in specific directory instead of writing to stderr.")
 
 	// If specified, only run one test
@@ -136,15 +134,11 @@ func main() {
 
 	params.Name = "(default infra)"
 	params.Auth = proxyconfig.MeshConfig_NONE
-	params.Mixer = true
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
 	params.PilotCustomConfigFile = pilotConfigFile
 	params.errorLogsDir
-	if mixermode == "disable" {
-		params.Mixer = false
-	}
 
 	if len(params.Namespace) != 0 && authmode == "both" {
 		glog.Infof("When namespace(=%s) is specified, auth mode(=%s) must be one of enable or disable.",
