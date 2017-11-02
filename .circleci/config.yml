@@ -34,5 +34,6 @@ jobs:
             ln -s ~/.kube/config pilot/platform/kube/
       - run: bazel build //pilot/...
       - run: bazel test //pilot/...
+      - run: bazel run //mixer/docker:mixer
       - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
       - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test
