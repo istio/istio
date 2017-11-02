@@ -9,43 +9,20 @@ set -ex
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-function usage() {
-  echo "$0 \
-    -h <docker image repository> \
-    -t <comma separated list of docker image tags>"
-  exit 1
-}
 
-function docker_push() {
-  local im="${1}"
-  if [[ "${im}" =~ ^gcr\.io ]]; then
-    gcloud docker -- push ${im}
-  else
-    docker push ${im}
-  fi
-}
+source ${ROOT}/../bin/docker_lib.sh
 
 BAZEL_IMAGES=('mixer' 'mixer_debug')
 IMAGES=()
-TAGS=''
-HUBS=''
-
-while getopts :h:t: arg; do
-  case ${arg} in
-    h) HUBS="${OPTARG}";;
-    t) TAGS="${OPTARG}";;
-    *) usage;;
-  esac
-done
-
-IFS=',' read -ra TAGS <<< "${TAGS}"
-IFS=',' read -ra HUBS <<< "${HUBS}"
 
 # Building grafana image
 pushd "${ROOT}/deploy/kube/conf"
 docker build . -t grafana
 IMAGES+=(grafana)
 popd
+
+BAZEL_STARTUP_ARGS=${BAZEL_STARTUP_ARGS:-}
+BAZEL_ARGS=${BAZEL_ARGS:-}
 
 # Build Bazel based docker images
 for IMAGE in "${BAZEL_IMAGES[@]}"; do
@@ -61,11 +38,4 @@ IMAGES+=(servicegraph)
 
 # Tag and push
 
-for IMAGE in ${IMAGES[@]}; do
-  for TAG in ${TAGS[@]}; do
-    for HUB in ${HUBS[@]}; do
-      docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-      docker_push "${HUB}/${IMAGE}:${TAG}"
-    done
-  done
-done
+tag_and_push "${IMAGES[@]}
