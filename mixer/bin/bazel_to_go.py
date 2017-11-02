@@ -84,6 +84,7 @@ def process(fl, external, genfiles, vendor):
     lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
 
+    dd = {}
     for stmt in ast.walk(tree):
         stmttype = type(stmt)
         if stmttype == ast.Call:
@@ -97,6 +98,10 @@ def process(fl, external, genfiles, vendor):
                 path = path[:-4]
             path = pathmap.get(path, path)
             tup = fn(name, path)
+
+            if name in dd:
+              print "duplicate name", tup, dd[name]
+            dd[name] = path
             lst.append(tup)
 
     return lst
