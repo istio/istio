@@ -17,6 +17,8 @@ mainFlow(utils) {
     // Proxy does build work correctly with Hazelcast.
     // Must use .bazelrc.jenkins
     bazel.setVars('', '')
+    env.HUB = 'gcr.io/istio-testing'
+    env.ARTIFACTS_DIR = "gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs"
   }
   if (utils.runStage('PRESUBMIT')) {
     presubmit(gitUtils, bazel)
@@ -29,24 +31,19 @@ mainFlow(utils) {
 def presubmit(gitUtils, bazel) {
   buildNode(gitUtils) {
     stage('Code Check') {
-      sh('script/check-license-headers')
-      sh('script/check-style')
+      sh('make check')
     }
     bazel.updateBazelRc()
-    stage('Bazel Fetch') {
-      bazel.fetch('-k //...')
-    }
     stage('Bazel Build') {
-      bazel.build('//...')
+      sh('make build')
     }
     stage('Bazel Tests') {
-      bazel.test('//...')
+      sh('make test')
     }
-    stage('Push Test Binary') {
-      sh 'script/release-binary'
-    }
-    stage('Push Debian Package') {
-      sh "script/push-debian.sh -c dbg -p gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs"
+    stage('Create and push artifacts') {
+      sh('script/release-binary')
+      sh('script/release-docker')
+      sh('make artifacts')
     }
   }
 }
@@ -54,14 +51,10 @@ def presubmit(gitUtils, bazel) {
 def postsubmit(gitUtils, bazel, utils) {
   buildNode(gitUtils) {
     bazel.updateBazelRc()
-    stage('Binary push') {
-      sh 'script/release-binary'
-    }
-    stage('Docker Push') {
-      sh 'script/release-docker'
-    }
-    stage('Push Debian Package') {
-      sh "script/push-debian.sh -c dbg -p gs://istio-artifacts/proxy/${GIT_SHA}/artifacts/debs"
+    stage('Create and push artifacts') {
+      sh('script/release-binary')
+      sh('script/release-docker')
+      sh('make artifacts')
     }
   }
 }
