@@ -30,8 +30,8 @@ import (
 	"istio.io/istio/mixer/example/servicegraph"
 )
 
-const reqsFmt = "sum(rate(request_count[%s])) by (source_service, destination_service, source_version, destination_version)"
-const tcpFmt = "sum(rate(tcp_bytes_received[%s])) by (source_service, destination_service, source_version, destination_version)"
+const reqsFmt = "sum(rate(istio_request_count[%s])) by (source_service, destination_service, source_version, destination_version)"
+const tcpFmt = "sum(rate(istio_tcp_bytes_received[%s])) by (source_service, destination_service, source_version, destination_version)"
 const emptyFilter = " > 0"
 
 type genOpts struct {
