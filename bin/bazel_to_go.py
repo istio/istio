@@ -81,7 +81,7 @@ class WORKSPACE(object):
 
 
 def process(fl, external, genfiles, vendor):
-    src = open(fl).read()
+    src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
     tree = ast.parse(src, fl)
     lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
@@ -139,7 +139,7 @@ def bazel_to_vendor(WKSPC):
         return -1
 
     vendor = os.path.join(WKSPC, "vendor")
-    root = bazel_info("execution_root")
+    root = bazel_info("output_base")
     genfiles = bazel_info("bazel-genfiles")
     genfiles_external = os.path.join(genfiles, "external")
     external = os.path.join(root, "external")
@@ -176,6 +176,7 @@ def bazel_to_vendor(WKSPC):
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
 
+    makelink(genfiles + "/external/io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go")
     protos(WKSPC, genfiles, genfiles_external)
 
 def get_external_links(external):
@@ -193,7 +194,7 @@ def protos(WKSPC, genfiles, genfiles_external):
         if directory.startswith(genfiles_external):
             continue
         for file in filenames:
-            if file.endswith(".pb.go"):
+            if file.endswith(".go"):
                 src = os.path.join(directory, file)
                 dest = os.path.join(WKSPC, os.path.relpath(src, genfiles))
                 makelink(src, dest)

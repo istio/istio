@@ -36,7 +36,6 @@ jobs:
           keys:
             - bazel-cache-{{ checksum "WORKSPACE" }}
       - run: make test
-      - run: bin/linters.sh
       - save_cache:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
