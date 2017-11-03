@@ -13,6 +13,7 @@ import ast
 import glob
 import os
 import subprocess
+import shutil
 
 from urlparse import urlparse
 
@@ -176,8 +177,21 @@ def bazel_to_vendor(WKSPC):
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
 
-    makelink(genfiles + "/external/io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go")
-    protos(WKSPC, genfiles, genfiles_external)
+    protolst = protos(WKSPC, genfiles, genfiles_external)
+    protolst.append((genfiles + "/external/io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
+
+    # generate manifest of generated files
+    manifest = [l[0][len(genfiles)+1:] for l in protolst]
+    with open(WKSPC+"/generated_files", "wt") as fl:
+      print >>fl, "#List of generated files that are checked in"
+      for mm in sorted(manifest):
+        print >>fl, mm
+
+    for (src, dest) in protolst:
+      try:
+        shutil.copyfile(src, dest)
+      except Exception as ex:
+        print src, dest, ex
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
@@ -190,6 +204,7 @@ def main(args):
     bazel_to_vendor(WKSPC)
 
 def protos(WKSPC, genfiles, genfiles_external):
+    lst = []
     for directory, dirnames, filenames in os.walk(genfiles):
         if directory.startswith(genfiles_external):
             continue
@@ -197,7 +212,9 @@ def protos(WKSPC, genfiles, genfiles_external):
             if file.endswith(".go"):
                 src = os.path.join(directory, file)
                 dest = os.path.join(WKSPC, os.path.relpath(src, genfiles))
-                makelink(src, dest)
+                lst.append((src, dest))
+    return lst
+
 
 
 if __name__ == "__main__":
