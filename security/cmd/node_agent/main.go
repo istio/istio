@@ -29,6 +29,15 @@ var (
 
 	rootCmd = &cobra.Command{
 		Run: func(cmd *cobra.Command, args []string) {
+			flags := cmd.Flags()
+			flags.StringVar(&naConfig.PlatformConfig.CertChainFile, "cert-chain",
+				"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
+			flags.StringVar(&naConfig.PlatformConfig.KeyFile,
+				"key", "/etc/certs/key.pem", "Node identity private key file")
+			flags.StringVar(&naConfig.PlatformConfig.RootCACertFile, "root-cert",
+				"/etc/certs/root-cert.pem", "Root Certificate file")
+			_ = flags.Parse(os.Args[1:]) // re-parse platform-specific flags
+
 			runNodeAgent()
 		},
 	}
@@ -44,14 +53,9 @@ func init() {
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
 	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")
-	flags.StringVar(&naConfig.PlatformConfig.CertChainFile, "cert-chain",
-		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
-	flags.StringVar(&naConfig.PlatformConfig.KeyFile,
-		"key", "/etc/certs/key.pem", "Node identity private key file")
-	flags.StringVar(&naConfig.PlatformConfig.RootCACertFile, "root-cert",
-		"/etc/certs/root-cert.pem", "Root Certificate file")
 
 	cmd.InitializeFlags(rootCmd)
+	rootCmd.SetArgs(cmd.FilterFlags(flags, os.Args[1:]))
 }
 
 func main() {

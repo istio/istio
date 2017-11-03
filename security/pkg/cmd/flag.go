@@ -18,6 +18,7 @@ import (
 	"flag"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // InitializeFlags carries over glog flags with new defaults, and makes
@@ -32,4 +33,53 @@ func InitializeFlags(rootCmd *cobra.Command) {
 	flagSet := flag.NewFlagSet("", flag.ContinueOnError)
 	_ = flagSet.Parse([]string{})
 	flag.CommandLine = flagSet
+}
+
+// FilterFlags removes unknown flags that is not in the flagset
+// from a list of cmd arguments.
+func FilterFlags(flags *pflag.FlagSet, args []string) []string {
+	if flags == nil || len(args) == 0 {
+		return args
+	}
+
+	names := make(map[string]bool)
+	flags.VisitAll(func(f *pflag.Flag) {
+		names[f.Name] = true
+	})
+
+	ret := make([]string, 0, len(args))
+	for len(args) > 0 {
+		s := args[0]
+		args = args[1:]
+		if len(s) == 0 || len(s) == 1 || s[0] != '-' {
+			ret = append(ret, s)
+			continue
+		}
+
+		var name string
+		if s[1] == '-' {
+			if len(s) == 2 { // '--' terminates flags
+				ret = append(ret, s)
+				ret = append(ret, args...)
+				break
+			}
+			name = s[2:]
+		} else {
+			name = s[1:]
+		}
+
+		if !names[name] && name != "h" && name != "help" { // flag is not defined in FlagSet, and is not help
+			if len(args) == 0 {
+				break
+			}
+
+			if len(args[0]) > 0 && args[0][0] != '-' { // unknown flag has an argument
+				args = args[1:]
+				continue
+			}
+		} else {
+			ret = append(ret, s)
+		}
+	}
+	return ret
 }
