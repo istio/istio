@@ -9,10 +9,8 @@ coverage.out
 *.so
 
 # Generated files
-*.pb.go
 *.pb.cc
 *.pb.h
-*.gen.go
 *.descriptor_set
 
 # Folders
