@@ -63,7 +63,7 @@ The Istio project is divided across a few GitHub repositories.
 currently looking at. It hosts the core components of Istio and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
-  - [auth](auth/). This directory contains auth related code,
+  - [security](security/). This directory contains security related code,
 including CA (Cert Authority), node agent, etc.
   - [pilot](pilot/). This directory
 contains platform-specific code to populate the
