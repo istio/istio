@@ -1,7 +1,6 @@
 /bazel-*
 platform/kube/config
 proxy/envoy/envoy
-vendor
 .idea*
 *.iml
 *.bak

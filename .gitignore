@@ -6,7 +6,17 @@
 .idea/
 # Bazel
 /bazel-*
-vendor
+
+# only include vendor/istio.io/api
+!vendor/
+
+vendor/*
+!vendor/istio.io/
+
+vendor/istio.io/*
+!vendor/istio.io/api/
+#######
+
 *.descriptor_set
 # vi backups
 *.bak
