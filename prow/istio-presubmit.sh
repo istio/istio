@@ -63,15 +63,15 @@ else
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
-# disabling linters, WIP
-#echo 'Running Linters'
-#${ROOT}/bin/linters.sh
-
 echo 'Running Unit Tests'
 bazel test --test_output=all //...
 
 # ensure that source remains go buildable
 ${ROOT}/bin/init.sh
+
+# run linters in advisory mode
+SKIP_INIT=1 ${ROOT}/bin/linters.sh
+
 
 source "${ROOT}/bin/use_bazel_go.sh"
 echo "building mixer"
