@@ -17,6 +17,9 @@ if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
 
+# getting the full list of generated files -- they should be excluded.
+exclude_generated=`cat ${WORKSPACE}/generated_files | grep -v '^#' | sed -e 's/^/--exclude=/'`
+
 echo 'Running linters .... in advisory mode'
 docker run\
   -v $(bazel info output_base):$(bazel info output_base)\
@@ -35,6 +38,7 @@ docker run\
   --enable=gofmt\
   --enable=goimports\
   --enable=golint --min-confidence=0 \
+  $exclude_generated\
   --exclude=vendor\
   --exclude=.pb.go\
   --exclude=mixer/pkg/config/proto/combined.go\
