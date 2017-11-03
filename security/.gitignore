@@ -7,6 +7,3 @@ vendor
 # Intellij files
 .idea/*
 *.iml
-
-# Ignore generated protobuf
-*.pb.go
