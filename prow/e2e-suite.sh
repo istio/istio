@@ -43,4 +43,11 @@ if [ "${CI:-}" == 'bootstrap' ]; then
 fi
 
 echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} "$@"
+./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
+  --mixer_tag "${PULL_PULL_SHA}"\
+  --pilot_tag "${PULL_PULL_SHA}"\
+  --ca_tag "${PULL_PULL_SHA}"\
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${PULL_PULL_URL}/artifacts/istioctl"\
+  --auth_debian_url "https://storage.googleapis.com/istio-artifacts/auth/${PULL_PULL_URL}/artifacts/debs"\
+  --pilot_debian_url "https://storage.googleapis.com/istio-artifacts/pilot/${PULL_PULL_URL}/artifacts/debs"
+

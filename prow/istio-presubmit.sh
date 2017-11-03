@@ -62,6 +62,7 @@ else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
+cd $ROOT
 
 echo 'Running Unit Tests'
 bazel test --test_output=all //...
@@ -82,3 +83,6 @@ echo "building security"
 time go build -o security.bin security/cmd/istio_ca/*.go
 echo "building broker"
 time go build -o broker.bin broker/cmd/brks/*.go
+
+# upload images
+make push HUB=gcr.io/istio-testing TAG="${GIT_SHA}"
