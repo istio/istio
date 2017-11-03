@@ -7,11 +7,19 @@
 
 	It is generated from these files:
 		mixer/v1/attributes.proto
+		mixer/v1/check.proto
+		mixer/v1/report.proto
+		mixer/v1/service.proto
 
 	It has these top-level messages:
 		Attributes
 		CompressedAttributes
 		StringMap
+		CheckRequest
+		CheckResponse
+		ReferencedAttributes
+		ReportRequest
+		ReportResponse
 */
 package istio_mixer_v1
 
