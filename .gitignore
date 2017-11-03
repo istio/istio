@@ -13,3 +13,4 @@ vendor
 cluster.env
 kubedns
 *.pem
+pilot/platform/config
