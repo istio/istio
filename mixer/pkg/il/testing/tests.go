@@ -1463,6 +1463,20 @@ end`,
 		CompileErr: "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64",
 		AstErr:     "unresolved attribute ai",
 	},
+
+	{
+		E:  `"foo" | "bar"`,
+		IL: `
+fn eval() string
+  apush_s "foo"
+  jmp L0
+  apush_s "bar"
+L0:
+  ret
+end
+		`,
+		R: "foo",
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
