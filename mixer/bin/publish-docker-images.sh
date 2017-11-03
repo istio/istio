@@ -8,8 +8,6 @@
 set -ex
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-
 source ${ROOT}/../bin/docker_lib.sh
 
 BAZEL_IMAGES=('mixer' 'mixer_debug')
@@ -37,5 +35,4 @@ docker tag "istio/mixer/example/servicegraph/docker:servicegraph" "servicegraph"
 IMAGES+=(servicegraph)
 
 # Tag and push
-
 tag_and_push "${IMAGES[@]}"

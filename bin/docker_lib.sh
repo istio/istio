@@ -56,6 +56,7 @@ while [[ $# -gt 0 ]]; do
         -h) HUBS="$2"; shift ;;
         -build-only) BUILD_ONLY="true";;
         -b) BUILD_ONLY="true";;
+        -help) usage;;
         *) ;;
     esac
     shift
