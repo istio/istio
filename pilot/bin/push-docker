@@ -18,11 +18,12 @@
 #
 # This script creates a base image for the init image that includes iptables.
 #
-
 set -ex
-set -o errexit
-set -o nounset
-set -o pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source ${ROOT}/../bin/docker_lib.sh
+
+cd $ROOT
 
 detected_OS=`uname -s 2>/dev/null || echo not`
 BUILD_FLAGS="--output_groups=static"
@@ -31,30 +32,6 @@ if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
     BUILD_FLAGS="--cpu=darwin"
     SUFFIX=""
 fi
-
-function docker_push() {
-  im="${1}"
-  if [[ "${im}" =~ 'gcr.io' ]]; then
-    gcloud docker -- push "${im}"
-  else
-    docker push ${im}
-  fi
-}
-
-hubs="gcr.io/istio-testing"
-local_tag=$(whoami)_$(date +%y%m%d_%H%M%S)
-tags="${local_tag}"
-build_only="false"
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -tag) tags="$2"; shift ;;
-        -hub) hubs="$2"; shift ;;
-        -build-only) build_only="true";;
-        *) ;;
-    esac
-    shift
-done
 
 # Collect artifacts for pushing
 bin=$(bazel info bazel-bin)
@@ -67,35 +44,16 @@ bazel build ${BUILD_FLAGS} //pilot/cmd/... //pilot/test/...
 \cp -f "${bin}/pilot/cmd/sidecar-initializer/sidecar-initializer${SUFFIX}" docker/sidecar-initializer
 \cp -f "${bin}/pilot/test/eurekamirror/eurekamirror${SUFFIX}" docker/eurekamirror
 
-# Build and push images
-
-IFS=',' read -ra tags <<< "${tags}"
-IFS=',' read -ra hubs <<< "${hubs}"
-
-MIXER_LOCAL_IMG="istio/mixer/docker:mixer"
+IMAGES=()
 
 pushd docker
-  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror mixer; do
-    if [[ $image == "mixer" ]];then
-      # use bazel run //mixer/docker:mixer to build mixer docker image. in CircleCI this is
-      # built as a separate step
-      # build mixer docker image, it is tagged as istio/mixer/docker:mixer
-      local_image=${MIXER_LOCAL_IMG}
-    else
-      local_image="${image}:${local_tag}"
-      docker build -q -f "Dockerfile.${image}" -t "${local_image}" .
-    fi
-
-    for tag in ${tags[@]}; do
-      for hub in ${hubs[@]}; do
-        tagged_image="${hub}/${image}:${tag}"
-        docker tag "${local_image}" "${tagged_image}"
-        if [ "${build_only}" != "true" ]; then
-            docker_push "${tagged_image}"
-        fi
-      done
-    done
+  for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
+    local_image="${image}:${local_tag}"
+    docker build -q -f "Dockerfile.${image}" -t "${image}" .
+    IMAGES+=("${image}")
   done
 popd
 
-echo "Pushed images to $hub with tags ${tags[@]}"
+# Tag and push
+tag_and_push "${IMAGES[@]}"
+
