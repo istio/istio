@@ -81,6 +81,9 @@ const (
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
+	// CORSFilter is the name of the CORS network filter
+	CORSFilter = "cors"
+
 	// MongoProxyFilter is the name of the Mongo Proxy network filter.
 	MongoProxyFilter = "mongo_proxy"
 
@@ -557,6 +560,12 @@ type MongoProxyFilterConfig struct {
 }
 
 func (*MongoProxyFilterConfig) isNetworkFilterConfig() {}
+
+// CORSFilterConfig definition
+// See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
+type CORSFilterConfig struct{}
+
+func (*CORSFilterConfig) isNetworkFilterConfig() {}
 
 // RedisConnPool definition
 type RedisConnPool struct {
