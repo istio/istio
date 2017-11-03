@@ -42,5 +42,8 @@ jobs:
             - /home/circleci/.cache/bazel
       - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
       - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash)
       - store_artifacts:
           path: /home/circleci/logs

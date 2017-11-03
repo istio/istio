@@ -9,7 +9,6 @@ BUILD-e
 *.o
 *.a
 *.so
-*.pb.go
 *.pb.cc
 *.pb.h
 *.bin
@@ -59,7 +58,3 @@ CMakeLists.txt
 
 # key file
 istio-testing.json
-
-# links to generated files
-types.go
-mock_store.go
