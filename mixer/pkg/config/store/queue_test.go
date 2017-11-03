@@ -144,14 +144,19 @@ func TestQueueCancelSync(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	// Read the bufferred events.
 	for i := 0; i < choutBufSize; i++ {
-		ev := <-q.chout
+		ev, ok := <-q.chout
+		if !ok {
+			// Sometimes items less than 'choutBufSize' are stored into the queue, but that's
+			// acceptable. That can happen due to goroutine scheduling.
+			break
+		}
 		if ev.Name != fmt.Sprintf("%d", i) {
 			t.Errorf("Got name %s Want %d", ev.Name, i)
 		}
 	}
 	// After the buffer runs out, it should return an empty since it's closed due to cancel.
-	ev := <-q.chout
-	if ev.Name != "" {
+
+	if ev, ok := <-q.chout; ok {
 		t.Errorf("Got %+v, Want empty", ev)
 	}
 }

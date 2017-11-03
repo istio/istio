@@ -1,4 +1,4 @@
-# Istio Authentication
+# Istio Security
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/istio/auth)](https://goreportcard.com/report/github.com/istio/auth)
 [![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Istio Auth's aim is to enhance the security of microservices and their communication without requiring service code changes. It is responsible for:
+Istio Security's aim is to enhance the security of microservices and their communication without requiring service code changes. It is responsible for:
 
 *   Providing each service with a strong identity that represents its role to enable interoperability across clusters and clouds
 
@@ -16,17 +16,21 @@ Istio Auth's aim is to enhance the security of microservices and their communica
 
 ## Architecture
 
-The diagram below shows Istio Auth's architecture, which includes three primary components: identity, key management, and communication security. This diagram describes how Istio Auth is used to secure the service-to-service communication between service 'frontend' running as the service account 'frontend-team' and service 'backend' running as the service account 'backend-team'. Istio supports services running on both Kubernetes containers and VM/bare-metal machines.
+The diagram below shows Istio Security's architecture, which includes three primary components: identity, key management, and communication security.
+This diagram describes how Istio Security is used to secure the service-to-service communication between service 'frontend' running as the service account 'frontend-team' and service 'backend' running as the service account 'backend-team'.
+Istio supports services running on both Kubernetes containers and VM/bare-metal machines.
 
 ![overview](https://cdn.rawgit.com/istio/auth/master/overview.svg)
 
-As illustrated in the diagram, Istio Auth leverages secret volume mount to deliver keys/certs from Istio CA to Kubernetes containers. For services running on VM/bare-metal machines, we introduce a node agent, which is a process running on each VM/bare-metal machine. It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio CA for signing, and delivers the generated certificate together with the private key to Envoy.
+As illustrated in the diagram, Istio Security leverages secret volume mount to deliver keys/certs from Istio CA to Kubernetes containers.
+For services running on VM/bare-metal machines, we introduce a node agent, which is a process running on each VM/bare-metal machine.
+It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio CA for signing, and delivers the generated certificate together with the private key to Envoy.
 
 ## Components
 
 ### Identity
 
-Istio Auth uses [Kubernetes service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) to identify who runs the service:
+Istio Security uses [Kubernetes service accounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/) to identify who runs the service:
 
 *   A service account in Istio has the format "spiffe://\<_domain_\>/ns/\<_namespace_>/sa/\<_serviceaccount_\>".
     *   _domain_ is currently _cluster.local_. We will support customization of domain in the near future.
@@ -71,7 +75,8 @@ For services running on VM/bare-metal machines, the above four operations are pe
 
 ## Workflow
 
-The Istio Auth workflow consists of two phases, deployment and runtime. For the deployment phase, we discuss the two scenarios (i.e., in Kubernetes and VM/bare-metal machines) separately since they are different. Once the key and certificate are deployed, the runtime phase is the same for the two scenarios. We briefly cover the workflow in this section.
+The Istio Security workflow consists of two phases, deployment and runtime. For the deployment phase, we discuss the two scenarios (i.e., in Kubernetes and VM/bare-metal machines) separately since they are different.
+Once the key and certificate are deployed, the runtime phase is the same for the two scenarios. We briefly cover the workflow in this section.
 
 ### Deployment phase (Kubernetes Scenario)
 

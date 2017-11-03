@@ -34,14 +34,16 @@ jobs:
             ln -s ~/.kube/config pilot/platform/kube/
       - restore_cache:
           keys:
-            - bazel-cache-{{ checksum "WORKSPACE" }}      
-      - run: bazel build //pilot/...
-      - run: bazel test //pilot/...
-      - run: bazel run //mixer/docker:mixer
+            - bazel-cache-{{ checksum "WORKSPACE" }}
+      - run: make test
       - save_cache:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel
-      - run: cd pilot; make docker HUB=docker.io/rshriram TAG=test
-      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test
- 
+      - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
+      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash)
+      - store_artifacts:
+          path: /home/circleci/logs
