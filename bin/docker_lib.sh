@@ -29,13 +29,13 @@ function docker_push() {
 
 # Tag and push
 function tag_and_push() {
-  local IMAGES="$1"
+  local IMAGES="${@}"
 
   for IMAGE in ${IMAGES[@]}; do
     for TAG in ${TAGS[@]}; do
       for HUB in ${HUBS[@]}; do
         docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-        if [ "${build_only}" != "true" ]; then
+        if [ "${BUILD_ONLY}" != "true" ]; then
           docker_push "${HUB}/${IMAGE}:${TAG}"
         fi
       done
@@ -65,4 +65,4 @@ done
 IFS=',' read -ra TAGS <<< "${TAGS}"
 IFS=',' read -ra HUBS <<< "${HUBS}"
 
-
+# At this point TAGS, HUBS and BUILD_ONLY is correctly populated

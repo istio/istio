@@ -27,15 +27,15 @@ BAZEL_ARGS=${BAZEL_ARGS:-}
 # Build Bazel based docker images
 for IMAGE in "${BAZEL_IMAGES[@]}"; do
   bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//mixer/docker:${IMAGE}"
-  docker tag "istio/docker:${IMAGE}" "${IMAGE}"
+  docker tag "istio/mixer/docker:${IMAGE}" "${IMAGE}"
   IMAGES+=("${IMAGE}")
 done
 
 # Build Servicegraph
-bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//example/servicegraph/docker:servicegraph"
-docker tag "istio/example/servicegraph/docker:servicegraph" "servicegraph"
+bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//mixer/example/servicegraph/docker:servicegraph"
+docker tag "istio/mixer/example/servicegraph/docker:servicegraph" "servicegraph"
 IMAGES+=(servicegraph)
 
 # Tag and push
 
-tag_and_push "${IMAGES[@]}
+tag_and_push "${IMAGES[@]}"
