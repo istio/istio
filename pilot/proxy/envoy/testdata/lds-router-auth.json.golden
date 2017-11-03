@@ -19,7 +19,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890"
+          "cluster": "out.hello.default.svc.cluster.local|mongo"
          }
         ]
        }
@@ -36,7 +36,7 @@
       "type": "both",
       "name": "redis_proxy",
       "config": {
-       "cluster_name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+       "cluster_name": "out.hello.default.svc.cluster.local|redis",
        "conn_pool": {
         "op_timeout_ms": 30000
        },
@@ -214,7 +214,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88"
+          "cluster": "out.hello.default.svc.cluster.local|custom"
          }
         ]
        }
