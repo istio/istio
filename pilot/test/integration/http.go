@@ -40,10 +40,10 @@ func (r *http) teardown() {
 }
 
 func (r *http) run() error {
-	if err := r.makeRequests(); err != nil {
+	if err := r.makeRequests() {
 		return err
 	}
-	if err := r.logs.check(r.infra); err != nil {
+	if err := r.logs.check(r.infra) {
 		return err
 	}
 	return nil
