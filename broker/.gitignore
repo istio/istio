@@ -42,8 +42,6 @@ coverage.out
 .project
 .settings/*
 .externalToolBuilders/*
-vendor
-vendor/*
 dep-prep
 *.pyc
 .cache/*

@@ -41,8 +41,6 @@ _projects/
 .project
 .settings/*
 .externalToolBuilders/*
-vendor
-vendor/*
 dep-prep
 *.pyc
 .cache/*
