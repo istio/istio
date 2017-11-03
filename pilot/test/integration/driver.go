@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -45,8 +46,8 @@ var (
 
 	// Enable/disable auth, or run both for the tests.
 	authmode string
-	verbose  bool
-	count    int
+	verbose   bool
+	count     int
 
 	// The particular test to run, e.g. "HTTP reachability" or "routing rules"
 	testType string
@@ -85,6 +86,8 @@ func init() {
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
+	flag.BoolVar(&params.Mixer, "mixer", true, "Enable / disable mixer.")
+	flag.StringVar(&params.errorLogsDir, "errorlogsdir", "", "Store per pod logs as individual files in specific directory instead of writing to stderr.")
 
 	// If specified, only run one test
 	flag.StringVar(&testType, "testtype", "", "Select test to run (default is all tests)")
@@ -131,7 +134,6 @@ func main() {
 
 	params.Name = "(default infra)"
 	params.Auth = proxyconfig.MeshConfig_NONE
-	params.Mixer = false
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
@@ -237,18 +239,32 @@ func runTests(envs ...infra) {
 		// spill all logs on error
 		if errs != nil {
 			for _, pod := range util.GetPods(client, istio.Namespace) {
+				var filename, content string
 				if strings.HasPrefix(pod, "istio-pilot") {
 					log("Discovery log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, "discovery"))
+					filename = "istio-pilot"
+					content = util.FetchLogs(client, pod, istio.IstioNamespace, "discovery")
 				} else if strings.HasPrefix(pod, "istio-mixer") {
 					log("Mixer log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, "mixer"))
+					filename = "istio-mixer"
+					content = util.FetchLogs(client, pod, istio.IstioNamespace, "mixer")
 				} else if strings.HasPrefix(pod, "istio-ingress") {
 					log("Ingress log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.IstioNamespace, inject.ProxyContainerName))
+					filename = "istio-ingress"
+					content = util.FetchLogs(client, pod, istio.IstioNamespace, inject.ProxyContainerName)
 				} else {
 					log("Proxy log", pod)
-					glog.Info(util.FetchLogs(client, pod, istio.Namespace, inject.ProxyContainerName))
+					filename = pod
+					content = util.FetchLogs(client, pod, istio.Namespace, inject.ProxyContainerName)
+				}
+
+				if len(istio.errorLogsDir) > 0 {
+					if err := ioutil.WriteFile(istio.errorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
+						glog.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
+						glog.Info(content)
+					}
+				} else {
+					glog.Info(content)
 				}
 			}
 		}

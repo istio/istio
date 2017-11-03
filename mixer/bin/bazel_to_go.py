@@ -84,6 +84,7 @@ def process(fl, external, genfiles, vendor):
     lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
 
+    dd = {}
     for stmt in ast.walk(tree):
         stmttype = type(stmt)
         if stmttype == ast.Call:
@@ -97,6 +98,10 @@ def process(fl, external, genfiles, vendor):
                 path = path[:-4]
             path = pathmap.get(path, path)
             tup = fn(name, path)
+
+            if name in dd:
+              print "duplicate name", tup, dd[name]
+            dd[name] = path
             lst.append(tup)
 
     return lst
@@ -129,11 +134,12 @@ def makelink(target, linksrc):
 def bazel_to_vendor(WKSPC):
     WKSPC = os.path.abspath(WKSPC)
     workspace = WKSPC + "/WORKSPACE"
+    root = os.path.join(WKSPC, "bazel-%s" % os.path.basename(WKSPC))
     if not os.path.isfile(workspace):
         print "WORKSPACE file not found in " + WKSPC
         print "prog BAZEL_WORKSPACE_DIR"
         return -1
-    lf = os.readlink(WKSPC + "/bazel-mixer")
+    lf = os.readlink(root)
     EXEC_ROOT = os.path.dirname(lf)
     BLD_DIR = os.path.dirname(EXEC_ROOT)
     external =  BLD_DIR + "/external"
@@ -203,78 +209,78 @@ def main(args):
     bazel_to_vendor(WKSPC)
 
 def adapter_protos(WKSPC):
-    for adapter in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
-        if os.path.exists(WKSPC + "/bazel-genfiles/adapter/"+ adapter + "/config"):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/" + adapter + "/config"):
+    for adapter in os.listdir(WKSPC + "/bazel-genfiles/mixer/adapter/"):
+        if os.path.exists(WKSPC + "/bazel-genfiles/mixer/adapter/"+ adapter + "/config"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/adapter/" + adapter + "/config"):
                 if file.endswith(".pb.go"):
-                    makelink(WKSPC + "/bazel-genfiles/adapter/"+ adapter + "/config/" + file, WKSPC + "/adapter/" +adapter + "/config/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/mixer/adapter/"+ adapter + "/config/" + file, WKSPC + "/mixer/adapter/" +adapter + "/config/" + file)
 
 # link pb.go files 2 levels down the dir
 def template_protos(WKSPC):
-    for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/adapter/template"):
+    for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/pkg/adapter/template"):
         if file.endswith(".pb.go"):
-            makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
-    for template in os.listdir(WKSPC + "/bazel-genfiles/template"):
+            makelink(WKSPC + "/bazel-genfiles/mixer/pkg/adapter/template/" + file, WKSPC + "/mixer/pkg/adapter/template/" + file)
+    for template in os.listdir(WKSPC + "/bazel-genfiles/mixer/template"):
         if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/template/" + template, WKSPC + "/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/template/" + template):
+            makelink(WKSPC + "/bazel-genfiles/mixer/template/" + template, WKSPC + "/mixer/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/mixer/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/template/" + template):
                 # check if there are files under /template/<some template dir>
                 if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go") or file.endswith("template.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file, WKSPC + "/template/" +template + "/" + file)
-                if os.path.isdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
-                    for file2 in os.listdir(WKSPC + "/bazel-genfiles/template/" + template + "/" + file):
+                    makelink(WKSPC + "/bazel-genfiles/mixer/template/" + template + "/" + file, WKSPC + "/mixer/template/" +template + "/" + file)
+                if os.path.isdir(WKSPC + "/bazel-genfiles/mixer/template/" + template + "/" + file):
+                    for file2 in os.listdir(WKSPC + "/bazel-genfiles/mixer/template/" + template + "/" + file):
                         # check if there are files under /template/<some uber dir>/<some template dir>
                         if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
-                            makelink(WKSPC + "/bazel-genfiles/template/" + template + "/" + file + "/" + file2, WKSPC + "/template/" + template + "/" + file + "/" + file2)
-    for template in os.listdir(WKSPC + "/bazel-genfiles/test/template"):
+                            makelink(WKSPC + "/bazel-genfiles/mixer/template/" + template + "/" + file + "/" + file2, WKSPC + "/mixer/template/" + template + "/" + file + "/" + file2)
+    for template in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/template"):
         if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/test/template/" + template, WKSPC + "/test/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/test/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/test/template/" + template):
+            makelink(WKSPC + "/bazel-genfiles/mixer/test/template/" + template, WKSPC + "/mixer/test/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/mixer/test/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/template/" + template):
                 # check if there are files under /template/<some template dir>
                 if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/test/template/" + template + "/" + file, WKSPC + "/test/template/" +template + "/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/mixer/test/template/" + template + "/" + file, WKSPC + "/mixer/test/template/" +template + "/" + file)
 
 def aspect_protos(WKSPC):
-    for aspect in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/aspect/config"):
+    for aspect in os.listdir(WKSPC + "/bazel-genfiles/mixer/pkg/aspect/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/pkg/aspect/config"):
             if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/pkg/aspect/config/" + file, WKSPC + "/pkg/aspect/config/" + file)
+                makelink(WKSPC + "/bazel-genfiles/mixer/pkg/aspect/config/" + file, WKSPC + "/mixer/pkg/aspect/config/" + file)
 
 def tools_protos(WKSPC):
-    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/adapter/template/"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/pkg/adapter/template/"):
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/pkg/adapter/template/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/pkg/adapter/template/"):
             if file.endswith(".pb.go"):
-                makelink(WKSPC + "/bazel-genfiles/pkg/adapter/template/" + file, WKSPC + "/pkg/adapter/template/" + file)
+                makelink(WKSPC + "/bazel-genfiles/mixer/pkg/adapter/template/" + file, WKSPC + "/mixer/pkg/adapter/template/" + file)
 
 def tools_generated_files(WKSPC):
-    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata"):
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/interfacegen/testdata"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/interfacegen/testdata"):
             if file.endswith("_proto.descriptor_set") or file.endswith("error_template.descriptor_set"):
-                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/interfacegen/testdata/" + file, WKSPC + "/tools/codegen/pkg/interfacegen/testdata/" + file)
-    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata"):
+                makelink(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/interfacegen/testdata/" + file, WKSPC + "/mixer/tools/codegen/pkg/interfacegen/testdata/" + file)
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata"):
             if file.endswith("_proto.descriptor_set"):
-                makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/bootstrapgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/bootstrapgen/testdata/" + file)
-    if os.path.exists(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata"):
+                makelink(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata/" + file, WKSPC + "/mixer/tools/codegen/pkg/bootstrapgen/testdata/" + file)
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/modelgen/testdata"):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/modelgen/testdata"):
                 if file.endswith(".descriptor_set"):
-                    makelink(WKSPC + "/bazel-genfiles/tools/codegen/pkg/modelgen/testdata/" + file, WKSPC + "/tools/codegen/pkg/modelgen/testdata/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/mixer/tools/codegen/pkg/modelgen/testdata/" + file, WKSPC + "/mixer/tools/codegen/pkg/modelgen/testdata/" + file)
 
 def config_proto(WKSPC, genfiles):
     if os.path.exists(genfiles + "io_istio_api/fixed_cfg.pb.go"):
-        makelink(genfiles + "io_istio_api/fixed_cfg.pb.go", WKSPC + "/pkg/config/proto/fixed_cfg.pb.go")
+        makelink(genfiles + "io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go")
 
 def attributes_list(WKSPC, genfiles):
-    if os.path.exists(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go"):
-        makelink(WKSPC + "/bazel-genfiles/pkg/attribute/list.gen.go", WKSPC + "/pkg/attribute/list.gen.go")
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/pkg/attribute/list.gen.go"):
+        makelink(WKSPC + "/bazel-genfiles/mixer/pkg/attribute/list.gen.go", WKSPC + "/mixer/pkg/attribute/list.gen.go")
 
 def inventory(WKSPC):
-    if os.path.exists(WKSPC + "/bazel-genfiles/adapter/"):
-        for file in os.listdir(WKSPC + "/bazel-genfiles/adapter/"):
+    if os.path.exists(WKSPC + "/bazel-genfiles/mixer/adapter/"):
+        for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/adapter/"):
             if file.endswith(".gen.go"):
-                makelink(WKSPC + "/bazel-genfiles/adapter/" + file, WKSPC + "/adapter/" + file)
+                makelink(WKSPC + "/bazel-genfiles/mixer/adapter/" + file, WKSPC + "/mixer/adapter/" + file)
 
 if __name__ == "__main__":
     import sys

@@ -14,6 +14,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
 
 #######################################
 # Presubmit script triggered by Prow. #
@@ -30,6 +33,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  ROOT=${GOPATH}/src/istio.io/istio
   cd ${GOPATH}/src/istio.io/istio
 
   # Use the provided pull head sha, from prow.
@@ -61,11 +65,20 @@ fi
 
 # disabling linters, WIP
 #echo 'Running Linters'
-#./bin/linters.sh
+#${ROOT}/bin/linters.sh
 
 echo 'Running Unit Tests'
 bazel test --test_output=all //...
 
-echo 'Checking that updateVersion has been called'
-install/updateVersion.sh -s
+# ensure that source remains go buildable
+${ROOT}/bin/init.sh
 
+source "${ROOT}/bin/use_bazel_go.sh"
+echo "building mixer"
+time go build -o mixer.bin mixer/cmd/server/*.go
+echo "building pilot"
+time go build -o pilot.bin pilot/cmd/pilot-discovery/*.go
+echo "building security"
+time go build -o security.bin security/cmd/istio_ca/*.go
+echo "building broker"
+time go build -o broker.bin broker/cmd/brks/*.go
