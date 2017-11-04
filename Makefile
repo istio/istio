@@ -15,6 +15,10 @@
 TOP := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
+BAZEL_STARTUP_ARGS ?=
+BAZEL_BUILD_ARGS ?=
+BAZEL_TEST_ARGS ?=
+
 hub = ""
 tag = ""
 
@@ -30,16 +34,34 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-.PHONY: test
-test:
-	@bazel test //...
+setup:
+	@[[ -f pilot/platform/kube/config ]] || ln -s ~/.kube/config pilot/platform/kube/
 
-.PHONY: docker
+check:
+	echo 'To be added'
+
+build: setup
+	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+
+clean:
+	@bazel clean
+
+test: setup
+	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+
 docker:
 	@$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
 	@$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
 	@$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
 
-.PHONY: push
 push: checkvars
 	@$(TOP)/bin/push $(HUB) $(TAG)
+
+clean:
+	@bazel clean
+
+
+artifacts: docker
+	@echo 'To be added'
+
+.PHONY: artifacts build checkvars clean docker test setup push
