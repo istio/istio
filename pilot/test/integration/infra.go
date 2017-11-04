@@ -72,7 +72,7 @@ type infra struct { // nolint: aligncheck
 
 	// store error logs in specific directory
 	errorLogsDir string
-	
+
 	namespaceCreated      bool
 	istioNamespaceCreated bool
 	debugImagesAndMode    bool
