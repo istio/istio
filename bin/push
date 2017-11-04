@@ -1,0 +1,28 @@
+#!/bin/bash
+set -exu
+HUB=${1:?"1st arg hub is required"}
+TAG=${2:?"2nd arg tag is required"}
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd $ROOT
+
+pilot/bin/push-docker -hub ${HUB} -tag ${TAG} &
+mixer/bin/push-docker -hub ${HUB} -tag ${TAG} &
+security/bin/push-docker -hub ${HUB} -tag ${TAG} &
+pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/${TAG}/artifacts/istioctl" &
+pilot/bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/${TAG}/artifacts/debs" &
+security/bin/push-debian.sh -c opt -p "gs://istio-artifacts/auth/${TAG}/artifacts/debs" &
+
+FAIL=0
+for job in `jobs -p`
+do
+  echo $job
+  wait $job || let "FAIL+=1"
+done
+
+if [ "$FAIL" != "0" ];
+then
+  echo "FAIL! ($FAIL)"
+  exit $FAIL
+fi

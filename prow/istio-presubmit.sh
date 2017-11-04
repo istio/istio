@@ -65,24 +65,17 @@ fi
 cd $ROOT
 
 echo 'Running Unit Tests'
-bazel test --test_output=all //...
+time bazel test --test_output=all //...
 
 # ensure that source remains go buildable
-${ROOT}/bin/init.sh
+SKIP_BUILD=1 ${ROOT}/bin/init.sh
 
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh
 
-#
-#source "${ROOT}/bin/use_bazel_go.sh"
-#echo "building mixer"
-#time go build -o mixer.bin mixer/cmd/server/*.go
-#echo "building pilot"
-#time go build -o pilot.bin pilot/cmd/pilot-discovery/*.go
-#echo "building security"
-#time go build -o security.bin security/cmd/istio_ca/*.go
-#echo "building broker"
-#time go build -o broker.bin broker/cmd/brks/*.go
-
+HUB="gcr.io/istio-testing"
+TAG="${GIT_SHA}"
 # upload images
-make push HUB=gcr.io/istio-testing TAG="${GIT_SHA}"
+time make push HUB="${HUB}" TAG="${TAG}"
+
+time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"

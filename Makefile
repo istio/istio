@@ -42,9 +42,4 @@ docker:
 
 .PHONY: push
 push: checkvars
-	@$(TOP)/pilot/bin/push-docker ${hub} ${tag}
-	@$(TOP)/mixer/bin/push-docker ${hub} ${tag}
-	@$(TOP)/security/bin/push-docker ${hub} ${tag}
-	@$(TOP)/pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/$(TAG)/artifacts/istioctl"
-	@$(TOP)/pilot/bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/$(TAG)/artifacts/debs"
-	@$(TOP)/security/bin/push-debian.sh -c opt -p "gs://istio-artifacts/auth/${TAG}/artifacts/debs"
+	@$(TOP)/bin/push $(HUB) $(TAG)
