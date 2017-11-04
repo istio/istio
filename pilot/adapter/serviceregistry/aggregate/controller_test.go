@@ -77,7 +77,7 @@ func buildMockController() *Controller {
 func TestServicesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.ServicesError = errors.New("Mock Services() error")
+	discovery1.ServicesError = errors.New("mock Services() error")
 
 	// List Services from aggregate controller
 	_, err := aggregateCtl.Services()
@@ -148,7 +148,7 @@ func TestGetService(t *testing.T) {
 func TestGetServiceError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.GetServiceError = errors.New("Mock GetService() error")
+	discovery1.GetServiceError = errors.New("mock GetService() error")
 
 	// Get service from client with error
 	svc, err := aggregateCtl.GetService(mock.HelloService.Hostname)
@@ -209,7 +209,7 @@ func TestHostInstances(t *testing.T) {
 func TestHostInstancesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.HostInstancesError = errors.New("Mock HostInstances() error")
+	discovery1.HostInstancesError = errors.New("mock HostInstances() error")
 
 	// Get Instances from client with error
 	instances, err := aggregateCtl.HostInstances(map[string]bool{mock.HelloInstanceV0: true})
@@ -281,7 +281,7 @@ func TestInstances(t *testing.T) {
 func TestInstancesError(t *testing.T) {
 	aggregateCtl := buildMockController()
 
-	discovery1.InstancesError = errors.New("Mock Instances() error")
+	discovery1.InstancesError = errors.New("mock Instances() error")
 
 	// Get Instances from client with error
 	instances, err := aggregateCtl.Instances(mock.HelloService.Hostname,
