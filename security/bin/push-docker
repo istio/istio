@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Example usage:
+#
+# docker/release-docker -h docker.io/istio \
+#  -c release \
+#  -t $(git rev-parse --short HEAD),$(date +%Y%m%d%H%M%S),latest" \
+#  -i "init,init_debug,app,app_debug,runtime,runtime_debug"
+set -ex
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source ${ROOT}/../bin/docker_lib.sh
+
+BAZEL_STARTUP_ARGS=${BAZEL_STARTUP_ARGS:-}
+BAZEL_ARGS=${BAZEL_ARGS:-}
+
+IMAGES=()
+IMAGE=istio-ca
+IMAGES+=(${IMAGE})
+
+bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//security/docker:${IMAGE}"
+docker tag "bazel/security/docker:${IMAGE}" "${IMAGE}"
+
+# Tag and push
+tag_and_push "${IMAGES[@]}"
