@@ -46,8 +46,8 @@ var (
 
 	// Enable/disable auth, or run both for the tests.
 	authmode string
-	verbose   bool
-	count     int
+	verbose  bool
+	count    int
 
 	// The particular test to run, e.g. "HTTP reachability" or "routing rules"
 	testType string
