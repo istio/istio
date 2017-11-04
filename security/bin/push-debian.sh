@@ -10,8 +10,8 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 VERSION_FILE="${ROOT}/tools/deb/version"
 BAZEL_ARGS=()
-BAZEL_TARGET='//tools/deb:istio-auth-node-agent'
-BAZEL_BINARY="${ROOT}/bazel-bin/tools/deb/istio-auth-node-agent"
+BAZEL_TARGET='//security/tools/deb:istio-auth-node-agent'
+BAZEL_BINARY="${ROOT}/../bazel-bin/security/tools/deb/istio-auth-node-agent"
 
 set -ex
 
