@@ -56,10 +56,6 @@ docker:
 push: checkvars
 	@$(TOP)/bin/push $(HUB) $(TAG)
 
-clean:
-	@bazel clean
-
-
 artifacts: docker
 	@echo 'To be added'
 
