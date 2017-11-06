@@ -775,7 +775,7 @@ func ValidateRouteRule(msg proto.Message) error {
 			}
 			if value.CorsPolicy.MaxAge.Nanos > 0 {
 				errs = multierror.Append(errs,
-					errors.New("max_age duration is acurate only to seconds precision"))
+					errors.New("max_age duration is accurate only to seconds precision"))
 			}
 		}
 
