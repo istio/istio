@@ -353,6 +353,12 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 		service = strings.Join(services, ",")
 	}
 
+	filter := HTTPFilter{
+		Name: CORSFilter,
+		Config: CORSFilterConfig{},
+	}
+	filters = append([]HTTPFilter{filter}, filters...)
+
 	if mesh.MixerAddress != "" {
 		mixerConfig := mixerHTTPRouteConfig(node, service)
 		filter := HTTPFilter{
