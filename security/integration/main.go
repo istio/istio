@@ -16,8 +16,11 @@ package main
 
 import (
 	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	"istio.io/istio/security/pkg/cmd"
@@ -31,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -40,6 +44,10 @@ const (
 	integrationTestNamespacePrefix = "istio-ca-integration-"
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime = 20 * time.Second
+
+	// Certificates validation retry
+	certValidateRetry = 10
+	certValidationInterval = 1
 )
 
 var (
@@ -59,6 +67,8 @@ type options struct {
 	clientset      kubernetes.Interface
 	kubeconfig     string
 	namespace      string
+	org_root_cert  string
+	org_cert_chain string
 }
 
 func init() {
@@ -67,6 +77,8 @@ func init() {
 	flags.StringVar(&opts.containerImage, "image", "", "Name of Istio CA image")
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
+	flags.StringVar(&opts.org_root_cert, "root-cert", "", "Path to the original root ceritificate")
+	flags.StringVar(&opts.org_cert_chain, "cert-chain", "", "Path to the original certificate chain")
 
 	cmd.InitializeFlags(rootCmd)
 }
@@ -115,6 +127,21 @@ func runTests(cmd *cobra.Command, args []string) {
 	} else {
 		glog.Infof(`Secret "istio.default" is correctly re-created`)
 	}
+
+	// Test certificates of NodeAgent were updated and valid
+	na_service, err :=
+			opts.clientset.CoreV1().Services(opts.namespace).Get("node-agent", metav1.GetOptions{})
+	if err != nil {
+		glog.Fatalf("failed to get the external IP adddress of node-agent service", err)
+	}
+
+	err = waitForNodeAgentCertificateUpdate(fmt.Sprintf("http://%v:%v",
+		na_service.Status.LoadBalancer.Ingress[0].IP, 8080))
+	if err != nil {
+		glog.Fatalf("failed to check certificate update node-agent (err: %v)", err)
+	} else {
+		glog.Infof("Certificate of NodeAgent was updated and verified")
+	}
 }
 
 func cleanUpIntegrationTest(cmd *cobra.Command, args []string) {
@@ -159,8 +186,86 @@ func deleteTestNamespace(clientset kubernetes.Interface) {
 	glog.Infof("Namespace %v is deleted", name)
 }
 
-func deployIstioCA(clientset kubernetes.Interface) {
-	// Create Role
+func createService(clientset kubernetes.Interface, name string, port int32,
+serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
+	uuid := string(uuid.NewUUID())
+	_, err := clientset.CoreV1().Services(opts.namespace).Create(&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"uuid": uuid,
+			},
+			Name: name,
+		},
+		Spec: v1.ServiceSpec{
+			Type:     serviceType,
+			Selector: pod.Labels,
+			Ports: []v1.ServicePort{
+				{
+					Port: port,
+				},
+			},
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if serviceType == v1.ServiceTypeLoadBalancer {
+		err = waitForServiceExternalIPAddress(uuid, 300 * time.Second)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return clientset.CoreV1().Services(opts.namespace).Get(name, metav1.GetOptions{})
+}
+
+func createPod(clientset kubernetes.Interface, image string, name string) (*v1.Pod, error) {
+	uuid := string(uuid.NewUUID())
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"uuid":      uuid,
+				"pod-group": fmt.Sprintf("%v-pod-group", name),
+			},
+			Name: name,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				v1.Container{
+					Env: []v1.EnvVar{
+						v1.EnvVar{
+							Name: "NAMESPACE",
+							ValueFrom: &v1.EnvVarSource{
+								FieldRef: &v1.ObjectFieldSelector{
+									APIVersion: "v1",
+									FieldPath:  "metadata.namespace",
+								},
+							},
+						},
+					},
+					Name:  fmt.Sprintf("%v-pod-container", name),
+					Image: image,
+				},
+			},
+		},
+	}
+
+	pod, err := clientset.CoreV1().Pods(opts.namespace).Create(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := waitForPodRunning(uuid, 60 * time.Second); err != nil {
+		return nil, err
+	}
+
+	return clientset.CoreV1().Pods(opts.namespace).Get(name, metav1.GetOptions{})
+}
+
+func createRole(clientset kubernetes.Interface) error {
 	role := rbac.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -185,7 +290,10 @@ func deployIstioCA(clientset kubernetes.Interface) {
 	if _, err := clientset.RbacV1beta1().Roles(opts.namespace).Create(&role); err != nil {
 		glog.Fatalf("failed to create role (error: %v)", err)
 	}
-	// Create RoleBinding
+	return nil
+}
+
+func createRoleBinding(clientset kubernetes.Interface) error {
 	rolebinding := rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -208,42 +316,59 @@ func deployIstioCA(clientset kubernetes.Interface) {
 		},
 	}
 	if _, err := clientset.RbacV1beta1().RoleBindings(opts.namespace).Create(&rolebinding); err != nil {
-		glog.Fatalf("failed to create rolebinding (error: %v)", err)
-	}
-	// Create Deployment
-	envVar := v1.EnvVar{
-		Name: "NAMESPACE",
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.namespace",
-			},
-		},
-	}
-	container := v1.Container{
-		Env:   []v1.EnvVar{envVar},
-		Name:  "istio-ca-container",
-		Image: fmt.Sprintf("%v/%v:%v", opts.containerHub, opts.containerImage, opts.containerTag),
-	}
-	spec := v1.PodSpec{
-		Containers: []v1.Container{container},
-	}
-	uuid := string(uuid.NewUUID())
-	objectMeta := metav1.ObjectMeta{
-		Labels: map[string]string{"uuid": uuid},
-		Name:   "istio-ca",
-	}
-	pod := &v1.Pod{
-		ObjectMeta: objectMeta,
-		Spec:       spec,
+		return err
 	}
 
-	if _, err := clientset.CoreV1().Pods(opts.namespace).Create(pod); err != nil {
+	return nil
+}
+
+func deployIstioCA(clientset kubernetes.Interface) {
+	// Create Role
+	err := createRole(clientset)
+	if err != nil {
+		glog.Fatal("failed to create a role (error: %v)", err)
+	}
+
+	// Create RoleBinding
+	err = createRoleBinding(clientset)
+	if err != nil {
+		glog.Fatal("failed to create a rolebinding (error: %v)", err)
+	}
+
+	// Create Istio CA with self signed certificates
+	_, err = createPod(clientset,
+		fmt.Sprintf("%v/istio-ca:%v", opts.containerHub, opts.containerTag),
+		"istio-ca-self")
+	if err != nil {
 		glog.Fatalf("failed to deploy Istio CA (error: %v)", err)
 	}
 
-	if err := waitForPodRunning(uuid, 60*time.Second); err != nil {
-		glog.Fatal(err)
+	// Create a Istio CA and Service with generated certificates
+	ca_pod, err := createPod(clientset,
+		fmt.Sprintf("%v/istio-ca-test:%v", opts.containerHub, opts.containerTag),
+		"istio-ca-cert")
+	if err != nil {
+		glog.Fatalf("failed to deploy Istio CA (error: %v)", err)
+	}
+
+	// Create the istio-ca service for NodeAgent pod
+	_, err = createService(clientset, "istio-ca", 8060, v1.ServiceTypeClusterIP, ca_pod)
+	if err != nil {
+		glog.Fatalf("failed to deploy Istio CA (error: %v)", err)
+	}
+
+	// Create the NodeAgent pod
+	na_pod, err := createPod(clientset,
+		fmt.Sprintf("%v/node-agent-test:%v", opts.containerHub, opts.containerTag),
+		"node-agent-cert")
+	if err != nil {
+		glog.Fatalf("failed to deploy NodeAgent pod (error: %v)", err)
+	}
+
+	// Create the service for NodeAgent pod
+	_, err = createService(clientset, "node-agent", 8080, v1.ServiceTypeLoadBalancer, na_pod)
+	if err != nil {
+		glog.Fatalf("failed to deploy Istio CA (error: %v)", err)
 	}
 }
 
@@ -272,6 +397,34 @@ func examineSecret(secret *v1.Secret, expectedID string) {
 	}
 	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
 		glog.Fatalf("Certificate verification failed: %v", err)
+	}
+}
+
+func waitForServiceExternalIPAddress(uuid string, timeToWait time.Duration) error {
+	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
+	listOptions := metav1.ListOptions{
+		LabelSelector: selectors.String(),
+	}
+
+	watch, err := opts.clientset.CoreV1().Services(opts.namespace).Watch(listOptions)
+	if err != nil {
+		return fmt.Errorf("failed to set up a watch for service (error: %v)", err)
+	}
+	events := watch.ResultChan()
+
+	startTime := time.Now()
+	for {
+		select {
+		case event := <-events:
+			svc := event.Object.(*v1.Service)
+			if len(svc.Status.LoadBalancer.Ingress) > 0 {
+				glog.Infof("LoadBalancer for %v/%v is ready. IP: %v", opts.namespace, svc.GetName(),
+					svc.Status.LoadBalancer.Ingress[0].IP)
+				return nil
+			}
+		case <-time.After(timeToWait - time.Since(startTime)):
+			return fmt.Errorf("pod is not in running phase within %v", timeToWait)
+		}
 	}
 }
 
@@ -317,7 +470,108 @@ func waitForSecretExist(secretName string, timeToWait time.Duration) (*v1.Secret
 				return secret, nil
 			}
 		case <-time.After(timeToWait - time.Since(startTime)):
-			return nil, fmt.Errorf("secret %v/%v did not become existent within %v", opts.namespace, secretName, timeToWait)
+			return nil, fmt.Errorf("secret %v/%v did not become existent within %v",
+				opts.namespace, secretName, timeToWait)
 		}
 	}
+}
+
+func readFile(path string) (string, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func readUri(uri string) (string, error) {
+	resp, err := http.Get(uri)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", nil
+	}
+
+	return string(bodyBytes), nil
+}
+
+func waitForNodeAgentCertificateUpdate(appurl string) error {
+	max_retry := certValidateRetry
+	term := certValidationInterval
+
+	org_root_cert, err := readFile(opts.org_root_cert)
+	if err != nil {
+		glog.Fatalf("Unable to read original root certificate: %v", opts.org_root_cert)
+	}
+
+	org_cert_chain, err := readFile(opts.org_cert_chain)
+	if err != nil {
+		glog.Fatalf("Unable to read original certificate chain: %v", opts.org_cert_chain)
+	}
+
+	for i := 0; i < max_retry; i++ {
+		if i > 0 {
+			term = term * 2
+			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
+			time.Sleep(time.Duration(term) * time.Second)
+		}
+
+		certPEM, err := readUri(fmt.Sprintf("%v/cert", appurl))
+		if err != nil {
+			glog.Errorf("%v", err)
+			continue
+		}
+
+		rootPEM, err := readUri(fmt.Sprintf("%v/root", appurl))
+		if err != nil {
+			glog.Errorf("%v", err)
+			continue
+		}
+
+		if org_root_cert != rootPEM {
+			glog.Fatalf("Invalid root certificate was downloaded")
+			continue
+		}
+
+		if org_cert_chain == certPEM {
+			glog.Fatalf("Certificate chain was not updated")
+			continue
+		}
+
+		roots := x509.NewCertPool()
+		ok := roots.AppendCertsFromPEM([]byte(org_root_cert))
+		if !ok {
+			glog.Error("failed to parse root certificate")
+			continue
+		}
+
+		block, _ := pem.Decode([]byte(certPEM))
+		if block == nil {
+			glog.Error("failed to parse certificate PEM")
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			glog.Errorf("failed to parse certificate: " + err.Error())
+			continue
+		}
+
+		opts := x509.VerifyOptions{
+			Roots: roots,
+		}
+
+		if _, err := cert.Verify(opts); err != nil {
+			glog.Errorf("failed to verify certificate: " + err.Error())
+			continue
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("Failed to check certificate update and validate after %v retry", max_retry)
 }

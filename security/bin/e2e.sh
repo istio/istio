@@ -11,7 +11,7 @@
 
 set -ex
 
-DOCKER_IMAGE="istio-ca"
+DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent-test"
 
 ARGS="--image $DOCKER_IMAGE"
 
@@ -50,8 +50,32 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-# Build and push the Istio-CA docker image
-bin/push-docker.sh -h $HUB -t $TAG
+OUTPUT_DIR=`pwd`/docker
+
+# Generate certificate and private key from root
+echo 'Generate certificate and private key from root'
+bazel run $BAZEL_ARGS //security/cmd/generate_cert -- \
+-out-cert=${OUTPUT_DIR}/istio_ca.crt \
+-out-priv=${OUTPUT_DIR}/istio_ca.key \
+-organization="k8s.cluster.local" \
+-self-signed=true \
+-ca=true
+
+# Generate certificate and private key from istio_ca
+bazel run $BAZEL_ARGS //security/cmd/generate_cert -- \
+-out-cert=${OUTPUT_DIR}/node_agent.crt \
+-out-priv=${OUTPUT_DIR}/node_agent.key \
+-organization="NodeAgent" \
+-host="nodeagent.google.com" \
+-signer-cert=${OUTPUT_DIR}/istio_ca.crt \
+-signer-priv=${OUTPUT_DIR}/istio_ca.key
+
+# Build and push docker images
+bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
 
 # Run integration tests
-bazel run $BAZEL_ARGS //integration -- $ARGS -k $HOME/.kube/config --alsologtostderr
+bazel run $BAZEL_ARGS //security/integration -- $ARGS \
+-k $HOME/.kube/config \
+--root-cert ${OUTPUT_DIR}/istio_ca.crt \
+--cert-chain ${OUTPUT_DIR}/istio_ca.crt \
+--alsologtostderr
