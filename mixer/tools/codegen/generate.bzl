@@ -24,7 +24,6 @@ MIXER_IMPORT_MAP = {
 # that depends on mixer proper.
 MIXER_IMPORTS = [
     "external/io_istio_api",
-    "../../external/io_istio_api",
 ]
 
 # TODO: fill in with complete set of GOGO DEPS and IMPORT MAPPING
@@ -46,7 +45,6 @@ GOGO_IMPORT_MAP = {
 # that depends on mixer proper.
 PROTO_IMPORTS = [
     "external/com_github_google_protobuf/src",
-    "../../external/com_github_google_protobuf/src",
 ]
 
 PROTO_INPUTS = ["@com_github_google_protobuf//:well_known_protos"]
