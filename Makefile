@@ -56,7 +56,7 @@ docker:
 	@$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
 
 push: checkvars
-	@$(TOP)/bin/push $(HUB) $(TAG)
+	@$(TOP)/scripts/push $(HUB) $(TAG)
 
 artifacts: docker
 	@echo 'To be added'
