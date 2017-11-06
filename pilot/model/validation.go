@@ -120,11 +120,7 @@ func (descriptor ConfigDescriptor) ValidateConfig(typ string, obj interface{}) e
 			proto.MessageName(v), t.MessageName)
 	}
 
-	if err := t.Validate(v); err != nil {
-		return err
-	}
-
-	return nil
+	return t.Validate(v)
 }
 
 // Validate ensures that the service object is well-defined
@@ -875,11 +871,7 @@ func ValidateEgressRuleDomain(domain string) error {
 			domain = domain[1:]
 		}
 	}
-	if err := ValidateFQDN(domain); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateFQDN(domain)
 }
 
 // ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
