@@ -48,6 +48,7 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
   test:
+    working_directory: $GOPATH/src/istio.io/istio
     docker:
       - image: circleci/golang:1.9
     steps:
