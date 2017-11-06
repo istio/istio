@@ -4,6 +4,8 @@
 # Intellij
 *.iml
 .idea/
+# Visual Studio Code
+.vscode/
 # Bazel
 /bazel-*
 vendor
