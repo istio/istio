@@ -1196,6 +1196,40 @@ func TestValidateEgressRule(t *testing.T) {
 				},
 				UseEgressProxy: false},
 			valid: true},
+		{name: "valid egress rule with IP address",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+
+		{name: "valid egress rule with tcp ports",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "tcp"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+		{name: "egress rule with tcp ports, an http protocol",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "http"},
+				},
+				UseEgressProxy: false},
+			valid: true},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
 			in: &proxyconfig.EgressRule{
 				Destination: &proxyconfig.IstioService{

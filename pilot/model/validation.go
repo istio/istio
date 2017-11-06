@@ -854,14 +854,17 @@ func ValidateEgressRule(msg proto.Message) error {
 	}
 
 	var errs error
+	destination := rule.Destination
 
-	if err := ValidateEgressRuleDestination(rule.Destination); err != nil {
+	if err := ValidateEgressRuleDestination(destination); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 
 	if len(rule.Ports) == 0 {
 		errs = multierror.Append(errs, fmt.Errorf("egress rule must have a ports list"))
 	}
+
+	cidrDestinationService := destination != nil && strings.Count(destination.Service, "/") == 1
 
 	ports := make(map[int32]bool)
 	for _, port := range rule.Ports {
@@ -872,6 +875,12 @@ func ValidateEgressRule(msg proto.Message) error {
 
 		if err := ValidateEgressRulePort(port); err != nil {
 			errs = multierror.Append(errs, err)
+		}
+
+		if cidrDestinationService && Protocol(strings.ToUpper(port.Protocol)) != ProtocolTCP {
+			errs = multierror.Append(errs, fmt.Errorf("Only TCP protocol can be defined for CIDR destination "+
+				"service notation. port: %d protocol: %s destination.service: %s",
+				port.Port, port.Protocol, destination.Service))
 		}
 	}
 
