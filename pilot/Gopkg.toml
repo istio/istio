@@ -38,5 +38,5 @@
   revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[constraint]]
-  name = "github.com/russross/blackfriday/"
+  name = "github.com/russross/blackfriday"
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"

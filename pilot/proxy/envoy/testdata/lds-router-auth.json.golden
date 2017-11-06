@@ -83,6 +83,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -135,6 +140,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -185,6 +195,11 @@
           },
           "quota_name": "RequestCount"
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
