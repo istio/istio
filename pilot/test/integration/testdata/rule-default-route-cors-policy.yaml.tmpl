@@ -1,0 +1,25 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: default-route
+spec:
+  destination:
+    name: c
+  precedence: 1
+  route:
+    - labels:
+         version: v1
+      weight: 100
+  corsPolicy:
+    allowOrigin:
+      - http://foo.example
+    allowMethods:
+      - POST
+      - GET
+      - OPTIONS
+    allowHeaders:
+      - content-type
+    exposeHeaders:
+      - x-custom-header
+    maxAge: 300s
+    allowCredentials: true

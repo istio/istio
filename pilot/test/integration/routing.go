@@ -102,6 +102,27 @@ func (t *routing) run() error {
 				return t.verifyRouting("ws", "a", "c", "testwebsocket", "enabled", 100, map[string]int{"v1": 100, "v2": 0}, "")
 			},
 		},
+		{
+			description: "routing all traffic to c-v1 with appended headers",
+			config:      "rule-default-route-append-headers.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+			},
+		},
+		{
+			description: "routing all traffic to c-v1 with CORS policy",
+			config:      "rule-default-route-cors-policy.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+			},
+		},
+		{
+			description: "routing all traffic to c-v1 with shadow policy",
+			config:      "rule-default-route-mirrored.yaml.tmpl",
+			check: func() error {
+				return t.verifyRouting("http", "a", "c", "", "", 100, map[string]int{"v1": 100, "v2": 0}, "default-route")
+			},
+		},
 	}
 
 	var errs error

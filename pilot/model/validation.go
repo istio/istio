@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -55,6 +56,19 @@ var (
 	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
 )
+
+// golang supported methods: https://golang.org/src/net/http/method.go
+var supportedMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodPatch:   true,
+	http.MethodDelete:  true,
+	http.MethodConnect: true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
 // DNS (RFC 1123).
@@ -328,6 +342,9 @@ func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 
 // ValidateHTTPHeaderName checks that the name is lower-case
 func ValidateHTTPHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
 	if strings.ToLower(name) != name {
 		return fmt.Errorf("must be in lower case")
 	}
@@ -728,6 +745,52 @@ func ValidateRouteRule(msg proto.Message) error {
 		}
 		if err := ValidateWeights(value.Route); err != nil {
 			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if value.Mirror != nil {
+		if err := ValidateIstioService(value.Mirror); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	for name, val := range value.AppendHeaders {
+		if err := ValidateHTTPHeaderName(name); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if val == "" {
+			errs = multierror.Append(errs,
+				fmt.Errorf("appended header %q must have a non-empty value", name))
+		}
+	}
+
+	if value.CorsPolicy != nil {
+		if value.CorsPolicy.MaxAge != nil {
+			if err := ValidateDuration(value.CorsPolicy.MaxAge); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+			if value.CorsPolicy.MaxAge.Nanos > 0 {
+				errs = multierror.Append(errs,
+					errors.New("max_age duration is accurate only to seconds precision"))
+			}
+		}
+
+		for _, name := range value.CorsPolicy.AllowHeaders {
+			if err := ValidateHTTPHeaderName(name); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+
+		for _, name := range value.CorsPolicy.ExposeHeaders {
+			if err := ValidateHTTPHeaderName(name); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+
+		for _, method := range value.CorsPolicy.AllowMethods {
+			if !supportedMethods[method] {
+				errs = multierror.Append(errs, fmt.Errorf("%q is not a supported HTTP method", method))
+			}
 		}
 	}
 
