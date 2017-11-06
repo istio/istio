@@ -946,9 +946,9 @@ func ValidateEgressRulePort(port *proxyconfig.EgressRule_Port) error {
 
 	protocol := Protocol(strings.ToUpper(port.Protocol))
 	switch protocol {
-	case ProtocolHTTP, ProtocolHTTPS, ProtocolHTTP2, ProtocolGRPC:
+	case ProtocolHTTP, ProtocolHTTPS, ProtocolHTTP2, ProtocolGRPC, ProtocolTCP:
 	default:
-		return fmt.Errorf("support for non-HTTP protocols is not yet available")
+		return fmt.Errorf("support is available only for HTTP protocols and TCP")
 	}
 
 	return nil
