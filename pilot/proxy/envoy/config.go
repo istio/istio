@@ -307,7 +307,7 @@ func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName stri
 		httpConfigs = buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpConfigs = buildEgressHTTPRoutes(mesh, node, instances, config, httpConfigs)
 	default:
-		return nil, errors.New("Unrecognized node type")
+		return nil, errors.New("unrecognized node type")
 	}
 
 	if routeName == RDSAll {
