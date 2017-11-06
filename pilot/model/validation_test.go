@@ -1097,6 +1097,41 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 	}
 }
 
+func TestValidateEgressRuleService(t *testing.T) {
+	services := map[string]bool{
+		"cnn.com":        true,
+		"cnn..com":       false,
+		"10.0.0.100":     true,
+		"cnn.com:80":     false,
+		"*cnn.com":       true,
+		"*.cnn.com":      true,
+		"*-cnn.com":      true,
+		"*.0.0.100":      true,
+		"*0.0.100":       true,
+		"*cnn*.com":      false,
+		"cnn.*.com":      false,
+		"*com":           true,
+		"*0":             true,
+		"**com":          false,
+		"**0":            false,
+		"*":              true,
+		"":               false,
+		"*.":             false,
+		"192.168.3.0/24": true,
+		"50.1.2.3/32":    true,
+		"10.15.0.0/16":   true,
+		"10.15.0.0/0":    true,
+		"10.15.0/16":     false,
+		"10.15.0.0/33":   false,
+	}
+
+	for service, valid := range services {
+		if got := ValidateEgressRuleService(service); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s", got == nil, valid, got, service)
+		}
+	}
+}
+
 func TestValidateEgressRulePort(t *testing.T) {
 	ports := map[*proxyconfig.EgressRule_Port]bool{
 		{Port: 80, Protocol: "http"}:    true,

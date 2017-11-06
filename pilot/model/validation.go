@@ -251,7 +251,7 @@ func ValidateIstioService(svc *proxyconfig.IstioService) (errs error) {
 	} else if svc.Service != "" && svc.Name != "" {
 		errs = multierror.Append(errs, errors.New("specify either name or service, not both"))
 	} else if svc.Service != "" {
-		if err := ValidateEgressRuleDomain(svc.Service); err != nil {
+		if err := ValidateEgressRuleService(svc.Service); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 		if svc.Namespace != "" {
@@ -907,10 +907,20 @@ func ValidateEgressRuleDestination(destination *proxyconfig.IstioService) error 
 		errs = multierror.Append(errs, fmt.Errorf("destination of egress rule must not have labels field"))
 	}
 
-	if err := ValidateEgressRuleDomain(destination.Service); err != nil {
+	if err := ValidateEgressRuleService(destination.Service); err != nil {
 		errs = multierror.Append(errs, err)
 	}
 	return errs
+}
+
+// ValidateEgressRuleService validates service field of egress rules. Service field of egress rule contains either
+// domain, according to the defintion of Envoy's domain of virtual hosts, or CIDR, according to the definition of
+// destination_ip_list of a route in Envoy's TCP Proxy filter.
+func ValidateEgressRuleService(service string) error {
+	if strings.Count(service, "/") == 1 {
+		return validateCIDR(service)
+	}
+	return ValidateEgressRuleDomain(service)
 }
 
 // ValidateEgressRuleDomain validates domains in the egress rules
