@@ -53,22 +53,24 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 //     source.user: source.user | ""
 //     source.version: source.labels["version"] | ""
 // ```
+//
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// for information on tracing within Istio.
 message Template {
     // Trace ID is the unique identifier for a trace. All spans from the same
     // trace share the same Trace ID.
     //
-    // Required: This field MUST be configured in generated instances.
+    // Required.
     string trace_id = 1;
 
     // Span ID is the unique identifier for a span within a trace. It is assigned
     // when the span is created.
     //
-    // Optional: This field MAY be empty (adapters generate when not available).
+    // Optional.
     string span_id = 2;
 
-    // Parent Span ID is the unique identifier for a parent span of the span
-    // being described by this message. If this is a root span, then this field
-    // MUST be empty.
+    // Parent Span ID is the unique identifier for a parent span of this span
+    // instance. If this is a root span, then this field MUST be empty.
     //
     // Optional.
     string parent_span_id = 3;
@@ -80,26 +82,21 @@ message Template {
     // the same display name within an application and at the same call point.
     // This makes it easier to correlate spans in different traces.
     //
-    // Required: This field MUST be configured in generated instances.
+    // Required.
     string span_name = 4;
 
     // The start time of the span.
     //
-    // Required: This field MUST be configured in generated instances.
+    // Required.
     google.protobuf.Timestamp start_time = 5;
 
     // The end time of the span.
     //
-    // Required: This field MUST be configured in generated instances.
+    // Required.
     google.protobuf.Timestamp end_time = 6;
 
     // Span tags are a set of <key, value> pairs that provide metadata for the
-    // entire span.
-    //
-    // Examples:
-    //   "http.method" : "POST"
-    //   "peer.service" : "foo.default.svc.cluster.local"
-    //   "request_size_bytes" : 234
+    // entire span. The values can be specified in the form of expressions.
     //
     // Optional.
     map<string, istio.mixer.v1.config.descriptor.ValueType> span_tags = 7;
