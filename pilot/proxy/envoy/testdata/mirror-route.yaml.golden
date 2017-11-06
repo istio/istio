@@ -1,0 +1,5 @@
+destination:
+  name: world
+mirror:
+  name: hello
+

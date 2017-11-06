@@ -402,6 +402,33 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
 
+func TestRouteDiscoveryMirror(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, mirrorRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-mirror.json", t)
+}
+
+func TestRouteDiscoveryAppendHeaders(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, addHeaderRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-append-headers.json", t)
+}
+
+func TestRouteDiscoveryCORSPolicy(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, corsPolicyRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-cors-policy.json", t)
+}
+
 func TestRouteDiscoveryRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, redirectRouteRule, t)
