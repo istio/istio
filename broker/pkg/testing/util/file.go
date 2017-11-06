@@ -28,9 +28,5 @@ func readAndUnmarshal(object interface{}, dir string, fileName string) error {
 		return err
 	}
 
-	if err = json.Unmarshal(bytes, object); err != nil {
-		return err
-	}
-
-	return nil
+	return json.Unmarshal(bytes, object)
 }
