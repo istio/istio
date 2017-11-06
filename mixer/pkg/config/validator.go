@@ -683,11 +683,7 @@ func (p *validator) validateRulesConfig(cfg string) (ce *adapter.ConfigErrors) {
 		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
-	if ce = p.validateRules(m.GetActionRules(), ""); ce != nil {
-		return ce
-	}
-
-	return nil
+	return p.validateRules(m.GetActionRules(), "")
 }
 
 func (p *validator) validateInstanceConfigs(cfg string) (ce *adapter.ConfigErrors) {
@@ -697,11 +693,7 @@ func (p *validator) validateInstanceConfigs(cfg string) (ce *adapter.ConfigError
 		return ce.Appendf("serviceConfig", "failed to unmarshal config into proto: %v", err)
 	}
 
-	if ce = p.validateInstances(m.GetInstances()); ce != nil {
-		return ce
-	}
-
-	return nil
+	return p.validateInstances(m.GetInstances())
 }
 
 func (p *validator) validateHandlers(cfg string) (ce *adapter.ConfigErrors) {

@@ -6,7 +6,7 @@ load("//broker/docker:broker_docker.bzl", "broker_docker_build")
 pkg_tar(
     name = "broker_tar",
     extension = "tar.gz",
-    files = [
+    srcs = [
         "//broker/cmd/brks",
     ],
     mode = "0755",
