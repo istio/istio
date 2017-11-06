@@ -34,8 +34,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup:
-	@[[ -f pilot/platform/kube/config ]] || ln -s ~/.kube/config pilot/platform/kube/
+setup: pilot/platform/kube/config
 
 check:
 	echo 'To be added'
@@ -63,5 +62,8 @@ clean:
 
 artifacts: docker
 	@echo 'To be added'
+
+pilot/platform/kube/config:
+	@ln -s ~/.kube/config pilot/platform/kube/
 
 .PHONY: artifacts build checkvars clean docker test setup push
