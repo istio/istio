@@ -32,7 +32,7 @@ In this walkthrough you're going to create a simple adapter that:
 Download a local copy of the Mixer repo
 
 ```bash
-git clone https://github.com/istio/mixer
+git clone https://github.com/istio/istio
 ```
 
 Install bazel (version 0.5.2 or higher) from [https://bazel.build/](https://bazel.build/) and add it to your PATH

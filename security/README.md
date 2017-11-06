@@ -1,9 +1,5 @@
 # Istio Security
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/auth)](https://goreportcard.com/report/github.com/istio/auth)
-[![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
-
-
 ## Overview
 
 Istio Security's aim is to enhance the security of microservices and their communication without requiring service code changes. It is responsible for:
@@ -25,8 +21,6 @@ Istio supports services running on both Kubernetes containers and VM/bare-metal 
 As illustrated in the diagram, Istio Security leverages secret volume mount to deliver keys/certs from Istio CA to Kubernetes containers.
 For services running on VM/bare-metal machines, we introduce a node agent, which is a process running on each VM/bare-metal machine.
 It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio CA for signing, and delivers the generated certificate together with the private key to Envoy.
-
-## Components
 
 ### Identity
 
@@ -131,23 +125,3 @@ datastore SRE team creates 1 service account to run the datastore service in nam
 in [Istio Mixer]({{home}}/docs/concepts/policy-and-control/mixer.html) such that photo-frontend cannot access datastore.
 
 In this setup, Istio CA is able to provide keys and certificates management for all namespaces, and isolate microservice deployments from each other.
-
-## Future work
-
-*   Inter-cluster service-to-service authentication
-
-*   Powerful authorization mechanisms: ABAC, RBAC, etc
-
-*   Per-service auth enablement support
-
-*   Secure Istio components (Mixer, Pilot)
-
-*   End-user to service authentication using JWT/OAuth2/OpenID_Connect.
-
-*   Support GCP service account
-
-*   Unix domain socket for local communication between service and Envoy
-
-*   Layer-7 Middle proxy support
-
-*   Pluggable key management component
