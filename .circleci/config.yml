@@ -47,3 +47,19 @@ jobs:
             bash <(curl -s https://codecov.io/bash)
       - store_artifacts:
           path: /home/circleci/logs
+  test:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: circleci/golang:1.9
+    steps:
+      - checkout
+      - run: go get -u github.com/golang/dep/cmd/dep
+      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: cd /go/src/istio.io/istio; go build -i ./pilot/... ./mixer/... ./broker/...
+
+workflows:
+  version: 2
+  all:
+    jobs:
+      - build
+      - test
