@@ -242,7 +242,7 @@ go_repository(
 
 go_repository(
     name = "io_istio_fortio",
-    commit = "0.2.8",
+    commit = "0.3.0",
     importpath = "istio.io/fortio",
 )
 
@@ -1144,4 +1144,3 @@ go_repository(
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
 )
-

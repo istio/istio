@@ -633,8 +633,8 @@
 [[projects]]
   name = "istio.io/fortio"
   packages = ["fhttp","log","periodic","stats"]
-  revision = "02902d7e31d257a0ed8eb140f1a7e29ef4146fc1"
-  version = "0.2.8"
+  revision = "6486f6be7d734a84a50ae9da195c922ce7be5002"
+  version = "0.3.0"
 
 [[projects]]
   branch = "master"
