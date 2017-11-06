@@ -505,6 +505,10 @@ func buildOutboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node, in
 	services []*model.Service, config model.IstioConfigStore) (Listeners, Clusters) {
 	listeners, clusters := buildOutboundTCPListeners(mesh, sidecar, services)
 
+	egressTCPListeners, egressTCPClusters := buildEgressTCPListeners(mesh, sidecar, config)
+	listeners = append(listeners, egressTCPListeners...)
+	clusters = append(clusters, egressTCPClusters...)
+
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, sidecar, instances, services, config)
 	httpOutbound = buildEgressHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
@@ -904,6 +908,65 @@ func buildEgressHTTPRoutes(mesh *proxyconfig.MeshConfig, node proxy.Node,
 	}
 
 	return httpConfigs.normalize()
+}
+
+// buildEgressTCPListeners builds a listener and a cluster per each TCP egress service
+// see comment to buildOutboundTCPListeners
+func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
+	config model.IstioConfigStore) (Listeners, Clusters) {
+
+	tcpListeners := make(Listeners, 0)
+	tcpClusters := make(Clusters, 0)
+
+	if node.Type == proxy.Router {
+		// No egress rule support for Routers. As semantics are not clear.
+		return tcpListeners, tcpClusters
+	}
+
+	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
+
+	if errs != nil {
+		glog.Warningf("Rejected rules: %v", errs)
+	}
+
+	for _, rule := range egressRules {
+		for _, port := range rule.Ports {
+			protocol := model.Protocol(strings.ToUpper(port.Protocol))
+			if protocol != model.ProtocolTCP {
+				continue
+			}
+			intPort := int(port.Port)
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
+				Port: intPort, Protocol: protocol}
+
+			tcpListener, tcpCluster := buildEgressTCPListener(rule, mesh, modelPort)
+			tcpListeners = append(tcpListeners, tcpListener)
+			tcpClusters = append(tcpClusters, tcpCluster)
+		}
+	}
+
+	return tcpListeners, tcpClusters
+}
+
+// buildEgressTCPListener builds a listener and a cluster per port of a TCP egress service
+// see comment to buildOutboundTCPListeners
+func buildEgressTCPListener(rule *proxyconfig.EgressRule,
+	mesh *proxyconfig.MeshConfig, port *model.Port) (*Listener, *Cluster) {
+
+	// Create a unique orig dst cluster for each service defined by egress rule
+	// So that we can apply circuit breakers, outlier detections, etc., later.
+	destination := rule.Destination.Service
+	key := model.ServiceKey(destination, model.PortList{port}, model.LabelsCollection{})
+	name := fmt.Sprintf("%x", sha1.Sum([]byte(key)))
+	externalTrafficCluster := buildOriginalDSTCluster(name, mesh.ConnectTimeout)
+	externalTrafficCluster.port = port
+	externalTrafficCluster.ServiceName = key
+	externalTrafficCluster.hostname = destination
+
+	route := buildTCPRoute(externalTrafficCluster, []string{destination})
+	config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
+	listener := buildTCPListener(config, destination, port.Port, port.Protocol)
+	return listener, externalTrafficCluster
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
