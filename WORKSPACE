@@ -1,3 +1,5 @@
+# ignore this line - circli cache is keyed off the checksum of the top level WORKSPACE file
+
 workspace(name = "io_istio_istio")
 
 load("//mixer:check_bazel_version.bzl", "check_version")
@@ -1144,4 +1146,3 @@ go_repository(
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
 )
-
