@@ -33,30 +33,7 @@
            "source.ip": "10.3.3.3",
            "source.uid": "kubernetes://ingress.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {},
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://ingress.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://ingress.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
@@ -113,30 +90,7 @@
            "source.ip": "10.3.3.3",
            "source.uid": "kubernetes://ingress.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {},
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://ingress.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://ingress.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {

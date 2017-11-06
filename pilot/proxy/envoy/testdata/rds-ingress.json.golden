@@ -11,7 +11,6 @@
       "path": "/hello",
       "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
       "opaque_config": {
-       "destination.service": "world.default.svc.cluster.local",
        "mixer_check": "on",
        "mixer_forward": "on",
        "mixer_report": "on"

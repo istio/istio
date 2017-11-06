@@ -40,41 +40,7 @@
            "source.ip": "10.1.1.1",
            "source.uid": "kubernetes://v1.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
-           "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
@@ -131,41 +97,7 @@
            "source.ip": "10.1.1.1",
            "source.uid": "kubernetes://v1.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
-           "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
@@ -222,41 +154,7 @@
            "source.ip": "10.1.1.1",
            "source.uid": "kubernetes://v1.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
-           "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
@@ -379,7 +277,6 @@
             "prefix": "/",
             "cluster": "in.1081",
             "opaque_config": {
-             "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
@@ -406,41 +303,7 @@
            "source.ip": "10.1.1.1",
            "source.uid": "kubernetes://v1.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
-           "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
@@ -481,18 +344,6 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.1",
         "destination.uid": "kubernetes://v1.default"
-       },
-       "v2": {
-        "mixerAttributes": {
-         "attributes": {
-          "destination.ip": {
-           "stringValue": "10.1.1.1"
-          },
-          "destination.uid": {
-           "stringValue": "kubernetes://v1.default"
-          }
-         }
-        }
        }
       }
      },
@@ -533,18 +384,6 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.1",
         "destination.uid": "kubernetes://v1.default"
-       },
-       "v2": {
-        "mixerAttributes": {
-         "attributes": {
-          "destination.ip": {
-           "stringValue": "10.1.1.1"
-          },
-          "destination.uid": {
-           "stringValue": "kubernetes://v1.default"
-          }
-         }
-        }
        }
       }
      },
@@ -592,18 +431,6 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.1",
         "destination.uid": "kubernetes://v1.default"
-       },
-       "v2": {
-        "mixerAttributes": {
-         "attributes": {
-          "destination.ip": {
-           "stringValue": "10.1.1.1"
-          },
-          "destination.uid": {
-           "stringValue": "kubernetes://v1.default"
-          }
-         }
-        }
        }
       }
      },
@@ -677,7 +504,6 @@
             "prefix": "/",
             "cluster": "in.80",
             "opaque_config": {
-             "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
@@ -704,41 +530,7 @@
            "source.ip": "10.1.1.1",
            "source.uid": "kubernetes://v1.default"
           },
-          "quota_name": "RequestCount",
-          "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
-           "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           },
-           "mixerAttributes": {
-            "attributes": {
-             "destination.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAQ=="
-             },
-             "destination.uid": {
-              "stringValue": "kubernetes://v1.default"
-             }
-            }
-           }
-          }
+          "quota_name": "RequestCount"
          }
         },
         {
