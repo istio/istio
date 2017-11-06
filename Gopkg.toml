@@ -20,11 +20,56 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-
-[[constraint]]
-  name = "istio.io/api"
-  revision = "294c66b5a4cb533a03262a9ff04a7efda5a31daa"
+# TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
+# This repo includes only istio-generated files.
 
 [[constraint]]
   name = "github.com/googleapis/googleapis"
-  source = "github.com/costinm/googleapis"
+  source = "https://github.com/costinm/googleapis.git"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  revision = "7c69e980210777a6292351ac6873de083526f08e"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  revision = "6134cb2da6d90597b0434e349f90f94fafc9ae51"
+
+[[constraint]]
+  name = "k8s.io/api"
+  revision = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"
+  revision = "c682349b0d1c12975d8e24a9799b66747255d7a5"
+
+[[constraint]]
+  name = "k8s.io/apiserver"
+  revision = "149fc2228647cea28b0670c240ec582e985e8eda"
+
+[[constraint]]
+  name = "k8s.io/ingress"
+  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
+
+[[constraint]]
+  name = "github.com/russross/blackfriday"
+  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
+
+[[override]]
+  name = "github.com/ugorji/go"
+  revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
+
+[[override]]
+ name = "github.com/openzipkin/zipkin-go-opentracing"
+ revision = "75836a71be339e7faf1b6b775e0703a875f484de"
+ source = "https://github.com/mandarjog/zipkin-go-opentracing.git"
+
+[[override]]
+    revision = "d4df91709b724174aaf8a957f3edac3573be354e"
+    name = "github.com/apache/thrift"
+
+
