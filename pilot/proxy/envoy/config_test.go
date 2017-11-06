@@ -287,6 +287,21 @@ var (
 		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "foo"},
 		file: "testdata/ingress-route-foo.yaml.golden",
 	}
+
+	addHeaderRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "append-headers"},
+		file: "testdata/addheaders-route.yaml.golden",
+	}
+
+	corsPolicyRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "cors-policy"},
+		file: "testdata/corspolicy-route.yaml.golden",
+	}
+
+	mirrorRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
+		file: "testdata/mirror-route.yaml.golden",
+	}
 )
 
 func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {

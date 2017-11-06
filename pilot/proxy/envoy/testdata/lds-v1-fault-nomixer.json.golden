@@ -28,6 +28,11 @@
        },
        "filters": [
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -64,6 +69,11 @@
        },
        "filters": [
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -99,6 +109,11 @@
         "refresh_delay_ms": 10
        },
        "filters": [
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
         {
          "type": "decoder",
          "name": "router",
@@ -222,6 +237,11 @@
         ]
        },
        "filters": [
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
         {
          "type": "decoder",
          "name": "router",
@@ -369,6 +389,11 @@
         ]
        },
        "filters": [
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
         {
          "type": "decoder",
          "name": "router",

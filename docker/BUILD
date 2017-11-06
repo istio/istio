@@ -6,7 +6,7 @@ load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
 pkg_tar(
     name = "hop_tar",
     extension = "tar.gz",
-    files = [
+    srcs = [
         "//tests/e2e/apps/hop/hop-server",
     ],
     mode = "0755",

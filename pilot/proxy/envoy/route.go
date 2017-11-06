@@ -201,6 +201,41 @@ func buildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 		}
 	}
 
+	if rule.Mirror != nil {
+		route.ShadowCluster = &ShadowCluster{
+			Cluster: model.ResolveHostname(config.ConfigMeta, rule.Mirror),
+		}
+	}
+
+	for name, val := range rule.AppendHeaders {
+		route.HeadersToAdd = append(route.HeadersToAdd, AppendedHeader{
+			Key:   name,
+			Value: val,
+		})
+	}
+
+	if rule.CorsPolicy != nil {
+		route.CORSPolicy = &CORSPolicy{
+			AllowOrigin: rule.CorsPolicy.AllowOrigin,
+			Enabled:     true,
+		}
+		if rule.CorsPolicy.AllowCredentials != nil {
+			route.CORSPolicy.AllowCredentials = rule.CorsPolicy.AllowCredentials.Value
+		}
+		if len(rule.CorsPolicy.AllowHeaders) > 0 {
+			route.CORSPolicy.AllowHeaders = strings.Join(rule.CorsPolicy.AllowHeaders, ",")
+		}
+		if len(rule.CorsPolicy.AllowMethods) > 0 {
+			route.CORSPolicy.AllowMethods = strings.Join(rule.CorsPolicy.AllowMethods, ",")
+		}
+		if len(rule.CorsPolicy.ExposeHeaders) > 0 {
+			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
+		}
+		if rule.CorsPolicy.MaxAge != nil {
+			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
+		}
+	}
+
 	if rule.WebsocketUpgrade {
 		route.WebsocketUpgrade = true
 	}
