@@ -544,7 +544,7 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 			return desc, nil
 		}
 	}
-	return model.ProtoSchema{}, fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
+	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
