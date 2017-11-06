@@ -215,11 +215,7 @@ func (p *promProxy) Setup() error {
 		return err
 	}
 
-	if err = p.portForward("app=productpage", productPagePort, "9080"); err != nil {
-		return err
-	}
-
-	return nil
+	return p.portForward("app=productpage", productPagePort, "9080")
 }
 
 func (p *promProxy) Teardown() (err error) {

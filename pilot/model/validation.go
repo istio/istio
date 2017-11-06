@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -55,6 +56,19 @@ var (
 	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
 	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
 )
+
+// golang supported methods: https://golang.org/src/net/http/method.go
+var supportedMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodPatch:   true,
+	http.MethodDelete:  true,
+	http.MethodConnect: true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
 // DNS (RFC 1123).
@@ -120,11 +134,7 @@ func (descriptor ConfigDescriptor) ValidateConfig(typ string, obj interface{}) e
 			proto.MessageName(v), t.MessageName)
 	}
 
-	if err := t.Validate(v); err != nil {
-		return err
-	}
-
-	return nil
+	return t.Validate(v)
 }
 
 // Validate ensures that the service object is well-defined
@@ -291,7 +301,8 @@ func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 		if err := ValidateL4MatchAttributes(mc.Udp); err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		errs = multierror.Append(errs, fmt.Errorf("Istio does not support UDP protocol yet"))
+		// nolint: golint
+		errs = multierror.Append(errs, fmt.Errorf("UDP protocol not supported yet"))
 	}
 
 	if mc.Request != nil {
@@ -331,6 +342,9 @@ func ValidateMatchCondition(mc *proxyconfig.MatchCondition) (errs error) {
 
 // ValidateHTTPHeaderName checks that the name is lower-case
 func ValidateHTTPHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
 	if strings.ToLower(name) != name {
 		return fmt.Errorf("must be in lower case")
 	}
@@ -447,7 +461,7 @@ func ValidateL4Fault(fault *proxyconfig.L4FaultInjection) (errs error) {
 		if err := ValidateTerminate(fault.GetTerminate()); err != nil {
 			errs = multierror.Append(errs, err)
 		}
-		errs = multierror.Append(errs, fmt.Errorf("Istio does not support the terminate fault yet"))
+		errs = multierror.Append(errs, fmt.Errorf("the terminate fault not supported yet"))
 	}
 
 	if fault.GetThrottle() != nil {
@@ -518,7 +532,7 @@ func ValidateDelay(delay *proxyconfig.HTTPFaultInjection_Delay) (errs error) {
 		if err := ValidateDuration(delay.GetExponentialDelay()); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "exponentialDelay invalid: "))
 		}
-		errs = multierror.Append(errs, fmt.Errorf("Istio does not support exponentialDelay yet"))
+		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
 
 	return
@@ -542,7 +556,7 @@ func ValidateAbort(abort *proxyconfig.HTTPFaultInjection_Abort) (errs error) {
 	switch abort.ErrorType.(type) {
 	case *proxyconfig.HTTPFaultInjection_Abort_GrpcStatus:
 		// TODO No validation yet for grpc_status / http2_error / http_status
-		errs = multierror.Append(errs, fmt.Errorf("Istio does not support gRPC fault injection yet"))
+		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
 	case *proxyconfig.HTTPFaultInjection_Abort_Http2Error:
 		// TODO No validation yet for grpc_status / http2_error / http_status
 	case *proxyconfig.HTTPFaultInjection_Abort_HttpStatus:
@@ -661,7 +675,7 @@ func ValidateWeights(routes []*proxyconfig.DestinationWeight) (errs error) {
 
 	if sum != 100 {
 		errs = multierror.Append(errs,
-			fmt.Errorf("Route weights total %v (must total 100)", sum))
+			fmt.Errorf("route weights total %v (must total 100)", sum))
 	}
 
 	return
@@ -714,6 +728,7 @@ func ValidateRouteRule(msg proto.Message) error {
 		}
 
 		if value.WebsocketUpgrade {
+			// nolint: golint
 			errs = multierror.Append(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
 		}
 	}
@@ -730,6 +745,52 @@ func ValidateRouteRule(msg proto.Message) error {
 		}
 		if err := ValidateWeights(value.Route); err != nil {
 			errs = multierror.Append(errs, err)
+		}
+	}
+
+	if value.Mirror != nil {
+		if err := ValidateIstioService(value.Mirror); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
+	for name, val := range value.AppendHeaders {
+		if err := ValidateHTTPHeaderName(name); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if val == "" {
+			errs = multierror.Append(errs,
+				fmt.Errorf("appended header %q must have a non-empty value", name))
+		}
+	}
+
+	if value.CorsPolicy != nil {
+		if value.CorsPolicy.MaxAge != nil {
+			if err := ValidateDuration(value.CorsPolicy.MaxAge); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+			if value.CorsPolicy.MaxAge.Nanos > 0 {
+				errs = multierror.Append(errs,
+					errors.New("max_age duration is accurate only to seconds precision"))
+			}
+		}
+
+		for _, name := range value.CorsPolicy.AllowHeaders {
+			if err := ValidateHTTPHeaderName(name); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+
+		for _, name := range value.CorsPolicy.ExposeHeaders {
+			if err := ValidateHTTPHeaderName(name); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+
+		for _, method := range value.CorsPolicy.AllowMethods {
+			if !supportedMethods[method] {
+				errs = multierror.Append(errs, fmt.Errorf("%q is not a supported HTTP method", method))
+			}
 		}
 	}
 
@@ -755,6 +816,7 @@ func ValidateRouteRule(msg proto.Message) error {
 		if err := ValidateL4Fault(value.L4Fault); err != nil {
 			errs = multierror.Append(errs, err)
 		}
+		// nolint: golint
 		errs = multierror.Append(errs, fmt.Errorf("L4 faults are not implemented"))
 	}
 
@@ -872,11 +934,7 @@ func ValidateEgressRuleDomain(domain string) error {
 			domain = domain[1:]
 		}
 	}
-	if err := ValidateFQDN(domain); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateFQDN(domain)
 }
 
 // ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
@@ -890,7 +948,7 @@ func ValidateEgressRulePort(port *proxyconfig.EgressRule_Port) error {
 	switch protocol {
 	case ProtocolHTTP, ProtocolHTTPS, ProtocolHTTP2, ProtocolGRPC:
 	default:
-		return fmt.Errorf("Support for non-HTTP protocols is not yet available")
+		return fmt.Errorf("support for non-HTTP protocols is not yet available")
 	}
 
 	return nil
@@ -965,7 +1023,7 @@ func ValidateDuration(pd *duration.Duration) error {
 		return errors.New("duration must be greater than 1ms")
 	}
 	if dur%time.Millisecond != 0 {
-		return errors.New("Istio only supports durations to ms precision")
+		return errors.New("only durations to ms precision is supported")
 	}
 	return nil
 }
@@ -996,26 +1054,26 @@ func ValidateParentAndDrain(drainTime, parentShutdown *duration.Duration) (errs 
 
 	if drainDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
-			errors.New("Istio drain time only supports durations to seconds precision"))
+			errors.New("drain time only supports durations to seconds precision"))
 	}
 	if parentShutdownDuration%time.Second != 0 {
 		errs = multierror.Append(errs,
-			errors.New("Istio parent shutdown time only supports durations to seconds precision"))
+			errors.New("parent shutdown time only supports durations to seconds precision"))
 	}
 	if parentShutdownDuration <= drainDuration {
 		errs = multierror.Append(errs,
-			fmt.Errorf("Istio parent shutdown time %v must be greater than drain time %v",
+			fmt.Errorf("parent shutdown time %v must be greater than drain time %v",
 				parentShutdownDuration.String(), drainDuration.String()))
 	}
 
 	if drainDuration > drainTimeMax {
 		errs = multierror.Append(errs,
-			fmt.Errorf("Istio drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
+			fmt.Errorf("drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
 	}
 
 	if parentShutdownDuration > parentShutdownTimeMax {
 		errs = multierror.Append(errs,
-			fmt.Errorf("Istio parent shutdown time %v must be <%v",
+			fmt.Errorf("parent shutdown time %v must be <%v",
 				parentShutdownDuration.String(), parentShutdownTimeMax.String()))
 	}
 

@@ -7,6 +7,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DIR_NAME="$(basename ${ROOT})"
@@ -18,6 +19,7 @@ function cleanup {
   rm -rf "${BIN_DIR}"
 }
 
+cd $ROOT
 while getopts :p:r arg; do
   case ${arg} in
     p)
@@ -31,8 +33,7 @@ done
 
 [[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
 
-bin/init.sh
-cp -f "${ROOT}/bazel-bin/pilot/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
+cp -f "${ROOT}/../bazel-bin/pilot/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 
 
 if [[ ${RELEASE} == true ]]; then

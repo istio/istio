@@ -13,4 +13,5 @@ vendor
 # Vm setup generated files
 cluster.env
 kubedns
-*.pem
+# pilot
+pilot/platform/config

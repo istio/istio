@@ -307,7 +307,7 @@ func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName stri
 		httpConfigs = buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpConfigs = buildEgressHTTPRoutes(mesh, node, instances, config, httpConfigs)
 	default:
-		return nil, errors.New("Unrecognized node type")
+		return nil, errors.New("unrecognized node type")
 	}
 
 	if routeName == RDSAll {
@@ -352,6 +352,12 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 		sort.Strings(services)
 		service = strings.Join(services, ",")
 	}
+
+	filter := HTTPFilter{
+		Name: CORSFilter,
+		Config: CORSFilterConfig{},
+	}
+	filters = append([]HTTPFilter{filter}, filters...)
 
 	if mesh.MixerAddress != "" {
 		mixerConfig := mixerHTTPRouteConfig(node, service)

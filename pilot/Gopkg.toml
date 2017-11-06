@@ -75,7 +75,7 @@
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "8050b9cbc271307e5a716a9d782803d09b0d6f2d"
+  revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
 
 [[constraint]]
   name = "istio.io/api"
@@ -95,5 +95,5 @@
   revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[constraint]]
-  name = "github.com/russross/blackfriday/"
-  revision = "35eb537633d9950afc8ae7bdf0edb6134584e9fc"
+  name = "github.com/russross/blackfriday"
+  revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
