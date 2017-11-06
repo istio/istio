@@ -30,6 +30,8 @@ ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
 
+.DEFAULT_GOAL := build
+
 checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
