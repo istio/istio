@@ -117,7 +117,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) *Cont
 // Returning an error causes repeated execution of the entire chain.
 func (c *Controller) notify(obj interface{}, event model.Event) error {
 	if !c.HasSynced() {
-		return errors.New("Waiting till full synchronization")
+		return errors.New("waiting till full synchronization")
 	}
 	k, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {

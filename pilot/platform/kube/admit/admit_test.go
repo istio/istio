@@ -267,7 +267,7 @@ func makeTestData(t *testing.T, valid bool) []byte {
 func makeTestClient() (*http.Client, error) {
 	clientCert, err := tls.X509KeyPair(testcerts.ClientCert, testcerts.ClientKey)
 	if err != nil {
-		return nil, fmt.Errorf("LoadX509KeyPair failed: %v", err)
+		return nil, fmt.Errorf("failed to load X509KeyPair: %v", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(testcerts.CACert)
