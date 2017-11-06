@@ -41,10 +41,7 @@ func (t *grpc) run() error {
 	if err := t.makeRequests(); err != nil {
 		return err
 	}
-	if err := t.logs.check(t.infra); err != nil {
-		return err
-	}
-	return nil
+	return t.logs.check(t.infra)
 }
 
 func (t *grpc) makeRequests() error {

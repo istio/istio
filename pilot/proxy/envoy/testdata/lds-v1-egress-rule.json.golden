@@ -44,6 +44,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -94,6 +99,11 @@
           },
           "quota_name": "RequestCount"
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -148,6 +158,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -198,6 +213,11 @@
           },
           "quota_name": "RequestCount"
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -342,6 +362,11 @@
           },
           "quota_name": "RequestCount"
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -540,6 +565,11 @@
           },
           "quota_name": "RequestCount"
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
