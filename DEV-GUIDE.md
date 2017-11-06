@@ -1,16 +1,8 @@
 # Developing for Istio
 
-This document is intended to be the canonical source of truth for things like
-supported toolchain versions for building Istio components like Mixer
-(which is used throughout this document as an example when referring to a specific
-component repo or directory).
-If you find a requirement that this doc does not capture, or if you find other
-docs with references to requirements that are not simply links to this doc,
-please [submit an issue](https://github.com/istio/istio/issues/new).
-
-This document is intended to be relative to the branch in which it is found.
-It is guaranteed that requirements will change over time for the development
-branch, but release branches should not change.
+This document helps you get started to develop code for Istio.
+If you're following this guide and find some problem, please [submit an issue](https://github.com/istio/istio/issues/new).
+so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
@@ -23,7 +15,6 @@ branch, but release branches should not change.
   - [Fork the main repository](#fork-the-main-repository)
   - [Clone your fork](#clone-your-fork)
   - [Enable pre commit hook](#enable-pre-commit-hook)
-  - [Enable pre push hook](#enable-pre-push-hook)
   - [Create a branch and make changes](#create-a-branch-and-make-changes)
   - [Keeping your fork in sync](#keeping-your-fork-in-sync)
   - [Committing changes to your fork](#committing-changes-to-your-fork)
@@ -45,13 +36,9 @@ branch, but release branches should not change.
 - [Local development scripts](#collection-of-scripts-and-notes-for-developing-for-istio)
 - [MacOS tips](#macos-tips)
 
-Other docs you should look at:
-
-- [Project conventions](./conventions.md)
-- [Creating fast and lean code](./performance.md)
-- Each components additional development docs like [Mixer](https://github.com/istio/mixer/tree/master/doc/dev/development.md)'s
-- [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
-- [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
+This document is intended to be relative to the branch in which it is found.
+It is guaranteed that requirements will change over time for the development
+branch, but release branches should not change.
 
 ## Prerequisites
 
@@ -61,10 +48,11 @@ need to setup before being able to build and run the code.
 ### Setting up Go
 
 Many Istio components are written in the [Go](http://golang.org) programming language.
-To build, you'll need a Go development environment. Builds for
-Mixer require Go version 1.8. If you haven't set up a Go development
+To build, you'll need a Go development environment. If you haven't set up a Go development
 environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
+
+Istio currently builds with Go 1.9
 
 ### Setting up Bazel
 
@@ -73,6 +61,8 @@ Istio components are built using the Bazel build system. See
 installation procedures.
 In addition to Bazel itself, you should install the Bazel buildifier tool from
 [here](https://github.com/bazelbuild/buildtools).
+
+Istio currently builds with Bazel 0.7.0
 
 ### Setting up Docker
 
@@ -104,13 +94,13 @@ mkdir -p $ISTIO
 
 ### Setting up a personal access token
 
-This is only necessary for core contributors / to push changes to the main repos.
+This is only necessary for core contributors in order to push changes to the main repos.
 You can make pull requests without two-factor authentication
 but the additional security is recommended for everyone.
 
 To be part of the Istio organization, we require two-factor authentication, and
-you must setup a personal access token to enable push via HTTPS. Please follow [these
-instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
+you must setup a personal access token to enable push via HTTPS. Please follow
+[these instructions](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/)
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
@@ -121,55 +111,44 @@ Follow the
 
 ## Git workflow
 
-Below, we outline one of the more common git workflows that core developers use.
-Other git workflows are also valid.
+Below, we outline one of the more common Git workflows that core developers use.
+Other Git workflows are also valid.
 
 ### Fork the main repository
 
-Depending on the component, taking mixer as an example:
-
-1. Go to https://github.com/istio/mixer
+1. Go to https://github.com/istio/istio
 2. Click the "Fork" button (at the top right)
 
 ### Clone your fork
 
 The commands below require that you have $GOPATH set ([$GOPATH
 docs](https://golang.org/doc/code.html#GOPATH)). We highly recommend you put
-Mixer's code into your GOPATH. Note: the commands below will not work if
+Istio's code into your GOPATH. Note: the commands below will not work if
 there is more than one directory in your `$GOPATH`.
 
 ```shell
 cd $ISTIO
-git clone https://github.com/$GITHUB_USER/mixer.git
-cd mixer
-git remote add upstream 'https://github.com/istio/mixer.git'
+git clone https://github.com/$GITHUB_USER/istio.git
+cd istio
+git remote add upstream 'https://github.com/istio/istio.git'
 git config --global --add http.followRedirects 1
 ```
+
 ### Enable pre-commit hook
 
-Mixer for instance uses a local pre-commit hook to ensure that the code
-passes local test.
+NOTE: The precommit hook is not functional as of 11/08/2017 following the repo
+reorganization. It should come back alive shortly.
+
+Istio uses a local pre-commit hook to ensure that the code
+passes local tests before being committed.
 
 Run
 ```shell
-user@host:~/GOHOME/src/istio.io/mixer$ ./bin/pre-commit
+user@host:~/GOHOME/src/istio.io/istio$ ./bin/pre-commit
 Installing pre-commit hook
 ```
 This hook is invoked every time you commit changes locally.
 The commit is allowed to proceed only if the hook succeeds.
-
-### Enable pre-push hook
-
-Broker uses a local pre-push hook to ensure that the code
-passes local test.
-
-Run
-```shell
-user@host:~/GOHOME/src/istio.io/broker$ ./bin/pre-push
-Installing pre-push hook
-```
-This hook is invoked every time you push changes locally.
-The push is allowed to proceed only if the hook succeeds.
 
 ### Create a branch and make changes
 
@@ -186,7 +165,7 @@ git rebase upstream/master
 ```
 
 Note: If you have write access to the main repositories
-(eg github.com/istio/mixer), you should modify your git configuration so
+(e.g. github.com/istio/istio), you should modify your Git configuration so
 that you can't accidentally push to upstream:
 
 ```shell
@@ -201,11 +180,10 @@ When you're happy with some changes, you can commit them to your repo:
 git add .
 git commit
 ```
-Then push the change to the fork. When prompted for authentication, using your
-github username as usual but the personal access token as your password if you
+Then push the change to the fork. When prompted for authentication, use your
+GitHub username as usual but the personal access token as your password if you
 have not setup ssh keys. Please
-follow [these
-instructions](https://help.github.com/articles/caching-your-github-password-in-git/#platform-linux)
+follow [these instructions](https://help.github.com/articles/caching-your-github-password-in-git/#platform-linux)
 if you want to cache the token.
 
 ```shell
@@ -214,7 +192,7 @@ git push -f origin my-feature
 
 ### Creating a pull request
 
-1. Visit https://github.com/$GITHUB_USER/$COMPONENT
+1. Visit https://github.com/$GITHUB_USER/istio
 2. Click the "Compare & pull request" button next to your "my-feature" branch.
 
 ### Getting a code review
@@ -224,12 +202,12 @@ reviewers. Those reviewers will do a thorough code review, looking for
 correctness, bugs, opportunities for improvement, documentation and comments,
 and style.
 
-Very small PRs are easy to review.  Very large PRs are very difficult to
+Very small PRs are easy to review. Very large PRs are very difficult to
 review. GitHub has a built-in code review tool, which is what most people use.
 
 ### When to retain commits and when to squash
 
-Upon merge, all git commits should represent meaningful milestones or units of
+Upon merge, all Git commits should represent meaningful milestones or units of
 work. Use commits to add clarity to the development and review process.
 
 Before merging a PR, squash any "fix review feedback", "typo", and "rebased"
@@ -243,27 +221,11 @@ reviews much easier.
 
 ### Building the code
 
-Using Mixer as an example:
+To build the core repo:
 
 ```shell
-cd $ISTIO/mixer
+cd $ISTIO
 make build
-```
-
-This build command figures out what it needs to do and does not need any input from you.
-
-For Pilot, use the command below to set up the initial build:
-
-```shell
-cd $ISTIO/pilot
-make setup
-```
-
-After the initial build, you can simply use the command below to build:
-
-```shell
-cd $ISTIO/pilot
-make
 ```
 
 This build command figures out what it needs to do and does not need any input from you.
@@ -371,10 +333,8 @@ make racetest
 
 ### Adding dependencies
 
-It will occasionally be necessary to add a new dependency to Mixer, either in support of a new adapter or to provide
-additional core functionality.
-
-Mixer dependencies are maintained in the [WORKSPACE](https://github.com/istio/mixer/blob/master/WORKSPACE)
+It will occasionally be necessary to add a new external dependency to the system
+Dependencies are maintained in the [WORKSPACE](https://github.com/istio/istio/blob/master/WORKSPACE)
 file. To add a new dependency, please append to the bottom on the file. A dependency
 can be added manually, or via [wtool](https://github.com/bazelbuild/rules_go/blob/master/go/tools/wtool/main.go).
 
