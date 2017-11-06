@@ -50,7 +50,6 @@ jobs:
   test:
     docker:
       - image: circleci/golang:1.9
-    working_directory: ~/go/src/istio.io/istio
     steps:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
