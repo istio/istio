@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/security/pkg/platform"
 )
 
