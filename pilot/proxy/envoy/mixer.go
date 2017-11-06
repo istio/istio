@@ -17,15 +17,7 @@
 package envoy
 
 import (
-	"net"
-	"strings"
-
-	"github.com/golang/glog"
-
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	proxyconfig "istio.io/api/proxy/v1/config"
-	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
 
@@ -67,38 +59,22 @@ const (
 	MixerForward = "mixer_forward"
 )
 
-// FilterMixerConfig definition.
-//
-// NOTE: all fields marked as DEPRECATED are part of the original v1
-// mixerclient configuration. They are deprecated and will be
-// eventually removed once proxies are updated.
-//
-// Going forwards all mixerclient configuration should represeted by
-// istio.io/api/mixer/v1/config/client/mixer_filter_config.proto and
-// encoded in the `V2` field below.
-//
+// FilterMixerConfig definition
 type FilterMixerConfig struct {
-	// DEPRECATED: MixerAttributes specifies the static list of attributes that are sent with
+	// MixerAttributes specifies the static list of attributes that are sent with
 	// each request to Mixer.
 	MixerAttributes map[string]string `json:"mixer_attributes,omitempty"`
 
-	// DEPRECATED: ForwardAttributes specifies the list of attribute keys and values that
+	// ForwardAttributes specifies the list of attribute keys and values that
 	// are forwarded as an HTTP header to the server side proxy
 	ForwardAttributes map[string]string `json:"forward_attributes,omitempty"`
 
-	// DEPRECATED: QuotaName specifies the name of the quota bucket to withdraw tokens from;
+	// QuotaName specifies the name of the quota bucket to withdraw tokens from;
 	// an empty name means no quota will be charged.
 	QuotaName string `json:"quota_name,omitempty"`
 
-	// DEPRECATED: If set to true, disables mixer check calls for TCP connections
+	// If set to true, disables mixer check calls for TCP connections
 	DisableTCPCheckCalls bool `json:"disable_tcp_check_calls,omitempty"`
-
-	// istio.io/api/mixer/v1/config/client configuration protobuf
-	// encoded as a generic map using canonical JSON encoding.
-	//
-	// If `V2` field is not empty, the DEPRECATED fields above should
-	// be discarded.
-	V2 map[string]interface{} `json:"v2,omitempty"`
 }
 
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
@@ -126,23 +102,19 @@ func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN [
 	return mixerCluster
 }
 
-func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[string]string {
+func buildMixerOpaqueConfig(check, forward bool) map[string]string {
 	keys := map[bool]string{true: "on", false: "off"}
-	m := map[string]string{
+	return map[string]string{
 		MixerReport:  "on",
 		MixerCheck:   keys[check],
 		MixerForward: keys[forward],
 	}
-	if destinationService != "" {
-		m[AttrDestinationService] = destinationService
-	}
-	return m
 }
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig {
-	filter := &FilterMixerConfig{
+func mixerHTTPRouteConfig(role proxy.Node, service string) *FilterMixerConfig {
+	r := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
 			AttrDestinationUID: "kubernetes://" + role.ID,
@@ -153,71 +125,20 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 		},
 		QuotaName: MixerRequestCount,
 	}
-	v2 := &mccpb.MixerFilterConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
-				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-			},
-		},
-		ForwardAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrSourceIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
-				AttrSourceUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-			},
-		},
-		ControlConfigs: map[string]*mccpb.MixerControlConfig{},
-	}
-	if len(services) > 0 {
-		// legacy mixerclient behavior is a comma separated list of
-		// services. Can this be removed?
-		filter.MixerAttributes[AttrDestinationService] = strings.Join(services, ",")
-
-		// arbitrarily make the first service in the list the default
-		v2.DefaultDestinationService = services[0]
+	if len(service) > 0 {
+		r.MixerAttributes[AttrDestinationService] = service
 	}
 
-	for _, service := range services {
-		v2.ControlConfigs[service] = &mccpb.MixerControlConfig{
-			MixerAttributes: &mpb.Attributes{
-				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{service}},
-				},
-			},
-			// TODO per-service HttpApiApsec, QuotaSpec
-		}
-	}
-
-	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
-		glog.Warningf("Could not encode v2 HTTP mixerclient filter for node %q: %v", role, err)
-	} else {
-		filter.V2 = v2JSONMap
-
-	}
-	return filter
+	return r
 }
 
-// Mixer TCP filter config for inbound requests.
+// Mixer TCP filter config for inbound requests
 func mixerTCPConfig(role proxy.Node, check bool) *FilterMixerConfig {
-	filter := &FilterMixerConfig{
+	return &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
 			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
+		DisableTCPCheckCalls: !check,
 	}
-	v2 := &mccpb.MixerFilterConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
-				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
-			},
-		},
-	}
-	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
-		glog.Warningf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
-	} else {
-		filter.V2 = v2JSONMap
-
-	}
-	return filter
 }
