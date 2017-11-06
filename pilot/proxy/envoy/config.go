@@ -335,32 +335,26 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	})
 
 	// This is the mixer 'destination.service'
-	// TODO: use canonical name, comma separated list is not actually supported by mixer.
-
-	service := ""
+	var services []string
 	if instances != nil {
-		// join service names with a comma
 		serviceSet := make(map[string]bool, len(instances))
 		for _, instance := range instances {
 			serviceSet[instance.Service.Hostname] = true
 		}
-		services := make([]string, 0, len(serviceSet))
 		for service := range serviceSet {
 			services = append(services, service)
 		}
-
 		sort.Strings(services)
-		service = strings.Join(services, ",")
 	}
 
 	filter := HTTPFilter{
-		Name: CORSFilter,
+		Name:   CORSFilter,
 		Config: CORSFilterConfig{},
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(node, service)
+		mixerConfig := mixerHTTPRouteConfig(node, services)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -722,7 +716,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerAddress != "" {
-				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
+				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+					instance.Service.Hostname)
 			}
 
 			host := &VirtualHost{
@@ -745,7 +740,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 						// Note: websocket routes do not call the filter chain. Will be
 						// resolved in future.
 						if mesh.MixerAddress != "" {
-							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
+							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+								instance.Service.Hostname)
 						}
 
 						host.Routes = append(host.Routes, route)
