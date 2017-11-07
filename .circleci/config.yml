@@ -36,25 +36,24 @@ jobs:
           path: /home/circleci/logs
 
   build:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: circleci/golang:1.9
-
-      - image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
-        name: istio-apiserver
-        command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
-
-      - image: quay.io/coreos/etcd:latest
-        name: etcd
-        command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
+    machine: true
+    working_directory: ~/go/src/istio.io/istio
+    environment:
+      CHANGE_MINIKUBE_NONE_USER: true
     steps:
       - checkout
-      - run: go get -u github.com/golang/dep/cmd/dep
-      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
-            mkdir ~/.kube
-            cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
+            sudo -E minikube start \
+            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+            --kubernetes-version=v1.7.5 --vm-driver=none
+      - run: sudo -E minikube update-context
+      - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
+      - run: sudo -E kubectl cluster-info
+      - run: go get -u github.com/golang/dep/cmd/dep
+      - run: cd /go/src/istio.io/istio; dep ensure
       - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - restore_cache:
           keys:
