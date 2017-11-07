@@ -51,9 +51,8 @@ jobs:
         command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
     steps:
       - checkout
-      - run: pilot/bin/install-bazel.sh
-      - run: ln -s /go/src/istio.io/istio/install/consul/kubeconfig /go/src/istio.io/istio/pilot/platform/kube/config
-      - run: make test
+      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: cd /go/src/istio.io/istio; go test ./pilot/... ./mixer/... ./broker/... ./security/...
 
 workflows:
   version: 2
