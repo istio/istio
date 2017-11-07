@@ -242,7 +242,7 @@ go_repository(
 
 go_repository(
     name = "io_istio_fortio",
-    commit = "0.3.0",
+    commit = "0.3.1",
     importpath = "istio.io/fortio",
 )
 

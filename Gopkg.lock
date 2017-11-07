@@ -601,8 +601,8 @@
 [[projects]]
   name = "istio.io/fortio"
   packages = ["fhttp","log","periodic","stats"]
-  revision = "6486f6be7d734a84a50ae9da195c922ce7be5002"
-  version = "0.3.0"
+  revision = "e98fc0ad71d07e2bc2833018436761ad54bb6728"
+  version = "0.3.1"
 
 [[projects]]
   name = "k8s.io/api"
