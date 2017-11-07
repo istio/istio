@@ -9,7 +9,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.241817cc0b7d464b36565d486ed22d9494b67a27",
+      "cluster": "out.*.google.com|external-HTTP-80",
       "timeout_ms": 30000,
       "retry_policy": {
        "retry_on": "5xx,connect-failure,refused-stream",
@@ -41,7 +41,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.e5c9564b7c4dbb0355a4f740e9d29277ccca97cd",
+      "cluster": "out.hello.default.svc.cluster.local|http",
       "decorator": {
        "operation": "default-route"
       }
@@ -65,7 +65,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.ae8d3361601f8293abe6ac5e4d807124612cf42e",
+      "cluster": "out.httpbin.default.svc.cluster.local|http",
       "decorator": {
        "operation": "default-route"
       }
@@ -91,7 +91,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.a2263b90cd24e500e9ed95f79ae47eabdc77dc74",
+      "cluster": "out.world.default.svc.cluster.local|http",
       "timeout_ms": 30000,
       "retry_policy": {
        "retry_on": "5xx,connect-failure,refused-stream",
