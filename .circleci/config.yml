@@ -19,6 +19,14 @@ jobs:
       - run: sudo -E minikube update-context
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
+      - restore_cache:
+          keys:
+            - bazel-cache-{{ checksum "WORKSPACE" }}
+      - run: make build
+      - save_cache:
+          key: bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel      
       - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
       - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
       - run:
