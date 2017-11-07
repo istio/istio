@@ -388,6 +388,20 @@ end
 `,
 	},
 	{
+		expr: `ar["b"]`,
+		input: map[string]interface{}{
+			"ar": map[string]string{},
+		},
+		result: "",
+		code: `
+fn eval() string
+  resolve_f "ar"
+  anlookup "b"
+  ret
+end
+`,
+	},
+	{
 		expr: `ai == 20 || ar["b"] == "c"`,
 		input: map[string]interface{}{
 			"ai": int64(19),
@@ -788,6 +802,13 @@ L1:
 L2:
   ret
 end`,
+	},
+	{
+		expr: `ar["c"] | "foo"`,
+		input: map[string]interface{}{
+			"ar": map[string]string{},
+		},
+		result: "foo",
 	},
 	{
 		expr: `ar["c"] | "foo"`,
