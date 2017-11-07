@@ -24,7 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/api/prometheus"
+	"github.com/prometheus/client_golang/api"
+	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"istio.io/istio/mixer/example/servicegraph"
@@ -86,11 +87,12 @@ func writeError(w http.ResponseWriter, err error) {
 }
 
 func (p *promHandler) generate(opts genOpts) (*servicegraph.Dynamic, error) {
-	client, err := prometheus.New(prometheus.Config{Address: p.addr})
+
+	client, err := api.NewClient(api.Config{Address: p.addr})
 	if err != nil {
 		return nil, err
 	}
-	api := prometheus.NewQueryAPI(client)
+	api := v1.NewAPI(client)
 	query := fmt.Sprintf(reqsFmt, opts.timeHorizon)
 	if opts.filterEmpty {
 		query += emptyFilter
@@ -125,7 +127,7 @@ func merge(g1, g2 *servicegraph.Dynamic) (*servicegraph.Dynamic, error) {
 	return &d, nil
 }
 
-func extractGraph(api prometheus.QueryAPI, query, label string) (*servicegraph.Dynamic, error) {
+func extractGraph(api v1.API, query, label string) (*servicegraph.Dynamic, error) {
 	val, err := api.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return nil, err

@@ -6,9 +6,10 @@ go_library(
     name = "go_default_library",
     srcs = ["promgen.go"],
     visibility = ["//visibility:public"],
-    deps = [
+    deps = [        
         "//mixer/example/servicegraph:go_default_library",
-        "@com_github_prometheus_client_golang_v08//api/prometheus:go_default_library",
+        "@com_github_prometheus_client_golang//api:go_default_library",
+        "@com_github_prometheus_client_golang//api/prometheus/v1:go_default_library",
         "@com_github_prometheus_common//model:go_default_library",
     ],
 )

@@ -358,7 +358,7 @@ func TestProm_Record(t *testing.T) {
 						continue
 					}
 				case *prometheus.HistogramVec:
-					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Dimensions)).Write(m); err != nil {
+					if err := c.(*prometheus.HistogramVec).With(promLabels(adapterVal.Dimensions)).(prometheus.Metric).Write(m); err != nil {
 						t.Errorf("Error writing metric value to proto: %v", err)
 						continue
 					}

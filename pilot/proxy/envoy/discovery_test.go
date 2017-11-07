@@ -133,7 +133,7 @@ func TestServiceDiscoveryListAllServices(t *testing.T) {
 
 func TestServiceDiscoveryListAllServicesError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := "/v1/registration/"
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -144,7 +144,7 @@ func TestServiceDiscoveryListAllServicesError(t *testing.T) {
 
 func TestServiceDiscoveryListAllServicesError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.InstancesError = errors.New("Mock Instances() error")
+	mockDiscovery.InstancesError = errors.New("mock Instances() error")
 	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0],
 		map[string]string{"version": "v1"})
 	response := getDiscoveryResponse(ds, "GET", url, t)
@@ -156,7 +156,7 @@ func TestServiceDiscoveryListAllServicesError2(t *testing.T) {
 
 func TestServiceDiscoveryError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.InstancesError = errors.New("Mock Instances() error")
+	mockDiscovery.InstancesError = errors.New("mock Instances() error")
 	url := "/v1/registration/nonexistent"
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -197,7 +197,7 @@ func TestClusterDiscovery(t *testing.T) {
 
 func TestClusterDiscoveryError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -208,7 +208,7 @@ func TestClusterDiscoveryError(t *testing.T) {
 
 func TestClusterDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -231,7 +231,18 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
 }
 
-func TestClusterDiscoveryWithSSLContext(t *testing.T) {
+func TestClusterDiscoveryWithAuthOptIn(t *testing.T) {
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationEnable
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-optin.json", t)
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
+}
+
+func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	mesh := makeMeshConfig()
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
@@ -240,6 +251,24 @@ func TestClusterDiscoveryWithSSLContext(t *testing.T) {
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ssl-context.json", t)
+}
+
+func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	registry := memory.Make(model.IstioConfigTypes)
+	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDisable
+
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-optout.json", t)
+
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
@@ -252,7 +281,7 @@ func TestClusterDiscoveryIngress(t *testing.T) {
 
 func TestClusterDiscoveryIngressError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -263,7 +292,7 @@ func TestClusterDiscoveryIngressError(t *testing.T) {
 
 func TestClusterDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -296,7 +325,7 @@ func TestRouteDiscoveryV0(t *testing.T) {
 
 func TestRouteDiscoveryError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -307,7 +336,7 @@ func TestRouteDiscoveryError(t *testing.T) {
 
 func TestRouteDiscoveryError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -373,6 +402,33 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	compareResponse(response, "testdata/rds-v1.json", t)
 }
 
+func TestRouteDiscoveryMirror(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, mirrorRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-mirror.json", t)
+}
+
+func TestRouteDiscoveryAppendHeaders(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, addHeaderRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-append-headers.json", t)
+}
+
+func TestRouteDiscoveryCORSPolicy(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, corsPolicyRule, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-cors-policy.json", t)
+}
+
 func TestRouteDiscoveryRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, redirectRouteRule, t)
@@ -408,7 +464,7 @@ func TestRouteDiscoveryWebsocket(t *testing.T) {
 
 func TestRouteDiscoveryIngressError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -442,7 +498,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 
 func TestRouteDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -546,9 +602,36 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 	}
 }
 
+func TestListenerDiscoverySidecarAuthOptIn(t *testing.T) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+
+	// Auth opt-in on port 80
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationEnable
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-optin.json", t)
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
+}
+
+func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
+	mesh := makeMeshConfig()
+	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+	registry := memory.Make(model.IstioConfigTypes)
+
+	// Auth opt-out on port 80
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDisable
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
+	mock.HelloService.Ports[0].AuthenticationPolicy = model.AuthenticationDefault
+}
+
 func TestRouteDiscoverySidecarError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -559,7 +642,7 @@ func TestRouteDiscoverySidecarError(t *testing.T) {
 
 func TestRouteDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -586,7 +669,7 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 
 func TestListenerDiscoverySidecarError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -597,7 +680,7 @@ func TestListenerDiscoverySidecarError(t *testing.T) {
 
 func TestListenerDiscoverySidecarError2(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -608,7 +691,7 @@ func TestListenerDiscoverySidecarError2(t *testing.T) {
 
 func TestListenerDiscoveryIngressError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.HostInstancesError = errors.New("Mock HostInstances() error")
+	mockDiscovery.HostInstancesError = errors.New("mock HostInstances() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {
@@ -635,7 +718,7 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 
 func TestListenerDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
-	mockDiscovery.ServicesError = errors.New("Mock Services() error")
+	mockDiscovery.ServicesError = errors.New("mock Services() error")
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := getDiscoveryResponse(ds, "GET", url, t)
 	if response.StatusCode != http.StatusServiceUnavailable {

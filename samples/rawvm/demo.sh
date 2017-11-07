@@ -1,14 +1,15 @@
 #! /bin/bash
+
 set -x
 set -e
 
-# This assume you ran pilot's bin/e2e.sh and/or for instance:
-# bazel run //test/integration -- --logtostderr -tag ldemailly7 -n e2e -auth enable
-# and have
-TAG=rawvm-demo-0-2-2
-NAMESPACE=default
+# Source istio.VERSION
+source ../../istio.VERSION
+# This assume you installed the control plane already
+# kubectl apply -f install/kube/istio-auth.yaml
+NAMESPACE=fortio
 # Hacky shortcut to switch everything to a different namespace without editing
-# every command here and in the Makefile
+# every kubectl command here to add -n $(NAMESPACE)
 kubectl config set-context $(kubectl config current-context) --namespace=$NAMESPACE
 make NAMESPACE=$NAMESPACE TAG=$TAG # default target is istio injected svc and normal client
 kubectl get all

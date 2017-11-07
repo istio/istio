@@ -4,12 +4,16 @@
 # Intellij
 *.iml
 .idea/
+# Visual Studio Code
+.vscode/
 # Bazel
 /bazel-*
 vendor
+*.descriptor_set
 # vi backups
 *.bak
 # Vm setup generated files
 cluster.env
 kubedns
-*.pem
+# pilot
+pilot/platform/config

@@ -70,6 +70,9 @@ type infra struct { // nolint: aligncheck
 	// check proxy logs
 	checkLogs bool
 
+	// store error logs in specific directory
+	errorLogsDir string
+
 	namespaceCreated      bool
 	istioNamespaceCreated bool
 	debugImagesAndMode    bool
@@ -227,11 +230,11 @@ func (infra *infra) setup() error {
 			return err
 		}
 		// Create ingress key/cert in secret
-		key, err := ioutil.ReadFile("docker/certs/cert.key")
+		key, err := ioutil.ReadFile("pilot/docker/certs/cert.key")
 		if err != nil {
 			return err
 		}
-		crt, err := ioutil.ReadFile("docker/certs/cert.crt")
+		crt, err := ioutil.ReadFile("pilot/docker/certs/cert.crt")
 		if err != nil {
 			return err
 		}
@@ -257,26 +260,26 @@ func (infra *infra) setup() error {
 
 func (infra *infra) deployApps() error {
 	// deploy a healthy mix of apps, with and without proxy
-	if err := infra.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false); err != nil {
+	if err := infra.deployApp("t", "t", 8080, 80, 9090, 90, 7070, 70, "unversioned", false, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true); err != nil {
+	if err := infra.deployApp("a", "a", 8080, 80, 9090, 90, 7070, 70, "v1", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true); err != nil {
+	if err := infra.deployApp("b", "b", 80, 8080, 90, 9090, 70, 7070, "unversioned", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true); err != nil {
+	if err := infra.deployApp("c-v1", "c", 80, 8080, 90, 9090, 70, 7070, "v1", true, false); err != nil {
 		return err
 	}
-	if err := infra.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true); err != nil {
+	if err := infra.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false); err != nil {
 		return err
 	}
-	return nil
+	return infra.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true)
 }
 
 func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
-	version string, injectProxy bool) error {
+	version string, injectProxy bool, perServiceAuth bool) error {
 	// Eureka does not support management ports
 	healthPort := "true"
 	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
@@ -287,6 +290,7 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 		"Hub":            infra.Hub,
 		"Tag":            infra.Tag,
 		"service":        svcName,
+		"perServiceAuth": strconv.FormatBool(perServiceAuth),
 		"deployment":     deployment,
 		"port1":          strconv.Itoa(port1),
 		"port2":          strconv.Itoa(port2),

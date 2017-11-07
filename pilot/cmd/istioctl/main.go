@@ -68,7 +68,7 @@ var (
 		Short:             "Istio control interface",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
-		Long: fmt.Sprintf(`
+		Long: `
 Istio configuration command line utility.
 
 Create, list, modify, and delete configuration resources in the Istio
@@ -76,12 +76,12 @@ system.
 
 Available routing and traffic management configuration types:
 
-	%v
+	[routerule ingressrule egressrule destinationpolicy]
 
 See http://istio.io/docs/reference for an overview of routing rules
 and destination policies.
 
-`, model.IstioConfigTypes.Types()),
+`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			defaultNamespace = getDefaultNamespace(kubeconfig)
 		},
@@ -544,7 +544,7 @@ func schema(configClient *crd.Client, typ string) (model.ProtoSchema, error) {
 			return desc, nil
 		}
 	}
-	return model.ProtoSchema{}, fmt.Errorf("Istio doesn't have configuration type %s, the types are %v",
+	return model.ProtoSchema{}, fmt.Errorf("configuration type %s not found, the types are %v",
 		typ, strings.Join(supportedTypes(configClient), ", "))
 }
 
@@ -697,7 +697,11 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 
-	return config.Contexts[config.CurrentContext].Namespace
+	namespace := config.Contexts[config.CurrentContext].Namespace
+	if namespace == "" {
+		return v1.NamespaceDefault
+	}
+	return namespace
 }
 
 func handleNamespaces(objectNamespace string) (string, error) {
