@@ -11,6 +11,7 @@
 #
 import ast
 import glob
+import json
 import os
 import subprocess
 import shutil
@@ -181,11 +182,19 @@ def bazel_to_vendor(WKSPC):
     protolst.append((genfiles + "/external/io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
 
     # generate manifest of generated files
-    manifest = [l[0][len(genfiles)+1:] for l in protolst]
+    manifest = sorted([l[0][len(genfiles)+1:] for l in protolst])
     with open(WKSPC+"/generated_files", "wt") as fl:
       print >>fl, "#List of generated files that are checked in"
-      for mm in sorted(manifest):
+      for mm in manifest:
         print >>fl, mm
+
+    # generate gometalinter config file which excludes generated files
+    with open(os.path.join(WKSPC, "lintconfig_base.json")) as fin:
+        conf = json.load(fin)
+    conf['exclude'].extend(manifest)
+    with open(os.path.join(WKSPC, "lintconfig.json"), "wt") as fout:
+        json.dump(conf, fout, sort_keys=True, indent=4, separators=(',', ': '))
+
 
     for (src, dest) in protolst:
       try:
