@@ -55,7 +55,8 @@ jobs:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
-      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config      - run: cd /go/src/istio.io/istio; go test ./pilot/...
+      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run: cd /go/src/istio.io/istio; go test ./pilot/...
 
 workflows:
   version: 2
