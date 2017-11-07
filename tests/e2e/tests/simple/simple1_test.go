@@ -109,6 +109,7 @@ func TestSvc2Svc(t *testing.T) {
 		t.Fatalf("Unexpected to get %d pods when expecting 2. got %v", len(podList), podList)
 	}
 	// call into the service from each of the pods
+	// TODO: use the web/api endpoint instead and get JSON results (across this file)
 	for _, pod := range podList {
 		glog.Infof("From pod \"%s\"", pod)
 		_, err := util.Shell("kubectl exec -n %s %s -c echosrv -- /usr/local/bin/fortio load -qps 0 -t 10s http://echosrv.%s:8080/echo", ns, pod, ns)
