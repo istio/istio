@@ -312,9 +312,6 @@ func TestProm_Record(t *testing.T) {
 		metrics []*config.Params_MetricInfo
 		values  []*metric.Instance
 	}{
-		/*	{"Increment Counter", []*config.Params_MetricInfo{counter}, []*metric.Instance{counterVal}},
-			{"Histogram Observation", []*config.Params_MetricInfo{histogram}, []*metric.Instance{histogramVal}},
-			{"Change Gauge", []*config.Params_MetricInfo{gaugeNoLabels}, []*metric.Instance{gaugeVal}},*/
 		{"Counter and Gauge",
 			[]*config.Params_MetricInfo{counterNoLabels, gaugeNoLabels},
 			[]*metric.Instance{gaugeVal, newCounterVal(counterNoLabels.InstanceName, float64(16))}},
