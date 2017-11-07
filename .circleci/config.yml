@@ -53,6 +53,7 @@ jobs:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
       - run: cd /go/src/istio.io/istio; dep ensure
+      - run: ln -s /go/src/istio.io/istio/install/consul/kubeconfig /go/src/istio.io/istio/pilot/platform/kube/config
       - run: cd /go/src/istio.io/istio; go test ./pilot/... ./mixer/... ./broker/... ./security/...
 
 workflows:
