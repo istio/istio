@@ -42,26 +42,26 @@ check:
 	echo 'To be added'
 
 build: setup
-	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
 
 clean:
 	@bazel clean
 
 test: setup
-	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
 
 docker:
-	@$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
-	@$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
-	@$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
+	$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
+	$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
+	$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
 
 push: checkvars
-	@$(TOP)/bin/push $(HUB) $(TAG)
+	$(TOP)/bin/push $(HUB) $(TAG)
 
 artifacts: docker
 	@echo 'To be added'
 
 pilot/platform/kube/config:
-	@ln -s ~/.kube/config pilot/platform/kube/
+	ln -s ~/.kube/config pilot/platform/kube/
 
 .PHONY: artifacts build checkvars clean docker test setup push
