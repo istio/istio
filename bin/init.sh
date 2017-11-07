@@ -16,7 +16,8 @@ if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
 fi
 
 # This step is to fetch resources and create genfiles
-bazel build //...
+time bazel build //...
+time bazel build $(bazel query 'tests(//...)')
 
 source "${ROOT}/bin/use_bazel_go.sh"
 

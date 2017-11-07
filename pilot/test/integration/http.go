@@ -43,10 +43,7 @@ func (r *http) run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
-	if err := r.logs.check(r.infra); err != nil {
-		return err
-	}
-	return nil
+	return r.logs.check(r.infra)
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs

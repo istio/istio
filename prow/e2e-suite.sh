@@ -42,5 +42,14 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 fi
 
+HUB="gcr.io/istio-testing"
+
 echo 'Running Integration Tests'
-./tests/e2e.sh ${E2E_ARGS[@]:-} "$@"
+./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
+  --mixer_tag "${PULL_PULL_SHA}"\
+  --mixer_hub "${HUB}"\
+  --pilot_tag "${PULL_PULL_SHA}"\
+  --pilot_hub "${HUB}"\
+  --ca_tag "${PULL_PULL_SHA}"\
+  --ca_hub "${HUB}"\
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${PULL_PULL_SHA}/artifacts/istioctl"

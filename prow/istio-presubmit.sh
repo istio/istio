@@ -62,23 +62,18 @@ else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
+cd $ROOT
+
+# Build
+${ROOT}/bin/init.sh
 
 echo 'Running Unit Tests'
-bazel test --test_output=all //...
-
-# ensure that source remains go buildable
-${ROOT}/bin/init.sh
+time bazel test --test_output=all //...
 
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh
 
-
-source "${ROOT}/bin/use_bazel_go.sh"
-echo "building mixer"
-time go build -o mixer.bin mixer/cmd/server/*.go
-echo "building pilot"
-time go build -o pilot.bin pilot/cmd/pilot-discovery/*.go
-echo "building security"
-time go build -o security.bin security/cmd/istio_ca/*.go
-echo "building broker"
-time go build -o broker.bin broker/cmd/brks/*.go
+HUB="gcr.io/istio-testing"
+TAG="${GIT_SHA}"
+# upload images
+time make push HUB="${HUB}" TAG="${TAG}"

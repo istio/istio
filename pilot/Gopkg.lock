@@ -94,7 +94,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/golang/protobuf"
-  packages = ["jsonpb","proto","ptypes","ptypes/any","ptypes/duration","ptypes/struct","ptypes/timestamp"]
+  packages = ["jsonpb","proto","ptypes","ptypes/any","ptypes/duration","ptypes/struct","ptypes/timestamp","ptypes/wrappers"]
   revision = "83cd65fc365ace80eb6b6ecfc45203e43edfbc70"
 
 [[projects]]
@@ -313,10 +313,9 @@
   revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
 [[projects]]
-  branch = "costin-build"
   name = "istio.io/api"
   packages = ["proxy/v1/config"]
-  revision = "19fd06e1fdee748372ca56a2fd86cc15c41d96c6"
+  revision = "294c66b5a4cb533a03262a9ff04a7efda5a31daa"
 
 [[projects]]
   branch = "master"

@@ -54,11 +54,7 @@ func (t *ingress) setup() error {
 	}
 
 	// send route rules for "c" only
-	if err := t.applyConfig("rule-default-route.yaml.tmpl", nil); err != nil {
-		return err
-	}
-
-	return nil
+	return t.applyConfig("rule-default-route.yaml.tmpl", nil)
 }
 
 func (t *ingress) run() error {
@@ -124,10 +120,7 @@ func (t *ingress) run() error {
 	if err := parallel(funcs); err != nil {
 		return err
 	}
-	if err := t.logs.check(t.infra); err != nil {
-		return err
-	}
-	return nil
+	return t.logs.check(t.infra)
 }
 
 // checkRouteRule verifies that version splitting is applied to ingress paths
