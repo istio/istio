@@ -19,7 +19,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.81c187d71467b1608736c57bb0734f9ef9b68f7d",
+      "cluster": "out.hello.default.svc.cluster.local|http-status",
       "decorator": {
        "operation": "default-route"
       }
@@ -45,7 +45,7 @@
     "routes": [
      {
       "prefix": "/",
-      "cluster": "out.bde94496eb59ec2ed5b81392a1d32377960660b8",
+      "cluster": "out.world.default.svc.cluster.local|http-status",
       "decorator": {
        "operation": "default-route"
       }
