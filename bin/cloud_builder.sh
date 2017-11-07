@@ -25,7 +25,7 @@ OUTPUT_PATH=""
 # go/src/istio.io/istio
 # and proxy at:
 # src/proxy
-PROXY_PATH="../../../../src/proxy"
+PROXY_PATH="../../../src/proxy"
 TAG_NAME="0.0.0"
 
 function usage() {
@@ -51,7 +51,7 @@ done
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd $ROOT
 
-if [[! -e "${PROXY_PATH}" ]]; then
+if [ ! -d "${PROXY_PATH}" ]; then
   echo "proxy dir not detected at ${PROXY_PATH}"
   usage
 fi
