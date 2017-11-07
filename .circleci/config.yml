@@ -1,7 +1,7 @@
 version: 2
 
 jobs:
-  e2etest:
+  pilot-integration:
     machine: true
     working_directory: ~/go/src/istio.io/istio
     environment:
@@ -37,7 +37,7 @@ jobs:
       - run: cd /go/src/istio.io/istio; dep ensure
       - run: cd /go/src/istio.io/istio; go build -i ./pilot/... ./mixer/... ./broker/...
 
-  unittest:
+  pilot-unittest:
     working_directory: /go/src/istio.io/istio
     docker:
       - image: circleci/golang:1.9
@@ -51,6 +51,7 @@ jobs:
         command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
     steps:
       - checkout
+      - run: go get -u github.com/golang/dep/cmd/dep
       - run: cd /go/src/istio.io/istio; dep ensure
       - run: cd /go/src/istio.io/istio; go test ./pilot/... ./mixer/... ./broker/... ./security/...
 
@@ -59,5 +60,5 @@ workflows:
   all:
     jobs:
       - build
-      - e2etest
-      - unittest
+      - pilot-integration
+      - pilot-unittest
