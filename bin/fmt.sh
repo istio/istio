@@ -9,7 +9,7 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-PKGS="tests/e2e mixer pilot security broker"
+PKGS="."
 GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go')
 
 UX=$(uname)
