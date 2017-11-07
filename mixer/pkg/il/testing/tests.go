@@ -779,6 +779,18 @@ L0:
 end`,
 	},
 	{
+		E: `as | ""`,
+		R: "",
+		SkipAst: true, // AST returns nil for this case.
+	},
+	{
+		E: `as | ""`,
+		I: map[string]interface{}{
+			"as": "foo",
+		},
+		R: "foo",
+	},
+	{
 		E: `as | "user1"`,
 		R: "user1",
 		IL: `
