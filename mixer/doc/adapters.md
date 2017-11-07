@@ -37,7 +37,7 @@ this template-specific data is constructed and dispatched to adapters.
 Out of the box, Mixer provides a suite of [default templates](#built-in-templates).
 We strongly recommend that, when implementing adapters, you use Mixer's
 default templates. Though if they are not suitable for your particular needs you can also [create your own templates](./templates.md)
-along with adapters to consume the relevant data. Mixer also includes some [built-in adapters](https://github.com/istio/mixer/tree/master/adapter)
+along with adapters to consume the relevant data. Mixer also includes some [built-in adapters](https://github.com/istio/istio/tree/master/mixer/adapter)
 by default, but users may need to implement their own to let Mixer send data to their chosen backend.
 
 The roles of the template author, adapter author, and the operator can be summarized as:
@@ -332,7 +332,7 @@ This is when Mixer is booted and adapters are initialized. Every adapter must im
 returns an `adapter.Info` object. During initialization, Mixer invokes this function for all known adapters. The
 `adapter.Info` describes the templates an adapter wants to support as well as how to construct its `builder` object.
 
-`adapter.Info` (Details in [info.go](https://github.com/istio/mixer/blob/master/pkg/adapter/info.go)) contains the
+`adapter.Info` (Details in [info.go](https://github.com/istio/istio/blob/master/mixer/pkg/adapter/info.go)) contains the
 following information:
 
 
@@ -436,7 +436,7 @@ for a given input set of attributes:
 
 The following sample adapters illustrate the basic skeleton of the adapter code and do not provide any
 functionality. They always return success. For examples of real world adapters, see [implementation of built-in adapters
-within Mixer framework](https://github.com/istio/mixer/tree/master/adapter).
+within Mixer framework](https://github.com/istio/istio/tree/master/mixer/adapter).
 
 * Sample adapter that supports the 'metric' template
 
@@ -619,7 +619,7 @@ start, when operator configuration is loaded/changed and when request is receive
 # Plug adapter into Mixer
 
 For a new adapter to plug into Mixer, you will have to add your adapter's reference into Mixer's inventory
-[build file](https://github.com/istio/mixer/blob/master/adapter/BUILD)'s inventory_library rule. In the *deps* section
+[build file](https://github.com/istio/istio/blob/master/mixer/adapter/BUILD)'s inventory_library rule. In the *deps* section
 add a reference to adapter's go_library build rule, and in the *packages* section add the short name and the go import
 path to the adapter package that implements the `GetInfo `function. These two changes will plug your custom adapter into Mixer.
 
@@ -644,20 +644,20 @@ goroutines are prevented from crashing Mixer as a whole by catching any panics t
 
 Mixer ships with a set of built-in templates that are ready to use by adapters:
 
-* [listentry](https://github.com/istio/mixer/tree/master/template/listentry)
+* [listentry](https://github.com/istio/istio/tree/master/mixer/template/listentry)
 
-* [logentry](https://github.com/istio/mixer/tree/master/template/logentry)
+* [logentry](https://github.com/istio/istio/tree/master/mixer/template/logentry)
 
-* [quota](https://github.com/istio/mixer/tree/master/template/quota)
+* [quota](https://github.com/istio/istio/tree/master/mixer/template/quota)
 
-* [metric](https://github.com/istio/mixer/tree/master/template/metric)
+* [metric](https://github.com/istio/istio/tree/master/mixer/template/metric)
 
-* [checknothing](https://github.com/istio/mixer/tree/master/template/checknothing)
+* [checknothing](https://github.com/istio/istio/tree/master/mixer/template/checknothing)
 
-* [reportnothing](https://github.com/istio/mixer/tree/master/template/reportnothing)
+* [reportnothing](https://github.com/istio/istio/tree/master/mixer/template/reportnothing)
 
 Using the above templates, the Mixer team has implemented a set of adapters that ships as part of the default Mixer
-binary. They are located at [istio/mixer/adapter](https://github.com/istio/mixer/tree/master/adapter). They are good
+binary. They are located at [istio/mixer/adapter](https://github.com/istio/istio/tree/master/mixer/adapter). They are good
 examples for reference when implementing new adapters.
 
 # Walkthrough of adapter implementation (30 minutes)

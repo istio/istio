@@ -1,10 +1,5 @@
 # Mixer
-![Mixer](doc/logo.png)
-
-[![GoDoc](https://godoc.org/github.com/istio/mixer?status.svg)](https://godoc.org/github.com/istio/mixer)
-[![Go Report
-Card](https://goreportcard.com/badge/github.com/istio/mixer)](https://goreportcard.com/report/github.com/istio/mixer)
-[![codecov.io](https://codecov.io/github/istio/mixer/coverage.svg?branch=master)](https://codecov.io/github/istio/mixer?branch=master)
+![Mixer](doc/img/logo.png)
 
 Mixer enables extensible policy enforcement and control within the Istio service
 mesh. It is responsible for insulating the proxy (Envoy) from details of the
@@ -29,15 +24,11 @@ Mixer provides three distinct features:
 Learn more about Mixer
 [here](https://istio.io/docs/concepts/policy-and-control/mixer.html).
 
-Please see [istio.io](https://istio.io) to learn about the overall Istio project
-and how to get in touch with us. To learn how you can contribute to any of the
-Istio components, including Mixer, please see the Istio [contribution
-guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
-
-Mixer's [developer's guide](doc/dev/development.md) presents everything you need
-to know to create, build, and test code for Mixer.
-
-Mixer's [Adapter Developer's Guide](doc/dev/adapters.md) presents everything you
+Mixer's [Adapter Developer's Guide](doc/adapters.md) presents everything you
 need to know about extending Mixer to provide support for new backends through
 the development of new
 [adapters](https://istio.io/docs/concepts/policy-and-control/mixer.html#adapters).
+
+Mixer's [Template Developer's Guide](doc/templates.md) presents everything you
+need to know about you can create new templates to define whole new categories
+of adapters.

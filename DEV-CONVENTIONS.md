@@ -9,6 +9,11 @@ create, maintain, and use.
 - [Testing conventions](#testing-conventions)
 - [Directory and file conventions](#directory-and-file-conventions)
 
+Others docs you should look at:
+
+- [Go landmines](https://gist.github.com/lavalamp/4bd23295a9f32706a48f)
+- [Go style mistakes](https://github.com/golang/go/wiki/CodeReviewComments)
+
 ## Coding conventions
 
   - Follow the general guidance from [Effective Go](https://golang.org/doc/effective_go.html)
