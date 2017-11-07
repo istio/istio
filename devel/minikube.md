@@ -38,8 +38,14 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minik
 sudo -E minikube start \
     --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
     --kubernetes-version=v1.7.5 --vm-driver=none
-# set the kubectl context to minikube (alternative: kubectl config use-context minikube)
+# set the kubectl context to minikube (this overwrites ~/.kube and ~/.minikube, but leaves files' ownership as root:root)
 sudo -E minikube update-context
+
+# either use sudo on all kubectl commands, or chown/chgrp to your user
+# sudo chown -R $USER $HOME/.kube && sudo chgrp -R $USER $HOME/.kube \
+#    && sudo chown -R $USER $HOME/.minikube && sudo chgrp -R $USER $HOME/.minikube
+
+# this will write over any previous configuration)
 # wait for the cluster to become ready/accessible via kubectl
 JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; \
     until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
@@ -47,6 +53,8 @@ sudo -E kubectl cluster-info
 ```
 
 ### Terminate minikube cluster
+
+To stop the cluster run `sudo -E minikube stop`.
 
 As of version 0.23, since minikube uses the host's docker daemon, it may leave "orphaned" containers. These are still present on the host. Future minikube versions may perform correct cleanup on exit. As a workaround, you may terminate all minikube spawned containers using the following commands (possibly added as aliases to `~/.bashrc`).
 
