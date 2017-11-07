@@ -5,7 +5,7 @@ Most community activity is organized into *working groups*.
 Working groups follow the [contributing](CONTRIBUTING.md) guidelines although each of these groups may operate a little differently depending on
 their needs and workflow.
 
-When the need arises, a new working group can be created, please contact the [istio-core](https://groups.google.com/forum/#!forum/istio-core)
+When the need arises, a new working group can be created, please contact the [istio-steering](https://groups.google.com/forum/#!forum/istio-steering)
 working group if you think a new group is necessary.
 
 The working groups generate design docs which are kept in a [shared drive](https://drive.google.com/drive/u/0/folders/0AIS5p3eW9BCtUk9PVA) and
