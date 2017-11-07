@@ -11,8 +11,16 @@ An open platform to connect, manage, and secure microservices.
 - [Istio authors](#istio-authors)
 - [Repositories](#repositories)
 - [Issue management](#issue-management)
-- [Contributing to the project](#contributing-to-the-project)
 - [Community and support](#community-and-support)
+
+In addition, here are some other docs you may wish to read:
+
+- [Istio Working Groups](GROUPS.md) - how we partition work in the project
+- [Contribution Guidelines](CONTRIBUTING.md) - explains the process for contributing to the Istio code base
+- [Reviewing and Merging Pull Requests](REVIEWING.md) - explains the process we use to review code changes
+- [Istio Developer's Guide](DEV-GUIDE.md) - explains how to setup and use an Istio development environment
+- [Project conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
+- [Creating fast and lean code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
 
 ## Introduction
 
@@ -48,7 +56,8 @@ Istio is composed of these components:
 
 * **Broker** - A component implementing the open service broker API for Istio-based services. (Under development)
 
-Istio currently supports Kubernetes, Consul, Eureka-based environments. We plan support for additional platforms such as Cloud Foundry, and Mesos in the near future.
+Istio currently supports Kubernetes, Consul, qne Eureka-based environments. We plan support for additional platforms such as
+Cloud Foundry, and Mesos in the  near future.
 
 ## Istio authors
 
@@ -60,7 +69,7 @@ by teams from Google and IBM, in partnership with the Envoy team at Lyft.
 The Istio project is divided across a few GitHub repositories.
 
 - [istio/istio](README.md). This is the main repo that you are
-currently looking at. It hosts the core components of Istio and also
+currently looking at. It hosts Istio's core components and also
 the sample programs and the various documents that govern the Istio open source
 project. It includes:
   - [security](security/). This directory contains security related code,
@@ -107,18 +116,6 @@ milestone cannot be considered achieved if the issue isn't resolved.
 
 We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
 support is disabled for our organization.
-
-## Contributing to the project
-
-We promote and encourage a set of [shared values](VALUES.md) to improve our
-productivity and inter-personal interactions.
-
-See the [working groups](GROUPS.md) for a list of working groups to participate in.
-
-See the [contribution guidelines](CONTRIBUTING.md) for information on how to
-participate in the Istio project by submitting pull requests or issues.
-
-You can then check out how to [setup for development](devel/README.md).
 
 ## Community and support
 

@@ -1,5 +1,4 @@
 #List of generated files that are checked in
-auth/proto/ca_service.pb.go
 broker/pkg/model/config/mock_store.go
 broker/pkg/platform/kube/crd/types.go
 broker/pkg/testing/mock/proto/fake_config.pb.go
@@ -58,6 +57,5 @@ mixer/tools/codegen/pkg/interfacegen/testdata/report_handler.gen.go
 mixer/tools/codegen/pkg/interfacegen/testdata/report_tmpl.pb.go
 pilot/adapter/config/crd/types.go
 pilot/test/grpcecho/echo.pb.go
-pilot/test/mixer/wordlist.go
 security/proto/ca_service.pb.go
 tests/e2e/apps/hop/config/config.pb.go

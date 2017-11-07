@@ -1,13 +1,5 @@
-# Development Guide
+# Running Mixer locally
 
-Please see the [Istio development guide](https://github.com/istio/istio/blob/master/devel/README.md) 
-for the common Istio-wide development guidelines.
-
-After which here are other Mixer specific docs you should look at:
-
-- [Writing Mixer adapters](./adapters.md)
-
-## Using Mixer locally
 The following command runs Mixer locally using local configuration.
 The default configuration contain adapters like `stackdriver` that connect to outside systems. If you do not intend to use the  adapter for local testing, you should move `testdata/config/stackdriver.yaml` out of the config directory, otherwise you will see repeated logging of configuration errors.
 
