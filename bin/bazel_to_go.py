@@ -12,6 +12,7 @@
 import ast
 import glob
 import os
+import re
 import subprocess
 import shutil
 
@@ -188,10 +189,11 @@ def bazel_to_vendor(WKSPC):
         print >>fl, mm
 
     for (src, dest) in protolst:
-      try:
-        shutil.copyfile(src, dest)
-      except Exception as ex:
-        print src, dest, ex
+        try:
+            if should_copy(src, dest):
+                shutil.copyfile(src, dest)
+        except Exception as ex:
+            print src, dest, ex
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
@@ -202,6 +204,30 @@ def main(args):
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
+
+def should_copy(src, dest):
+    p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
+    p.wait()
+    if src.endswith('.pb.go'):
+        # there might be diffs for 'source:' lines and others.
+        has_diff = False
+        linecount = 0
+        for l in p.stdout:
+            linecount += 1
+            if linecount < 3:
+                # first two lines are headers, skipping
+                continue
+            if l.startswith('@@ '):
+                continue
+            if l.startswith(' '):
+                continue
+            if re.search(r'genfiles/.*\.proto\b', l):
+                continue
+            has_diff = True
+            break
+    else:
+        has_diff = (p.stdout.read() != '')
+    return has_diff
 
 def protos(WKSPC, genfiles, genfiles_external):
     lst = []
