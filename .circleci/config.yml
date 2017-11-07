@@ -61,7 +61,7 @@ jobs:
             - bazel-cache-{{ checksum "WORKSPACE" }}
       - run:
           command: |
-            ENVOY_BINARY=$(sudo find  /home/dev/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
+            ENVOY_BINARY=$(sudo find /home/circleci/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
             ln -sf ${ENVOY_BINARY} /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; go test ./pilot/...
 
