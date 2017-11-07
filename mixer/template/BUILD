@@ -11,8 +11,10 @@ mixer_supported_template_library(
         "//mixer/template/quota:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/quota",
         "//mixer/template/reportnothing:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/reportnothing",
         "//mixer/template/checknothing:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/checknothing",
+        "//mixer/template/apikey:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/apikey",
     },
     deps = [
+        "//mixer/template/apikey:go_default_library",
         "//mixer/template/checknothing:go_default_library",
         "//mixer/template/listentry:go_default_library",
         "//mixer/template/logentry:go_default_library",
