@@ -40,13 +40,13 @@ jobs:
     docker:
       - image: circleci/golang:1.9
 
-      - image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
-        name: istio-apiserver
-        command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
+#      - image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
+#        name: istio-apiserver
+#        command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
 
-      - image: quay.io/coreos/etcd:latest
-        name: etcd
-        command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
+#      - image: quay.io/coreos/etcd:latest
+#        name: etcd
+#        command: ["/usr/local/bin/etcd", "-advertise-client-urls=http://0.0.0.0:2379", "-listen-client-urls=http://0.0.0.0:2379"]
     steps:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
