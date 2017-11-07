@@ -21,7 +21,11 @@ set -o pipefail
 set -x
 
 OUTPUT_PATH=""
-PROXY_PATH="../proxy"
+# default is based on repo manifest that places istio at:
+# go/src/istio.io/istio
+# and proxy at:
+# src/proxy
+PROXY_PATH="../../../../src/proxy"
 TAG_NAME="0.0.0"
 
 function usage() {
