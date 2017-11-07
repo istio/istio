@@ -56,6 +56,13 @@ jobs:
             mkdir ~/.kube
             cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
       - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - restore_cache:
+          keys:
+            - bazel-cache-{{ checksum "WORKSPACE" }}
+      - run:
+          command: |
+            ENVOY_BINARY=$(sudo find  /home/dev/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
+            ln -sf ${ENVOY_BINARY} /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; go test ./pilot/...
 
 workflows:
