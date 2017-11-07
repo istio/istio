@@ -28,6 +28,7 @@ import (
 	"github.com/howeyc/fsnotify"
 
 	"istio.io/istio/pilot/proxy"
+	"fmt"
 )
 
 type TestAgent struct {
@@ -204,6 +205,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "3",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
+		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {

@@ -116,6 +116,9 @@ const (
 	// ZipkinCollectorEndpoint denotes the REST endpoint where Envoy posts Zipkin spans
 	ZipkinCollectorEndpoint = "/api/v1/spans"
 
+	// MaxClusterNameLength is the maximum cluster name length
+	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+
 	router  = "router"
 	auto    = "auto"
 	decoder = "decoder"
