@@ -146,7 +146,7 @@
           },
           "targets": [
             {
-              "expr": "round(sum(irate(request_count[1m])), 0.001)",
+              "expr": "round(sum(irate(istio_request_count[1m])), 0.001)",
               "intervalFactor": 2,
               "refId": "A",
               "step": 4
@@ -221,7 +221,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(request_count{response_code!~\"5.*\"}[1m])) / sum(rate(request_count[1m]))",
+              "expr": "sum(rate(istio_request_count{response_code!~\"5.*\"}[1m])) / sum(rate(istio_request_count[1m]))",
               "intervalFactor": 2,
               "refId": "A",
               "step": 4
@@ -296,7 +296,7 @@
           },
           "targets": [
             {
-              "expr": "sum(irate(request_count{response_code=~\"4.*\"}[1m])) ",
+              "expr": "sum(irate(istio_request_count{response_code=~\"4.*\"}[1m])) ",
               "intervalFactor": 2,
               "refId": "A",
               "step": 4
@@ -371,7 +371,7 @@
           },
           "targets": [
             {
-              "expr": "sum(irate(request_count{response_code=~\"5.*\"}[1m])) ",
+              "expr": "sum(irate(istio_request_count{response_code=~\"5.*\"}[1m])) ",
               "intervalFactor": 2,
               "refId": "A",
               "step": 4
@@ -443,14 +443,14 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])), 0.001)",
+              "expr": "round(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])), 0.001)",
               "intervalFactor": 2,
               "legendFormat": "All",
               "refId": "B",
               "step": 2
             },
             {
-              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=\"200\"}[1m])), 0.001)",
+              "expr": "round(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=\"200\"}[1m])), 0.001)",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "200s",
@@ -458,7 +458,7 @@
               "step": 2
             },
             {
-              "expr": "round(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])), 0.001)",
+              "expr": "round(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])), 0.001)",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "400s",
@@ -532,7 +532,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(sum(irate(request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",response_code!~\"5.*\",destination_version=~\"$destination_version\"}[1m])) by (destination_service) / sum(irate(request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(sum(irate(istio_request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",response_code!~\"5.*\",destination_version=~\"$destination_version\"}[1m])) by (destination_service) / sum(irate(istio_request_count{destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ destination_service }}",
@@ -604,7 +604,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"4.*\"}[1m])) by (destination_service), \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
               "legendFormat": "{{ destination_service }}",
               "refId": "A",
@@ -675,7 +675,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(sum(irate(request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"5.*\"}[1m])) by (destination_service) , \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(sum(irate(istio_request_count{source_service=~\"$source\",source_version=~\"$source_version\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",response_code=~\"5.*\"}[1m])) by (destination_service) , \"destination_service\", \"$1\", \"destination_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
               "legendFormat": "{{ destination_service }}",
               "refId": "A",
@@ -781,7 +781,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(irate(request_count{destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version, response_code), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(round(sum(irate(istio_request_count{destination_service=~\"$http_destination\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version, response_code), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version}} -> {{destination_version}} : {{ response_code }}",
               "refId": "B",
@@ -854,7 +854,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(sum(irate(request_count{source_version=~\"$source_version\",destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\",response_code!~\"5.*\"}[1m])) by (source_service, source_version, destination_version) / sum(irate(request_count{source_version=~\"$source_version\",destination_service=~\"$destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(sum(irate(istio_request_count{source_version=~\"$source_version\",destination_service=~\"$http_destination\",source_service=~\"$source\",destination_version=~\"$destination_version\",response_code!~\"5.*\"}[1m])) by (source_service, source_version, destination_version) / sum(irate(istio_request_count{source_version=~\"$source_version\",destination_service=~\"$destination\",source_service=~\"$source\",destination_version=~\"$destination_version\"}[1m])) by (source_service, source_version, destination_version), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{source_service}}-{{source_version}} -> {{destination_version}}",
@@ -928,7 +928,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(irate(istio_request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
@@ -936,7 +936,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.90, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.90, sum(irate(istio_request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p90)",
@@ -944,7 +944,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(irate(istio_request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version,destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p95)",
@@ -952,7 +952,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.99, sum(irate(request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.99, sum(irate(istio_request_duration_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{source_version}} -> {{ destination_version }} (p99)",
@@ -1026,7 +1026,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(histogram_quantile(0.50, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.50, sum(irate(istio_response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p50)",
@@ -1034,7 +1034,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.90, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.90, sum(irate(istio_response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p90)",
@@ -1042,7 +1042,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.95, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.95, sum(irate(istio_response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p95)",
@@ -1050,7 +1050,7 @@
               "step": 2
             },
             {
-              "expr": "label_replace(histogram_quantile(0.99, sum(irate(response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(histogram_quantile(0.99, sum(irate(istio_response_size_bucket{source_service=~\"$source\",destination_service=~\"$http_destination\",destination_version=~\"$destination_version\",source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version, le)), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version }} -> {{ destination_version }} (p99)",
@@ -1158,7 +1158,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(irate(tcp_bytes_received{destination_service=~\"$tcp_destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(round(sum(irate(istio_tcp_bytes_received{destination_service=~\"$tcp_destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
               "legendFormat": "{{ source_service }}-{{ source_version}} -> {{ destination_version }}",
               "refId": "A",
@@ -1229,7 +1229,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "label_replace(round(sum(irate(tcp_bytes_sent{destination_service=~\"$destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
+              "expr": "label_replace(round(sum(irate(istio_tcp_bytes_sent{destination_service=~\"$destination\",destination_version=~\"$destination_version\", source_service=~\"$source\", source_version=~\"$source_version\"}[1m])) by (source_service, source_version, destination_version), 0.001), \"source_service\", \"$1\", \"source_service\", \"(.*).svc.cluster.local\")",
               "intervalFactor": 2,
               "legendFormat": "{{ destination_version }} -> {{ source_service }}-{{source_version}} ",
               "refId": "A",
@@ -1355,7 +1355,7 @@
         "multi": true,
         "name": "http_destination",
         "options": [],
-        "query": "label_values(request_count, destination_service)",
+        "query": "label_values(istio_request_count, destination_service)",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -1375,7 +1375,7 @@
         "multi": true,
         "name": "tcp_destination",
         "options": [],
-        "query": "label_values(tcp_bytes_received, destination_service)",
+        "query": "label_values(istio_tcp_bytes_received, destination_service)",
         "refresh": 1,
         "regex": "",
         "sort": 1,

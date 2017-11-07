@@ -255,7 +255,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	// establish baseline
 	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("productpage"))
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("productpage"))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -278,7 +278,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	glog.Info("Successfully sent request(s) to /productpage; checking metrics...")
 
-	query = fmt.Sprintf("request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -288,7 +288,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
 	t.Logf("Got request_count (200s) of: %f", got)
@@ -296,7 +296,7 @@ func TestGlobalCheckAndReport(t *testing.T) {
 
 	want := float64(1)
 	if (got - prior200s) < want {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value: got %f, want at least %f", got-prior200s, want)
 	}
 }
@@ -323,7 +323,7 @@ func TestTcpMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("tcp_bytes_sent{destination_service=\"%s\"}", fqdn("mongodb"))
+	query := fmt.Sprintf("istio_tcp_bytes_sent{destination_service=\"%s\"}", fqdn("mongodb"))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -333,17 +333,17 @@ func TestTcpMetrics(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Logf("prometheus values for tcp_bytes_sent:\n%s", promDump(promAPI, "tcp_bytes_sent"))
+		t.Logf("prometheus values for istio_tcp_bytes_sent:\n%s", promDump(promAPI, "istio_tcp_bytes_sent"))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
-	t.Logf("tcp_bytes_sent: %f", got)
+	t.Logf("istio_tcp_bytes_sent: %f", got)
 	want := float64(1)
 	if got < want {
-		t.Logf("prometheus values for tcp_bytes_sent:\n%s", promDump(promAPI, "tcp_bytes_sent"))
+		t.Logf("prometheus values for istio_tcp_bytes_sent:\n%s", promDump(promAPI, "istio_tcp_bytes_sent"))
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 
-	query = fmt.Sprintf("tcp_bytes_received{destination_service=\"%s\"}", fqdn("mongodb"))
+	query = fmt.Sprintf("istio_tcp_bytes_received{destination_service=\"%s\"}", fqdn("mongodb"))
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -353,12 +353,12 @@ func TestTcpMetrics(t *testing.T) {
 
 	got, err = vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Logf("prometheus values for tcp_bytes_received:\n%s", promDump(promAPI, "tcp_bytes_received"))
+		t.Logf("prometheus values for istio_tcp_bytes_received:\n%s", promDump(promAPI, "istio_tcp_bytes_received"))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
 	t.Logf("tcp_bytes_received: %f", got)
 	if got < want {
-		t.Logf("prometheus values for tcp_bytes_received:\n%s", promDump(promAPI, "tcp_bytes_received"))
+		t.Logf("prometheus values for istio_tcp_bytes_received:\n%s", promDump(promAPI, "istio_tcp_bytes_received"))
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -387,7 +387,7 @@ func TestNewMetrics(t *testing.T) {
 	if err != nil {
 		fatalf(t, "Could not build prometheus API client: %v", err)
 	}
-	query := fmt.Sprintf("response_size_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
+	query := fmt.Sprintf("istio_response_size_count{%s=\"%s\",%s=\"200\"}", destLabel, fqdn("productpage"), responseCodeLabel)
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -397,14 +397,14 @@ func TestNewMetrics(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{})
 	if err != nil {
-		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_response_size_count:\n%s", promDump(promAPI, "istio_response_size_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		fatalf(t, "Could not find metric value: %v", err)
 	}
 	want := float64(1)
 	if got < want {
-		t.Logf("prometheus values for response_size_count:\n%s", promDump(promAPI, "response_size_count"))
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_response_size_count:\n%s", promDump(promAPI, "istio_response_size_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value: got %f, want at least %f", got, want)
 	}
 }
@@ -467,7 +467,7 @@ func TestRateLimit(t *testing.T) {
 
 	// establish baseline
 	t.Log("Establishing metrics baseline for test...")
-	query := fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
+	query := fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
 	value, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -534,11 +534,11 @@ func TestRateLimit(t *testing.T) {
 	// then there is no way to determine if the rate limit was applied at all
 	// and for how much traffic. log all metrics and abort test.
 	if callsToRatings < want200s {
-		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("full set of prometheus metrics:\n%s", promDump(promAPI, "istio_request_count"))
 		fatalf(t, "Not enough traffic generated to exercise rate limit: ratings_reqs=%f, want200s=%f", callsToRatings, want200s)
 	}
 
-	query = fmt.Sprintf("request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
+	query = fmt.Sprintf("istio_request_count{%s=\"%s\"}", destLabel, fqdn("ratings"))
 	t.Logf("prometheus query: %s", query)
 	value, err = promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
@@ -548,7 +548,7 @@ func TestRateLimit(t *testing.T) {
 
 	got, err := vectorValue(value, map[string]string{responseCodeLabel: "429", "destination_version": "v1"})
 	if err != nil {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Could not find 429s: %v", err)
 		got = 0 // want to see 200 rate even if no 429s were recorded
 	}
@@ -562,13 +562,13 @@ func TestRateLimit(t *testing.T) {
 
 	// check resource exhausteds
 	if got < want {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for rate-limited requests (429s): got %f, want at least %f", got, want)
 	}
 
 	got, err = vectorValue(value, map[string]string{responseCodeLabel: "200", "destination_version": "v1"})
 	if err != nil {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Could not find successes value: %v", err)
 		got = 0
 	}
@@ -584,12 +584,12 @@ func TestRateLimit(t *testing.T) {
 
 	// check successes
 	if got < want {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at least %f", got, want)
 	}
 
 	if got > want200s {
-		t.Logf("prometheus values for request_count:\n%s", promDump(promAPI, "request_count"))
+		t.Logf("prometheus values for istio_request_count:\n%s", promDump(promAPI, "istio_request_count"))
 		errorf(t, "Bad metric value for successful requests (200s): got %f, want at most %f", got, want200s)
 	}
 }
