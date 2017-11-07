@@ -31,16 +31,6 @@ jobs:
     working_directory: /go/src/istio.io/istio
     docker:
       - image: circleci/golang:1.9
-    steps:
-      - checkout
-      - run: go get -u github.com/golang/dep/cmd/dep
-      - run: cd /go/src/istio.io/istio; dep ensure
-      - run: cd /go/src/istio.io/istio; go build -i ./pilot/... ./mixer/... ./broker/...
-
-  pilot-unittest:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: circleci/golang:1.9
 
       - image: gcr.io/google_containers/kube-apiserver-amd64:v1.7.3
         name: istio-apiserver
@@ -62,4 +52,3 @@ workflows:
     jobs:
       - build
       - pilot-integration
-      - pilot-unittest
