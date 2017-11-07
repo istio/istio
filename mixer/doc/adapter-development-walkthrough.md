@@ -284,7 +284,7 @@ import (
 	<b>"os"</b>
 	<b>"path/filepath"</b>
 
-	</b>"istio.io/istio/mixer/adapter/mysampleadapter/config"</b>
+	<b>"istio.io/istio/mixer/adapter/mysampleadapter/config"</b>
 	"istio.io/istio/mixer/pkg/adapter"
     "istio.io/istio/mixer/template/metric"
 )
@@ -622,7 +622,7 @@ cd $MIXER_REPO && bazel build ...
 Invoke report
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 ```
 
 
@@ -646,7 +646,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
