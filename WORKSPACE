@@ -101,7 +101,7 @@ go_x_tools_imports_repositories()
 
 go_googleapis_repositories()
 
-go_istio_api_repositories(False)
+go_istio_api_repositories(True)
 
 DEBUG_BASE_IMAGE_SHA = "3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622"
 
