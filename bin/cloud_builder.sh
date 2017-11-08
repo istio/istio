@@ -79,33 +79,34 @@ pushd mixer
 popd
 
 pushd pilot
-# Cloud Builder checks out code in /workspace.
-# We need to recreate the GOPATH directory structure
-# for pilot to build correctly
-function prepare_gopath() {
-  [[ -z ${GOPATH:-} ]] && export GOPATH=/tmp/gopath
-#  mkdir -p ${GOPATH}/src/istio.io/istio
-#  [[ -d ${GOPATH}/src/istio.io/istio/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/istio/pilot
-  # try symlink to istio rather than pilot so WORKPACE is visible
-  mkdir -p ${GOPATH}/src/istio.io
-  [[ -d ${GOPATH}/src/istio.io/istio ]] || ln -s ${PWD}/.. ${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio/pilot
-  touch platform/kube/config
-}
+## Cloud Builder checks out code in /workspace.
+## We need to recreate the GOPATH directory structure
+## for pilot to build correctly
+#function prepare_gopath() {
+#  [[ -z ${GOPATH:-} ]] && export GOPATH=/tmp/gopath
+##  mkdir -p ${GOPATH}/src/istio.io/istio
+##  [[ -d ${GOPATH}/src/istio.io/istio/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/istio/pilot
+#  # try symlink to istio rather than pilot so WORKPACE is visible
+#  mkdir -p ${GOPATH}/src/istio.io
+#  [[ -d ${GOPATH}/src/istio.io/istio ]] || ln -s ${PWD}/.. ${GOPATH}/src/istio.io/istio
+#  cd ${GOPATH}/src/istio.io/istio/pilot
+#  touch platform/kube/config
+#}
 
-# this is a bit convoluted to avoid unset var complaint on GOPTH
-if [ -z ${GOPATH:-} ]; then
-  prepare_gopath
-else
-  if [ ${PWD} != "${GOPATH}/src/istio.io/pilot" ]; then
-    prepare_gopath
-  fi
-fi
+## this is a bit convoluted to avoid unset var complaint on GOPTH
+#if [ -z ${GOPATH:-} ]; then
+#  prepare_gopath
+#else
+#  if [ ${PWD} != "${GOPATH}/src/istio.io/pilot" ]; then
+#    prepare_gopath
+#  fi
+#fi
 
 # Build istioctl binaries
-./bin/init.sh
+# ./bin/init.sh
+bazel build //...
 
-./bin/upload-istioctl.sh -r -o "${OUTPUT_PATH}"
+./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
 
 ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 
