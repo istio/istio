@@ -15,10 +15,11 @@
 package file_test
 
 import (
+	"testing"
+
 	"istio.io/istio/pilot/adapter/config/file"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
-	"testing"
 )
 
 func newConfig(schemaType string, name string, filePath string) file.ConfigRef {

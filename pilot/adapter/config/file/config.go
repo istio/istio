@@ -15,9 +15,10 @@
 package file
 
 import (
-	"io/ioutil"
-	"istio.io/istio/pilot/model"
 	"fmt"
+	"io/ioutil"
+
+	"istio.io/istio/pilot/model"
 )
 
 const (
