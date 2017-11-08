@@ -45,7 +45,7 @@ jobs:
       - run:
           command: |
             mkdir ~/.kube
-            cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
       - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - restore_cache:
           keys:
