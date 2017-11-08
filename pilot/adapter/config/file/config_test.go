@@ -21,57 +21,37 @@ import (
 	"testing"
 )
 
-var (
-	allConfigs = []file.FileConfig{{
-		Meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
-		File: "testdata/cb-policy.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "timeout"},
-		File: "testdata/timeout-route-rule.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "weighted"},
-		File: "testdata/weighted-route.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
-		File: "testdata/fault-route.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect"},
-		File: "testdata/redirect-route.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "rewrite"},
-		File: "testdata/rewrite-route.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
-		File: "testdata/websocket-route.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google"},
-		File: "testdata/egress-rule.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "egress-circuit-breaker"},
-		File: "testdata/egress-rule-cb-policy.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "egress-timeout"},
-		File: "testdata/egress-rule-timeout-route-rule.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "world"},
-		File: "testdata/ingress-route-world.yaml.golden",
-	}, {
-		Meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "foo"},
-		File: "testdata/ingress-route-foo.yaml.golden",
-	}}
-)
+func newConfig(schemaType string, name string, filePath string) file.ConfigRef {
+	return file.NewConfigRefWithDefaults(schemaType, name, filePath)
+}
 
 func TestAllConfigs(t *testing.T) {
-	mockStore := memory.Make(model.IstioConfigTypes)
-	configStore := file.NewFileConfigStore(mockStore)
+	cases := []file.ConfigRef{
+		newConfig(model.DestinationPolicy.Type, "circuit-breaker", "testdata/cb-policy.yaml.golden"),
+		newConfig(model.RouteRule.Type, "timeout", "testdata/timeout-route-rule.yaml.golden"),
+		newConfig(model.RouteRule.Type, "weighted", "testdata/weighted-route.yaml.golden"),
+		newConfig(model.RouteRule.Type, "fault", "testdata/fault-route.yaml.golden"),
+		newConfig(model.RouteRule.Type, "redirect", "testdata/redirect-route.yaml.golden"),
+		newConfig(model.RouteRule.Type, "rewrite", "testdata/rewrite-route.yaml.golden"),
+		newConfig(model.RouteRule.Type, "websocket", "testdata/websocket-route.yaml.golden"),
+		newConfig(model.EgressRule.Type, "google", "testdata/egress-rule.yaml.golden"),
+		newConfig(model.DestinationPolicy.Type, "egress-circuit-breaker", "testdata/egress-rule-cb-policy.yaml.golden"),
+		newConfig(model.RouteRule.Type, "egress-timeout", "testdata/egress-rule-timeout-route-rule.yaml.golden"),
+		newConfig(model.IngressRule.Type, "world", "testdata/ingress-route-world.yaml.golden"),
+		newConfig(model.IngressRule.Type, "foo", "testdata/ingress-route-foo.yaml.golden"),
+	}
 
-	for i := range allConfigs {
-		input := allConfigs[i]
-		configStore.CreateFromFile(input)
-		_, exists := configStore.GetForFile(input)
-		if (!exists) {
-			t.Fatalf("missing config ", input)
-		}
-		// TODO(nmmittler): Compare meta? Do we care?
+	for _, input := range cases {
+		t.Run("test case name", func(t *testing.T) {
+			mockStore := memory.Make(model.IstioConfigTypes)
+			configStore := file.NewConfigStore(mockStore)
+			inputMeta := input.Meta()
+			if err := configStore.CreateFromFile(input); err != nil {
+				t.Fatalf("failed creating config ", input)
+			} else if _, exists := configStore.Get(inputMeta.Type, inputMeta.Name, inputMeta.Namespace); !exists {
+				t.Fatalf("missing config ", input)
+			}
+		})
+		// TODO(nmittler): Do we care about doing a deep comparison?
 	}
 }

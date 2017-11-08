@@ -21,76 +21,69 @@ import (
 )
 
 const (
-	defaultNamespaceOverride = "default"
-	defaultDomainOverride    = "cluster.local"
+	defaultNamespace = "default"
+	defaultDomain    = "cluster.local"
 )
 
 // Information for a single element of configuration stored in a file.
-type FileConfig struct {
-	Meta model.ConfigMeta
-	File string
+type ConfigRef interface {
+	Meta() *model.ConfigMeta
+	FilePath() string
+}
+
+type configRef struct {
+	meta     *model.ConfigMeta
+	filePath string
+}
+
+func (r *configRef) Meta() *model.ConfigMeta {
+	return r.meta
+}
+
+func (r *configRef) FilePath() string {
+	return r.filePath
+}
+
+// Creates a new ConfigRef with the given properties.
+func NewConfigRef(schemaType string, name string, namespace string, domain string, filePath string) ConfigRef {
+	return &configRef{
+		meta: &model.ConfigMeta{
+			Name:      name,
+			Type:      schemaType,
+			Namespace: namespace,
+			Domain:    domain},
+		filePath: filePath,
+	}
+}
+
+// Creates a new ConfigRef with a default namespace and domain.
+func NewConfigRefWithDefaults(schemaType string, name string, file string) ConfigRef {
+	return NewConfigRef(schemaType, name, defaultNamespace, defaultDomain, file)
 }
 
 // A decorator around another ConfigStore that adds support for loading configuration elements from files.
-type FileConfigStore interface {
+type ConfigStore interface {
 	model.ConfigStore
 
 	// Create a new configuration element from the specified file.
-	CreateFromFile(config FileConfig) error
-
-	GetForFile(fileConfig FileConfig) (config *model.Config, exists bool)
+	CreateFromFile(config ConfigRef) error
 }
 
-type fileConfigStore struct {
+type configStore struct {
 	model.ConfigStore
-
-	namespaceOverride string
-	domainOverride    string
 }
 
-// Creates a new file-based config store. This config store will use the namespace and domain from the read
-// configurations directly (i.e. no override).
-func NewFileConfigStore(configStore model.ConfigStore) FileConfigStore {
-	return NewFileConfigStoreWithOverrides(configStore, "", "")
+// Creates a new file-based config store.
+func NewConfigStore(store model.ConfigStore) ConfigStore {
+	return &configStore{store}
 }
 
-// Creates a new file-based config store. This config store will use default overrides for namespace and domain.
-func NewFileConfigStoreWithDefaultOverrides(configStore model.ConfigStore) FileConfigStore {
-	return NewFileConfigStoreWithOverrides(configStore, defaultNamespaceOverride, defaultDomainOverride)
-}
-
-// Creates a new file-based config store. This config store will use the provided overrides for namespace and domain.
-func NewFileConfigStoreWithOverrides(configStore model.ConfigStore, namespaceOverride string, domainOverride string) FileConfigStore {
-	return &fileConfigStore{
-		ConfigStore:       configStore,
-		namespaceOverride: namespaceOverride,
-		domainOverride:    domainOverride}
-}
-
-func (r *fileConfigStore) namespace(config FileConfig) string {
-	if r.namespaceOverride != "" {
-		return r.namespaceOverride
-	}
-	return config.Meta.Namespace
-}
-
-func (r *fileConfigStore) domain(config FileConfig) string {
-	if r.domainOverride != "" {
-		return r.domainOverride
-	}
-	return config.Meta.Domain
-}
-
-func (r *fileConfigStore) GetForFile(fileConfig FileConfig) (config *model.Config, exists bool) {
-	return r.Get(fileConfig.Meta.Type, fileConfig.Meta.Name, r.namespace(fileConfig))
-}
-
-func (r *fileConfigStore) CreateFromFile(config FileConfig) error {
-	schema, ok := model.IstioConfigTypes.GetByType(config.Meta.Type)
+func (r *configStore) CreateFromFile(config ConfigRef) error {
+	schema, ok := model.IstioConfigTypes.GetByType(config.Meta().Type)
 	if !ok {
-		return fmt.Errorf("missing schema for %q", config.Meta.Type)
+		return fmt.Errorf("missing schema for %q", config.Meta().Type)
 	}
-	content, err := ioutil.ReadFile(config.File)
+	content, err := ioutil.ReadFile(config.FilePath())
 	if err != nil {
 		return err
 	}
@@ -99,13 +92,9 @@ func (r *fileConfigStore) CreateFromFile(config FileConfig) error {
 		return err
 	}
 	out := model.Config{
-		ConfigMeta: config.Meta,
+		ConfigMeta: *config.Meta(),
 		Spec:       spec,
 	}
-
-	// Apply overrides if set.
-	out.ConfigMeta.Namespace = r.namespace(config)
-	out.ConfigMeta.Domain = r.domain(config)
 
 	_, err = r.Create(out)
 	if err != nil {
