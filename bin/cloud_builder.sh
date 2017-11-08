@@ -25,7 +25,7 @@ OUTPUT_PATH=""
 # go/src/istio.io/istio
 # and proxy at:
 # src/proxy
-PROXY_PATH="../../../src/proxy"
+PROXY_PATH="../../../../src/proxy"
 TAG_NAME="0.0.0"
 
 function usage() {
@@ -48,7 +48,8 @@ done
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${PROXY_PATH}" ]] && usage
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# switch to the root of the istio repo
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
 if [ ! -d "${PROXY_PATH}" ]; then
@@ -58,20 +59,25 @@ fi
 
 pushd "${PROXY_PATH}"
 
+# TODO: run bazel in batch mode.  For now just shutdown bazel.
+
 # Use this file for Cloud Builder specific settings.
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+bazel shutdown
 popd
 
 pushd security
 ./bin/push-docker           -h "" -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+bazel shutdown
 popd
 
 pushd mixer
 ./bin/push-docker           -h "" -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+bazel shutdown
 popd
 
 pushd pilot
