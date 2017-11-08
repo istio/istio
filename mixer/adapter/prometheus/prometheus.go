@@ -65,6 +65,10 @@ var (
 	_ metric.Handler        = &handler{}
 )
 
+const (
+	namespace = "istio"
+)
+
 // GetInfo returns the Info associated with this adapter.
 func GetInfo() adapter.Info {
 	// prometheus uses a singleton http port, so we make the
@@ -224,8 +228,9 @@ func newCounterVec(name, desc string, labels []string) *prometheus.CounterVec {
 	}
 	c := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: safeName(name),
-			Help: desc,
+			Namespace: namespace,
+			Name:      safeName(name),
+			Help:      desc,
 		},
 		labelNames(labels),
 	)
@@ -238,8 +243,9 @@ func newGaugeVec(name, desc string, labels []string) *prometheus.GaugeVec {
 	}
 	c := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: safeName(name),
-			Help: desc,
+			Namespace: namespace,
+			Name:      safeName(name),
+			Help:      desc,
 		},
 		labelNames(labels),
 	)
@@ -252,9 +258,10 @@ func newHistogramVec(name, desc string, labels []string, bucketDef *config.Param
 	}
 	c := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    safeName(name),
-			Help:    desc,
-			Buckets: buckets(bucketDef),
+			Namespace: namespace,
+			Name:      safeName(name),
+			Help:      desc,
+			Buckets:   buckets(bucketDef),
 		},
 		labelNames(labels),
 	)

@@ -244,7 +244,7 @@ go_repository(
 
 go_repository(
     name = "io_istio_fortio",
-    commit = "0.2.8",
+    commit = "0.3.1",
     importpath = "istio.io/fortio",
 )
 
@@ -1050,7 +1050,7 @@ go_repository(
 
 # Change this and the docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "1509b9361c3e727b40146dcddd44ed0012b7de78"
+ISTIO_PROXY_BUCKET = "a05c813aa01b8eed00d1698f5daba3f468b0a293"
 
 http_file(
     name = "envoy_binary",
