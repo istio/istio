@@ -64,7 +64,7 @@
       ],
       "name": "gcr.io/istio-io/istio-builder:0.3.2",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./bin/store_artifacts.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-a", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
+      "args": [ "./bin/store_artifacts.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
     }
   ],
   "options": {
