@@ -47,7 +47,8 @@ const (
 
 	// Certificates validation retry
 	certValidateRetry = 10
-	certValidationInterval = 1
+	certValidationInterval = 1 // Initially wait for 1 second.
+	                           // This value will be increased exponentially on retry
 )
 
 var (
@@ -132,7 +133,7 @@ func runTests(cmd *cobra.Command, args []string) {
 	na_service, err :=
 			opts.clientset.CoreV1().Services(opts.namespace).Get("node-agent", metav1.GetOptions{})
 	if err != nil {
-		glog.Fatalf("failed to get the external IP adddress of node-agent service", err)
+		glog.Fatalf("failed to get the external IP adddress of node-agent service: %v", err)
 	}
 
 	err = waitForNodeAgentCertificateUpdate(fmt.Sprintf("http://%v:%v",
@@ -140,7 +141,7 @@ func runTests(cmd *cobra.Command, args []string) {
 	if err != nil {
 		glog.Fatalf("failed to check certificate update node-agent (err: %v)", err)
 	} else {
-		glog.Infof("Certificate of NodeAgent was updated and verified")
+		glog.Infof("Certificate of NodeAgent was updated and verified successfully")
 	}
 }
 
@@ -515,9 +516,9 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 
 	for i := 0; i < max_retry; i++ {
 		if i > 0 {
-			term = term * 2
 			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
+			term = term * 2
 		}
 
 		certPEM, err := readUri(fmt.Sprintf("%v/cert", appurl))
@@ -533,12 +534,12 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		}
 
 		if org_root_cert != rootPEM {
-			glog.Fatalf("Invalid root certificate was downloaded")
+			glog.Fatal("Invalid root certificate was downloaded")
 			continue
 		}
 
 		if org_cert_chain == certPEM {
-			glog.Fatalf("Certificate chain was not updated")
+			glog.Fatal("Certificate chain was not updated")
 			continue
 		}
 
@@ -566,7 +567,7 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		}
 
 		if _, err := cert.Verify(opts); err != nil {
-			glog.Errorf("failed to verify certificate: " + err.Error())
+			glog.Errorf("failed to verify certificate: %v", err.Error())
 			continue
 		}
 
