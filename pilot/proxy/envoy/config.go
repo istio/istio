@@ -354,7 +354,7 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	}
 
 	filter := HTTPFilter{
-		Name: CORSFilter,
+		Name:   CORSFilter,
 		Config: CORSFilterConfig{},
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
@@ -800,7 +800,7 @@ func appendPortToDomains(domains []string, port int) []string {
 
 func truncateClusterName(name string) string {
 	if len(name) > MaxClusterNameLength {
-		prefix := name[:MaxClusterNameLength - sha1.Size * 2]
+		prefix := name[:MaxClusterNameLength-sha1.Size*2]
 		sum := sha1.Sum([]byte(name))
 		return fmt.Sprintf("%s%x", prefix, sum)
 	}
