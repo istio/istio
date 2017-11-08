@@ -38,7 +38,7 @@ jobs:
   pilot-unittest:
     working_directory: /go/src/istio.io/istio
     docker:
-      - image: gihanson/test-apiserver:latest
+      - image: istio/ci:go1.9-k8s1.7.4
     steps:
       - checkout
       - run:
@@ -67,9 +67,69 @@ jobs:
           paths:
             - /go/src/istio.io/istio/vendor
 
+  broker-unittest:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: circleci/golang:1.9
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: cd /go/src/istio.io/istio; go test ./broker/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
+
+  security-unittest:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: circleci/golang:1.9
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: cd /go/src/istio.io/istio; go test ./security/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
+
+  mixer-unittest:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    steps:
+      - checkout
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: cd /go/src/istio.io/istio; dep ensure
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run: cd /go/src/istio.io/istio; go test ./mixer/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
+
 workflows:
   version: 2
   all:
     jobs:
       - pilot-unittest
+      - broker-unittest
+      - security-unittest
+      - mixer-unittest
       - pilot-integration
