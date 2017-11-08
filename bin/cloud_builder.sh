@@ -85,8 +85,8 @@ pushd pilot
 function prepare_gopath() {
   [[ -z ${GOPATH:-} ]] && export GOPATH=/tmp/gopath
   mkdir -p ${GOPATH}/src/istio.io
-  [[ -d ${GOPATH}/src/istio.io/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/pilot
-  cd ${GOPATH}/src/istio.io/pilot
+  [[ -d ${GOPATH}/src/istio.io/istio/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/istio/pilot
+  cd ${GOPATH}/src/istio.io/istio/pilot
   touch platform/kube/config
 }
 
