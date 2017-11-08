@@ -35,7 +35,7 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
-  pilot-unittest:
+  unittest:
     working_directory: /go/src/istio.io/istio
     docker:
       - image: istio/ci:go1.9-k8s1.7.4
@@ -61,50 +61,7 @@ jobs:
             wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-5d798021523fa1e587fa45d48b4ce38e25967ed3.tar.gz -O envoy.tar.gz
             tar xvzf envoy.tar.gz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; go test ./pilot/...
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
-
-  broker-unittest:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: istio/ci:go1.9-k8s1.7.4
-    steps:
-      - checkout
-      - run:
-          name: Running Kubernetes API Server standalone
-          command: /tmp/apiserver/start-test-server.sh
-          background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: go get -u github.com/golang/dep/cmd/dep
-      - run: cd /go/src/istio.io/istio; dep ensure
-      - run:
-          command: |
-            mkdir ~/.kube
-            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - run: cd /go/src/istio.io/istio; go test ./broker/...
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
-
-  security-unittest:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: circleci/golang:1.9
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: go get -u github.com/golang/dep/cmd/dep
-      - run: cd /go/src/istio.io/istio; dep ensure
-      - run: cd /go/src/istio.io/istio; go test ./security/...
+      - run: cd /go/src/istio.io/istio; go test ./pilot/... ./broker/... ./security/...
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
@@ -142,8 +99,9 @@ workflows:
   version: 2
   all:
     jobs:
-      - pilot-unittest
-      - broker-unittest
-      - security-unittest
+      - unittest
       - mixer-unittest
-      - pilot-integration
+      - pilot-integration:
+          requires:
+            - unittest
+            - mixer-unittest
