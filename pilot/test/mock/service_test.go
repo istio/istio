@@ -14,7 +14,11 @@
 
 package mock
 
-import "testing"
+import (
+	"testing"
+
+	proxyconfig "istio.io/api/proxy/v1/config"
+)
 
 func TestMockServices(t *testing.T) {
 	svcs, err := Discovery.Services()
@@ -24,6 +28,11 @@ func TestMockServices(t *testing.T) {
 	for _, svc := range svcs {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
+		}
+		for _, port := range svc.Ports {
+			if port.AuthenticationPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
+				t.Errorf("Default port authentication policy must be INHERIT. Got %v", *port)
+			}
 		}
 		instances, err := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
 		if err != nil {

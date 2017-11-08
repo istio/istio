@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 )
 
@@ -184,21 +185,30 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 	testCases := []struct {
 		port            int
 		annotationValue string
-		want            model.AuthenticationPolicy
+		want            proxyconfig.AuthenticationPolicy
 	}{
-		{8080, "enable", model.AuthenticationEnable},
-		{8080, "disable", model.AuthenticationDisable},
-		{8080, "invalid-option", model.AuthenticationDefault},
-		{9999, "enable", model.AuthenticationDefault},
+		{8080, "MUTUAL_TLS", proxyconfig.AuthenticationPolicy_MUTUAL_TLS},
+		{8080, "NONE", proxyconfig.AuthenticationPolicy_NONE},
+		{8080, "invalid-option", proxyconfig.AuthenticationPolicy_INHERIT},
+		{8080, "", proxyconfig.AuthenticationPolicy_INHERIT},
+		// Annotation is not for the testing port (8080), default policy (INHERIT)
+		// should be set.
+		{9999, "MUTUAL_TLS", proxyconfig.AuthenticationPolicy_INHERIT},
+		// No annotation
+		{0, "", proxyconfig.AuthenticationPolicy_INHERIT},
 	}
 	for _, test := range testCases {
 		localSvc := v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      serviceName,
 				Namespace: namespace,
-				Annotations: map[string]string{
-					portAuthenticationAnnotationKey(test.port): test.annotationValue,
-				},
+				Annotations: func() map[string]string {
+					if test.port > 0 {
+						return map[string]string{portAuthenticationAnnotationKey(test.port): test.annotationValue}
+					} else {
+						return nil
+					}
+				}(),
 			},
 			Spec: v1.ServiceSpec{
 				ClusterIP: ip,

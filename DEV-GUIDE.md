@@ -34,7 +34,6 @@ so we can improve the doc.
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
 - [Local development scripts](#collection-of-scripts-and-notes-for-developing-for-istio)
-- [MacOS tips](#macos-tips)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -230,7 +229,7 @@ be squashed to simplify the commit.
 To build the core repo:
 
 ```shell
-cd $ISTIO
+cd $ISTIO/istio
 make build
 ```
 
@@ -269,7 +268,7 @@ to generate new manifests with the specified Mixer containers.
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -xgcr.io/my-project,tag
+install/updateVersion.sh -xgcr.io/my-project,my-tag
 ```
 
 where
@@ -385,7 +384,7 @@ passed both unit and integration tests. We only merge pull requests when
 * Concurrent unit test runs must pass.
 
 
-## Collection of scripts and notes for developing for Istio
+## Collection of scripts and notes for developing Istio
 
 For local development (building from source and running the major components) on Ubuntu/raw VM:
 
@@ -396,8 +395,6 @@ Assuming you did (once):
    ```bash
    mkdir github
    cd github/
-   git clone https://github.com/istio/proxy.git
-   git clone https://github.com/istio/mixer.git
    git clone https://github.com/istio/istio.git
    ```
 4. You can then use
@@ -422,14 +419,3 @@ Assuming you did (once):
    cd mixer/
    source bin/use_bazel_go.sh
    ```
-
-
-## MacOs tips
-
-Get GitHub desktop https://desktop.github.com/
-
-If you want to make changes to the [website](https://github.com/istio/istio.github.io), and want to run jekyll locally and natively, without docker):
-
-You will need a newer ruby than the default: get and install rvm https://rvm.io/
-
-Then rvm install ruby-2.1 (or later) rvm use ruby-2.1  then `gem install jekyll bundler` then `bundle install` and then finally you can run successfully `bundle exec jekyll serve` in the directory you cloned the iostio doc repo. To avoid `GitHub Metadata: No GitHub API authentication could be found. Some fields may be missing or have incorrect data.` errors you need to set a public repo access token at https://github.com/settings/tokens and export it in `JEKYLL_GITHUB_TOKEN` env var (in your `.bash_profile`) - then http://127.0.0.1:4000/docs/ will work and auto update when pulling.
