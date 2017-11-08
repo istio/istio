@@ -59,13 +59,12 @@ fi
 
 pushd "${PROXY_PATH}"
 
-# TODO: run bazel in batch mode.  For now just shutdown bazel.
-
 # Use this file for Cloud Builder specific settings.
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+# TODO: run bazel in batch mode.  For now just shutdown bazel to save memory.
 bazel shutdown
 popd
 
@@ -73,12 +72,10 @@ pushd security
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg.
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
-bazel shutdown
 popd
 
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-bazel shutdown
 popd
 
 pushd pilot
