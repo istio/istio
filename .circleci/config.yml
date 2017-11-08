@@ -41,7 +41,7 @@ jobs:
           paths:
             - /home/circleci/.cache/bazel
       - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
-      - run: cd pilot; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
+      - run: cd pilot; mkdir /home/circleci/logs; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash)
@@ -54,8 +54,15 @@ jobs:
     steps:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: cd /go/src/istio.io/istio; dep ensure
       - run: cd /go/src/istio.io/istio; go build -i ./pilot/... ./mixer/... ./broker/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
 
 workflows:
   version: 2
