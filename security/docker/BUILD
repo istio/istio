@@ -25,8 +25,8 @@ docker_build(
 pkg_tar(
     name = "istio_ca_test_tar",
     srcs = [
-        "istio_ca.crt",
-        "istio_ca.key",
+        "certs/istio_ca.crt",
+        "certs/istio_ca.key",
         "//security/cmd/istio_ca",
     ],
     extension = "tar.gz",
@@ -39,9 +39,9 @@ pkg_tar(
     name = "node_agent_test_tar",
     srcs = [
         "app.js",
-        "istio_ca.crt",
-        "node_agent.crt",
-        "node_agent.key",
+        "certs/istio_ca.crt",
+        "certs/node_agent.crt",
+        "certs/node_agent.key",
         "start_app.sh",
         "//security/cmd/node_agent",
     ],

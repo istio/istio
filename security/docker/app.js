@@ -1,3 +1,11 @@
+// This node.js application is a http service returning certificate files for NodeAgent test
+// docker image as a part of Istio CA and NodeAgent end to end test.
+//
+// Supported request paths are:
+//   /cert  - Returns certificate chain
+//   /key   - Returns private key
+//   /root  - Returns root certificated with was self-signed for the e2e test
+
 "use strict";
 
 var express = require('express');
