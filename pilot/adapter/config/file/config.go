@@ -26,40 +26,24 @@ const (
 	defaultDomain    = "cluster.local"
 )
 
+var (
+	// A function that applies a default namespace and domain to new ConfigRef instances
+	Defaults = WithDefaults(defaultNamespace, defaultDomain)
+)
+
 // Information for a single element of configuration stored in a file.
-type ConfigRef interface {
-	Meta() *model.ConfigMeta
-	FilePath() string
+type ConfigRef struct {
+	Meta     *model.ConfigMeta
+	FilePath string
 }
 
-type configRef struct {
-	meta     *model.ConfigMeta
-	filePath string
-}
-
-func (r *configRef) Meta() *model.ConfigMeta {
-	return r.meta
-}
-
-func (r *configRef) FilePath() string {
-	return r.filePath
-}
-
-// Creates a new ConfigRef with the given properties.
-func NewConfigRef(schemaType string, name string, namespace string, domain string, filePath string) ConfigRef {
-	return &configRef{
-		meta: &model.ConfigMeta{
-			Name:      name,
-			Type:      schemaType,
-			Namespace: namespace,
-			Domain:    domain},
-		filePath: filePath,
+// Returns a function that applies the provided namespace and domain to ConfigRef instances.
+func WithDefaults(namespace, domain string) func(*ConfigRef) *ConfigRef {
+	return func(c *ConfigRef) *ConfigRef {
+		c.Meta.Namespace = namespace
+		c.Meta.Domain = domain
+		return c
 	}
-}
-
-// Creates a new ConfigRef with a default namespace and domain.
-func NewConfigRefWithDefaults(schemaType string, name string, file string) ConfigRef {
-	return NewConfigRef(schemaType, name, defaultNamespace, defaultDomain, file)
 }
 
 // A decorator around another ConfigStore that adds support for loading configuration elements from files.
@@ -79,12 +63,12 @@ func NewConfigStore(store model.ConfigStore) ConfigStore {
 	return &configStore{store}
 }
 
-func (r *configStore) CreateFromFile(config ConfigRef) error {
-	schema, ok := model.IstioConfigTypes.GetByType(config.Meta().Type)
+func (store *configStore) CreateFromFile(config ConfigRef) error {
+	schema, ok := model.IstioConfigTypes.GetByType(config.Meta.Type)
 	if !ok {
-		return fmt.Errorf("missing schema for %q", config.Meta().Type)
+		return fmt.Errorf("missing schema for %q", config.Meta.Type)
 	}
-	content, err := ioutil.ReadFile(config.FilePath())
+	content, err := ioutil.ReadFile(config.FilePath)
 	if err != nil {
 		return err
 	}
@@ -93,11 +77,11 @@ func (r *configStore) CreateFromFile(config ConfigRef) error {
 		return err
 	}
 	out := model.Config{
-		ConfigMeta: *config.Meta(),
+		ConfigMeta: *config.Meta,
 		Spec:       spec,
 	}
 
-	_, err = r.Create(out)
+	_, err = store.Create(out)
 	if err != nil {
 		return err
 	}

@@ -22,12 +22,18 @@ import (
 	"istio.io/istio/pilot/model"
 )
 
-func newConfig(schemaType string, name string, filePath string) file.ConfigRef {
-	return file.NewConfigRefWithDefaults(schemaType, name, filePath)
+func newConfig(schemaType string, name string, filePath string) *file.ConfigRef {
+	return file.Defaults(&file.ConfigRef{
+		Meta: &model.ConfigMeta{
+			Name: name,
+			Type: schemaType,
+		},
+		FilePath: filePath,
+	})
 }
 
 func TestAllConfigs(t *testing.T) {
-	cases := []file.ConfigRef{
+	cases := []*file.ConfigRef{
 		newConfig(model.DestinationPolicy.Type, "circuit-breaker", "testdata/cb-policy.yaml.golden"),
 		newConfig(model.RouteRule.Type, "timeout", "testdata/timeout-route-rule.yaml.golden"),
 		newConfig(model.RouteRule.Type, "weighted", "testdata/weighted-route.yaml.golden"),
@@ -46,8 +52,8 @@ func TestAllConfigs(t *testing.T) {
 		t.Run("test case name", func(t *testing.T) {
 			mockStore := memory.Make(model.IstioConfigTypes)
 			configStore := file.NewConfigStore(mockStore)
-			inputMeta := input.Meta()
-			if err := configStore.CreateFromFile(input); err != nil {
+			inputMeta := input.Meta
+			if err := configStore.CreateFromFile(*input); err != nil {
 				t.Fatalf("failed creating config ", input)
 			} else if _, exists := configStore.Get(inputMeta.Type, inputMeta.Name, inputMeta.Namespace); !exists {
 				t.Fatalf("missing config ", input)
