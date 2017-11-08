@@ -36,44 +36,11 @@ jobs:
           path: /home/circleci/logs
 
   pilot-unittest:
-    machine: true
-    working_directory: ~/go/src/istio.io/istio
-    environment:
-      DOWNLOAD_URL: https://github.com/coreos/etcd/releases/download
-      ETCD_VER: v3.2.9
-      K8S_VER: v1.7.4
-      MASTER_IP: 127.0.0.1
-      MASTER_CLUSTER_IP: 10.99.0.1
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: gihanson/test-apiserver:latest
     steps:
       - checkout
-      - run:
-          command: |
-            cd ~
-            curl -L -O https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz
-            tar xzf easy-rsa.tar.gz
-            cd easy-rsa-master/easyrsa3
-            ./easyrsa init-pki
-            ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass
-            ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass
-      - run:
-          command: |
-            mkdir /tmp/etcd-download-test
-            curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
-            tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
-            /tmp/etcd-download-test/etcd &
-      - run:
-          command: |
-            mkdir /tmp/apiserver-download-test
-            curl -L https://dl.k8s.io/${K8S_VER}/kubernetes-server-linux-amd64.tar.gz -o /tmp/kube-${K8S_VER}.tar.gz
-            tar xzvf /tmp/kube-${K8S_VER}.tar.gz -C /tmp/apiserver-download-test --strip-components=1
-            /tmp/apiserver-download-test/server/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
-              --client-ca-file ~/easyrsa/pki/ca.crt \
-              --requestheader-client-ca-file ~/easyrsa/pki/ca.crt \
-              --tls-cert-file ~/easyrsa/pki/issued/server.crt \
-              --tls-private-key-file ~/easyrsa/pki/private/server.key \
-              --service-cluster-ip-range 10.99.0.0/16 \
-              --port 8080 -v 2 --insecure-bind-address 0.0.0.0 &
-      - run: go get -u github.com/golang/dep/cmd/dep
       - run: cd ~/go/src/istio.io/istio; dep ensure
       - run:
           command: |
