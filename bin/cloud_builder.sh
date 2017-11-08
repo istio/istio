@@ -52,7 +52,7 @@ done
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../.." && pwd)"
+export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
 
 if [ ! -d "${PROXY_PATH}" ]; then
