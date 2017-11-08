@@ -24,6 +24,8 @@ PROJECT_ID=""
 KEY_FILE_PATH=""
 SVC_ACCT=""
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
+# TODO: grab this from a URL like https://github.com/mattdelco/istio/blob/master/bin/cloud_build.template.json
+# -- really need to grab the version that corresponds to the commit hash in the manifest file
 TEMPLATE="${SCRIPTPATH}/cloud_build.template.json"
 TEMP_DIR="$(mktemp -d /tmp/istio.build.XXXX)"
 BUILD_FILE="${TEMP_DIR}/cloud_build.json"
@@ -131,6 +133,8 @@ echo "REQUEST:"
 cat "${BUILD_FILE}"
 echo "RESPONSE:"
 cat "${RESULT_FILE}"
+
+# TODO: parse the result and optionally wait for the build to complete (likely via polling)
 
 # example error:
 # {

@@ -83,7 +83,7 @@ pushd pilot
 # We need to recreate the GOPATH directory structure
 # for pilot to build correctly
 function prepare_gopath() {
-  [[ -z ${GOPATH} ]] && export GOPATH=/tmp/gopath
+  [[ -z ${GOPATH:-} ]] && export GOPATH=/tmp/gopath
   mkdir -p ${GOPATH}/src/istio.io
   [[ -d ${GOPATH}/src/istio.io/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/pilot
   cd ${GOPATH}/src/istio.io/pilot
