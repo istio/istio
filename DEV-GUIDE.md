@@ -262,7 +262,7 @@ to generate new manifests with the specified Mixer containers.
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -xgcr.io/my-project,tag
+install/updateVersion.sh -xgcr.io/my-project,my-tag
 ```
 
 where
@@ -378,7 +378,7 @@ passed both unit and integration tests. We only merge pull requests when
 * Concurrent unit test runs must pass.
 
 
-## Collection of scripts and notes for developing for Istio
+## Collection of scripts and notes for developing Istio
 
 For local development (building from source and running the major components) on Ubuntu/raw VM:
 
