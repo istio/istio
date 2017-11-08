@@ -124,7 +124,7 @@ syntax = "proto3";
 package metric;
 
 import "mixer/v1/config/descriptor/value_type.proto";
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
@@ -184,7 +184,7 @@ syntax = "proto3";
 
 package listentry;
 
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
@@ -244,7 +244,7 @@ syntax = "proto3";
 package metric;
 
 import "mixer/v1/config/descriptor/value_type.proto";
-import "pkg/adapter/template/TemplateExtensions.proto";
+import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.config.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
