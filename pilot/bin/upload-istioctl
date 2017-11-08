@@ -53,7 +53,7 @@ done
 [[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
 
 # newer versions of bazel (0.6+ add .status suffix)
-BASE_FILE="${ROOT}/../bazel-bin/cmd/istioctl/istioctl"
+BASE_FILE="${ROOT}/../bazel-bin/pilot/cmd/istioctl/istioctl"
 BASE_FILE_STATIC="${BASE_FILE}.static"
 if [ -f $BASE_FILE_STATIC ]; then
   echo "static ${BASE_FILE_STATIC} exists"
