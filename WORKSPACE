@@ -1,4 +1,4 @@
-# ignore this line - circli cache is keyed off the checksum of the top level WORKSPACE file
+# dummy line - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
