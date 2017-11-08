@@ -13,36 +13,19 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $(dirname $WD))
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
-
-# runs build and sets up variables
 source ${ROOT}/prow/istio-common.sh
 # Build
 ${ROOT}/bin/init.sh
 
-echo 'Running Unit Tests'
-time bazel test --test_output=all //...
-
-# run linters in advisory mode
-SKIP_INIT=1 ${ROOT}/bin/linters.sh
-
-diff=`git diff`
-if [[ -n "$diff" ]]; then
-  echo "Some uncommitted changes are found. Maybe miss committing some generated files? Here's the diff"
-  echo $diff
-  exit -1
+echo "=== Code Coverage ==="
+UPLOAD_TOKEN=@/etc/codecov/istio.token ${ROOT}/bin/codecov.sh | tee codecov.report
+if [ "${CI:-}" == "bootstrap" ]; then
+    bazel build @com_github_istio_test_infra//toolbox/pkg_check
+    BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="istio/presubmit" ${ROOT}/bazel-bin/external/com_github_istio_test_infra/toolbox/pkg_check/pkg_check
+else
+    echo "Not in bootstrap environment, skipping code coverage publishing"
 fi
-
-HUB="gcr.io/istio-testing"
-TAG="${GIT_SHA}"
-# upload images
-time make push HUB="${HUB}" TAG="${TAG}"
-
-time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
