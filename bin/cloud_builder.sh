@@ -63,19 +63,19 @@ pushd "${PROXY_PATH}"
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 
-./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+####./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 # TODO: run bazel in batch mode.  For now just shutdown bazel to save memory.
-bazel shutdown
+####bazel shutdown
 popd
 
 pushd security
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg.
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+####./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+####./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
 pushd mixer
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+####./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 popd
 
 pushd pilot
@@ -90,8 +90,13 @@ function prepare_gopath() {
   touch platform/kube/config
 }
 
-if [ ${PWD} != "${GOPATH}/src/istio.io/pilot" ]; then
+# this is a bit convoluted to avoid unset var complaint on GOPTH
+if [ -z ${GOPATH:-} ]; then
   prepare_gopath
+else
+  if [ ${PWD} != "${GOPATH}/src/istio.io/pilot" ]; then
+    prepare_gopath
+  fi
 fi
 
 # Build istioctl binaries
@@ -105,7 +110,4 @@ fi
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-#echo Storing artifacts
-# -i ID -o "${OUTPUT_PATH}" -p GCS -q GCR -v "${TAG_NAME}"
-#./bin/store_artifacts.sh
-#echo Build is complete
+# storing of artifacts is currently a separate cloud builder step

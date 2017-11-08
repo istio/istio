@@ -170,3 +170,17 @@ cat "${RESULT_FILE}"
 #    }
 #  }
 #}
+
+#example query for in-progress build:
+#{
+#  "id": "87324695-b6bb-4505-b69e-2e01c16cb7cc",
+#  "status": "WORKING",
+
+#example query for failed build:
+#{
+#  "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
+#  "status": "FAILURE",
+#  "logsBucket": "gs://504449721521.cloudbuild-logs.googleusercontent.com",
+#  "logUrl": "https://console.cloud.google.com/gcr/builds/e1487f85-8585-44fe-a7dc-765502e5a8c0?project=delco-experimental",
+#}
+
