@@ -779,8 +779,8 @@ L0:
 end`,
 	},
 	{
-		E: `as | ""`,
-		R: "",
+		E:       `as | ""`,
+		R:       "",
 		SkipAst: true, // AST returns nil for this case.
 	},
 	{
@@ -998,7 +998,7 @@ end`,
 
 	{
 		E:       `(ar | br)["foo"]`,
-		SkipAst: true,           // AST evaluator panics for this case.
+		SkipAst: true, // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"foo": "bar",
@@ -1020,7 +1020,7 @@ end`,
 	},
 	{
 		E:       `(ar | br)["foo"]`,
-		SkipAst: true,           // AST evaluator panics for this case.
+		SkipAst: true, // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"br": map[string]string{
 				"foo": "far",

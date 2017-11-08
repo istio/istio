@@ -109,7 +109,7 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 			t.Errorf("Unexpected error: %v", err)
 		}
 		if abool != ebool {
-			t.Errorf("EvalString failed: '%s' != '%s'", abool, ebool)
+			t.Errorf("EvalPredicate failed: '%s' != '%s'", abool, ebool)
 		}
 	}
 }
@@ -144,7 +144,7 @@ func testWithASTEvaluator(test ilt.TestInfo, t *testing.T) {
 	}
 }
 
-func TestEvalString_DifferentType(t *testing.T) {
+func TestEvalString_WrongType(t *testing.T) {
 	e := initEvaluator(t, configInt)
 	bag := initBag(int64(23))
 	r, err := e.EvalString("attr", bag)
@@ -156,10 +156,28 @@ func TestEvalString_DifferentType(t *testing.T) {
 	}
 }
 
+func TestEvalString_Error(t *testing.T) {
+	e := initEvaluator(t, configString)
+	bag := initBag("foo")
+	_, err := e.EvalString("bar", bag)
+	if err == nil {
+		t.Fatal("Was expecting an error")
+	}
+}
+
 func TestEvalPredicate_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
 	bag := initBag(int64(23))
 	_, err := e.EvalPredicate("attr", bag)
+	if err == nil {
+		t.Fatal("Was expecting an error")
+	}
+}
+
+func TestEvalPredicate_Error(t *testing.T) {
+	e := initEvaluator(t, configBool)
+	bag := initBag(true)
+	_, err := e.EvalPredicate("boo", bag)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}

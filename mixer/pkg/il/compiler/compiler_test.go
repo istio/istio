@@ -30,19 +30,23 @@ import (
 func TestCompile(t *testing.T) {
 
 	for i, test := range ilt.TestData {
+		// If there is no expression in the test, skip it. It is most likely an interpreter test that directly runs
+		// off IL.
 		if test.E == "" {
 			continue
 		}
 
-		conf := test.Conf
-		if conf == nil {
-			conf = ilt.TestConfigs["Default"]
-		}
-		finder := descriptor.NewFinder(conf)
-
 		name := fmt.Sprintf("%d '%s'", i, test.E)
 		t.Run(name, func(tt *testing.T) {
+
+			conf := test.Conf
+			if conf == nil {
+				conf = ilt.TestConfigs["Default"]
+			}
+			finder := descriptor.NewFinder(conf)
+
 			result, err := Compile(test.E, finder)
+
 			if err != nil {
 				if err.Error() != test.CompileErr {
 					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)
