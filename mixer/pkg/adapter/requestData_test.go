@@ -18,6 +18,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"strings"
 )
 
 func TestRequestDataFromContext(t *testing.T) {
@@ -43,5 +44,25 @@ func TestNewContextWithRequestData(t *testing.T) {
 	got := ctx.Value(requestDataKey).(*RequestData)
 	if !reflect.DeepEqual(got, wantReqData) {
 		t.Errorf("NewContextWithRequestData added RequestData = %v, want %v", *got, *wantReqData)
+	}
+}
+
+
+func TestRequestDataFromContextWithCollidingInt0Key(t *testing.T) {
+	badKey := 0
+	wantBadKeyData := "some data associated with bad key"
+	ctx := context.WithValue(context.Background(), badKey, wantBadKeyData)
+
+	wantGoodKeyData := &RequestData{DestinationService: Service{FullName: "foo.bar"}}
+	ctx = context.WithValue(ctx, requestDataKey, wantGoodKeyData)
+
+	got, gotOk := RequestDataFromContext(ctx)
+	if !gotOk || got.DestinationService.FullName != "foo.bar" {
+		t.Errorf("RequestDataFromContext(%v) = (%v,%v), want (%v,%v)", ctx, *got, gotOk, *wantGoodKeyData, true)
+	}
+
+	gotBadKeyData := ctx.Value(badKey)
+	if !strings.EqualFold(gotBadKeyData.(string), wantBadKeyData) {
+		t.Errorf("ctx.Value(0) = '%v', want '%s'", gotBadKeyData, wantBadKeyData)
 	}
 }
