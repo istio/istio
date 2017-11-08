@@ -593,7 +593,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && bazel-bin/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
+cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
