@@ -70,14 +70,23 @@ jobs:
   broker-unittest:
     working_directory: /go/src/istio.io/istio
     docker:
-      - image: circleci/golang:1.9
+      - image: istio/ci:go1.9-k8s1.7.4
     steps:
       - checkout
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: go get -u github.com/golang/dep/cmd/dep
       - run: cd /go/src/istio.io/istio; dep ensure
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - run: cd /go/src/istio.io/istio; go test ./broker/...
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
@@ -127,7 +136,7 @@ jobs:
       - save_cache:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
-            - /home/circleci/.cache/bazel 
+            - /home/circleci/.cache/bazel
 
 workflows:
   version: 2
