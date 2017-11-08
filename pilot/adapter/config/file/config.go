@@ -27,17 +27,17 @@ const (
 )
 
 var (
-	// A function that applies a default namespace and domain to new ConfigRef instances
+	// Defaults is a function that applies a default namespace and domain to new ConfigRef instances
 	Defaults = WithDefaults(defaultNamespace, defaultDomain)
 )
 
-// Information for a single element of configuration stored in a file.
+// ConfigRef provides information for a single element of configuration stored in a file.
 type ConfigRef struct {
 	Meta     *model.ConfigMeta
 	FilePath string
 }
 
-// Returns a function that applies the provided namespace and domain to ConfigRef instances.
+// WithDefaults applies the provided namespace and domain to ConfigRef instances.
 func WithDefaults(namespace, domain string) func(*ConfigRef) *ConfigRef {
 	return func(c *ConfigRef) *ConfigRef {
 		c.Meta.Namespace = namespace
@@ -46,11 +46,11 @@ func WithDefaults(namespace, domain string) func(*ConfigRef) *ConfigRef {
 	}
 }
 
-// A decorator around another ConfigStore that adds support for loading configuration elements from files.
+// ConfigStore is a decorator around another config store that adds support for loading configuration elements from files.
 type ConfigStore interface {
 	model.ConfigStore
 
-	// Create a new configuration element from the specified file.
+	// CreateFromFile create a new configuration element from the specified file.
 	CreateFromFile(config ConfigRef) error
 }
 
@@ -58,11 +58,12 @@ type configStore struct {
 	model.ConfigStore
 }
 
-// Creates a new file-based config store.
+// NewConfigStore creates a new file-based config store.
 func NewConfigStore(store model.ConfigStore) ConfigStore {
 	return &configStore{store}
 }
 
+// CreateFromFile create a new configuration element from the specified file.
 func (store *configStore) CreateFromFile(config ConfigRef) error {
 	schema, ok := model.IstioConfigTypes.GetByType(config.Meta.Type)
 	if !ok {
@@ -82,9 +83,5 @@ func (store *configStore) CreateFromFile(config ConfigRef) error {
 	}
 
 	_, err = store.Create(out)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

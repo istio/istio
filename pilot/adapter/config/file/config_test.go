@@ -54,9 +54,9 @@ func TestAllConfigs(t *testing.T) {
 			configStore := file.NewConfigStore(mockStore)
 			inputMeta := input.Meta
 			if err := configStore.CreateFromFile(*input); err != nil {
-				t.Fatalf("failed creating config ", input)
+				t.Fatalf("failed creating config %v", input)
 			} else if _, exists := configStore.Get(inputMeta.Type, inputMeta.Name, inputMeta.Namespace); !exists {
-				t.Fatalf("missing config ", input)
+				t.Fatalf("missing config %v", input)
 			}
 		})
 		// TODO(nmittler): Do we care about doing a deep comparison?
