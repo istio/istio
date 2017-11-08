@@ -593,7 +593,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && bazel-bin/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
+cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
@@ -622,7 +622,7 @@ cd $MIXER_REPO && bazel build ...
 Invoke report
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 ```
 
 
@@ -646,7 +646,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
