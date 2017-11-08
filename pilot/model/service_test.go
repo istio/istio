@@ -177,3 +177,21 @@ func TestGetByPort(t *testing.T) {
 		t.Errorf("GetByPort(88) => want none but got %v, %t", port, exists)
 	}
 }
+
+func TestExtractNamespaceFromHostname(t *testing.T) {
+	testCases := []struct {
+		hostname string
+		wanted   string
+	}{
+		{"frod.fred.svc.cluster.local", "fred"},
+		{"frod.fred", "fred"},
+		{"frod.", ""},
+		{"frod", ""},
+		{"", ""},
+	}
+	for _, test := range testCases {
+		if out := ExtractNamespaceFromHostname(test.hostname); out != test.wanted {
+			t.Errorf("ExtractNamespaceFromHostname(%s) => wanted %s, got %s\n", test.hostname, test.wanted, out)
+		}
+	}
+}
