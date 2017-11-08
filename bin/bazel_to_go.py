@@ -215,6 +215,8 @@ def main(args):
     bazel_to_vendor(WKSPC)
 
 def should_copy(src, dest):
+    if not os.path.exists(dest):
+        return True
     p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
     p.wait()
     if src.endswith('.pb.go'):
@@ -227,11 +229,23 @@ def should_copy(src, dest):
                 # first two lines are headers, skipping
                 continue
             if l.startswith('@@ '):
+                # header for a diff chunk
                 continue
             if l.startswith(' '):
+                # part of non-changes
                 continue
             if re.search(r'genfiles/.*\.proto\b', l):
+                # ignoring the proto file path -- the exact file path can be different,
+                # depending on the platform.
                 continue
+            if re.search(r'// \d+ bytes of a gzipped FileDescriptorProto', l):
+                # header comment for descriptor bytes data. It can be different if the file path
+                # is different.
+                continue
+            if re.match(r'^.\s*(0x[0-9a-f][0-9a-f],\s*)+$', l):
+                # file descriptor bytes data. It can be different if the file path is different.
+                continue
+            # Other changes would be meaningful changes.
             has_diff = True
             break
     else:
