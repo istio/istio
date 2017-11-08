@@ -811,6 +811,15 @@ func appendPortToDomains(domains []string, port int) []string {
 	return domainsWithPorts
 }
 
+func truncateClusterName(name string) string {
+	if len(name) > MaxClusterNameLength {
+		prefix := name[:MaxClusterNameLength - sha1.Size * 2]
+		sum := sha1.Sum([]byte(name))
+		return fmt.Sprintf("%s%x", prefix, sum)
+	}
+	return name
+}
+
 func buildEgressVirtualHost(rule *proxyconfig.EgressRule,
 	mesh *proxyconfig.MeshConfig, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
@@ -826,7 +835,7 @@ func buildEgressVirtualHost(rule *proxyconfig.EgressRule,
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := fmt.Sprintf("%x", sha1.Sum([]byte(key)))
+	name := truncateClusterName(key)
 	externalTrafficCluster = buildOriginalDSTCluster(name, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination

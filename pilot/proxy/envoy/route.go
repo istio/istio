@@ -18,7 +18,6 @@
 package envoy
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"path"
 	"sort"
@@ -107,10 +106,10 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
+	name := truncateClusterName(OutboundClusterPrefix + key)
 
-	// cluster name must be below 60 characters
 	cluster := &Cluster{
-		Name:        OutboundClusterPrefix + fmt.Sprintf("%x", sha1.Sum([]byte(key))),
+		Name:        name,
 		ServiceName: key,
 		Type:        SDSName,
 		LbType:      DefaultLbType,
