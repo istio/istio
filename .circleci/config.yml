@@ -60,7 +60,7 @@ jobs:
             mkdir /tmp/etcd-download-test
             curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
             tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
-            /tmp/etcd-download-test/etcd
+            /tmp/etcd-download-test/etcd &
       - run:
           command: |
             mkdir /tmp/apiserver-download-test
@@ -72,7 +72,7 @@ jobs:
               --tls-cert-file ~/easyrsa/pki/issued/server.crt \
               --tls-private-key-file ~/easyrsa/pki/private/server.key \
               --service-cluster-ip-range 10.99.0.0/16 \
-              --port 8080 -v 2 --insecure-bind-address 0.0.0.0
+              --port 8080 -v 2 --insecure-bind-address 0.0.0.0 &
       - run: cd /go/src/istio.io/istio; dep ensure
       - run:
           command: |
