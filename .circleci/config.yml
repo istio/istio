@@ -35,25 +35,45 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
-  build:
+  pilot-unittest:
     machine: true
     working_directory: ~/go/src/istio.io/istio
     environment:
-      CHANGE_MINIKUBE_NONE_USER: true
+      K8S_VER: v1.7.4
+      MASTER_IP: 127.0.0.1
+      MASTER_CLUSTER_IP: 10.99.0.1
     steps:
       - checkout
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
-            sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
-      - run: sudo -E minikube update-context
-      - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
-      - run: sudo -E kubectl cluster-info
-      - run: go get -u github.com/golang/dep/cmd/dep
+            cd ~
+            curl -L -O https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz
+            tar xzf easy-rsa.tar.gz
+            cd easy-rsa-master/easyrsa3
+            ./easyrsa init-pki
+            ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass
+            ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass
+      - run:
+          command: |
+            go get github.com/coreos/etcd/cmd/etcd
+            ./go/bin/etcd
+      - run:
+          command: |
+            mkdir /tmp/apiserver-download-test
+            curl -L https://dl.k8s.io/${K8S_VER}/kubernetes-server-linux-amd64.tar.gz -o /tmp/kube-${K8S_VER}.tar.gz
+            tar xzvf /tmp/kube-${K8S_VER}.tar.gz -C /tmp/apiserver-download-test --strip-components=1
+            /tmp/apiserver-download-test/server/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
+              --client-ca-file ~/easyrsa/pki/ca.crt \
+              --requestheader-client-ca-file ~/easyrsa/pki/ca.crt \
+              --tls-cert-file ~/easyrsa/pki/issued/server.crt \
+              --tls-private-key-file ~/easyrsa/pki/private/server.key \
+              --service-cluster-ip-range 10.99.0.0/16 \
+              --port 8080 -v 2 --insecure-bind-address 0.0.0.0
       - run: cd /go/src/istio.io/istio; dep ensure
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
       - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - restore_cache:
           keys:
@@ -62,11 +82,11 @@ jobs:
           command: |
             ENVOY_BINARY=$(sudo find /home/circleci/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
             ln -sf ${ENVOY_BINARY} /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; go test ./pilot/...
+      - run: cd ~/go/src/istio.io/istio; go test ./pilot/...
 
 workflows:
   version: 2
   all:
     jobs:
-      - build
+      - pilot-unittest
       - pilot-integration
