@@ -25,7 +25,8 @@ KEY_FILE_PATH=""
 SVC_ACCT=""
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # TODO: grab this from a URL like https://github.com/mattdelco/istio/blob/master/bin/cloud_build.template.json
-# -- really need to grab the version that corresponds to the commit hash in the manifest file
+# -- really need to grab the version that corresponds to the commit hash in the manifest file, e.g.,
+# https://github.com/mattdelco/istio/blob/faff18336653a8d241d3fe8253aea9f16ac64ae1/bin/cloud_build.template.json
 TEMPLATE="${SCRIPTPATH}/cloud_build.template.json"
 TEMP_DIR="$(mktemp -d /tmp/istio.build.XXXX)"
 BUILD_FILE="${TEMP_DIR}/cloud_build.json"
