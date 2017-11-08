@@ -54,8 +54,15 @@ jobs:
     steps:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: cd /go/src/istio.io/istio; dep ensure
       - run: cd /go/src/istio.io/istio; go build -i ./pilot/... ./mixer/... ./broker/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
 
 workflows:
   version: 2
