@@ -39,6 +39,8 @@ jobs:
     machine: true
     working_directory: ~/go/src/istio.io/istio
     environment:
+      DOWNLOAD_URL: https://github.com/coreos/etcd/releases/download
+      ETCD_VER: v3.2.9
       K8S_VER: v1.7.4
       MASTER_IP: 127.0.0.1
       MASTER_CLUSTER_IP: 10.99.0.1
@@ -55,8 +57,9 @@ jobs:
             ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass
       - run:
           command: |
-            go get github.com/coreos/etcd/cmd/etcd
-            ./go/bin/etcd
+            curl -L ${DOWNLOAD_URL}/${ETCD_VER}/etcd-${ETCD_VER}-linux-amd64.tar.gz -o /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz
+            tar xzvf /tmp/etcd-${ETCD_VER}-linux-amd64.tar.gz -C /tmp/etcd-download-test --strip-components=1
+            /tmp/etcd-download-test/etcd
       - run:
           command: |
             mkdir /tmp/apiserver-download-test
