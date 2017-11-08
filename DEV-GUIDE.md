@@ -220,7 +220,7 @@ reviews much easier.
 Please do not use force push after submitting a PR to resolve review
 feedback. Doing so results in an inability to see what has changed between
 revisions of the PR. Instead submit additional commits until the PR is
-suitable for merging. Once the PR is suitable for merging, the commits may
+suitable for merging. Once the PR is suitable for merging, the commits will
 be squashed to simplify the commit.
 
 ## Using the code base
