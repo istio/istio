@@ -67,41 +67,11 @@ jobs:
           paths:
             - /go/src/istio.io/istio/vendor
 
-  mixer-unittest:
-    machine: true
-    working_directory: ~/go/src/istio.io/istio
-    environment:
-      CHANGE_MINIKUBE_NONE_USER: true
-    steps:
-      - checkout
-      - run: pilot/bin/install-bazel.sh
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
-      - run:
-          command: |
-            sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
-      - run: sudo -E minikube update-context
-      - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
-      - run: sudo -E kubectl cluster-info
-      - restore_cache:
-          keys:
-            - bazel-cache-{{ checksum "WORKSPACE" }}
-      - run: make build
-      - run: cd ~/go/src/istio.io/istio; bazel test //mixer/...
-      - save_cache:
-          key: bazel-cache-{{ checksum "WORKSPACE" }}
-          paths:
-            - /home/circleci/.cache/bazel
-
 workflows:
   version: 2
   all:
     jobs:
       - unittest
-      - mixer-unittest
       - pilot-integration:
           requires:
             - unittest
-            - mixer-unittest
