@@ -224,7 +224,7 @@ reviews much easier.
 To build the core repo:
 
 ```shell
-cd $ISTIO
+cd $ISTIO/istio
 make build
 ```
 
