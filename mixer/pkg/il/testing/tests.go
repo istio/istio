@@ -998,7 +998,7 @@ end`,
 
 	{
 		E:       `(ar | br)["foo"]`,
-		SkipAst: true,
+		SkipAst: true,           // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"foo": "bar",
@@ -1020,7 +1020,7 @@ end`,
 	},
 	{
 		E:       `(ar | br)["foo"]`,
-		SkipAst: true,
+		SkipAst: true,           // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"br": map[string]string{
 				"foo": "far",
@@ -1461,7 +1461,7 @@ end`,
 	{
 		E:          `ai == true`,
 		CompileErr: "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64",
-		SkipAst:    true,
+		AstErr:     "unresolved attribute ai",
 	},
 }
 
