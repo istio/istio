@@ -73,19 +73,19 @@ jobs:
               --tls-private-key-file ~/easyrsa/pki/private/server.key \
               --service-cluster-ip-range 10.99.0.0/16 \
               --port 8080 -v 2 --insecure-bind-address 0.0.0.0 &
-      - run: cd /go/src/istio.io/istio; dep ensure
+      - run: cd ~/go/src/istio.io/istio; dep ensure
       - run:
           command: |
             mkdir ~/.kube
-            cp /go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
-      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+            cp ~/go/src/istio.io/istio/install/consul/kubeconfig ~/.kube/config
+      - run: ln -s ~/.kube/config ~/go/src/istio.io/istio/pilot/platform/kube/config
       - restore_cache:
           keys:
             - bazel-cache-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             ENVOY_BINARY=$(sudo find /home/circleci/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
-            ln -sf ${ENVOY_BINARY} /go/src/istio.io/istio/pilot/proxy/envoy/envoy
+            ln -sf ${ENVOY_BINARY} ~/go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd ~/go/src/istio.io/istio; go test ./pilot/...
 
 workflows:
