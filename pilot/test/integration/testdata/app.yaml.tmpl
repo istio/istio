@@ -7,10 +7,10 @@ metadata:
     app: {{.service}}
 {{if eq .perServiceAuth "true"}}
   annotations:
-    tls.istio.io/80: enable
-    tls.istio.io/8080: disable
-    tls.istio.io/7070: enable
-    tls.istio.io/9090: enable
+    auth.istio.io/80: MUTUAL_TLS
+    auth.istio.io/8080: NONE
+    auth.istio.io/7070: MUTUAL_TLS
+    auth.istio.io/9090: MUTUAL_TLS
 {{end}}
 spec:
   ports:
