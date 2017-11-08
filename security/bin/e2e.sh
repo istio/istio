@@ -52,8 +52,7 @@ fi
 
 OUTPUT_DIR=`pwd`/docker
 
-# Generate certificate and private key from root
-echo 'Generate certificate and private key from root'
+echo "Generate certificate and private key for Istio CA"
 bazel run $BAZEL_ARGS //security/cmd/generate_cert -- \
 -out-cert=${OUTPUT_DIR}/istio_ca.crt \
 -out-priv=${OUTPUT_DIR}/istio_ca.key \
@@ -61,7 +60,7 @@ bazel run $BAZEL_ARGS //security/cmd/generate_cert -- \
 -self-signed=true \
 -ca=true
 
-# Generate certificate and private key from istio_ca
+echo "Generate certificate and private key for node agent"
 bazel run $BAZEL_ARGS //security/cmd/generate_cert -- \
 -out-cert=${OUTPUT_DIR}/node_agent.crt \
 -out-priv=${OUTPUT_DIR}/node_agent.key \
