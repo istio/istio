@@ -53,21 +53,21 @@ for f in code.pb.go error_details.pb.go status.pb.go; do
 done
 
 mkdir -p vendor/istio.io/istio/pilot/test/mixer/istio_mixer_v1
-ln -sf "$genfiles/test/mixer/istio_mixer_v1/mixer.pb.go" \
+ln -sf "$genfiles/pilot/test/mixer/istio_mixer_v1/mixer.pb.go" \
   vendor/istio.io/istio/pilot/test/mixer/istio_mixer_v1/
-mkdir -p vendor/istio.io/istio/pilot/test/mixer/wordlist
-ln -sf "$genfiles/test/mixer/wordlist/wordlist.go" \
+mkdir -p vendor/pilot/istio.io/istio/pilot/test/mixer/wordlist
+ln -sf "$genfiles/pilot/test/mixer/wordlist/wordlist.go" \
   vendor/istio.io/istio/pilot/test/mixer/wordlist/
 mkdir -p vendor/istio.io/istio/pilot/test/grpcecho
-ln -sf "$genfiles/test/grpcecho/echo.pb.go" \
+ln -sf "$genfiles/pilot/test/grpcecho/echo.pb.go" \
   vendor/istio.io/istio/pilot/test/grpcecho/
 
 # Link CRD generated files
-ln -sf "$genfiles/adapter/config/crd/types.go" \
+ln -sf "$genfiles/pilot/adapter/config/crd/types.go" \
   adapter/config/crd/
 
 # Link envoy binary
-ln -sf "$genfiles/proxy/envoy/envoy" proxy/envoy/
+ln -sf "$genfiles/pilot/proxy/envoy/envoy" proxy/envoy/
 
 # Some linters expect the code to be installed
 go install ./...
