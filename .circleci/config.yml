@@ -41,27 +41,30 @@ jobs:
       - image: gihanson/test-apiserver:latest
     steps:
       - checkout
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: cd /go/src/istio.io/istio; dep ensure
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
       - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - restore_cache:
-          keys:
-            - bazel-cache-{{ checksum "WORKSPACE" }}
       - run:
           command: |
-            ENVOY_BINARY=$(sudo find /home/circleci/.cache/bazel -executable -type f -name envoy | grep io_istio_istio)
-            ln -sf ${ENVOY_BINARY} /go/src/istio.io/istio/pilot/proxy/envoy/envoy
+            cd /
+            wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-5d798021523fa1e587fa45d48b4ce38e25967ed3.tar.gz -O envoy.tar.gz
+            tar xvzf envoy.tar.gz
+            ln -sf /usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; go test ./pilot/...
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
 
 workflows:
   version: 2
