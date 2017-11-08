@@ -104,6 +104,7 @@ pushd pilot
 
 # Build istioctl binaries
 # ./bin/init.sh
+touch platform/kube/config
 bazel build //...
 
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
