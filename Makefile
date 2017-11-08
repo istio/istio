@@ -45,7 +45,7 @@ build: setup
 	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
 
 fmt:
-	@bin/fmt.sh
+	bin/fmt.sh
 
 clean:
 	@bazel clean
