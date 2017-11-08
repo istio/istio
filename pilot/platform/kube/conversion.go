@@ -25,6 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 )
 
@@ -46,7 +47,7 @@ const (
 
 	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
 	// authentication policy.
-	PortAuthenticationAnnotationKeyPrefix = "tls.istio.io"
+	PortAuthenticationAnnotationKeyPrefix = "auth.istio.io"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -59,19 +60,15 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 
 // Extracts security option for given port from annotation. If there is no such
 // annotation, or the annotation value is not recognized, returns
-// model.SecurityDefault.
-func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) model.AuthenticationPolicy {
+// proxyconfig.AuthenticationPolicy_INHERIT
+func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) proxyconfig.AuthenticationPolicy {
 	if obj.Annotations == nil {
-		return model.AuthenticationDefault
+		return proxyconfig.AuthenticationPolicy_INHERIT
 	}
-	switch obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))] {
-	case "disable":
-		return model.AuthenticationDisable
-	case "enable":
-		return model.AuthenticationEnable
-	default:
-		return model.AuthenticationDefault
+	if val, ok := proxyconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
+		return proxyconfig.AuthenticationPolicy(val)
 	}
+	return proxyconfig.AuthenticationPolicy_INHERIT
 }
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
