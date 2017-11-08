@@ -70,13 +70,14 @@ bazel shutdown
 popd
 
 pushd security
-./bin/push-docker           -h "" -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg.
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 bazel shutdown
 popd
 
 pushd mixer
-./bin/push-docker           -h "" -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 bazel shutdown
 popd
 
@@ -101,7 +102,7 @@ fi
 
 ./bin/upload-istioctl.sh -r -o "${OUTPUT_PATH}"
 
-./bin/push-docker -h "" -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 
 # -v controls whether to do -release or not
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
