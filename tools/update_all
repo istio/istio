@@ -10,4 +10,4 @@ git pull
 bazel build -c opt src/envoy/mixer:envoy
 go get -u istio.io/fortio
 set +x
-echo "### All done... source istio/devel/setup_run   now"
+echo "### All done... source istio/tools/setup_run   now"
