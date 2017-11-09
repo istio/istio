@@ -20,18 +20,18 @@ import (
 	"os"
 	"time"
 
-	"istio.io/istio/security/cmd/istio_ca/version"
-	"istio.io/istio/security/pkg/cmd"
-	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/server/grpc"
-
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/security/cmd/istio_ca/version"
+	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/server/grpc"
 )
 
 const (

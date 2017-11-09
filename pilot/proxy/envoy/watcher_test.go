@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -28,7 +29,6 @@ import (
 	"github.com/howeyc/fsnotify"
 
 	"istio.io/istio/pilot/proxy"
-	"fmt"
 )
 
 type TestAgent struct {
