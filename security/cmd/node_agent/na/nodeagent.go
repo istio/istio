@@ -158,12 +158,12 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
 	}
 
 	cred, err := na.pc.GetAgentCredential()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
 	}
 
 	return privKey, &pb.Request{
