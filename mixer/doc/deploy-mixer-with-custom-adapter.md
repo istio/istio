@@ -20,7 +20,8 @@ These instructions assume that:
   * `docker`, `kubectl`, and `gcloud` commands are installed.
   * `kubectl` has been configured and is authorized to push to a cluster
 
-1. Build a docker image of Mixer with your custom adapter.
+
+1. #### Build a docker image of Mixer with your custom adapter
 
    Execute the following command:
 
@@ -49,7 +50,7 @@ These instructions assume that:
    istio/mixer/docker   mixer               f2eb3e4f7f98        47 years ago        169.3 MB
    ```
 
-1. Tag your new Mixer image appropriately for your image registry of choice.
+1. #### Tag your new Mixer image appropriately for your image registry of choice
 
    If using Google Cloud Registry, use a command similar to:
    
@@ -59,7 +60,7 @@ These instructions assume that:
    
    Set `$PROJECT` to your project id and `$DOCKER_TAG` to your desired tag before executing the command.
    
-1. Push your new Mixer image into the image registry.
+1. #### Push your new Mixer image into the image registry
 
    If using Google Cloud Registry, use a command similar to:
    
@@ -67,7 +68,7 @@ These instructions assume that:
    gcloud docker -- push gcr.io/$PROJECT/mixer:$DOCKER_TAG
    ```
    
-1. Generate the appropriate CRD for your custom adapter.
+1. #### Generate the appropriate CRD for your custom adapter
 
    The Mixer binary has a utility for generating the Custom Resource Definitions for adapters. Invoke this utility as follows:
    
@@ -97,7 +98,7 @@ These instructions assume that:
      version: v1alpha2
    ```
 
-1. Deploy your CRD.
+1. #### Deploy your CRD
 
    Execute the following command:
    
@@ -105,7 +106,7 @@ These instructions assume that:
    kubectl apply -f custom-crd.yaml
    ```
    
-1. Edit the Mixer deployment configuration to reference your new image.
+1. #### Edit the Mixer deployment configuration to reference your new image
 
    If you already have a Mixer instance running from a previous deployment of Istio, execute the following commands:
    
@@ -150,6 +151,6 @@ These instructions assume that:
    kubectl apply -f install/kubernetes/istio.yaml 
    ```
  
- 1. Celebrate
+ 1. #### Celebrate
  
     Woohoo! A new Mixer, built with your adapter code, should now be running in your cluster. Configure a handler for your custom adapter and begin sending it instances!
