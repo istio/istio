@@ -129,7 +129,7 @@ func TestStartWithArgs(t *testing.T) {
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
-      expectedErr: "CSR creation failure (crypto/rsa: message too long for RSA public key size)",
+			expectedErr: "CSR creation failure (crypto/rsa: message too long for RSA public key size)",
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
@@ -250,7 +250,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-                        expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
+			expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
 		},
 		"Without Insecure option": {
 			config: &Config{

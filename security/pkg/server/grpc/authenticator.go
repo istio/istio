@@ -76,9 +76,9 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 	}
 
 	ids, err := pki.ExtractIDs(chains[0][0].Extensions)
-  if err != nil {
-    return nil, err
-  }
+	if err != nil {
+		return nil, err
+	}
 
 	return &caller{
 		authSource: authSourceClientCertificate,
@@ -103,7 +103,8 @@ func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
 }
 
 func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, error) {
-	bearerToken, err := extractBearerToken(ctx); if err != nil {
+	bearerToken, err := extractBearerToken(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 

@@ -64,10 +64,10 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 		return "", err
 	}
 	serviceIDs, err := pki.ExtractIDs(cert.Extensions)
-  if err != nil {
-    return "", err
-  }
-  if len(serviceIDs) != 1 {
+	if err != nil {
+		return "", err
+	}
+	if len(serviceIDs) != 1 {
 		return "", fmt.Errorf("Cert has %v SAN fields, should be 1", len(serviceIDs))
 	}
 	return serviceIDs[0], nil

@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-  "github.com/golang/glog"
+	"github.com/golang/glog"
 	"istio.io/istio/security/pkg/pki"
 )
 

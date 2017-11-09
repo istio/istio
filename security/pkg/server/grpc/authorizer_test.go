@@ -15,38 +15,38 @@
 package grpc
 
 import (
-  "testing"
+	"testing"
 )
 
 func TestAuthroizer(t *testing.T) {
 	testCases := map[string]struct {
-		expectedErr   string
+		expectedErr  string
 		requestedIDs []string
-		callerIDs      []string
+		callerIDs    []string
 	}{
 		"Authorized": {
-			expectedErr:   "",
+			expectedErr:  "",
 			requestedIDs: []string{"id1"},
-			callerIDs:      []string{"id1", "id2"},
+			callerIDs:    []string{"id1", "id2"},
 		},
 		"Unauthorized": {
-			expectedErr:   "The requested identity (\"id3\") does not match the caller's identities",
+			expectedErr:  "The requested identity (\"id3\") does not match the caller's identities",
 			requestedIDs: []string{"id3"},
-			callerIDs:      []string{"id1", "id2"},
+			callerIDs:    []string{"id1", "id2"},
 		},
 	}
 
 	authz := &sameIdAuthorizer{}
 	for id, tc := range testCases {
 		err := authz.authorize(&caller{authSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
-    if len(tc.expectedErr) > 0 {
-      if err == nil {
-        t.Errorf("%s: succeeded. Error expected: %v", id, err)
-      } else if err.Error() != tc.expectedErr {
-        t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), tc.expectedErr)
-      }
-    } else if err != nil {
-      t.Errorf("%s: unexpected Error: %v", id, err)
-    }
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), tc.expectedErr)
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected Error: %v", id, err)
+		}
 	}
 }

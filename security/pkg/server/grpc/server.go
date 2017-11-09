@@ -86,7 +86,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		IsApproved:      true,
 		SignedCertChain: cert,
 	}
-  glog.Info("CSR successfully signed.")
+	glog.Info("CSR successfully signed.")
 
 	return response, nil
 }

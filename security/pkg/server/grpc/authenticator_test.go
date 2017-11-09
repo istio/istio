@@ -43,15 +43,15 @@ func TestAuthenticate(t *testing.T) {
 
 	testCases := map[string]struct {
 		certChain [][]*x509.Certificate
-	  caller      *caller
+		caller    *caller
 	}{
 		"no client certificate": {
 			certChain: nil,
-			caller:      nil,
+			caller:    nil,
 		},
 		"Empty cert chain": {
 			certChain: [][]*x509.Certificate{},
-			caller:      nil,
+			caller:    nil,
 		},
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{

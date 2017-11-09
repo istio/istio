@@ -19,7 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-  "strings"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,28 +87,28 @@ func TestSign(t *testing.T) {
 		ca          ca.CertificateAuthority
 		csr         string
 		cert        string
-		errCode        codes.Code
-    errMsg      string
+		errCode     codes.Code
+		errMsg      string
 	}{
 		"Unauthenticated request": {
 			authnErrMsg: "authn error1",
-			errCode:        codes.Unauthenticated,
-      errMsg:       "request authenticate failure",
+			errCode:     codes.Unauthenticated,
+			errMsg:      "request authenticate failure",
 		},
 		"Unauthorized request": {
 			authnErrMsg: "",
 			authzErrMsg: "authz error1",
 			csr:         csr,
-			errCode:        codes.PermissionDenied,
-      errMsg:     "request is not authorized (authz error1)",
+			errCode:     codes.PermissionDenied,
+			errMsg:      "request is not authorized (authz error1)",
 		},
 		"Failed to sign": {
 			authnErrMsg: "",
 			authzErrMsg: "",
 			ca:          &mockCA{errMsg: "sign error1"},
 			csr:         csr,
-			errCode:        codes.Internal,
-      errMsg:      "CSR signing error (sign error1)",
+			errCode:     codes.Internal,
+			errMsg:      "CSR signing error (sign error1)",
 		},
 		"Successful signing": {
 			authnErrMsg: "",
@@ -116,7 +116,7 @@ func TestSign(t *testing.T) {
 			ca:          &mockCA{cert: "generated cert1"},
 			csr:         csr,
 			cert:        "generated cert1",
-			errCode:        codes.OK,
+			errCode:     codes.OK,
 		},
 	}
 
@@ -141,14 +141,14 @@ func TestSign(t *testing.T) {
 
 		response, err := server.HandleCSR(nil, request)
 		if c.errCode != grpc.Code(err) {
-      t.Errorf("Case %s: Error code mismatch: %d VS (expected) %d", id, grpc.Code(err), c.errCode)
+			t.Errorf("Case %s: Error code mismatch: %d VS (expected) %d", id, grpc.Code(err), c.errCode)
 		}
-    if grpc.Code(err) != codes.OK {
-      if strings.Compare(grpc.ErrorDesc(err), c.errMsg) != 0 {
-        t.Errorf("Case %s: Error message mismatch: %s VS (expected) %s", id, grpc.ErrorDesc(err), c.errMsg)
-      }
-    } else if !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
-      t.Errorf("Case %s: issued cert mismatch: %s VS (expected) %s", id, response.SignedCertChain, c.cert)
+		if grpc.Code(err) != codes.OK {
+			if strings.Compare(grpc.ErrorDesc(err), c.errMsg) != 0 {
+				t.Errorf("Case %s: Error message mismatch: %s VS (expected) %s", id, grpc.ErrorDesc(err), c.errMsg)
+			}
+		} else if !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
+			t.Errorf("Case %s: issued cert mismatch: %s VS (expected) %s", id, response.SignedCertChain, c.cert)
 		}
 	}
 }
