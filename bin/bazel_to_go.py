@@ -13,6 +13,7 @@ import ast
 import glob
 import json
 import os
+import re
 import subprocess
 import shutil
 
@@ -197,10 +198,11 @@ def bazel_to_vendor(WKSPC):
 
 
     for (src, dest) in protolst:
-      try:
-        shutil.copyfile(src, dest)
-      except Exception as ex:
-        print src, dest, ex
+        try:
+            if should_copy(src, dest):
+                shutil.copyfile(src, dest)
+        except Exception as ex:
+            print src, dest, ex
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
@@ -211,6 +213,44 @@ def main(args):
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
+
+def should_copy(src, dest):
+    if not os.path.exists(dest):
+        return True
+    p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
+    p.wait()
+    if src.endswith('.pb.go'):
+        # there might be diffs for 'source:' lines and others.
+        has_diff = False
+        linecount = 0
+        for l in p.stdout:
+            linecount += 1
+            if linecount < 3:
+                # first two lines are headers, skipping
+                continue
+            if l.startswith('@@ '):
+                # header for a diff chunk
+                continue
+            if l.startswith(' '):
+                # part of non-changes
+                continue
+            if re.search(r'genfiles/.*\.proto\b', l):
+                # ignoring the proto file path -- the exact file path can be different,
+                # depending on the platform.
+                continue
+            if re.search(r'// \d+ bytes of a gzipped FileDescriptorProto', l):
+                # header comment for descriptor bytes data. It can be different if the file path
+                # is different.
+                continue
+            if re.match(r'^.\s*(0x[0-9a-f][0-9a-f],\s*)+$', l):
+                # file descriptor bytes data. It can be different if the file path is different.
+                continue
+            # Other changes would be meaningful changes.
+            has_diff = True
+            break
+    else:
+        has_diff = (p.stdout.read() != '')
+    return has_diff
 
 def protos(WKSPC, genfiles, genfiles_external):
     lst = []
