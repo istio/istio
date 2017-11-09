@@ -21,10 +21,8 @@ PROJECT_ID=""
 KEY_FILE_PATH=""
 SVC_ACCT=""
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-# TODO: grab this from a URL like https://github.com/mattdelco/istio/blob/master/bin/cloud_build.template.json
-# -- really need to grab the version that corresponds to the commit hash in the manifest file, e.g.,
-# https://github.com/mattdelco/istio/blob/faff18336653a8d241d3fe8253aea9f16ac64ae1/bin/cloud_build.template.json
-TEMPLATE="${SCRIPTPATH}/cloud_build.template.json"
+TEMP_DIR="$(mktemp -d /tmp/build.temprepo.XXXX)"
+TEMPLATE="$(mktemp /tmp/build.template.XXXX)"
 BUILD_FILE="$(mktemp /tmp/build.request.XXXX)"
 RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 VER_STRING="0.0.0"
@@ -108,7 +106,22 @@ if [[ "${APPEND_VER_TO_GCR_PATH}" == "true" ]]; then
   fi
 fi
 
-## generate the json file, first strip off the closing } in the last line of the template
+# grab a copy of the manifest
+curl -s -L -o "${TEMP_DIR}/repo" https://storage.googleapis.com/git-repo-downloads/repo
+chmod u+x "${TEMP_DIR}/repo"
+
+# grab a copy of the istio repo (though we only care about one file)
+ISTIO_REPO_PATH="go/src/istio.io/istio"
+pushd ${TEMP_DIR}
+./repo init -u "${REPO}" -m "${REPO_FILE}" -b "${REPO_FILE_VER}"
+./repo sync "${ISTIO_REPO_PATH}"
+popd
+
+# grab a copy of the template file
+cp "${TEMP_DIR}/${ISTIO_REPO_PATH}/bin/cloud_build.template.json" "${TEMPLATE}"
+rm -rf "${TEMP_DIR}"
+
+# generate the json file, first strip off the closing } in the last line of the template
 head --lines=-1 "${TEMPLATE}" > "${BUILD_FILE}"
 echo "  \"substitutions\": {" >> "${BUILD_FILE}"
 echo "    \"_VER_STRING\": \"${VER_STRING}\"," >> "${BUILD_FILE}"
@@ -126,13 +139,28 @@ gcloud auth activate-service-account "${SVC_ACCT}" --key-file="${KEY_FILE_PATH}"
 curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -T "${BUILD_FILE}" \
   -s -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds
 
+# cleanup
+rm -f "${TEMPLATE}"
+rm -f "${BUILD_FILE}"
+
+BUILD_ID=""
+ID_WORD="id"
+BUILD_ID_COUNT=$(grep -c -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE)
+if [ "$BUILD_ID_COUNT" != "0" ]; then
+  BUILD_ID=$(grep -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE | \
+    sed "s/ *\"${ID_WORD}\": *\"\(.*\)\",*/\1/")
+  echo "BUILD_ID is ${BUILD_ID}"
+else
+  echo "failed to parse the following build result:"
+  cat $RESULT_FILE
+  exit 1
+fi
+
 # parse_result_file(): parses the result from a build query.
 # returns 0 if build successful, 1 if build still running, or 2 if build failed
 # first input parameter is path to file to parse
-# second input parameter is "true" or "false" (true says be quiet)
 function parse_result_file {
   local INPUT_FILE="$1"
-  local QUIET="$2"
 
   local ERROR_WORD="error"
   local ERROR_CODE_WORD="code"
@@ -171,23 +199,23 @@ function parse_result_file {
       return 2
       ;;
     FAILURE)
-      [[ "${QUIET}" == "true" ]] || echo "build has failed"
+      echo "build has failed"
       return 2
       ;;
     CANCELLED)
-      [[ "${QUIET}" == "true" ]] || echo "build was cancelled"
+      echo "build was cancelled"
       return 2      
       ;;
     QUEUED)
-      [[ "${QUIET}" == "true" ]] || echo "build is queued"
+      echo "build is queued"
       return 1
       ;;
     WORKING)
-      [[ "${QUIET}" == "true" ]] || echo "build is running"
+      echo "build is running at $(date)"
       return 1
       ;;
     SUCCESS)
-      [[ "${QUIET}" == "true" ]] || echo "build is successful"
+      echo "build is successful"
       return 0
       ;;
     *)
@@ -196,30 +224,25 @@ function parse_result_file {
   esac
 }
 
-if [[ "${WAIT_FOR_RESULT}"=="true" ]]; then
+if [[ "${WAIT_FOR_RESULT}" == "true" ]]; then
   echo "waiting for build to complete"
-  BUILD_ID=""
-  ID_WORD="id"
-  BUILD_ID_COUNT=$(grep -c -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE)
-  if [ "$BUILD_ID_COUNT" != "0" ]; then
-    BUILD_ID=$(grep -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE | \
-      sed "s/ *\"${ID_WORD}\": *\"\(.*\)\",*/\1/")
-  fi
-  echo "BUILD_ID is ${BUILD_ID}"
 
   curl -H "Authorization: Bearer $(gcloud auth print-access-token)" -s \
     -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds/{$BUILD_ID}"
 
-  parse_result_file "${RESULT_FILE}" "false"
+  parse_result_file "${RESULT_FILE}"
   PARSE_RESULT=$?
   while [ $PARSE_RESULT -eq 1 ]; do
-    sleep 15
+    sleep 60
 
     curl -H "Authorization: Bearer $(gcloud auth print-access-token)" -s \
       -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds/{$BUILD_ID}"
 
-    parse_result_file "${RESULT_FILE}" "false"
+    parse_result_file "${RESULT_FILE}"
     PARSE_RESULT=$?
   done
+  rm -f "${RESULT_FILE}"
   exit $PARSE_RESULT
 fi
+
+rm -f "${RESULT_FILE}"
