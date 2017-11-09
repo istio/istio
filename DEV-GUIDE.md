@@ -186,7 +186,7 @@ follow [these instructions](https://help.github.com/articles/caching-your-github
 if you want to cache the token.
 
 ```shell
-git push -f origin my-feature
+git push origin my-feature
 ```
 
 ### Creating a pull request
@@ -215,6 +215,12 @@ pass tests independently, but it is worth striving for. For mass automated
 fixups (e.g. automated doc formatting), use one or more commits for the
 changes to tooling and a final commit to apply the fixup en masse. This makes
 reviews much easier.
+
+Please do not use force push after submitting a PR to resolve review
+feedback. Doing so results in an inability to see what has changed between
+revisions of the PR. Instead submit additional commits until the PR is
+suitable for merging. Once the PR is suitable for merging, the commits will
+be squashed to simplify the commit.
 
 ## Using the code base
 
