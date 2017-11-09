@@ -37,19 +37,24 @@ if [ "${CI:-}" == 'bootstrap' ]; then
     cd ${GOPATH}/src/istio.io/istio
   fi
 
+  GIT_SHA="${PULL_BASE_SHA}"
+
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
+else
+  # Use the current commit.
+  GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
 HUB="gcr.io/istio-testing"
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
-  --mixer_tag "${PULL_PULL_SHA}"\
+  --mixer_tag "${GIT_SHA}"\
   --mixer_hub "${HUB}"\
-  --pilot_tag "${PULL_PULL_SHA}"\
+  --pilot_tag "${GIT_SHA}"\
   --pilot_hub "${HUB}"\
-  --ca_tag "${PULL_PULL_SHA}"\
+  --ca_tag "${GIT_SHA}"\
   --ca_hub "${HUB}"\
-  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${PULL_PULL_SHA}/artifacts/istioctl"
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"

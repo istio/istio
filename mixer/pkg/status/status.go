@@ -16,8 +16,6 @@
 package status
 
 import (
-	"fmt"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	rpc "github.com/googleapis/googleapis/google/rpc"
@@ -111,7 +109,7 @@ func NewBadRequest(field string, err error) *rpc.BadRequest {
 func String(status rpc.Status) string {
 	result, ok := rpc.Code_name[status.Code]
 	if !ok {
-		result = fmt.Sprintf("Code %d", status.Code)
+		result = "Code" + string(status.Code)
 	}
 
 	if status.Message != "" {
