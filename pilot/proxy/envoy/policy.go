@@ -18,7 +18,6 @@
 package envoy
 
 import (
-	"fmt"
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
@@ -41,15 +40,9 @@ func applyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		authPolicy := cluster.port.AuthenticationPolicy
-		if cluster.port.AuthMigrationPort != nil &&
-			cluster.port.AuthMigrationPort.Active {
-			fmt.Printf("AuthMigrationPort %d: %v\n", cluster.port.AuthMigrationPort.Port,
-				cluster.port.AuthMigrationPort.AuthenticationPolicy)
-			authPolicy = cluster.port.AuthMigrationPort.AuthenticationPolicy
-		}
-
-		if conslidateAuthPolicy(mesh, authPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+		if conslidateAuthPolicy(mesh,
+			cluster.port.AuthenticationPolicy,
+			cluster.port.AuthMigrationPort) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)

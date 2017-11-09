@@ -356,7 +356,7 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	}
 
 	filter := HTTPFilter{
-		Name: CORSFilter,
+		Name:   CORSFilter,
 		Config: CORSFilterConfig{},
 	}
 	filters = append([]HTTPFilter{filter}, filters...)
@@ -415,9 +415,18 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 
 // conslidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
 // returns mesh policy.
-func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyconfig.AuthenticationPolicy) proxyconfig.AuthenticationPolicy {
-	if serviceAuthPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
+func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig,
+	serviceAuthPolicy proxyconfig.AuthenticationPolicy,
+	authMigrationPort *model.AuthMigrationPort) proxyconfig.AuthenticationPolicy {
+	var authPolicy proxyconfig.AuthenticationPolicy
+	if authMigrationPort != nil && authMigrationPort.Active {
+		authPolicy = authMigrationPort.AuthenticationPolicy
+	} else {
+		authPolicy = serviceAuthPolicy
+	}
+
+	if authPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
+		return authPolicy
 	}
 	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
 	switch mesh.AuthPolicy {
@@ -434,7 +443,7 @@ func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyc
 // mayApplyInboundAuth adds ssl_context to the listener if conslidateAuthPolicy.
 func mayApplyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig,
 	serviceAuthPolicy proxyconfig.AuthenticationPolicy) {
-	if conslidateAuthPolicy(mesh, serviceAuthPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+	if conslidateAuthPolicy(mesh, serviceAuthPolicy, nil) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
@@ -818,7 +827,7 @@ func appendPortToDomains(domains []string, port int) []string {
 
 func truncateClusterName(name string) string {
 	if len(name) > MaxClusterNameLength {
-		prefix := name[:MaxClusterNameLength - sha1.Size * 2]
+		prefix := name[:MaxClusterNameLength-sha1.Size*2]
 		sum := sha1.Sum([]byte(name))
 		return fmt.Sprintf("%s%x", prefix, sum)
 	}
