@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"crypto/sha1"
 	"io/ioutil"
 	"reflect"
 	"sort"
@@ -27,7 +28,6 @@ import (
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
-	"crypto/sha1"
 )
 
 func TestRoutesByPath(t *testing.T) {
@@ -409,14 +409,14 @@ func TestProxyConfigControlPlaneAuth(t *testing.T) {
 }
 
 func TestTruncateClusterName(t *testing.T) {
-	data := make([]byte, MaxClusterNameLength + 1)
+	data := make([]byte, MaxClusterNameLength+1)
 	for i := range data {
-		data[i] = byte('a' + i % 26)
+		data[i] = byte('a' + i%26)
 	}
 	s := string(data) // the alphabet in lowercase, repeating...
 
 	var trunc string
-	less := s[:MaxClusterNameLength - 1]
+	less := s[:MaxClusterNameLength-1]
 	trunc = truncateClusterName(less)
 	if trunc != less {
 		t.Errorf("Cluster name modified when truncating short cluster name:\nwant %s,\ngot %s", less, trunc)
@@ -426,17 +426,16 @@ func TestTruncateClusterName(t *testing.T) {
 	if trunc != eq {
 		t.Errorf("Cluster name modified when truncating cluster name:\nwant %s,\ngot %s", eq, trunc)
 	}
-	gt := s[:MaxClusterNameLength + 1]
+	gt := s[:MaxClusterNameLength+1]
 	trunc = truncateClusterName(gt)
 	if len(trunc) != MaxClusterNameLength {
 		t.Errorf("Cluster name length is not expected: want %d, got %d", MaxClusterNameLength, len(trunc))
 	}
-	prefixLen := MaxClusterNameLength - sha1.Size * 2
+	prefixLen := MaxClusterNameLength - sha1.Size*2
 	if gt[:prefixLen] != trunc[:prefixLen] {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
 	}
 }
-
 
 /*
 var (

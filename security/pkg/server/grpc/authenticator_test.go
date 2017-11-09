@@ -21,13 +21,12 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/security/pkg/pki"
-
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"golang.org/x/net/context"
+	"istio.io/istio/security/pkg/pki"
 )
 
 func TestAuthenticat(t *testing.T) {
