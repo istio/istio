@@ -49,7 +49,7 @@ func TestGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{c.filename}
+		onprem := OnPremClientImpl{OnPremConfig{CertChainFile: c.filename}}
 		identity, err := onprem.GetServiceIdentity()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -65,11 +65,11 @@ func TestGetServiceIdentity(t *testing.T) {
 
 func TestGetTLSCredentials(t *testing.T) {
 	testCases := map[string]struct {
-		config      *ClientConfig
+		config      OnPremConfig
 		expectedErr string
 	}{
 		"Good cert": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
@@ -77,7 +77,7 @@ func TestGetTLSCredentials(t *testing.T) {
 			expectedErr: "",
 		},
 		"Loading failure": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-goo.pem",
 				KeyFile:        "testdata/cert-from-root-not-exist.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
@@ -85,7 +85,7 @@ func TestGetTLSCredentials(t *testing.T) {
 			expectedErr: "Cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
 		},
 		"Loading root cert failure": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-not-exist.pem",
@@ -95,9 +95,9 @@ func TestGetTLSCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{""}
+		onprem := OnPremClientImpl{c.config}
 
-		_, err := onprem.GetDialOptions(c.config)
+		_, err := onprem.GetDialOptions()
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
@@ -135,7 +135,7 @@ func TestGetAgentCredential(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{c.filename}
+		onprem := OnPremClientImpl{OnPremConfig{CertChainFile: c.filename}}
 		cred, err := onprem.GetAgentCredential()
 		if c.expectedErr != "" {
 			if err == nil {

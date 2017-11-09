@@ -43,7 +43,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Con
 	if cfg.IstioCAAddress == "" {
 		return nil, fmt.Errorf("Istio CA address is empty")
 	}
-	dialOptions, err := pc.GetDialOptions(&cfg.PlatformConfig)
+	dialOptions, err := pc.GetDialOptions()
 	if err != nil {
 		return nil, err
 	}
