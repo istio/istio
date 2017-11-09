@@ -125,4 +125,8 @@ pushd pilot
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-# storing of artifacts is currently a separate cloud builder step
+# generation of tarball and storing of artifacts is currently a separate cloud builder step
+${CP} istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
+find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
+  -exec ${CP} --parents {} "${OUTPUT_PATH}" \;
+find install/tools -type f -exec ${CP} --parents {} "${OUTPUT_PATH}" \;
