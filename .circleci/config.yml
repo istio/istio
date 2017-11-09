@@ -74,6 +74,6 @@ workflows:
   all:
     jobs:
       - unittest
-#      - pilot-integration:
-#          requires:
-#            - unittest
+      - pilot-integration:
+          requires:
+            - unittest
