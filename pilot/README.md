@@ -1,11 +1,6 @@
-# Istio Pilot #
-[Prow build Status](https://prow.istio.io/?job=pilot-postsubmit)
-[![CircleCI](https://circleci.com/gh/istio/pilot/tree/master.svg?style=svg)](https://circleci.com/gh/istio/pilot/tree/master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/pilot)](https://goreportcard.com/report/github.com/istio/pilot)
-[![GoDoc](https://godoc.org/github.com/istio/pilot?status.svg)](https://godoc.org/github.com/istio/pilot)
-[![codecov.io](https://codecov.io/github/istio/pilot/coverage.svg?branch=master)](https://codecov.io/github/istio/pilot?branch=master)
+# Istio Pilot
 
-Istio Pilot provides platform-independant service discovery, and exposes an
+Istio Pilot provides platform-independent service discovery, and exposes an
 interface to configure rich L7 routing features such as label based routing
 across multiple service versions, fault injection, timeouts, retries,
 circuit breakers. It translates these configurations into sidecar-specific
@@ -21,11 +16,6 @@ to learn more about the design of Pilot and the capabilities it provides.
 Istio Pilot [design](doc/design.md) gives an architectural overview of its
 internal components - cluster platform abstractions, service model, and the
 proxy controllers.
-
-
-To learn how you can contribute to Istio Pilot, please
-see the Istio
-[contribution guidelines](https://github.com/istio/istio/blob/master/CONTRIBUTING.md).
 
 # Quick start
 

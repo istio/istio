@@ -23,17 +23,16 @@ import (
 	"net/http"
 	"time"
 
-	"istio.io/istio/security/pkg/cmd"
-	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/pki/testutil"
-	"istio.io/istio/security/integration/utils"
-
+	"github.com/golang/glog"
+	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/golang/glog"
-	"github.com/spf13/cobra"
+	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/pki/testutil"
+  "istio.io/istio/security/integration/utils"
 )
 
 const (

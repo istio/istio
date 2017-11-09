@@ -18,7 +18,6 @@
 package envoy
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"path"
 	"sort"
@@ -107,10 +106,10 @@ func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Du
 func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels) *Cluster {
 	svc := model.Service{Hostname: hostname}
 	key := svc.Key(port, labels)
+	name := truncateClusterName(OutboundClusterPrefix + key)
 
-	// cluster name must be below 60 characters
 	cluster := &Cluster{
-		Name:        OutboundClusterPrefix + fmt.Sprintf("%x", sha1.Sum([]byte(key))),
+		Name:        name,
 		ServiceName: key,
 		Type:        SDSName,
 		LbType:      DefaultLbType,
@@ -199,6 +198,41 @@ func buildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 			if fault := buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
+		}
+	}
+
+	if rule.Mirror != nil {
+		route.ShadowCluster = &ShadowCluster{
+			Cluster: model.ResolveHostname(config.ConfigMeta, rule.Mirror),
+		}
+	}
+
+	for name, val := range rule.AppendHeaders {
+		route.HeadersToAdd = append(route.HeadersToAdd, AppendedHeader{
+			Key:   name,
+			Value: val,
+		})
+	}
+
+	if rule.CorsPolicy != nil {
+		route.CORSPolicy = &CORSPolicy{
+			AllowOrigin: rule.CorsPolicy.AllowOrigin,
+			Enabled:     true,
+		}
+		if rule.CorsPolicy.AllowCredentials != nil {
+			route.CORSPolicy.AllowCredentials = rule.CorsPolicy.AllowCredentials.Value
+		}
+		if len(rule.CorsPolicy.AllowHeaders) > 0 {
+			route.CORSPolicy.AllowHeaders = strings.Join(rule.CorsPolicy.AllowHeaders, ",")
+		}
+		if len(rule.CorsPolicy.AllowMethods) > 0 {
+			route.CORSPolicy.AllowMethods = strings.Join(rule.CorsPolicy.AllowMethods, ",")
+		}
+		if len(rule.CorsPolicy.ExposeHeaders) > 0 {
+			route.CORSPolicy.ExposeHeaders = strings.Join(rule.CorsPolicy.ExposeHeaders, ",")
+		}
+		if rule.CorsPolicy.MaxAge != nil {
+			route.CORSPolicy.MaxAge = rule.CorsPolicy.MaxAge.String()
 		}
 	}
 

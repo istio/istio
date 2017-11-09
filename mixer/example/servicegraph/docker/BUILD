@@ -5,10 +5,10 @@ load("//mixer/docker:mixer_docker.bzl", "mixer_docker_build")
 
 pkg_tar(
     name = "mixer_servicegraph_tar",
-    extension = "tar.gz",
-    files = [
+    srcs = [
         "//mixer/example/servicegraph/cmd/server",
     ],
+    extension = "tar.gz",
     mode = "0755",
     package_dir = "/usr/local/bin/",
     symlinks = {"/usr/local/bin/servicegraph": "/usr/local/bin/server"},

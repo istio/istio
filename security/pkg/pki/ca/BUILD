@@ -10,9 +10,9 @@ go_library(
     deps = [
         "//security/pkg/pki:go_default_library",
         "@com_github_golang_glog//:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes/typed/core/v1:go_default_library",
-        "@io_k8s_api//core/v1:go_default_library",
     ],
 )
 

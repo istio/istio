@@ -22,10 +22,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-
 	"github.com/fullsailor/pkcs7"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
 	"istio.io/istio/security/pkg/pki"
 )
 

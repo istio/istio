@@ -17,7 +17,6 @@ go_library(
         "@io_k8s_apimachinery//pkg/labels:go_default_library",
         "@io_k8s_apimachinery//pkg/util/uuid:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
-        "@io_k8s_client_go//plugin/pkg/client/auth:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )

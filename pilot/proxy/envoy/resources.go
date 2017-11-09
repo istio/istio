@@ -81,6 +81,9 @@ const (
 	// TCPProxyFilter is the name of the TCP Proxy network filter.
 	TCPProxyFilter = "tcp_proxy"
 
+	// CORSFilter is the name of the CORS network filter
+	CORSFilter = "cors"
+
 	// MongoProxyFilter is the name of the Mongo Proxy network filter.
 	MongoProxyFilter = "mongo_proxy"
 
@@ -113,12 +116,19 @@ const (
 	// ZipkinCollectorEndpoint denotes the REST endpoint where Envoy posts Zipkin spans
 	ZipkinCollectorEndpoint = "/api/v1/spans"
 
+	// MaxClusterNameLength is the maximum cluster name length
+	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
+
 	router  = "router"
 	auto    = "auto"
 	decoder = "decoder"
 	read    = "read"
 	both    = "both"
 )
+
+// ListenersALPNProtocols denotes the the list of ALPN protocols that the listener
+// should expose
+var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // convertDuration converts to golang duration and logs errors
 func convertDuration(d *duration.Duration) time.Duration {
@@ -190,6 +200,12 @@ type DelayFilter struct {
 	Duration int64  `json:"fixed_duration_ms,omitempty"`
 }
 
+// AppendedHeader definition
+type AppendedHeader struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // Header definition
 type Header struct {
 	Name  string `json:"name"`
@@ -253,6 +269,12 @@ type HTTPRoute struct {
 	AutoHostRewrite  bool `json:"auto_host_rewrite,omitempty"`
 	WebsocketUpgrade bool `json:"use_websocket,omitempty"`
 
+	ShadowCluster *ShadowCluster `json:"shadow,omitempty"`
+
+	HeadersToAdd []AppendedHeader `json:"request_headers_to_add,omitempty"`
+
+	CORSPolicy *CORSPolicy `json:"cors,omitempty"`
+
 	Decorator *Decorator `json:"decorator,omitempty"`
 
 	// clusters contains the set of referenced clusters in the route; the field is special
@@ -299,12 +321,31 @@ func (route *HTTPRoute) CombinePathPrefix(path, prefix string) *HTTPRoute {
 	}
 }
 
+// CORSPolicy definition
+// See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
+type CORSPolicy struct {
+	Enabled          bool     `json:"enabled,omitempty"`
+	AllowCredentials bool     `json:"allow_credentials,omitempty"`
+	AllowMethods     string   `json:"allow_methods,omitempty"`
+	AllowHeaders     string   `json:"allow_headers,omitempty"`
+	ExposeHeaders    string   `json:"expose_headers,omitempty"`
+	MaxAge           string   `json:"max_age,omitempty"`
+	AllowOrigin      []string `json:"allow_origin,omitempty"`
+}
+
 // RetryPolicy definition
 // See: https://lyft.github.io/envoy/docs/configuration/http_conn_man/route_config/route.html#retry-policy
 type RetryPolicy struct {
 	Policy          string `json:"retry_on"` //if unset, set to 5xx,connect-failure,refused-stream
 	NumRetries      int    `json:"num_retries,omitempty"`
 	PerTryTimeoutMS int64  `json:"per_try_timeout_ms,omitempty"`
+}
+
+// ShadowCluster definition
+// See: https://www.envoyproxy.io/envoy/configuration/http_conn_man/route_config/route.html?
+// highlight=shadow#config-http-conn-man-route-table-route-shadow
+type ShadowCluster struct {
+	Cluster string `json:"cluster"`
 }
 
 // WeightedCluster definition
@@ -527,6 +568,12 @@ type MongoProxyFilterConfig struct {
 
 func (*MongoProxyFilterConfig) isNetworkFilterConfig() {}
 
+// CORSFilterConfig definition
+// See: https://www.envoyproxy.io/envoy/configuration/http_filters/cors_filter.html#config-http-filters-cors
+type CORSFilterConfig struct{}
+
+func (*CORSFilterConfig) isNetworkFilterConfig() {}
+
 // RedisConnPool definition
 type RedisConnPool struct {
 	OperationTimeoutMS int64 `json:"op_timeout_ms"`
@@ -596,6 +643,7 @@ type SSLContext struct {
 	PrivateKeyFile           string `json:"private_key_file"`
 	CaCertFile               string `json:"ca_cert_file,omitempty"`
 	RequireClientCertificate bool   `json:"require_client_certificate"`
+	ALPNProtocols            string `json:"alpn_protocols,omitempty"`
 }
 
 // SSLContextExternal definition

@@ -37,6 +37,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -89,6 +94,11 @@
          }
         },
         {
+         "type": "",
+         "name": "cors",
+         "config": {}
+        },
+        {
          "type": "decoder",
          "name": "router",
          "config": {}
@@ -105,7 +115,8 @@
     "ssl_context": {
      "cert_chain_file": "/etc/istio/ingress-certs/tls.crt",
      "private_key_file": "/etc/istio/ingress-certs/tls.key",
-     "require_client_certificate": false
+     "require_client_certificate": false,
+     "alpn_protocols": "h2,http/1.1"
     },
     "bind_to_port": true
    }

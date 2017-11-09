@@ -96,17 +96,6 @@ func Test_String_WithNonString(t *testing.T) {
 	}
 }
 
-func Test_Interface_EmptyStringReturnsNull(t *testing.T) {
-	r := Result{
-		t:  il.String,
-		vs: "",
-	}
-
-	if r.AsInterface() != nil {
-		t.Fatalf("Expected empty string to be converted to nil.")
-	}
-}
-
 func Test_Interface(t *testing.T) {
 	r := Result{
 		t:  il.Interface,

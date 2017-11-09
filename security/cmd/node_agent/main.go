@@ -40,7 +40,7 @@ func init() {
 	flags := rootCmd.Flags()
 
 	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
-	flags.IntVar(&naConfig.RSAKeySize, "key-size", 1024, "Size of generated private key")
+	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
 	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")

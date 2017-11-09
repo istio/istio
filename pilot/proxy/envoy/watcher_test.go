@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -204,6 +205,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--parent-shutdown-time-s", "3",
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
+		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {
