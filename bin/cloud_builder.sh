@@ -126,7 +126,7 @@ pushd pilot
 popd
 
 # generation of tarball and storing of artifacts is currently a separate cloud builder step
-${CP} istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
+cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
 find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
-  -exec ${CP} --parents {} "${OUTPUT_PATH}" \;
-find install/tools -type f -exec ${CP} --parents {} "${OUTPUT_PATH}" \;
+  -exec cp --parents {} "${OUTPUT_PATH}" \;
+find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
