@@ -61,7 +61,9 @@ jobs:
             wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-5d798021523fa1e587fa45d48b4ce38e25967ed3.tar.gz -O envoy.tar.gz
             tar xvzf envoy.tar.gz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; go test ./pilot/... ./broker/... ./security/...
+      - run: cd /go/src/istio.io/istio; go test ./pilot/...
+      - run: cd /go/src/istio.io/istio; go test ./security/...
+      - run: cd /go/src/istio.io/istio; go test ./broker/...
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
@@ -72,6 +74,6 @@ workflows:
   all:
     jobs:
       - unittest
-      - pilot-integration:
-          requires:
-            - unittest
+#      - pilot-integration:
+#          requires:
+#            - unittest
