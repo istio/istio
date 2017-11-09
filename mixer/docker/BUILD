@@ -9,10 +9,10 @@ load("//mixer/docker:cacerts.bzl", "cacerts")
 
 pkg_tar(
     name = "mixer_tar",
-    extension = "tar.gz",
     srcs = [
         "//mixer/cmd/server:mixs",
     ],
+    extension = "tar.gz",
     mode = "0755",
     package_dir = "/usr/local/bin/",
     tags = ["manual"],

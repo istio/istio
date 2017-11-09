@@ -31,9 +31,9 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/security/pkg/pki"
-
 	"github.com/golang/glog"
+
+	"istio.io/istio/security/pkg/pki"
 )
 
 // CertOptions contains options for generating a new certificate.

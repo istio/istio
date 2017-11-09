@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
 	"github.com/golang/glog"
+
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 var (
