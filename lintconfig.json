@@ -92,8 +92,7 @@
         "mixer/tools/codegen/pkg/interfacegen/testdata/report_tmpl.pb.go",
         "pilot/adapter/config/crd/types.go",
         "pilot/test/grpcecho/echo.pb.go",
-        "security/proto/ca_service.pb.go",
-        "tests/e2e/apps/hop/config/config.pb.go"
+        "security/proto/ca_service.pb.go"
     ],
     "lineLength": 160,
     "minConfidence": 0,
