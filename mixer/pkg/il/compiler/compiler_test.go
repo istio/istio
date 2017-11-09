@@ -16,13 +16,12 @@ package compiler
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	"istio.io/istio/mixer/pkg/il/interpreter"
+	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
@@ -78,53 +77,7 @@ func TestCompile(t *testing.T) {
 			}
 			b := ilt.FakeBag{Attrs: input}
 
-			// TODO(ozben): Rationalize the placement of externs.
-			var ipExternFn = interpreter.ExternFromFn("ip", func(in string) ([]byte, error) {
-				if ip := net.ParseIP(in); ip != nil {
-					return []byte(ip), nil
-				}
-				return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
-			})
-
-			var ipEqualExternFn = interpreter.ExternFromFn("ip_equal", func(a []byte, b []byte) bool {
-				// net.IP is an alias for []byte, so these are safe to convert
-				ip1 := net.IP(a)
-				ip2 := net.IP(b)
-				return ip1.Equal(ip2)
-			})
-
-			var timestampExternFn = interpreter.ExternFromFn("timestamp", func(in string) (time.Time, error) {
-				layout := time.RFC3339
-				t, err := time.Parse(layout, in)
-				if err != nil {
-					return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", in, layout)
-				}
-				return t, nil
-			})
-
-			var timestampEqualExternFn = interpreter.ExternFromFn("timestamp_equal", func(t1 time.Time, t2 time.Time) bool {
-				return t1.Equal(t2)
-			})
-
-			var matchExternFn = interpreter.ExternFromFn("match", func(str string, pattern string) bool {
-				if strings.HasSuffix(pattern, "*") {
-					return strings.HasPrefix(str, pattern[:len(pattern)-1])
-				}
-				if strings.HasPrefix(pattern, "*") {
-					return strings.HasSuffix(str, pattern[1:])
-				}
-				return str == pattern
-			})
-
-			externMap := map[string]interpreter.Extern{
-				"ip":              ipExternFn,
-				"ip_equal":        ipEqualExternFn,
-				"timestamp":       timestampExternFn,
-				"timestamp_equal": timestampEqualExternFn,
-				"match":           matchExternFn,
-			}
-
-			i := interpreter.New(result.Program, externMap)
+			i := interpreter.New(result.Program, runtime.Externs)
 			v, err := i.Eval("eval", &b)
 			if err != nil {
 				if test.Err != err.Error() {
