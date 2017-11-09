@@ -45,6 +45,8 @@ import (
 
 	"istio.io/istio/mixer/template/reportnothing"
 
+	"istio.io/istio/mixer/template/tracespan"
+
 	"time"
 )
 
@@ -699,6 +701,196 @@ var (
 				}
 
 				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+		},
+
+		tracespan.TemplateName: {
+			Name:               tracespan.TemplateName,
+			Impl:               "tracespan",
+			CtrCfg:             &tracespan.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  tracespan.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: tracespan.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(tracespan.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(tracespan.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*tracespan.InstanceParam)
+				infrdType := &tracespan.Type{}
+
+				if cpb.TraceId == "" || cpb.TraceId == emptyQuotes {
+					return nil, errors.New("expression for field TraceId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.TraceId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field TraceId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field TraceId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.SpanId == "" || cpb.SpanId == emptyQuotes {
+					return nil, errors.New("expression for field SpanId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.SpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field SpanId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field SpanId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ParentSpanId == "" || cpb.ParentSpanId == emptyQuotes {
+					return nil, errors.New("expression for field ParentSpanId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ParentSpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ParentSpanId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ParentSpanId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.SpanName == "" || cpb.SpanName == emptyQuotes {
+					return nil, errors.New("expression for field SpanName cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.SpanName); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field SpanName: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field SpanName: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.StartTime == "" || cpb.StartTime == emptyQuotes {
+					return nil, errors.New("expression for field StartTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.StartTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field StartTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field StartTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				if cpb.EndTime == "" || cpb.EndTime == emptyQuotes {
+					return nil, errors.New("expression for field EndTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.EndTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field EndTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field EndTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				infrdType.SpanTags = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.SpanTags))
+				for k, v := range cpb.SpanTags {
+					if infrdType.SpanTags[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
+				_ = cpb
+				return infrdType, err
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(tracespan.HandlerBuilder)
+				castedTypes := make(map[string]*tracespan.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*tracespan.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetTraceSpanTypes(castedTypes)
+			},
+
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*tracespan.Instance
+				for name, inst := range insts {
+					md := inst.(*tracespan.InstanceParam)
+
+					TraceId, err := mapper.Eval(md.TraceId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval TraceId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanId, err := mapper.Eval(md.SpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ParentSpanId, err := mapper.Eval(md.ParentSpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ParentSpanId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanName, err := mapper.Eval(md.SpanName, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanName for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					StartTime, err := mapper.Eval(md.StartTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval StartTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					EndTime, err := mapper.Eval(md.EndTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval EndTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanTags, err := template.EvalAll(md.SpanTags, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanTags for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					instances = append(instances, &tracespan.Instance{
+						Name: name,
+
+						TraceId: TraceId.(string),
+
+						SpanId: SpanId.(string),
+
+						ParentSpanId: ParentSpanId.(string),
+
+						SpanName: SpanName.(string),
+
+						StartTime: StartTime.(time.Time),
+
+						EndTime: EndTime.(time.Time),
+
+						SpanTags: SpanTags,
+					})
+					_ = md
+				}
+
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
