@@ -113,6 +113,9 @@ popd
 
 ./bin/bazel_to_go.py
 
+# Remove doubly-vendorized k8s dependencies
+rm -rf vendor/k8s.io/*/vendor
+
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
 
