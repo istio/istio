@@ -16,7 +16,7 @@
 
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
-ROOT=$(dirname $(dirname $WD))
+ROOT=$(dirname $WD)
 
 #######################################
 # Presubmit script triggered by Prow. #

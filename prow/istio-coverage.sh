@@ -15,7 +15,7 @@
 #   limitations under the License.
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
-ROOT=$(dirname $(dirname $WD))
+ROOT=$(dirname $WD)
 
 source ${ROOT}/prow/istio-common.sh
 # Build
