@@ -35,8 +35,8 @@ const (
 	ResourceMsgTypeSuffix      = "Type"
 	ResourceMsgInstParamSuffix = "InstanceParam"
 	fullGoNameOfValueTypeEnum  = "istio_mixer_v1_config_descriptor.ValueType"
-	goFileImportFmt            = "\"%s\""
-	protoFileImportFmt         = "import \"%s\";"
+	goFileImportFmt            = `"%s"`
+	protoFileImportFmt         = `import "%s";`
 	protoValueTypeImport       = "mixer/v1/config/descriptor/value_type.proto"
 )
 
