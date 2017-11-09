@@ -99,10 +99,11 @@ type Action struct {
 type genDispatchFn func(call *Action) []dispatchFn
 
 // newDispatcher creates a new dispatcher.
-func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool) *dispatcher {
+func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool, identityAttribute string) *dispatcher {
 	m := &dispatcher{
-		mapper: mapper,
-		gp:     gp,
+		mapper:            mapper,
+		gp:                gp,
+		identityAttribute: identityAttribute,
 	}
 	m.ChangeResolver(rt)
 	return m
@@ -120,6 +121,8 @@ type dispatcher struct {
 
 	resolverLock sync.RWMutex
 	resolver     Resolver
+
+	identityAttribute string
 }
 
 // ChangeResolver installs a new resolver.
@@ -172,6 +175,8 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 			})
 		}
 	}
+
+	ctx = newContextWithRequestData(ctx, requestBag, m.identityAttribute)
 	return m.run(ctx, ra)
 }
 

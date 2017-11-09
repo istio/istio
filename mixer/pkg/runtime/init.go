@@ -39,7 +39,7 @@ func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.Goroutin
 	s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (Dispatcher, error) {
 	// controller will set Resolver before the dispatcher is used.
-	d := newDispatcher(eval, nil, gp)
+	d := newDispatcher(eval, nil, gp, identityAttribute)
 	err := startController(s, adapterInfo, templateInfo, eval, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
