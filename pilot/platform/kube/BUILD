@@ -15,6 +15,7 @@ go_library(
         "//pilot/model:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
+        "@io_istio_api//:proxy/v1/config",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

@@ -19,8 +19,8 @@ In addition, here are some other docs you may wish to read:
 - [Contribution Guidelines](CONTRIBUTING.md) - explains the process for contributing to the Istio code base
 - [Reviewing and Merging Pull Requests](REVIEWING.md) - explains the process we use to review code changes
 - [Istio Developer's Guide](DEV-GUIDE.md) - explains how to setup and use an Istio development environment
-- [Project conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
-- [Creating fast and lean code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
+- [Project Conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
+- [Creating Fast and Lean Code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
 
 ## Introduction
 
@@ -56,8 +56,8 @@ Istio is composed of these components:
 
 * **Broker** - A component implementing the open service broker API for Istio-based services. (Under development)
 
-Istio currently supports Kubernetes, Consul, qne Eureka-based environments. We plan support for additional platforms such as
-Cloud Foundry, and Mesos in the  near future.
+Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
+Cloud Foundry, and Mesos in the near future.
 
 ## Istio authors
 
@@ -93,12 +93,12 @@ contains code for Istio's implementation of the Open Service Broker API.
 component-level APIs and common configuration formats for the Istio platform.
 
 - [istio/mixerclient](https://github.com/istio/mixerclient). Client libraries
-for the mixer API.
+for Mixer's API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
 extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
-decisions to the mixer.
+decisions to Mixer.
 
 ## Issue management
 

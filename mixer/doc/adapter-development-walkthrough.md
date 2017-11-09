@@ -136,8 +136,8 @@ go_library(
     srcs = ["mysampleadapter.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//template/metric:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -221,7 +221,7 @@ gogoslick_proto_library(
     protos = [
         "config.proto",
     ],
-    visibility = ["//adapter/mysampleadapter:__pkg__"],
+    visibility = ["//mixer/adapter/mysampleadapter:__pkg__"],
     deps = [
         "@com_github_gogo_protobuf//gogoproto:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
@@ -259,9 +259,9 @@ go_library(
     srcs = ["mysampleadapter.go"],
     visibility = ["//visibility:public"],
     deps = [
-        <b>"//adapter/mysampleadapter/config:go_default_library",</b>
-        "//pkg/adapter:go_default_library",
-        "//template/metric:go_default_library",
+        <b>"//mixer/adapter/mysampleadapter/config:go_default_library",</b>
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -284,7 +284,7 @@ import (
 	<b>"os"</b>
 	<b>"path/filepath"</b>
 
-	</b>"istio.io/istio/mixer/adapter/mysampleadapter/config"</b>
+	<b>"istio.io/istio/mixer/adapter/mysampleadapter/config"</b>
 	"istio.io/istio/mixer/pkg/adapter"
     "istio.io/istio/mixer/template/metric"
 )
@@ -511,9 +511,9 @@ inventory_library(
    },
    deps = [
        # list of all go_default_library rule for adapters.
-       "//adapter/svcctrl:go_default_library",
+       "//mixer/adapter/svcctrl:go_default_library",
        ...
-       <b>"//adapter/mysampleadapter:go_default_library",</b>
+       <b>"//mixer/adapter/mysampleadapter:go_default_library",</b>
    ],
 )
 </pre>
@@ -593,7 +593,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && bazel-bin/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
+cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
@@ -622,7 +622,7 @@ cd $MIXER_REPO && bazel build ...
 Invoke report
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local"
 ```
 
 
@@ -646,7 +646,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-bazel-bin/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
@@ -743,9 +743,9 @@ go_library(
     srcs = ["mysampleadapter.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//adapter/mysampleadapter/config:go_default_library",
-        "//pkg/adapter:go_default_library",
-        "//template/metric:go_default_library",
+        "//mixer/adapter/mysampleadapter/config:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/template/metric:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
@@ -763,10 +763,10 @@ go_test(
         "sampleoperatorconfig",
     ],
     deps = [
-        "//pkg/adapter:go_default_library",
-        "//pkg/template:go_default_library",
-        "//test/testenv:go_default_library",
-        "//template:go_default_library",
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/template:go_default_library",
+        "//mixer/test/testenv:go_default_library",
+        "//mixer/template:go_default_library",
         "@io_istio_api//:mixer/v1",  # keep
         "@org_golang_x_net//context:go_default_library",
     ],
