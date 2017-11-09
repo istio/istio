@@ -3,7 +3,7 @@ set -x
 ulimit -n 16384
 mkdir -p emptydir
 mkdir -p mixerconfig
-cp mixer/testdata/config/* mixerconfig/
+cp istio/mixer/testdata/config/* mixerconfig/
 rm mixerconfig/stackdriver.yaml
 cd istio; set +x; source bin/use_bazel_go.sh ; set -x; cd ..
 # Need to have go installed and GOPATH/bin in the path
