@@ -1,4 +1,5 @@
-#!/bin/bash
+
+1;95;0c#!/bin/bash
 # Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +53,7 @@ done
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)"
+export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
 echo gopath is $GOPATH
 
 if [ ! -d "${PROXY_PATH}" ]; then
@@ -109,7 +110,11 @@ pushd pilot
 # ./bin/init.sh
 touch platform/kube/config
 bazel build //...
+popd
 
+./bin/bazel_to_go.py
+
+pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
 
 ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
