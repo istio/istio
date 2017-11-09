@@ -595,8 +595,8 @@
 [[projects]]
   branch = "master"
   name = "istio.io/api"
-  packages = ["broker/v1/config","mixer/v1","mixer/v1/config/descriptor","mixer/v1/template","proxy/v1/config"]
-  revision = "e221bec09b5c2723fc8a89f2359925aa3963bfbb"
+  packages = ["broker/v1/config","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","proxy/v1/config"]
+  revision = "32b82b99a7777d89e61612ff81e4eb09666686aa"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -637,6 +637,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "122ae8133e32b22f805d465281656bd2129d5ad83261d729c7b59df046d31cd5"
+  inputs-digest = "febbd605efb5288e21ec93dcb564cf435c2f6efd458a25d5b6f45f1ac7d18fd0"
   solver-name = "gps-cdcl"
   solver-version = 1
