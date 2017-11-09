@@ -14,23 +14,24 @@
 
 package grpc
 
-import "github.com/golang/glog"
+import (
+	"fmt"
+)
 
 type authorizer interface {
-	authorize(requester *user, requestedIds []string) bool
+	authorize(requester *caller, requestedIds []string) error
 }
 
-// simpleAuthorizer approves a request if the requested identities matches the
+// sameIdAuthorizer approves a request if the requested identities matches the
 // identities of the requester.
-type simpleAuthorizer struct{}
+type sameIdAuthorizer struct{}
 
-func (authZ *simpleAuthorizer) authorize(requester *user, requestedIDs []string) bool {
+func (authZ *sameIdAuthorizer) authorize(requester *caller, requestedIDs []string) error {
 	if requester.authSource == authSourceIDToken {
 		// TODO: currently the "sub" claim of an ID token returned by GCP
-		// metadata server contains obfuscated user ID, so we cannot do
+		// metadata server contains obfuscated ID, so we cannot do
 		// authorization upon that.
-
-		return true
+		return nil
 	}
 
 	idMap := make(map[string]bool, len(requester.identities))
@@ -40,11 +41,9 @@ func (authZ *simpleAuthorizer) authorize(requester *user, requestedIDs []string)
 
 	for _, requestedID := range requestedIDs {
 		if _, exists := idMap[requestedID]; !exists {
-			glog.Warningf("The requested identity (%q) does not match the requester", requestedID)
-
-			return false
+			return fmt.Errorf("The requested identity (%q) does not match the caller's identities", requestedID)
 		}
 	}
 
-	return true
+	return nil
 }

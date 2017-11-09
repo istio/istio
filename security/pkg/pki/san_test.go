@@ -117,6 +117,7 @@ func TestExtractSANExtension(t *testing.T) {
 	}
 }
 
+// TODO: Test the error messages.
 func TestExtractIDs(t *testing.T) {
 	id := "test.id"
 	sanExt, err := BuildSANExtension([]Identity{
@@ -158,7 +159,7 @@ func TestExtractIDs(t *testing.T) {
 	}
 
 	for id, tc := range testCases {
-		actualIDs := ExtractIDs(tc.exts)
+		actualIDs, _ := ExtractIDs(tc.exts)
 		if !reflect.DeepEqual(actualIDs, tc.expectedIDs) {
 			t.Errorf("Case %q: unexpected identities: want %v but got %v", id, tc.expectedIDs, actualIDs)
 		}

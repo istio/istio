@@ -129,7 +129,7 @@ func TestStartWithArgs(t *testing.T) {
 			},
 			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
-			expectedErr: "failed to generate CSR: crypto/rsa: message too long for RSA public key size",
+      expectedErr: "CSR creation failure (crypto/rsa: message too long for RSA public key size)",
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
@@ -180,14 +180,14 @@ func TestStartWithArgs(t *testing.T) {
 		na := nodeAgentInternal{c.config, c.pc, c.cAClient, "service1", fakeWorkloadIO, c.certUtil}
 		err := na.Start()
 		if err.Error() != c.expectedErr {
-			t.Errorf("Test case [%s]: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
+			t.Errorf("Test case [%s]: incorrect error message: %s VS (expected) %s", id, err.Error(), c.expectedErr)
 		}
 		if c.cAClient.Counter != c.sendTimes {
-			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d. It should be %d.",
+			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
 				id, c.cAClient.Counter, c.sendTimes)
 		}
 		if c.fileContent != nil && !bytes.Equal(fakeFileUtil.WriteContent["cert_file"], c.fileContent) {
-			t.Errorf("Test case [%s]: cert file content incorrect: %s vs. %s.",
+			t.Errorf("Test case [%s]: cert file content incorrect: %s VS (expected) %s",
 				id, fakeFileUtil.WriteContent["cert_file"], c.fileContent)
 		}
 	}

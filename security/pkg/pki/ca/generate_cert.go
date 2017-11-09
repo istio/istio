@@ -25,15 +25,15 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
 	"strings"
 	"time"
 
+  "github.com/golang/glog"
 	"istio.io/istio/security/pkg/pki"
-
-	"github.com/golang/glog"
 )
 
 // CertOptions contains options for generating a new certificate.
@@ -79,14 +79,12 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	// Generates a CSR
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		glog.Errorf("RSA key generation failed with error %s.", err)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("RSA key generation failure (%s)", err)
 	}
 	template := GenCSRTemplate(options)
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, crypto.PrivateKey(priv))
 	if err != nil {
-		glog.Errorf("Could not create certificate request (err = %s).", err)
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("CSR creation failure (%s)", err)
 	}
 
 	csr, privKey := encodePem(true, csrBytes, priv)
@@ -102,7 +100,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// as specified in the CertOptions.
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		glog.Fatalf("RSA key generation failed with error %s.", err)
+		glog.Fatalf("RSA key generation failure (%s)", err)
 	}
 	template := genCertTemplate(options)
 	signerCert, signerKey := &template, crypto.PrivateKey(priv)
@@ -111,7 +109,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
-		glog.Fatalf("Could not create certificate (err = %s).", err)
+		glog.Fatalf("Certificate creation failure (%s)", err)
 	}
 
 	return encodePem(false, certBytes, priv)
@@ -135,12 +133,12 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []by
 func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, crypto.PrivateKey) {
 	signerCertBytes, err := ioutil.ReadFile(signerCertFile)
 	if err != nil {
-		glog.Fatalf("Reading cert file failed with error %s.", err)
+		glog.Fatalf("certificate file reading failure (%s)", err)
 	}
 
 	signerPrivBytes, err := ioutil.ReadFile(signerPrivFile)
 	if err != nil {
-		glog.Fatalf("Reading private key file failed with error %s.", err)
+		glog.Fatalf("private key file reading failure (%s)", err)
 	}
 
 	cert, err := pki.ParsePemEncodedCertificate(signerCertBytes)
@@ -159,7 +157,7 @@ func genSerialNum() *big.Int {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
 	if err != nil {
-		glog.Fatalf("Failed to generate serial number: %s.", err)
+		glog.Fatalf("Serial number generation failure (%s)", err)
 	}
 	return serialNum
 }
@@ -241,7 +239,7 @@ func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
 
 	san, err := pki.BuildSANExtension(ids)
 	if err != nil {
-		glog.Fatalf("Failed to build SAN extension (error: %v)", err)
+		glog.Fatalf("SAN extension building failure (%v)", err)
 	}
 
 	return san

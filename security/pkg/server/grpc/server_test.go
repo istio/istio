@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+  "strings"
 	"testing"
 	"time"
 
@@ -61,64 +62,77 @@ func (ca *mockCA) GetRootCertificate() []byte {
 }
 
 type mockAuthenticator struct {
-	authenticated bool
+	err error
 }
 
-func (authn *mockAuthenticator) authenticate(ctx context.Context) *user {
-	if !authn.authenticated {
-		return nil
+func (authn *mockAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+	if authn.err != nil {
+		return nil, authn.err
 	}
-	return &user{}
+	return &caller{}, nil
 }
 
 type mockAuthorizer struct {
-	authorized bool
+	err error
 }
 
-func (authz *mockAuthorizer) authorize(*user, []string) bool {
-	return authz.authorized
+func (authz *mockAuthorizer) authorize(*caller, []string) error {
+	return authz.err
 }
 
 func TestSign(t *testing.T) {
 	testCases := map[string]struct {
-		authenticated bool
-		authorized    bool
-		ca            ca.CertificateAuthority
-		csr           string
-		cert          string
-		code          codes.Code
+		authnErrMsg string
+		authzErrMsg string
+		ca          ca.CertificateAuthority
+		csr         string
+		cert        string
+		errCode        codes.Code
+    errMsg      string
 	}{
 		"Unauthenticated request": {
-			authenticated: false,
-			code:          codes.Unauthenticated,
+			authnErrMsg: "authn error1",
+			errCode:        codes.Unauthenticated,
+      errMsg:       "request authenticate failure",
 		},
 		"Unauthorized request": {
-			authenticated: true,
-			authorized:    false,
-			csr:           csr,
-			code:          codes.PermissionDenied,
+			authnErrMsg: "",
+			authzErrMsg: "authz error1",
+			csr:         csr,
+			errCode:        codes.PermissionDenied,
+      errMsg:     "request is not authorized (authz error1)",
 		},
 		"Failed to sign": {
-			authenticated: true,
-			authorized:    true,
-			ca:            &mockCA{errMsg: "cannot sign"},
-			csr:           csr,
-			code:          codes.Internal,
+			authnErrMsg: "",
+			authzErrMsg: "",
+			ca:          &mockCA{errMsg: "sign error1"},
+			csr:         csr,
+			errCode:        codes.Internal,
+      errMsg:      "CSR signing error (sign error1)",
 		},
 		"Successful signing": {
-			authenticated: true,
-			authorized:    true,
-			ca:            &mockCA{cert: "generated cert"},
-			csr:           csr,
-			cert:          "generated cert",
-			code:          codes.OK,
+			authnErrMsg: "",
+			authzErrMsg: "",
+			ca:          &mockCA{cert: "generated cert1"},
+			csr:         csr,
+			cert:        "generated cert1",
+			errCode:        codes.OK,
 		},
 	}
 
 	for id, c := range testCases {
+		var authnErr, authzErr error
+		authnErr = nil
+		authzErr = nil
+		if len(c.authnErrMsg) > 0 {
+			authnErr = fmt.Errorf(c.authnErrMsg)
+		}
+		if len(c.authzErrMsg) > 0 {
+			authzErr = fmt.Errorf(c.authzErrMsg)
+		}
 		server := &Server{
-			authenticators: []authenticator{&mockAuthenticator{c.authenticated}},
-			authorizer:     &mockAuthorizer{c.authorized},
+			authenticators: []authenticator{&mockAuthenticator{authnErr}},
+			authorizer:     &mockAuthorizer{authzErr},
 			ca:             c.ca,
 			hostname:       "hostname",
 			port:           8080,
@@ -126,10 +140,15 @@ func TestSign(t *testing.T) {
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
-		if c.code != grpc.Code(err) {
-			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, grpc.Code(err))
-		} else if c.code == codes.OK && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
-			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
+		if c.errCode != grpc.Code(err) {
+      t.Errorf("Case %s: Error code mismatch: %d VS (expected) %d", id, grpc.Code(err), c.errCode)
+		}
+    if grpc.Code(err) != codes.OK {
+      if strings.Compare(grpc.ErrorDesc(err), c.errMsg) != 0 {
+        t.Errorf("Case %s: Error message mismatch: %s VS (expected) %s", id, grpc.ErrorDesc(err), c.errMsg)
+      }
+    } else if !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
+      t.Errorf("Case %s: issued cert mismatch: %s VS (expected) %s", id, response.SignedCertChain, c.cert)
 		}
 	}
 }
