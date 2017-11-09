@@ -112,6 +112,96 @@ const (
 	DefaultInitializerName = "sidecar.initializer.istio.io"
 )
 
+var (
+	injectTemplate = `
+initContainers:
+- name: istio-init
+  {{ if eq .Spec.Template.Spec.initContainers.Image "" -}}
+  image: {{ "gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4" }}
+  {{ else -}} 
+  image: {{ printf "%s" .Spec.Template.Spec.InitContainer.Image }}
+  {{ end -}}   
+  args: ["-p","15001", "-u", "1337"]
+  imagePullPolicy: "IfNotPresent"
+  securityContext:
+    capabilities
+      add:
+      - NET_ADMIN
+    priviledged: true
+  restartPolicy: Always
+containers:
+- name: istio-proxy
+  image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+  args: 
+  - proxy
+  - sidecar
+  - -v
+  - "2"
+  - --configPath
+  - /etc/istio/proxy
+  - --binaryPath
+  - /usr/local/bin/envoy
+  - --serviceCluster
+  - helloworld
+  - --drainDuration
+  - 45s
+  - --parentShutdownDuration
+  - 1m0s
+  - --discoveryAddress
+  - istio-pilot.istio-system:15003
+  - --discoveryRefreshDelay
+  - 1s
+  - --zipkinAddress
+  - zipkin.istio-system:9411
+  - --connectTimeout
+  - 10s
+  - --statsdUdpAddress
+  - istio-mixer.istio-system:9125
+  - --proxyAdminPort
+  - "15000"
+  - --controlPlaneAuthPolicy
+  - NONE
+  env:
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+	apiVersion: v1
+	fieldPath: metadata.name
+  - name: POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+	apiVersion: v1
+	fieldPath: metadata.namespace
+  - name: INSTANCE_IP
+    valueFrom:
+      fieldRef:
+	apiVersion: v1
+	fieldPath: status.podIP
+  imagePullpolicy: IfNotPresent
+  securityContext:
+    capabilities
+      add:
+      - NET_ADMIN
+    priviledged: true
+  restartPolicy: Always
+  volumeMounts:
+  - mountPath: /etc/istio/proxy
+    name: istio-envoy
+  - mountPath: /etc/certs/
+    name: istio-certs
+    readOnly: true
+volumes:
+- emptyDir:
+    medium: Memory
+  name: istio-envoy
+- name: istio-certs
+  secret:
+    defaultMode: 420
+    optional: true
+    secretName: istio.default
+`
+)
+
 // InitImageName returns the fully qualified image name for the istio
 // init image given a docker hub and tag and debug flag
 func InitImageName(hub string, tag string, _ bool) string {
