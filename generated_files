@@ -18,6 +18,8 @@ mixer/pkg/aspect/config/attrgen.pb.go
 mixer/pkg/aspect/config/lists.pb.go
 mixer/pkg/aspect/config/quotas.pb.go
 mixer/pkg/attribute/list.gen.go
+mixer/template/apikey/go_default_library_handler.gen.go
+mixer/template/apikey/go_default_library_tmpl.pb.go
 mixer/template/checknothing/go_default_library_handler.gen.go
 mixer/template/checknothing/go_default_library_tmpl.pb.go
 mixer/template/listentry/go_default_library_handler.gen.go

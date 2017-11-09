@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 
+	"istio.io/istio/mixer/template/apikey"
+
 	"istio.io/istio/mixer/template/checknothing"
 
 	"istio.io/istio/mixer/template/listentry"
@@ -50,6 +52,154 @@ const emptyQuotes = "\"\""
 
 var (
 	SupportedTmplInfo = map[string]template.Info{
+
+		apikey.TemplateName: {
+			Name:               apikey.TemplateName,
+			Impl:               "apikey",
+			CtrCfg:             &apikey.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  apikey.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: apikey.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(apikey.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(apikey.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*apikey.InstanceParam)
+				infrdType := &apikey.Type{}
+
+				if cpb.Api == "" || cpb.Api == emptyQuotes {
+					return nil, errors.New("expression for field Api cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Api); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Api: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Api: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiVersion == "" || cpb.ApiVersion == emptyQuotes {
+					return nil, errors.New("expression for field ApiVersion cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiVersion); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiVersion: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiVersion: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiOperation == "" || cpb.ApiOperation == emptyQuotes {
+					return nil, errors.New("expression for field ApiOperation cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiOperation); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiOperation: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiOperation: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiKey == "" || cpb.ApiKey == emptyQuotes {
+					return nil, errors.New("expression for field ApiKey cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiKey); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiKey: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiKey: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.Timestamp == "" || cpb.Timestamp == emptyQuotes {
+					return nil, errors.New("expression for field Timestamp cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Timestamp: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Timestamp: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				_ = cpb
+				return infrdType, err
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(apikey.HandlerBuilder)
+				castedTypes := make(map[string]*apikey.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*apikey.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetApiKeyTypes(castedTypes)
+			},
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+				castedInst := inst.(*apikey.InstanceParam)
+
+				Api, err := mapper.Eval(castedInst.Api, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Api for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiVersion, err := mapper.Eval(castedInst.ApiVersion, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiVersion for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiOperation, err := mapper.Eval(castedInst.ApiOperation, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiOperation for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiKey, err := mapper.Eval(castedInst.ApiKey, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiKey for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				Timestamp, err := mapper.Eval(castedInst.Timestamp, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Timestamp for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				_ = castedInst
+
+				instance := &apikey.Instance{
+					Name: instName,
+
+					Api: Api.(string),
+
+					ApiVersion: ApiVersion.(string),
+
+					ApiOperation: ApiOperation.(string),
+
+					ApiKey: ApiKey.(string),
+
+					Timestamp: Timestamp.(time.Time),
+				}
+				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+			},
+		},
 
 		checknothing.TemplateName: {
 			Name:               checknothing.TemplateName,
