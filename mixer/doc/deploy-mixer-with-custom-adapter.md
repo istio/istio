@@ -1,10 +1,25 @@
-# Deploying Mixer with custom adapters
+# Deploying Mixer With Custom Adapters
 
 Congratulations! You've managed to build a complete Mixer adapter and have validated
 that it works via local testing.
 
 Follow these steps to deploy a Mixer with your custom adapter to your service
-mesh for use.
+mesh for use:
+
+* [Build a docker image of Mixer with your custom adapter](#build-a-docker-image-of-mixer-with-your-custom-adapter)
+* [Tag your new Mixer image appropriately for your image registry of choice](#tag-your-new-mixer-image-appropriately-for-your-image-registry-of-choice)
+* [Push your new Mixer image into the image registry](#push-your-new-mixer-image-into-the-image-registry)
+* [Generate the appropriate CRD for your custom adapter](#generate-the-appropriate-crd-for-your-custom-adapter)
+* [Deploy your CRD](#deploy-your-crd)
+* [Edit the Mixer deployment configuration to reference your new image](#edit-the-mixer-deployment-configuration-to-reference-your-new-image)
+* [Celebrate](#celebrate)
+
+NOTE: All commands should be executed from the root of the istio/istio repository.
+
+These instructions assume that:
+- `bazel` is installed
+- `docker`, `kubectl`, and `gcloud` commands are installed.
+- `kubectl` has been configured and is authorized to push to a cluster
 
 1. Build a docker image of Mixer with your custom adapter.
 
@@ -90,11 +105,10 @@ mesh for use.
    ```bash
    kubectl apply -f custom-crd.yaml
    ```
-
    
 1. Edit the Mixer deployment configuration to reference your new image.
 
-   If you already have a Mixer instance running, execute the following commands:
+   If you already have a Mixer instance running from a previous deployment of Istio, execute the following commands:
    
    1. Execute the following command to open the configuration for the Mixer deployment.
    
@@ -119,21 +133,24 @@ mesh for use.
       ```bash
       deployment "istio-mixer" edited
       ```
+      
+   Please also update the Istio configuration specification to reference your image (so that your changes are preserved).
+     
+   Edit `install/kubernetes/templates/istio-mixer.yaml.tmpl` as follows:
+   * Update the `image` specification in the Mixer deployment stanza
+   * Append the contents from `custom-crd.yaml` to the end of the yaml file. 
    
-   If you do not already have a Mixer instance running, update the Istio configuration specification to reference your image.
-   
-   There are two ways to update the config:
-   1. Edit `install/kubernetes/istio.yaml` directly by updating the `image` specification in the Mixer deployment stanza.
-   1. Edit `install/kubernetes/templates/istio-mixer.yaml.tmpl` by updating the `image` specification in the Mixer deployment stanza and then regenerate `istio.yaml` via:
-   
-      ```bash
-      install/updateVersion.sh
-      ```
+   Then regenerate `istio.yaml` via:   
+   ```bash
+   install/updateVersion.sh
+   ```
 
-   Once you have updated the deployment config, deploy Istio as follows:
+   If you do not already have a Mixer instance running, deploy Istio as follows (assuming `istio.yaml` is the desired deployment):
    
    ```bash
    kubectl apply -f install/kubernetes/istio.yaml 
    ```
  
- A new Mixer, built with your adapter code, should now be running in your cluster. You may now configure a handler for your custom adapter and begin sending it instances.
+ 1. Celebrate
+ 
+    Woohoo! A new Mixer, built with your adapter code, should now be running in your cluster. Configure a handler for your custom adapter and begin sending it instances!
