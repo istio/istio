@@ -46,3 +46,4 @@ TAG="${GIT_SHA}"
 time make push HUB="${HUB}" TAG="${TAG}"
 
 time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
+${ROOT}/prow/istio-coverage.sh

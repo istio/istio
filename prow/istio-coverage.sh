@@ -22,7 +22,9 @@ source ${ROOT}/prow/istio-common.sh
 ${ROOT}/bin/init.sh
 
 echo "=== Code Coverage ==="
-UPLOAD_TOKEN=@/etc/codecov/istio.token ${ROOT}/bin/codecov.sh | tee codecov.report
+UPLOAD_TOKEN=istiocodecov.token
+gsutil cp gs://istio-code-coverage/${UPLOAD_TOKEN} /tmp/${UPLOAD_TOKEN}
+UPLOAD_TOKEN="@/tmp/${UPLOAD_TOKEN}" ${ROOT}/bin/codecov.sh | tee codecov.report
 if [ "${CI:-}" == "bootstrap" ]; then
     bazel build @com_github_istio_test_infra//toolbox/pkg_check
     BUILD_ID="PROW-${BUILD_NUMBER}" JOB_NAME="istio/presubmit" ${ROOT}/bazel-bin/external/com_github_istio_test_infra/toolbox/pkg_check/pkg_check
