@@ -15,10 +15,7 @@
 #
 ################################################################################
 
-set -o errexit
 set -o nounset
-set -o pipefail
-set -x
 
 PROJECT_ID=""
 KEY_FILE_PATH=""
@@ -28,9 +25,8 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 # -- really need to grab the version that corresponds to the commit hash in the manifest file, e.g.,
 # https://github.com/mattdelco/istio/blob/faff18336653a8d241d3fe8253aea9f16ac64ae1/bin/cloud_build.template.json
 TEMPLATE="${SCRIPTPATH}/cloud_build.template.json"
-TEMP_DIR="$(mktemp -d /tmp/istio.build.XXXX)"
-BUILD_FILE="${TEMP_DIR}/cloud_build.json"
-RESULT_FILE="${TEMP_DIR}/result.json"
+BUILD_FILE="$(mktemp /tmp/build.request.XXXX)"
+RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 VER_STRING="0.0.0"
 REPO=""
 REPO_FILE=default.xml
@@ -41,6 +37,7 @@ GCR_PATH="builds/"
 GCS_PATH=${GCR_PATH}
 APPEND_VER_TO_GCS_PATH="false"
 APPEND_VER_TO_GCR_PATH="false"
+WAIT_FOR_RESULT="false"
 
 function usage() {
   echo "$0                                                                                                                           
@@ -56,11 +53,12 @@ function usage() {
     -b <path> path where to store artifacts in GCR              (optional, defaults to $GCR_PATH )
     -c <path> path where to store artifacts in GCS              (optional, defaults to $GCS_PATH )
     -d        append -v version to path for -b                  (optional)
-    -e        append -v version to path for -c                  (optional)"
+    -e        append -v version to path for -c                  (optional)
+    -w        specify that script should wait until build done  (optional)"
   exit 1
 }
 
-while getopts a:b:c:dek:m:p:r:s:t:u:v: arg ; do
+while getopts a:b:c:dek:m:p:r:s:t:u:v:w arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
     b) GCR_PATH="${OPTARG}";;
@@ -75,6 +73,7 @@ while getopts a:b:c:dek:m:p:r:s:t:u:v: arg ; do
     t) REPO_FILE_VER="${OPTARG}";;
     u) REPO="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
+    w) WAIT_FOR_RESULT="true";;
     *) usage;;
   esac
 done
@@ -124,68 +123,103 @@ echo "  }" >> "${BUILD_FILE}"
 echo "}" >> "${BUILD_FILE}"
 
 gcloud auth activate-service-account "${SVC_ACCT}" --key-file="${KEY_FILE_PATH}"
-curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -T "${BUILD_FILE}" -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds
-CURL_RESULT=$?
-echo curl result: $CURL_RESULT
+curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -T "${BUILD_FILE}" \
+  -s -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds
 
-# ${RESULT_FILE}
+# parse_result_file(): parses the result from a build query.
+# returns 0 if build successful, 1 if build still running, or 2 if build failed
+# first input parameter is path to file to parse
+# second input parameter is "true" or "false" (true says be quiet)
+function parse_result_file {
+  local INPUT_FILE="$1"
+  local QUIET="$2"
 
-echo "REQUEST:"
-cat "${BUILD_FILE}"
-echo "RESPONSE:"
-cat "${RESULT_FILE}"
+  local ERROR_WORD="error"
+  local ERROR_CODE_WORD="code"
+  local ERROR_MSG_WORD="message"
+  local STATUS_WORD="status"
+  local QUEUED_WORD="QUEUED"
+  local WORKING_WORD="WORKING"
+  local FAILED_WORD="FAILURE"
+  local SUCCESS_WORD="SUCCESS"
 
-# TODO: parse the result and optionally wait for the build to complete (likely via polling)
+  [[ -z "${INPUT_FILE}" ]] && usage
 
-# example error:
-# {
-#   "error": {
-#     "code": 400,
-#     "message": "Invalid JSON payload received. Unexpected end of string. Expected , or } after key:value pair.\n\n^",
-#     "status": "INVALID_ARGUMENT"
-#   }
-# }
+  local STATUS_VALUE=""
+  local STATUS_COUNT=$(grep -c -Eo " *\"${STATUS_WORD}\":.*?[^\\\\]\",?" $INPUT_FILE)
+  if [ "$STATUS_COUNT" != "0" ]; then
+    STATUS_VALUE=$(grep -Eo " *\"${STATUS_WORD}\":.*?[^\\\\]\",?" $INPUT_FILE | \
+      sed "s/ *\"${STATUS_WORD}\": *\"\(.*\)\",*/\1/")
+  fi
 
-# example success:
-#{
-#  "name": "operations/build/delco-experimental/ZTE0ODdmODUtODU4NS00NGZlLWE3ZGMtNzY1NTAyZTVhOGMw",
-#  "metadata": {
-#    "@type": "type.googleapis.com/google.devtools.cloudbuild.v1.BuildOperationMetadata",
-#    "build": {
-#      "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
-#      "status": "QUEUED",
-#      "createTime": "2017-11-08T05:19:36.488754764Z",
-#      "timeout": "3600s",
-#      "projectId": "delco-experimental",
-#      "logsBucket": "gs://504449721521.cloudbuild-logs.googleusercontent.com",
-#      "options": {
-#        "machineType": "N1_HIGHCPU_32"
-#      },
-#      "logUrl": "https://console.cloud.google.com/gcr/builds/e1487f85-8585-44fe-a7dc-765502e5a8c0?project=delco-experimental",
-#      "substitutions": {
-#        "_MFEST_URL": "https://github.com/mattdelco/manifest",
-#        "_MFEST_FILE": "default.xml",
-#        "_MFEST_VER": "master",
-#        "_GCS_BUCKET": "delco-experimental",
-#        "_GCS_SUBDIR": "builds/master/0.3.0-20171107-rc0",
-#        "_GCR_BUCKET": "delco-experimental",
-#        "_GCR_SUBDIR": "builds/master/0.3.0-20171107-rc0",
-#        "_VER_STRING": "0.3.0-20171107-rc0"
-#      }
-#    }
-#  }
-#}
+  local ERROR_VALUE=""
+  local ERROR_CODE=""
+  local ERROR_STATUS=""
+  local ERROR_COUNT=$(grep -c -Eo " *\"${ERROR_WORD}\":.*{" $INPUT_FILE)
+  if [ "$ERROR_COUNT" != "0" ]; then
+    ERROR_CODE=$(grep -Eo " *\"${ERROR_CODE_WORD}\":.*?[^\\\\],?" $INPUT_FILE | \
+      sed "s/ *\"${ERROR_CODE_WORD}\": *\([0-9]*\),*/\1/")
+    ERROR_VALUE=$(grep -Eo " *\"${ERROR_MSG_WORD}\":.*?[^\\\\]\",?" $INPUT_FILE | \
+      sed "s/ *\"${ERROR_MSG_WORD}\": *\"\(.*\)\",*/\1/")
+    ERROR_STATUS=${STATUS_VALUE}
+    STATUS_VALUE="ERROR"
+  fi
 
-#example query for in-progress build:
-#{
-#  "id": "87324695-b6bb-4505-b69e-2e01c16cb7cc",
-#  "status": "WORKING",
+  case "${STATUS_VALUE}" in
+    ERROR)
+      echo "build has error code ${ERROR_CODE} with \"${ERROR_STATUS}\" and \"${ERROR_VALUE}\""
+      return 2
+      ;;
+    FAILURE)
+      [[ "${QUIET}" == "true" ]] || echo "build has failed"
+      return 2
+      ;;
+    CANCELLED)
+      [[ "${QUIET}" == "true" ]] || echo "build was cancelled"
+      return 2      
+      ;;
+    QUEUED)
+      [[ "${QUIET}" == "true" ]] || echo "build is queued"
+      return 1
+      ;;
+    WORKING)
+      [[ "${QUIET}" == "true" ]] || echo "build is running"
+      return 1
+      ;;
+    SUCCESS)
+      [[ "${QUIET}" == "true" ]] || echo "build is successful"
+      return 0
+      ;;
+    *)
+      echo "unrecognized status: ${STATUS_VALUE}"
+      return 2
+  esac
+}
 
-#example query for failed build:
-#{
-#  "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
-#  "status": "FAILURE",
-#  "logsBucket": "gs://504449721521.cloudbuild-logs.googleusercontent.com",
-#  "logUrl": "https://console.cloud.google.com/gcr/builds/e1487f85-8585-44fe-a7dc-765502e5a8c0?project=delco-experimental",
-#}
+if [[ "${WAIT_FOR_RESULT}"=="true" ]]; then
+  echo "waiting for build to complete"
+  BUILD_ID=""
+  ID_WORD="id"
+  BUILD_ID_COUNT=$(grep -c -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE)
+  if [ "$BUILD_ID_COUNT" != "0" ]; then
+    BUILD_ID=$(grep -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE | \
+      sed "s/ *\"${ID_WORD}\": *\"\(.*\)\",*/\1/")
+  fi
+  echo "BUILD_ID is ${BUILD_ID}"
 
+  curl -H "Authorization: Bearer $(gcloud auth print-access-token)" -s \
+    -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds/{$BUILD_ID}"
+
+  parse_result_file "${RESULT_FILE}" "false"
+  PARSE_RESULT=$?
+  while [ $PARSE_RESULT -eq 1 ]; do
+    sleep 15
+
+    curl -H "Authorization: Bearer $(gcloud auth print-access-token)" -s \
+      -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds/{$BUILD_ID}"
+
+    parse_result_file "${RESULT_FILE}" "false"
+    PARSE_RESULT=$?
+  done
+  exit $PARSE_RESULT
+fi
