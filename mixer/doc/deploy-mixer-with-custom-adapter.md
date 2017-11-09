@@ -5,21 +5,20 @@ that it works via local testing.
 
 Follow these steps to deploy a Mixer with your custom adapter to your service
 mesh for use:
-
-* [Build a docker image of Mixer with your custom adapter](#build-a-docker-image-of-mixer-with-your-custom-adapter)
-* [Tag your new Mixer image appropriately for your image registry of choice](#tag-your-new-mixer-image-appropriately-for-your-image-registry-of-choice)
-* [Push your new Mixer image into the image registry](#push-your-new-mixer-image-into-the-image-registry)
-* [Generate the appropriate CRD for your custom adapter](#generate-the-appropriate-crd-for-your-custom-adapter)
-* [Deploy your CRD](#deploy-your-crd)
-* [Edit the Mixer deployment configuration to reference your new image](#edit-the-mixer-deployment-configuration-to-reference-your-new-image)
-* [Celebrate](#celebrate)
+  * [Build a docker image of Mixer with your custom adapter](#build-a-docker-image-of-mixer-with-your-custom-adapter)
+  * [Tag your new Mixer image appropriately for your image registry of choice](#tag-your-new-mixer-image-appropriately-for-your-image-registry-of-choice)
+  * [Push your new Mixer image into the image registry](#push-your-new-mixer-image-into-the-image-registry)
+  * [Generate the appropriate CRD for your custom adapter](#generate-the-appropriate-crd-for-your-custom-adapter)
+  * [Deploy your CRD](#deploy-your-crd)
+  * [Edit the Mixer deployment configuration to reference your new image](#edit-the-mixer-deployment-configuration-to-reference-your-new-image)
+  * [Celebrate](#celebrate)
 
 NOTE: All commands should be executed from the root of the istio/istio repository.
 
 These instructions assume that:
-- `bazel` is installed
-- `docker`, `kubectl`, and `gcloud` commands are installed.
-- `kubectl` has been configured and is authorized to push to a cluster
+  * `bazel` is installed
+  * `docker`, `kubectl`, and `gcloud` commands are installed.
+  * `kubectl` has been configured and is authorized to push to a cluster
 
 1. Build a docker image of Mixer with your custom adapter.
 
