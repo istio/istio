@@ -105,7 +105,7 @@ func (c *compatBag) Get(name string) (v interface{}, found bool) {
 	compatAttr := strings.Replace(name, "destination.", "target.", 1)
 	v, found = c.parent.Get(compatAttr)
 	if found {
-		glog.Warningf("Deprecated attribute %s found", compatAttr)
+		glog.Warning("Deprecated attribute found: ", compatAttr)
 	}
 	return
 }
@@ -153,9 +153,8 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 
 	if glog.V(2) {
 		glog.Info("Dispatching to main adapters after running processors")
-		glog.Infof("Attribute Bag: \n%s", mutableBag.DebugString())
+		glog.Info("Attribute Bag: \n", mutableBag.DebugString())
 	}
-	dest, _ := compatRespBag.Get("destination.service")
 
 	glog.V(1).Info("Dispatching Check")
 	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
@@ -220,12 +219,6 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 				}
 			}
 
-			msg := ""
-			if qr.GrantedAmount == 0 {
-				msg = "exhausted"
-			}
-			glog.V(1).Infof("AccessLog Quota %s %d/%d %s", dest, qr.GrantedAmount, qma.Amount, msg)
-
 			qr.ReferencedAttributes = requestBag.GetReferencedAttributes(s.globalDict, globalWordCount)
 			resp.Quotas[name] = *qr
 			requestBag.ClearReferencedAttributes()
@@ -243,11 +236,11 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 	if d == nil {
 		return nil, nil
 	}
-	glog.V(1).Infof("Dispatching Quota2: %s", qma.Quota)
+	glog.V(1).Info("Dispatching Quota: ", qma.Quota)
 	qmr, err := d.Quota(legacyCtx, bag, qma)
 	if err != nil {
 		// TODO record the error in the quota specific result
-		glog.Warningf("Quota2 %s returned error: %v", qma.Quota, err)
+		glog.Warningf("Quota %s returned error: %v", qma.Quota, err)
 		return nil, err
 	}
 
@@ -255,8 +248,8 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 		return nil, nil
 	}
 
-	if glog.V(2) {
-		glog.Infof("Quota2 %s returned: %v", qma.Quota, qmr)
+	if glog.V(4) {
+		glog.Infof("Quota '%s' result: %#v", qma.Quota, qmr.Status)
 	}
 	return &mixerpb.CheckResponse_QuotaResult{
 		GrantedAmount: qmr.Amount,
@@ -316,11 +309,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			span.Finish()
 			break
 		}
-		glog.V(1).Info("Preprocess returnl ed with: ", status.String(out))
+		glog.V(1).Info("Preprocess returned with: ", status.String(out))
 
 		if glog.V(2) {
 			glog.Info("Dispatching to main adapters after running processors")
-			glog.Infof("Attribute Bag: \n%s", mutableBag.DebugString())
+			glog.Info("Attribute Bag: \n", mutableBag.DebugString())
 		}
 
 		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
@@ -339,7 +332,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 		glog.V(1).Infof("Report %d returned with: %s", i, status.String(out))
 
-		span.LogFields(log.String("success", fmt.Sprintf("finished Report for attribute bag %d", i)))
+		span.LogFields(log.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
 		preprocResponseBag.Reset()
 	}
