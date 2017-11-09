@@ -20,10 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/security/pkg/cmd"
-	"istio.io/istio/security/pkg/pki/ca/controller"
-	"istio.io/istio/security/pkg/pki/testutil"
-
+	"github.com/golang/glog"
+	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +30,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/golang/glog"
-	"github.com/spf13/cobra"
+	"istio.io/istio/security/pkg/cmd"
+	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/pki/testutil"
 )
 
 const (

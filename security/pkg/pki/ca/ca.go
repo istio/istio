@@ -23,10 +23,11 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"istio.io/istio/security/pkg/pki"
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	apiv1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/security/pkg/pki"
 )
 
 const (
