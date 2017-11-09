@@ -40,6 +40,8 @@ mixer/template/sample/report/go_default_library_handler.gen.go
 mixer/template/sample/report/go_default_library_tmpl.pb.go
 mixer/template/sample/template.gen.go
 mixer/template/template.gen.go
+mixer/template/tracespan/go_default_library_handler.gen.go
+mixer/template/tracespan/go_default_library_tmpl.pb.go
 mixer/test/template/report/go_default_library_handler.gen.go
 mixer/test/template/report/go_default_library_tmpl.pb.go
 mixer/test/template/template.gen.go

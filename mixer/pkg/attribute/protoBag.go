@@ -65,7 +65,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	// find the dictionary index for the given string
 	index, ok := pb.getIndex(name)
 	if !ok {
-		glog.Warningf("Attribute '%s' not in either global or message dictionaries", name)
+		glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
 		// the string is not in the dictionary, and hence the attribute is not in the proto either
 		pb.trackReference(name, mixerpb.ABSENCE)
 		return nil, false
@@ -320,7 +320,7 @@ func (pb *ProtoBag) DebugString() string {
 		// find the dictionary index for the given string
 		index, ok := pb.getIndex(name)
 		if !ok {
-			glog.Warningf("Attribute '%s' not in either global or message dictionaries", name)
+			glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
 			continue
 		}
 
