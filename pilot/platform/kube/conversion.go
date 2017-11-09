@@ -48,6 +48,10 @@ const (
 	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
 	// authentication policy.
 	PortAuthenticationAnnotationKeyPrefix = "auth.istio.io"
+
+	AuthMigrationPortAlias = "migration_port"
+	AuthMigrationPolicy    = "migration_policy"
+	AuthMigrationActive    = "migration_active"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -71,12 +75,38 @@ func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) pr
 	return proxyconfig.AuthenticationPolicy_INHERIT
 }
 
+func extractAuthMigrationPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.AuthMigrationPort {
+	if obj.Annotations == nil {
+		return nil
+	}
+	if val, ok := strconv.Atoi(obj.Annotations[portMigrationAnnotationKey(int(port.Port), AuthMigrationPortAlias)]); ok == nil {
+		ret := model.AuthMigrationPort{}
+		ret.Port = val
+		if val, ok := proxyconfig.AuthenticationPolicy_value[obj.Annotations[portMigrationAnnotationKey(int(port.Port), AuthMigrationPolicy)]]; ok {
+			ret.AuthenticationPolicy = proxyconfig.AuthenticationPolicy(val)
+		} else {
+			ret.AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+		}
+
+		if val, ok := strconv.ParseBool(obj.Annotations[portMigrationAnnotationKey(int(port.Port), AuthMigrationActive)]); ok == nil {
+			ret.Active = val
+		} else {
+			ret.Active = false
+		}
+		return &ret
+	}
+
+	return nil
+
+}
+
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Port),
 		Protocol:             ConvertProtocol(port.Name, port.Protocol),
 		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
+		AuthMigrationPort:    extractAuthMigrationPort(port, obj),
 	}
 }
 
@@ -134,6 +164,10 @@ func canonicalToIstioServiceAccount(saname string) string {
 
 func portAuthenticationAnnotationKey(port int) string {
 	return fmt.Sprintf("%s/%d", PortAuthenticationAnnotationKeyPrefix, port)
+}
+
+func portMigrationAnnotationKey(port int, field string) string {
+	return fmt.Sprintf("%s/%d_%s", PortAuthenticationAnnotationKeyPrefix, port, field)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account

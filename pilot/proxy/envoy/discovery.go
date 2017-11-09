@@ -365,9 +365,14 @@ func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response 
 					if instance.AvailabilityZone != "" {
 						t = &tags{AZ: instance.AvailabilityZone}
 					}
+					hostPort := instance.Endpoint.Port
+					if port.AuthMigrationPort != nil &&
+						port.AuthMigrationPort.Active {
+						hostPort = port.AuthMigrationPort.Port
+					}
 					hosts = append(hosts, &host{
 						Address: instance.Endpoint.Address,
-						Port:    instance.Endpoint.Port,
+						Port:    hostPort,
 						Tags:    t,
 					})
 				}
@@ -404,9 +409,14 @@ func (ds *DiscoveryService) ListEndpoints(request *restful.Request, response *re
 			return
 		}
 		for _, ep := range endpoints {
+			hostPort := ep.Endpoint.Port
+			if ep.Endpoint.ServicePort.AuthMigrationPort != nil &&
+				ep.Endpoint.ServicePort.AuthMigrationPort.Active {
+				hostPort = ep.Endpoint.ServicePort.AuthMigrationPort.Port
+			}
 			hostArray = append(hostArray, &host{
 				Address: ep.Endpoint.Address,
-				Port:    ep.Endpoint.Port,
+				Port:    hostPort,
 			})
 		}
 		if out, err = json.MarshalIndent(hosts{Hosts: hostArray}, " ", " "); err != nil {

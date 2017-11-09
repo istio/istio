@@ -713,13 +713,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 	// to the service address
 	// assumes that endpoint addresses/ports are unique in the instance set
 	// TODO: validate that duplicated endpoints for services can be handled (e.g. above assumption)
-	for _, instance := range instances {
-		endpoint := instance.Endpoint
-		servicePort := endpoint.ServicePort
-		protocol := servicePort.Protocol
-		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
-		clusters = append(clusters, cluster)
-
+	builder := func(cluster *Cluster, listenerPort int, authPolicy proxyconfig.AuthenticationPolicy, protocol model.Protocol, endpoint model.NetworkEndpoint) {
 		var listener *Listener
 
 		// Local service instances can be accessed through one of three
@@ -770,12 +764,12 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
-				endpoint.Port, "", false, IngressTraceOperation)
+				listenerPort, "", false, IngressTraceOperation)
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{buildTCPRoute(cluster, []string{endpoint.Address})},
-			}, endpoint.Address, endpoint.Port, protocol)
+			}, endpoint.Address, listenerPort, protocol)
 
 			// set server-side mixer filter config
 			if mesh.MixerAddress != "" {
@@ -788,12 +782,23 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 			}
 
 		default:
-			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
+			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, listenerPort)
 		}
 
 		if listener != nil {
-			mayApplyInboundAuth(listener, mesh, endpoint.ServicePort.AuthenticationPolicy)
+			mayApplyInboundAuth(listener, mesh, authPolicy)
 			listeners = append(listeners, listener)
+		}
+	}
+	for _, instance := range instances {
+		endpoint := instance.Endpoint
+		servicePort := endpoint.ServicePort
+		protocol := servicePort.Protocol
+		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
+		clusters = append(clusters, cluster)
+		builder(cluster, endpoint.Port, servicePort.AuthenticationPolicy, protocol, endpoint)
+		if servicePort.AuthMigrationPort != nil {
+			builder(cluster, servicePort.AuthMigrationPort.Port, servicePort.AuthMigrationPort.AuthenticationPolicy, protocol, endpoint)
 		}
 	}
 
