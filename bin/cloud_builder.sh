@@ -21,7 +21,7 @@ set -o pipefail
 set -x
 
 OUTPUT_PATH=""
-# default is based on repo manifest that places istio at:
+# default for PROXY_PATH is based on repo manifest that places istio at:
 # go/src/istio.io/istio
 # and proxy at:
 # src/proxy
@@ -66,53 +66,28 @@ pushd "${PROXY_PATH}"
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 
-####./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 # TODO: run bazel in batch mode.  For now just shutdown bazel to save memory.
-####bazel shutdown
+bazel shutdown
 popd
 
 pushd security
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg.
-####./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-####./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
 pushd mixer
-####./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 popd
 
 pushd pilot
-## Cloud Builder checks out code in /workspace.
-## We need to recreate the GOPATH directory structure
-## for pilot to build correctly
-#function prepare_gopath() {
-#  [[ -z ${GOPATH:-} ]] && export GOPATH=/tmp/gopath
-##  mkdir -p ${GOPATH}/src/istio.io/istio
-##  [[ -d ${GOPATH}/src/istio.io/istio/pilot ]] || ln -s ${PWD} ${GOPATH}/src/istio.io/istio/pilot
-#  # try symlink to istio rather than pilot so WORKPACE is visible
-#  mkdir -p ${GOPATH}/src/istio.io
-#  [[ -d ${GOPATH}/src/istio.io/istio ]] || ln -s ${PWD}/.. ${GOPATH}/src/istio.io/istio
-#  cd ${GOPATH}/src/istio.io/istio/pilot
-#  touch platform/kube/config
-#}
-
-## this is a bit convoluted to avoid unset var complaint on GOPTH
-#if [ -z ${GOPATH:-} ]; then
-#  prepare_gopath
-#else
-#  if [ ${PWD} != "${GOPATH}/src/istio.io/pilot" ]; then
-#    prepare_gopath
-#  fi
-#fi
-
 # Build istioctl binaries
-# ./bin/init.sh
 touch platform/kube/config
 bazel build //...
 popd
 
 ./bin/bazel_to_go.py
-
 # Remove doubly-vendorized k8s dependencies
 rm -rf vendor/k8s.io/*/vendor
 
