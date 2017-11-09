@@ -1,5 +1,4 @@
 version: 2
-
 jobs:
   pilot-integration:
     machine: true
