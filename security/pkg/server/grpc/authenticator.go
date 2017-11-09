@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	oidc "github.com/coreos/go-oidc"
-
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"

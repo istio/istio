@@ -250,7 +250,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-                        expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
+			expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
 		},
 		"Without Insecure option": {
 			config: &Config{

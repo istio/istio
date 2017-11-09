@@ -99,12 +99,7 @@ func (r Result) AsInterface() interface{} {
 	case il.Bool:
 		return r.AsBool()
 	case il.String:
-		s := r.AsString()
-		// Align with the mechanics of the old expr evaluator.
-		if s == "" {
-			return nil
-		}
-		return s
+		return r.AsString()
 	case il.Integer:
 		return r.AsInteger()
 	case il.Double:

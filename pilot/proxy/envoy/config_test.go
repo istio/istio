@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"crypto/sha1"
 	"io/ioutil"
 	"reflect"
 	"sort"
@@ -404,6 +405,35 @@ func TestProxyConfigControlPlaneAuth(t *testing.T) {
 		}
 
 		util.CompareYAML(c.envoyConfigFilename, t)
+	}
+}
+
+func TestTruncateClusterName(t *testing.T) {
+	data := make([]byte, MaxClusterNameLength+1)
+	for i := range data {
+		data[i] = byte('a' + i%26)
+	}
+	s := string(data) // the alphabet in lowercase, repeating...
+
+	var trunc string
+	less := s[:MaxClusterNameLength-1]
+	trunc = truncateClusterName(less)
+	if trunc != less {
+		t.Errorf("Cluster name modified when truncating short cluster name:\nwant %s,\ngot %s", less, trunc)
+	}
+	eq := s[:MaxClusterNameLength]
+	trunc = truncateClusterName(eq)
+	if trunc != eq {
+		t.Errorf("Cluster name modified when truncating cluster name:\nwant %s,\ngot %s", eq, trunc)
+	}
+	gt := s[:MaxClusterNameLength+1]
+	trunc = truncateClusterName(gt)
+	if len(trunc) != MaxClusterNameLength {
+		t.Errorf("Cluster name length is not expected: want %d, got %d", MaxClusterNameLength, len(trunc))
+	}
+	prefixLen := MaxClusterNameLength - sha1.Size*2
+	if gt[:prefixLen] != trunc[:prefixLen] {
+		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
 	}
 }
 

@@ -1,0 +1,37 @@
+{
+    "concurrency": 4,
+    "enableGC": true,
+    "vendoredLinters": true,
+    "deadline": "600s",
+    "minConfidence": 0,
+    "lineLength": 160,
+    "enable": [
+        "aligncheck",
+        "deadcode",
+        "errcheck",
+        "gas",
+        "goconst",
+        "gofmt",
+        "goimports",
+        "golint",
+        "ineffassign",
+        "interfacer",
+        "lll",
+        "megacheck",
+        "misspell",
+        "structcheck",
+        "unconvert",
+        "varcheck",
+        "vet",
+        "vetshadow"
+    ],
+    "exclude": [
+        "vendor",
+        ".pb.go",
+        "mixer/pkg/config/proto/combined.go",
+        ".*.gen.go",
+        "should have a package comment",
+        ".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON",
+        "genfiles"
+    ]
+}

@@ -1,6 +1,7 @@
 workspace(name = "io_istio_istio")
 
 load("//mixer:check_bazel_version.bzl", "check_version")
+
 check_version()
 
 git_repository(
@@ -10,10 +11,13 @@ git_repository(
 )
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+
 go_rules_dependencies()
+
 go_register_toolchains()
 
 load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+
 proto_register_toolchains()
 
 load("@io_bazel_rules_go//go:def.bzl", "go_repository")
@@ -82,9 +86,9 @@ go_repository(
 
 go_repository(
     name = "com_github_opentracing_basictracer_go",
+    build_file_proto_mode = "legacy",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",  # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
-    build_file_proto_mode = "legacy",
 )
 
 load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
@@ -112,7 +116,6 @@ go_repository(
     commit = "5cec1d0429b02e4323e042eb04dafdb079ddf568",  # Jun 30, 2017 (latest, pending 0.9 release)
     importpath = "github.com/prometheus/client_golang",
 )
-
 
 go_repository(
     name = "com_github_prometheus_common",
@@ -242,7 +245,7 @@ go_repository(
 
 go_repository(
     name = "io_istio_fortio",
-    commit = "0.2.8",
+    commit = "0.3.1",
     importpath = "istio.io/fortio",
 )
 
@@ -254,9 +257,9 @@ go_repository(
 
 go_repository(
     name = "com_github_googleapis_gnostic",
+    build_file_proto_mode = "legacy",
     commit = "0c5108395e2debce0d731cf0287ddf7242066aba",  # Jul 29, 2017 (no releases)
     importpath = "github.com/googleapis/gnostic",
-    build_file_proto_mode = "legacy",
 )
 
 go_repository(
@@ -446,13 +449,13 @@ go_repository(
 )
 
 go_repository(
-     name = "com_github_openzipkin_zipkin_go_opentracing",
-     build_file_proto_mode = "legacy",
-     commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
-     importpath = "github.com/openzipkin/zipkin-go-opentracing",
-     remote = "https://github.com/mandarjog/zipkin-go-opentracing",
-     vcs = "git",
- )
+    name = "com_github_openzipkin_zipkin_go_opentracing",
+    build_file_proto_mode = "legacy",
+    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
+    importpath = "github.com/openzipkin/zipkin-go-opentracing",
+    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
+    vcs = "git",
+)
 
 go_repository(
     name = "com_github_apache_thrift",
@@ -1048,7 +1051,7 @@ go_repository(
 
 # Change this and the docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "1509b9361c3e727b40146dcddd44ed0012b7de78"
+ISTIO_PROXY_BUCKET = "a05c813aa01b8eed00d1698f5daba3f468b0a293"
 
 http_file(
     name = "envoy_binary",
@@ -1074,6 +1077,7 @@ git_repository(
     commit = "67e73ad01f9d1074a7d787a91201d41938ad4310",  # Aug 25, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
+
 ## auth deps
 go_repository(
     name = "com_github_aws_aws-sdk-go",
@@ -1095,8 +1099,8 @@ go_repository(
 
 go_repository(
     name = "com_github_fullsailor_pkcs7",
-    importpath = "github.com/fullsailor/pkcs7",
     commit = "a009d8d7de53d9503c797cb8ec66fa3b21eed209",
+    importpath = "github.com/fullsailor/pkcs7",
 )
 ## istio/istio deps
 ##
@@ -1114,9 +1118,9 @@ docker_build(
 )
 """,
     sha256 = "2c63dd81d714b825acd1cb3629c57d6ee733645479d0fcdf645203c2c35924c5",
+    strip_prefix = "docker-brew-ubuntu-core-b6f1fe19228e5b6b7aed98dcba02f18088282f90",
     type = "zip",
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
-    strip_prefix = "docker-brew-ubuntu-core-b6f1fe19228e5b6b7aed98dcba02f18088282f90",
 )
 
 go_repository(
@@ -1144,4 +1148,3 @@ go_repository(
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
 )
-

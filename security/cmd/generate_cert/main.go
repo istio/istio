@@ -24,9 +24,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
 	"github.com/golang/glog"
+
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 // Layout for parsing time
@@ -44,7 +44,7 @@ var (
 	org            = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCert        = flag.String("out-cert", "cert.pem", "Output certificate file.")
 	outPriv        = flag.String("out-priv", "priv.pem", "Output private key file.")
-	keySize        = flag.Int("key-size", 1024, "Size of the generated private key")
+	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 )
 
 func checkCmdLine() {
