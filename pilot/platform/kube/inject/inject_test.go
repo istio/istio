@@ -170,6 +170,11 @@ func TestIntoResourceFile(t *testing.T) {
 			include: []string{v1.NamespaceAll},
 		},
 		{
+			in:      "testdata/cronjob.yaml",
+			want:    "testdata/cronjob.yaml.injected",
+			include: []string{v1.NamespaceAll},
+		},
+		{
 			in:      "testdata/hello-host-network.yaml",
 			want:    "testdata/hello-host-network.yaml.injected",
 			include: []string{v1.NamespaceAll},
