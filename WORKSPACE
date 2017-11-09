@@ -1,3 +1,5 @@
+# dummy line 2 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+
 workspace(name = "io_istio_istio")
 
 load("//mixer:check_bazel_version.bzl", "check_version")
