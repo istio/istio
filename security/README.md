@@ -1,9 +1,5 @@
 # Istio Security
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/auth)](https://goreportcard.com/report/github.com/istio/auth)
-[![codecov](https://codecov.io/gh/istio/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/istio/auth)
-
-
 ## Overview
 
 Istio Security's aim is to enhance the security of microservices and their communication without requiring service code changes. It is responsible for:
@@ -20,13 +16,11 @@ The diagram below shows Istio Security's architecture, which includes three prim
 This diagram describes how Istio Security is used to secure the service-to-service communication between service 'frontend' running as the service account 'frontend-team' and service 'backend' running as the service account 'backend-team'.
 Istio supports services running on both Kubernetes containers and VM/bare-metal machines.
 
-![overview](https://cdn.rawgit.com/istio/auth/master/overview.svg)
+![overview](https://cdn.rawgit.com/istio/istio/master/security/overview.svg)
 
 As illustrated in the diagram, Istio Security leverages secret volume mount to deliver keys/certs from Istio CA to Kubernetes containers.
 For services running on VM/bare-metal machines, we introduce a node agent, which is a process running on each VM/bare-metal machine.
 It generates the private key and CSR (certificate signing request) locally, sends CSR to Istio CA for signing, and delivers the generated certificate together with the private key to Envoy.
-
-## Components
 
 ### Identity
 
@@ -84,7 +78,7 @@ Once the key and certificate are deployed, the runtime phase is the same for the
 
 1.  When a pod is created, API Server mounts the key and certificate pair according to the service account using [Kubernetes secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
 
-1.  [Pilot]({{home}}/docs/concepts/traffic-management/pilot.html) generates the config with proper key and certificate and secure naming information,
+1.  [Pilot](https://istio.io/docs/concepts/traffic-management/pilot.html) generates the config with proper key and certificate and secure naming information,
 which
  defines what service account(s) can run a certain service, and passes it to Envoy.
 
@@ -128,26 +122,6 @@ Let's consider a 3-tier application with three services: photo-frontend, photo-b
 In this scenario, a cluster admin creates 3 namespaces: istio-ca-ns, photo-ns, and datastore-ns. Admin has access to all namespaces, and each team only has
 access to its own namespace. The photo SRE team creates 2 service accounts to run photo-frontend and photo-backend respectively in namespace photo-ns. The
 datastore SRE team creates 1 service account to run the datastore service in namespace datastore-ns. Moreover, we need to enforce the service access control
-in [Istio Mixer]({{home}}/docs/concepts/policy-and-control/mixer.html) such that photo-frontend cannot access datastore.
+in [Istio Mixer](https://istio.io/docs/concepts/policy-and-control/mixer.html) such that photo-frontend cannot access datastore.
 
 In this setup, Istio CA is able to provide keys and certificates management for all namespaces, and isolate microservice deployments from each other.
-
-## Future work
-
-*   Inter-cluster service-to-service authentication
-
-*   Powerful authorization mechanisms: ABAC, RBAC, etc
-
-*   Per-service auth enablement support
-
-*   Secure Istio components (Mixer, Pilot)
-
-*   End-user to service authentication using JWT/OAuth2/OpenID_Connect.
-
-*   Support GCP service account
-
-*   Unix domain socket for local communication between service and Envoy
-
-*   Layer-7 Middle proxy support
-
-*   Pluggable key management component

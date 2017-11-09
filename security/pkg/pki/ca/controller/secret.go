@@ -53,7 +53,7 @@ const (
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	// The size of a private key for a leaf certificate.
-	keySize = 1024
+	keySize = 2048
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.

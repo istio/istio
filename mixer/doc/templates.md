@@ -30,14 +30,14 @@ the data adapters receive, as well as the instances operators must create in ord
 The [Adapter Developer's Guide](./adapters.md#template-overview) explains how templates are automatically transformed into Go
 structs and interfaces that can be used by adapter developers, and into config definitions that can be used by operators. 
 
-Mixer includes a number of [canonical templates](https://github.com/istio/mixer/tree/master/template) which cover
+Mixer includes a number of [canonical templates](https://github.com/istio/istio/tree/master/mixer/template) which cover
 most of the anticipated workloads that Mixer is expected to be used with. However, the set of supported templates can
 readily be extended in order to support emerging usage scenarios. Note that it’s preferable to use existing templates
 when possible as it tends to deliver a better end-to-end story for the ecosystem by making configuration state more portable 
 between adapters.
 
 This document describes the simple rules used to create templates for Mixer.
-The [Adapter Developer’s Guide](https://github.com/istio/mixer/blob/master/doc/dev/adapters.md) describes how to use templates to
+The [Adapter Developer’s Guide](https://github.com/istio/istio/blob/master/mixer/doc/adapters.md) describes how to use templates to
 create adapters.
 
 ## Template format
