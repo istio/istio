@@ -1,5 +1,4 @@
 version: 2
-
 jobs:
   pilot-integration:
     machine: true
@@ -35,10 +34,10 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
-  pilot-unittest:
+  unittest:
     working_directory: /go/src/istio.io/istio
     docker:
-      - image: gihanson/test-apiserver:latest
+      - image: istio/ci:go1.9-k8s1.7.4
     steps:
       - checkout
       - run:
@@ -62,6 +61,8 @@ jobs:
             tar xvzf envoy.tar.gz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; go test ./pilot/...
+      - run: cd /go/src/istio.io/istio; go test ./security/...
+      - run: cd /go/src/istio.io/istio; go test ./broker/...
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
@@ -71,5 +72,7 @@ workflows:
   version: 2
   all:
     jobs:
-      - pilot-unittest
-      - pilot-integration
+      - unittest
+      - pilot-integration:
+          requires:
+            - unittest
