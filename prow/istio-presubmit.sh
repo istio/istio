@@ -73,6 +73,13 @@ time bazel test --test_output=all //...
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh
 
+diff=`git diff`
+if [[ -n "$diff" ]]; then
+  echo "Some uncommitted changes are found. Maybe miss committing some generated files? Here's the diff"
+  echo $diff
+  exit -1
+fi
+
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
