@@ -1,0 +1,132 @@
+[
+  {
+   "service-key": "hello.default.svc.cluster.local|custom",
+   "hosts": [
+    {
+     "ip_address": "10.1.1.0",
+     "port": 1090
+    },
+    {
+     "ip_address": "10.1.1.1",
+     "port": 1090
+    }
+   ]
+  },
+  {
+   "service-key": "hello.default.svc.cluster.local|http",
+   "hosts": [
+    {
+     "ip_address": "10.1.1.0",
+     "port": 16080
+    },
+    {
+     "ip_address": "10.1.1.1",
+     "port": 16080
+    }
+   ]
+  },
+  {
+   "service-key": "hello.default.svc.cluster.local|http-status",
+   "hosts": [
+    {
+     "ip_address": "10.1.1.0",
+     "port": 1081
+    },
+    {
+     "ip_address": "10.1.1.1",
+     "port": 1081
+    }
+   ]
+  },
+  {
+   "service-key": "hello.default.svc.cluster.local|mongo",
+   "hosts": [
+    {
+     "ip_address": "10.1.1.0",
+     "port": 1100
+    },
+    {
+     "ip_address": "10.1.1.1",
+     "port": 1100
+    }
+   ]
+  },
+  {
+   "service-key": "hello.default.svc.cluster.local|redis",
+   "hosts": [
+    {
+     "ip_address": "10.1.1.0",
+     "port": 1110
+    },
+    {
+     "ip_address": "10.1.1.1",
+     "port": 1110
+    }
+   ]
+  },
+  {
+   "service-key": "world.default.svc.cluster.local|custom",
+   "hosts": [
+    {
+     "ip_address": "10.2.1.0",
+     "port": 1090
+    },
+    {
+     "ip_address": "10.2.1.1",
+     "port": 1090
+    }
+   ]
+  },
+  {
+   "service-key": "world.default.svc.cluster.local|http",
+   "hosts": [
+    {
+     "ip_address": "10.2.1.0",
+     "port": 16080
+    },
+    {
+     "ip_address": "10.2.1.1",
+     "port": 16080
+    }
+   ]
+  },
+  {
+   "service-key": "world.default.svc.cluster.local|http-status",
+   "hosts": [
+    {
+     "ip_address": "10.2.1.0",
+     "port": 1081
+    },
+    {
+     "ip_address": "10.2.1.1",
+     "port": 1081
+    }
+   ]
+  },
+  {
+   "service-key": "world.default.svc.cluster.local|mongo",
+   "hosts": [
+    {
+     "ip_address": "10.2.1.0",
+     "port": 1100
+    },
+    {
+     "ip_address": "10.2.1.1",
+     "port": 1100
+    }
+   ]
+  },
+  {
+   "service-key": "world.default.svc.cluster.local|redis",
+   "hosts": [
+    {
+     "ip_address": "10.2.1.0",
+     "port": 1110
+    },
+    {
+     "ip_address": "10.2.1.1",
+     "port": 1110
+    }
+   ]
+  }
+ ]

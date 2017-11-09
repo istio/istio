@@ -415,9 +415,18 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 
 // conslidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
 // returns mesh policy.
-func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyconfig.AuthenticationPolicy) proxyconfig.AuthenticationPolicy {
-	if serviceAuthPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
-		return serviceAuthPolicy
+func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig,
+	serviceAuthPolicy proxyconfig.AuthenticationPolicy,
+	authMigrationPort *model.AuthMigrationPort) proxyconfig.AuthenticationPolicy {
+	var authPolicy proxyconfig.AuthenticationPolicy
+	if authMigrationPort != nil && authMigrationPort.Active {
+		authPolicy = authMigrationPort.AuthenticationPolicy
+	} else {
+		authPolicy = serviceAuthPolicy
+	}
+
+	if authPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
+		return authPolicy
 	}
 	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
 	switch mesh.AuthPolicy {
@@ -434,7 +443,7 @@ func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyc
 // mayApplyInboundAuth adds ssl_context to the listener if conslidateAuthPolicy.
 func mayApplyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig,
 	serviceAuthPolicy proxyconfig.AuthenticationPolicy) {
-	if conslidateAuthPolicy(mesh, serviceAuthPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+	if conslidateAuthPolicy(mesh, serviceAuthPolicy, nil) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
@@ -713,13 +722,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 	// to the service address
 	// assumes that endpoint addresses/ports are unique in the instance set
 	// TODO: validate that duplicated endpoints for services can be handled (e.g. above assumption)
-	for _, instance := range instances {
-		endpoint := instance.Endpoint
-		servicePort := endpoint.ServicePort
-		protocol := servicePort.Protocol
-		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
-		clusters = append(clusters, cluster)
-
+	builder := func(cluster *Cluster, listenerPort int, authPolicy proxyconfig.AuthenticationPolicy, protocol model.Protocol, endpoint model.NetworkEndpoint) {
 		var listener *Listener
 
 		// Local service instances can be accessed through one of three
@@ -770,12 +773,12 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
-				endpoint.Port, "", false, IngressTraceOperation)
+				listenerPort, "", false, IngressTraceOperation)
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
 				Routes: []*TCPRoute{buildTCPRoute(cluster, []string{endpoint.Address})},
-			}, endpoint.Address, endpoint.Port, protocol)
+			}, endpoint.Address, listenerPort, protocol)
 
 			// set server-side mixer filter config
 			if mesh.MixerAddress != "" {
@@ -788,12 +791,23 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 			}
 
 		default:
-			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
+			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, listenerPort)
 		}
 
 		if listener != nil {
-			mayApplyInboundAuth(listener, mesh, endpoint.ServicePort.AuthenticationPolicy)
+			mayApplyInboundAuth(listener, mesh, authPolicy)
 			listeners = append(listeners, listener)
+		}
+	}
+	for _, instance := range instances {
+		endpoint := instance.Endpoint
+		servicePort := endpoint.ServicePort
+		protocol := servicePort.Protocol
+		cluster := buildInboundCluster(endpoint.Port, protocol, mesh.ConnectTimeout)
+		clusters = append(clusters, cluster)
+		builder(cluster, endpoint.Port, servicePort.AuthenticationPolicy, protocol, endpoint)
+		if servicePort.AuthMigrationPort != nil {
+			builder(cluster, servicePort.AuthMigrationPort.Port, servicePort.AuthMigrationPort.AuthenticationPolicy, protocol, endpoint)
 		}
 	}
 

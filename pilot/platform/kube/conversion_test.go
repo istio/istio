@@ -241,6 +241,87 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 
 }
 
+func equalsMigrationPort(a, b *model.AuthMigrationPort) bool {
+	if a == nil && b == nil {
+		return true
+	} else if a == nil || b == nil {
+		return false
+	} else {
+		return a.Port == b.Port && a.AuthenticationPolicy == b.AuthenticationPolicy && a.Active == b.Active
+	}
+}
+func TestServiceSecurityMigrationAnnotation(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	ip := "10.0.0.1"
+
+	testCases := []struct {
+		port      int
+		aliasPort string
+		policy    string
+		active    string
+		want      *model.AuthMigrationPort
+	}{
+		{8080, "8888", "MUTUAL_TLS", "true", &model.AuthMigrationPort{8888, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, true}},
+		{8080, "8888", "NONE", "false", &model.AuthMigrationPort{8888, proxyconfig.AuthenticationPolicy_NONE, false}},
+		{8080, "", "NONE", "true", nil},
+		{8080, "8888", "", "", &model.AuthMigrationPort{8888, proxyconfig.AuthenticationPolicy_INHERIT, false}},
+		{8080, "8888", "bad-policy", "true", &model.AuthMigrationPort{8888, proxyconfig.AuthenticationPolicy_INHERIT, true}},
+		{8080, "bad-port", "", "", nil},
+		// Annotation is not for the testing port (8080), default policy (INHERIT)
+		// should be set.
+		{9999, "8888", "MUTUAL_TLS", "true", nil},
+	}
+	for _, test := range testCases {
+		localSvc := v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+				Annotations: func() map[string]string {
+					ret := make(map[string]string)
+					if test.aliasPort != "" {
+						ret[portMigrationAnnotationKey(test.port, AuthMigrationPortAlias)] = test.aliasPort
+					}
+					if test.policy != "" {
+						ret[portMigrationAnnotationKey(test.port, AuthMigrationPolicy)] = test.policy
+					}
+					if test.active != "" {
+						ret[portMigrationAnnotationKey(test.port, AuthMigrationActive)] = test.active
+					}
+					return ret
+				}(),
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: ip,
+				Ports: []v1.ServicePort{
+					{
+						Name:     "http",
+						Port:     8080,
+						Protocol: v1.ProtocolTCP,
+					},
+				},
+			},
+		}
+
+		service := convertService(localSvc, domainSuffix)
+		if service == nil {
+			t.Errorf("could not convert service")
+		}
+
+		if len(service.Ports) != 1 {
+			t.Errorf("incorrect number of ports => %v, want 1\n",
+				len(service.Ports))
+		}
+
+		if !equalsMigrationPort(service.Ports[0].AuthMigrationPort, test.want) {
+			t.Errorf("incorrect migration port: get %v, want %v\n",
+				service.Ports[0].AuthMigrationPort,
+				test.want)
+		}
+	}
+}
+
 func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"

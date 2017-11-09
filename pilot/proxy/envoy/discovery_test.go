@@ -113,6 +113,7 @@ func compareResponse(body []byte, file string, t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	ioutil.WriteFile("/tmp/"+file, body, 0644)
 	util.CompareYAML(file, t)
 }
 
@@ -123,12 +124,40 @@ func TestServiceDiscovery(t *testing.T) {
 	compareResponse(response, "testdata/sds.json", t)
 }
 
+func TestServiceDiscoveryAuthMigrationActive(t *testing.T) {
+	mock.HelloService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, true}
+	_, _, ds := commonSetup(t)
+	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0], nil)
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/sds-auth-migration.json", t)
+	mock.HelloService.Ports[0].AuthMigrationPort = nil
+}
+
 // Can we list Services?
 func TestServiceDiscoveryListAllServices(t *testing.T) {
 	_, _, ds := commonSetup(t)
 	url := "/v1/registration/"
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/all-sds.json", t)
+}
+
+func TestServiceDiscoveryListAllServicesAuthMigrationInactive(t *testing.T) {
+	mock.HelloService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, false}
+	_, _, ds := commonSetup(t)
+	url := "/v1/registration/"
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	// Migration is inactive, service endpoints should be the same.
+	compareResponse(response, "testdata/all-sds.json", t)
+	mock.HelloService.Ports[0].AuthMigrationPort = nil
+}
+
+func TestServiceDiscoveryListAllServicesAuthMigrationActive(t *testing.T) {
+	mock.HelloService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, true}
+	_, _, ds := commonSetup(t)
+	url := "/v1/registration/"
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/all-sds-auth-migration.json", t)
+	mock.HelloService.Ports[0].AuthMigrationPort = nil
 }
 
 func TestServiceDiscoveryListAllServicesError(t *testing.T) {
@@ -171,6 +200,16 @@ func TestServiceDiscoveryVersion(t *testing.T) {
 		map[string]string{"version": "v1"})
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/sds-v1.json", t)
+}
+
+func TestServiceDiscoveryVersionAuthMigrationActive(t *testing.T) {
+	mock.HelloService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, true}
+	_, _, ds := commonSetup(t)
+	url := "/v1/registration/" + mock.HelloService.Key(mock.HelloService.Ports[0],
+		map[string]string{"version": "v1"})
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/sds-v1-auth-migration.json", t)
+	mock.HelloService.Ports[0].AuthMigrationPort = nil
 }
 
 func TestServiceDiscoveryEmpty(t *testing.T) {
@@ -269,6 +308,19 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 
 	// Reset mock service security option.
 	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+}
+
+func TestClusterDiscoveryWithAuthMigration(t *testing.T) {
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, false}
+	mock.WorldService.Ports[1].AuthMigrationPort = &model.AuthMigrationPort{16090, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, true}
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-ssl-context-migration.json", t)
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].AuthMigrationPort = nil
+	mock.WorldService.Ports[1].AuthMigrationPort = nil
 }
 
 func TestClusterDiscoveryIngress(t *testing.T) {
@@ -627,6 +679,21 @@ func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
 	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+}
+
+func TestListenerDiscoverySidecarAuthMigration(t *testing.T) {
+	mesh := makeMeshConfig()
+	registry := memory.Make(model.IstioConfigTypes)
+
+	// Auth migration for port 80 (http, index 0) and port 90 (tcp, index 1)
+	mock.HelloService.Ports[0].AuthMigrationPort = &model.AuthMigrationPort{16080, proxyconfig.AuthenticationPolicy_MUTUAL_TLS, false}
+	mock.HelloService.Ports[2].AuthMigrationPort = &model.AuthMigrationPort{16090, proxyconfig.AuthenticationPolicy_NONE, true}
+	ds := makeDiscoveryService(t, registry, &mesh)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-auth-migration.json", t)
+	mock.HelloService.Ports[0].AuthMigrationPort = nil
+	mock.HelloService.Ports[2].AuthMigrationPort = nil
 }
 
 func TestRouteDiscoverySidecarError(t *testing.T) {

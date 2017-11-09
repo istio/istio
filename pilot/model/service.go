@@ -64,6 +64,15 @@ type Service struct {
 	LoadBalancingDisabled bool `json:"-"`
 }
 
+// AuthMigrationPort represents an alias port for a service port that would
+// be used for authentication migration.
+// As of speaking, this information is extracted from service annotations.
+type AuthMigrationPort struct {
+	Port                 int                              `json:"port,omitempty"`
+	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"policy,omitempty"`
+	Active               bool                             `json:"active,omitempty"`
+}
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.
@@ -84,6 +93,10 @@ type Port struct {
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
 	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"authentication_policy"`
+
+	// Migration port for authentication.
+	// This value is extracted from service annotation.
+	AuthMigrationPort *AuthMigrationPort `json:"auth_migration_port,omitempty"`
 }
 
 // PortList is a set of ports
