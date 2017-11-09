@@ -427,13 +427,3 @@ func ParseLabelsString(s string) Labels {
 	}
 	return tag
 }
-
-// ExtractNamespaceFromHostname returns namespace from the (expected) hostname
-// string.
-func ExtractNamespaceFromHostname(hostname string) string {
-	parts := strings.Split(hostname, ".")
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
-}

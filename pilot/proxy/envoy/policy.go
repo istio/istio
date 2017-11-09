@@ -23,16 +23,10 @@ import (
 	"istio.io/istio/pilot/proxy"
 )
 
-func isDestinationBlacklistedForAuth(serviceName string, mesh *proxyconfig.MeshConfig) bool {
+func isDestinationBlacklistedForAuth(serviceName string, auth_blacklisted_services []string) bool {
 	hostname, _, _ := model.ParseServiceKey(serviceName)
-	for _, blacklisted_svc := range mesh.AuthBlacklistedDestinationService {
+	for _, blacklisted_svc := range auth_blacklisted_services {
 		if hostname == blacklisted_svc {
-			return true
-		}
-	}
-	namespace := model.ExtractNamespaceFromHostname(hostname)
-	for _, blacklisted_namespace := range mesh.AuthBlacklistedDestinationNamespace {
-		if namespace == blacklisted_namespace {
 			return true
 		}
 	}
@@ -56,7 +50,7 @@ func applyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		if !isDestinationBlacklistedForAuth(cluster.ServiceName, mesh) &&
+		if !isDestinationBlacklistedForAuth(cluster.ServiceName, mesh.AuthBlacklistedDestinationService) &&
 			conslidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
