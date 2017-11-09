@@ -21,13 +21,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/glog"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/golang/glog"
-
-	"golang.org/x/net/context"
 
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"

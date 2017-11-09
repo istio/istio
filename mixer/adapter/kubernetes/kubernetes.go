@@ -232,12 +232,16 @@ func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (a
 		env.ScheduleDaemon(func() { b.pods.Run(b.stopChan) })
 		// ensure that any request is only handled after
 		// a sync has occurred
-		env.Logger().Infof("Waiting for kubernetes cache sync...")
+		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+			env.Logger().Infof("Waiting for kubernetes cache sync...")
+		}
 		if success := cache.WaitForCacheSync(b.stopChan, b.pods.HasSynced); !success {
 			b.stopChan <- struct{}{}
 			return nil, errors.New("cache sync failure")
 		}
-		env.Logger().Infof("Cache sync successful.")
+		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+			env.Logger().Infof("Cache sync successful.")
+		}
 		b.needsCacheInit = false
 	}
 	kg := &kubegen{
@@ -249,17 +253,20 @@ func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (a
 }
 
 func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error) {
-	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
+	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
+	}
 	config, err := getRESTConfig(kubeconfigPath)
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	env.Logger().Infof("getting k8s client from config")
+	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		env.Logger().Infof("getting k8s client from config")
+	}
 	clientset, err := k8s.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
 	}
-	env.Logger().Infof("building new cache controller")
 	return newCacheController(clientset, refreshDuration, env), nil
 }
 
@@ -290,7 +297,9 @@ func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) 
 	podKey := keyFromUID(uid)
 	pod, found := k.pods.GetPod(podKey)
 	if !found {
-		k.log.Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+		if k.log.VerbosityLevel(debugVerbosityLevel) {
+			k.log.Infof("could not find pod for (uid: %s, key: %s)", uid, podKey)
+		}
 		return
 	}
 	addPodValues(vals, valPrefix, k.params, pod)
@@ -379,10 +388,10 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 	}
 	parts := strings.SplitN(s, ".", 3)
 	if len(parts) == 1 {
-		return fmt.Sprintf("%s.%s.%s", parts[0], namespace, clusterDomain), nil
+		return parts[0] + "." + namespace + "." + clusterDomain, nil
 	}
 	if len(parts) == 2 {
-		return fmt.Sprintf("%s.%s", s, clusterDomain), nil
+		return s + "." + clusterDomain, nil
 	}
 
 	domParts := strings.Split(clusterDomain, ".")
@@ -392,7 +401,7 @@ func canonicalName(service, namespace, clusterDomain string) (string, error) {
 		return s, nil
 	}
 	for i := len(nameParts); i < len(domParts); i++ {
-		s = fmt.Sprintf("%s.%s", s, domParts[i])
+		s = s + "." + domParts[i]
 	}
 	return s, nil
 }

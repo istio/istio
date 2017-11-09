@@ -21,10 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
-	"istio.io/istio/security/pkg/pki"
-	"istio.io/istio/security/pkg/pki/ca"
-
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 /* #nosec: disable gas linter */

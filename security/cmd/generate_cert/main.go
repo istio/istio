@@ -24,9 +24,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
 	"github.com/golang/glog"
+
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 // Layout for parsing time

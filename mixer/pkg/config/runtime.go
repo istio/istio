@@ -110,7 +110,7 @@ func (r *runtime) Resolve(bag attribute.Bag, set KindSet, strict bool) (dlist []
 // as much config as we were able to resolve.
 func (r *runtime) ResolveUnconditional(bag attribute.Bag, set KindSet, strict bool) (out []*pb.Combined, err error) {
 	if glog.V(2) {
-		glog.Infof("unconditionally resolving for kinds: %s", set)
+		glog.Info("unconditionally resolving for kinds: ", set)
 		defer func() {
 			builders := make([]string, len(out))
 			for i, o := range out {
@@ -173,7 +173,7 @@ func resolve(bag attribute.Bag, kindSet KindSet, rules map[rulesKey]*pb.ServiceC
 			key := rulesKey{scope, subject}
 			rule := rules[key]
 			if rule == nil {
-				glog.V(2).Infof("no rules for %s", key)
+				glog.V(2).Info("no rules for ", key)
 				continue
 			}
 			// empty the slice, do not re allocate

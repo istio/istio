@@ -1,0 +1,103 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package traceSpan;
+
+import "google/protobuf/timestamp.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// TraceSpan represents an individual span within a distributed trace.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html). Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking) must match the datatype of the field.
+//
+// Example config:
+// ```
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: tracespan
+// metadata:
+//   name: default
+//   namespace: istio-system
+// spec:
+//   traceId: request.headers["x-b3-traceid"]
+//   spanId: request.headers["x-b3-spanid"] | ""
+//   parentSpanId: request.headers["x-b3-parentspanid"] | ""
+//   spanName: request.path | "/"
+//   startTime: request.time
+//   endTime: response.time
+//   spanTags:
+//     http.method: request.method | ""
+//     http.status_code: response.code | 200
+//     http.url: request.path | ""
+//     request.size: request.size | 0
+//     response.size: response.size | 0
+//     source.ip: source.ip | ip("0.0.0.0")
+//     source.service: source.service | ""
+//     source.user: source.user | ""
+//     source.version: source.labels["version"] | ""
+// ```
+//
+// See also: [Distributed Tracing](https://istio.io/docs/tasks/telemetry/distributed-tracing.html)
+// for information on tracing within Istio.
+message Template {
+    // Trace ID is the unique identifier for a trace. All spans from the same
+    // trace share the same Trace ID.
+    //
+    // Required.
+    string trace_id = 1;
+
+    // Span ID is the unique identifier for a span within a trace. It is assigned
+    // when the span is created.
+    //
+    // Optional.
+    string span_id = 2;
+
+    // Parent Span ID is the unique identifier for a parent span of this span
+    // instance. If this is a root span, then this field MUST be empty.
+    //
+    // Optional.
+    string parent_span_id = 3;
+
+    // Span name is a description of the span's operation.
+    //
+    // For example, the name can be a qualified method name or a file name
+    // and a line number where the operation is called. A best practice is to use
+    // the same display name within an application and at the same call point.
+    // This makes it easier to correlate spans in different traces.
+    //
+    // Required.
+    string span_name = 4;
+
+    // The start time of the span.
+    //
+    // Required.
+    google.protobuf.Timestamp start_time = 5;
+
+    // The end time of the span.
+    //
+    // Required.
+    google.protobuf.Timestamp end_time = 6;
+
+    // Span tags are a set of <key, value> pairs that provide metadata for the
+    // entire span. The values can be specified in the form of expressions.
+    //
+    // Optional.
+    map<string, istio.mixer.v1.config.descriptor.ValueType> span_tags = 7;
+}

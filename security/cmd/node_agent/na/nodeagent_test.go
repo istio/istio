@@ -127,11 +127,11 @@ func TestStartWithArgs(t *testing.T) {
 			config: &Config{
 				"ca_addr", "Google Inc.", 128, "onprem", time.Millisecond, 3, 50, generalPcConfig,
 			},
-			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &FakeCAClient{0, nil, nil},
+			pc:       mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			cAClient: &FakeCAClient{0, nil, nil},
 			expectedErr: "request creation fails on CSR generation (CSR generation fails at X509 cert request " +
-                   "generation (crypto/rsa: message too long for RSA public key size))",
-			sendTimes:   0,
+				"generation (crypto/rsa: message too long for RSA public key size))",
+			sendTimes: 0,
 		},
 		"Getting agent credential error": {
 			config:      &generalConfig,
