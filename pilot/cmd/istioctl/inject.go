@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 
@@ -88,9 +89,16 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 			if inFilename == "-" {
 				reader = os.Stdin
 			} else {
-				if reader, err = os.Open(inFilename); err != nil {
+				var in *os.File
+				if in, err = os.Open(inFilename); err != nil {
 					return err
 				}
+				defer func() {
+					if err = in.Close(); err != nil {
+						glog.Errorf("Error: close file from %s, %s", inFilename, err)
+					}
+				}()
+				reader = in
 			}
 
 			var writer io.Writer
