@@ -150,19 +150,18 @@ func DefaultProxyConfig() proxyconfig.ProxyConfig {
 func DefaultMeshConfig() proxyconfig.MeshConfig {
 	config := DefaultProxyConfig()
 	return proxyconfig.MeshConfig{
-		EgressProxyAddress:                "",
-		MixerAddress:                      "",
-		DisablePolicyChecks:               false,
-		ProxyListenPort:                   15001,
-		ConnectTimeout:                    ptypes.DurationProto(1 * time.Second),
-		IngressClass:                      "istio",
-		IngressControllerMode:             proxyconfig.MeshConfig_STRICT,
-		AuthPolicy:                        proxyconfig.MeshConfig_NONE,
-		AuthBlacklistedDestinationService: []string{"kubernetes.default.svc.cluster.local"},
-		RdsRefreshDelay:                   ptypes.DurationProto(1 * time.Second),
-		EnableTracing:                     true,
-		AccessLogFile:                     "/dev/stdout",
-		DefaultConfig:                     &config,
+		EgressProxyAddress:    "",
+		MixerAddress:          "",
+		DisablePolicyChecks:   false,
+		ProxyListenPort:       15001,
+		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
+		IngressClass:          "istio",
+		IngressControllerMode: proxyconfig.MeshConfig_STRICT,
+		AuthPolicy:            proxyconfig.MeshConfig_NONE,
+		RdsRefreshDelay:       ptypes.DurationProto(1 * time.Second),
+		EnableTracing:         true,
+		AccessLogFile:         "/dev/stdout",
+		DefaultConfig:         &config,
 	}
 }
 
