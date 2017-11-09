@@ -9,8 +9,8 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-PKGS="tests/e2e"
-GO_FILES=$(find ${PKGS} -type f -name '*.go')
+PKGS="."
+GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go')
 
 UX=$(uname)
 
@@ -24,4 +24,4 @@ fi
 done
 gofmt -s -w ${GO_FILES}
 goimports -w -local istio.io ${GO_FILES}
-buildifier -showlog -mode=fix $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e '.*\.bazel' -e '.*\.bzl')
+buildifier -mode=fix $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl')

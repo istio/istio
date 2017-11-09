@@ -22,10 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-
-	"golang.org/x/net/context"
 
 	"istio.io/istio/security/pkg/pki/ca"
 	pb "istio.io/istio/security/proto"

@@ -1,7 +1,7 @@
 # Creating Fast and Lean Code
 
-Mixer is a high-performance component. It's imperative to keep its
-latency and memory consumption low.
+It's imperative to keep latency and memory consumption of Istio components low.
+To that end, we present here a few general guidelines and pointers.
 
 - [Memory usage](#memory-usage)
   - [Reuse and object pools](#reuse-and-object-pools)
@@ -42,7 +42,7 @@ abound. But Go does have good value semantics, so we use them.
 
 So prefer:
 
-```
+```go
 type MyContainer struct {
   inlineStruct OtherStuff
 }
@@ -50,7 +50,7 @@ type MyContainer struct {
 
 When possible as opposed to:
 
-```
+```go
 type MyContainer struct {
   outoflineStruct *OtherStruct
 }
