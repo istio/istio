@@ -1,5 +1,4 @@
-
-1;95;0c#!/bin/bash
+#!/bin/bash
 # Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
