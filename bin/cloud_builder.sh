@@ -56,6 +56,7 @@ cd $ROOT
 export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
 echo gopath is $GOPATH
 
+# clean slate here
 ../../../../repo status
 
 if [ ! -d "${PROXY_PATH}" ]; then
@@ -74,6 +75,7 @@ cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
+# clean slate here
 ../../../../repo status
 
 pushd security
@@ -82,26 +84,18 @@ pushd security
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
+# clean slate here
 ../../../../repo status
 
 pushd pilot
 # Build istioctl binaries
 touch platform/kube/config
 
-# bazel build //pilot/... dirties:
-# lintconfig.json
-# mixer/template/apikey/go_default_library_tmpl.pb.go
-# mixer/template/template.gen.go              
-
-# bazel build //... dirties what's listed above plus:
-# broker/pkg/model/config/mock_store.go
-# broker/pkg/platform/kube/crd/types.go
-# generated_files
-# lintconfig.json
-# mixer/template/apikey/go_default_library_handler.gen.go
-
 bazel build //pilot/...
 popd
+
+# slate is TBD here
+../../../../repo status
 
 # bazel_to_go likes to run from dir with WORKSPACE file
 ./bin/bazel_to_go.py
@@ -114,13 +108,24 @@ pushd pilot
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
+# pilot dirties (both from bazel_to_go, it seems):
+# generated_files
+# lintconfig.json
 ../../../../repo status
 
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 popd
 
+# seen dirty:
+# mixer/template/apikey/go_default_library_tmpl.pb.go
+# mixer/template/template.gen.go   
 ../../../../repo status
+
+# bazel build //... dirties what's listed above plus:
+# broker/pkg/model/config/mock_store.go
+# broker/pkg/platform/kube/crd/types.go
+# mixer/template/apikey/go_default_library_handler.gen.go
 
 # store artifacts that are used by a separate cloud builder step to generate tar files
 cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
