@@ -26,7 +26,7 @@ jobs:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel      
-      - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
+      - run: pilot/bin/push-docker docker.io/rshriram test -build-only  # make docker images for pilot only
       - run: cd pilot; mkdir /home/circleci/logs; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
       - run:
           command: |
@@ -61,8 +61,6 @@ jobs:
             tar xvzf envoy.tar.gz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; go test ./pilot/...
-      - run: cd /go/src/istio.io/istio; go test ./security/...
-      - run: cd /go/src/istio.io/istio; go test ./broker/...
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
