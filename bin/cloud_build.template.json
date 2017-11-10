@@ -2,17 +2,6 @@
   "steps": [
     {
       "volumes": [
-        {
-          "name": "buildoutput",
-          "path": "/output"
-        }
-      ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
-      "args": [ "/proc/cpuinfo", "/proc/meminfo" ],
-      "entrypoint": "cat"
-    },
-    {
-      "volumes": [
 	{
           "name": "buildoutput",
           "path": "/output"
@@ -46,6 +35,17 @@
     },
     {
       "volumes": [
+        {
+          "name": "buildoutput",
+          "path": "/output"
+        }
+      ],
+      "name": "gcr.io/istio-io/istio-builder:0.3.2",
+      "args": [ "-c", "./repo status" ],
+      "entrypoint": "bash"
+    },
+    {
+      "volumes": [
 	{
           "name": "buildoutput",
           "path": "/output"
@@ -68,7 +68,7 @@
     }
   ],
   "options": {
-    "machineType": "N1_HIGHCPU_8"
+    "machineType": "N1_HIGHCPU_32"
   },
   "timeout": "3600s",
 }
