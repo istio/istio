@@ -86,6 +86,13 @@ func (t *egressRules) run() error {
 				return t.verifyReachable("http://cloud.google.com", false)
 			},
 		},
+		{
+			description: "prohibit http external traffic to cnn.com",
+			config:      "egress-rule-google.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("http://cnn.com", false)
+			},
+		},
 	}
 	var errs error
 	for _, cs := range cases {
