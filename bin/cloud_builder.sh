@@ -120,6 +120,7 @@ popd
 # generated_files
 # lintconfig.json
 ../../../../repo status
+ls -ld *
 
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
