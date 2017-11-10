@@ -22,7 +22,6 @@ KEY_FILE_PATH=""
 SVC_ACCT=""
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 TEMP_DIR="$(mktemp -d /tmp/build.temprepo.XXXX)"
-TEMPLATE="$(mktemp /tmp/build.template.XXXX)"
 BUILD_FILE="$(mktemp /tmp/build.request.XXXX)"
 RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 VER_STRING="0.0.0"
@@ -119,29 +118,25 @@ pushd ${TEMP_DIR}
 popd
 
 # grab a copy of the template file
-cp "${TEMP_DIR}/${ISTIO_REPO_PATH}/bin/cloud_build.template.json" "${TEMPLATE}"
+cp "${TEMP_DIR}/${ISTIO_REPO_PATH}/bin/cloud_build.template.yaml" "${BUILD_FILE}"
 rm -rf "${TEMP_DIR}"
 
 # generate the json file, first strip off the closing } in the last line of the template
-head --lines=-1 "${TEMPLATE}" > "${BUILD_FILE}"
-echo "  \"substitutions\": {" >> "${BUILD_FILE}"
-echo "    \"_VER_STRING\": \"${VER_STRING}\"," >> "${BUILD_FILE}"
-echo "    \"_MFEST_URL\": \"${REPO}\"," >> "${BUILD_FILE}"
-echo "    \"_MFEST_FILE\": \"${REPO_FILE}\"," >> "${BUILD_FILE}"
-echo "    \"_MFEST_VER\": \"${REPO_FILE_VER}\"," >> "${BUILD_FILE}"
-echo "    \"_GCS_BUCKET\": \"${GCS_BUCKET}\"," >> "${BUILD_FILE}"
-echo "    \"_GCS_SUBDIR\": \"${GCS_PATH}\"," >> "${BUILD_FILE}"
-echo "    \"_GCR_BUCKET\": \"${GCR_BUCKET}\"," >> "${BUILD_FILE}"
-echo "    \"_GCR_SUBDIR\": \"${GCR_PATH}\"" >> "${BUILD_FILE}"
-echo "  }" >> "${BUILD_FILE}"
-echo "}" >> "${BUILD_FILE}"
+echo "substitutions:" >> "${BUILD_FILE}"
+echo "  _VER_STRING: \"${VER_STRING}\"" >> "${BUILD_FILE}"
+echo "  _MFEST_URL: \"${REPO}\"" >> "${BUILD_FILE}"
+echo "  _MFEST_FILE: \"${REPO_FILE}\"" >> "${BUILD_FILE}"
+echo "  _MFEST_VER: \"${REPO_FILE_VER}\"" >> "${BUILD_FILE}"
+echo "  _GCS_BUCKET: \"${GCS_BUCKET}\"" >> "${BUILD_FILE}"
+echo "  _GCS_SUBDIR: \"${GCS_PATH}\"" >> "${BUILD_FILE}"
+echo "  _GCR_BUCKET: \"${GCR_BUCKET}\"" >> "${BUILD_FILE}"
+echo "  _GCR_SUBDIR: \"${GCR_PATH}\"" >> "${BUILD_FILE}"
 
 gcloud auth activate-service-account "${SVC_ACCT}" --key-file="${KEY_FILE_PATH}"
 curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -T "${BUILD_FILE}" \
   -s -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJECT_ID}/builds
 
 # cleanup
-rm -f "${TEMPLATE}"
 rm -f "${BUILD_FILE}"
 
 BUILD_ID=""
