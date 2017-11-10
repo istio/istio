@@ -42,6 +42,7 @@ func TestAllConfigs(t *testing.T) {
 		newConfig(model.RouteRule.Type, "rewrite", "testdata/rewrite-route.yaml.golden"),
 		newConfig(model.RouteRule.Type, "websocket", "testdata/websocket-route.yaml.golden"),
 		newConfig(model.EgressRule.Type, "google", "testdata/egress-rule.yaml.golden"),
+		newConfig(model.EgressRule.Type, "google-cloud-tcp", "testdata/egress-rule-tcp.yaml.golden"),
 		newConfig(model.DestinationPolicy.Type, "egress-circuit-breaker", "testdata/egress-rule-cb-policy.yaml.golden"),
 		newConfig(model.RouteRule.Type, "egress-timeout", "testdata/egress-rule-timeout-route-rule.yaml.golden"),
 		newConfig(model.IngressRule.Type, "world", "testdata/ingress-route-world.yaml.golden"),
