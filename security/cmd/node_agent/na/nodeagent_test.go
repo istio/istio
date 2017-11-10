@@ -87,7 +87,7 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPe
 }
 
 func TestStartWithArgs(t *testing.T) {
-	generalPcConfig := platform.ClientConfig{"ca_file", "pkey", "cert_file"}
+	generalPcConfig := platform.ClientConfig{OnPremConfig: platform.OnPremConfig{"ca_file", "pkey", "cert_file"}}
 	generalConfig := Config{
 		"ca_addr", "Google Inc.", 512, "onprem", time.Millisecond, 3, 50, generalPcConfig,
 	}
