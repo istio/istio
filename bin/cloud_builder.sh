@@ -56,6 +56,8 @@ cd $ROOT
 export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
 echo gopath is $GOPATH
 
+../../../../repo status
+
 if [ ! -d "${PROXY_PATH}" ]; then
   echo "proxy dir not detected at ${PROXY_PATH}"
   usage
@@ -72,27 +74,32 @@ cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
+../../../../repo status
+
 pushd security
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-pushd mixer
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-popd
+../../../../repo status
 
 pushd pilot
 # Build istioctl binaries
 touch platform/kube/config
-# bazel build //... dirties:
+
+# bazel build //pilot/... dirties:
+# lintconfig.json
+# mixer/template/apikey/go_default_library_tmpl.pb.go
+# mixer/template/template.gen.go              
+
+# bazel build //... dirties what's listed above plus:
 # broker/pkg/model/config/mock_store.go
 # broker/pkg/platform/kube/crd/types.go
 # generated_files
 # lintconfig.json
 # mixer/template/apikey/go_default_library_handler.gen.go
-# mixer/template/apikey/go_default_library_tmpl.pb.go
-# mixer/template/template.gen.go
+
 bazel build //pilot/...
 popd
 
@@ -107,8 +114,18 @@ pushd pilot
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
+../../../../repo status
+
+pushd mixer
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+popd
+
+../../../../repo status
+
 # store artifacts that are used by a separate cloud builder step to generate tar files
 cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
 find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
   -exec cp --parents {} "${OUTPUT_PATH}" \;
 find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
+
+../../../../repo status
