@@ -938,12 +938,7 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 				continue
 			}
 			intPort := int(port.Port)
-
-			if _, ok := tcpRulesByPort[intPort]; ok {
-				tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
-			} else {
-				tcpRulesByPort[intPort] = []*proxyconfig.EgressRule{rule}
-			}
+			tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
 		}
 	}
 
