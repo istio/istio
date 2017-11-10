@@ -261,7 +261,7 @@ where
   hostname and the project id. This should be customized.
 * The `-t` parameter `my-tag` is the desired tag. This should be customized.
 
-### Building the Istio manfiests
+### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
 to generate new manifests with the specified Mixer containers.
