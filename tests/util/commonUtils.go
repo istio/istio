@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
 )
@@ -94,7 +95,8 @@ func sh(format string, logOutput bool, args ...interface{}) (string, error) {
 func RunBackground(format string, args ...interface{}) (*os.Process, error) {
 	command := fmt.Sprintf(format, args...)
 	glog.Info("RunBackground: ", command)
-	c := exec.Command("sh", "-c", command) // #nosec
+	parts := strings.Split(command, " ")
+	c := exec.Command(parts[0], parts[1:]...) // #nosec
 	err := c.Start()
 	if err != nil {
 		glog.Errorf("%s, command failed!", command)

@@ -52,12 +52,12 @@ func (mixerComp *MixerComponent) Start() (err error) {
 		return err
 	}
 	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
-	if _, err = util.Shell(fmt.Sprintf("mkdir -r %s", emptyDir)); err != nil {
+	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return err
 	}
 	mixerConfig := filepath.Join(mixerComp.configDir, "mixerconfig")
-	if _, err = util.Shell(fmt.Sprintf("mkdir -r %s", mixerConfig)); err != nil {
+	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return err
 	}
@@ -68,13 +68,9 @@ func (mixerComp *MixerComponent) Start() (err error) {
 	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
 		log.Printf("Failed to remove stackdriver.yaml: %v", err)
 	}
-	if _, err = util.Shell("source mixer/bin/use_bazel_go.sh"); err != nil {
-		log.Printf("Failed to run use_bazel_go: %v", err)
-		return err
-	}
 
-	mixerComp.process, err = util.RunBackground(fmt.Sprintf("./mixer/bazel-bin/cmd/server/mixs server"+
-		" --configStore2URL=fs://%s --configStoreURL=fs://%s > %s", mixerConfig, emptyDir, mixerComp.logFile))
+	mixerComp.process, err = util.RunBackground(fmt.Sprintf("./bazel-bin/mixer/cmd/server/mixs server"+
+		" --configStore2URL=fs://%s --configStoreURL=fs://%s", mixerConfig, emptyDir))
 	if err != nil {
 		log.Printf("Failed to start component %s", mixerComp.GetName())
 		return err
