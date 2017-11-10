@@ -12,9 +12,9 @@ data:
     # authPolicy: MUTUAL_TLS
     #
     # Modified this list to avoid using mTLS to connect to these services.
-    # Typically, these should be used for control services that doens't have
-    # envoy.
-    authBlacklistedDestinationService: ["kubernetes.default.svc.cluster.local"]
+    # Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
+    # to transparently terminate mTLS authentication.
+    mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
 
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
