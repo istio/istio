@@ -64,6 +64,10 @@ if [ ! -d "${PROXY_PATH}" ]; then
   usage
 fi
 
+# Proxy has some specific requirements for Bazel's
+# config (plus it's nicely places bazel in batch
+# mode) so this component gets built first.
+
 pushd "${PROXY_PATH}"
 
 # Use this file for Cloud Builder specific settings.
@@ -86,6 +90,10 @@ popd
 
 # clean slate here
 ../../../../repo status
+
+# Pilot likes checking if the source tree is 'clean'
+# but some other components like littering the tree
+# so it's better to build pilot sooner than later.
 
 pushd pilot
 # Build istioctl binaries
