@@ -64,6 +64,9 @@ done
 [[ -z "${OUTPUT_PATH}" ]] && usage
 [[ -z "${VER_STRING}" ]] && usage
 
+# remove any trailing / from GCR_PREFIX since docker doesn't like to see // 
+GCR_PREFIX=${GCR_PREFIX%/}
+
 if [[ -z "${GCS_PREFIX}"  ]]; then
   if [[ -z "${VER_STRING}"  ]]; then
     GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
