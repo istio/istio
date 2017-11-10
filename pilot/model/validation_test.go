@@ -1229,7 +1229,7 @@ func TestValidateEgressRule(t *testing.T) {
 					{Port: 443, Protocol: "http"},
 				},
 				UseEgressProxy: false},
-			valid: true},
+			valid: false},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
 			in: &proxyconfig.EgressRule{
 				Destination: &proxyconfig.IstioService{
