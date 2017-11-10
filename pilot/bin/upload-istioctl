@@ -52,16 +52,7 @@ done
 
 [[ "${BIN_DIR}" != '.' ]] && trap cleanup exit
 
-# newer versions of bazel (0.6+ add .status suffix)
-BASE_FILE="${ROOT}/../bazel-bin/pilot/cmd/istioctl/istioctl"
-BASE_FILE_STATIC="${BASE_FILE}.static"
-if [ -f $BASE_FILE_STATIC ]; then
-  echo "static ${BASE_FILE_STATIC} exists"
-  cp -f $BASE_FILE_STATIC "${BIN_DIR}/istioctl-linux"
-else
-  echo "static $BASE_FILE_STATIC does not exist."
-  cp -f $BASE_FILE        "${BIN_DIR}/istioctl-linux"
-fi
+cp -f "${ROOT}/../bazel-bin/pilot/cmd/istioctl/istioctl" "${BIN_DIR}/istioctl-linux"
 
 if [[ ${RELEASE} == true ]]; then
 
