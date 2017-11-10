@@ -56,9 +56,6 @@ cd $ROOT
 export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
 echo gopath is $GOPATH
 
-# clean slate here
-../../../../repo status
-
 if [ ! -d "${PROXY_PATH}" ]; then
   echo "proxy dir not detected at ${PROXY_PATH}"
   usage
@@ -79,55 +76,32 @@ cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-# clean slate here
-../../../../repo status
+# Pilot likes to check if the source tree is 'clean'
+# when it queries for version/source informatin.  Some
+# other components like littering the tree so it's better
+# to build pilot sooner than later.
 
-# Pilot likes checking if the source tree is 'clean'
-# but some other components like littering the tree
-# so it's better to build pilot sooner than later.
+# Pilot build expects this file to exist
+touch pilot/platform/kube/config
 
-pushd pilot
-# Build istioctl binaries
-touch platform/kube/config
-
-# building //... results in more dirtied files:
+# building //... results in dirtied files:
 # broker/pkg/model/config/mock_store.go
 # broker/pkg/platform/kube/crd/types.go
 # mixer/template/apikey/go_default_library_handler.gen.go
 # mixer/template/apikey/go_default_library_tmpl.pb.go
 # mixer/template/template.gen.go
-
 bazel build //pilot/...
-popd
-
-# state is TBD here
-../../../../repo status
-
-cp ./generated_files /output/generated_files.before
-cp ./lintconfig.json /output/lintconfig.json.before
 
 # bazel_to_go likes to run from dir with WORKSPACE file
 ./bin/bazel_to_go.py
 # Remove doubly-vendorized k8s dependencies that confuse go
 rm -rf vendor/k8s.io/*/vendor
 
-# bazel_to_go.py dirties:
-# generated_files
-# lintconfig.json
-
-# state is TBD here
-../../../../repo status
-
-cp ./generated_files /output/generated_files.after
-cp ./lintconfig.json /output/lintconfig.json.after
-
+# bazel_to_go.py dirties generated_files and lintconfig.json
 # it's easier to ask git to restore files than add
 # an option to bazel_to_go to not touch them
 git checkout generated_files
 git checkout lintconfig.json
-
-# state is TBD here
-../../../../repo status
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
@@ -136,34 +110,17 @@ pushd pilot
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-../../../../repo status
-
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 popd
-
-# clean slate here
-../../../../repo status
 
 pushd security
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-# seen dirty:
-# mixer/template/apikey/go_default_library_tmpl.pb.go
-# mixer/template/template.gen.go   
-../../../../repo status
-
-# bazel build //... dirties what's listed above plus:
-# broker/pkg/model/config/mock_store.go
-# broker/pkg/platform/kube/crd/types.go
-# mixer/template/apikey/go_default_library_handler.gen.go
-
 # store artifacts that are used by a separate cloud builder step to generate tar files
 cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
 find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
   -exec cp --parents {} "${OUTPUT_PATH}" \;
 find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
-
-../../../../repo status
