@@ -1,36 +1,75 @@
 #!/bin/bash
-
-# Example usage:
 #
-# docker/release-docker -h docker.io/istio \
-#  -c release \
-#  -t $(git rev-parse --short HEAD),$(date +%Y%m%d%H%M%S),latest" \
-#  -i "init,init_debug,app,app_debug,runtime,runtime_debug"
+# Copyright 2017 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+################################################################################
+#
+# This script creates a base image for the init image that includes iptables.
+#
 set -ex
-
-BAZEL_STARTUP_ARGS=${BAZEL_STARTUP_ARGS:-}
-BAZEL_ARGS=${BAZEL_ARGS:-}
-
-IMAGES='istio-ca'
-
-while getopts :i:: arg; do
-  case ${arg} in
-    i) IMAGES="${OPTARG}";;
-  esac
-done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
-[[ -z "${IMAGES}" ]] && usage
-IFS=',' read -ra IMAGES <<< "${IMAGES}"
+cd $ROOT
 
-for IMAGE in "${IMAGES[@]}"; do
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//security/docker:${IMAGE}"
-  for TAG in "${TAGS[@]}"; do
-    for HUB in "${HUBS[@]}"; do
-      docker tag bazel/security/docker:"${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
-      docker_push "${HUB}/${IMAGE}:${TAG}"
-    done
+detected_OS=`uname -s 2>/dev/null || echo not`
+BUILD_FLAGS="--output_groups=static"
+SUFFIX=".static"
+if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
+    BUILD_FLAGS="--cpu=darwin"
+    SUFFIX=""
+fi
+
+# Collect artifacts for pushing
+bin=$(bazel info bazel-bin)
+
+bazel build ${BUILD_FLAGS} //security/...
+\cp -f "${bin}/security/cmd/istio_ca/istio_ca${SUFFIX}" docker/istio_ca
+\cp -f "${bin}/security/cmd/node_agent/node_agent${SUFFIX}" docker/node_agent
+
+#!/bin/bash
+
+echo "Generate certificate and private key for Istio CA"
+bazel run ${BUILD_FLAGS} //security/cmd/generate_cert -- \
+-key-size=2048 \
+-out-cert=${ROOT}/docker/istio_ca.crt \
+-out-priv=${ROOT}/docker/istio_ca.key \
+-organization="k8s.cluster.local" \
+-self-signed=true \
+-ca=true
+
+echo "Generate certificate and private key for node agent"
+bazel run ${BUILD_FLAGS} //security/cmd/generate_cert -- \
+-key-size=2048 \
+-out-cert=${ROOT}/docker/node_agent.crt \
+-out-priv=${ROOT}/docker/node_agent.key \
+-organization="NodeAgent" \
+-host="nodeagent.google.com" \
+-signer-cert=${ROOT}/docker/istio_ca.crt \
+-signer-priv=${ROOT}/docker/istio_ca.key
+
+IMAGES=()
+
+pushd docker
+  for image in istio-ca istio-ca-test node-agent-test; do
+    local_image="${image}:${local_tag}"
+    docker build -q -f "Dockerfile.${image}" -t "${image}" .
+    IMAGES+=("${image}")
   done
-done
+popd
+
+# Tag and push
+tag_and_push "${IMAGES[@]}"
