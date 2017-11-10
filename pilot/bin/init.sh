@@ -30,8 +30,6 @@ go version
 rm -rf $(pwd)/vendor
 
 # Vendorize bazel dependencies
-# bin/bazel_to_go.py
-# XXX: exexution can find WORKSPACE, so point the way
 bin/bazel_to_go.py "${PDIR}/.."
 
 # Remove doubly-vendorized k8s dependencies
