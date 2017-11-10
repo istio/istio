@@ -8,18 +8,29 @@
 #  -i "init,init_debug,app,app_debug,runtime,runtime_debug"
 set -ex
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source ${ROOT}/../bin/docker_lib.sh
-
 BAZEL_STARTUP_ARGS=${BAZEL_STARTUP_ARGS:-}
 BAZEL_ARGS=${BAZEL_ARGS:-}
 
-IMAGES=()
-IMAGE=istio-ca
-IMAGES+=(${IMAGE})
+IMAGES='istio-ca'
 
-bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//security/docker:${IMAGE}"
-docker tag "bazel/security/docker:${IMAGE}" "${IMAGE}"
+while getopts :i:: arg; do
+  case ${arg} in
+    i) IMAGES="${OPTARG}";;
+  esac
+done
 
-# Tag and push
-tag_and_push "${IMAGES[@]}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source ${ROOT}/../bin/docker_lib.sh
+
+[[ -z "${IMAGES}" ]] && usage
+IFS=',' read -ra IMAGES <<< "${IMAGES}"
+
+for IMAGE in "${IMAGES[@]}"; do
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//security/docker:${IMAGE}"
+  for TAG in "${TAGS[@]}"; do
+    for HUB in "${HUBS[@]}"; do
+      docker tag bazel/security/docker:"${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
+      docker_push "${HUB}/${IMAGE}:${TAG}"
+    done
+  done
+done

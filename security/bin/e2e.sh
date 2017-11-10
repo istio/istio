@@ -11,7 +11,7 @@
 
 set -ex
 
-DOCKER_IMAGE="istio-ca"
+DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent-test"
 
 ARGS="--image $DOCKER_IMAGE"
 
@@ -50,8 +50,18 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-# Build and push the Istio-CA docker image
-bin/push-docker.sh -h $HUB -t $TAG
+# Set certificate output directory
+export CERTS_OUTPUT_DIR=`pwd`/docker/certs
+
+# Generates certificate files
+docker/certs/gen_certs.sh
+
+# Build and push docker images
+bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
 
 # Run integration tests
-bazel run $BAZEL_ARGS //integration -- $ARGS -k $HOME/.kube/config --alsologtostderr
+bazel run $BAZEL_ARGS //security/integration -- $ARGS \
+-k $HOME/.kube/config \
+--root-cert ${CERTS_OUTPUT_DIR}/istio_ca.crt \
+--cert-chain ${CERTS_OUTPUT_DIR}/node_agent.crt \
+--alsologtostderr
