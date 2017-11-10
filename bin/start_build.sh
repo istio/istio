@@ -122,6 +122,8 @@ curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -T "${
 rm -f "${TEMPLATE}"
 rm -f "${BUILD_FILE}"
 
+# the following tries to find and parse a json line like:
+# "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
 BUILD_ID=""
 ID_WORD="id"
 BUILD_ID_COUNT=$(grep -c -Eo " *\"${ID_WORD}\":.*?[^\\\\]\",?" $RESULT_FILE)
@@ -138,6 +140,22 @@ fi
 # parse_result_file(): parses the result from a build query.
 # returns 0 if build successful, 1 if build still running, or 2 if build failed
 # first input parameter is path to file to parse
+#
+# Typically this function just needs to parse json for something like:
+# "status": "FAILURE"
+# or
+# "status": "SUCCESS"
+#
+# but if a request is too invalid to accept then there's a different response like:
+#
+# {
+#   "error": {
+#     "code": 400,
+#     "message": "Invalid JSON payload received. Unexpected end of string.",
+#     "status": "INVALID_ARGUMENT"
+#   }
+# }
+#
 function parse_result_file {
   local INPUT_FILE="$1"
 
