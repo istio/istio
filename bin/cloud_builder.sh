@@ -90,12 +90,17 @@ pushd pilot
 # Build istioctl binaries
 touch platform/kube/config
 
-# XXX seeing if this makes more consistent results for generated_files and lintconfig.json
-# bazel build //pilot/...
-bazel build //...
+# building //... results in more dirtied files:
+# broker/pkg/model/config/mock_store.go
+# broker/pkg/platform/kube/crd/types.go
+# mixer/template/apikey/go_default_library_handler.gen.go
+# mixer/template/apikey/go_default_library_tmpl.pb.go
+# mixer/template/template.gen.go
+
+bazel build //pilot/...
 popd
 
-# slate is TBD here
+# state is TBD here
 ../../../../repo status
 
 cp ./generated_files /output/generated_files.before
@@ -106,8 +111,23 @@ cp ./lintconfig.json /output/lintconfig.json.before
 # Remove doubly-vendorized k8s dependencies that confuse go
 rm -rf vendor/k8s.io/*/vendor
 
+# bazel_to_go.py dirties:
+# generated_files
+# lintconfig.json
+
+# state is TBD here
+../../../../repo status
+
 cp ./generated_files /output/generated_files.after
 cp ./lintconfig.json /output/lintconfig.json.after
+
+# it's easier to ask git to restore files than add
+# an option to bazel_to_go to not touch them
+git checkout generated_files
+git checkout lintconfig.json
+
+# state is TBD here
+../../../../repo status
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
@@ -116,11 +136,7 @@ pushd pilot
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-# pilot dirties (both from bazel_to_go, it seems):
-# generated_files
-# lintconfig.json
 ../../../../repo status
-ls -ld *
 
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
