@@ -20,11 +20,8 @@ set -o nounset
 set -o pipefail
 set -x
 
-# If a version (from -v) is provided then it's appended to these defaults
-DEFAULT_GCS_PREFIX="istio-testing/builds/unknown"
-DEFAULT_GCR_PREFIX=$DEFAULT_GCS_PREFIX
-APPEND_VER_TO_GCS_PREFIX="false"
-APPEND_VER_TO_GCR_PREFIX="false"
+DEFAULT_GCS_PREFIX="istio-testing/builds"
+DEFAULT_GCR_PREFIX="istio-testing"
 
 GCS_PREFIX=""
 GCR_PREFIX=""
@@ -36,21 +33,17 @@ PUSH_DOCKER="true"
 
 function usage() {
   echo "$0
-    -a        append version to path in -p                      (optional)
-    -b        append version to path in -q                      (optional)
     -i <id>   build ID from cloud builder                       (optional, currently unused)
     -n        disable pushing docker images to GCR              (optional)
     -o <path> src path where build output/artifacts were stored (required)
-    -p <name> GCS bucket & prefix path where to store build     (optional)
-    -q <name> GCR bucket & prefix path where to store build     (optional)
+    -p <name> GCS bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCS_PREFIX} )
+    -q <name> GCR bucket & prefix path where to store build     (optional, defaults to ${DEFAULT_GCR_PREFIX} )
     -v <ver>  version string for tag & defaulted storage paths  (optional, defaults to ${VER_STRING} )"
   exit 1
 }
 
 while getopts abi:no:p:q:v: arg ; do
   case "${arg}" in
-    a) APPEND_VER_TO_GCS_PREFIX="true";;
-    b) APPEND_VER_TO_GCR_PREFIX="true";;
     i) BUILD_ID="${OPTARG}";;
     n) PUSH_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
@@ -71,27 +64,11 @@ GCR_PREFIX=${GCR_PREFIX%/}
 GCS_PREFIX=${GCS_PREFIX%/}
   
 if [[ -z "${GCS_PREFIX}"  ]]; then
-  if [[ -z "${VER_STRING}"  ]]; then
-    GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
-  else
-    GCS_PREFIX="${DEFAULT_GCS_PREFIX}/${VER_STRING}"
-  fi
-else
-  if [[ "${APPEND_VER_TO_GCS_PREFIX}" == "true" ]]; then
-    GCS_PREFIX="${GCS_PREFIX}/${VER_STRING}"
-  fi
+  GCS_PREFIX="${DEFAULT_GCS_PREFIX}"
 fi
 
 if [[ -z "${GCR_PREFIX}"  ]]; then
-  if [[ -z "${VER_STRING}"  ]]; then
-    GCR_PREFIX="${DEFAULT_GCR_PREFIX}"
-  else
-    GCR_PREFIX="${DEFAULT_GCR_PREFIX}/${VER_STRING}"
-  fi
-else
-  if [[ "${APPEND_VER_TO_GCR_PREFIX}" == "true" ]]; then
-    GCR_PREFIX="${GCR_PREFIX}/${VER_STRING}"
-  fi
+  GCR_PREFIX="${DEFAULT_GCR_PREFIX}"
 fi
 
 GCS_PATH="gs://${GCS_PREFIX}"

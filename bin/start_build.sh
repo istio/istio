@@ -31,10 +31,8 @@ REPO_FILE=default.xml
 REPO_FILE_VER=master
 GCR_BUCKET=""
 GCS_BUCKET=""
-GCR_PATH="builds/"
-GCS_PATH=${GCR_PATH}
-APPEND_VER_TO_GCS_PATH="false"
-APPEND_VER_TO_GCR_PATH="false"
+GCR_PATH=""
+GCS_PATH="builds"
 WAIT_FOR_RESULT="false"
 
 function usage() {
@@ -48,21 +46,17 @@ function usage() {
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -r <name> GCR bucket to store build artifacts               (required)
     -s <name> GCS bucket to store build artifacts               (required)
-    -b <path> path where to store artifacts in GCR              (optional, defaults to $GCR_PATH )
-    -c <path> path where to store artifacts in GCS              (optional, defaults to $GCS_PATH )
-    -d        append -v version to path for -b                  (optional)
-    -e        append -v version to path for -c                  (optional)
+    -b <path> path where to store artifacts in GCR              (optional, defaults to \"$GCR_PATH\" )
+    -c <path> path where to store artifacts in GCS              (optional, defaults to \"$GCS_PATH\" )
     -w        specify that script should wait until build done  (optional)"
   exit 1
 }
 
-while getopts a:b:c:dek:m:p:r:s:t:u:v:w arg ; do
+while getopts a:b:c:k:m:p:r:s:t:u:v:w arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
     b) GCR_PATH="${OPTARG}";;
     c) GCS_PATH="${OPTARG}";;
-    d) APPEND_VER_TO_GCR_PATH="true";;
-    e) APPEND_VER_TO_GCS_PATH="true";;
     k) KEY_FILE_PATH="${OPTARG}";;
     m) REPO_FILE="${OPTARG}";;
     p) PROJECT_ID="${OPTARG}";;
@@ -89,22 +83,6 @@ DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 
 if [[ -z "${SVC_ACCT}"  ]]; then
   SVC_ACCT="${DEFAULT_SVC_ACCT}"
-fi
-
-if [[ "${APPEND_VER_TO_GCS_PATH}" == "true" ]]; then
-  if [[ -z "${GCS_PATH}"  ]]; then
-    GCS_PATH="${VER_STRING}"
-  else
-    GCS_PATH="${GCS_PATH}/${VER_STRING}"
-  fi
-fi
-
-if [[ "${APPEND_VER_TO_GCR_PATH}" == "true" ]]; then
-  if [[ -z "${GCR_PATH}"  ]]; then
-    GCR_PATH="${VER_STRING}"
-  else
-    GCR_PATH="${GCR_PATH}/${VER_STRING}"
-  fi
 fi
 
 # grab a copy of the manifest
