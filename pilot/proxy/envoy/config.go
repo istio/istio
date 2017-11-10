@@ -910,8 +910,8 @@ func buildEgressHTTPRoutes(mesh *proxyconfig.MeshConfig, node proxy.Node,
 	return httpConfigs.normalize()
 }
 
-// buildEgressTCPListeners builds a listener and a cluster per each TCP egress service
-// see comment to buildOutboundTCPListeners
+// buildEgressTCPListeners builds a listener on 0.0.0.0 per each distinct port of all TCP egress
+// rules and a cluster per each TCP egress rule
 func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 	config model.IstioConfigStore) (Listeners, Clusters) {
 
@@ -929,6 +929,8 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 		glog.Warningf("Rejected rules: %v", errs)
 	}
 
+	tcpRulesByPort := make(map[int][]*proxyconfig.EgressRule)
+
 	for _, rule := range egressRules {
 		for _, port := range rule.Ports {
 			protocol := model.Protocol(strings.ToUpper(port.Protocol))
@@ -936,22 +938,39 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 				continue
 			}
 			intPort := int(port.Port)
-			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
-				Port: intPort, Protocol: protocol}
 
-			tcpListener, tcpCluster := buildEgressTCPListener(rule, mesh, modelPort)
-			tcpListeners = append(tcpListeners, tcpListener)
+			if _, ok := tcpRulesByPort[intPort]; ok {
+				tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
+			} else {
+				tcpRulesByPort[intPort] = []*proxyconfig.EgressRule{rule}
+			}
+		}
+	}
+
+	for intPort, rules := range tcpRulesByPort {
+		protocol := model.ProtocolTCP
+		modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
+			Port: intPort, Protocol: protocol}
+
+		tcpRoutes := make([]*TCPRoute, 0)
+		for _, rule := range rules {
+			tcpRoute, tcpCluster := buildEgressTCPRoute(rule, mesh, modelPort)
+			tcpRoutes = append(tcpRoutes, tcpRoute)
 			tcpClusters = append(tcpClusters, tcpCluster)
 		}
+
+		config := &TCPRouteConfig{Routes: tcpRoutes}
+		tcpListener := buildTCPListener(config, WildcardAddress, intPort, protocol)
+		tcpListeners = append(tcpListeners, tcpListener)
 	}
 
 	return tcpListeners, tcpClusters
 }
 
-// buildEgressTCPListener builds a listener and a cluster per port of a TCP egress service
+// buildEgressTCPRoute builds a tcp route and a cluster per port of a TCP egress service
 // see comment to buildOutboundTCPListeners
-func buildEgressTCPListener(rule *proxyconfig.EgressRule,
-	mesh *proxyconfig.MeshConfig, port *model.Port) (*Listener, *Cluster) {
+func buildEgressTCPRoute(rule *proxyconfig.EgressRule,
+	mesh *proxyconfig.MeshConfig, port *model.Port) (*TCPRoute, *Cluster) {
 
 	// Create a unique orig dst cluster for each service defined by egress rule
 	// So that we can apply circuit breakers, outlier detections, etc., later.
@@ -964,9 +983,7 @@ func buildEgressTCPListener(rule *proxyconfig.EgressRule,
 	externalTrafficCluster.hostname = destination
 
 	route := buildTCPRoute(externalTrafficCluster, []string{destination})
-	config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
-	listener := buildTCPListener(config, WildcardAddress, port.Port, port.Protocol)
-	return listener, externalTrafficCluster
+	return route, externalTrafficCluster
 }
 
 // buildMgmtPortListeners creates inbound TCP only listeners for the management ports on
