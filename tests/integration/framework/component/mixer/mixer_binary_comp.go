@@ -48,25 +48,28 @@ func (mixerComp *MixerComponent) GetName() string {
 
 func (mixerComp *MixerComponent) Start() (err error) {
 	if _, err = util.Shell("bazel build -c opt mixer/cmd/server:mixs"); err != nil {
+		log.Printf("Failed to build misx: %s", err)
 		return err
 	}
 	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
-	if err = os.Mkdir(emptyDir, os.ModeDir); err != nil {
+	if err = os.MkdirAll(emptyDir, 1777); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return err
 	}
 	mixerConfig := filepath.Join(mixerComp.configDir, "mixerconfig")
-	if err = os.Mkdir(mixerConfig, os.ModeDir); err != nil {
+	if err = os.MkdirAll(mixerConfig, 1777); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return err
 	}
 	if _, err = util.Shell("cp mixer/testdata/config/* %s", mixerConfig); err != nil {
+		log.Printf("Failed to copy config for test: %v", err)
 		return err
 	}
 	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
 		log.Printf("Failed to remove stackdriver.yaml: %v", err)
 	}
 	if _, err = util.Shell("source mixer/bin/use_bazel_go.sh"); err != nil {
+		log.Printf("Failed to run use_bazel_go: %v", err)
 		return err
 	}
 
