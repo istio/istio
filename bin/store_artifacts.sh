@@ -20,6 +20,9 @@ set -o nounset
 set -o pipefail
 set -x
 
+# This script takes files from a specified directory and uploads
+# then to GCR & GCS.  Only tar files in docker/ are uploaded to GCR.
+
 DEFAULT_GCS_PREFIX="istio-testing/builds"
 DEFAULT_GCR_PREFIX="istio-testing"
 

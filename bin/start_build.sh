@@ -15,6 +15,23 @@
 #
 ################################################################################
 
+# This is an example file for how to start an istio build using Cloud Builder.
+# To run it you need a Google Cloud project and the key file for a service
+# account that had been granted access to start a build.  This example
+# assumes your GCR and GCS buckets have the same name as your project.
+#
+# An example invocation script is:
+# 
+# PROJECT_ID=${USER}-experimental
+# KEY_FILE=~/${PROJECT_ID}-cloudbuild.json
+# MFEST_URL=https://github.com/istio/green-builds
+# MFEST_FILE=build.xml
+# MFEST_COMMIT=master
+# VERSION="0.3.0"
+# ./start_build.sh -w -p "${PROJECT_ID}" -r "${PROJECT_ID}" -s "${PROJECT_ID}"
+#           -b "" -c "builds/${VERSION}" -v "${VERSION}" -k "${KEY_FILE}"
+#           -u "${MFEST_URL}" -m "${MFEST_FILE}" -t "${MFEST_COMMIT}
+
 set -o nounset
 
 PROJECT_ID=""

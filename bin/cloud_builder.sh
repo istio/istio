@@ -20,6 +20,13 @@ set -o nounset
 set -o pipefail
 set -x
 
+# This file is primarily used by cloud builder to make
+# an end-to-end built of istio.  It runs this script to place the
+# build artifacts in a specified output directory, then runs
+# create_release_archives.sh to add tar files to the directory
+# (based solely on the contents of that directory), and then
+# uses store_artifacts.sh to store the build on GCR/GCS.
+
 OUTPUT_PATH=""
 # The default for PROXY_PATH (which indicates where the proxy path is located
 # relative to the istio repo) is based on repo manifest that places istio at:
@@ -81,7 +88,9 @@ popd
 # other components like littering the tree so it's better
 # to build pilot sooner than later.
 
-# Pilot build expects this file to exist
+# Pilot build expects this file to exist.  The usual
+# approach of adding a symlink to the user's config file
+# doesn't help when the user doesn't have one.
 touch pilot/platform/kube/config
 
 # building //... results in dirtied files:

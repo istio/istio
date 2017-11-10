@@ -19,6 +19,11 @@ set -o errexit
 set -o pipefail
 set -x
 
+# This script primarily exists for Cloud Builder.  This script
+# reads artifacts from a specified directory, generates tar files
+# based on those artifacts, and then stores the tar files
+# back to the directory.
+
 BASE_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
 OUTPUT_PATH=""
 VER_STRING=""
