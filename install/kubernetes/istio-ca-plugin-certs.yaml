@@ -1,0 +1,50 @@
+# GENERATED FILE. Use with Kubernetes 1.7+
+# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh
+################################
+# Istio CA with plug-in key/certs. Run this after istio-auth.yaml
+################################
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+  namespace: istio-system
+---
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+  namespace: istio-system
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: docker.io/istio/istio-ca:0.2.12
+        imagePullPolicy: IfNotPresent
+        command: ["/usr/local/bin/istio_ca"]
+        args:
+          - --grpc-port=8060
+          - --grpc-hostname=istio-ca
+          - --self-signed-ca=false
+          - --signing-cert=/etc/cacerts/ca-cert.pem
+          - --signing-key=/etc/cacerts/ca-key.pem
+          - --root-cert=/etc/cacerts/root-cert.pem
+          - --cert-chain=/etc/cacerts/cert-chain.pem
+        volumeMounts:
+        - name: cacerts
+          mountPath: /etc/cacerts
+          readOnly: true
+      volumes:
+      - name: cacerts
+        secret:
+          secretName: cacerts
+          optional: true
+---
