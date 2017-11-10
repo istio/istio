@@ -14,10 +14,13 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# Print commands
+set -x
+
 # Local vars
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
-TESTARGS="${@}"
+TESTSPATH='tests/e2e/tests'
 
 function print_block() {
     line=""
@@ -38,7 +41,7 @@ function error_exit() {
 }
 
 . ${ROOT}/istio.VERSION || error_exit "Could not source versions"
-TESTS_TARGETS=($(bazel query 'tests(//tests/e2e/tests/...)'))|| error_exit 'Could not find tests targets'
+TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)"))|| error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
@@ -69,7 +72,7 @@ function concurrent_exec() {
         log_file="${bin_path///_}.log"
         # Run tests concurrently as subprocesses
         # Dup stdout and stderr to file
-        "./$bin_path" ${ARGS[@]} ${TESTARGS[@]} &> ${log_file} &
+        "./$bin_path" ${ARGS[@]} &> ${log_file} &
         pid=$!
         pid2testname["$pid"]=$bin_path
         pid2logfile["$pid"]=$log_file
@@ -93,13 +96,14 @@ function concurrent_exec() {
 
 function sequential_exec() {
     for T in ${TESTS_TARGETS[@]}; do
-        echo '****************************************************'
-        echo "Running ${T}"
-        echo '****************************************************'
-        bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} ${T} -- ${ARGS[@]} ${TESTARGS[@]}
-        process_result $? ${T}
-        echo '****************************************************'
+        single_exec ${T}
     done
+}
+
+function single_exec() {
+    print_block '*' "Running $1"
+    bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} $1 -- ${ARGS[@]}
+    process_result $? $1
 }
 
 # getopts only handles single character flags
@@ -108,14 +112,28 @@ for ((i=1; i<=$#; i++)); do
         -p|--parallel) PARALLEL_MODE=true
         continue
         ;;
+        -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
+        continue
+        ;;
     esac
     # Filter -p out as it is not defined in the test framework
     ARGS+=( ${!i} )
 done
 
-if $PARALLEL_MODE ; then
+if ${PARALLEL_MODE} ; then
     echo "Executing tests in parallel"
     concurrent_exec
+elif ${SINGLE_MODE}; then
+    echo "Executing single test"
+    SINGLE_TEST=//${TESTSPATH}/${SINGLE_TEST}:go_default_test
+
+    # Check if it's a valid test file
+    for T in ${TESTS_TARGETS[@]}; do
+        if [ "${T}" == "${SINGLE_TEST}" ]; then
+            single_exec ${SINGLE_TEST}
+        fi
+    done
+
 else
     echo "Executing tests sequentially"
     sequential_exec
