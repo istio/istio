@@ -33,7 +33,7 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Local development scripts](#collection-of-scripts-and-notes-for-developing-for-istio)
+- [Local development scripts](#collection-of-scripts-and-notes-for-developing-istio)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -398,11 +398,11 @@ Assuming you did (once):
    git clone https://github.com/istio/istio.git
    git clone https://github.com/istio/proxy.git
    ```
-4. You can then use
+4. You can then use (in the [tools/](tools/) directory)
    - [tools/update_all](tools/update_all) : script to build from source
    - [tools/setup_run](tools/setup_run) : run locally
    - [fortio](https://github.com/istio/fortio/) (φορτίο) : load testing and minimal echo http and grpc server
-   - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
+   - And an unrelated tool to aggregate [GitHub Contributions](tools/githubContrib/) statistics.
 5. And run things like
    ```bash
    # Test the echo server:
