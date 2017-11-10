@@ -1,2 +1,0 @@
-Here is the current (as of October 2017) alphabetical list of companies and the number of contributors:
-Apache.org (1), Apprenda (1), Carnegiemellonuniversity (1), Google (29), Hootsuite (1), Ibm (11), Redhat (1), Unknown (10)

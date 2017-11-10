@@ -21,19 +21,19 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/security/pkg/pki"
-
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"golang.org/x/net/context"
+	"istio.io/istio/security/pkg/pki"
 )
 
-func TestAuthenticat(t *testing.T) {
-	userID := "test.identity"
+// TODO: Test the error messages.
+func TestAuthenticate(t *testing.T) {
+	callerID := "test.identity"
 	ids := []pki.Identity{
-		{Type: pki.TypeURI, Value: []byte(userID)},
+		{Type: pki.TypeURI, Value: []byte(callerID)},
 	}
 	sanExt, err := pki.BuildSANExtension(ids)
 	if err != nil {
@@ -42,15 +42,15 @@ func TestAuthenticat(t *testing.T) {
 
 	testCases := map[string]struct {
 		certChain [][]*x509.Certificate
-		user      *user
+		caller    *caller
 	}{
 		"no client certificate": {
 			certChain: nil,
-			user:      nil,
+			caller:    nil,
 		},
 		"Empty cert chain": {
 			certChain: [][]*x509.Certificate{},
-			user:      nil,
+			caller:    nil,
 		},
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
@@ -60,7 +60,7 @@ func TestAuthenticat(t *testing.T) {
 					},
 				},
 			},
-			user: &user{identities: []string{userID}},
+			caller: &caller{identities: []string{callerID}},
 		},
 	}
 
@@ -75,14 +75,15 @@ func TestAuthenticat(t *testing.T) {
 			p := &peer.Peer{AuthInfo: tlsInfo}
 			ctx = peer.NewContext(ctx, p)
 		}
-		result := auth.authenticate(ctx)
+		result, _ := auth.authenticate(ctx)
 
-		if !reflect.DeepEqual(tc.user, result) {
-			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v", id, tc.user, result)
+		if !reflect.DeepEqual(tc.caller, result) {
+			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v", id, tc.caller, result)
 		}
 	}
 }
 
+// TODO: Test the error messages.
 func TestExtractBearerToken(t *testing.T) {
 	testCases := map[string]struct {
 		metadata      metadata.MD
@@ -101,7 +102,7 @@ func TestExtractBearerToken(t *testing.T) {
 			metadata: metadata.MD{
 				"random": []string{},
 				"authorization": []string{
-					"Basic username",
+					"Basic callername",
 				},
 			},
 			expectedToken: "",
@@ -110,7 +111,7 @@ func TestExtractBearerToken(t *testing.T) {
 			metadata: metadata.MD{
 				"random": []string{},
 				"authorization": []string{
-					"Basic username",
+					"Basic callername",
 					"Bearer bearer-token",
 				},
 			},
@@ -123,7 +124,7 @@ func TestExtractBearerToken(t *testing.T) {
 		if tc.metadata != nil {
 			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 		}
-		if actual := extractBearerToken(ctx); actual != tc.expectedToken {
+		if actual, _ := extractBearerToken(ctx); actual != tc.expectedToken {
 			t.Errorf("Case %q: unexpected token: want %s but got %s", id, tc.expectedToken, actual)
 		}
 	}

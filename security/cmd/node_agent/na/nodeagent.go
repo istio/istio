@@ -21,6 +21,7 @@ import (
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
@@ -158,12 +159,12 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate CSR: %v", err)
+		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
 	}
 
 	cred, err := na.pc.GetAgentCredential()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get node agent credential: %v", err)
+		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
 	}
 
 	return privKey, &pb.Request{

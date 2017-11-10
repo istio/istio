@@ -21,18 +21,17 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
-	"istio.io/istio/security/pkg/pki"
-	"istio.io/istio/security/pkg/pki/ca"
-
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 /* #nosec: disable gas linter */
@@ -53,7 +52,7 @@ const (
 	serviceAccountNameAnnotationKey = "istio.io/service-account.name"
 
 	// The size of a private key for a leaf certificate.
-	keySize = 1024
+	keySize = 2048
 )
 
 // SecretController manages the service accounts' secrets that contains Istio keys and certificates.

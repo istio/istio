@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -27,9 +28,10 @@ var (
 	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
 	PortHTTP     = &model.Port{
-		Name:     "http",
-		Port:     80, // target port 80
-		Protocol: model.ProtocolHTTP,
+		Name:                 "http",
+		Port:                 80, // target port 80
+		Protocol:             model.ProtocolHTTP,
+		AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 	}
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
@@ -90,22 +92,26 @@ func MakeService(hostname, address string) *model.Service {
 		Ports: []*model.Port{
 			PortHTTP,
 			{
-				Name:     "http-status",
-				Port:     81, // target port 1081
-				Protocol: model.ProtocolHTTP,
+				Name:                 "http-status",
+				Port:                 81, // target port 1081
+				Protocol:             model.ProtocolHTTP,
+				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 			}, {
-				Name:     "custom",
-				Port:     90, // target port 1090
-				Protocol: model.ProtocolTCP,
+				Name:                 "custom",
+				Port:                 90, // target port 1090
+				Protocol:             model.ProtocolTCP,
+				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 			}, {
-				Name:     "mongo",
-				Port:     100, // target port 1100
-				Protocol: model.ProtocolMongo,
+				Name:                 "mongo",
+				Port:                 100, // target port 1100
+				Protocol:             model.ProtocolMongo,
+				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 			},
 			{
-				Name:     "redis",
-				Port:     110, // target port 1110
-				Protocol: model.ProtocolRedis,
+				Name:                 "redis",
+				Port:                 110, // target port 1110
+				Protocol:             model.ProtocolRedis,
+				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 			}},
 	}
 }
@@ -117,9 +123,10 @@ func MakeExternalHTTPService(hostname, external string, address string) *model.S
 		Address:      address,
 		ExternalName: external,
 		Ports: []*model.Port{{
-			Name:     "http",
-			Port:     80,
-			Protocol: model.ProtocolHTTP,
+			Name:                 "http",
+			Port:                 80,
+			Protocol:             model.ProtocolHTTP,
+			AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 		}},
 	}
 }
@@ -131,9 +138,10 @@ func MakeExternalHTTPSService(hostname, external string, address string) *model.
 		Address:      address,
 		ExternalName: external,
 		Ports: []*model.Port{{
-			Name:     "https",
-			Port:     443,
-			Protocol: model.ProtocolHTTPS,
+			Name:                 "https",
+			Port:                 443,
+			Protocol:             model.ProtocolHTTPS,
+			AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
 		}},
 	}
 }
