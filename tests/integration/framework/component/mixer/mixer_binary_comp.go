@@ -52,12 +52,12 @@ func (mixerComp *MixerComponent) Start() (err error) {
 		return err
 	}
 	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
-	if err = os.MkdirAll(emptyDir, 1777); err != nil {
+	if _, err = util.Shell(fmt.Sprintf("mkdir -r %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return err
 	}
 	mixerConfig := filepath.Join(mixerComp.configDir, "mixerconfig")
-	if err = os.MkdirAll(mixerConfig, 1777); err != nil {
+	if _, err = util.Shell(fmt.Sprintf("mkdir -r %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return err
 	}
