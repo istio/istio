@@ -104,7 +104,6 @@ message ProxyConfig {
   int32 stat_name_length = 15;
 }
 
-
 // MeshConfig defines mesh-wide variables shared by all Envoy instances in the
 // Istio service mesh.
 message MeshConfig {
@@ -171,7 +170,8 @@ message MeshConfig {
 
   // Authentication policy defines the global switch to control authentication
   // for Envoy-to-Envoy communication.
-  AuthPolicy auth_policy = 10;
+  // Use authentication_policy instead.
+  AuthPolicy auth_policy = 10 [deprecated=true];
 
   // Polling interval for RDS (MUST BE >=1ms)
   google.protobuf.Duration rds_refresh_delay = 11;
@@ -190,4 +190,12 @@ message MeshConfig {
   // and remain constant for the duration of the pod. The rest of the mesh config can be changed
   // at runtime and config gets distributed dynamically.
   ProxyConfig default_config = 14;
+
+  // List of remote services for which mTLS authentication should not be expected by Istio .
+  // Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
+  // to transparently terminate mTLS authentication.
+  // It has no effect if the authentication policy is already 'NONE'.
+  // DO NOT use this setting for services that are managed by Istio (i.e. using Istio sidecar).
+  // Instead, use service-level annotations to overwrite the authentication policy.
+  repeated string mtls_excluded_services = 15;
 }
