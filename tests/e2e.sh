@@ -108,6 +108,8 @@ for ((i=1; i<=$#; i++)); do
         -p|--parallel) PARALLEL_MODE=true
         continue
         ;;
+        # -s/--single_test to specify only one test to run.
+        # e.g. "-s mixer" will only trigger mixer:go_default_test
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
         continue
         ;;
@@ -132,7 +134,8 @@ elif ${SINGLE_MODE}; then
         fi
     done
     if [ "${VALID_TEST}" == "false" ]; then
-      echo 'Invalid test directory, type folder name under tests/e2e/tests/ in istio/istio repo'
+      echo "Invalid test directory, type folder name under ${TESTSPATH} in istio/istio repo"
+      # Fail if it's not a valid test file
       process_result 1 'Invalid test directory'
     fi
 
