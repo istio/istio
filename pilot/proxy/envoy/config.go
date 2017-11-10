@@ -965,7 +965,7 @@ func buildEgressTCPListener(rule *proxyconfig.EgressRule,
 
 	route := buildTCPRoute(externalTrafficCluster, []string{destination})
 	config := &TCPRouteConfig{Routes: []*TCPRoute{route}}
-	listener := buildTCPListener(config, destination, port.Port, port.Protocol)
+	listener := buildTCPListener(config, WildcardAddress, port.Port, port.Protocol)
 	return listener, externalTrafficCluster
 }
 
