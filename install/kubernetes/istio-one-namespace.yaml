@@ -1075,7 +1075,7 @@ spec:
   - port: 15003
     name: http-discovery
   - port: 443
-    name: http-admission-webhook
+    name: admission-webhook
   selector:
     istio: pilot
 ---
