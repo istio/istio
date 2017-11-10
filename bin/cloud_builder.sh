@@ -82,15 +82,6 @@ popd
 # clean slate here
 ../../../../repo status
 
-pushd security
-# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
-popd
-
-# clean slate here
-../../../../repo status
-
 # Pilot likes checking if the source tree is 'clean'
 # but some other components like littering the tree
 # so it's better to build pilot sooner than later.
@@ -99,7 +90,9 @@ pushd pilot
 # Build istioctl binaries
 touch platform/kube/config
 
-bazel build //pilot/...
+# XXX seeing if this makes more consistent results for generated_files and lintconfig.json
+# bazel build //pilot/...
+bazel build //...
 popd
 
 # slate is TBD here
@@ -118,6 +111,7 @@ cp ./lintconfig.json /output/lintconfig.json.after
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
+# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
@@ -130,6 +124,14 @@ ls -ld *
 
 pushd mixer
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+popd
+
+# clean slate here
+../../../../repo status
+
+pushd security
+./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
 # seen dirty:
