@@ -21,7 +21,8 @@ set -o pipefail
 set -x
 
 OUTPUT_PATH=""
-# default for PROXY_PATH is based on repo manifest that places istio at:
+# The default for PROXY_PATH (which indicates where the proxy path is located
+# relative to the istio repo) is based on repo manifest that places istio at:
 # go/src/istio.io/istio
 # and proxy at:
 # src/proxy
@@ -63,16 +64,16 @@ fi
 pushd "${PROXY_PATH}"
 
 # Use this file for Cloud Builder specific settings.
+# This file sets RAM sizes and also specifies batch
+# mode that should shutdown bazel after each call.
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
 
 ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
-# TODO: run bazel in batch mode.  For now just shutdown bazel to save memory.
-bazel shutdown
 popd
 
 pushd security
-# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg.
+# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
@@ -87,20 +88,18 @@ touch platform/kube/config
 bazel build //...
 popd
 
+# bazel_to_go likes to run from dir with WORKSPACE file
 ./bin/bazel_to_go.py
-# Remove doubly-vendorized k8s dependencies
+# Remove doubly-vendorized k8s dependencies that confuse go
 rm -rf vendor/k8s.io/*/vendor
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
-
 ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-
-# -v controls whether to do -release or not
 ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 popd
 
-# generation of tarball and storing of artifacts is currently a separate cloud builder step
+# store artifacts that are used by a separate cloud builder step to generate tar files
 cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
 find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
   -exec cp --parents {} "${OUTPUT_PATH}" \;
