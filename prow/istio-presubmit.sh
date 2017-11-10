@@ -77,3 +77,5 @@ HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
 time make push HUB="${HUB}" TAG="${TAG}"
+
+time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
