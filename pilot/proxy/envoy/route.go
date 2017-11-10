@@ -376,7 +376,11 @@ func buildTCPRoute(cluster *Cluster, addresses []string) *TCPRoute {
 	}
 	sort.Sort(sort.StringSlice(addresses))
 	for _, addr := range addresses {
-		route.DestinationIPList = append(route.DestinationIPList, addr+"/32")
+		tcpRouteAddr := addr
+		if !strings.Contains(addr, "/") {
+			tcpRouteAddr = addr + "/32"
+		}
+		route.DestinationIPList = append(route.DestinationIPList, tcpRouteAddr)
 	}
 	return route
 }
