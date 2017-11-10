@@ -85,7 +85,15 @@ popd
 pushd pilot
 # Build istioctl binaries
 touch platform/kube/config
-bazel build //...
+# bazel build //... dirties:
+# broker/pkg/model/config/mock_store.go
+# broker/pkg/platform/kube/crd/types.go
+# generated_files
+# lintconfig.json
+# mixer/template/apikey/go_default_library_handler.gen.go
+# mixer/template/apikey/go_default_library_tmpl.pb.go
+# mixer/template/template.gen.go
+bazel build //pilot/...
 popd
 
 # bazel_to_go likes to run from dir with WORKSPACE file
