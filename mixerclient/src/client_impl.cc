@@ -31,13 +31,13 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
   check_cache_ =
       std::unique_ptr<CheckCache>(new CheckCache(options.check_options));
   report_batch_ = std::unique_ptr<ReportBatch>(
-      new ReportBatch(options.report_options, options_.report_transport,
-                      options.timer_create_func, compressor_));
+      new ReportBatch(options.report_options, options_.env.report_transport,
+                      options.env.timer_create_func, compressor_));
   quota_cache_ =
       std::unique_ptr<QuotaCache>(new QuotaCache(options.quota_options));
 
-  if (options_.uuid_generate_func) {
-    deduplication_id_base_ = options_.uuid_generate_func();
+  if (options_.env.uuid_generate_func) {
+    deduplication_id_base_ = options_.env.uuid_generate_func();
   }
 }
 
@@ -84,7 +84,7 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
   CheckCache::CheckResult *raw_check_result = check_result.release();
   QuotaCache::CheckResult *raw_quota_result = quota_result.release();
   if (!transport) {
-    transport = options_.check_transport;
+    transport = options_.env.check_transport;
   }
   return transport(
       request, response, [this, request_copy, response, raw_check_result,

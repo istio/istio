@@ -60,7 +60,7 @@ class MixerClientImplTest : public ::testing::Test {
                                QuotaOptions(quota_cache ? 1 : 0 /* entries */,
                                             600000 /* expiration_ms */));
     options.check_options.network_fail_open = false;
-    options.check_transport = mock_check_transport_.GetFunc();
+    options.env.check_transport = mock_check_transport_.GetFunc();
     client_ = CreateMixerClient(options);
   }
 

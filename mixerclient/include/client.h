@@ -16,34 +16,11 @@
 #ifndef MIXERCLIENT_CLIENT_H
 #define MIXERCLIENT_CLIENT_H
 
-#include "google/protobuf/stubs/status.h"
-#include "mixer/v1/service.pb.h"
+#include "environment.h"
 #include "options.h"
-#include "timer.h"
 
 namespace istio {
 namespace mixer_client {
-
-// Defines a function prototype used when an asynchronous transport call
-// is completed.
-// Uses UNAVAILABLE status code to indicate network failure.
-using DoneFunc = std::function<void(const ::google::protobuf::util::Status&)>;
-
-// Defines a function prototype used to cancel an asynchronous transport call.
-using CancelFunc = std::function<void()>;
-
-// Defines a function prototype to make an asynchronous Check call
-using TransportCheckFunc = std::function<CancelFunc(
-    const ::istio::mixer::v1::CheckRequest& request,
-    ::istio::mixer::v1::CheckResponse* response, DoneFunc on_done)>;
-
-// Defines a function prototype to make an asynchronous Report call
-using TransportReportFunc = std::function<CancelFunc(
-    const ::istio::mixer::v1::ReportRequest& request,
-    ::istio::mixer::v1::ReportResponse* response, DoneFunc on_done)>;
-
-// Defines a function prototype to generate an UUID
-using UUIDGenerateFunc = std::function<std::string()>;
 
 // Defines the options to create an instance of MixerClient interface.
 struct MixerClientOptions {
@@ -64,19 +41,8 @@ struct MixerClientOptions {
   ReportOptions report_options;
   // Quota options.
   QuotaOptions quota_options;
-
-  // Transport functions.
-  TransportCheckFunc check_transport;
-  TransportReportFunc report_transport;
-
-  // Timer create function.
-  // Usually there are some restrictions on timer_create_func.
-  // Don't call it at program start, or init time, it is not ready.
-  // It is safe to call during Check() or Report() calls.
-  TimerCreateFunc timer_create_func;
-
-  // UUID generating function
-  UUIDGenerateFunc uuid_generate_func;
+  // The environment functions.
+  Environment env;
 };
 
 class MixerClient {

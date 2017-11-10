@@ -63,13 +63,14 @@ cc_library(
     hdrs = [
         "include/attributes_builder.h",
         "include/client.h",
+        "include/environment.h",
         "include/options.h",
         "include/timer.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
-	"//prefetch:quota_prefetch_lib",
+        "//prefetch:quota_prefetch_lib",
         "//external:boringssl_crypto",
         "//external:mixer_api_cc_proto",
     ],
