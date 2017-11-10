@@ -390,9 +390,7 @@ func waitFor(t *testing.T, tm time.Duration, done chan bool, msg string) bool {
 }
 
 func Test_WaitForChanges(t *testing.T) {
-	wd := watchFlushDuration
-
-	watchFlushDuration = 200 * time.Millisecond
+	watchFlushDurationForTest := 200 * time.Millisecond
 
 	wch := make(chan store.Event)
 	done := make(chan bool)
@@ -400,7 +398,7 @@ func Test_WaitForChanges(t *testing.T) {
 
 	nevents := 2
 
-	go watchChanges(wch, func(events []*store.Event) {
+	go watchChanges(wch, watchFlushDurationForTest, func(events []*store.Event) {
 		if len(events) == nevents {
 			done <- true
 		} else {
@@ -415,8 +413,6 @@ func Test_WaitForChanges(t *testing.T) {
 	nevents = 1
 	wch <- store.Event{}
 	waitFor(t, 2*watchFlushDuration, done, "changes did not appear")
-
-	watchFlushDuration = wd
 }
 
 func TestAttributeFinder_GetAttribute(t *testing.T) {

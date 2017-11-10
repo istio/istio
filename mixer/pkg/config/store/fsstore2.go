@@ -126,7 +126,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 		if err != nil {
 			return err
 		}
-		if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
+		if mode := info.Mode() & os.ModeType; !supportedExtensions[filepath.Ext(path)] || (mode != 0 && mode != os.ModeSymlink) {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)

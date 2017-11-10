@@ -195,6 +195,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
 	// Rules selection is based on scopes.
+	// Please update validator.go when this hiding is updated.
 	serverCmd.PersistentFlags().StringVarP(&sa.configIdentityAttribute, "configIdentityAttribute", "", "destination.service",
 		"Attribute that is used to identify applicable scopes.")
 	if err := serverCmd.PersistentFlags().MarkHidden("configIdentityAttribute"); err != nil {
