@@ -9,7 +9,7 @@ import (
 
 type AppOnlyEnv struct {
 	framework.TestEnv
-	EnvID string
+	EnvID    string
 	EndPoint string
 }
 

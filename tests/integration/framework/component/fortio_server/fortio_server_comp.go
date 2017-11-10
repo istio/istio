@@ -43,6 +43,10 @@ func (FortioServerComp *FortioServerComp) GetName() string {
 }
 
 func (FortioServerComp *FortioServerComp) Start() (err error) {
+	if _, err = util.Shell("go get -u istio.io/fortio"); err != nil {
+		log.Printf("Failed to go get fortio")
+		return err
+	}
 	FortioServerComp.process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
 	if err != nil {
 		log.Printf("Failed to start component %s", FortioServerComp.GetName())

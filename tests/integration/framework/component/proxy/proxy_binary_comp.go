@@ -20,10 +20,12 @@ import (
 	"os"
 
 	"istio.io/istio/tests/integration/framework"
-	tu "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
-
+const (
+	proxyRepo = "../proxy"
+)
 
 type ProxyComponent struct {
 	framework.Component
@@ -45,7 +47,8 @@ func (proxyComp *ProxyComponent) GetName() string {
 }
 
 func (proxyComp *ProxyComponent) Start() (err error) {
-	proxyComp.process, err = tu.RunBackground(fmt.Sprintf("./proxy/src/envoy/mixer/start_envoy > %s 2>&1", proxyComp.logFile))
+	_, err = util.Shell("bazel build -c opt %s/src/envoy/mixer:envoy", proxyRepo)
+	proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1", proxyRepo, proxyComp.logFile))
 	if err != nil {
 		log.Printf("Failed to start component %s", proxyComp.GetName())
 		return err
@@ -54,15 +57,15 @@ func (proxyComp *ProxyComponent) Start() (err error) {
 }
 
 func (proxyComp *ProxyComponent) Stop() (err error) {
-	err = tu.KillProcess(proxyComp.process)
+	err = util.KillProcess(proxyComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", proxyComp.GetName())
 	}
 	return
 }
 
-func (proxyComp *ProxyComponent)  IsAlive() (bool, error) {
-	return tu.IsProcessRunning(proxyComp.process)
+func (proxyComp *ProxyComponent) IsAlive() (bool, error) {
+	return util.IsProcessRunning(proxyComp.process)
 }
 
 func (proxyComp *ProxyComponent) Cleanup() error {

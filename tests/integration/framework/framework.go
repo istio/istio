@@ -15,9 +15,9 @@
 package framework
 
 import (
-	"time"
-	"log"
 	"fmt"
+	"log"
+	"time"
 
 	tu "istio.io/istio/tests/util"
 )
@@ -28,16 +28,16 @@ type runnable interface {
 }
 
 type IstioTestFramework struct {
-	TestEnv TestEnv
-	TestID string
+	TestEnv    TestEnv
+	TestID     string
 	Components []Component
 }
 
 func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
 	return &IstioTestFramework{
-		TestEnv: env,
+		TestEnv:    env,
 		Components: env.GetComponents(),
-		TestID: id,
+		TestID:     id,
 	}
 }
 
@@ -49,7 +49,7 @@ func (framework *IstioTestFramework) SetUp() error {
 		}
 	}
 
-	if ready, err := framework.IsEnvReady(); (err != nil || !ready) {
+	if ready, err := framework.IsEnvReady(); err != nil || !ready {
 		return fmt.Errorf("failed to get env ready: %s", err)
 	}
 
@@ -76,9 +76,9 @@ func (framework *IstioTestFramework) TearDown() {
 
 func (framework *IstioTestFramework) IsEnvReady() (bool, error) {
 	retry := tu.Retrier{
-		BaseDelay:  1 * time.Second,
-		MaxDelay: 10 * time.Second,
-		Retries: 5,
+		BaseDelay: 1 * time.Second,
+		MaxDelay:  10 * time.Second,
+		Retries:   5,
 	}
 
 	ready := false

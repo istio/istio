@@ -19,23 +19,25 @@ import (
 	"log"
 	"os"
 
+	"path/filepath"
+
 	"istio.io/istio/tests/integration/framework"
-	tu "istio.io/istio/tests/util"
+	"istio.io/istio/tests/util"
 )
 
 type MixerComponent struct {
 	framework.Component
-	name    string
-	process *os.Process
-	logFile string
+	name      string
+	process   *os.Process
+	logFile   string
 	configDir string
 }
 
 func NewMixerComponent(n, logDir, configDir string) *MixerComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &MixerComponent{
-		name:    n,
-		logFile: logFile,
+		name:      n,
+		logFile:   logFile,
 		configDir: configDir,
 	}
 }
@@ -45,9 +47,31 @@ func (mixerComp *MixerComponent) GetName() string {
 }
 
 func (mixerComp *MixerComponent) Start() (err error) {
-	mixerComp.process, err = tu.RunBackground(fmt.Sprintf("./mixer/bazel-bin/cmd/server/mixs server" +
-		" --configStore2URL=fs://%s/mixerconfig --configStoreURL=fs://%s/emptydir" +
-			" --logtostderr > %s 2>&1", mixerComp.configDir, mixerComp.configDir, mixerComp.logFile))
+	if _, err = util.Shell("bazel build -c opt mixer/cmd/server:mixs"); err != nil {
+		return err
+	}
+	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
+	if err = os.Mkdir(emptyDir, os.ModeDir); err != nil {
+		log.Printf("Failed to create emptydir: %v", err)
+		return err
+	}
+	mixerConfig := filepath.Join(mixerComp.configDir, "mixerconfig")
+	if err = os.Mkdir(mixerConfig, os.ModeDir); err != nil {
+		log.Printf("Failed to create mixerconfig dir: %v", err)
+		return err
+	}
+	if _, err = util.Shell("cp mixer/testdata/config/* %s", mixerConfig); err != nil {
+		return err
+	}
+	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
+		log.Printf("Failed to remove stackdriver.yaml: %v", err)
+	}
+	if _, err = util.Shell("source mixer/bin/use_bazel_go.sh"); err != nil {
+		return err
+	}
+
+	mixerComp.process, err = util.RunBackground(fmt.Sprintf("./mixer/bazel-bin/cmd/server/mixs server"+
+		" --configStore2URL=fs://%s --configStoreURL=fs://%s > %s", mixerConfig, emptyDir, mixerComp.logFile))
 	if err != nil {
 		log.Printf("Failed to start component %s", mixerComp.GetName())
 		return err
@@ -56,15 +80,15 @@ func (mixerComp *MixerComponent) Start() (err error) {
 }
 
 func (mixerComp *MixerComponent) Stop() (err error) {
-	err = tu.KillProcess(mixerComp.process)
+	err = util.KillProcess(mixerComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", mixerComp.GetName())
 	}
 	return
 }
 
-func (mixerComp *MixerComponent)  IsAlive() (bool, error) {
-	return tu.IsProcessRunning(mixerComp.process)
+func (mixerComp *MixerComponent) IsAlive() (bool, error) {
+	return util.IsProcessRunning(mixerComp.process)
 }
 
 func (mixerComp *MixerComponent) Cleanup() error {
