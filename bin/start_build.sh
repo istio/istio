@@ -84,9 +84,6 @@ done
 [[ -z "${VER_STRING}"    ]] && usage
 [[ -z "${GCS_BUCKET}"    ]] && usage
 [[ -z "${GCR_BUCKET}"    ]] && usage
-# GCR_PATH can be empty
-# GCS_PATH can be . to represent empty
-[[ -z "${GCS_PATH}"      ]] && usage
 
 DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -95,7 +92,11 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 if [[ "${APPEND_VER_TO_GCS_PATH}" == "true" ]]; then
-  GCS_PATH="${GCS_PATH}/${VER_STRING}"
+  if [[ -z "${GCS_PATH}"  ]]; then
+    GCS_PATH="${VER_STRING}"
+  else
+    GCS_PATH="${GCS_PATH}/${VER_STRING}"
+  fi
 fi
 
 if [[ "${APPEND_VER_TO_GCR_PATH}" == "true" ]]; then
