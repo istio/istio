@@ -386,7 +386,7 @@ passed both unit and integration tests. We only merge pull requests when
 
 ## Collection of scripts and notes for developing Istio
 
-For local development (building from source and running the major components) on Ubuntu/raw VM:
+For local development (building from source and running the major components of the data path) on Ubuntu/raw VM:
 
 Assuming you did (once):
 1. [Install bazel](https://bazel.build/versions/master/docs/install-ubuntu.html), note that as of this writing Bazel needs the `openjdk-8-jdk` VM (you might need to uninstall or get out of the way the `ibm-java80-jdk` that comes by default with GCE for instance)
@@ -396,10 +396,11 @@ Assuming you did (once):
    mkdir github
    cd github/
    git clone https://github.com/istio/istio.git
+   git clone https://github.com/istio/proxy.git
    ```
 4. You can then use
-   - [update_all](update_all) : script to build from source
-   - [setup_run](setup_run) : run locally
+   - [tools/update_all](tools/update_all) : script to build from source
+   - [tools/setup_run](tools/setup_run) : run locally
    - [fortio](https://github.com/istio/fortio/) (φορτίο) : load testing and minimal echo http and grpc server
    - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
 5. And run things like
@@ -412,10 +413,9 @@ Assuming you did (once):
    curl -v  http://localhost:9094/api/v1/scopes/global/subjects/foo.svc.cluster.local/rules --data-binary @quota.yaml -X PUT -H "Content-Type: application/yaml"
    # Test under some load:
    fortio load -qps 2000 http://localhost:9090/echo
-
    ```
-   Note that this is done for you by [setup_run](setup_run) but to use the correct go environment:
+   Note that this is done for you by [setup_run](tools/setup_run) but to use the correct go environment:
    ```bash
-   cd mixer/
+   cd istio/
    source bin/use_bazel_go.sh
    ```
