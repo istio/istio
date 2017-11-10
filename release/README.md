@@ -69,28 +69,30 @@ $ alias githubctl="${PWD}/bazel-bin/toolbox/githubctl/githubctl"
 
 The release process goes like the following:
 
-Step 1: Tag the release.
+### Step 1: Tag the release.
 ```
 $ githubctl --token_file=<github token file> \
     --op=tagIstioDepsForRelease \
     --base_branch=<release branch or master>
 ```
 
-Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth.
+### Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth.
  Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589).
 
-Step 3: Create an update PR in istio/istio.
+### Step 3: Create an update PR in istio/istio.
 ```
 $ githubctl --token_file=<github token file> \
     --op=updateIstioVersion --base_branch=<release branch or master>
 ```
 This will run all the presubmits on the istio repo, smoke testing the created artifacts.
 
-Step 4: Request PR approval and wait for the PR to be merged. Note down the SHA
+### Step 4: Request PR approval and wait for the PR to be merged. Note down the SHA
 of the merged PR in `RELEASE_SHA`. We will create the release tag from it.
 
-Step 5: Finalize the release. This creates the release draft in GitHub, uploads the artifacts,
- advances next release tag, and updates download script with latest release:
+### Step 5: Finalize the release. 
+This creates the release draft in GitHub, uploads the artifacts,
+and creates a PR to advances next release tag, and updates [download script](https://github.com/istio/istio/blob/master/release/downloadIstioCandidate.sh) with latest release:
+ 
 ```
 $ githubctl --token_file=<github token file> \
     --op=uploadArtifacts --base_branch=<release branch or master> \
@@ -99,7 +101,7 @@ $ githubctl --token_file=<github token file> \
 
 Note: 
 
-0. If you are cutting a release off of a release branch other than master, you could have the `downloadIstioCandidate.sh` script in master branch to take on the release you just made by also specifying the flag `--update_rel_branches=master`.
+0. If you are cutting a release off of **a release branch other than master**, you could have the `downloadIstioCandidate.sh` script in master branch to take on the release you just made by also specifying the flag `--update_rel_branches=master`.
 1. `<next release>` is where the next release after the release draft that is being created.  For example, if you are creating 0.2.7 release, the next release could be 0.2.8.  
 2. For Mac, install `gcp` via ```brew install coreutils``` and install `gtar` via ```brew install gnu-tar```.  Execute the command below instead:
 
@@ -108,8 +110,11 @@ $ TAR=gtar CP=gcp githubctl --token_file=<github token file> \
     --op=uploadArtifacts --base_branch=<release branch or master> \
     --next_release=<next release> --ref_sha=${RELEASE_SHA}
 ```
+
+You can finalize release in github release [page](https://github.com/istio/istio/releases) before this PR got merged, but it's your responsibility to make sure it got merged for next release. **You should finalize it as an actual release (not shown as "draft") before Step 6**
  
-Step 6: Generating release note. This tool helps you to collect release-note left in PR descriptions. Before doing this step, make sure you already finalized and published the release, meaning it shouldn't be "draft" status and there is the version tag in release repos. This tool will return error if there is not version tag being created.
+### Step 6: Generating release note.
+This tool helps you to collect release-note left in PR descriptions. Before doing this step, make sure you already finalized and published the release, meaning it shouldn't be "draft" status and there is the version tag in release repos. This tool will return error if there is not version tag being created.
 
 Checkout and build the tool
 
@@ -130,6 +135,8 @@ $ bazel-bin/toolbox/release_note_collector/release_note_collector --previous_rel
 $ cat release-note
 ```
 **You cannot specify a range acrossing different branch.**
+
+Tip: Normally, you don't need to specific a github token, but if you hit quota issue (we are using search api here and it has super limited quota under non-auth client), use flag `--token_file` to specific a local path of a github token file.
 
 Go to Istio release [page](https://github.com/istio/istio/releases) to find your
 release. Click on the RELEASE_NOTES link and add your release notes. 
