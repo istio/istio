@@ -16,7 +16,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//tests/e2e/util:go_default_library",
+        "//tests/util:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_uuid//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",

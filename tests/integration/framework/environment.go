@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package component
+package framework
 
-import (
-
-)
-
-type Component interface {
+type TestEnv interface {
 	GetName() string
-	Start() error
-	Stop() error
-	IsAlive() (bool, error)
-	Cleanup() error
+	GetComponents() []Component
+	Bringup()
+	Cleanup()
 }

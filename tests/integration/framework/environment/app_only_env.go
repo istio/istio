@@ -3,12 +3,12 @@ package environment
 import (
 	"log"
 
-	"istio.io/istio/tests/integration/framework/component"
+	"istio.io/istio/tests/integration/framework"
 	fortioServer "istio.io/istio/tests/integration/framework/component/fortio_server"
 )
 
 type AppOnlyEnv struct {
-	TestEnv
+	framework.TestEnv
 	EnvID string
 	EndPoint string
 }
@@ -26,8 +26,8 @@ func (appOnlyEnv *AppOnlyEnv) GetName() string {
 func (appOnlyEnv *AppOnlyEnv) Bringup() {
 }
 
-func (appOnlyEnv *AppOnlyEnv) GetComponents() []component.Component {
-	comps := []component.Component{}
+func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
+	comps := []framework.Component{}
 	comps = append(comps, fortioServer.NewFortioServerComp("my_fortio_server", "/tmp"))
 
 	return comps

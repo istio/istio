@@ -19,12 +19,12 @@ import (
 	"log"
 	"os"
 
-	"istio.io/istio/tests/integration/framework/component"
-	tu "istio.io/istio/tests/util"
+	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/util"
 )
 
 type FortioServerComp struct {
-	component.Component
+	framework.Component
 	name    string
 	process *os.Process
 	logFile string
@@ -43,7 +43,7 @@ func (FortioServerComp *FortioServerComp) GetName() string {
 }
 
 func (FortioServerComp *FortioServerComp) Start() (err error) {
-	FortioServerComp.process, err = tu.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
+	FortioServerComp.process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
 	if err != nil {
 		log.Printf("Failed to start component %s", FortioServerComp.GetName())
 		return err
@@ -52,7 +52,7 @@ func (FortioServerComp *FortioServerComp) Start() (err error) {
 }
 
 func (FortioServerComp *FortioServerComp) Stop() (err error) {
-	err = tu.KillProcess(FortioServerComp.process)
+	err = util.KillProcess(FortioServerComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", FortioServerComp.GetName())
 	}
@@ -60,7 +60,7 @@ func (FortioServerComp *FortioServerComp) Stop() (err error) {
 }
 
 func (FortioServerComp *FortioServerComp) IsAlive() (bool, error) {
-	return tu.IsProcessRunning(FortioServerComp.process)
+	return util.IsProcessRunning(FortioServerComp.process)
 }
 
 func (FortioServerComp *FortioServerComp) Cleanup() error {

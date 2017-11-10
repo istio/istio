@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package environment
+package framework
 
-import (
-	"istio.io/istio/tests/integration/framework/component"
-)
-
-type TestEnv interface {
+type Component interface {
 	GetName() string
-	GetComponents() []component.Component
-	Bringup()
-	Cleanup()
+	Start() error
+	Stop() error
+	IsAlive() (bool, error)
+	Cleanup() error
 }

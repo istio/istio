@@ -7,7 +7,7 @@ go_library(
     deps = [
         "//tests/e2e/apps/hop/config:go_default_library",
         "//tests/e2e/framework:go_default_library",
-        "//tests/e2e/util:go_default_library",
+        "//tests/util:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",

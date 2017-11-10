@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"istio.io/istio/tests/e2e/util"
+	"istio.io/istio/tests/util"
 )
 
 const (

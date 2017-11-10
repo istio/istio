@@ -19,12 +19,12 @@ import (
 	"log"
 	"os"
 
-	"istio.io/istio/tests/integration/framework/component"
+	"istio.io/istio/tests/integration/framework"
 	tu "istio.io/istio/tests/util"
 )
 
 type MixerComponent struct {
-	component.Component
+	framework.Component
 	name    string
 	process *os.Process
 	logFile string

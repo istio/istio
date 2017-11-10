@@ -19,8 +19,6 @@ import (
 	"log"
 	"fmt"
 
-	"istio.io/istio/tests/integration/framework/component"
-	env "istio.io/istio/tests/integration/framework/environment"
 	tu "istio.io/istio/tests/util"
 )
 
@@ -30,13 +28,12 @@ type runnable interface {
 }
 
 type IstioTestFramework struct {
-	TestEnv env.TestEnv
+	TestEnv TestEnv
 	TestID string
-	Components []component.Component
+	Components []Component
 }
 
-
-func NewIstioTestFramework(env env.TestEnv, id string) *IstioTestFramework {
+func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
 	return &IstioTestFramework{
 		TestEnv: env,
 		Components: env.GetComponents(),

@@ -22,14 +22,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/golang/glog"
 )
 
 const (
 	testSrcDir     = "TEST_SRCDIR"
-	pathPrefix     = "io_istio_istio"
+	pathPrefix     = "com_github_istio_istio"
 	runfilesSuffix = ".runfiles"
 )
 
@@ -95,8 +94,7 @@ func sh(format string, logOutput bool, args ...interface{}) (string, error) {
 func RunBackground(format string, args ...interface{}) (*os.Process, error) {
 	command := fmt.Sprintf(format, args...)
 	glog.Info("RunBackground: ", command)
-	parts := strings.Split(command, " ")
-	c := exec.Command(parts[0], parts[1:]...) // #nosec
+	c := exec.Command("sh", "-c", command) // #nosec
 	err := c.Start()
 	if err != nil {
 		glog.Errorf("%s, command failed!", command)
