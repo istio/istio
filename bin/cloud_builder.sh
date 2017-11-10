@@ -105,10 +105,16 @@ popd
 # slate is TBD here
 ../../../../repo status
 
+cp ./generated_files /output/generated_files.before
+cp ./lintconfig.json /output/lintconfig.json.before
+
 # bazel_to_go likes to run from dir with WORKSPACE file
 ./bin/bazel_to_go.py
 # Remove doubly-vendorized k8s dependencies that confuse go
 rm -rf vendor/k8s.io/*/vendor
+
+cp ./generated_files /output/generated_files.after
+cp ./lintconfig.json /output/lintconfig.json.after
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
