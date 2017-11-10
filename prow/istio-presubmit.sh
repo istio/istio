@@ -46,4 +46,9 @@ TAG="${GIT_SHA}"
 time make push HUB="${HUB}" TAG="${TAG}"
 
 time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
-${ROOT}/prow/istio-coverage.sh
+
+# TODO define a job for codecov
+echo "=== Code Coverage ==="
+UPLOAD_TOKEN=istiocodecov.token
+gsutil cp gs://istio-code-coverage/${UPLOAD_TOKEN} /tmp/${UPLOAD_TOKEN}
+UPLOAD_TOKEN="@/tmp/${UPLOAD_TOKEN}" ${ROOT}/bin/codecov.sh
