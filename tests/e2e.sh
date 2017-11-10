@@ -23,14 +23,10 @@ ARGS=(-alsologtostderr -test.v -v 2)
 TESTSPATH='tests/e2e/tests'
 
 function print_block() {
-    line=""
-    for i in {1..50}
-    do
-        line+="$1"
-    done
+    line='--------------------------------------------------'
 
     echo $line
-    echo $2
+    echo $1
     echo $line
 }
 
@@ -40,12 +36,12 @@ function error_exit() {
     exit ${2:-1}
 }
 
-. ${ROOT}/istio.VERSION || error_exit "Could not source versions"
 TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)"))|| error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
 PARALLEL_MODE=false
+SINGLE_MODE=false
 
 function process_result() {
     if [[ $1 -eq 0 ]]; then
@@ -101,7 +97,7 @@ function sequential_exec() {
 }
 
 function single_exec() {
-    print_block '*' "Running $1"
+    print_block "Running $1"
     bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} $1 -- ${ARGS[@]}
     process_result $? $1
 }
@@ -128,11 +124,17 @@ elif ${SINGLE_MODE}; then
     SINGLE_TEST=//${TESTSPATH}/${SINGLE_TEST}:go_default_test
 
     # Check if it's a valid test file
+    VALID_TEST=false
     for T in ${TESTS_TARGETS[@]}; do
         if [ "${T}" == "${SINGLE_TEST}" ]; then
+            VALID_TEST=true
             single_exec ${SINGLE_TEST}
         fi
     done
+    if [ "${VALID_TEST}" == "false" ]; then
+      echo 'Invalid test directory, type folder name under tests/e2e/tests/ in istio/istio repo'
+      process_result 1 'Invalid test directory'
+    fi
 
 else
     echo "Executing tests sequentially"
