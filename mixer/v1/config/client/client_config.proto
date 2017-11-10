@@ -26,8 +26,8 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
-// Defines the per-service mixerclient control configuration.
-message MixerControlConfig {
+// Defines the per-service client configuration.
+message ServiceConfig {
   // If true, call Mixer Check.
   bool enable_mixer_check = 1;
 
@@ -45,9 +45,8 @@ message MixerControlConfig {
   repeated QuotaSpec quota_spec = 5;
 }
 
-// Defines the Mixerclient's envoy HTTP filter and TCP filter
-// configuration.
-message MixerFilterConfig {
+// Defines the transport config on how to call Mixer.
+message TransportConfig {
   // The flag to disable check cache.
   bool disable_check_cache = 1;
 
@@ -65,25 +64,49 @@ message MixerFilterConfig {
   }
   // Specifies the policy when failed to connect to Mixer server.
   NetworkFailPolicy network_fail_policy = 4;
+}
+
+// Defines the client config for HTTP.
+message HttpClientConfig {
+  // The transport config.
+  TransportConfig transport = 1;
 
   // Map of control configuration indexed by destination.service. This
   // is used to support per-service configuration for cases where a
   // mixerclient serves multiple services.
-  map<string, MixerControlConfig> control_configs = 5;
+  map<string, ServiceConfig> service_configs = 2;
 
   // Default destination service name if none was specified in the
   // client request.
-  string default_destination_service = 6;
+  string default_destination_service = 3;
 
   // Default attributes to send to Mixer in both Check and
   // Report. This typically includes "destination.ip" and
   // "destination.uid" attributes.
-  Attributes mixer_attributes = 7;
+  Attributes mixer_attributes = 4;
 
   // Default attributes to forward to upstream. This typically
   // includes the "source.ip" and "source.uid" attributes.
-  Attributes forward_attributes = 8;
+  Attributes forward_attributes = 5;
+}
 
-  // If set to true, disables mixer check calls for TCP connections
-  bool disable_tcp_check_calls = 9;
+// Defines the client config for TCP.
+message TcpClientConfig {
+  // The transport config.
+  TransportConfig transport = 1;
+
+  // Default attributes to send to Mixer in both Check and
+  // Report. This typically includes "destination.ip" and
+  // "destination.uid" attributes.
+  Attributes mixer_attributes = 2;
+
+  // If set to true, disables mixer check calls.
+  bool disable_check_calls = 3;
+
+  // If set to true, disables mixer check calls.
+  bool disable_report_calls = 4;
+
+  // Quota specifications to generate quota requirements.
+  // It applies on the new TCP connections.
+  QuotaSpec connection_quota_spec = 5;
 }
