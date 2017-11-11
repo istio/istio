@@ -12,16 +12,17 @@
       "weighted_clusters": {
        "clusters": [
         {
-         "name": "out.c76febe0f151b2f8abe0f377d2052c0fbbfb959d",
+         "name": "out.world.default.svc.cluster.local|http|version=v0",
          "weight": 75
         },
         {
-         "name": "out.66fcc955b8875b19844f9eaf6cfda47c778c609e",
+         "name": "out.world.default.svc.cluster.local|http|version=v1",
          "weight": 25
         }
        ]
       },
       "opaque_config": {
+       "destination.service": "world.default.svc.cluster.local",
        "mixer_check": "on",
        "mixer_forward": "on",
        "mixer_report": "on"

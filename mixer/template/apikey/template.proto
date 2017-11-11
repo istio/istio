@@ -1,0 +1,56 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package apiKey;
+
+import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
+
+// apiKey template data point is associated with an API call with a caller supplied API key. Adapter supports this
+// template to validate API key to authorize API call.
+//
+// Sample config:
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: apikey
+// metadata:
+//   name: validate-apikey
+//   namespace: istio-system
+// spec:
+//   api: api.service | ""
+//   api_version: api.version | ""
+//   api_operation: api.operation | ""
+//   api_key: api.key | ""
+//   timestamp: request.time
+
+// Template to check if an API call should proceed.
+message Template {
+    // The API being called (api.service).
+    string api = 1;
+
+    // The version of the API (api.version).
+    string api_version = 2;
+
+    // The API operation is being called.
+    string api_operation = 3;
+
+    // API key used in API call.
+    string api_key = 4;
+
+    // Timestamp of API call.
+    google.protobuf.Timestamp timestamp = 5;
+}

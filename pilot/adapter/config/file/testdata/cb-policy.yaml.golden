@@ -1,0 +1,20 @@
+source:
+  name: hello
+  labels:
+    version: v0
+destination:
+  name: world
+  labels:
+    version: v0
+circuitBreaker:
+  simpleCb:
+    maxConnections: 100
+    sleepWindow: 15.5s
+    httpMaxRequests: 100
+    httpMaxRequestsPerConnection: 100
+    httpMaxPendingRequests: 100
+    httpConsecutiveErrors: 10
+    httpDetectionInterval: 30s
+    httpMaxEjectionPercent: 100
+loadBalancing:
+  name: RANDOM

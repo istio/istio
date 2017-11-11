@@ -22,6 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
@@ -591,6 +592,111 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: true},
+		{name: "append headers", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			AppendHeaders: map[string]string{
+				"name": "val",
+			},
+		},
+			valid: true},
+		{name: "append headers bad name", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			AppendHeaders: map[string]string{
+				"": "val",
+			},
+		},
+			valid: false},
+		{name: "append headers bad val", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			AppendHeaders: map[string]string{
+				"name": "",
+			},
+		},
+			valid: false},
+		{name: "mirror", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			Mirror:      &proxyconfig.IstioService{Name: "barfoo"},
+		},
+			valid: true},
+		{name: "mirror bad service", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			Mirror:      &proxyconfig.IstioService{},
+		},
+			valid: false},
+		{name: "valid cors policy", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: true},
+		{name: "cors policy invalid allow headers", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+				AllowHeaders:     []string{"Content-Type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: false},
+		{name: "cors policy invalid expose headers", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"X-Custom-Header"},
+			},
+		},
+			valid: false},
+		{name: "invalid cors policy bad max age", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge: &duration.Duration{Nanos: 1000000},
+			},
+		},
+			valid: false},
+		{name: "invalid cors policy invalid max age", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge: &duration.Duration{Nanos: 100},
+			},
+		},
+			valid: false},
+		{name: "invalid cors policy bad allow method", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "GET", "UNSUPPORTED"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: false},
+		{name: "invalid cors policy bad allow method 2", in: &proxyconfig.RouteRule{
+			Destination: &proxyconfig.IstioService{Name: "foobar"},
+			CorsPolicy: &proxyconfig.CorsPolicy{
+				MaxAge:           &duration.Duration{Seconds: 5},
+				AllowOrigin:      []string{"http://foo.example"},
+				AllowMethods:     []string{"POST", "get"},
+				AllowHeaders:     []string{"content-type"},
+				AllowCredentials: &wrappers.BoolValue{Value: true},
+				ExposeHeaders:    []string{"x-custom-header"},
+			},
+		},
+			valid: false},
 	}
 	for _, c := range cases {
 		if got := ValidateRouteRule(c.in); (got == nil) != c.valid {

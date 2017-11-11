@@ -1,0 +1,83 @@
+{
+  "virtual_hosts": [
+   {
+    "name": "hello.default.svc.cluster.local|http",
+    "domains": [
+     "hello:80",
+     "hello",
+     "hello.default:80",
+     "hello.default",
+     "hello.default.svc:80",
+     "hello.default.svc",
+     "hello.default.svc.cluster:80",
+     "hello.default.svc.cluster",
+     "hello.default.svc.cluster.local:80",
+     "hello.default.svc.cluster.local",
+     "10.1.0.0:80",
+     "10.1.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.hello.default.svc.cluster.local|http",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "httpbin.default.svc.cluster.local|http",
+    "domains": [
+     "httpbin:80",
+     "httpbin",
+     "httpbin.default:80",
+     "httpbin.default",
+     "httpbin.default.svc:80",
+     "httpbin.default.svc",
+     "httpbin.default.svc.cluster:80",
+     "httpbin.default.svc.cluster",
+     "httpbin.default.svc.cluster.local:80",
+     "httpbin.default.svc.cluster.local"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "decorator": {
+       "operation": "default-route"
+      }
+     }
+    ]
+   },
+   {
+    "name": "world.default.svc.cluster.local|http",
+    "domains": [
+     "world:80",
+     "world",
+     "world.default:80",
+     "world.default",
+     "world.default.svc:80",
+     "world.default.svc",
+     "world.default.svc.cluster:80",
+     "world.default.svc.cluster",
+     "world.default.svc.cluster.local:80",
+     "world.default.svc.cluster.local",
+     "10.2.0.0:80",
+     "10.2.0.0"
+    ],
+    "routes": [
+     {
+      "prefix": "/",
+      "cluster": "out.world.default.svc.cluster.local|http",
+      "shadow": {
+       "cluster": "hello.default.svc.cluster.local"
+      },
+      "decorator": {
+       "operation": "mirror-requests"
+      }
+     }
+    ]
+   }
+  ]
+ }

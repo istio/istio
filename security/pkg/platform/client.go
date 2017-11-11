@@ -22,17 +22,16 @@ import (
 
 // ClientConfig consists of the platform client configuration.
 type ClientConfig struct {
-	// Root CA cert file to validate the gRPC service in CA.
-	RootCACertFile string
-	// The private key file
-	KeyFile string
-	// The cert chain file
-	CertChainFile string
+	OnPremConfig OnPremConfig
+
+	GcpConfig GcpConfig
+
+	AwsConfig AwsConfig
 }
 
 // Client is the interface for implementing the client to access platform metadata.
 type Client interface {
-	GetDialOptions(*ClientConfig) ([]grpc.DialOption, error)
+	GetDialOptions() ([]grpc.DialOption, error)
 	// Whether the node agent is running on the right platform, e.g., if gcpPlatformImpl should only
 	// run on GCE.
 	IsProperPlatform() bool
@@ -48,11 +47,11 @@ type Client interface {
 func NewClient(platform string, config ClientConfig, caAddr string) (Client, error) {
 	switch platform {
 	case "onprem":
-		return NewOnPremClientImpl(config.CertChainFile), nil
+		return NewOnPremClientImpl(config.OnPremConfig), nil
 	case "gcp":
-		return NewGcpClientImpl(caAddr), nil
+		return NewGcpClientImpl(config.GcpConfig), nil
 	case "aws":
-		return NewAwsClientImpl(), nil
+		return NewAwsClientImpl(config.AwsConfig), nil
 	default:
 		return nil, fmt.Errorf("Invalid env %s specified", platform)
 	}

@@ -40,8 +40,47 @@
            "source.ip": "10.1.1.0",
            "source.uid": "kubernetes://v0.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
+             }
+            }
+           },
+           "defaultDestinationService": "hello.default.svc.cluster.local",
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -92,8 +131,47 @@
            "source.ip": "10.1.1.0",
            "source.uid": "kubernetes://v0.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
+             }
+            }
+           },
+           "defaultDestinationService": "hello.default.svc.cluster.local",
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -144,8 +222,47 @@
            "source.ip": "10.1.1.0",
            "source.uid": "kubernetes://v0.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
+             }
+            }
+           },
+           "defaultDestinationService": "hello.default.svc.cluster.local",
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -182,7 +299,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.6fc71bd0fc240b9cf1b3437a82c18a5c97d40890",
+          "cluster": "out.hello.default.svc.cluster.local|mongo",
           "destination_ip_list": [
            "10.1.0.0/32"
           ]
@@ -202,7 +319,7 @@
       "type": "both",
       "name": "redis_proxy",
       "config": {
-       "cluster_name": "out.ad08e00d6d07a7cdbdbacfc83fef3fd62aaa4c26",
+       "cluster_name": "out.hello.default.svc.cluster.local|redis",
        "conn_pool": {
         "op_timeout_ms": 30000
        },
@@ -224,7 +341,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.de6d66d4dd5f542e5f61882eb466189eb68ebe88",
+          "cluster": "out.hello.default.svc.cluster.local|custom",
           "destination_ip_list": [
            "10.1.0.0/32"
           ]
@@ -262,6 +379,7 @@
             "prefix": "/",
             "cluster": "in.1081",
             "opaque_config": {
+             "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
@@ -288,8 +406,47 @@
            "source.ip": "10.1.1.0",
            "source.uid": "kubernetes://v0.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
+             }
+            }
+           },
+           "defaultDestinationService": "hello.default.svc.cluster.local",
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -318,6 +475,18 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.0",
         "destination.uid": "kubernetes://v0.default"
+       },
+       "v2": {
+        "mixerAttributes": {
+         "attributes": {
+          "destination.ip": {
+           "stringValue": "10.1.1.0"
+          },
+          "destination.uid": {
+           "stringValue": "kubernetes://v0.default"
+          }
+         }
+        }
        }
       }
      },
@@ -352,6 +521,18 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.0",
         "destination.uid": "kubernetes://v0.default"
+       },
+       "v2": {
+        "mixerAttributes": {
+         "attributes": {
+          "destination.ip": {
+           "stringValue": "10.1.1.0"
+          },
+          "destination.uid": {
+           "stringValue": "kubernetes://v0.default"
+          }
+         }
+        }
        }
       }
      },
@@ -393,6 +574,18 @@
        "mixer_attributes": {
         "destination.ip": "10.1.1.0",
         "destination.uid": "kubernetes://v0.default"
+       },
+       "v2": {
+        "mixerAttributes": {
+         "attributes": {
+          "destination.ip": {
+           "stringValue": "10.1.1.0"
+          },
+          "destination.uid": {
+           "stringValue": "kubernetes://v0.default"
+          }
+         }
+        }
        }
       }
      },
@@ -460,6 +653,7 @@
             "prefix": "/",
             "cluster": "in.80",
             "opaque_config": {
+             "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
              "mixer_forward": "off",
              "mixer_report": "on"
@@ -486,8 +680,47 @@
            "source.ip": "10.1.1.0",
            "source.uid": "kubernetes://v0.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
+             }
+            }
+           },
+           "defaultDestinationService": "hello.default.svc.cluster.local",
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://v0.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -554,7 +787,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.152eb365b2958596c93b3d847abe47b5bc3f1e9a",
+          "cluster": "out.world.default.svc.cluster.local|mongo",
           "destination_ip_list": [
            "10.2.0.0/32"
           ]
@@ -574,7 +807,7 @@
       "type": "both",
       "name": "redis_proxy",
       "config": {
-       "cluster_name": "out.12a577b4dd04c9a3fed313fc71fb850e7f9c345f",
+       "cluster_name": "out.world.default.svc.cluster.local|redis",
        "conn_pool": {
         "op_timeout_ms": 30000
        },
@@ -596,7 +829,7 @@
        "route_config": {
         "routes": [
          {
-          "cluster": "out.5898aa4379cc19c8f1bb3b7915ee8e0e32ddc6a6",
+          "cluster": "out.world.default.svc.cluster.local|custom",
           "destination_ip_list": [
            "10.2.0.0/32"
           ]

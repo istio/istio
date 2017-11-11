@@ -26,19 +26,29 @@ import (
 	"istio.io/istio/security/pkg/pki"
 )
 
+// OnPremConfig ...
+type OnPremConfig struct {
+	// Root CA cert file to validate the gRPC service in CA.
+	RootCACertFile string
+	// The private key file
+	KeyFile string
+	// The cert chain file
+	CertChainFile string
+}
+
 // OnPremClientImpl is the implementation of on premise metadata client.
 type OnPremClientImpl struct {
-	certFile string
+	config OnPremConfig
 }
 
 // NewOnPremClientImpl creates a new OnPremClientImpl.
-func NewOnPremClientImpl(certChainFile string) *OnPremClientImpl {
-	return &OnPremClientImpl{certChainFile}
+func NewOnPremClientImpl(config OnPremConfig) *OnPremClientImpl {
+	return &OnPremClientImpl{config}
 }
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.
-func (ci *OnPremClientImpl) GetDialOptions(cfg *ClientConfig) ([]grpc.DialOption, error) {
-	transportCreds, err := getTLSCredentials(cfg.CertChainFile, cfg.KeyFile, cfg.RootCACertFile)
+func (ci *OnPremClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
+	transportCreds, err := getTLSCredentials(ci.config.CertChainFile, ci.config.KeyFile, ci.config.RootCACertFile)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +65,7 @@ func (ci *OnPremClientImpl) IsProperPlatform() bool {
 
 // GetServiceIdentity gets the service account from the cert SAN field.
 func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
-	certBytes, err := ioutil.ReadFile(ci.certFile)
+	certBytes, err := ioutil.ReadFile(ci.config.CertChainFile)
 	if err != nil {
 		return "", err
 	}
@@ -63,7 +73,10 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	serviceIDs := pki.ExtractIDs(cert.Extensions)
+	serviceIDs, err := pki.ExtractIDs(cert.Extensions)
+	if err != nil {
+		return "", err
+	}
 	if len(serviceIDs) != 1 {
 		return "", fmt.Errorf("Cert has %v SAN fields, should be 1", len(serviceIDs))
 	}
@@ -72,9 +85,9 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 
 // GetAgentCredential passes the certificate to control plane to authenticate
 func (ci *OnPremClientImpl) GetAgentCredential() ([]byte, error) {
-	certBytes, err := ioutil.ReadFile(ci.certFile)
+	certBytes, err := ioutil.ReadFile(ci.config.CertChainFile)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read cert file: %s", ci.certFile)
+		return nil, fmt.Errorf("Failed to read cert file: %s", ci.config.CertChainFile)
 	}
 	return certBytes, nil
 }

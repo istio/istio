@@ -40,16 +40,25 @@ func init() {
 	flags := rootCmd.Flags()
 
 	flags.StringVar(&naConfig.ServiceIdentityOrg, "org", "", "Organization for the cert")
-	flags.IntVar(&naConfig.RSAKeySize, "key-size", 1024, "Size of generated private key")
+	flags.IntVar(&naConfig.RSAKeySize, "key-size", 2048, "Size of generated private key")
 	flags.StringVar(&naConfig.IstioCAAddress,
 		"ca-address", "istio-ca:8060", "Istio CA address")
 	flags.StringVar(&naConfig.Env, "env", "onprem", "Node Environment : onprem | gcp | aws")
-	flags.StringVar(&naConfig.PlatformConfig.CertChainFile, "cert-chain",
-		"/etc/certs/cert-chain.pem", "Node Agent identity cert file")
-	flags.StringVar(&naConfig.PlatformConfig.KeyFile,
-		"key", "/etc/certs/key.pem", "Node identity private key file")
-	flags.StringVar(&naConfig.PlatformConfig.RootCACertFile, "root-cert",
-		"/etc/certs/root-cert.pem", "Root Certificate file")
+
+	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.CertChainFile, "onprem-cert-chain",
+		"/etc/certs/cert-chain.pem", "Node Agent identity cert file in on premise environment")
+	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.KeyFile,
+		"onprem-key", "/etc/certs/key.pem", "Node identity private key file in on premise environment")
+	flags.StringVar(&naConfig.PlatformConfig.OnPremConfig.RootCACertFile, "onprem-root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file in on premise environment")
+
+	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.RootCACertFile, "gcp-root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file in GCP environment")
+	flags.StringVar(&naConfig.PlatformConfig.GcpConfig.CAAddr, "gcp-ca-address",
+		"istio-ca:8060", "Istio CA address in GCP environment")
+
+	flags.StringVar(&naConfig.PlatformConfig.AwsConfig.RootCACertFile, "aws-root-cert",
+		"/etc/certs/root-cert.pem", "Root Certificate file in AWS environment")
 
 	cmd.InitializeFlags(rootCmd)
 }

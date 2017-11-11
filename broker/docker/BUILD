@@ -5,10 +5,10 @@ load("//broker/docker:broker_docker.bzl", "broker_docker_build")
 
 pkg_tar(
     name = "broker_tar",
-    extension = "tar.gz",
-    files = [
+    srcs = [
         "//broker/cmd/brks",
     ],
+    extension = "tar.gz",
     mode = "0755",
     package_dir = "/usr/local/bin/",
     tags = ["manual"],

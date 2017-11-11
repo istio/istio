@@ -87,7 +87,7 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPe
 }
 
 func TestStartWithArgs(t *testing.T) {
-	generalPcConfig := platform.ClientConfig{"ca_file", "pkey", "cert_file"}
+	generalPcConfig := platform.ClientConfig{OnPremConfig: platform.OnPremConfig{"ca_file", "pkey", "cert_file"}}
 	generalConfig := Config{
 		"ca_addr", "Google Inc.", 512, "onprem", time.Millisecond, 3, 50, generalPcConfig,
 	}
@@ -102,7 +102,7 @@ func TestStartWithArgs(t *testing.T) {
 	}{
 		"Success": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, &pb.Response{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
 			certUtil:    FakeCertUtil{time.Duration(0), nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
@@ -110,52 +110,60 @@ func TestStartWithArgs(t *testing.T) {
 			fileContent: []byte(`TESTCERT`),
 		},
 		"Config Nil error": {
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node Agent configuration is nil",
 			sendTimes:   0,
 		},
 		"Platform error": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", false},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", false},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node Agent is not running on the right platform",
 			sendTimes:   0,
 		},
-		"CreateCSR error": {
+		"Create CSR error": {
 			// 128 is too small for a RSA private key. GenCSR will return error.
 			config: &Config{
 				"ca_addr", "Google Inc.", 128, "onprem", time.Millisecond, 3, 50, generalPcConfig,
 			},
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:       mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
+			cAClient: &FakeCAClient{0, nil, nil},
+			expectedErr: "request creation fails on CSR generation (CSR generation fails at X509 cert request " +
+				"generation (crypto/rsa: message too long for RSA public key size))",
+			sendTimes: 0,
+		},
+		"Getting agent credential error": {
+			config:      &generalConfig,
+			pc:          mockpc.FakeClient{nil, "", "service1", "", nil, "Err1", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
-			expectedErr: "failed to generate CSR: crypto/rsa: message too long for RSA public key size",
+			expectedErr: "request creation fails on getting agent credential (Err1)",
 			sendTimes:   0,
 		},
 		"SendCSR empty response error": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, nil, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR returns error": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, nil, fmt.Errorf("Error returned from CA")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR not approved": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, &pb.Response{IsApproved: false}, nil},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},
 		"SendCSR parsing error": {
 			config:      &generalConfig,
-			pc:          mockpc.FakeClient{nil, "", "service1", "", true},
+			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient:    &FakeCAClient{0, &pb.Response{IsApproved: true, SignedCertChain: []byte(`TESTCERT`)}, nil},
 			certUtil:    FakeCertUtil{time.Duration(0), fmt.Errorf("cert parsing error")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
@@ -180,14 +188,14 @@ func TestStartWithArgs(t *testing.T) {
 		na := nodeAgentInternal{c.config, c.pc, c.cAClient, "service1", fakeWorkloadIO, c.certUtil}
 		err := na.Start()
 		if err.Error() != c.expectedErr {
-			t.Errorf("Test case [%s]: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
+			t.Errorf("Test case [%s]: incorrect error message: %s VS (expected) %s", id, err.Error(), c.expectedErr)
 		}
 		if c.cAClient.Counter != c.sendTimes {
-			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d. It should be %d.",
+			t.Errorf("Test case [%s]: sendCSR is called incorrect times: %d VS (expected) %d",
 				id, c.cAClient.Counter, c.sendTimes)
 		}
 		if c.fileContent != nil && !bytes.Equal(fakeFileUtil.WriteContent["cert_file"], c.fileContent) {
-			t.Errorf("Test case [%s]: cert file content incorrect: %s vs. %s.",
+			t.Errorf("Test case [%s]: cert file content incorrect: %s VS (expected) %s",
 				id, fakeFileUtil.WriteContent["cert_file"], c.fileContent)
 		}
 	}
@@ -235,7 +243,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			},
 			pc: mockpc.FakeClient{[]grpc.DialOption{
 				grpc.WithInsecure(),
-			}, "", "service1", "", true},
+			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
 			expectedErr: "Istio CA address is empty",
@@ -247,7 +255,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			},
 			pc: mockpc.FakeClient{[]grpc.DialOption{
 				grpc.WithInsecure(),
-			}, "", "service1", "", true},
+			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
 			expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
@@ -257,7 +265,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 				IstioCAAddress: lis.Addr().String(),
 				RSAKeySize:     512,
 			},
-			pc:       mockpc.FakeClient{[]grpc.DialOption{}, "", "service1", "", true},
+			pc:       mockpc.FakeClient{[]grpc.DialOption{}, "", "service1", "", []byte{}, "", true},
 			res:      defaultServerResponse,
 			cAClient: &cAGrpcClientImpl{},
 			expectedErr: fmt.Sprintf("Failed to dial %s: grpc: no transport security set "+
@@ -270,7 +278,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			},
 			pc: mockpc.FakeClient{[]grpc.DialOption{
 				grpc.WithInsecure(),
-			}, "Error from GetDialOptions", "service1", "", true},
+			}, "Error from GetDialOptions", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
 			expectedErr: "Error from GetDialOptions",
@@ -282,7 +290,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			},
 			pc: mockpc.FakeClient{[]grpc.DialOption{
 				grpc.WithInsecure(),
-			}, "", "service1", "", true},
+			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
 			expectedErr: "",

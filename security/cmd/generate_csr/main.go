@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
 	"github.com/golang/glog"
+
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 	org     = flag.String("organization", "Juju org", "Organization for the cert.")
 	outCsr  = flag.String("out-csr", "csr.pem", "Output csr file.")
 	outPriv = flag.String("out-priv", "priv.pem", "Output private key file.")
-	keySize = flag.Int("key-size", 1024, "Size of the generated private key")
+	keySize = flag.Int("key-size", 2048, "Size of the generated private key")
 )
 
 func saveCreds(csrPem []byte, privPem []byte) {

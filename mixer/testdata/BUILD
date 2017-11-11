@@ -4,10 +4,10 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "configs_tar",
-    extension = "tar.gz",
-    files = glob([
+    srcs = glob([
         "**/*.yml",
     ]),
+    extension = "tar.gz",
     mode = "0755",
     package_dir = "/etc/opt/mixer",
     strip_prefix = "./",

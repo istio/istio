@@ -117,6 +117,8 @@ func buildConfig(config proxyconfig.ProxyConfig, pilotSAN []string) *Config {
 		clusterLDS.SSLContext = sslContext
 		out.ClusterManager.SDS.Cluster.SSLContext = sslContext
 		out.ClusterManager.CDS.Cluster.SSLContext = sslContext
+	default:
+		panic(fmt.Sprintf("ControlPlaneAuthPolicy cannot be %v\n", config.ControlPlaneAuthPolicy))
 	}
 
 	if config.ZipkinAddress != "" {
@@ -335,26 +337,26 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	})
 
 	// This is the mixer 'destination.service'
-	// TODO: use canonical name, comma separated list is not actually supported by mixer.
-
-	service := ""
+	var services []string
 	if instances != nil {
-		// join service names with a comma
 		serviceSet := make(map[string]bool, len(instances))
 		for _, instance := range instances {
 			serviceSet[instance.Service.Hostname] = true
 		}
-		services := make([]string, 0, len(serviceSet))
 		for service := range serviceSet {
 			services = append(services, service)
 		}
-
 		sort.Strings(services)
-		service = strings.Join(services, ",")
 	}
 
+	filter := HTTPFilter{
+		Name:   CORSFilter,
+		Config: CORSFilterConfig{},
+	}
+	filters = append([]HTTPFilter{filter}, filters...)
+
 	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(node, service)
+		mixerConfig := mixerHTTPRouteConfig(node, services)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -405,17 +407,28 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	}
 }
 
-// shouldApplyAuth returns true if service's authentication policy is enable, or the mesh's auth
-// policy is on and service's policy is NOT disable.
-func shouldApplyAuth(mesh *proxyconfig.MeshConfig, serviceAuthPolicy model.AuthenticationPolicy) bool {
-	return serviceAuthPolicy == model.AuthenticationEnable ||
-		(mesh.AuthPolicy == proxyconfig.MeshConfig_MUTUAL_TLS && serviceAuthPolicy != model.AuthenticationDisable)
+// conslidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
+// returns mesh policy.
+func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyconfig.AuthenticationPolicy) proxyconfig.AuthenticationPolicy {
+	if serviceAuthPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
+		return serviceAuthPolicy
+	}
+	// TODO: use AuthenticationPolicy for mesh policy and remove this conversion
+	switch mesh.AuthPolicy {
+	case proxyconfig.MeshConfig_MUTUAL_TLS:
+		return proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	case proxyconfig.MeshConfig_NONE:
+		return proxyconfig.AuthenticationPolicy_NONE
+	default:
+		// Never get here, there are no other enum value for mesh.AuthPolicy.
+		panic(fmt.Sprintf("Unknown mesh auth policy: %v\n", mesh.AuthPolicy))
+	}
 }
 
-// mayApplyInboundAuth adds ssl_context to the listener if shouldApplyAuth.
+// mayApplyInboundAuth adds ssl_context to the listener if conslidateAuthPolicy.
 func mayApplyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig,
-	serviceAuthPolicy model.AuthenticationPolicy) {
-	if shouldApplyAuth(mesh, serviceAuthPolicy) {
+	serviceAuthPolicy proxyconfig.AuthenticationPolicy) {
+	if conslidateAuthPolicy(mesh, serviceAuthPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
@@ -716,7 +729,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			// set server-side mixer filter config for inbound HTTP routes
 			if mesh.MixerAddress != "" {
-				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
+				defaultRoute.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+					instance.Service.Hostname)
 			}
 
 			host := &VirtualHost{
@@ -739,7 +753,8 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 						// Note: websocket routes do not call the filter chain. Will be
 						// resolved in future.
 						if mesh.MixerAddress != "" {
-							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false)
+							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+								instance.Service.Hostname)
 						}
 
 						host.Routes = append(host.Routes, route)
@@ -792,6 +807,15 @@ func appendPortToDomains(domains []string, port int) []string {
 	return domainsWithPorts
 }
 
+func truncateClusterName(name string) string {
+	if len(name) > MaxClusterNameLength {
+		prefix := name[:MaxClusterNameLength-sha1.Size*2]
+		sum := sha1.Sum([]byte(name))
+		return fmt.Sprintf("%s%x", prefix, sum)
+	}
+	return name
+}
+
 func buildEgressVirtualHost(rule *proxyconfig.EgressRule,
 	mesh *proxyconfig.MeshConfig, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
@@ -807,7 +831,7 @@ func buildEgressVirtualHost(rule *proxyconfig.EgressRule,
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	svc := model.Service{Hostname: destination}
 	key := svc.Key(port, nil)
-	name := fmt.Sprintf("%x", sha1.Sum([]byte(key)))
+	name := truncateClusterName(key)
 	externalTrafficCluster = buildOriginalDSTCluster(name, mesh.ConnectTimeout)
 	externalTrafficCluster.ServiceName = key
 	externalTrafficCluster.hostname = destination

@@ -183,10 +183,7 @@ func (c *CommonConfig) saveLogs(r int) error {
 		glog.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
-	if err := c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace); err != nil {
-		return err
-	}
-	return nil
+	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace)
 }
 
 // RunTest sets up all registered cleanables in FIFO order

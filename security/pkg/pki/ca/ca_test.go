@@ -23,11 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/security/pkg/pki"
-	"istio.io/istio/security/pkg/pki/testutil"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki"
+	"istio.io/istio/security/pkg/pki/testutil"
 )
 
 func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
@@ -46,7 +47,7 @@ func TestSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	id := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/%s", namespace, name)
 	options := CertOptions{
 		Host:       id,
-		RSAKeySize: 1024,
+		RSAKeySize: 2048,
 	}
 	csr, _, err := GenCSR(options)
 	if err != nil {
@@ -321,7 +322,7 @@ func TestSignCSR(t *testing.T) {
 	opts := CertOptions{
 		Host:       host,
 		Org:        "istio.io",
-		RSAKeySize: 512,
+		RSAKeySize: 2048,
 	}
 	csrPEM, keyPEM, err := GenCSR(opts)
 	if err != nil {
@@ -372,7 +373,7 @@ func createCA() (CertificateAuthority, error) {
 		NotAfter:     end,
 		NotBefore:    start,
 		Org:          "Root CA",
-		RSAKeySize:   1024,
+		RSAKeySize:   2048,
 	}
 	rootCertBytes, rootKeyBytes := GenCert(rootCAOpts)
 
@@ -392,7 +393,7 @@ func createCA() (CertificateAuthority, error) {
 		NotAfter:     end,
 		NotBefore:    start,
 		Org:          "Intermediate CA",
-		RSAKeySize:   1024,
+		RSAKeySize:   2048,
 		SignerCert:   rootCert,
 		SignerPriv:   rootKey,
 	}

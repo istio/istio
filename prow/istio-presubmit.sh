@@ -64,11 +64,11 @@ else
 fi
 cd $ROOT
 
+# Build
+${ROOT}/bin/init.sh
+
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
-
-# ensure that source remains go buildable
-SKIP_BUILD=1 ${ROOT}/bin/init.sh
 
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh

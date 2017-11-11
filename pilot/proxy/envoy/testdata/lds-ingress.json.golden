@@ -33,8 +33,36 @@
            "source.ip": "10.3.3.3",
            "source.uid": "kubernetes://ingress.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {},
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://ingress.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://ingress.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -85,8 +113,36 @@
            "source.ip": "10.3.3.3",
            "source.uid": "kubernetes://ingress.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "controlConfigs": {},
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://ingress.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDAw=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://ingress.default"
+             }
+            }
+           }
+          }
          }
+        },
+        {
+         "type": "",
+         "name": "cors",
+         "config": {}
         },
         {
          "type": "decoder",
@@ -105,7 +161,8 @@
     "ssl_context": {
      "cert_chain_file": "/etc/istio/ingress-certs/tls.crt",
      "private_key_file": "/etc/istio/ingress-certs/tls.key",
-     "require_client_certificate": false
+     "require_client_certificate": false,
+     "alpn_protocols": "h2,http/1.1"
     },
     "bind_to_port": true
    }

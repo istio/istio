@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -44,6 +45,7 @@ func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 		listener.SSLContext = &SSLContext{
 			CertChainFile:  path.Join(proxy.IngressCertsPath, proxy.IngressCertFilename),
 			PrivateKeyFile: path.Join(proxy.IngressCertsPath, proxy.IngressKeyFilename),
+			ALPNProtocols:  strings.Join(ListenersALPNProtocols, ","),
 		}
 		listeners = append(listeners, listener)
 	}
@@ -173,7 +175,7 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	for _, route := range routes {
 		// enable mixer check on the route
 		if mesh.MixerAddress != "" {
-			route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, true)
+			route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, true, service.Hostname)
 		}
 
 		if applied := route.CombinePathPrefix(ingressRoute.Path, ingressRoute.Prefix); applied != nil {
