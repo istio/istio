@@ -182,6 +182,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 
 	serverCmd.PersistentFlags().StringVarP(&sa.jaegerAddr, "jaegerAddr", "", "",
 		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'")
+
 	serverCmd.PersistentFlags().StringVarP(&sa.jaegerUser, "jaegerUser", "", "", "Username for jaeger (http basic auth)")
 	serverCmd.PersistentFlags().StringVarP(&sa.jaegerPass, "jaegerPass", "", "", "Password for jaeger (http basic auth)")
 

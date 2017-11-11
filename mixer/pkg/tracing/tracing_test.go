@@ -15,12 +15,10 @@
 package tracing
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"bytes"
@@ -34,21 +32,9 @@ var (
 func TestNewTracer(t *testing.T) {
 	srv := &testServer{}
 	zipkinServer := httptest.NewServer(handler(srv.receiveZipkin))
-	zipkinAuthServer := httptest.NewServer(authHandler(srv.receiveZipkin))
 	jaegerServer := httptest.NewServer(handler(srv.receiveJaeger))
-	jaegerAuthServer := httptest.NewServer(authHandler(srv.receiveJaeger))
 	defer zipkinServer.Close()
-	defer zipkinAuthServer.Close()
 	defer jaegerServer.Close()
-	defer jaegerAuthServer.Close()
-
-	zipkinOpt := WithZipkinCollector(zipkinServer.URL)
-	zipkinAuthOpt := WithBasicAuthZipkinCollector(zipkinAuthServer.URL, testUser, testPass)
-	zipkinBadAuthOpt := WithBasicAuthZipkinCollector(zipkinAuthServer.URL, "fail", "fail")
-
-	jaegerOpt := WithJaegerHTTPCollector(jaegerServer.URL)
-	jaegerAuthOpt := WithBasicAuthJaegerHTTPCollector(jaegerAuthServer.URL, testUser, testPass)
-	jaegerBadAuthOpt := WithBasicAuthJaegerHTTPCollector(jaegerAuthServer.URL, "fail", "fail")
 
 	var spanOut bytes.Buffer
 	loggingOpt := withLogger(&testLogger{&spanOut})
@@ -63,11 +49,7 @@ func TestNewTracer(t *testing.T) {
 		{"no options", nil, false, false, false},
 		{"with logging", []Option{loggingOpt}, false, false, true},
 		{"with jaeger", []Option{jaegerOpt}, true, false, false},
-		{"with jaeger auth", []Option{jaegerAuthOpt}, true, false, false},
-		{"with jaeger auth (fail)", []Option{jaegerBadAuthOpt}, false, false, false},
 		{"with zipkin", []Option{zipkinOpt}, false, true, false},
-		{"with zipkin auth", []Option{zipkinAuthOpt}, false, true, false},
-		{"with zipkin auth (fail)", []Option{zipkinBadAuthOpt}, false, false, false},
 		{"with jaeger and zipkin", []Option{jaegerOpt, zipkinOpt}, true, true, false},
 	}
 
@@ -128,31 +110,6 @@ func (h *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func handler(fn http.HandlerFunc) http.Handler {
 	return &testHandler{fn}
-}
-
-func authHandler(fn http.HandlerFunc) http.Handler {
-	return &testHandler{basicAuth(fn)}
-}
-
-func basicAuth(fn http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		auth := strings.SplitN(r.Header.Get("Authorization"), " ", 2)
-		if len(auth) != 2 || auth[0] != "Basic" {
-			http.Error(w, "authz failed", http.StatusUnauthorized)
-			return
-		}
-		creds, _ := base64.StdEncoding.DecodeString(auth[1])
-		userPass := strings.SplitN(string(creds), ":", 2)
-		if len(userPass) != 2 || !check(userPass[0], userPass[1]) {
-			http.Error(w, "authz failed", http.StatusUnauthorized)
-			return
-		}
-		fn(w, r)
-	}
-}
-
-func check(user, pass string) bool {
-	return user == testUser && pass == testPass
 }
 
 type testLogger struct {

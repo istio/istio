@@ -85,6 +85,7 @@ func WithBasicAuthZipkinCollector(addr, user, pass string) Option {
 // WithJaegerHTTPCollector configures Mixer tracing to export span data to a
 // jaeger HTTP collector at the supplied URL using HTTP Basic Authentication.
 func WithJaegerHTTPCollector(addr string) Option {
+>>>>>>> Refactor tracing package to use jaeger library.
 	return func(opts *tracingOpts) {
 		opts.jaegerAddr = addr
 	}
