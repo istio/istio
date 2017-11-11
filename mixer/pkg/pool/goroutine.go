@@ -40,11 +40,12 @@ func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
 }
 
 // Close waits for all goroutines to terminate
-func (gp *GoroutinePool) Close() {
+func (gp *GoroutinePool) Close() error {
 	if !gp.singleThreaded {
 		close(gp.queue)
 		gp.wg.Wait()
 	}
+	return nil
 }
 
 // ScheduleWork registers the given function to be executed at some point

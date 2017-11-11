@@ -445,18 +445,9 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_openzipkin_zipkin_go_opentracing",
-    build_file_proto_mode = "legacy",
-    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
-    importpath = "github.com/openzipkin/zipkin-go-opentracing",
-    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
-    vcs = "git",
-)
-
-go_repository(
     name = "com_github_apache_thrift",
     build_file_name = "BUILD.bazel",
-    commit = "d4df91709b724174aaf8a957f3edac3573be354e",  # Oct 26, 2017 (HEAD) required by openzipkin dependency.
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Pinned to 0.10.0 Release until jaeger libraries can update
     importpath = "github.com/apache/thrift",
 )
 
@@ -1140,4 +1131,22 @@ go_repository(
     name = "com_github_gorilla_context",
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_client_go",
+    commit = "ffe98ab2252526eee5389b09328d6433024625f6",
+    importpath = "github.com/uber/jaeger-client-go",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_lib",
+    commit = "bc381f836083a0f7d5778d4216022388c4aeaf46",
+    importpath = "github.com/uber/jaeger-lib",
+)
+
+go_repository(
+    name = "com_github_codahale_hdrhistogram",
+    commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
+    importpath = "github.com/codahale/hdrhistogram",
 )
