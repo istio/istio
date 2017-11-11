@@ -23,30 +23,17 @@ set -ex
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
-cd $ROOT
-
-detected_OS=`uname -s 2>/dev/null || echo not`
-BUILD_FLAGS="--output_groups=static"
-SUFFIX=".static"
-if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
-    BUILD_FLAGS="--cpu=darwin"
-    SUFFIX=""
-fi
-
 # Collect artifacts for pushing
-bin=$(bazel info bazel-bin)
-
-bazel build ${BUILD_FLAGS} //pilot/cmd/... //pilot/test/...
-\cp -f "${bin}/pilot/test/client/client${SUFFIX}" docker/client
-\cp -f "${bin}/pilot/test/server/server${SUFFIX}" docker/server
-\cp -f "${bin}/pilot/cmd/pilot-agent/pilot-agent${SUFFIX}" docker/pilot-agent
-\cp -f "${bin}/pilot/cmd/pilot-discovery/pilot-discovery${SUFFIX}" docker/pilot-discovery
-\cp -f "${bin}/pilot/cmd/sidecar-initializer/sidecar-initializer${SUFFIX}" docker/sidecar-initializer
-\cp -f "${bin}/pilot/test/eurekamirror/eurekamirror${SUFFIX}" docker/eurekamirror
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/client              -a ./pilot/test/client
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/server              -a ./pilot/test/server
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/pilot-agent         -a ./pilot/cmd/pilot-agent
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/pilot-discovery     -a ./pilot/cmd/pilot-discovery
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/sidecar-initializer -a ./pilot/cmd/sidecar-initializer
+#CGO_ENABLED=0 GOOS=linux go build -o pilot/docker/eurekamirror        -a ./pilot/test/eurekamirror
 
 IMAGES=()
 
-pushd docker
+pushd pilot/docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${image}" .
@@ -56,4 +43,3 @@ popd
 
 # Tag and push
 tag_and_push "${IMAGES[@]}"
-

@@ -15,9 +15,12 @@
 package mock
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"testing"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
+	"istio.io/istio/pilot/model"
 )
 
 func TestMockServices(t *testing.T) {
@@ -25,6 +28,8 @@ func TestMockServices(t *testing.T) {
 	if err != nil {
 		t.Errorf("Discovery.Services encountered error: %v", err)
 	}
+
+	var all []*model.ServiceInstance
 	for _, svc := range svcs {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
@@ -35,6 +40,7 @@ func TestMockServices(t *testing.T) {
 			}
 		}
 		instances, err := Discovery.Instances(svc.Hostname, svc.Ports.GetNames(), nil)
+		all = append(all, instances...)
 		if err != nil {
 			t.Errorf("Discovery.Instances encountered error: %v", err)
 		}
@@ -53,4 +59,6 @@ func TestMockServices(t *testing.T) {
 			}
 		}
 	}
+	out, _ := json.Marshal(all)
+	ioutil.WriteFile("instance.json", out, 0600)
 }

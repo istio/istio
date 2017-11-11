@@ -42,5 +42,6 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-bin/push-docker -hub $hub -tag $tag
-bazel run //pilot/test/integration -- --logtostderr $args -hub $hub -tag $tag
+pilot/bin/push-docker -hub $hub -tag $tag
+go build ./pilot/test/integration
+./integration --logtostderr $args -hub $hub -tag $tag

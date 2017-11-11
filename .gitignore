@@ -17,3 +17,4 @@ cluster.env
 kubedns
 # pilot
 pilot/platform/config
+integration
