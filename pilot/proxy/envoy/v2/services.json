@@ -1,0 +1,66 @@
+[
+    {
+        "address": "10.1.0.0",
+        "external": "",
+        "hostname": "hello.default.svc.cluster.local",
+        "ports": [
+            {
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            },
+            {
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            },
+            {
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            },
+            {
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            },
+            {
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        ]
+    },
+    {
+        "address": "10.2.0.0",
+        "external": "",
+        "hostname": "world.default.svc.cluster.local",
+        "ports": [
+            {
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            },
+            {
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            },
+            {
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            },
+            {
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            },
+            {
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        ]
+    }
+]

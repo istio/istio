@@ -1,0 +1,1042 @@
+[
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.0",
+            "port": 80,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.1",
+            "port": 80,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.0",
+            "port": 1081,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.1",
+            "port": 1081,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.0",
+            "port": 1090,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.1",
+            "port": 1090,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.0",
+            "port": 1100,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.1",
+            "port": 1100,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.0",
+            "port": 1110,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.1.1.1",
+            "port": 1110,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.1.0.0",
+            "external": "",
+            "hostname": "hello.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.0",
+            "port": 80,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.1",
+            "port": 80,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http",
+                "port": 80,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.0",
+            "port": 1081,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.1",
+            "port": 1081,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "http-status",
+                "port": 81,
+                "protocol": "HTTP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.0",
+            "port": 1090,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.1",
+            "port": 1090,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "custom",
+                "port": 90,
+                "protocol": "TCP"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.0",
+            "port": 1100,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.1",
+            "port": 1100,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "mongo",
+                "port": 100,
+                "protocol": "Mongo"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.0",
+            "port": 1110,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        },
+        "labels": {
+            "version": "v0"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    },
+    {
+        "endpoint": {
+            "ip_address": "10.2.1.1",
+            "port": 1110,
+            "service_port": {
+                "authentication_policy": 1000,
+                "name": "redis",
+                "port": 110,
+                "protocol": "Redis"
+            }
+        },
+        "labels": {
+            "version": "v1"
+        },
+        "service": {
+            "address": "10.2.0.0",
+            "external": "",
+            "hostname": "world.default.svc.cluster.local",
+            "ports": [
+                {
+                    "authentication_policy": 1000,
+                    "name": "http",
+                    "port": 80,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "http-status",
+                    "port": 81,
+                    "protocol": "HTTP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "custom",
+                    "port": 90,
+                    "protocol": "TCP"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "mongo",
+                    "port": 100,
+                    "protocol": "Mongo"
+                },
+                {
+                    "authentication_policy": 1000,
+                    "name": "redis",
+                    "port": 110,
+                    "protocol": "Redis"
+                }
+            ]
+        }
+    }
+]

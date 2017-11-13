@@ -4,39 +4,102 @@ local context = {
     domain: "default.svc.cluster.local",
 };
 
+local util = {
+    longest_suffix(a, b, j)::
+        if j >= std.length(a) || j >= std.length(b) then
+            j
+        else if a[std.length(a) - 1 - j] != b[std.length(b) - 1 - j] then
+            j
+        else
+            self.longest_suffix(a, b, j + 1),
+
+    domains(service, port)::
+        local service_names = std.split(service.hostname, ".");
+        local context_names = std.split(context.domain, ".");
+        local j = self.longest_suffix(service_names, context_names, 0);
+        local expansions = [
+            std.join(".", service_names[0:std.length(service_names) - i])
+            for i in std.range(0, j)
+        ] + [service.address];
+        expansions + ["%s:%d" % [host, port] for host in expansions],
+
+};
+
 local model = {
     key(hostname, labels, port_desc)::
         local labels_strings = ["%s=%s" % [key, labels[key]] for key in std.objectFields(labels)];
         "%s|%s|%s" % [hostname, port_desc.name, std.join(",", std.sort(labels_strings))],
 
     is_http2(protocol)::
-        protocol == "HTTP2",
+        protocol == "HTTP2" || protocol == "GRPC",
 
     is_http(protocol)::
         protocol == "HTTP" || self.is_http2(protocol),
 };
 
 local config = {
+    bootstrap(id)::
+        {
+            local ads_cluster = "ads",
+            node: {
+                id: id,
+                cluster: "istio-proxy",
+            },
+            dynamic_resources: {
+                lds_config: { ads: {} },
+                cds_config: { ads: {} },
+                ads_config: {
+                    api_type: "GRPC",
+                    cluster_name: [ads_cluster],
+                },
+            },
+            static_resources: {
+                clusters: [{
+                    name: ads_cluster,
+                    connect_timeout: "5s",
+                    type: "LOGICAL_DNS",
+                    dns_refresh_rate: "5s",
+                    hosts: [{
+                        socket_address: {
+                            address: "127.0.0.1",  // TODO
+                            port_value: 15003,
+                        },
+                    }],
+                    lb_policy: "ROUND_ROBIN",
+                    http2_protocol_options: {},
+                }],
+            },
+            admin: {
+                access_log_path: "/dev/null",
+                address: {
+                    socket_address: {
+                        address: "127.0.0.1",
+                        port_value: 15000,
+                    },
+                },
+            },
+        },
+
     inbound_cluster(port, protocol)::
         {
             name: "in.%d" % [port],
+            connect_timeout: "5s",
             type: "STATIC",
             lb_policy: "ROUND_ROBIN",
             hosts: [{
                 socket_address: {
-                    protocol: "TCP",
                     address: "127.0.0.1",
                     port_value: port,
                 },
             }],
             [if model.is_http2(protocol) then "http2_protocol_options"]: {},
-            hostname:: "",
         },
 
     outbound_cluster(hostname, labels, port_desc)::
         local key = model.key(hostname, labels, port_desc);
         {
             name: "out.%s" % [std.md5(key)],
+            connect_timeout: "5s",
             type: "EDS",
             eds_cluster_config: {
                 service_name: key,
@@ -69,7 +132,6 @@ local config = {
             cluster:: cluster,
             address: {
                 socket_address: {
-                    protocol: "TCP",
                     address: instance.endpoint.ip_address,
                     port_value: port,
                 },
@@ -83,6 +145,11 @@ local config = {
                                 config: {
                                     stat_prefix: prefix,
                                     codec_type: "AUTO",
+                                    access_log: [{
+                                        name: "envoy.file_access_log",
+                                        config: { path: "/dev/stdout" },
+                                    }],
+                                    generate_request_id: true,
                                     route_config: {
                                         name: prefix,
                                         virtual_hosts: [{
@@ -90,12 +157,10 @@ local config = {
                                             domains: ["*"],
                                             routes: [config.default_route(cluster, "inbound_route")],
                                         }],
+                                        validate_clusters: false,
                                     },
                                     http_filters: [{
                                         name: "envoy.router",
-                                        config: {
-                                            deprecated_v1: true,
-                                        },
                                     }],
                                 },
                             }
@@ -110,7 +175,7 @@ local config = {
                     ],
                 },
             ],
-        } for instance in instances],
+        } for instance in instances if model.is_http(instance.endpoint.service_port.protocol)],  // TODO
 
     outbound_http_ports(services)::
         std.set([
@@ -120,25 +185,6 @@ local config = {
             if model.is_http(port.protocol)
         ]),
 
-    longest_suffix(a, b, j)::
-        if j >= std.length(a) || j >= std.length(b) then
-            j
-        else if a[std.length(a) - 1 - j] != b[std.length(b) - 1 - j] then
-            j
-        else
-            config.longest_suffix(a, b, j + 1),
-
-    domains(service, port)::
-        local service_names = std.split(service.hostname, ".");
-        local context_names = std.split(context.domain, ".");
-        local j = config.longest_suffix(service_names, context_names, 0);
-        local expansions = [
-            std.join(".", service_names[0:std.length(service_names) - i])
-            for i in std.range(0, j)
-        ] + [service.address];
-        expansions + ["%s:%d" % [host, port] for host in expansions],
-
-    // special value: port = 0 means all ports
     outbound_http_routes(services, port)::
         {
             name: "%d" % [port],
@@ -146,15 +192,16 @@ local config = {
                 {
                     name: "%s:%d" % [service.hostname, port_desc.port],
                     cluster:: config.outbound_cluster(service.hostname, {}, port_desc),
-                    domains: config.domains(service, port_desc.port),
+                    domains: util.domains(service, port_desc.port),
                     routes: [
                         config.default_route(self.cluster, "default_route"),
                     ],
                 }
                 for service in services
                 for port_desc in service.ports
-                if model.is_http(port_desc.protocol) && (port == 0 || port_desc.port == port)
+                if model.is_http(port_desc.protocol) && port_desc.port == port
             ],
+            validate_clusters: false,
         },
 
     outbound_listeners(services)::
@@ -166,7 +213,6 @@ local config = {
                 cluster:: cluster,
                 address: {
                     socket_address: {
-                        protocol: "TCP",
                         address: service.address,
                         port_value: port.port,
                     },
@@ -187,14 +233,13 @@ local config = {
             }
             for service in services
             for port in service.ports
-            if !model.is_http(port.protocol)
+            if !model.is_http(port.protocol) && false  // TODO
         ] + [
             {
                 local prefix = "out_HTTP_%d" % [port],
                 name: prefix,
                 address: {
                     socket_address: {
-                        protocol: "TCP",
                         address: "0.0.0.0",
                         port_value: port,
                     },
@@ -207,13 +252,17 @@ local config = {
                                 config: {
                                     stat_prefix: prefix,
                                     codec_type: "AUTO",
+                                    access_log: [{
+                                        name: "envoy.file_access_log",
+                                        config: { path: "/dev/stdout" },
+                                    }],
+                                    generate_request_id: true,
                                     rds: {
                                         config_source: { ads: {} },
                                         route_config_name: "%d" % [port],
                                     },
                                     http_filters: [{
                                         name: "envoy.router",
-                                        config: { deprecated_v1: true },
                                     }],
                                 },
                             },
@@ -229,13 +278,12 @@ local config = {
             name: "virtual",
             address: {
                 socket_address: {
-                    protocol: "TCP",
                     address: "0.0.0.0",
                     port_value: port,
                 },
             },
             use_original_dst: true,
-            filter_chains: [],
+            filter_chains: [{ filters: [] }],
         },
 
     sidecar_listeners(instances, services)::
@@ -246,12 +294,20 @@ local config = {
 };
 
 {
-    listeners: [config.virtual_listener(15000)] +
+    bootstrap: config.bootstrap("test"),
+    listeners: [config.virtual_listener(15001)] +
                config.sidecar_listeners(instances, services),
-    routes: config.outbound_http_routes(services, 0),
+    routes: [
+        config.outbound_http_routes(services, port)
+        for port in config.outbound_http_ports(services)
+    ],
     clusters: [
         listener.cluster
         for listener in self.listeners
         if "cluster" in listener
+    ] + [
+        host.cluster
+        for route in self.routes
+        for host in route.virtual_hosts
     ],
 }

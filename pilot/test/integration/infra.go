@@ -283,7 +283,8 @@ func (infra *infra) deployApps() error {
 func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
 	version string, injectProxy bool, perServiceAuth bool) error {
 	// Eureka does not support management ports
-	healthPort := "true"
+	// APIv2: healthPort := "true"
+	healthPort := "false"
 	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
 		healthPort = "false"
 	}
