@@ -37,9 +37,17 @@ func main() {
 		}
 	}()
 
-	generator := &v2.Generator{}
-	generator.Cache = config
-	generator.Generate()
+	var generator *v2.Generator
+	if validate {
+		generator = &v2.Generator{Cache: config, Path: "testdata"}
+		generator.Generate()
+	} else {
+		generator, err = v2.NewGenerator(config, kubeconfig, "")
+		if err != nil {
+			glog.Fatal(err)
+		}
+		generator.Run(stop)
+	}
 
 	cmd.WaitSignal(stop)
 }
@@ -59,4 +67,6 @@ func init() {
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
 	flag.IntVar(&port, "port", 15003,
 		"ADS port")
+	flag.BoolVar(&validate, "valid", false,
+		"Validate only")
 }

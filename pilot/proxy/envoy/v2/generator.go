@@ -28,9 +28,10 @@ type Generator struct {
 
 	// Cache needs to be set
 	Cache cache.Cache
+	Path  string
 }
 
-func NewGenerator(kubeconfig string, watchedNamespace string) (*Generator, error) {
+func NewGenerator(out cache.Cache, kubeconfig string, watchedNamespace string) (*Generator, error) {
 	_, client, kuberr := kube.CreateInterface(kubeconfig)
 	if kuberr != nil {
 		return nil, multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -61,6 +62,8 @@ func NewGenerator(kubeconfig string, watchedNamespace string) (*Generator, error
 	g := &Generator{
 		services: ctl,
 		config:   configController,
+		Cache:    out,
+		Path:     ".",
 	}
 
 	// register handlers
@@ -93,7 +96,7 @@ func (g *Generator) PrepareProgram() {
 	if g.vm == nil {
 		glog.Infof("prepare jsonnet VM")
 		vm := jsonnet.MakeVM()
-		vm.Importer(&jsonnet.FileImporter{JPaths: []string{"."}})
+		vm.Importer(&jsonnet.FileImporter{JPaths: []string{g.Path}})
 		content, err := ioutil.ReadFile("envoy.jsonnet")
 		if err != nil {
 			glog.Fatal(err)
