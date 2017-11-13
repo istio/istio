@@ -1,49 +1,49 @@
 {
-    "admin": {
-        "access_log_path": "/dev/null",
-        "address": {
-            "socket_address": {
-                "address": "127.0.0.1",
-                "port_value": 15000
-            }
-        }
-    },
-    "dynamic_resources": {
-        "ads_config": {
-            "api_type": "GRPC",
-            "cluster_name": [
-                "ads"
-            ]
-        },
-        "cds_config": {
-            "ads": {}
-        },
-        "lds_config": {
-            "ads": {}
-        }
-    },
-    "node": {
-        "cluster": "istio-proxy",
-        "id": "test"
-    },
-    "static_resources": {
-        "clusters": [
-            {
-                "connect_timeout": "5s",
-                "dns_refresh_rate": "5s",
-                "hosts": [
-                    {
-                        "socket_address": {
-                            "address": "127.0.0.1",
-                            "port_value": 15003
-                        }
-                    }
-                ],
-                "http2_protocol_options": {},
-                "lb_policy": "ROUND_ROBIN",
-                "name": "ads",
-                "type": "LOGICAL_DNS"
-            }
-        ]
-    }
+   "admin": {
+      "access_log_path": "/dev/null",
+      "address": {
+         "socket_address": {
+            "address": "127.0.0.1",
+            "port_value": 15000
+         }
+      }
+   },
+   "dynamic_resources": {
+      "ads_config": {
+         "api_type": "GRPC",
+         "cluster_name": [
+            "ads"
+         ]
+      },
+      "cds_config": {
+         "ads": { }
+      },
+      "lds_config": {
+         "ads": { }
+      }
+   },
+   "node": {
+      "cluster": "istio-proxy",
+      "id": "service-node"
+   },
+   "static_resources": {
+      "clusters": [
+         {
+            "connect_timeout": "5s",
+            "dns_refresh_rate": "5s",
+            "hosts": [
+               {
+                  "socket_address": {
+                     "address": "127.0.0.1",
+                     "port_value": 15003
+                  }
+               }
+            ],
+            "http2_protocol_options": { },
+            "lb_policy": "ROUND_ROBIN",
+            "name": "ads",
+            "type": "LOGICAL_DNS"
+         }
+      ]
+   }
 }
