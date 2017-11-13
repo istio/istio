@@ -80,15 +80,29 @@ func (t *egressRules) run() error {
 			},
 		},
 		{
-			description: "prohibit http external traffic to *google.com",
+			description: "prohibit http external traffic to cnn.com by egress a rule for google",
 			config:      "egress-rule-google.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://cloud.google.com", false)
+				return t.verifyReachable("http://cnn.com", false)
 			},
 		},
 		{
-			description: "prohibit http external traffic to cnn.com",
-			config:      "egress-rule-google.yaml.tmpl",
+			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule",
+			config:      "testdata/egress-rule-tcp-wikipedia.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("https://www.wikipedia.org", true)
+			},
+		},
+		{
+			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
+			config:      "testdata/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			check: func() error {
+				return t.verifyReachable("https://www.wikipedia.org", true)
+			},
+		},
+		{
+			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
+			config:      "testdata/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://cnn.com", false)
 			},
