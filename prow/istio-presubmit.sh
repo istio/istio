@@ -40,15 +40,15 @@ if [[ -n "$diff" ]]; then
   exit -1
 fi
 
+# TODO define a job for codecov
+echo "=== Code Coverage ==="
+UPLOAD_TOKEN=istiocodecov.token
+gsutil cp gs://istio-code-coverage/${UPLOAD_TOKEN} /tmp/${UPLOAD_TOKEN}
+UPLOAD_TOKEN="@/tmp/${UPLOAD_TOKEN}" ${ROOT}/bin/codecov.sh
+
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
 time make push HUB="${HUB}" TAG="${TAG}"
 
 time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
-
-# TODO define a job for codecov
-echo "=== Code Coverage ==="
-UPLOAD_TOKEN=istiocodecov.token
-gsutil cp gs://istio-code-coverage/${UPLOAD_TOKEN} /tmp/${UPLOAD_TOKEN}
-UPLOAD_TOKEN="@/tmp/${UPLOAD_TOKEN}" ${ROOT}/bin/codecov.sh
