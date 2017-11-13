@@ -49,6 +49,10 @@ function setup_vm() {
   execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080
 }
 
+function setup_vm_firewall() {
+  execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
+}
+
 function update_fortio_on_vm() {
   run_on_vm 'go get -u istio.io/fortio'
 }
@@ -102,10 +106,12 @@ function get_non_istio_ingress_ip() {
 }
 
 function run_fortio_test1() {
-  execute curl -v "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  echo "Using default loadbalancer, no istio:"
+  execute curl "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
-  execute curl -v "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP:8080/echo"
+  echo "Using default ingress, no istio:"
+  execute curl "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 
 echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
@@ -137,12 +143,17 @@ function get_ips() {
 }
 
 function run_tests() {
+  setup_vm_firewall
   get_ips
   run_fortio_test1
   run_fortio_test2
 }
 # Normal mode: all at once:
 setup_all
+
+#  update_fortio_on_vm
+#  run_fortio_on_vm
+
 
 # test/retry one step at a time, eg.
 # setup_non_istio_ingress
