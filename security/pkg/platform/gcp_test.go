@@ -15,6 +15,7 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
@@ -106,6 +107,7 @@ func TestGetDialOptions(t *testing.T) {
 				t.Errorf("%s: incorrect error message: %s VS %s",
 					id, err.Error(), c.expectedErr)
 			}
+			continue
 		} else if err != nil {
 			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
@@ -119,6 +121,199 @@ func TestGetDialOptions(t *testing.T) {
 			if reflect.ValueOf(options[index]).Pointer() != reflect.ValueOf(option).Pointer() {
 				t.Errorf("%s: Wrong option found", id)
 			}
+		}
+	}
+}
+
+func TestGcpGetRequestMetadata(t *testing.T) {
+	testCases := map[string]struct {
+		token       string
+		expectedErr string
+		expected    map[string]string
+	}{
+		"Good Identity": {
+			token:       "token",
+			expectedErr: "",
+			expected: map[string]string{
+				httpAuthHeader: "Bearer token",
+			},
+		},
+	}
+
+	for id, c := range testCases {
+		jwt := jwtAccess{
+			token: c.token,
+		}
+
+		metadata, err := jwt.GetRequestMetadata(context.Background(), "")
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+			// no need to move forward
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if !reflect.DeepEqual(c.expected, metadata) {
+			t.Errorf("%s: metadata Expected %v, Actual %v", id, c.expected, metadata)
+		}
+	}
+}
+
+func TestGcpRequireTransportSecurity(t *testing.T) {
+	testCases := map[string]struct {
+		token       string
+		expectedErr string
+		expected    bool
+	}{
+		"Expected true": {
+			expected: true,
+		},
+	}
+
+	for id, c := range testCases {
+		jwt := jwtAccess{
+			token: c.token,
+		}
+		requireTransportSecurity := jwt.RequireTransportSecurity()
+		if c.expected != requireTransportSecurity {
+			t.Errorf("%s: Expected %v, Actual %v", id, c.expected, requireTransportSecurity)
+		}
+	}
+}
+
+func TestGcpIsProperPlatforms(t *testing.T) {
+	testCases := map[string]struct {
+		token         string
+		tokenFetchErr string
+		expected      bool
+	}{
+		"Good Identity": {
+			expected: false,
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
+
+		isProperPlatform := gcp.IsProperPlatform()
+
+		if isProperPlatform != c.expected {
+			t.Errorf("%s: type Expected %v, Actual %v", id, c.expected, isProperPlatform)
+		}
+	}
+}
+
+func TestGcpGetAgentCredentials(t *testing.T) {
+	testCases := map[string]struct {
+		token              string
+		tokenFetchErr      string
+		expectedErr        string
+		expectedCredential []byte
+	}{
+		"Token abddef is exptected": {
+			token:              "abcdef",
+			tokenFetchErr:      "",
+			expectedErr:        "",
+			expectedCredential: []byte("abcdef"),
+		},
+		"Failed to fetch token": {
+			token:              "abcdef",
+			tokenFetchErr:      "Token Ftch Error",
+			expectedErr:        "Token Ftch Error",
+			expectedCredential: []byte(""),
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
+
+		credential, err := gcp.GetAgentCredential()
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if string(c.expectedCredential) != string(credential) {
+			t.Errorf("%s: credential Expected %v, Actual %v", id,
+				string(c.expectedCredential), string(credential))
+		}
+	}
+}
+
+func TestGcpGetServiceIdentities(t *testing.T) {
+	testCases := map[string]struct {
+		token            string
+		tokenFetchErr    string
+		expectedErr      string
+		expectedIdentity string
+	}{
+		"Good Identity": {
+			token:            "abcdef",
+			tokenFetchErr:    "",
+			expectedErr:      "",
+			expectedIdentity: "",
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
+
+		serviceIdentity, err := gcp.GetServiceIdentity()
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if string(c.expectedIdentity) != string(serviceIdentity) {
+			t.Errorf("%s: identity Expected %v, Actual %v", id,
+				string(c.expectedIdentity), string(serviceIdentity))
+		}
+	}
+}
+
+func TestGcpGetCredentialTypes(t *testing.T) {
+	testCases := map[string]struct {
+		cfg           GcpConfig
+		token         string
+		tokenFetchErr string
+		expectedType  string
+	}{
+		"Good Identity": {
+			cfg:          GcpConfig{},
+			expectedType: "gcp",
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{
+			config:  c.cfg,
+			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr},
+		}
+
+		credentialType := gcp.GetCredentialType()
+		if string(c.expectedType) != string(credentialType) {
+			t.Errorf("%s: type Expected %v, Actual %v", id,
+				string(c.expectedType), string(credentialType))
 		}
 	}
 }
