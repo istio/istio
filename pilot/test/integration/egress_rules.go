@@ -84,7 +84,6 @@ func (t *egressRules) run() error {
 			config:      "egress-rule-google.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://cloud.google.com", false)
-
 			},
 		},
 		{
