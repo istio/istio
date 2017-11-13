@@ -64,9 +64,10 @@ jobs:
             PROXY=debug-$PROXYVERSION
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; go test ./pilot/...
-      - run: cd /go/src/istio.io/istio; go test ./security/...
-      - run: cd /go/src/istio.io/istio; go test ./broker/...
+      - run: cd /go/src/istio.io/istio; bin/codecov.sh
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash)
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
