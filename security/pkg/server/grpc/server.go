@@ -21,13 +21,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/glog"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/golang/glog"
-
-	"golang.org/x/net/context"
 
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -52,38 +50,41 @@ type Server struct {
 // and returns the resulting certificate. If not approved, reason for refusal
 // to sign is returned as part of the response object.
 func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
-	user := s.authenticate(ctx)
-	if user == nil {
-		glog.Warning("failed to authenticate request")
-
-		return nil, grpc.Errorf(codes.Unauthenticated, "failed to authenticate request")
+	caller := s.authenticate(ctx)
+	if caller == nil {
+		glog.Warning("request authentication failure")
+		return nil, grpc.Errorf(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
-		return nil, grpc.Errorf(codes.InvalidArgument, "failed to parse the CSR (error %v)", err)
+		glog.Warning("CSR parsing error (error %v)", err)
+		return nil, grpc.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
-	requestedIDs := pki.ExtractIDs(csr.Extensions)
-	if len(requestedIDs) == 0 {
-		return nil, grpc.Errorf(codes.InvalidArgument, "failed to extract identities from the CSR")
+	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
+	if err != nil {
+		glog.Warning("CSR identity extraction error (%v)", err)
+		return nil, grpc.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
-	if !s.authorizer.authorize(user, requestedIDs) {
-		return nil, grpc.Errorf(codes.PermissionDenied, "certificate signing request is not authorized")
+	err = s.authorizer.authorize(caller, requestedIDs)
+	if err != nil {
+		glog.Warning("request is not authorized (%v)", err)
+		return nil, grpc.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
 	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
-		glog.Error(err)
-
-		return nil, grpc.Errorf(codes.Internal, "failed to sign the CSR (error %v)", err)
+		glog.Errorf("CSR signing error (%v)", err)
+		return nil, grpc.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
 	response := &pb.Response{
 		IsApproved:      true,
 		SignedCertChain: cert,
 	}
+	glog.Info("CSR successfully signed.")
 
 	return response, nil
 }
@@ -130,7 +131,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 
 	return &Server{
 		authenticators: authenticators,
-		authorizer:     &simpleAuthorizer{},
+		authorizer:     &sameIdAuthorizer{},
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
@@ -149,7 +150,7 @@ func (s *Server) createTLSServerOption() grpc.ServerOption {
 				// Apply new certificate if there isn't one yet, or the one has become invalid.
 				newCert, err := s.applyServerCertificate()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to apply TLS server certificate (%v)", err)
 				}
 				s.certificate = newCert
 			}
@@ -182,9 +183,10 @@ func (s *Server) applyServerCertificate() (*tls.Certificate, error) {
 	return &cert, nil
 }
 
-func (s *Server) authenticate(ctx context.Context) *user {
+func (s *Server) authenticate(ctx context.Context) *caller {
+	// TODO: apply different authenticators in specific order / according to configuration.
 	for _, authn := range s.authenticators {
-		if u := authn.authenticate(ctx); u != nil {
+		if u, _ := authn.authenticate(ctx); u != nil {
 			return u
 		}
 	}

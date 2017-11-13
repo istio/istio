@@ -32,6 +32,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
+	v2alpha1 "k8s.io/api/batch/v2alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -505,16 +506,26 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 	// `in` is a pointer to an Object. Dereference it.
 	outValue := reflect.ValueOf(out).Elem()
 
-	templateValue := outValue.FieldByName("Spec").FieldByName("Template")
-	// `Template` is defined as a pointer in some older API
-	// definitions, e.g. ReplicationController
-	if templateValue.Kind() == reflect.Ptr {
-		templateValue = templateValue.Elem()
+	var objectMeta *metav1.ObjectMeta
+	var templateObjectMeta *metav1.ObjectMeta
+	var templatePodSpec *v1.PodSpec
+	// CronJobs have JobTemplates in them, instead of Templates, so we
+	// special case them.
+	if job, ok := out.(*v2alpha1.CronJob); ok {
+		objectMeta = &job.ObjectMeta
+		templateObjectMeta = &job.Spec.JobTemplate.ObjectMeta
+		templatePodSpec = &job.Spec.JobTemplate.Spec.Template.Spec
+	} else {
+		templateValue := outValue.FieldByName("Spec").FieldByName("Template")
+		// `Template` is defined as a pointer in some older API
+		// definitions, e.g. ReplicationController
+		if templateValue.Kind() == reflect.Ptr {
+			templateValue = templateValue.Elem()
+		}
+		objectMeta = outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+		templateObjectMeta = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
+		templatePodSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
 	}
-
-	objectMeta := outValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-	templateObjectMeta := templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
-	templatePodSpec := templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
 
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,

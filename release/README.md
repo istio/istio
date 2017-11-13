@@ -98,6 +98,8 @@ $ githubctl --token_file=<github token file> \
 ```
 
 Note: 
+
+0. If you are cutting a release off of a release branch other than master, you could have the `downloadIstioCandidate.sh` script in master branch to take on the release you just made by also specifying the flag `--update_rel_branches=master`.
 1. `<next release>` is where the next release after the release draft that is being created.  For example, if you are creating 0.2.7 release, the next release could be 0.2.8.  
 2. For Mac, install `gcp` via ```brew install coreutils``` and install `gtar` via ```brew install gnu-tar```.  Execute the command below instead:
 

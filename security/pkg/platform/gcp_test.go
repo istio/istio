@@ -49,14 +49,14 @@ func TestGetDialOptions(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		cfg             *ClientConfig
+		cfg             GcpConfig
 		token           string
 		tokenFetchErr   string
 		expectedErr     string
 		expectedOptions []grpc.DialOption
 	}{
 		"nil configuration": {
-			cfg: &ClientConfig{
+			cfg: GcpConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         "abcdef",
@@ -64,7 +64,7 @@ func TestGetDialOptions(t *testing.T) {
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Token fetch error": {
-			cfg: &ClientConfig{
+			cfg: GcpConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         "",
@@ -72,7 +72,7 @@ func TestGetDialOptions(t *testing.T) {
 			tokenFetchErr: "Nil configuration passed",
 		},
 		"Root certificate file read error": {
-			cfg: &ClientConfig{
+			cfg: GcpConfig{
 				RootCACertFile: "testdata/cert-chain-good_not_exist.pem",
 			},
 			token:         token,
@@ -80,7 +80,7 @@ func TestGetDialOptions(t *testing.T) {
 			expectedErr:   "open testdata/cert-chain-good_not_exist.pem: no such file or directory",
 		},
 		"Token fetched": {
-			cfg: &ClientConfig{
+			cfg: GcpConfig{
 				RootCACertFile: "testdata/cert-chain-good.pem",
 			},
 			token:         token,
@@ -93,9 +93,12 @@ func TestGetDialOptions(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := GcpClientImpl{&mockTokenFetcher{c.token, c.tokenFetchErr}}
+		gcp := GcpClientImpl{
+			config:  c.cfg,
+			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr},
+		}
 
-		options, err := gcp.GetDialOptions(c.cfg)
+		options, err := gcp.GetDialOptions()
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)

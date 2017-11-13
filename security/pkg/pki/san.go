@@ -18,8 +18,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-
-	"github.com/golang/glog"
 )
 
 // IdentityType represents type of an identity. This is used to properly encode
@@ -147,24 +145,22 @@ func ExtractSANExtension(exts []pkix.Extension) *pkix.Extension {
 
 // ExtractIDs first finds the SAN extension from the given extension set, then
 // extract identities from the SAN extension.
-func ExtractIDs(exts []pkix.Extension) []string {
+func ExtractIDs(exts []pkix.Extension) ([]string, error) {
 	sanExt := ExtractSANExtension(exts)
 	if sanExt == nil {
-		glog.Info("a SAN extension does not exist and thus no identities are extracted")
-		return nil
+		return nil, fmt.Errorf("the SAN extension does not exist")
 	}
 
 	idsWithType, err := ExtractIDsFromSAN(sanExt)
 	if err != nil {
-		glog.Warningf("failed to extract identities from SAN extension (error %v)", err)
-		return nil
+		return nil, fmt.Errorf("failed to extract identities from SAN extension (error %v)", err)
 	}
 
 	ids := []string{}
 	for _, id := range idsWithType {
 		ids = append(ids, string(id.Value))
 	}
-	return ids
+	return ids, nil
 }
 
 func generateReversedMap(m map[IdentityType]int) map[int]IdentityType {

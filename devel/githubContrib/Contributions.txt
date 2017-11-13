@@ -1,2 +1,0 @@
-Here is the current (as of June 2017) alphabetical list of companies and the number of contributors:
-Apache.org (1), Google (25), Ibm (7), Redhat (1), Unknown (8)

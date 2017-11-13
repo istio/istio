@@ -33,7 +33,7 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Local development scripts](#collection-of-scripts-and-notes-for-developing-for-istio)
+- [Local development scripts](#collection-of-scripts-and-notes-for-developing-istio)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -186,7 +186,7 @@ follow [these instructions](https://help.github.com/articles/caching-your-github
 if you want to cache the token.
 
 ```shell
-git push -f origin my-feature
+git push origin my-feature
 ```
 
 ### Creating a pull request
@@ -215,6 +215,12 @@ pass tests independently, but it is worth striving for. For mass automated
 fixups (e.g. automated doc formatting), use one or more commits for the
 changes to tooling and a final commit to apply the fixup en masse. This makes
 reviews much easier.
+
+Please do not use force push after submitting a PR to resolve review
+feedback. Doing so results in an inability to see what has changed between
+revisions of the PR. Instead submit additional commits until the PR is
+suitable for merging. Once the PR is suitable for merging, the commits will
+be squashed to simplify the commit.
 
 ## Using the code base
 
@@ -255,7 +261,7 @@ where
   hostname and the project id. This should be customized.
 * The `-t` parameter `my-tag` is the desired tag. This should be customized.
 
-### Building the Istio manfiests
+### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
 to generate new manifests with the specified Mixer containers.
@@ -380,7 +386,7 @@ passed both unit and integration tests. We only merge pull requests when
 
 ## Collection of scripts and notes for developing Istio
 
-For local development (building from source and running the major components) on Ubuntu/raw VM:
+For local development (building from source and running the major components of the data path) on Ubuntu/raw VM:
 
 Assuming you did (once):
 1. [Install bazel](https://bazel.build/versions/master/docs/install-ubuntu.html), note that as of this writing Bazel needs the `openjdk-8-jdk` VM (you might need to uninstall or get out of the way the `ibm-java80-jdk` that comes by default with GCE for instance)
@@ -390,12 +396,13 @@ Assuming you did (once):
    mkdir github
    cd github/
    git clone https://github.com/istio/istio.git
+   git clone https://github.com/istio/proxy.git
    ```
-4. You can then use
-   - [update_all](update_all) : script to build from source
-   - [setup_run](setup_run) : run locally
+4. You can then use (in the [tools/](tools/) directory)
+   - [tools/update_all](tools/update_all) : script to build from source
+   - [tools/setup_run](tools/setup_run) : run locally
    - [fortio](https://github.com/istio/fortio/) (φορτίο) : load testing and minimal echo http and grpc server
-   - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
+   - And an unrelated tool to aggregate [GitHub Contributions](tools/githubContrib/) statistics.
 5. And run things like
    ```bash
    # Test the echo server:
@@ -406,10 +413,9 @@ Assuming you did (once):
    curl -v  http://localhost:9094/api/v1/scopes/global/subjects/foo.svc.cluster.local/rules --data-binary @quota.yaml -X PUT -H "Content-Type: application/yaml"
    # Test under some load:
    fortio load -qps 2000 http://localhost:9090/echo
-
    ```
-   Note that this is done for you by [setup_run](setup_run) but to use the correct go environment:
+   Note that this is done for you by [setup_run](tools/setup_run) but to use the correct go environment:
    ```bash
-   cd mixer/
+   cd istio/
    source bin/use_bazel_go.sh
    ```

@@ -55,9 +55,6 @@ done
 mkdir -p vendor/istio.io/istio/pilot/test/mixer/istio_mixer_v1
 ln -sf "$genfiles/test/mixer/istio_mixer_v1/mixer.pb.go" \
   vendor/istio.io/istio/pilot/test/mixer/istio_mixer_v1/
-mkdir -p vendor/istio.io/istio/pilot/test/mixer/wordlist
-ln -sf "$genfiles/test/mixer/wordlist/wordlist.go" \
-  vendor/istio.io/istio/pilot/test/mixer/wordlist/
 mkdir -p vendor/istio.io/istio/pilot/test/grpcecho
 ln -sf "$genfiles/test/grpcecho/echo.pb.go" \
   vendor/istio.io/istio/pilot/test/grpcecho/

@@ -26,7 +26,10 @@ go_test(
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
+        "//mixer/pkg/config/descriptor:go_default_library",
+        "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
+        "//mixer/pkg/il/evaluator:go_default_library",
         "//mixer/template/sample/check:go_default_library",
         "//mixer/template/sample/quota:go_default_library",
         "//mixer/template/sample/report:go_default_library",
