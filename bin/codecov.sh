@@ -24,11 +24,9 @@ declare -A pkgs
 
 for d in $(go list ./... | grep -v vendor); do
     i=$[$i+1]
-    if [[ $d == *"bootstrapgen" ]];then
-      echo "Skipped $d"
-      continue
-    fi
-    if [[ $d == "istio.io/istio/tests"* ]];then
+    #FIXME remove mixer tools exclusion after tests can be run without bazel
+    if [[ $d == "istio.io/istio/tests"* || \
+      $d == "istio.io/istio/mixer/tools/codegen"* ]];then
       echo "Skipped $d"
       continue
     fi
