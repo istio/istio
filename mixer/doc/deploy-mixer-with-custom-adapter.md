@@ -13,7 +13,10 @@ mesh for use:
   * [Edit the Mixer deployment configuration to reference your new image](#edit-the-mixer-deployment-configuration-to-reference-your-new-image)
   * [Celebrate](#celebrate)
 
-NOTE: All commands should be executed from the root of the istio/istio repository.
+NOTE: 
+  * All commands should be executed from the root of the istio/istio repository.
+  * These instructions assume that the steps will be executed on a Linux distro. 
+    Other OSes are not currently supported.
 
 These instructions assume that:
   * `bazel` is installed
