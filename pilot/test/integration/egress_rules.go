@@ -95,21 +95,21 @@ func (t *egressRules) run() error {
 		},
 		{
 			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule",
-			config:      "testdata/egress-rule-tcp-wikipedia.yaml.tmpl",
+			config:      "egress-rule-tcp-wikipedia.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
 			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
-			config:      "testdata/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
 			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
-			config:      "testdata/egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
 				return t.verifyReachable("http://cnn.com", false)
 			},
