@@ -17,7 +17,9 @@ TMPDIR=$(mktemp -d)
 
 i=0
 # half the number of cpus seem to saturate
-max=$[$(getconf _NPROCESSORS_ONLN)/2] 
+if [[ -z ${maxprocs:-} ]];then
+  maxprocs=$[$(getconf _NPROCESSORS_ONLN)/2]
+fi
 num=0
 pids=""
 declare -A pkgs
@@ -35,7 +37,7 @@ for d in $(go list ./... | grep -v vendor); do
     pkgs[$pid]=$d
     pids+=" $pid"
     num=$(jobs -p|wc -l)
-    while [ $num -gt $max ]
+    while [ $num -gt $maxprocs ]
     do
       sleep 2
       num=$(jobs -p|wc -l)
