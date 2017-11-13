@@ -14,8 +14,16 @@ set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
-  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  # but we depend on being at path $GOPATH/src/istio.io/istio for imports.
+  # FIXME Fix boostrap to not do that and check it out in the proper spot
+
+  # if the same files are available at two different paths, go tools do not like it
+  # so we change the go path here. Previously symlinked files and the original files were both
+  # under the gopath. Now only the vanity path is available inside the new go path.
+  NEWGOPATH=$(dirname ${GOPATH})/newgo
+  mkdir -p ${NEWGOPATH}/src/istio.io
+  ln -sf ${GOPATH}/src/github.com/istio ${NEWGOPATH}/src/istio.io
+  export GOPATH=${NEWGOPATH}
   ROOT=${GOPATH}/src/istio.io/istio
   cd ${ROOT}
 
