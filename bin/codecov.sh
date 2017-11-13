@@ -28,7 +28,10 @@ for d in $(go list ./... | grep -v vendor); do
       echo "Skipped $d"
       continue
     fi
-    echo $d
+    if [[ $d == "istio.io/istio/tests"* ]];then
+      echo "Skipped $d"
+      continue
+    fi
     go test -coverprofile=$TMPDIR/$i $d &
     pid=$!
     pkgs[$pid]=$d
