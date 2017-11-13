@@ -9,7 +9,7 @@
 		mixer/v1/config/client/service.proto
 		mixer/v1/config/client/api_spec.proto
 		mixer/v1/config/client/quota.proto
-		mixer/v1/config/client/mixer_filter_config.proto
+		mixer/v1/config/client/client_config.proto
 
 	It has these top-level messages:
 		IstioService
@@ -23,8 +23,10 @@
 		AttributeMatch
 		Quota
 		QuotaSpecBinding
-		MixerControlConfig
-		MixerFilterConfig
+		ServiceConfig
+		TransportConfig
+		HttpClientConfig
+		TcpClientConfig
 */
 package istio_mixer_v1_config_client
 
