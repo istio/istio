@@ -7,3 +7,7 @@ vendor
 # Intellij files
 .idea/*
 *.iml
+
+# e2e test temporary files
+docker/istio_ca*
+docker/node_agent*

@@ -3,9 +3,10 @@
 echo "Starting NodeAgent..."
 # Run node-agent
 /usr/local/bin/node_agent \
---cert-chain /usr/local/bin/node_agent.crt \
---key /usr/local/bin/node_agent.key \
---root-cert /usr/local/bin/istio_ca.crt&
+  --env onprem \
+  --onprem-cert-chain /usr/local/bin/node_agent.crt \
+  --onprem-key /usr/local/bin/node_agent.key \
+  --onprem-root-cert /usr/local/bin/istio_ca.crt&
 
 echo "Starting Application..."
 # Start app
