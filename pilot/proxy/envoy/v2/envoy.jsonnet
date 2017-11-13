@@ -4,6 +4,7 @@ local context = {
     domain: "default.svc.cluster.local",
 };
 
+// TODO: these functions are super slow! 1.2s vs 0.003s slow!
 local util = {
     longest_suffix(a, b, j)::
         if j >= std.length(a) || j >= std.length(b) then
@@ -20,7 +21,7 @@ local util = {
         local expansions = [
             std.join(".", service_names[0:std.length(service_names) - i])
             for i in std.range(0, j)
-        ] + [service.address];
+        ] + if 'address' in service then [service.address] else [];
         expansions + ["%s:%d" % [host, port] for host in expansions],
 
 };

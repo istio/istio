@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/api"
@@ -26,11 +27,15 @@ func (Hasher) Hash(node *api.Node) (cache.Key, error) {
 }
 
 type Generator struct {
-	services *kube.Controller
-	config   model.ConfigStoreCache
-	vm       *jsonnet.VM
-	script   string
-	version  int
+	services     *kube.Controller
+	servicesHash string
+
+	config model.ConfigStoreCache
+
+	vm     *jsonnet.VM
+	script string
+
+	version int
 
 	// Cache needs to be set
 	Cache cache.Cache
@@ -172,6 +177,12 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 		glog.Warning(err)
 		return
 	}
+	if out == nil {
+		out = []*model.Service{}
+	}
+
+	// sort by hostnames
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
 	bytes, err := json.Marshal(out)
 	if err != nil {
@@ -194,14 +205,14 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 		return
 	}
 
+	if out == nil {
+		out = []*model.ServiceInstance{}
+	}
+
 	bytes, err := json.Marshal(out)
 	if err != nil {
 		glog.Warning(err)
 		return
-	}
-
-	if out == nil {
-		out = []*model.ServiceInstance{}
 	}
 
 	err = ioutil.WriteFile("instances.json", bytes, 0600)

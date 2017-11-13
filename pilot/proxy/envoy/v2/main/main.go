@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
@@ -48,6 +50,9 @@ func main() {
 		}
 		generator.Run(stop)
 	}
+
+	// expose profiling endpoint
+	http.ListenAndServe(":15005", nil)
 
 	cmd.WaitSignal(stop)
 }

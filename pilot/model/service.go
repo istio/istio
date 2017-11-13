@@ -55,7 +55,7 @@ type Service struct {
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
-	ExternalName string `json:"external"`
+	ExternalName string `json:"external,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
