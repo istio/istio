@@ -9,6 +9,7 @@ MACHINE_TYPE=${MACHINE_TYPE:-n1-highcpu-2}
 NUM_NODES=${NUM_NODES:-6} # SvcA<->SvcB + Ingress + Pilot + Mixer + 1 extra (kube-system)
 VM_NAME=${VM_NAME:-fortio-vm}
 ISTIOCTL=${ISTIOCTL:-istioctl} # to override istioctl from outside of the path
+FORTIO_NAMESPACE=${FORTIO_NAMESPACE:-fortio}
 
 function usage() {
     echo "usage: PROJECT=project ZONE=zone $0"
@@ -72,13 +73,19 @@ function kubectl_setup() {
 }
 
 function install_non_istio_svc() {
- execute kubectl -n fortio run fortio --image=istio/fortio --port=8080
- execute kubectl -n fortio expose deployment fortio --target-port=8080 --type=NodePort
+ execute kubectl create namespace $FORTIO_NAMESPACE
+ execute kubectl -n $FORTIO_NAMESPACE run fortio --image=istio/fortio --port=8080
+ execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio --target-port=8080 --type=LoadBalancer
+}
+
+function get_fortio_k8s_ip() {
+  FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio"
 }
 
 function setup_non_istio_ingress() {
   cat <<_EOF_ | kubectl apply -n fortio -f -
-apiVersion: extensions/v1beta
+apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: fortio-ingress
@@ -89,6 +96,18 @@ spec:
 _EOF_
 }
 
+function get_non_istio_ingress_ip() {
+  K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP:8080/fortio"
+}
+
+function run_fortio_test1() {
+  execute curl -v "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+}
+function run_fortio_test2() {
+  execute curl -v "http://$VM_IP:8080/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP:8080/echo"
+}
+
 echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
 
 function setup_vm_all() {
@@ -96,7 +115,6 @@ function setup_vm_all() {
   setup_vm
   update_fortio_on_vm
   run_fortio_on_vm
-  get_vm_ip
 }
 
 function setup_cluster_all() {
@@ -112,8 +130,22 @@ function setup_all() {
   setup_cluster_all
 }
 
+function get_ips() {
+  get_vm_ip
+  get_fortio_k8s_ip
+  get_non_istio_ingress_ip
+}
+
+function run_tests() {
+  get_ips
+  run_fortio_test1
+  run_fortio_test2
+}
 # Normal mode: all at once:
 setup_all
 
 # test/retry one step at a time, eg.
 # setup_non_istio_ingress
+#install_non_istio_svc
+run_tests
+#setup_non_istio_ingress
