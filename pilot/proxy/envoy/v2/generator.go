@@ -19,6 +19,12 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 )
 
+type Hasher struct{}
+
+func (Hasher) Hash(node *api.Node) (cache.Key, error) {
+	return "service-node", nil
+}
+
 type Generator struct {
 	services *kube.Controller
 	config   model.ConfigStoreCache
@@ -192,6 +198,10 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 	if err != nil {
 		glog.Warning(err)
 		return
+	}
+
+	if out == nil {
+		out = []*model.ServiceInstance{}
 	}
 
 	err = ioutil.WriteFile("instances.json", bytes, 0600)
