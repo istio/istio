@@ -5,7 +5,7 @@ jobs:
     working_directory: ~/go/src/istio.io/istio
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
-      HUB: docker.io/DNErepo
+      HUB: docker.io/dnerepo
       TAG: dontpush
     steps:
       - checkout
