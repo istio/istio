@@ -970,8 +970,9 @@ func buildEgressTCPRoute(rule *proxyconfig.EgressRule,
 	// Create a unique orig dst cluster for each service defined by egress rule
 	// So that we can apply circuit breakers, outlier detections, etc., later.
 	destination := rule.Destination.Service
-	key := model.ServiceKey(destination, model.PortList{port}, model.LabelsCollection{})
-	name := fmt.Sprintf("%x", sha1.Sum([]byte(key)))
+	svc := model.Service{Hostname: destination}
+	key := svc.Key(port, nil)
+	name := truncateClusterName(key)
 	externalTrafficCluster := buildOriginalDSTCluster(name, mesh.ConnectTimeout)
 	externalTrafficCluster.port = port
 	externalTrafficCluster.ServiceName = key
