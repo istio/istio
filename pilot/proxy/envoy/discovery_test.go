@@ -360,8 +360,7 @@ func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh.MixerAddress = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
+
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -385,8 +384,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, egressRule, t)
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
+
 	addConfig(registry, timeoutRouteRule, t)
 	addConfig(registry, egressRuleTimeoutRule, t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -669,8 +667,6 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t)
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
 
 	addIngressRoutes(registry, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
@@ -724,8 +720,6 @@ func TestListenerDiscoveryHttpProxy(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	addConfig(registry, egressRule, t)
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
 
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -751,8 +745,7 @@ func TestListenerDiscoveryRouter(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	addConfig(registry, egressRule, t)
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
+
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-router.json", t)
