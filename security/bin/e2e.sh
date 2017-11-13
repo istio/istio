@@ -51,10 +51,7 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
 fi
 
 # Set certificate output directory
-export CERTS_OUTPUT_DIR=`pwd`/docker/certs
-
-# Generates certificate files
-docker/certs/gen_certs.sh
+export CERTS_OUTPUT_DIR=`pwd`/docker
 
 # Build and push docker images
 bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
