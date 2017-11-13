@@ -35,7 +35,7 @@
                "hosts": [
                   {
                      "socket_address": {
-                        "address": "localhost",
+                        "address": "127.0.0.1",
                         "port_value": 15003
                      }
                   }
@@ -111,90 +111,6 @@
             {
                "socket_address": {
                   "address": "127.0.0.1",
-                  "port_value": 1090
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1090",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1090
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1090",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1100
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1100",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1100
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1100",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1110
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1110",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1110
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1110",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
                   "port_value": 80
                }
             }
@@ -247,98 +163,14 @@
       },
       {
          "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1090
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1090",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1090
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1090",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1100
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1100",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1100
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1100",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1110
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1110",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
-         "hosts": [
-            {
-               "socket_address": {
-                  "address": "127.0.0.1",
-                  "port_value": 1110
-               }
-            }
-         ],
-         "lb_policy": "ROUND_ROBIN",
-         "name": "in.1110",
-         "type": "STATIC"
-      },
-      {
-         "connect_timeout": "5s",
          "eds_cluster_config": {
             "eds_config": {
                "ads": { }
             },
-            "service_name": "hello.default.svc.cluster.local|custom|"
+            "service_name": "hello.default.svc.cluster.local|http|"
          },
          "lb_policy": "ROUND_ROBIN",
-         "name": "out.b1c6cc33cc0c9f9fe1388965dd515709",
+         "name": "out.cfd077e46a60ae88e9a0f3f81d9ab1c9",
          "type": "EDS"
       },
       {
@@ -347,10 +179,10 @@
             "eds_config": {
                "ads": { }
             },
-            "service_name": "hello.default.svc.cluster.local|mongo|"
+            "service_name": "world.default.svc.cluster.local|http|"
          },
          "lb_policy": "ROUND_ROBIN",
-         "name": "out.07895a0367c24dffd0fe92beb955aaa4",
+         "name": "out.7cc203c23985ce69912a4669ebd8e709",
          "type": "EDS"
       },
       {
@@ -359,10 +191,10 @@
             "eds_config": {
                "ads": { }
             },
-            "service_name": "hello.default.svc.cluster.local|redis|"
+            "service_name": "hello.default.svc.cluster.local|http-status|"
          },
          "lb_policy": "ROUND_ROBIN",
-         "name": "out.4d36907134d1cd1fe733aead13a0cec3",
+         "name": "out.191fabc17d2bff9b1b502fcbf242f0a1",
          "type": "EDS"
       },
       {
@@ -371,34 +203,10 @@
             "eds_config": {
                "ads": { }
             },
-            "service_name": "world.default.svc.cluster.local|custom|"
+            "service_name": "world.default.svc.cluster.local|http-status|"
          },
          "lb_policy": "ROUND_ROBIN",
-         "name": "out.74447fbed50ef17866df33588744cb57",
-         "type": "EDS"
-      },
-      {
-         "connect_timeout": "5s",
-         "eds_cluster_config": {
-            "eds_config": {
-               "ads": { }
-            },
-            "service_name": "world.default.svc.cluster.local|mongo|"
-         },
-         "lb_policy": "ROUND_ROBIN",
-         "name": "out.790ff9d36a2b5a06c459673b6cf26157",
-         "type": "EDS"
-      },
-      {
-         "connect_timeout": "5s",
-         "eds_cluster_config": {
-            "eds_config": {
-               "ads": { }
-            },
-            "service_name": "world.default.svc.cluster.local|redis|"
-         },
-         "lb_policy": "ROUND_ROBIN",
-         "name": "out.696cc0cb9702e6d64f01cde7497584dc",
+         "name": "out.7f8465d2461131fa9e56535b0ff87b61",
          "type": "EDS"
       }
    ],
@@ -406,10 +214,15 @@
       {
          "address": {
             "socket_address": {
+               "address": "0.0.0.0",
                "port_value": 15001
             }
          },
-         "filter_chains": [ ],
+         "filter_chains": [
+            {
+               "filters": [ ]
+            }
+         ],
          "name": "virtual",
          "use_original_dst": true
       },
@@ -440,14 +253,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_80",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -506,14 +317,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_80",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -572,14 +381,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_1081",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -638,14 +445,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_1081",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -680,156 +485,6 @@
       {
          "address": {
             "socket_address": {
-               "address": "10.1.1.0",
-               "port_value": 1090
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1090",
-                        "stat_prefix": "in_TCP_1090"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_TCP_10.1.1.0_1090"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.1.1",
-               "port_value": 1090
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1090",
-                        "stat_prefix": "in_TCP_1090"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_TCP_10.1.1.1_1090"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.1.0",
-               "port_value": 1100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1100",
-                        "stat_prefix": "in_Mongo_1100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Mongo_10.1.1.0_1100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.1.1",
-               "port_value": 1100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1100",
-                        "stat_prefix": "in_Mongo_1100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Mongo_10.1.1.1_1100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.1.0",
-               "port_value": 1110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1110",
-                        "stat_prefix": "in_Redis_1110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Redis_10.1.1.0_1110"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.1.1",
-               "port_value": 1110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1110",
-                        "stat_prefix": "in_Redis_1110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Redis_10.1.1.1_1110"
-      },
-      {
-         "address": {
-            "socket_address": {
                "address": "10.2.1.0",
                "port_value": 80
             }
@@ -854,14 +509,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_80",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -920,14 +573,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_80",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -986,14 +637,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_1081",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -1052,14 +701,12 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
                         "route_config": {
                            "name": "in_HTTP_1081",
+                           "validate_clusters": false,
                            "virtual_hosts": [
                               {
                                  "domains": [
@@ -1094,306 +741,7 @@
       {
          "address": {
             "socket_address": {
-               "address": "10.2.1.0",
-               "port_value": 1090
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1090",
-                        "stat_prefix": "in_TCP_1090"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_TCP_10.2.1.0_1090"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.1.1",
-               "port_value": 1090
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1090",
-                        "stat_prefix": "in_TCP_1090"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_TCP_10.2.1.1_1090"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.1.0",
-               "port_value": 1100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1100",
-                        "stat_prefix": "in_Mongo_1100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Mongo_10.2.1.0_1100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.1.1",
-               "port_value": 1100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1100",
-                        "stat_prefix": "in_Mongo_1100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Mongo_10.2.1.1_1100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.1.0",
-               "port_value": 1110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1110",
-                        "stat_prefix": "in_Redis_1110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Redis_10.2.1.0_1110"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.1.1",
-               "port_value": 1110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "in.1110",
-                        "stat_prefix": "in_Redis_1110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "in_Redis_10.2.1.1_1110"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.0.0",
-               "port_value": 90
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.b1c6cc33cc0c9f9fe1388965dd515709",
-                        "stat_prefix": "out_TCP_hello.default.svc.cluster.local_90"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_TCP_hello.default.svc.cluster.local_90"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.0.0",
-               "port_value": 100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.07895a0367c24dffd0fe92beb955aaa4",
-                        "stat_prefix": "out_Mongo_hello.default.svc.cluster.local_100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_Mongo_hello.default.svc.cluster.local_100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.1.0.0",
-               "port_value": 110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.4d36907134d1cd1fe733aead13a0cec3",
-                        "stat_prefix": "out_Redis_hello.default.svc.cluster.local_110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_Redis_hello.default.svc.cluster.local_110"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.0.0",
-               "port_value": 90
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.74447fbed50ef17866df33588744cb57",
-                        "stat_prefix": "out_TCP_world.default.svc.cluster.local_90"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_TCP_world.default.svc.cluster.local_90"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.0.0",
-               "port_value": 100
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.790ff9d36a2b5a06c459673b6cf26157",
-                        "stat_prefix": "out_Mongo_world.default.svc.cluster.local_100"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_Mongo_world.default.svc.cluster.local_100"
-      },
-      {
-         "address": {
-            "socket_address": {
-               "address": "10.2.0.0",
-               "port_value": 110
-            }
-         },
-         "deprecated_v1": {
-            "bind_to_port": false
-         },
-         "filter_chains": [
-            {
-               "filters": [
-                  {
-                     "config": {
-                        "cluster": "out.696cc0cb9702e6d64f01cde7497584dc",
-                        "stat_prefix": "out_Redis_world.default.svc.cluster.local_110"
-                     },
-                     "name": "envoy.tcp_proxy"
-                  }
-               ]
-            }
-         ],
-         "name": "out_Redis_world.default.svc.cluster.local_110"
-      },
-      {
-         "address": {
-            "socket_address": {
+               "address": "0.0.0.0",
                "port_value": 80
             }
          },
@@ -1417,9 +765,6 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
@@ -1441,6 +786,7 @@
       {
          "address": {
             "socket_address": {
+               "address": "0.0.0.0",
                "port_value": 81
             }
          },
@@ -1464,9 +810,6 @@
                         "generate_request_id": true,
                         "http_filters": [
                            {
-                              "config": {
-                                 "deprecated_v1": true
-                              },
                               "name": "envoy.router"
                            }
                         ],
@@ -1486,129 +829,138 @@
          "name": "out_HTTP_81"
       }
    ],
-   "routes": {
-      "name": "0",
-      "virtual_hosts": [
-         {
-            "domains": [
-               "hello.default.svc.cluster.local",
-               "hello.default.svc.cluster",
-               "hello.default.svc",
-               "hello.default",
-               "hello",
-               "10.1.0.0",
-               "hello.default.svc.cluster.local:80",
-               "hello.default.svc.cluster:80",
-               "hello.default.svc:80",
-               "hello.default:80",
-               "hello:80",
-               "10.1.0.0:80"
-            ],
-            "name": "hello.default.svc.cluster.local:80",
-            "routes": [
-               {
-                  "decorator": {
-                     "operation": "default_route"
-                  },
-                  "match": {
-                     "prefix": "/"
-                  },
-                  "route": {
-                     "cluster": "out.cfd077e46a60ae88e9a0f3f81d9ab1c9"
+   "routes": [
+      {
+         "name": "80",
+         "validate_clusters": false,
+         "virtual_hosts": [
+            {
+               "domains": [
+                  "hello.default.svc.cluster.local",
+                  "hello.default.svc.cluster",
+                  "hello.default.svc",
+                  "hello.default",
+                  "hello",
+                  "10.1.0.0",
+                  "hello.default.svc.cluster.local:80",
+                  "hello.default.svc.cluster:80",
+                  "hello.default.svc:80",
+                  "hello.default:80",
+                  "hello:80",
+                  "10.1.0.0:80"
+               ],
+               "name": "hello.default.svc.cluster.local:80",
+               "routes": [
+                  {
+                     "decorator": {
+                        "operation": "default_route"
+                     },
+                     "match": {
+                        "prefix": "/"
+                     },
+                     "route": {
+                        "cluster": "out.cfd077e46a60ae88e9a0f3f81d9ab1c9"
+                     }
                   }
-               }
-            ]
-         },
-         {
-            "domains": [
-               "hello.default.svc.cluster.local",
-               "hello.default.svc.cluster",
-               "hello.default.svc",
-               "hello.default",
-               "hello",
-               "10.1.0.0",
-               "hello.default.svc.cluster.local:81",
-               "hello.default.svc.cluster:81",
-               "hello.default.svc:81",
-               "hello.default:81",
-               "hello:81",
-               "10.1.0.0:81"
-            ],
-            "name": "hello.default.svc.cluster.local:81",
-            "routes": [
-               {
-                  "decorator": {
-                     "operation": "default_route"
-                  },
-                  "match": {
-                     "prefix": "/"
-                  },
-                  "route": {
-                     "cluster": "out.191fabc17d2bff9b1b502fcbf242f0a1"
+               ]
+            },
+            {
+               "domains": [
+                  "world.default.svc.cluster.local",
+                  "world.default.svc.cluster",
+                  "world.default.svc",
+                  "world.default",
+                  "world",
+                  "10.2.0.0",
+                  "world.default.svc.cluster.local:80",
+                  "world.default.svc.cluster:80",
+                  "world.default.svc:80",
+                  "world.default:80",
+                  "world:80",
+                  "10.2.0.0:80"
+               ],
+               "name": "world.default.svc.cluster.local:80",
+               "routes": [
+                  {
+                     "decorator": {
+                        "operation": "default_route"
+                     },
+                     "match": {
+                        "prefix": "/"
+                     },
+                     "route": {
+                        "cluster": "out.7cc203c23985ce69912a4669ebd8e709"
+                     }
                   }
-               }
-            ]
-         },
-         {
-            "domains": [
-               "world.default.svc.cluster.local",
-               "world.default.svc.cluster",
-               "world.default.svc",
-               "world.default",
-               "world",
-               "10.2.0.0",
-               "world.default.svc.cluster.local:80",
-               "world.default.svc.cluster:80",
-               "world.default.svc:80",
-               "world.default:80",
-               "world:80",
-               "10.2.0.0:80"
-            ],
-            "name": "world.default.svc.cluster.local:80",
-            "routes": [
-               {
-                  "decorator": {
-                     "operation": "default_route"
-                  },
-                  "match": {
-                     "prefix": "/"
-                  },
-                  "route": {
-                     "cluster": "out.7cc203c23985ce69912a4669ebd8e709"
+               ]
+            }
+         ]
+      },
+      {
+         "name": "81",
+         "validate_clusters": false,
+         "virtual_hosts": [
+            {
+               "domains": [
+                  "hello.default.svc.cluster.local",
+                  "hello.default.svc.cluster",
+                  "hello.default.svc",
+                  "hello.default",
+                  "hello",
+                  "10.1.0.0",
+                  "hello.default.svc.cluster.local:81",
+                  "hello.default.svc.cluster:81",
+                  "hello.default.svc:81",
+                  "hello.default:81",
+                  "hello:81",
+                  "10.1.0.0:81"
+               ],
+               "name": "hello.default.svc.cluster.local:81",
+               "routes": [
+                  {
+                     "decorator": {
+                        "operation": "default_route"
+                     },
+                     "match": {
+                        "prefix": "/"
+                     },
+                     "route": {
+                        "cluster": "out.191fabc17d2bff9b1b502fcbf242f0a1"
+                     }
                   }
-               }
-            ]
-         },
-         {
-            "domains": [
-               "world.default.svc.cluster.local",
-               "world.default.svc.cluster",
-               "world.default.svc",
-               "world.default",
-               "world",
-               "10.2.0.0",
-               "world.default.svc.cluster.local:81",
-               "world.default.svc.cluster:81",
-               "world.default.svc:81",
-               "world.default:81",
-               "world:81",
-               "10.2.0.0:81"
-            ],
-            "name": "world.default.svc.cluster.local:81",
-            "routes": [
-               {
-                  "decorator": {
-                     "operation": "default_route"
-                  },
-                  "match": {
-                     "prefix": "/"
-                  },
-                  "route": {
-                     "cluster": "out.7f8465d2461131fa9e56535b0ff87b61"
+               ]
+            },
+            {
+               "domains": [
+                  "world.default.svc.cluster.local",
+                  "world.default.svc.cluster",
+                  "world.default.svc",
+                  "world.default",
+                  "world",
+                  "10.2.0.0",
+                  "world.default.svc.cluster.local:81",
+                  "world.default.svc.cluster:81",
+                  "world.default.svc:81",
+                  "world.default:81",
+                  "world:81",
+                  "10.2.0.0:81"
+               ],
+               "name": "world.default.svc.cluster.local:81",
+               "routes": [
+                  {
+                     "decorator": {
+                        "operation": "default_route"
+                     },
+                     "match": {
+                        "prefix": "/"
+                     },
+                     "route": {
+                        "cluster": "out.7f8465d2461131fa9e56535b0ff87b61"
+                     }
                   }
-               }
-            ]
-         }
-      ]
-   }
+               ]
+            }
+         ]
+      }
+   ]
 }
