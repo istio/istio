@@ -17,8 +17,8 @@ package adapter
 import (
 	"context"
 	"reflect"
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestRequestDataFromContext(t *testing.T) {
@@ -46,7 +46,6 @@ func TestNewContextWithRequestData(t *testing.T) {
 		t.Errorf("NewContextWithRequestData added RequestData = %v, want %v", *got, *wantReqData)
 	}
 }
-
 
 func TestRequestDataFromContextWithCollidingInt0Key(t *testing.T) {
 	badKey := 0
