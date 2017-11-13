@@ -27,36 +27,44 @@ const (
 	proxyRepo = "../proxy"
 )
 
-type ProxyComponent struct {
+// LocalComponent is a component of local proxy binary in process
+type LocalComponent struct {
 	framework.Component
 	name    string
 	process *os.Process
 	logFile string
 }
 
-func NewProxyComponent(n, logDir string) *ProxyComponent {
+// NewLocalComponent create a LocalComponent with name and log dir
+func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
-	return &ProxyComponent{
+	return &LocalComponent{
 		name:    n,
 		logFile: logFile,
 	}
 }
 
-func (proxyComp *ProxyComponent) GetName() string {
+// GetName return component name
+func (proxyComp *LocalComponent) GetName() string {
 	return proxyComp.name
 }
 
-func (proxyComp *ProxyComponent) Start() (err error) {
-	_, err = util.Shell("bazel build -c opt %s/src/envoy/mixer:envoy", proxyRepo)
-	proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1", proxyRepo, proxyComp.logFile))
-	if err != nil {
+// Start brings up a local envoy using start_envory script from istio/proxy
+func (proxyComp *LocalComponent) Start() (err error) {
+	if _, err = util.Shell("bazel build -c opt %s/src/envoy/mixer:envoy", proxyRepo); err != nil {
+		log.Printf("Failed to build envoy from proxy repo")
+		return err
+	}
+	if proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
+		proxyRepo, proxyComp.logFile)); err != nil {
 		log.Printf("Failed to start component %s", proxyComp.GetName())
 		return err
 	}
 	return
 }
 
-func (proxyComp *ProxyComponent) Stop() (err error) {
+// Stop kill the envory process
+func (proxyComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(proxyComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", proxyComp.GetName())
@@ -64,10 +72,14 @@ func (proxyComp *ProxyComponent) Stop() (err error) {
 	return
 }
 
-func (proxyComp *ProxyComponent) IsAlive() (bool, error) {
+// IsAlive check the process of local server is running
+// TODO: Process running doesn't guarantee server is ready
+// TODO: Need a better way to check if component is alive/running
+func (proxyComp *LocalComponent) IsAlive() (bool, error) {
 	return util.IsProcessRunning(proxyComp.process)
 }
 
-func (proxyComp *ProxyComponent) Cleanup() error {
+// Cleanup clean up tmp files and other resource created by LocalComponent
+func (proxyComp *LocalComponent) Cleanup() error {
 	return nil
 }

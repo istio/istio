@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fortio_server
+package fortioServer
 
 import (
 	"fmt"
@@ -23,26 +23,30 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-type FortioServerComp struct {
+// LocalComponent is a local fortio server componment
+type LocalComponent struct {
 	framework.Component
 	name    string
 	process *os.Process
 	logFile string
 }
 
-func NewFortioServerComp(n, logDir string) *FortioServerComp {
+// NewLocalComponent create a LocalComponent with name and log dir
+func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
-	return &FortioServerComp{
+	return &LocalComponent{
 		name:    n,
 		logFile: logFile,
 	}
 }
 
-func (FortioServerComp *FortioServerComp) GetName() string {
+// GetName return component name
+func (FortioServerComp *LocalComponent) GetName() string {
 	return FortioServerComp.name
 }
 
-func (FortioServerComp *FortioServerComp) Start() (err error) {
+// Start brings up a local fortio echo server
+func (FortioServerComp *LocalComponent) Start() (err error) {
 	if _, err = util.Shell("go get -u istio.io/fortio"); err != nil {
 		log.Printf("Failed to go get fortio")
 		return err
@@ -55,7 +59,8 @@ func (FortioServerComp *FortioServerComp) Start() (err error) {
 	return
 }
 
-func (FortioServerComp *FortioServerComp) Stop() (err error) {
+// Stop kill the fortio server process
+func (FortioServerComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(FortioServerComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", FortioServerComp.GetName())
@@ -63,10 +68,14 @@ func (FortioServerComp *FortioServerComp) Stop() (err error) {
 	return
 }
 
-func (FortioServerComp *FortioServerComp) IsAlive() (bool, error) {
+// IsAlive check the process of local server is running
+// TODO: Process running doesn't guarantee server is ready
+// TODO: Need a better way to check if component is alive/running
+func (FortioServerComp *LocalComponent) IsAlive() (bool, error) {
 	return util.IsProcessRunning(FortioServerComp.process)
 }
 
-func (FortioServerComp *FortioServerComp) Cleanup() error {
+// Cleanup clean up tmp files and other resource created by LocalComponent
+func (FortioServerComp *LocalComponent) Cleanup() error {
 	return nil
 }

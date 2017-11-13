@@ -14,9 +14,19 @@
 
 package framework
 
+// TestEnv is a interface holding serveral components for testing
 type TestEnv interface {
+
+	// GetName return environment ID
 	GetName() string
+
+	// GetComponents is the key of a environment
+	// It defines what components a environment contains.
 	GetComponents() []Component
-	Bringup()
-	Cleanup()
+
+	// Bringup doing general setup for environment level, not components.
+	Bringup() error
+
+	// Cleanup clean everything created by this test environment, not component level
+	Cleanup() error
 }

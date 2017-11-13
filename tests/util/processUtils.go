@@ -28,14 +28,14 @@ func IsProcessRunning(p *os.Process) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	return false, fmt.Errorf("Process %d is not alive or not belongs to you %v", p.Pid, err)
+	return false, fmt.Errorf("process %d is not alive or not belongs to you %v", p.Pid, err)
 }
 
 // IsProcessRunningInt check if a process of the given pid(int) is running
 func IsProcessRunningInt(pid int) (bool, error) {
 	process, err := os.FindProcess(int(pid))
 	if err != nil {
-		return false, fmt.Errorf("Failed to find process %d: %v (check os.FindProcess)", pid, err)
+		return false, fmt.Errorf("failed to find process %d: %v (check os.FindProcess)", pid, err)
 	}
 	return IsProcessRunning(process)
 }
@@ -44,24 +44,24 @@ func IsProcessRunningInt(pid int) (bool, error) {
 func IsProcessRunningString(pidS string) (bool, error) {
 	pid, err := strconv.Atoi(pidS)
 	if err != nil {
-		return false, fmt.Errorf("Can't covert %s to int: err", pidS, err)
+		return false, fmt.Errorf("can't covert %s to int: %v", pidS, err)
 	}
 	return IsProcessRunningInt(pid)
 }
 
+// KillProcess kill a os.Process
 func KillProcess(p *os.Process) (err error) {
-	alive := false
-	alive, err = IsProcessRunning(p)
-	if !alive {
+	var alive bool
+	if alive, err = IsProcessRunning(p); !alive {
 		log.Printf("Skip stop process %d: %v", p.Pid, err)
 		return nil
 	}
 
 	if err = p.Kill(); err != nil {
-		return fmt.Errorf("Failed to kill process %d: %v", p.Pid, err)
+		return fmt.Errorf("failed to kill process %d: %v", p.Pid, err)
 	}
 	if err = p.Release(); err != nil {
-		return fmt.Errorf("Failed to release resource of process %d: %v", p.Pid, err)
+		return fmt.Errorf("failed to release resource of process %d: %v", p.Pid, err)
 	}
 
 	return nil

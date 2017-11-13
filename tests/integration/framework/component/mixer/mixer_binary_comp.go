@@ -25,7 +25,8 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-type MixerComponent struct {
+// LocalComponent is a component of local mixs binary in process
+type LocalComponent struct {
 	framework.Component
 	name      string
 	process   *os.Process
@@ -33,20 +34,23 @@ type MixerComponent struct {
 	configDir string
 }
 
-func NewMixerComponent(n, logDir, configDir string) *MixerComponent {
+// NewLocalComponent create a LocalComponent with name, log dir and config dir
+func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
-	return &MixerComponent{
+	return &LocalComponent{
 		name:      n,
 		logFile:   logFile,
 		configDir: configDir,
 	}
 }
 
-func (mixerComp *MixerComponent) GetName() string {
+// GetName return component name
+func (mixerComp *LocalComponent) GetName() string {
 	return mixerComp.name
 }
 
-func (mixerComp *MixerComponent) Start() (err error) {
+// Start brings up a local mixs using test config files in local file system
+func (mixerComp *LocalComponent) Start() (err error) {
 	if _, err = util.Shell("bazel build -c opt mixer/cmd/server:mixs"); err != nil {
 		log.Printf("Failed to build misx: %s", err)
 		return err
@@ -78,7 +82,8 @@ func (mixerComp *MixerComponent) Start() (err error) {
 	return
 }
 
-func (mixerComp *MixerComponent) Stop() (err error) {
+// Stop kill the mixer server process
+func (mixerComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(mixerComp.process)
 	if err != nil {
 		log.Printf("Failed to Stop component %s", mixerComp.GetName())
@@ -86,10 +91,14 @@ func (mixerComp *MixerComponent) Stop() (err error) {
 	return
 }
 
-func (mixerComp *MixerComponent) IsAlive() (bool, error) {
+// IsAlive check the process of local server is running
+// TODO: Process running doesn't guarantee server is ready
+// TODO: Need a better way to check if component is alive/running
+func (mixerComp *LocalComponent) IsAlive() (bool, error) {
 	return util.IsProcessRunning(mixerComp.process)
 }
 
-func (mixerComp *MixerComponent) Cleanup() error {
+// Cleanup clean up tmp files and other resource created by LocalComponent
+func (mixerComp *LocalComponent) Cleanup() error {
 	return nil
 }

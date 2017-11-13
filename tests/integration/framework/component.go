@@ -14,10 +14,20 @@
 
 package framework
 
+// Component is a interface of a test component
 type Component interface {
+	// GetName return component name
 	GetName() string
+
+	// Bringup doing setup for this component
 	Start() error
+
+	// Stop stop this component
 	Stop() error
+
+	// IsAlive check if component is alive/running
 	IsAlive() (bool, error)
+
+	// Cleanup clean up tmp files and other resource created by this component
 	Cleanup() error
 }
