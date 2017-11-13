@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,9 +29,10 @@ func (Hasher) Hash(node *api.Node) (cache.Key, error) {
 
 type Generator struct {
 	services     *kube.Controller
-	servicesHash string
+	servicesHash [md5.Size]byte
 
-	config model.ConfigStoreCache
+	config     model.ConfigStoreCache
+	configHash [md5.Size]byte
 
 	vm     *jsonnet.VM
 	script string
@@ -190,6 +192,12 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 		return
 	}
 
+	if hash := md5.Sum(bytes); hash == g.servicesHash {
+		return
+	} else {
+		g.servicesHash = hash
+	}
+
 	err = ioutil.WriteFile("services.json", bytes, 0600)
 	if err != nil {
 		glog.Warning(err)
@@ -213,6 +221,12 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 	if err != nil {
 		glog.Warning(err)
 		return
+	}
+
+	if hash := md5.Sum(bytes); hash == g.configHash {
+		return
+	} else {
+		g.configHash = hash
 	}
 
 	err = ioutil.WriteFile("instances.json", bytes, 0600)
