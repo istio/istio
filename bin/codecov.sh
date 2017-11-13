@@ -50,7 +50,7 @@ ret=0
 for p in $pids; do
     if ! wait $p; then
         echo "${pkgs[$p]} failed"
-	ret=1
+        ret=1
     fi
 done
 

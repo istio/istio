@@ -64,7 +64,7 @@ jobs:
             PROXY=debug-$PROXYVERSION
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; maxprocs=2 bin/codecov.sh
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/codecov.sh
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash)
