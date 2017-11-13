@@ -1,0 +1,68 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package svcctrlReport;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/extensions.proto";
+import "mixer/v1/config/descriptor/value_type.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
+// A template used by Google Service Control (svcctrl) adapter. The adapter
+// generates metrics and logentry for each request based on the data point
+// defined by this template.
+//
+// Config example:
+// ```
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: svcctrlreport
+// metadata:
+//   name: report
+//   namespace: istio-system
+// spec:
+//   api_version : api.version | ""
+//   api_operation : api.operation | ""
+//   api_protocol : api.protocol | ""
+//   api_service : api.service | ""
+//   api_key : api.key | ""
+//   request_time : request.time
+//   request_method : request.method
+//   request_path : request.path
+//   request_bytes: request.size
+//   response_time : response.time
+//   response_code : response.code | 520
+//   response_bytes : response.size | 0
+//   response_latency : response.duration | "0ms"
+// ```
+message Template {
+    string api_version = 1;
+    string api_operation = 2;
+    string api_protocol = 3;
+    string api_service = 4;
+    string api_key = 5;
+
+    google.protobuf.Timestamp request_time = 6;
+    string request_method = 7;
+    string request_path = 8;
+    int64 request_bytes = 9;
+
+    google.protobuf.Timestamp response_time = 10;
+    int64 response_code = 11;
+    int64 response_bytes = 12;
+    google.protobuf.Duration response_latency = 13;
+}

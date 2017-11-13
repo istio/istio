@@ -52,19 +52,29 @@ vSeDCOUMYQR7R9LINYwouHIziqQYMAkGByqGSM44BAMDLwAwLAIUWXBlk40xTwSw
 -----END CERTIFICATE-----`
 )
 
+// AwsConfig ...
+type AwsConfig struct {
+	// Root CA cert file to validate the gRPC service in CA.
+	RootCACertFile string
+}
+
 // AwsClientImpl is the implementation of AWS metadata client.
 type AwsClientImpl struct {
+	config AwsConfig
 	client *ec2metadata.EC2Metadata
 }
 
 // NewAwsClientImpl creates a new AwsClientImpl.
-func NewAwsClientImpl() *AwsClientImpl {
-	return &AwsClientImpl{ec2metadata.New(session.Must(session.NewSession()))}
+func NewAwsClientImpl(config AwsConfig) *AwsClientImpl {
+	return &AwsClientImpl{
+		config: config,
+		client: ec2metadata.New(session.Must(session.NewSession())),
+	}
 }
 
 // GetDialOptions returns the GRPC dial options to connect to the CA.
-func (ci *AwsClientImpl) GetDialOptions(cfg *ClientConfig) ([]grpc.DialOption, error) {
-	creds, err := credentials.NewClientTLSFromFile(cfg.RootCACertFile, "")
+func (ci *AwsClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
+	creds, err := credentials.NewClientTLSFromFile(ci.config.RootCACertFile, "")
 	if err != nil {
 		return nil, err
 	}

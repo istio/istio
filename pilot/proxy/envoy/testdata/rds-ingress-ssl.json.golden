@@ -10,6 +10,7 @@
       "prefix": "/bar",
       "cluster": "out.hello.default.svc.cluster.local|http-status",
       "opaque_config": {
+       "destination.service": "hello.default.svc.cluster.local",
        "mixer_check": "on",
        "mixer_forward": "on",
        "mixer_report": "on"

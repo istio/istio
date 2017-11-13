@@ -15,10 +15,10 @@
 package grpc
 
 import (
+	"fmt"
 	"strings"
 
 	oidc "github.com/coreos/go-oidc"
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -41,13 +41,13 @@ const (
 	authSourceIDToken
 )
 
-type user struct {
+type caller struct {
 	authSource authSource
 	identities []string
 }
 
 type authenticator interface {
-	authenticate(ctx context.Context) *user
+	authenticate(ctx context.Context) (*caller, error)
 }
 
 // An authenticator that extracts identities from client certificate.
@@ -57,30 +57,32 @@ type clientCertAuthenticator struct{}
 // method assumes that certificate chain has been properly validated before
 // this method is called. In other words, this method does not do certificate
 // chain validation itself.
-func (cca *clientCertAuthenticator) authenticate(ctx context.Context) *user {
+func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
-		glog.Info("no client certificate is presented")
-		return nil
+		return nil, fmt.Errorf("no client certificate is presented")
 	}
 
 	if authType := peer.AuthInfo.AuthType(); authType != "tls" {
-		glog.Warningf("unsupported auth type: %q", authType)
-		return nil
+		return nil, fmt.Errorf("unsupported auth type: %q", authType)
+
 	}
 
 	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
 	chains := tlsInfo.State.VerifiedChains
 	if len(chains) == 0 || len(chains[0]) == 0 {
-		glog.Warningf("no verified chain is found")
-		return nil
+		return nil, fmt.Errorf("no verified chain is found")
 	}
 
-	ids := pki.ExtractIDs(chains[0][0].Extensions)
-	return &user{
+	ids, err := pki.ExtractIDs(chains[0][0].Extensions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &caller{
 		authSource: authSourceClientCertificate,
 		identities: ids,
-	}
+	}, nil
 }
 
 // An authenticator that extracts identity from JWT. The JWT is requied to be
@@ -99,46 +101,39 @@ func newIDTokenAuthenticator(aud string) (*idTokenAuthenticator, error) {
 	return &idTokenAuthenticator{verifier}, nil
 }
 
-func (ja *idTokenAuthenticator) authenticate(ctx context.Context) *user {
-	bearerToken := extractBearerToken(ctx)
-	if bearerToken == "" {
-		glog.Warning("no bearer token exists")
-
-		return nil
+func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, error) {
+	bearerToken, err := extractBearerToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ID token extraction error: %v", err)
 	}
 
 	idToken, err := ja.verifier.Verify(context.Background(), bearerToken)
 	if err != nil {
-		glog.Warningf("failed to verify the ID token (error %v)", err)
-
-		return nil
+		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
 	}
 
-	return &user{
+	return &caller{
 		authSource: authSourceIDToken,
 		identities: []string{idToken.Subject},
-	}
+	}, nil
 }
 
-func extractBearerToken(ctx context.Context) string {
+func extractBearerToken(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		glog.Warning("no metadata is attached")
-		return ""
+		return "", fmt.Errorf("no metadata is attached")
 	}
 
 	authHeader, exists := md[httpAuthHeader]
 	if !exists {
-		glog.Warning("no HTTP authorization header exists")
-		return ""
+		return "", fmt.Errorf("no HTTP authorization header exists")
 	}
 
 	for _, value := range authHeader {
 		if strings.HasPrefix(value, bearerTokenPrefix) {
-			return strings.TrimPrefix(value, bearerTokenPrefix)
+			return strings.TrimPrefix(value, bearerTokenPrefix), nil
 		}
 	}
 
-	glog.Warning("no bearer token exists in HTTP authorization header")
-	return ""
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }

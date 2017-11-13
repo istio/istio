@@ -43,7 +43,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Con
 	if cfg.IstioCAAddress == "" {
 		return nil, fmt.Errorf("Istio CA address is empty")
 	}
-	dialOptions, err := pc.GetDialOptions(&cfg.PlatformConfig)
+	dialOptions, err := pc.GetDialOptions()
 	if err != nil {
 		return nil, err
 	}
@@ -159,12 +159,12 @@ func (na *nodeAgentInternal) createRequest() ([]byte, *pb.Request, error) {
 		RSAKeySize: na.config.RSAKeySize,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate CSR: %v", err)
+		return nil, nil, fmt.Errorf("request creation fails on CSR generation (%v)", err)
 	}
 
 	cred, err := na.pc.GetAgentCredential()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get node agent credential: %v", err)
+		return nil, nil, fmt.Errorf("request creation fails on getting agent credential (%v)", err)
 	}
 
 	return privKey, &pb.Request{
