@@ -13,6 +13,8 @@ mixer/adapter/stackdriver/config/config.pb.go
 mixer/adapter/statsd/config/config.pb.go
 mixer/adapter/stdio/config/config.pb.go
 mixer/adapter/svcctrl/config/config.pb.go
+mixer/adapter/svcctrl/template/svcctrlreport/go_default_library_handler.gen.go
+mixer/adapter/svcctrl/template/svcctrlreport/go_default_library_tmpl.pb.go
 mixer/pkg/adapter/template/TemplateExtensions.pb.go
 mixer/pkg/aspect/config/attrgen.pb.go
 mixer/pkg/aspect/config/lists.pb.go
@@ -62,4 +64,3 @@ mixer/tools/codegen/pkg/interfacegen/testdata/report_tmpl.pb.go
 pilot/adapter/config/crd/types.go
 pilot/test/grpcecho/echo.pb.go
 security/proto/ca_service.pb.go
-tests/e2e/apps/hop/config/config.pb.go
