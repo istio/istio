@@ -538,3 +538,8 @@ func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
 		fMap: FuncMap(), cache: cache,
 	}, nil
 }
+
+// NewTypeChecker returns a new TypeChecker.
+func NewTypeChecker(cacheSize int) (TypeChecker, error) {
+	return NewCEXLEvaluator(cacheSize)
+}

@@ -32,8 +32,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-	v1 "k8s.io/api/core/v1"
 	v2alpha1 "k8s.io/api/batch/v2alpha1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -506,9 +506,9 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 	// `in` is a pointer to an Object. Dereference it.
 	outValue := reflect.ValueOf(out).Elem()
 
-	var objectMeta *metav1.ObjectMeta;
-	var templateObjectMeta *metav1.ObjectMeta;
-	var templatePodSpec *v1.PodSpec;
+	var objectMeta *metav1.ObjectMeta
+	var templateObjectMeta *metav1.ObjectMeta
+	var templatePodSpec *v1.PodSpec
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	if job, ok := out.(*v2alpha1.CronJob); ok {
@@ -526,7 +526,6 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		templateObjectMeta = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 		templatePodSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
 	}
-
 
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,
