@@ -493,3 +493,15 @@ message CorsPolicy {
   // Access-Control-Allow-Credentials header.
   google.protobuf.BoolValue allow_credentials = 6;
 }
+
+// Port describes the properties of a specific port of a service.
+message Port {
+  // A valid non-negative integer port number.
+  int32 number = 1;
+  // The protocol to communicate with the external services.
+  // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|REDIS|TCP.
+  string protocol = 2;
+
+  // Name assigned to the port.
+  string name = 3;
+}

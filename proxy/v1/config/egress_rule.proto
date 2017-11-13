@@ -43,15 +43,6 @@ package istio.proxy.v1.config;
 //           protocol: https
 //
 message EgressRule {
-  // Port describes the properties of a specific TCP port of an external service.
-  message Port {
-    // A valid non-negative integer port number.
-    int32 port = 1;
-    // The protocol to communicate with the external services.
-    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2.
-    string protocol = 2;
-  }
-
   // REQUIRED: Hostname or a wildcard domain name associated with the external service.
   // ONLY the "service" field of destination will be taken into consideration. Name,
   // namespace, domain and labels are ignored. Routing rules and destination policies that
