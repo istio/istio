@@ -76,7 +76,7 @@ $ githubctl --token_file=<github token file> \
     --base_branch=<release branch or master>
 ```
 
-### Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth.
+### Step 2: The previous command triggers rebuild and retagging on pilot, proxy, mixer and auth(security).
  Wait for them to finish. Check build job status [here](https://console.cloud.google.com/gcr/builds?project=istio-io&organizationId=433637338589).
 
 ### Step 3: Create an update PR in istio/istio.
