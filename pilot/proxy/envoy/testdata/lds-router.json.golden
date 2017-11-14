@@ -79,7 +79,30 @@
            "source.ip": "10.3.3.5",
            "source.uid": "kubernetes://router.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "serviceConfigs": {}
+          }
          }
         },
         {
@@ -136,7 +159,30 @@
            "source.ip": "10.3.3.5",
            "source.uid": "kubernetes://router.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "serviceConfigs": {}
+          }
          }
         },
         {
@@ -193,7 +239,30 @@
            "source.ip": "10.3.3.5",
            "source.uid": "kubernetes://router.default"
           },
-          "quota_name": "RequestCount"
+          "quota_name": "RequestCount",
+          "v2": {
+           "forwardAttributes": {
+            "attributes": {
+             "source.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "source.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "mixerAttributes": {
+            "attributes": {
+             "destination.ip": {
+              "bytesValue": "AAAAAAAAAAAAAP//CgMDBQ=="
+             },
+             "destination.uid": {
+              "stringValue": "kubernetes://router.default"
+             }
+            }
+           },
+           "serviceConfigs": {}
+          }
          }
         },
         {

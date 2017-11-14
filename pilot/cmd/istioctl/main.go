@@ -558,9 +558,16 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 		reader = os.Stdin
 	default:
 		var err error
-		if reader, err = os.Open(file); err != nil {
+		var in *os.File
+		if in, err = os.Open(file); err != nil {
 			return nil, nil, err
 		}
+		defer func() {
+			if err = in.Close(); err != nil {
+				glog.Errorf("Error: close file from %s, %s", file, err)
+			}
+		}()
+		reader = in
 	}
 	input, err := ioutil.ReadAll(reader)
 	if err != nil {

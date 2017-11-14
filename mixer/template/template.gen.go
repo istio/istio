@@ -31,6 +31,10 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 
+	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+
+	"istio.io/istio/mixer/template/apikey"
+
 	"istio.io/istio/mixer/template/checknothing"
 
 	"istio.io/istio/mixer/template/listentry"
@@ -43,6 +47,8 @@ import (
 
 	"istio.io/istio/mixer/template/reportnothing"
 
+	"istio.io/istio/mixer/template/tracespan"
+
 	"time"
 )
 
@@ -50,6 +56,467 @@ const emptyQuotes = "\"\""
 
 var (
 	SupportedTmplInfo = map[string]template.Info{
+
+		svcctrlreport.TemplateName: {
+			Name:               svcctrlreport.TemplateName,
+			Impl:               "svcctrlreport",
+			CtrCfg:             &svcctrlreport.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  svcctrlreport.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: svcctrlreport.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(svcctrlreport.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(svcctrlreport.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*svcctrlreport.InstanceParam)
+				infrdType := &svcctrlreport.Type{}
+
+				if cpb.ApiVersion == "" || cpb.ApiVersion == emptyQuotes {
+					return nil, errors.New("expression for field ApiVersion cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiVersion); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiVersion: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiVersion: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiOperation == "" || cpb.ApiOperation == emptyQuotes {
+					return nil, errors.New("expression for field ApiOperation cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiOperation); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiOperation: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiOperation: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiProtocol == "" || cpb.ApiProtocol == emptyQuotes {
+					return nil, errors.New("expression for field ApiProtocol cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiProtocol); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiProtocol: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiProtocol: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiService == "" || cpb.ApiService == emptyQuotes {
+					return nil, errors.New("expression for field ApiService cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiService); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiService: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiService: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiKey == "" || cpb.ApiKey == emptyQuotes {
+					return nil, errors.New("expression for field ApiKey cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiKey); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiKey: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiKey: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.RequestTime == "" || cpb.RequestTime == emptyQuotes {
+					return nil, errors.New("expression for field RequestTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.RequestTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field RequestTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field RequestTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				if cpb.RequestMethod == "" || cpb.RequestMethod == emptyQuotes {
+					return nil, errors.New("expression for field RequestMethod cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.RequestMethod); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field RequestMethod: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field RequestMethod: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.RequestPath == "" || cpb.RequestPath == emptyQuotes {
+					return nil, errors.New("expression for field RequestPath cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.RequestPath); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field RequestPath: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field RequestPath: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.RequestBytes == "" || cpb.RequestBytes == emptyQuotes {
+					return nil, errors.New("expression for field RequestBytes cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.RequestBytes); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field RequestBytes: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field RequestBytes: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.INT64)
+				}
+
+				if cpb.ResponseTime == "" || cpb.ResponseTime == emptyQuotes {
+					return nil, errors.New("expression for field ResponseTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ResponseTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ResponseTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ResponseTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				if cpb.ResponseCode == "" || cpb.ResponseCode == emptyQuotes {
+					return nil, errors.New("expression for field ResponseCode cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ResponseCode); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ResponseCode: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ResponseCode: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.INT64)
+				}
+
+				if cpb.ResponseBytes == "" || cpb.ResponseBytes == emptyQuotes {
+					return nil, errors.New("expression for field ResponseBytes cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ResponseBytes); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ResponseBytes: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ResponseBytes: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.INT64)
+				}
+
+				if cpb.ResponseLatency == "" || cpb.ResponseLatency == emptyQuotes {
+					return nil, errors.New("expression for field ResponseLatency cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ResponseLatency); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ResponseLatency: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ResponseLatency: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.DURATION)
+				}
+
+				_ = cpb
+				return infrdType, err
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(svcctrlreport.HandlerBuilder)
+				castedTypes := make(map[string]*svcctrlreport.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*svcctrlreport.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetSvcctrlReportTypes(castedTypes)
+			},
+
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*svcctrlreport.Instance
+				for name, inst := range insts {
+					md := inst.(*svcctrlreport.InstanceParam)
+
+					ApiVersion, err := mapper.Eval(md.ApiVersion, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ApiVersion for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ApiOperation, err := mapper.Eval(md.ApiOperation, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ApiOperation for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ApiProtocol, err := mapper.Eval(md.ApiProtocol, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ApiProtocol for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ApiService, err := mapper.Eval(md.ApiService, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ApiService for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ApiKey, err := mapper.Eval(md.ApiKey, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ApiKey for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					RequestTime, err := mapper.Eval(md.RequestTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval RequestTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					RequestMethod, err := mapper.Eval(md.RequestMethod, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval RequestMethod for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					RequestPath, err := mapper.Eval(md.RequestPath, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval RequestPath for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					RequestBytes, err := mapper.Eval(md.RequestBytes, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval RequestBytes for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ResponseTime, err := mapper.Eval(md.ResponseTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ResponseTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ResponseCode, err := mapper.Eval(md.ResponseCode, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ResponseCode for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ResponseBytes, err := mapper.Eval(md.ResponseBytes, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ResponseBytes for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ResponseLatency, err := mapper.Eval(md.ResponseLatency, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ResponseLatency for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					instances = append(instances, &svcctrlreport.Instance{
+						Name: name,
+
+						ApiVersion: ApiVersion.(string),
+
+						ApiOperation: ApiOperation.(string),
+
+						ApiProtocol: ApiProtocol.(string),
+
+						ApiService: ApiService.(string),
+
+						ApiKey: ApiKey.(string),
+
+						RequestTime: RequestTime.(time.Time),
+
+						RequestMethod: RequestMethod.(string),
+
+						RequestPath: RequestPath.(string),
+
+						RequestBytes: RequestBytes.(int64),
+
+						ResponseTime: ResponseTime.(time.Time),
+
+						ResponseCode: ResponseCode.(int64),
+
+						ResponseBytes: ResponseBytes.(int64),
+
+						ResponseLatency: ResponseLatency.(time.Duration),
+					})
+					_ = md
+				}
+
+				if err := handler.(svcctrlreport.Handler).HandleSvcctrlReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+		},
+
+		apikey.TemplateName: {
+			Name:               apikey.TemplateName,
+			Impl:               "apikey",
+			CtrCfg:             &apikey.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  apikey.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: apikey.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(apikey.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(apikey.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*apikey.InstanceParam)
+				infrdType := &apikey.Type{}
+
+				if cpb.Api == "" || cpb.Api == emptyQuotes {
+					return nil, errors.New("expression for field Api cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Api); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Api: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Api: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiVersion == "" || cpb.ApiVersion == emptyQuotes {
+					return nil, errors.New("expression for field ApiVersion cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiVersion); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiVersion: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiVersion: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiOperation == "" || cpb.ApiOperation == emptyQuotes {
+					return nil, errors.New("expression for field ApiOperation cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiOperation); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiOperation: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiOperation: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ApiKey == "" || cpb.ApiKey == emptyQuotes {
+					return nil, errors.New("expression for field ApiKey cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ApiKey); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ApiKey: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ApiKey: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.Timestamp == "" || cpb.Timestamp == emptyQuotes {
+					return nil, errors.New("expression for field Timestamp cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field Timestamp: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field Timestamp: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				_ = cpb
+				return infrdType, err
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(apikey.HandlerBuilder)
+				castedTypes := make(map[string]*apikey.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*apikey.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetApiKeyTypes(castedTypes)
+			},
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+				castedInst := inst.(*apikey.InstanceParam)
+
+				Api, err := mapper.Eval(castedInst.Api, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Api for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiVersion, err := mapper.Eval(castedInst.ApiVersion, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiVersion for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiOperation, err := mapper.Eval(castedInst.ApiOperation, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiOperation for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				ApiKey, err := mapper.Eval(castedInst.ApiKey, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval ApiKey for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				Timestamp, err := mapper.Eval(castedInst.Timestamp, attrs)
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to eval Timestamp for instance '%s': %v", instName, err)
+					glog.Error(msg)
+					return adapter.CheckResult{}, errors.New(msg)
+				}
+
+				_ = castedInst
+
+				instance := &apikey.Instance{
+					Name: instName,
+
+					Api: Api.(string),
+
+					ApiVersion: ApiVersion.(string),
+
+					ApiOperation: ApiOperation.(string),
+
+					ApiKey: ApiKey.(string),
+
+					Timestamp: Timestamp.(time.Time),
+				}
+				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+			},
+		},
 
 		checknothing.TemplateName: {
 			Name:               checknothing.TemplateName,
@@ -549,6 +1016,196 @@ var (
 				}
 
 				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+		},
+
+		tracespan.TemplateName: {
+			Name:               tracespan.TemplateName,
+			Impl:               "tracespan",
+			CtrCfg:             &tracespan.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
+			BldrInterfaceName:  tracespan.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: tracespan.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(tracespan.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(tracespan.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+				var err error = nil
+				cpb := cp.(*tracespan.InstanceParam)
+				infrdType := &tracespan.Type{}
+
+				if cpb.TraceId == "" || cpb.TraceId == emptyQuotes {
+					return nil, errors.New("expression for field TraceId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.TraceId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field TraceId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field TraceId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.SpanId == "" || cpb.SpanId == emptyQuotes {
+					return nil, errors.New("expression for field SpanId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.SpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field SpanId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field SpanId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.ParentSpanId == "" || cpb.ParentSpanId == emptyQuotes {
+					return nil, errors.New("expression for field ParentSpanId cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.ParentSpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field ParentSpanId: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field ParentSpanId: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.SpanName == "" || cpb.SpanName == emptyQuotes {
+					return nil, errors.New("expression for field SpanName cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.SpanName); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field SpanName: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field SpanName: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.STRING)
+				}
+
+				if cpb.StartTime == "" || cpb.StartTime == emptyQuotes {
+					return nil, errors.New("expression for field StartTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.StartTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field StartTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field StartTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				if cpb.EndTime == "" || cpb.EndTime == emptyQuotes {
+					return nil, errors.New("expression for field EndTime cannot be empty")
+				}
+				if t, e := tEvalFn(cpb.EndTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
+					if e != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field EndTime: %v", e)
+					}
+					return nil, fmt.Errorf("error type checking for field EndTime: Evaluated expression type %v want %v", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
+				}
+
+				infrdType.SpanTags = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.SpanTags))
+				for k, v := range cpb.SpanTags {
+					if infrdType.SpanTags[k], err = tEvalFn(v); err != nil {
+						return nil, err
+					}
+				}
+
+				_ = cpb
+				return infrdType, err
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(tracespan.HandlerBuilder)
+				castedTypes := make(map[string]*tracespan.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*tracespan.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetTraceSpanTypes(castedTypes)
+			},
+
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
+				var instances []*tracespan.Instance
+				for name, inst := range insts {
+					md := inst.(*tracespan.InstanceParam)
+
+					TraceId, err := mapper.Eval(md.TraceId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval TraceId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanId, err := mapper.Eval(md.SpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					ParentSpanId, err := mapper.Eval(md.ParentSpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval ParentSpanId for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanName, err := mapper.Eval(md.SpanName, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanName for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					StartTime, err := mapper.Eval(md.StartTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval StartTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					EndTime, err := mapper.Eval(md.EndTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval EndTime for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					SpanTags, err := template.EvalAll(md.SpanTags, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to eval SpanTags for instance '%s': %v", name, err)
+						glog.Error(msg)
+						return errors.New(msg)
+					}
+
+					instances = append(instances, &tracespan.Instance{
+						Name: name,
+
+						TraceId: TraceId.(string),
+
+						SpanId: SpanId.(string),
+
+						ParentSpanId: ParentSpanId.(string),
+
+						SpanName: SpanName.(string),
+
+						StartTime: StartTime.(time.Time),
+
+						EndTime: EndTime.(time.Time),
+
+						SpanTags: SpanTags,
+					})
+					_ = md
+				}
+
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil

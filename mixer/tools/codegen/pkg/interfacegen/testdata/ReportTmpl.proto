@@ -39,4 +39,48 @@ message Template {
     google.protobuf.Timestamp timeStamp = 9;
 
     google.protobuf.Duration duration = 10;
+
+    repeated Resource3 res3_list = 11;
+    map<string, Resource3> res3_map = 12;
 }
+
+message Resource1 {
+    string str = 1;
+    istio.mixer.adapter.metric.Resource1 self_ref_res1 = 3;
+    Resource2 resRef2 = 2;
+}
+
+message Resource2 {
+    string str = 1;
+    Resource3 res3 = 2;
+    repeated Resource3 res3_list = 4;
+    map<string, Resource3> res3_map = 5;
+}
+
+// resource3 comment
+message Resource3 {
+    // value is ...
+    istio.mixer.v1.config.descriptor.ValueType value = 1;
+    // dimensions are ...
+    map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
+
+    int64 int64Primitive = 3;
+
+    bool boolPrimitive = 4;
+
+    double doublePrimitive = 5;
+
+    string stringPrimitive = 6;
+
+    istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
+
+    map<string, int64> dimensionsFixedInt64ValueDType = 8;
+
+    google.protobuf.Timestamp timeStamp = 9;
+
+    google.protobuf.Duration duration = 10;
+}
+
+// Tests
+// - Ref template
+

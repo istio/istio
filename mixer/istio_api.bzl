@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "73a204e9501544c77e4084f66d13ebd3b757f29f"
+ISTIO_API_SHA = "34f551ec1a4af4e85376348ddffd9813886e7ceb"
 
 def go_istio_api_repositories(use_local=False):
     ISTIO_API_BUILD_FILE = """
@@ -201,6 +201,48 @@ filegroup(
     name = "mixer/v1/attributes_file",
     srcs = ["mixer/v1/global_dictionary.yaml"],
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "attributes",
+    srcs = ["mixer/v1/attributes.proto"],
+    visibility = ["//visibility:public"],
+)
+
+gogoslick_proto_library(
+    name = "mixer/v1/config/client",
+    importmap = {
+        "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
+        "mixer/v1/attributes.proto": "istio.io/api/mixer/v1",
+        "mixer/v1/config/client/api_spec.proto": "istio.io/api/mixer/v1/config/client",
+        "mixer/v1/config/client/quota.proto": "istio.io/api/mixer/v1/config/client",
+        "mixer/v1/config/client/service.proto": "istio.io/api/mixer/v1/config/client",
+        "mixer/v1/config/client/client_config.proto": "istio.io/api/mixer/v1/config/client",
+    },
+    imports = [
+        "../../external/com_github_gogo_protobuf",
+        "../../external/com_github_google_protobuf/src",
+    ],
+    inputs = [
+        "@com_github_google_protobuf//:well_known_protos",
+        "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
+        "@io_istio_api//:attributes",
+    ],
+    protos = [
+        "mixer/v1/config/client/service.proto",
+        "mixer/v1/config/client/api_spec.proto",
+        "mixer/v1/config/client/quota.proto",
+        "mixer/v1/config/client/client_config.proto",
+    ],
+    verbose = 0,
+    visibility = ["//visibility:public"],
+    with_grpc = False,
+    deps = [
+        "@com_github_gogo_protobuf//gogoproto:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+        "@io_istio_api//:mixer/v1",
+    ],
 )
 """
     if use_local:

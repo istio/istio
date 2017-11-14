@@ -18,25 +18,24 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-
-	"istio.io/istio/security/pkg/platform"
 )
 
 // FakeClient is mocked platform metadata client.
 type FakeClient struct {
-	DialOption     []grpc.DialOption
-	DialOptionErr  string
-	Identity       string
-	IdentityErr    string
-	ProperPlatform bool
+	DialOption         []grpc.DialOption
+	DialOptionErr      string
+	Identity           string
+	IdentityErr        string
+	AgentCredential    []byte
+	AgentCredentialErr string
+	ProperPlatform     bool
 }
 
 // GetDialOptions returns the DialOption field.
-func (f FakeClient) GetDialOptions(*platform.ClientConfig) ([]grpc.DialOption, error) {
+func (f FakeClient) GetDialOptions() ([]grpc.DialOption, error) {
 	if len(f.DialOptionErr) > 0 {
 		return nil, fmt.Errorf(f.DialOptionErr)
 	}
-
 	return f.DialOption, nil
 }
 
@@ -45,7 +44,6 @@ func (f FakeClient) GetServiceIdentity() (string, error) {
 	if len(f.IdentityErr) > 0 {
 		return "", fmt.Errorf(f.IdentityErr)
 	}
-
 	return f.Identity, nil
 }
 
@@ -56,7 +54,10 @@ func (f FakeClient) IsProperPlatform() bool {
 
 // GetAgentCredential returns empty credential.
 func (f FakeClient) GetAgentCredential() ([]byte, error) {
-	return []byte{}, nil
+	if len(f.AgentCredentialErr) > 0 {
+		return nil, fmt.Errorf(f.AgentCredentialErr)
+	}
+	return f.AgentCredential, nil
 }
 
 // GetCredentialType returns "fake".

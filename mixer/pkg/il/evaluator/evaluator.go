@@ -17,10 +17,7 @@ package evaluator
 import (
 	"errors"
 	"fmt"
-	"net"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
@@ -32,6 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiler"
 	"istio.io/istio/mixer/pkg/il/interpreter"
+	"istio.io/istio/mixer/pkg/il/runtime"
 )
 
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
@@ -53,57 +51,6 @@ type attrContext struct {
 
 var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
-
-const ipFnName = "ip"
-const ipEqualFnName = "ip_equal"
-const timestampFnName = "timestamp"
-const timestampEqualFnName = "timestamp_equal"
-const matchFnName = "match"
-
-var ipExternFn = interpreter.ExternFromFn(ipFnName, func(in string) ([]byte, error) {
-	if ip := net.ParseIP(in); ip != nil {
-		return []byte(ip), nil
-	}
-	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
-})
-
-var ipEqualExternFn = interpreter.ExternFromFn(ipEqualFnName, func(a []byte, b []byte) bool {
-	// net.IP is an alias for []byte, so these are safe to convert
-	ip1 := net.IP(a)
-	ip2 := net.IP(b)
-	return ip1.Equal(ip2)
-})
-
-var timestampExternFn = interpreter.ExternFromFn(timestampFnName, func(in string) (time.Time, error) {
-	layout := time.RFC3339
-	t, err := time.Parse(layout, in)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("could not convert '%s' to TIMESTAMP. expected format: '%s'", in, layout)
-	}
-	return t, nil
-})
-
-var timestampEqualExternFn = interpreter.ExternFromFn(timestampEqualFnName, func(t1 time.Time, t2 time.Time) bool {
-	return t1.Equal(t2)
-})
-
-var matchExternFn = interpreter.ExternFromFn(matchFnName, func(str string, pattern string) bool {
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(str, pattern[:len(pattern)-1])
-	}
-	if strings.HasPrefix(pattern, "*") {
-		return strings.HasSuffix(str, pattern[1:])
-	}
-	return str == pattern
-})
-
-var externMap = map[string]interpreter.Extern{
-	ipFnName:             ipExternFn,
-	ipEqualFnName:        ipEqualExternFn,
-	timestampFnName:      timestampExternFn,
-	timestampEqualFnName: timestampEqualExternFn,
-	matchFnName:          matchExternFn,
-}
 
 type cacheEntry struct {
 	expression  *expr.Expression
@@ -246,7 +193,7 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 
-	intr := interpreter.New(result.Program, externMap)
+	intr := interpreter.New(result.Program, runtime.Externs)
 	entry := cacheEntry{
 		expression:  result.Expression,
 		interpreter: intr,
@@ -256,6 +203,12 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 
 	return entry, nil
 }
+
+// DefaultCacheSize is the default size for the expression cache.
+const DefaultCacheSize = 1024
+
+// DefaultMaxStringTableSizeForPurge is the default value for
+const DefaultMaxStringTableSizeForPurge = 1024
 
 // NewILEvaluator returns a new instance of IL.
 func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) {

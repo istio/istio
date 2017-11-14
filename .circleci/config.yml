@@ -5,6 +5,8 @@ jobs:
     working_directory: ~/go/src/istio.io/istio
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
+      HUB: docker.io/dnerepo
+      TAG: dontpush
     steps:
       - checkout
       - run: pilot/bin/install-bazel.sh
@@ -26,8 +28,8 @@ jobs:
           key: bazel-cache-{{ checksum "WORKSPACE" }}
           paths:
             - /home/circleci/.cache/bazel      
-      - run: make docker HUB=docker.io/rshriram TAG=test  # make docker images for everything
-      - run: cd pilot; mkdir /home/circleci/logs; make e2etest HUB=docker.io/rshriram TAG=test TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
+      - run: make docker HUB=$HUB TAG=$TAG  # make docker images for everything
+      - run: cd pilot; mkdir /home/circleci/logs; make e2etest HUB=$HUB TAG=$TAG TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash)
@@ -57,12 +59,15 @@ jobs:
           command: |
             mkdir ~/envoy
             cd ~/envoy
-            wget https://storage.googleapis.com/istio-build/proxy/envoy-debug-5d798021523fa1e587fa45d48b4ce38e25967ed3.tar.gz -O envoy.tar.gz
-            tar xvzf envoy.tar.gz
+            ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' /go/src/istio.io/istio/WORKSPACE))
+            PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+            PROXY=debug-$PROXYVERSION
+            wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; go test ./pilot/...
-      - run: cd /go/src/istio.io/istio; go test ./security/...
-      - run: cd /go/src/istio.io/istio; go test ./broker/...
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/codecov.sh
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash)
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:

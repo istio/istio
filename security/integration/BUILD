@@ -5,6 +5,7 @@ go_library(
     srcs = ["main.go"],
     visibility = ["//visibility:private"],
     deps = [
+        "//security/integration/utils:go_default_library",
         "//security/pkg/cmd:go_default_library",
         "//security/pkg/pki/ca/controller:go_default_library",
         "//security/pkg/pki/testutil:go_default_library",

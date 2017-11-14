@@ -50,7 +50,7 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.PlatformConfig.CertChainFile, cfg.PlatformConfig.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile, cfg.PlatformConfig.OnPremConfig.KeyFile))
 	if err != nil {
 		glog.Fatalf("Workload IO creation error: %v", err)
 	}

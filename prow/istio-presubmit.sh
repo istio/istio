@@ -73,7 +73,19 @@ time bazel test --test_output=all //...
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh
 
+diff=`git diff`
+if [[ -n "$diff" ]]; then
+  echo "Some uncommitted changes are found. Maybe miss committing some generated files? Here's the diff"
+  echo $diff
+  # Do not fail for the changes for now; presubmit bot may share the bazel-genfiles, and that will cause
+  # unrelated failure here randomly. See https://github.com/istio/istio/issues/1689 for the details.
+  # TODO: fix the problem and fail here again.
+  # exit -1
+fi
+
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images
 time make push HUB="${HUB}" TAG="${TAG}"
+
+time cd ${ROOT}/pilot; make e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
