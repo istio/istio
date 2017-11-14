@@ -46,6 +46,28 @@ proto_compile(
 )
 
 proto_compile(
+    name = "unsupported_field_type_message",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/io_istio_api",
+    ],
+    inputs = [
+        "@io_istio_api//:mixer/v1/template_protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+    ],
+    protos = [
+        "UnsupportedFieldTypeMessage.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
     name = "unsupported_field_type_as_map",
     testonly = True,
     args = [
@@ -293,6 +315,7 @@ filegroup(
         "simple_template.descriptor_set",
         "unsupported_field_type_as_map.descriptor_set",
         "unsupported_field_type_enum.descriptor_set",
+        "unsupported_field_type_message.descriptor_set",
         "unsupported_field_type_primitive.descriptor_set",
         "wrong_pkg_name.descriptor_set",
     ],
