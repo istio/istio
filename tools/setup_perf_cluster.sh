@@ -66,13 +66,13 @@ function run_fortio_on_vm() {
 
 function get_vm_ip() {
   VM_IP=$(gcloud compute instances describe $VM_NAME $GCP_OPTS |grep natIP|awk -F": " '{print $2}')
-  echo "+++ VM Ip is $VM_IP - visit http://$VM_IP:8080/fortio"
+  echo "+++ VM Ip is $VM_IP - visit http://$VM_IP/fortio/"
 }
 
 # assumes run from istio/ (or release) directory
 function install_istio() {
-  # Use the non debug ingress:
-  execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | kubectl apply -f -'
+  # Use the non debug ingress and remove the -v "2"
+  execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
 }
 
 function kubectl_setup() {
@@ -100,7 +100,7 @@ function install_istio_ingress_rules() {
 
 function get_fortio_k8s_ip() {
   FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio"
+  echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
 }
 
 function setup_non_istio_ingress() {
@@ -118,25 +118,25 @@ _EOF_
 
 function get_non_istio_ingress_ip() {
   K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio"
+  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
 function get_istio_ingress_ip() {
   ISTIO_INGRESS_IP=$(kubectl -n $ISTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
-  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio and fortio2"
+  echo "+++ In k8s istio ingress: http://$ISTIO_INGRESS_IP/fortio1/fortio/ and fortio2"
 }
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  execute curl "http://$VM_IP/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  execute curl "http://$VM_IP/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
+  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 function run_fortio_test3() {
   echo "Using istio ingress:"
-  execute curl "http://$VM_IP/fortio?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
+  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
 }
 
 echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
@@ -186,8 +186,8 @@ function run_tests() {
 # Normal mode: all at once:
 setup_all
 
-#  update_fortio_on_vm
-#  run_fortio_on_vm
+#update_fortio_on_vm
+#run_fortio_on_vm
 #setup_vm_all
 
 # test/retry one step at a time, eg.
@@ -198,5 +198,8 @@ setup_all
 #install_istio_ingress
 #install_istio_ingress_rules
 #setup_non_istio_ingress
+#install_istio
+#setup_vm_firewall
+#get_ips
 
 run_tests
