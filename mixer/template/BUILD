@@ -7,7 +7,6 @@ mixer_supported_template_library(
     packages = {
         "//mixer/adapter/svcctrl/template/svcctrlreport:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport",
         "//mixer/template/apikey:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/apikey",
-        "//mixer/template/authz:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/authz",
         "//mixer/template/checknothing:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/checknothing",
         "//mixer/template/listentry:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/listentry",
         "//mixer/template/logentry:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/logentry",
@@ -19,7 +18,6 @@ mixer_supported_template_library(
     deps = [
         "//mixer/adapter/svcctrl/template/svcctrlreport:go_default_library",
         "//mixer/template/apikey:go_default_library",
-        "//mixer/template/authz:go_default_library",
         "//mixer/template/checknothing:go_default_library",
         "//mixer/template/listentry:go_default_library",
         "//mixer/template/logentry:go_default_library",
