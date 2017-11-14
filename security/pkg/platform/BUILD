@@ -28,6 +28,7 @@ go_test(
     size = "small",
     srcs = [
         "aws_test.go",
+        "client_test.go",
         "gcp_test.go",
         "onprem_test.go",
     ],
