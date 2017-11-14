@@ -437,8 +437,9 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 		}
 	}
 
-	glog.Info("Sleeping for the config to propagate")
-	time.Sleep(3 * time.Second)
+	sleepTime := time.Second * 20
+	glog.Infof("Sleeping %v for the config to propagate", sleepTime)
+	time.Sleep(sleepTime)
 	return nil
 }
 

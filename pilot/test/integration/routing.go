@@ -132,7 +132,7 @@ func (t *routing) run() error {
 			return err
 		}
 
-		if err := repeat(cs.check, 3, time.Second); err != nil {
+		if err := repeat(cs.check, 3, 5 * time.Second); err != nil {
 			glog.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
