@@ -67,7 +67,7 @@ cd $ROOT
 # Build
 ${ROOT}/bin/init.sh
 
-rm -rf `bazel info bazel-genfiles`
+rm -rf `bazel info bazel-genfiles`/*
 
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
