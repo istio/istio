@@ -186,27 +186,6 @@ func TestGcpRequireTransportSecurity(t *testing.T) {
 	}
 }
 
-func TestGcpIsProperPlatforms(t *testing.T) {
-	testCases := map[string]struct {
-		token         string
-		tokenFetchErr string
-		expected      bool
-	}{
-		"Good Identity": {
-			expected: false,
-		},
-	}
-
-	for id, c := range testCases {
-		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
-
-		isProperPlatform := gcp.IsProperPlatform()
-		if isProperPlatform != c.expected {
-			t.Errorf("%s: type Expected %v, Actual %v", id, c.expected, isProperPlatform)
-		}
-	}
-}
-
 func TestGcpGetAgentCredentials(t *testing.T) {
 	testCases := map[string]struct {
 		token              string
