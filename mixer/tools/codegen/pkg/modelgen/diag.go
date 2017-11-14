@@ -80,10 +80,10 @@ func stringifyDiags(diags []diag) string {
 }
 
 func (m *Model) addError(file string, line string, format string, a ...interface{}) {
-	m.diags = append(m.diags, createError(file, line, format, a))
+	m.diags = append(m.diags, createError(file, line, format, a...))
 }
 
-func createError(file string, line string, format string, a []interface{}) diag {
+func createError(file string, line string, format string, a ...interface{}) diag {
 	if len(a) == 0 {
 		return diag{kind: errorDiag, location: location{file: file, line: line}, message: format}
 	}

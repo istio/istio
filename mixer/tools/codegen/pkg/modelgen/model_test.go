@@ -34,12 +34,11 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/missing_both_required.descriptor_set", "There has to be one proto file that has the " +
 			"extension istio.mixer.v1.template.template_variety"},
 		{"testdata/missing_template_message.descriptor_set", "message 'Template' not defined"},
-		{"testdata/reserved_field_in_template.descriptor_set", "proto:14: Template message must not contain the reserved filed name 'Name'"},
+		{"testdata/reserved_field_in_template.descriptor_set", "proto:14: Template message must not contain the reserved field name 'Name'"},
 		{"testdata/proto2_bad_syntax.descriptor_set", "Proto2BadSyntax.proto:3: Only proto3 template files are allowed."},
-		{"testdata/unsupported_field_type_message.descriptor_set", "UnsupportedFieldTypeMessage.proto:12: " +
-			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, istio.mixer.v1.config.descriptor.ValueType, map<string, " +
-			"istio.mixer.v1.config.descriptor.ValueType | string | int64 | double | bool>'"},
-		{"testdata/unsupported_field_type_primitive.descriptor_set", "unsupported type for field 'o'."},
+		{"testdata/unsupported_field_type_primitive.descriptor_set", "unsupported type for field 'o'. " +
+			"Supported types are 'string, int64, double, bool, istio.mixer.v1.config.descriptor.ValueType, other messages" +
+			" defined within the same package, map<string, any of the listed supported types>"},
 		{"testdata/unsupported_field_type_as_map.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/unsupported_field_type_enum.descriptor_set", "unsupported type for field 'o'."},
 		{"testdata/wrong_pkg_name.descriptor_set", "WrongPkgName.proto:2: the last segment of package " +
@@ -54,7 +53,7 @@ func TestErrorInTemplate(t *testing.T) {
 				t.Fatalf("CreateModel(%s) caused error 'nil', \n wanted err that contains string `%v`",
 					tt.src, fmt.Errorf(tt.expectedError))
 			} else if !strings.Contains(err.Error(), tt.expectedError) {
-				t.Errorf("CreateModel(%s) caused error '%v', \n wanted err that contains string `%v`",
+				t.Errorf("CreateModel(%s) caused error\n%v;wanted err that contains string\n%v",
 					tt.src, err, fmt.Errorf(tt.expectedError))
 			}
 		})
@@ -90,34 +89,39 @@ func TestBasicTopLevelFields(t *testing.T) {
 }
 
 func TestTypeFields(t *testing.T) {
-	testFilename := "testdata/simple_template.descriptor_set"
 	model, _ := createTestModel(t,
-		testFilename)
+		"testdata/simple_template.descriptor_set")
 
-	if len(model.TemplateMessage.Fields) != 10 {
-		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", testFilename, len(model.TemplateMessage.Fields), 10)
+	testCompleteFieldList(model.TemplateMessage, t)
+	var res3MsgInfo MessageInfo
+	for _, j := range model.ResourceMessages {
+		if j.Name == "Resource3" {
+			res3MsgInfo = j
+		}
 	}
-	testField(t, model.TemplateMessage.Fields,
-		"blacklist", TypeInfo{Name: "bool"}, "Blacklist", TypeInfo{Name: "bool"}, "multi line comment line 2")
+	testCompleteFieldList(res3MsgInfo, t)
+}
 
-	testField(t, model.TemplateMessage.Fields,
+func testCompleteFieldList(msgInfo MessageInfo, t *testing.T) {
+	if len(msgInfo.Fields) != 12 {
+		t.Fatalf("len(CreateModel(%s).TypeMessage.Fields) = %v, wanted %d", "testdata/simple_template", len(msgInfo.Fields), 12)
+	}
+	testField(t, msgInfo.Fields,
+		"blacklist", TypeInfo{Name: "bool"}, "Blacklist", TypeInfo{Name: "bool"}, "multi line comment line 2")
+	testField(t, msgInfo.Fields,
 		"fieldInt64", TypeInfo{Name: "int64"},
 		"FieldInt64", TypeInfo{Name: "int64"}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"fieldString", TypeInfo{Name: "string"},
 		"FieldString", TypeInfo{Name: "string"}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"fieldDouble", TypeInfo{Name: "double"},
 		"FieldDouble", TypeInfo{Name: "float64"}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"val",
 		TypeInfo{Name: "istio.mixer.v1.config.descriptor.ValueType", IsValueType: true}, "Val",
 		TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true}, "single line block comment")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"dimensions",
 		TypeInfo{Name: "map<string, istio.mixer.v1.config.descriptor.ValueType>",
 			IsMap:    true,
@@ -131,8 +135,7 @@ func TestTypeFields(t *testing.T) {
 			MapKey:   &TypeInfo{Name: "string"},
 			MapValue: &TypeInfo{Name: "istio_mixer_v1_config_descriptor.ValueType", IsValueType: true},
 		}, "single line comment")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"dimensionsConstInt64Val",
 		TypeInfo{Name: "map<string, int64>",
 			IsMap:    true,
@@ -146,8 +149,7 @@ func TestTypeFields(t *testing.T) {
 			MapKey:   &TypeInfo{Name: "string"},
 			MapValue: &TypeInfo{Name: "int64"},
 		}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"dimensionsConstStringVal",
 		TypeInfo{Name: "map<string, string>",
 			IsMap:    true,
@@ -161,8 +163,7 @@ func TestTypeFields(t *testing.T) {
 			MapKey:   &TypeInfo{Name: "string"},
 			MapValue: &TypeInfo{Name: "string"},
 		}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"dimensionsConstBoolVal",
 		TypeInfo{Name: "map<string, bool>",
 			IsMap:    true,
@@ -176,8 +177,7 @@ func TestTypeFields(t *testing.T) {
 			MapKey:   &TypeInfo{Name: "string"},
 			MapValue: &TypeInfo{Name: "bool"},
 		}, "")
-
-	testField(t, model.TemplateMessage.Fields,
+	testField(t, msgInfo.Fields,
 		"dimensionsConstDoubleVal",
 		TypeInfo{Name: "map<string, double>",
 			IsMap:    true,
@@ -190,6 +190,34 @@ func TestTypeFields(t *testing.T) {
 			IsMap:    true,
 			MapKey:   &TypeInfo{Name: "string"},
 			MapValue: &TypeInfo{Name: "float64"},
+		}, "")
+	testField(t, msgInfo.Fields,
+		"res3_list",
+		TypeInfo{Name: "repeated foo.bar.Resource3",
+			IsResourceMessage: true,
+			IsRepeated:        true,
+		},
+		"Res3List",
+		TypeInfo{
+			Name:              "[]*Resource3",
+			IsResourceMessage: true,
+			IsRepeated:        true,
+		}, "")
+	testField(t, msgInfo.Fields,
+		"res3_map",
+		TypeInfo{Name: "map<string, foo.bar.Resource3>",
+			IsResourceMessage: false,
+			IsMap:             true,
+			MapKey:            &TypeInfo{Name: "string"},
+			MapValue:          &TypeInfo{Name: "foo.bar.Resource3", IsResourceMessage: true},
+		},
+		"Res3Map",
+		TypeInfo{
+			Name:              "map[string]*Resource3",
+			IsResourceMessage: false,
+			IsMap:             true,
+			MapKey:            &TypeInfo{Name: "string"},
+			MapValue:          &TypeInfo{Name: "*Resource3", IsResourceMessage: true},
 		}, "")
 }
 
@@ -204,8 +232,8 @@ func testField(t *testing.T, fields []FieldInfo, protoFldName string, protoFldTy
 				!reflect.DeepEqual(cf.ProtoType, protoFldType) ||
 				!reflect.DeepEqual(cf.GoType, goFldType) ||
 				!strings.Contains(cf.Comment, comment) {
-				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = GoName:%s, ProtoType:%v, GoType:%v, Comment:%s"+
-					"\nwanted GoName:%s, ProtoType:%v, GoType:%v, comment: %s",
+				t.Fatalf("Got CreateModel(%s).TemplateMessage.Fields[%s] = \nGoName:%s, ProtoType:%v, GoType:%v, Comment:%s"+
+					";wanted\nGoName:%s, ProtoType:%v, GoType:%v, comment: %s",
 					testFilename, protoFldName, cf.GoName, cf.ProtoType, cf.GoType, cf.Comment, goFldName, protoFldType, goFldType, comment)
 			}
 		}
