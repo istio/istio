@@ -6,6 +6,7 @@ go_library(
         "access.go",
         "driver.go",
         "egress_rules.go",
+	"egress_rules_http_tls_origination.go",
         "grpc.go",
         "headless.go",
         "http.go",
