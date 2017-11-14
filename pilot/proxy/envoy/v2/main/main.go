@@ -31,7 +31,7 @@ func main() {
 	}
 	if domain == "" {
 		if namespace, exists := os.LookupEnv("POD_NAMESPACE"); exists {
-			domain = namespace + "svc.cluster.local"
+			domain = namespace + ".svc.cluster.local"
 		}
 	}
 

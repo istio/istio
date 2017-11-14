@@ -382,7 +382,7 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 
 	if p.Experimental {
 		// sidecar proxy container
-		args := []string{"-v", "2", "--logtostderr", "--config", p.Mesh.DefaultConfig.ConfigPath}
+		args := []string{"-v", "10", "--logtostderr", "--config", p.Mesh.DefaultConfig.ConfigPath}
 
 		volumeMounts := []v1.VolumeMount{
 			{

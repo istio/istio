@@ -168,6 +168,7 @@ func (g *Generator) Generate() {
 		endpoints := make([]proto.Message, 0, len(g.clusters))
 		for _, msg := range g.clusters {
 			cluster := msg.(*api.Cluster)
+			// note that EDS present service name instead of cluster name here
 			if cluster.EdsClusterConfig != nil {
 				hostname, ports, labelcols := model.ParseServiceKey(cluster.EdsClusterConfig.ServiceName)
 				instances, err := g.services.Instances(hostname, ports.GetNames(), labelcols)
@@ -190,11 +191,12 @@ func (g *Generator) Generate() {
 					})
 				}
 				endpoints = append(endpoints, &api.ClusterLoadAssignment{
-					ClusterName: cluster.Name,
+					ClusterName: cluster.EdsClusterConfig.ServiceName,
 					Endpoints:   []*api.LocalityLbEndpoints{{LbEndpoints: addresses}}})
 			}
 		}
 		g.endpoints = endpoints
+		updated = true
 		// TODO: avoid churn by sorting and caching
 	}
 
