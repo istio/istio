@@ -129,7 +129,7 @@ Document Folder | [Folder](https://drive.google.com/corp/drive/u/0/folders/0BzW5
 <img width="30px" src="https://avatars1.githubusercontent.com/u/13645998?s=400&v=4"> | Etai Lev-Ran | IBM | [elevran](https://github.com/elevran)
 &nbsp; | Michael Elder | IBM | n/a
 &nbsp; | Wencheng Lu | Google | [wenchenglu](https://github.com/wenchenglu)
-  
+
 ## Test and Release
 
 Build, test, release
@@ -147,3 +147,20 @@ Document Folder | [Folder](https://drive.google.com/corp/drive/u/0/folders/0B_Ob
 <img width="30px" src="https://avatars1.githubusercontent.com/u/31747472?s=400&v=4"> | Andy Lai | Google | [hklai](https://github.com/hklai)
 <img width="30px" src="https://avatars1.githubusercontent.com/u/1588319?s=400&v=4">  | Lin Sun | IBM | [linsun](https://github.com/linsun)
 &nbsp; | Vicky Xu | Google | n/a
+
+## Performance and Scalability
+
+Performance and scalability characterization and improvements
+
+Artifact | Link
+---|---
+Forum | [istio-perf@](https://groups.google.com/forum/#!forum/istio-perf)
+Community Meeting VC | [Wednesdays 9:00-9:30 PT - Weekly](https://plus.google.com/hangouts/_/google.com/istio-perf)
+Community Meeting Calendar | [Calendar Invitation](https://calendar.google.com/event?action=TEMPLATE&tmeid=NnVuN3BtaTlpbzVmZGIxYm4zc3ZwcnRyc2NfMjAxNzExMTVUMTcwMDAwWiBsZGVtYWlsbHlAZ29vZ2xlLmNvbQ&tmsrc=ldemailly%40google.com&scp=ALL)
+Meeting Notes | [Notes](https://goo.gl/ENFQWb)
+Document Folder | [Folder](https://drive.google.com/corp/drive/u/0/folders/1Zpi5TcBPSqGno96WAq5QkcNKi16opaTL)
+
+&nbsp; | Leads | Company | Profile
+---|---|---|---
+<img width="30px" src="https://avatars0.githubusercontent.com/u/3664595?s=400&v=4"> | Laurent Demailly | Google | [ldemailly](https://github.com/ldemailly)
+&nbsp; | Surya V Duggirala | IBM | n/a
