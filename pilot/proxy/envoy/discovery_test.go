@@ -278,6 +278,7 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 func TestClusterDiscoveryIngress(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
+	addConfig(registry, egressRuleTCP, t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ingress.json", t)
@@ -661,6 +662,7 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t)
+	addConfig(registry, egressRuleTCP, t)
 
 	addIngressRoutes(registry, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
