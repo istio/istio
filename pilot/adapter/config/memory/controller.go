@@ -36,6 +36,16 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
+// NewController return an implementation of model.ConfigStoreCache. This differs from NewController in that it
+// allows for specifying the size of the internal event buffer.
+func NewControllerWithBufferSize(cs model.ConfigStore, bufferSize int) model.ConfigStoreCache {
+	out := &controller{
+		configStore: cs,
+		monitor:     NewConfigStoreMonitorWithBufferSize(cs, bufferSize),
+	}
+	return out
+}
+
 func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(typ, f)
 }
