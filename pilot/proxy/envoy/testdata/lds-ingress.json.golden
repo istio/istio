@@ -35,7 +35,6 @@
           },
           "quota_name": "RequestCount",
           "v2": {
-           "controlConfigs": {},
            "forwardAttributes": {
             "attributes": {
              "source.ip": {
@@ -55,7 +54,8 @@
               "stringValue": "kubernetes://ingress.default"
              }
             }
-           }
+           },
+           "serviceConfigs": {}
           }
          }
         },
@@ -115,7 +115,6 @@
           },
           "quota_name": "RequestCount",
           "v2": {
-           "controlConfigs": {},
            "forwardAttributes": {
             "attributes": {
              "source.ip": {
@@ -135,7 +134,8 @@
               "stringValue": "kubernetes://ingress.default"
              }
             }
-           }
+           },
+           "serviceConfigs": {}
           }
          }
         },

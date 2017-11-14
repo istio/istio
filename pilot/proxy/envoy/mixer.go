@@ -153,7 +153,7 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 		},
 		QuotaName: MixerRequestCount,
 	}
-	v2 := &mccpb.MixerFilterConfig{
+	v2 := &mccpb.HttpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
@@ -166,7 +166,7 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 				AttrSourceUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 			},
 		},
-		ControlConfigs: map[string]*mccpb.MixerControlConfig{},
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 	}
 	if len(services) > 0 {
 		// legacy mixerclient behavior is a comma separated list of
@@ -178,7 +178,7 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 	}
 
 	for _, service := range services {
-		v2.ControlConfigs[service] = &mccpb.MixerControlConfig{
+		v2.ServiceConfigs[service] = &mccpb.ServiceConfig{
 			MixerAttributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
 					AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{service}},
@@ -192,7 +192,6 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 		glog.Warningf("Could not encode v2 HTTP mixerclient filter for node %q: %v", role, err)
 	} else {
 		filter.V2 = v2JSONMap
-
 	}
 	return filter
 }
@@ -205,7 +204,7 @@ func mixerTCPConfig(role proxy.Node, check bool) *FilterMixerConfig {
 			AttrDestinationUID: "kubernetes://" + role.ID,
 		},
 	}
-	v2 := &mccpb.MixerFilterConfig{
+	v2 := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},

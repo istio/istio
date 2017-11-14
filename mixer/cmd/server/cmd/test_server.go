@@ -41,19 +41,17 @@ var defaultSeverArgs = serverArgs{
 	configFetchIntervalSec:        3,
 	configIdentityAttribute:       "target.service",
 	configIdentityAttributeDomain: "",
-	useAst: false,
 }
 
 // SetupTestServer sets up a test server environment
 func SetupTestServer(info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn,
 	configStoreURL string, configStore2URL string, configDefaultNamespace string, configIdentityAttribute,
-	configIdentityAttributeDomain string, useAst bool) *ServerContext {
+	configIdentityAttributeDomain string) *ServerContext {
 	sa := defaultSeverArgs
 	sa.configStoreURL = configStoreURL
 	sa.configStore2URL = configStore2URL
 	sa.configDefaultNamespace = configDefaultNamespace
 	sa.configIdentityAttribute = configIdentityAttribute
 	sa.configIdentityAttributeDomain = configIdentityAttributeDomain
-	sa.useAst = useAst
 	return setupServer(&sa, info, adapters, legacyAdapters, shared.Printf, shared.Fatalf)
 }

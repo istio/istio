@@ -35,17 +35,6 @@
           },
           "quota_name": "RequestCount",
           "v2": {
-           "controlConfigs": {
-            "hello.default.svc.cluster.local": {
-             "mixerAttributes": {
-              "attributes": {
-               "destination.service": {
-                "stringValue": "hello.default.svc.cluster.local"
-               }
-              }
-             }
-            }
-           },
            "defaultDestinationService": "hello.default.svc.cluster.local",
            "forwardAttributes": {
             "attributes": {
@@ -64,6 +53,17 @@
              },
              "destination.uid": {
               "stringValue": "kubernetes://v0.default"
+             }
+            }
+           },
+           "serviceConfigs": {
+            "hello.default.svc.cluster.local": {
+             "mixerAttributes": {
+              "attributes": {
+               "destination.service": {
+                "stringValue": "hello.default.svc.cluster.local"
+               }
+              }
              }
             }
            }

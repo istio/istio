@@ -276,7 +276,7 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(DefaultCacheSize)
+			ev, er := NewTypeChecker(DefaultCacheSize)
 			if er != nil {
 				t.Errorf("Failed to create expression evaluator: %v", er)
 			}
@@ -313,7 +313,7 @@ func TestAssertType(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(DefaultCacheSize)
+			ev, er := NewTypeChecker(DefaultCacheSize)
 			if er != nil {
 				t.Errorf("Failed to create expression evaluator: %v", er)
 			}

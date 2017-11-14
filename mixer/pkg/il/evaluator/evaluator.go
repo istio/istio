@@ -204,6 +204,12 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 	return entry, nil
 }
 
+// DefaultCacheSize is the default size for the expression cache.
+const DefaultCacheSize = 1024
+
+// DefaultMaxStringTableSizeForPurge is the default value for
+const DefaultMaxStringTableSizeForPurge = 1024
+
 // NewILEvaluator returns a new instance of IL.
 func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) {
 	// check the cacheSize here, to ensure that we can ignore errors in lru.New calls.

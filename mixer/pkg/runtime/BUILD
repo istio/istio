@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "context.go",
         "controller.go",
         "dispatcher.go",
         "env.go",
@@ -12,7 +13,6 @@ go_library(
         "logger.go",
         "monitor.go",
         "resolver.go",
-        "context.go",
         "resourceType.go",
     ],
     visibility = ["//visibility:public"],
@@ -41,12 +41,12 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "context_test.go",
         "controller_test.go",
         "dispatcher_test.go",
         "env_test.go",
         "handler_test.go",
         "resolver_test.go",
-        "context_test.go",
         "resourceType_test.go",
     ],
     library = ":go_default_library",

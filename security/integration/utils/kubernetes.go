@@ -1,3 +1,17 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package utils
 
 import (
@@ -10,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
 )
@@ -56,7 +70,7 @@ func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 }
 
 func CreateService(clientset kubernetes.Interface, namespace string, name string, port int32,
-serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
+	serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	uuid := string(uuid.NewUUID())
 	_, err := clientset.CoreV1().Services(namespace).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -81,7 +95,7 @@ serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	}
 
 	if serviceType == v1.ServiceTypeLoadBalancer {
-		err = waitForServiceExternalIPAddress(clientset, namespace, uuid, 300 * time.Second)
+		err = waitForServiceExternalIPAddress(clientset, namespace, uuid, 300*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +126,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	spec := v1.PodSpec{
 		Containers: []v1.Container{
 			v1.Container{
-				Env: env,
+				Env:   env,
 				Name:  fmt.Sprintf("%v-pod-container", name),
 				Image: image,
 			},
@@ -135,7 +149,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		return nil, err
 	}
 
-	if err := waitForPodRunning(clientset, namespace, uuid, 60 * time.Second); err != nil {
+	if err := waitForPodRunning(clientset, namespace, uuid, 60*time.Second); err != nil {
 		return nil, err
 	}
 
@@ -204,7 +218,7 @@ func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,
-timeToWait time.Duration) error {
+	timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -233,7 +247,7 @@ timeToWait time.Duration) error {
 }
 
 func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid string,
-timeToWait time.Duration) error {
+	timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -260,7 +274,7 @@ timeToWait time.Duration) error {
 }
 
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
-timeToWait time.Duration) (*v1.Secret, error) {
+	timeToWait time.Duration) (*v1.Secret, error) {
 	watch, err := clientset.CoreV1().Secrets(namespace).Watch(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)

@@ -33,7 +33,10 @@ import (
 	adpTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
@@ -649,13 +652,37 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	if strings.HasSuffix(expr2, "timestamp") {
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
-	ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+	ev, _ := evaluator.NewILEvaluator(1024, 1024)
+	ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
 	return ev.Eval(expr2, attrs)
 }
 
+var baseConfig = istio_mixer_v1_config.GlobalConfig{
+	Manifests: []*istio_mixer_v1_config.AttributeManifest{
+		{
+			Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
+				"str.absent": {
+					ValueType: pb.STRING,
+				},
+				"bool.absent": {
+					ValueType: pb.BOOL,
+				},
+				"double.absent": {
+					ValueType: pb.DOUBLE,
+				},
+				"int64.absent": {
+					ValueType: pb.INT64,
+				},
+			},
+		},
+	},
+}
+
 // EvalString evaluates given expression using the attribute bag to a string
-func (e *fakeExpr) EvalString(mapExpression string, attrs attribute.Bag) (string, error) {
-	return "", nil
+func (e *fakeExpr) EvalString(ex string, attrs attribute.Bag) (string, error) {
+	ev, _ := evaluator.NewILEvaluator(1024, 1024)
+	ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
+	return ev.EvalString(ex, attrs)
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
@@ -732,7 +759,6 @@ func TestProcessReport(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			name: "EvalAllError",
 			insts: map[string]proto.Message{
@@ -749,7 +775,7 @@ func TestProcessReport(t *testing.T) {
 				},
 			},
 			hdlr:      &fakeReportHandler{},
-			wantError: "unresolved attribute bad.attribute",
+			wantError: "unknown attribute bad.attribute",
 		},
 		{
 			name: "EvalError",
@@ -767,7 +793,38 @@ func TestProcessReport(t *testing.T) {
 				},
 			},
 			hdlr:      &fakeReportHandler{},
-			wantError: "unresolved attribute bad.attribute",
+			wantError: "unknown attribute bad.attribute",
+		},
+		{
+			name: "AttributeAbsentAtRuntime",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					Value:           "int64.absent | 2",
+					Dimensions:      map[string]string{"s": "str.absent | \"\""},
+					BoolPrimitive:   "bool.absent | true",
+					DoublePrimitive: "double.absent | 1.2",
+					Int64Primitive:  "int64.absent | 123",
+					StringPrimitive: "str.absent | \"\"",
+					Int64Map:        map[string]string{"a": "int64.absent | 123"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+				},
+			},
+			hdlr: &fakeReportHandler{},
+			wantInstance: []*sample_report.Instance{
+				{
+					Name:            "foo",
+					Value:           int64(2),
+					Dimensions:      map[string]interface{}{"s": ""},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  123,
+					StringPrimitive: "",
+					Int64Map:        map[string]int64{"a": int64(123)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+				},
+			},
 		},
 		{
 			name: "ProcessError",
@@ -839,7 +896,7 @@ func TestProcessCheck(t *testing.T) {
 				CheckExpression: `"abcd asd"`,
 				StringMap:       map[string]string{"a": "bad.attribute"},
 			},
-			wantError: "unresolved attribute bad.attribute",
+			wantError: "unknown attribute bad.attribute",
 		},
 		{
 			name:     "ProcessError",
@@ -856,7 +913,8 @@ func TestProcessCheck(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
+			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
 			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h)
 
 			if tst.wantError != "" {
@@ -907,7 +965,7 @@ func TestProcessQuota(t *testing.T) {
 				Dimensions: map[string]string{"a": "bad.attribute"},
 				BoolMap:    map[string]string{"a": "true"},
 			},
-			wantError: "unresolved attribute bad.attribute",
+			wantError: "unknown attribute bad.attribute",
 		},
 		{
 			name:     "ProcessError",
@@ -924,7 +982,8 @@ func TestProcessQuota(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			ev, _ := expr.NewCEXLEvaluator(expr.DefaultCacheSize)
+			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
+			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
 			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h, adapter.QuotaArgs{})
 
 			if tst.wantError != "" {

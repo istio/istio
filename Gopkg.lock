@@ -596,7 +596,7 @@
   branch = "master"
   name = "istio.io/api"
   packages = ["broker/v1/config","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","proxy/v1/config"]
-  revision = "32b82b99a7777d89e61612ff81e4eb09666686aa"
+  revision = "34f551ec1a4af4e85376348ddffd9813886e7ceb"
 
 [[projects]]
   name = "istio.io/fortio"

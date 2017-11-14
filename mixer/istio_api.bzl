@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "32b82b99a7777d89e61612ff81e4eb09666686aa"
+ISTIO_API_SHA = "34f551ec1a4af4e85376348ddffd9813886e7ceb"
 
 def go_istio_api_repositories(use_local=False):
     ISTIO_API_BUILD_FILE = """
@@ -217,7 +217,7 @@ gogoslick_proto_library(
         "mixer/v1/config/client/api_spec.proto": "istio.io/api/mixer/v1/config/client",
         "mixer/v1/config/client/quota.proto": "istio.io/api/mixer/v1/config/client",
         "mixer/v1/config/client/service.proto": "istio.io/api/mixer/v1/config/client",
-        "mixer/v1/config/client/mixer_filter_config.proto": "istio.io/api/mixer/v1/config/client",
+        "mixer/v1/config/client/client_config.proto": "istio.io/api/mixer/v1/config/client",
     },
     imports = [
         "../../external/com_github_gogo_protobuf",
@@ -232,7 +232,7 @@ gogoslick_proto_library(
         "mixer/v1/config/client/service.proto",
         "mixer/v1/config/client/api_spec.proto",
         "mixer/v1/config/client/quota.proto",
-        "mixer/v1/config/client/mixer_filter_config.proto",
+        "mixer/v1/config/client/client_config.proto",
     ],
     verbose = 0,
     visibility = ["//visibility:public"],
