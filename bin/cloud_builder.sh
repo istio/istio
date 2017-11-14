@@ -48,7 +48,7 @@ function usage() {
   exit 1
 }
 
-while getopts bo:p:t: arg ; do
+while getopts bco:p:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
