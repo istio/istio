@@ -54,13 +54,13 @@ func (c *expiringLRUCache) add(key, value interface{}) bool {
 // get gets the cached item of the given key. Expired item will be evicted. Returns false
 // if item doesn't exist or expired.
 func (c *expiringLRUCache) get(key interface{}) (interface{}, bool) {
-	value := c.getImpl(key)
-	if value == nil {
+	storedValue := c.getImpl(key)
+	if storedValue == nil {
 		return nil, false
 	}
 
-	if c.clock.Since(value.timestamp) <= c.expiration {
-		return value.value, true
+	if c.clock.Since(storedValue.timestamp) <= c.expiration {
+		return storedValue.value, true
 	}
 
 	c.mutex.Lock()
@@ -70,12 +70,12 @@ func (c *expiringLRUCache) get(key interface{}) (interface{}, bool) {
 		return nil, false
 	}
 
-	valueInCache := tmp.(*cacheValue)
-	if c.clock.Since(valueInCache.timestamp) > c.expiration {
+	currentValue := tmp.(*cacheValue)
+	if c.clock.Since(currentValue.timestamp) > c.expiration {
 		c.lru.Remove(key)
 		return nil, false
 	}
-	return valueInCache.value, true
+	return currentValue.value, true
 }
 
 // remove removes the item of the given key and returns true if the item was in cache.
