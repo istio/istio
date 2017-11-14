@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
@@ -31,7 +32,10 @@ import (
 func (ps *ProtoSchema) Make() (proto.Message, error) {
 	pbt := proto.MessageType(ps.MessageName)
 	if pbt == nil {
-		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		pbt = gogoproto.MessageType(ps.MessageName)
+		if pbt == nil {
+			return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		}
 	}
 	return reflect.New(pbt.Elem()).Interface().(proto.Message), nil
 }
