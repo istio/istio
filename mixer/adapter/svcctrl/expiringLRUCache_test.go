@@ -115,6 +115,17 @@ func TestPurge(t *testing.T) {
 	}
 }
 
+func TestNewExpiringLRUCache(t *testing.T) {
+	cache, err := newExpiringLRUCache(2, time.Second*10)
+	if err != nil {
+		t.Fatal("fail to create expiringLRUCache")
+	}
+	_ = cache.add(1, 2)
+	if value, ok := cache.get(1); !ok || value == nil || value != 2 {
+		t.Errorf("fail to add and get item to cache")
+	}
+}
+
 func newTestCache(size int, expiration time.Duration, clock clockwork.Clock, t *testing.T) *expiringLRUCache {
 	lru, err := simplelru.NewLRU(size, nil)
 	if err != nil {

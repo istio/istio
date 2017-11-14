@@ -42,10 +42,11 @@ type (
 // add adds a key-value pair in cache and returns true if an eviction occurred. Overwriting an
 // existing key is not an eviction.
 func (c *expiringLRUCache) add(key, value interface{}) bool {
+	now := c.clock.Now()
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.lru.Add(key, &cacheValue{
-		c.clock.Now(),
+		now,
 		value,
 	})
 }
