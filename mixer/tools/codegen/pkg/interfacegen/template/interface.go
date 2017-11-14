@@ -44,16 +44,6 @@ type Instance struct {
   {{end}}
 }
 
-{{range .ResourceMessages}}
-{{.Comment}}
-type {{.Name}} struct {
-  {{range .Fields}}
-  {{.Comment}}
-  {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}
-  {{end}}
-}
-{{end}}
-
 // HandlerBuilder must be implemented by adapters if they want to
 // process data associated with the '{{.TemplateName}}' template.
 //
