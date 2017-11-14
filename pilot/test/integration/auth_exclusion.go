@@ -20,21 +20,21 @@ import (
 	"fmt"
 )
 
-type authBlacklisting struct {
+type authExclusion struct {
 	*infra
 }
 
-func (r *authBlacklisting) String() string {
-	return "auth-blackisting"
+func (r *authExclusion) String() string {
+	return "auth-exclusion"
 }
 
-func (r *authBlacklisting) setup() error {
+func (r *authExclusion) setup() error {
 	return nil
 }
 
-func (r *authBlacklisting) teardown() {}
+func (r *authExclusion) teardown() {}
 
-func (r *authBlacklisting) run() error {
+func (r *authExclusion) run() error {
 	if err := r.makeRequests(); err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (r *authBlacklisting) run() error {
 }
 
 // makeRequests executes requests in pods and collects request ids per pod to check against access logs
-func (r *authBlacklisting) makeRequests() error {
+func (r *authExclusion) makeRequests() error {
 	// fake-control service doesn't have sidecar, and is excluded from mTLS so
 	// client with sidecar should never use mTLS when talking to it. As the result,
 	// all request will works, as if mesh authentication is NONE.

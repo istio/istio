@@ -11,7 +11,7 @@ data:
     # Uncomment the following line to enable mutual TLS between proxies
     # authPolicy: MUTUAL_TLS
     #
-    # Modified this list to avoid using mTLS to connect to these services.
+    # Edit this list to avoid using mTLS to connect to these services.
     # Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
     # to transparently terminate mTLS authentication.
     mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
