@@ -379,6 +379,59 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 	return out, nil
 }
 
+func (c *Controller) WorkloadInstances(id string) ([]model.ServiceInstance, error) {
+	out := make([]model.ServiceInstance, 0)
+
+	elt, exists, err := c.pods.informer.GetStore().GetByKey(id)
+	if err != nil {
+		return out, err
+	}
+	if !exists {
+		return out, nil
+	}
+	pod := elt.(*v1.Pod)
+
+	for _, item := range c.endpoints.informer.GetStore().List() {
+		ep := *item.(*v1.Endpoints)
+		for _, ss := range ep.Subsets {
+			for _, ea := range ss.Addresses {
+				if ea.IP == pod.Status.PodIP {
+					item, exists := c.serviceByKey(ep.Name, ep.Namespace)
+					if !exists {
+						continue
+					}
+					svc := convertService(*item, c.domainSuffix)
+					if svc == nil {
+						continue
+					}
+					labels := convertLabels(pod.ObjectMeta)
+					az, _ := c.GetPodAZ(pod)
+					sa := kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+
+					for _, port := range ss.Ports {
+						svcPort, exists := svc.Ports.Get(port.Name)
+						if !exists {
+							continue
+						}
+						out = append(out, model.ServiceInstance{
+							Endpoint: model.NetworkEndpoint{
+								Address:     ea.IP,
+								Port:        int(port.Port),
+								ServicePort: svcPort,
+							},
+							Service:          svc,
+							Labels:           labels,
+							AvailabilityZone: az,
+							ServiceAccount:   sa,
+						})
+					}
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
 // GetIstioServiceAccounts returns the Istio service accounts running a serivce
 // hostname. Each service account is encoded according to the SPIFFE VSID spec.
 // For example, a service account named "bar" in namespace "foo" is encoded as

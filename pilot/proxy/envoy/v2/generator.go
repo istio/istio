@@ -24,7 +24,7 @@ import (
 type Hasher struct{}
 
 func (Hasher) Hash(node *api.Node) (cache.Key, error) {
-	return "service-node", nil
+	return "", nil
 }
 
 type Generator struct {
@@ -34,26 +34,28 @@ type Generator struct {
 	config     model.ConfigStoreCache
 	configHash [md5.Size]byte
 
-	vm     *jsonnet.VM
-	script string
+	vm *jsonnet.VM
+
+	script   string
+	snapshot *cache.Snapshot
 
 	version int
 
 	// Cache needs to be set
 	Cache cache.Cache
+	ID    string
 	Path  string
 }
 
-func NewGenerator(out cache.Cache, kubeconfig string, watchedNamespace string) (*Generator, error) {
+func NewGenerator(out cache.Cache, id string, kubeconfig string) (*Generator, error) {
 	_, client, kuberr := kube.CreateInterface(kubeconfig)
 	if kuberr != nil {
 		return nil, multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
 	}
 
 	options := kube.ControllerOptions{
-		WatchedNamespace: watchedNamespace,
-		ResyncPeriod:     60 * time.Second,
-		DomainSuffix:     "cluster.local",
+		ResyncPeriod: 60 * time.Second,
+		DomainSuffix: "cluster.local",
 	}
 
 	configClient, err := crd.NewClient(kubeconfig, model.ConfigDescriptor{
@@ -76,6 +78,7 @@ func NewGenerator(out cache.Cache, kubeconfig string, watchedNamespace string) (
 		services: ctl,
 		config:   configController,
 		Cache:    out,
+		ID:       id,
 		Path:     ".",
 	}
 
@@ -121,55 +124,59 @@ func (g *Generator) PrepareProgram() {
 
 func (g *Generator) Generate() {
 	g.PrepareProgram()
-	glog.Infof("generating snapshot %d", g.version)
-	in, err := g.vm.EvaluateSnippet("envoy.jsonnet", g.script)
-	if err != nil {
-		glog.Warning(err)
-	}
 
-	out := stuff{}
-	if err := json.Unmarshal([]byte(in), &out); err != nil {
-		glog.Warning(err)
-	}
-
-	listeners := make([]proto.Message, 0)
-	for _, listener := range out.Listeners {
-		l := api.Listener{}
-		s, _ := json.Marshal(listener)
-		listeners = append(listeners, &l)
-		if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
-			log.Fatal(err)
+	if g.snapshot == nil {
+		glog.Infof("generating snapshot %d", g.version)
+		in, err := g.vm.EvaluateSnippet("envoy.jsonnet", g.script)
+		if err != nil {
+			glog.Warning(err)
 		}
-	}
 
-	clusters := make([]proto.Message, 0)
-	for _, cluster := range out.Clusters {
-		l := api.Cluster{}
-		s, _ := json.Marshal(cluster)
-		clusters = append(clusters, &l)
-		if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
-			log.Fatal(err)
+		out := stuff{}
+		if err := json.Unmarshal([]byte(in), &out); err != nil {
+			glog.Warning(err)
 		}
-	}
 
-	routes := make([]proto.Message, 0)
-	for _, route := range out.Routes {
-		r := api.RouteConfiguration{}
-		s, _ := json.Marshal(route)
-		routes = append(routes, &r)
-		if err := jsonpb.UnmarshalString(string(s), &r); err != nil {
-			log.Fatal(err)
+		listeners := make([]proto.Message, 0)
+		for _, listener := range out.Listeners {
+			l := api.Listener{}
+			s, _ := json.Marshal(listener)
+			listeners = append(listeners, &l)
+			if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
+				log.Fatal(err)
+			}
 		}
-	}
 
-	g.version++
-	snapshot := cache.NewSnapshot(fmt.Sprintf("%d", g.version),
-		nil, /* TODO */
-		clusters,
-		routes,
-		listeners)
-	if g.Cache != nil {
-		g.Cache.SetSnapshot("service-node", snapshot)
+		clusters := make([]proto.Message, 0)
+		for _, cluster := range out.Clusters {
+			l := api.Cluster{}
+			s, _ := json.Marshal(cluster)
+			clusters = append(clusters, &l)
+			if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		routes := make([]proto.Message, 0)
+		for _, route := range out.Routes {
+			r := api.RouteConfiguration{}
+			s, _ := json.Marshal(route)
+			routes = append(routes, &r)
+			if err := jsonpb.UnmarshalString(string(s), &r); err != nil {
+				log.Fatal(err)
+			}
+		}
+
+		g.version++
+		snapshot := cache.NewSnapshot(fmt.Sprintf("%d", g.version),
+			nil, /* TODO */
+			clusters,
+			routes,
+			listeners)
+		if g.Cache != nil {
+			g.Cache.SetSnapshot("", snapshot)
+		}
+		g.snapshot = &snapshot
 	}
 }
 
@@ -192,9 +199,9 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 		return
 	}
 
-	if hash := md5.Sum(bytes); hash == g.servicesHash {
-		return
-	} else {
+	if hash := md5.Sum(bytes); hash != g.servicesHash {
+		// invalidate snapshot
+		g.snapshot = nil
 		g.servicesHash = hash
 	}
 
@@ -207,15 +214,22 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 }
 
 func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
-	out, err := g.services.HostInstances(nil)
+	out, err := g.services.WorkloadInstances(g.ID)
 	if err != nil {
 		glog.Warning(err)
 		return
 	}
 
 	if out == nil {
-		out = []*model.ServiceInstance{}
+		out = []model.ServiceInstance{}
 	}
+
+	// sort by hostname/ip/port
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Service.Hostname < out[j].Service.Hostname ||
+			(out[i].Service.Hostname == out[j].Service.Hostname &&
+				out[i].Endpoint.Port < out[j].Endpoint.Port)
+	})
 
 	bytes, err := json.Marshal(out)
 	if err != nil {
@@ -223,9 +237,9 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 		return
 	}
 
-	if hash := md5.Sum(bytes); hash == g.configHash {
-		return
-	} else {
+	if hash := md5.Sum(bytes); hash != g.configHash {
+		// invalidate snapshot
+		g.snapshot = nil
 		g.configHash = hash
 	}
 

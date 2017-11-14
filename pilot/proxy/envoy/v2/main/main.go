@@ -7,6 +7,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache"
 	xds "github.com/envoyproxy/go-control-plane/pkg/grpc"
@@ -20,8 +21,13 @@ func main() {
 	flag.Parse()
 	stop := make(chan struct{})
 
-	if namespace == "" {
-		namespace = os.Getenv("POD_NAMESPACE")
+	if id == "" {
+		if name, exists := os.LookupEnv("POD_NAME"); exists {
+			id = name
+		}
+		if namespace, exists := os.LookupEnv("POD_NAMESPACE"); exists {
+			id = namespace + "/" + id
+		}
 	}
 
 	config := cache.NewSimpleCache(v2.Hasher{}, nil /* TODO */)
@@ -39,12 +45,20 @@ func main() {
 		}
 	}()
 
+	// run envoy process
+	envoy := exec.Command(binPath,
+		"-c", "bootstrap.json",
+		"--drain-time-s", "1")
+	envoy.Stdout = os.Stdout
+	envoy.Stderr = os.Stderr
+	envoy.Start()
+
 	var generator *v2.Generator
 	if validate {
-		generator = &v2.Generator{Cache: config, Path: "testdata"}
+		generator = &v2.Generator{Cache: config, ID: id, Path: "testdata"}
 		generator.Generate()
 	} else {
-		generator, err = v2.NewGenerator(config, kubeconfig, "")
+		generator, err = v2.NewGenerator(config, id, kubeconfig)
 		if err != nil {
 			glog.Fatal(err)
 		}
@@ -59,7 +73,9 @@ func main() {
 
 var (
 	kubeconfig string
+	id         string
 	namespace  string
+	binPath    string
 	port       int
 
 	validate bool
@@ -68,10 +84,10 @@ var (
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	flag.StringVar(&namespace, "namespace", "",
-		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
+	flag.StringVar(&id, "id", "", "Workload ID (e.g. pod namespace/name)")
 	flag.IntVar(&port, "port", 15003,
 		"ADS port")
 	flag.BoolVar(&validate, "valid", false,
-		"Validate only")
+		"Validate only (for testing and debugging)")
+	flag.StringVar(&binPath, "bin", "/usr/local/bin/envoy", "Envoy binary")
 }
