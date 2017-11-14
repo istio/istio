@@ -39,7 +39,7 @@ func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
 	return gp
 }
 
-// Close waits for all goroutines to terminate
+// Close waits for all goroutines to terminate (and implements io.Closer).
 func (gp *GoroutinePool) Close() error {
 	if !gp.singleThreaded {
 		close(gp.queue)

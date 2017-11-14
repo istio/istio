@@ -70,12 +70,8 @@ type serverArgs struct {
 	monitoringPort                uint16
 	singleThreaded                bool
 	compressedPayload             bool
-	zipkinAddr                    string
-	zipkinUser                    string
-	zipkinPass                    string
-	jaegerAddr                    string
-	jaegerUser                    string
-	jaegerPass                    string
+	zipkinURL                     string
+	jaegerURL                     string
 	logTraceSpans                 bool
 	serverCertFile                string
 	serverKeyFile                 string
@@ -107,8 +103,8 @@ func (sa *serverArgs) String() string {
 	b.WriteString(fmt.Sprint("monitoringPort: ", s.monitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("singleThreaded: ", s.singleThreaded, "\n"))
 	b.WriteString(fmt.Sprint("compressedPayload: ", s.compressedPayload, "\n"))
-	b.WriteString(fmt.Sprint("zipkinAddr: ", s.zipkinAddr, "\n"))
-	b.WriteString(fmt.Sprint("jaegerAddr: ", s.jaegerAddr, "\n"))
+	b.WriteString(fmt.Sprint("zipkinURL: ", s.zipkinURL, "\n"))
+	b.WriteString(fmt.Sprint("jaegerURL: ", s.jaegerURL, "\n"))
 	b.WriteString(fmt.Sprint("logTraceSpans: ", s.logTraceSpans, "\n"))
 	b.WriteString(fmt.Sprint("serverCertFile: ", s.serverCertFile, "\n"))
 	b.WriteString(fmt.Sprint("serverKeyFile: ", s.serverKeyFile, "\n"))
@@ -176,17 +172,16 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.zipkinAddr, "zipkinAddr", "", "", "URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'")
-	serverCmd.PersistentFlags().StringVarP(&sa.zipkinUser, "zipkinUser", "", "", "Username for zipkin (http basic auth)")
-	serverCmd.PersistentFlags().StringVarP(&sa.zipkinPass, "zipkinPass", "", "", "Password for zipkin (http basic auth)")
+	// DEPRECATED FLAG (traceOutput). TO BE REMOVED IN SUBSEQUENT RELEASES.
+	serverCmd.PersistentFlags().StringVarP(&sa.zipkinURL, "traceOutput", "", "", "DEPRECATED. URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'")
+	serverCmd.PersistentFlags().MarkDeprecated("traceOutput", "please use one (or more) of the following flags: --zipkinURL, --jaegerURL, or --logTraceSpans")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.jaegerAddr, "jaegerAddr", "", "",
-		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'")
-
-	serverCmd.PersistentFlags().StringVarP(&sa.jaegerUser, "jaegerUser", "", "", "Username for jaeger (http basic auth)")
-	serverCmd.PersistentFlags().StringVarP(&sa.jaegerPass, "jaegerPass", "", "", "Password for jaeger (http basic auth)")
-
-	serverCmd.PersistentFlags().BoolVarP(&sa.logTraceSpans, "logTraceSpans", "", false, "Whether or not to log trace spans using the standard logger")
+	serverCmd.PersistentFlags().StringVarP(&sa.zipkinURL, "zipkinURL", "", "",
+		"URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.")
+	serverCmd.PersistentFlags().StringVarP(&sa.jaegerURL, "jaegerURL", "", "",
+		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.logTraceSpans, "logTraceSpans", "", false,
+		"Whether or not to log Mixer trace spans. This enables tracing for Mixer itself.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
@@ -357,13 +352,13 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	if len(sa.zipkinAddr) > 0 || len(sa.jaegerAddr) > 0 || sa.logTraceSpans {
+	if len(sa.zipkinURL) > 0 || len(sa.jaegerURL) > 0 || sa.logTraceSpans {
 		opts := make([]tracing.Option, 0, 3)
-		if len(sa.zipkinAddr) > 0 {
-			opts = append(opts, tracing.WithBasicAuthZipkinCollector(sa.zipkinAddr, sa.zipkinUser, sa.zipkinPass))
+		if len(sa.zipkinURL) > 0 {
+			opts = append(opts, tracing.WithZipkinCollector(sa.zipkinURL))
 		}
-		if len(sa.jaegerAddr) > 0 {
-			opts = append(opts, tracing.WithBasicAuthJaegerHTTPCollector(sa.jaegerAddr, sa.jaegerUser, sa.jaegerPass))
+		if len(sa.jaegerURL) > 0 {
+			opts = append(opts, tracing.WithJaegerHTTPCollector(sa.jaegerURL))
 		}
 		if sa.logTraceSpans {
 			opts = append(opts, tracing.WithLogger())

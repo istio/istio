@@ -35,6 +35,8 @@ func TestNewTracer(t *testing.T) {
 	jaegerServer := httptest.NewServer(handler(srv.receiveJaeger))
 	defer zipkinServer.Close()
 	defer jaegerServer.Close()
+	zipkinOpt := WithZipkinCollector(zipkinServer.URL)
+	jaegerOpt := WithJaegerHTTPCollector(jaegerServer.URL)
 
 	var spanOut bytes.Buffer
 	loggingOpt := withLogger(&testLogger{&spanOut})

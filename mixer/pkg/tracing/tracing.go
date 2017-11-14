@@ -38,16 +38,9 @@ var (
 
 type tracingOpts struct {
 	serviceName string
-
-	jaegerAddr string
-	jaegerUser string
-	jaegerPass string
-
-	zipkinAddr string
-	zipkinUser string
-	zipkinPass string
-
-	logger log.Logger
+	jaegerURL   string
+	zipkinURL   string
+	logger      log.Logger
 }
 
 // Option is a function that configures Mixer self-tracing options.
@@ -68,36 +61,15 @@ func NewTracer(serviceName string, options ...Option) (opentracing.Tracer, io.Cl
 // collector at the supplied URL.
 func WithZipkinCollector(addr string) Option {
 	return func(opts *tracingOpts) {
-		opts.zipkinAddr = addr
-	}
-}
-
-// WithBasicAuthZipkinCollector configures Mixer tracing to export span data to
-// a zipkin collector at the supplied URL using HTTP Basic Authentication.
-func WithBasicAuthZipkinCollector(addr, user, pass string) Option {
-	return func(opts *tracingOpts) {
-		opts.zipkinAddr = addr
-		opts.zipkinUser = user
-		opts.zipkinPass = pass
+		opts.zipkinURL = addr
 	}
 }
 
 // WithJaegerHTTPCollector configures Mixer tracing to export span data to a
 // jaeger HTTP collector at the supplied URL using HTTP Basic Authentication.
 func WithJaegerHTTPCollector(addr string) Option {
->>>>>>> Refactor tracing package to use jaeger library.
 	return func(opts *tracingOpts) {
-		opts.jaegerAddr = addr
-	}
-}
-
-// WithBasicAuthJaegerHTTPCollector configures Mixer tracing to export span data
-// to a jaeger HTTP collector at the supplied URL using HTTP Basic Authentication.
-func WithBasicAuthJaegerHTTPCollector(addr, user, pass string) Option {
-	return func(opts *tracingOpts) {
-		opts.jaegerAddr = addr
-		opts.jaegerUser = user
-		opts.jaegerPass = pass
+		opts.jaegerURL = addr
 	}
 }
 
@@ -114,15 +86,15 @@ func withLogger(logger log.Logger) Option {
 
 func newJaegerTracer(opts tracingOpts) (opentracing.Tracer, io.Closer, error) {
 	reporters := make([]jaeger.Reporter, 0, 3)
-	if len(opts.zipkinAddr) > 0 {
-		rep, err := newZipkinReporter(opts.zipkinAddr, opts.zipkinUser, opts.zipkinPass)
+	if len(opts.zipkinURL) > 0 {
+		rep, err := newZipkinReporter(opts.zipkinURL)
 		if err != nil {
 			return nil, nil, err
 		}
 		reporters = append(reporters, rep)
 	}
-	if len(opts.jaegerAddr) > 0 {
-		reporters = append(reporters, newJaegerReporter(opts.jaegerAddr, opts.jaegerUser, opts.jaegerPass))
+	if len(opts.jaegerURL) > 0 {
+		reporters = append(reporters, newJaegerReporter(opts.jaegerURL))
 	}
 	if opts.logger != nil {
 		reporters = append(reporters, newLoggingReporter(opts.logger))
@@ -132,11 +104,8 @@ func newJaegerTracer(opts tracingOpts) (opentracing.Tracer, io.Closer, error) {
 	return tracer, closer, nil
 }
 
-func newZipkinReporter(addr, user, pass string) (jaeger.Reporter, error) {
+func newZipkinReporter(addr string) (jaeger.Reporter, error) {
 	opts := []zipkin.HTTPOption{zipkin.HTTPLogger(gLogger), zipkin.HTTPTimeout(httpTimeout)}
-	if len(user) > 0 {
-		opts = append(opts, zipkin.HTTPBasicAuth(user, pass))
-	}
 	trans, err := zipkin.NewHTTPTransport(addr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not build zipkin reporter: %v", err)
@@ -144,11 +113,8 @@ func newZipkinReporter(addr, user, pass string) (jaeger.Reporter, error) {
 	return jaeger.NewRemoteReporter(trans), nil
 }
 
-func newJaegerReporter(addr, user, pass string) jaeger.Reporter {
+func newJaegerReporter(addr string) jaeger.Reporter {
 	opts := []transport.HTTPOption{transport.HTTPTimeout(httpTimeout)}
-	if len(user) > 0 {
-		opts = append(opts, transport.HTTPBasicAuth(user, pass))
-	}
 	return jaeger.NewRemoteReporter(transport.NewHTTPTransport(addr, opts...))
 }
 
