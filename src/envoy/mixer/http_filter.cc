@@ -17,11 +17,13 @@
 #include "common/common/logger.h"
 #include "common/http/headers.h"
 #include "common/http/utility.h"
+#include "control/include/utils/status.h"
 #include "envoy/registry/registry.h"
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
+#include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/mixer_control.h"
 #include "src/envoy/mixer/utils.h"
 
@@ -30,15 +32,14 @@
 #include <thread>
 
 using ::google::protobuf::util::Status;
-using StatusCode = ::google::protobuf::util::error::Code;
+using HttpCheckData = ::istio::mixer_control::http::CheckData;
+using HttpReportData = ::istio::mixer_control::http::ReportData;
+using ::istio::mixer::v1::config::client::ServiceConfig;
 
 namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
-
-// Switch to turn off attribute forwarding
-const std::string kJsonNameForwardSwitch("mixer_forward");
 
 // Switch to turn off mixer both check and report
 // They can be overrided by "mixer_check" and "mixer_report" flags.
@@ -54,53 +55,11 @@ const std::string kJsonNameMixerReport("mixer_report");
 // a sub string map of mixer attributes passed to mixer for the route.
 const std::string kPrefixMixerAttributes("mixer_attributes.");
 
-// The prefix in route opaque data to define
-// a sub string map of mixer attributes forwarded to upstream proxy.
-const std::string kPrefixForwardAttributes("mixer_forward_attributes.");
+// The HTTP header to forward Istio attributes.
+const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
-// Convert Status::code to HTTP code
-int HttpCode(int code) {
-  // Map Canonical codes to HTTP status codes. This is based on the mapping
-  // defined by the protobuf http error space.
-  switch (code) {
-    case StatusCode::OK:
-      return 200;
-    case StatusCode::CANCELLED:
-      return 499;
-    case StatusCode::UNKNOWN:
-      return 500;
-    case StatusCode::INVALID_ARGUMENT:
-      return 400;
-    case StatusCode::DEADLINE_EXCEEDED:
-      return 504;
-    case StatusCode::NOT_FOUND:
-      return 404;
-    case StatusCode::ALREADY_EXISTS:
-      return 409;
-    case StatusCode::PERMISSION_DENIED:
-      return 403;
-    case StatusCode::RESOURCE_EXHAUSTED:
-      return 429;
-    case StatusCode::FAILED_PRECONDITION:
-      return 400;
-    case StatusCode::ABORTED:
-      return 409;
-    case StatusCode::OUT_OF_RANGE:
-      return 400;
-    case StatusCode::UNIMPLEMENTED:
-      return 501;
-    case StatusCode::INTERNAL:
-      return 500;
-    case StatusCode::UNAVAILABLE:
-      return 503;
-    case StatusCode::DATA_LOSS:
-      return 500;
-    case StatusCode::UNAUTHENTICATED:
-      return 401;
-    default:
-      return 500;
-  }
-}
+// Referer header
+const LowerCaseString kRefererHeaderKey("referer");
 
 }  // namespace
 
@@ -121,21 +80,144 @@ class Config {
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new MixerControl(mixer_config_, cm_, dispatcher, random));
+                  new HttpMixerControl(mixer_config_, cm_, dispatcher, random));
             });
   }
 
-  MixerControl& mixer_control() { return tls_->getTyped<MixerControl>(); }
+  HttpMixerControl& mixer_control() {
+    return tls_->getTyped<HttpMixerControl>();
+  }
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;
+
+class CheckData : public HttpCheckData,
+                  public Logger::Loggable<Logger::Id::http> {
+  HeaderMap& headers_;
+  const Network::Connection* connection_;
+
+ public:
+  CheckData(HeaderMap& headers, const Network::Connection* connection)
+      : headers_(headers), connection_(connection) {}
+
+  // Find "x-istio-attributes" headers, if found base64 decode
+  // its value and remove it from the headers.
+  bool ExtractIstioAttributes(std::string* data) override {
+    // Extract attributes from x-istio-attributes header
+    const HeaderEntry* entry = headers_.get(kIstioAttributeHeader);
+    if (entry) {
+      *data = Base64::decode(
+          std::string(entry->value().c_str(), entry->value().size()));
+      headers_.remove(kIstioAttributeHeader);
+      return true;
+    }
+    return false;
+  }
+  // base64 encode data, and add it to the HTTP header.
+  void AddIstioAttributes(const std::string& data) override {
+    std::string base64 = Base64::encode(data.c_str(), data.size());
+    ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
+    headers_.addReferenceKey(kIstioAttributeHeader, base64);
+  }
+
+  bool GetSourceIpPort(std::string* ip, int* port) const override {
+    if (connection_) {
+      return Utils::GetIpPort(connection_->remoteAddress().ip(), ip, port);
+    }
+    return false;
+  }
+
+  bool GetSourceUser(std::string* user) const override {
+    return Utils::GetSourceUser(connection_, user);
+  }
+
+  std::map<std::string, std::string> GetRequestHeaders() const override {
+    return Utils::ExtractHeaders(headers_);
+  }
+
+  bool FindRequestHeader(HttpCheckData::HeaderType header_type,
+                         std::string* value) const override {
+    switch (header_type) {
+      case HttpCheckData::HEADER_PATH:
+        if (headers_.Path()) {
+          *value = std::string(headers_.Path()->value().c_str(),
+                               headers_.Path()->value().size());
+          return true;
+        }
+        break;
+      case HttpCheckData::HEADER_HOST:
+        if (headers_.Host()) {
+          *value = std::string(headers_.Host()->value().c_str(),
+                               headers_.Host()->value().size());
+          return true;
+        }
+        break;
+      case HttpCheckData::HEADER_SCHEME:
+        if (headers_.Scheme()) {
+          *value = std::string(headers_.Scheme()->value().c_str(),
+                               headers_.Scheme()->value().size());
+          return true;
+        }
+        break;
+      case HttpCheckData::HEADER_USER_AGENT:
+        if (headers_.UserAgent()) {
+          *value = std::string(headers_.UserAgent()->value().c_str(),
+                               headers_.UserAgent()->value().size());
+          return true;
+        }
+        break;
+      case HttpCheckData::HEADER_METHOD:
+        if (headers_.Method()) {
+          *value = std::string(headers_.Method()->value().c_str(),
+                               headers_.Method()->value().size());
+          return true;
+        }
+        break;
+      case HttpCheckData::HEADER_REFERER: {
+        const HeaderEntry* referer = headers_.get(kRefererHeaderKey);
+        if (referer) {
+          *value =
+              std::string(referer->value().c_str(), referer->value().size());
+          return true;
+        }
+      } break;
+    }
+    return false;
+  }
+};
+
+class ReportData : public HttpReportData {
+  const HeaderMap* headers_;
+  const AccessLog::RequestInfo& info_;
+
+ public:
+  ReportData(const HeaderMap* headers, const AccessLog::RequestInfo& info)
+      : headers_(headers), info_(info) {}
+
+  std::map<std::string, std::string> GetResponseHeaders() const override {
+    if (headers_) {
+      return Utils::ExtractHeaders(*headers_);
+    }
+    return std::map<std::string, std::string>();
+  }
+
+  void GetReportInfo(HttpReportData::ReportInfo* data) const override {
+    data->received_bytes = info_.bytesReceived();
+    data->send_bytes = info_.bytesSent();
+    data->duration =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(info_.duration());
+    if (info_.responseCode().valid()) {
+      data->response_code = info_.responseCode().value();
+    }
+  }
+};
 
 class Instance : public Http::StreamDecoderFilter,
                  public Http::AccessLog::Instance,
                  public Logger::Loggable<Logger::Id::http> {
  private:
-  MixerControl& mixer_control_;
-  std::shared_ptr<HttpRequestData> request_data_;
+  HttpMixerControl& mixer_control_;
+  std::unique_ptr<::istio::mixer_control::http::RequestHandler> handler_;
   istio::mixer_client::CancelFunc cancel_check_;
 
   enum State { NotStarted, Calling, Complete, Responded };
@@ -144,7 +226,6 @@ class Instance : public Http::StreamDecoderFilter,
   StreamDecoderFilterCallbacks* decoder_callbacks_;
 
   bool initiating_call_;
-  int check_status_code_;
 
   bool mixer_check_disabled_;
   bool mixer_report_disabled_;
@@ -178,27 +259,13 @@ class Instance : public Http::StreamDecoderFilter,
     }
   }
 
-  // attribute forward switch (on by default)
-  bool forward_disabled() {
-    auto route = decoder_callbacks_->route();
-    if (route != nullptr) {
-      auto entry = route->routeEntry();
-      if (entry != nullptr) {
-        auto key = entry->opaqueConfig().find(kJsonNameForwardSwitch);
-        if (key != entry->opaqueConfig().end() && key->second == "off") {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
   // Extract a prefixed string map from route opaque config.
   // Route opaque config only supports flat name value pair, have to use
   // prefix to create a sub string map. such as:
   //    prefix.key1 = value1
-  Utils::StringMap GetRouteStringMap(const std::string& prefix) {
-    Utils::StringMap attrs;
+  std::map<std::string, std::string> GetRouteStringMap(
+      const std::string& prefix) {
+    std::map<std::string, std::string> attrs;
     auto route = decoder_callbacks_->route();
     if (route != nullptr) {
       auto entry = route->routeEntry();
@@ -218,8 +285,7 @@ class Instance : public Http::StreamDecoderFilter,
   Instance(ConfigPtr config)
       : mixer_control_(config->mixer_control()),
         state_(NotStarted),
-        initiating_call_(false),
-        check_status_code_(HttpCode(StatusCode::UNKNOWN)) {
+        initiating_call_(false) {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
   }
 
@@ -227,50 +293,20 @@ class Instance : public Http::StreamDecoderFilter,
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
     check_mixer_route_flags();
-    if (mixer_check_disabled_ && mixer_report_disabled_) {
-      if (!forward_disabled()) {
-        mixer_control_.ForwardAttributes(
-            headers, GetRouteStringMap(kPrefixForwardAttributes));
-      }
-      return FilterHeadersStatus::Continue;
-    }
 
-    request_data_ = std::make_shared<HttpRequestData>();
-
-    std::string origin_user;
-    Ssl::Connection* ssl =
-        const_cast<Ssl::Connection*>(decoder_callbacks_->connection()->ssl());
-    if (ssl != nullptr) {
-      origin_user = ssl->uriSanPeerCertificate();
-    }
-
-    // Extract attributes from x-istio-attributes header
-    ::istio::mixer::v1::Attributes_StringMap forwarded_attributes;
-    const HeaderEntry* entry = headers.get(Utils::kIstioAttributeHeader);
-    if (entry) {
-      std::string str(entry->value().c_str(), entry->value().size());
-      forwarded_attributes.ParseFromString(Base64::decode(str));
-      headers.remove(Utils::kIstioAttributeHeader);
-    }
-
-    mixer_control_.BuildHttpCheck(request_data_, headers, forwarded_attributes,
-                                  origin_user,
-                                  GetRouteStringMap(kPrefixMixerAttributes),
-                                  decoder_callbacks_->connection());
-
-    if (!forward_disabled()) {
-      mixer_control_.ForwardAttributes(
-          headers, GetRouteStringMap(kPrefixForwardAttributes));
-    }
-
-    if (mixer_check_disabled_) {
-      return FilterHeadersStatus::Continue;
-    }
+    ServiceConfig legacy_config;
+    MixerConfig::CreateLegacyRouteConfig(
+        mixer_check_disabled_, mixer_report_disabled_,
+        GetRouteStringMap(kPrefixMixerAttributes), &legacy_config);
+    ::istio::mixer_control::http::Controller::PerRouteConfig config;
+    config.legacy_config = &legacy_config;
+    handler_ = mixer_control_.controller()->CreateRequestHandler(config);
 
     state_ = Calling;
     initiating_call_ = true;
-    cancel_check_ = mixer_control_.SendCheck(
-        request_data_, &headers,
+    CheckData check_data(headers, decoder_callbacks_->connection());
+    cancel_check_ = handler_->Check(
+        &check_data, CheckTransport::GetFunc(mixer_control_.cm(), &headers),
         [this](const Status& status) { completeCheck(status); });
     initiating_call_ = false;
 
@@ -322,9 +358,10 @@ class Instance : public Http::StreamDecoderFilter,
     }
     if (!status.ok() && state_ != Responded) {
       state_ = Responded;
-      check_status_code_ = HttpCode(status.error_code());
-      Utility::sendLocalReply(*decoder_callbacks_, false,
-                              Code(check_status_code_), status.ToString());
+      int status_code =
+          ::istio::mixer_control::utils::StatusHttpCode(status.error_code());
+      Utility::sendLocalReply(*decoder_callbacks_, false, Code(status_code),
+                              status.ToString());
       return;
     }
 
@@ -350,11 +387,9 @@ class Instance : public Http::StreamDecoderFilter,
   virtual void log(const HeaderMap*, const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
-    // If decodeHaeders() is not called, not to call Mixer report.
-    if (!request_data_ || mixer_report_disabled_) return;
-    mixer_control_.BuildHttpReport(request_data_, response_headers,
-                                   request_info, check_status_code_);
-    mixer_control_.SendReport(request_data_);
+    if (!handler_) return;
+    ReportData report_data(response_headers, request_info);
+    handler_->Report(&report_data);
   }
 };
 

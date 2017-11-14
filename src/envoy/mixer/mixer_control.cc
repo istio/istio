@@ -14,197 +14,12 @@
  */
 
 #include "src/envoy/mixer/mixer_control.h"
-#include "include/attributes_builder.h"
-
-#include "common/common/base64.h"
-#include "common/common/utility.h"
-
-#include <arpa/inet.h>
-
-using ::google::protobuf::util::Status;
-using StatusCode = ::google::protobuf::util::error::Code;
-using ::istio::mixer::v1::Attributes;
-using ::istio::mixer_client::AttributesBuilder;
-using ::istio::mixer_client::CheckOptions;
-using ::istio::mixer_client::DoneFunc;
-using ::istio::mixer_client::MixerClientOptions;
-using ::istio::mixer_client::ReportOptions;
-using ::istio::mixer_client::QuotaOptions;
+#include "src/envoy/mixer/grpc_transport.h"
 
 namespace Envoy {
 namespace Http {
 namespace Mixer {
 namespace {
-
-// Define attribute names
-const std::string kSourceUser = "source.user";
-
-const std::string kRequestHeaders = "request.headers";
-const std::string kRequestHost = "request.host";
-const std::string kRequestMethod = "request.method";
-const std::string kRequestPath = "request.path";
-const std::string kRequestReferer = "request.referer";
-const std::string kRequestScheme = "request.scheme";
-const std::string kRequestSize = "request.size";
-const std::string kRequestTime = "request.time";
-const std::string kRequestUserAgent = "request.useragent";
-
-const std::string kResponseCode = "response.code";
-const std::string kResponseDuration = "response.duration";
-const std::string kResponseHeaders = "response.headers";
-const std::string kResponseSize = "response.size";
-const std::string kResponseTime = "response.time";
-
-// TCP attributes
-// Downstream tcp connection: source ip/port.
-const std::string kSourceIp = "source.ip";
-const std::string kSourcePort = "source.port";
-// Upstream tcp connection: destionation ip/port.
-const std::string kDestinationIp = "destination.ip";
-const std::string kDestinationPort = "destination.port";
-const std::string kConnectionReceviedBytes = "connection.received.bytes";
-const std::string kConnectionReceviedTotalBytes =
-    "connection.received.bytes_total";
-const std::string kConnectionSendBytes = "connection.sent.bytes";
-const std::string kConnectionSendTotalBytes = "connection.sent.bytes_total";
-const std::string kConnectionDuration = "connection.duration";
-
-// Pilot mesh attributes with the suffix will be treated as ipv4.
-// They will use BYTES attribute type.
-const std::string kIPSuffix = ".ip";
-
-// Context attributes
-const std::string kContextProtocol = "context.protocol";
-const std::string kContextTime = "context.time";
-
-// Check status code.
-const std::string kCheckStatusCode = "check.status";
-
-// Keys to well-known headers
-const LowerCaseString kRefererHeaderKey("referer");
-
-CheckOptions GetJustCheckOptions(const MixerConfig& config) {
-  if (config.disable_check_cache) {
-    return CheckOptions(0);
-  }
-  return CheckOptions();
-}
-
-CheckOptions GetCheckOptions(const MixerConfig& config) {
-  auto options = GetJustCheckOptions(config);
-  if (config.network_fail_policy == "close") {
-    options.network_fail_open = false;
-  }
-  return options;
-}
-
-QuotaOptions GetQuotaOptions(const MixerConfig& config) {
-  if (config.disable_quota_cache) {
-    return QuotaOptions(0, 1000);
-  }
-  return QuotaOptions();
-}
-
-ReportOptions GetReportOptions(const MixerConfig& config) {
-  if (config.disable_report_batch) {
-    return ReportOptions(0, 1000);
-  }
-  return ReportOptions();
-}
-
-void SetStringAttribute(const std::string& name, const std::string& value,
-                        Attributes* attr) {
-  if (!value.empty()) {
-    AttributesBuilder(attr).AddString(name, value);
-  }
-}
-
-void SetInt64Attribute(const std::string& name, uint64_t value,
-                       Attributes* attr) {
-  AttributesBuilder(attr).AddInt64(name, value);
-}
-
-std::map<std::string, std::string> ExtractHeaders(const HeaderMap& header_map) {
-  std::map<std::string, std::string> headers;
-  header_map.iterate(
-      [](const HeaderEntry& header, void* context) -> HeaderMap::Iterate {
-        std::map<std::string, std::string>* header_map =
-            static_cast<std::map<std::string, std::string>*>(context);
-        (*header_map)[header.key().c_str()] = header.value().c_str();
-        return HeaderMap::Iterate::Continue;
-      },
-      &headers);
-  return headers;
-}
-
-void FillRequestHeaderAttributes(const HeaderMap& header_map,
-                                 Attributes* attr) {
-  SetStringAttribute(kRequestPath, header_map.Path()->value().c_str(), attr);
-  SetStringAttribute(kRequestHost, header_map.Host()->value().c_str(), attr);
-
-  // Since we're in an HTTP filter, if the scheme header doesn't exist we can
-  // fill it in with a reasonable value.
-  SetStringAttribute(
-      kRequestScheme,
-      header_map.Scheme() ? header_map.Scheme()->value().c_str() : "http",
-      attr);
-
-  if (header_map.UserAgent()) {
-    SetStringAttribute(kRequestUserAgent,
-                       header_map.UserAgent()->value().c_str(), attr);
-  }
-  if (header_map.Method()) {
-    SetStringAttribute(kRequestMethod, header_map.Method()->value().c_str(),
-                       attr);
-  }
-
-  const HeaderEntry* referer = header_map.get(kRefererHeaderKey);
-  if (referer) {
-    std::string val(referer->value().c_str(), referer->value().size());
-    SetStringAttribute(kRequestReferer, val, attr);
-  }
-
-  AttributesBuilder(attr).AddStringMap(kRequestHeaders,
-                                       ExtractHeaders(header_map));
-}
-
-void FillResponseHeaderAttributes(const HeaderMap* header_map,
-                                  Attributes* attr) {
-  if (header_map) {
-    AttributesBuilder(attr).AddStringMap(kResponseHeaders,
-                                         ExtractHeaders(*header_map));
-  }
-}
-
-void FillRequestInfoAttributes(const AccessLog::RequestInfo& info,
-                               int check_status_code, Attributes* attr) {
-  AttributesBuilder builder(attr);
-  builder.AddInt64(kRequestSize, info.bytesReceived());
-  builder.AddInt64(kResponseSize, info.bytesSent());
-  builder.AddDuration(
-      kResponseDuration,
-      std::chrono::duration_cast<std::chrono::nanoseconds>(info.duration()));
-
-  if (info.responseCode().valid()) {
-    builder.AddInt64(kResponseCode, info.responseCode().value());
-  } else {
-    builder.AddInt64(kResponseCode, check_status_code);
-  }
-}
-
-void SetIPAttribute(const std::string& name, const Network::Address::Ip& ip,
-                    Attributes* attr) {
-  AttributesBuilder builder(attr);
-  if (ip.ipv4()) {
-    uint32_t ipv4 = ip.ipv4()->address();
-    builder.AddBytes(
-        name, std::string(reinterpret_cast<const char*>(&ipv4), sizeof(ipv4)));
-  } else if (ip.ipv6()) {
-    std::array<uint8_t, 16> ipv6 = ip.ipv6()->address();
-    builder.AddBytes(
-        name, std::string(reinterpret_cast<const char*>(ipv6.data()), 16));
-  }
-}
 
 // A class to wrap envoy timer for mixer client timer.
 class EnvoyTimer : public ::istio::mixer_client::Timer {
@@ -220,199 +35,50 @@ class EnvoyTimer : public ::istio::mixer_client::Timer {
   Event::TimerPtr timer_;
 };
 
-}  // namespace
+// Create all environment functions.
+void CreateEnvironment(Upstream::ClusterManager& cm,
+                       Event::Dispatcher& dispatcher,
+                       Runtime::RandomGenerator& random,
+                       ::istio::mixer_client::Environment* env) {
+  env->check_transport = CheckTransport::GetFunc(cm, nullptr);
+  env->report_transport = ReportTransport::GetFunc(cm);
 
-MixerControl::MixerControl(const MixerConfig& mixer_config,
-                           Upstream::ClusterManager& cm,
-                           Event::Dispatcher& dispatcher,
-                           Runtime::RandomGenerator& random)
-    : cm_(cm), mixer_config_(mixer_config) {
-  MixerClientOptions options(GetCheckOptions(mixer_config),
-                             GetReportOptions(mixer_config),
-                             GetQuotaOptions(mixer_config));
-
-  options.check_transport = CheckTransport::GetFunc(cm, nullptr);
-  options.report_transport = ReportTransport::GetFunc(cm);
-
-  options.timer_create_func = [&dispatcher](std::function<void()> timer_cb)
+  env->timer_create_func = [&dispatcher](std::function<void()> timer_cb)
       -> std::unique_ptr<::istio::mixer_client::Timer> {
         return std::unique_ptr<::istio::mixer_client::Timer>(
             new EnvoyTimer(dispatcher.createTimer(timer_cb)));
       };
 
-  options.uuid_generate_func = [&random]() -> std::string {
+  env->uuid_generate_func = [&random]() -> std::string {
     return random.uuid();
   };
-
-  mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 }
 
-istio::mixer_client::CancelFunc MixerControl::SendCheck(
-    HttpRequestDataPtr request_data, const HeaderMap* headers,
-    DoneFunc on_done) {
-  if (!mixer_client_) {
-    on_done(
-        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
-    return nullptr;
-  }
-  ENVOY_LOG(debug, "Send Check: {}", request_data->attributes.DebugString());
-  return mixer_client_->Check(request_data->attributes,
-                              CheckTransport::GetFunc(cm_, headers), on_done);
+}  // namespace
+
+HttpMixerControl::HttpMixerControl(const MixerConfig& mixer_config,
+                                   Upstream::ClusterManager& cm,
+                                   Event::Dispatcher& dispatcher,
+                                   Runtime::RandomGenerator& random)
+    : cm_(cm) {
+  ::istio::mixer_control::http::Controller::Options options(
+      mixer_config.http_config);
+
+  CreateEnvironment(cm, dispatcher, random, &options.env);
+
+  controller_ = ::istio::mixer_control::http::Controller::Create(options);
 }
 
-void MixerControl::SendReport(HttpRequestDataPtr request_data) {
-  if (!mixer_client_) {
-    return;
-  }
-  ENVOY_LOG(debug, "Send Report: {}", request_data->attributes.DebugString());
-  mixer_client_->Report(request_data->attributes);
-}
+TcpMixerControl::TcpMixerControl(const MixerConfig& mixer_config,
+                                 Upstream::ClusterManager& cm,
+                                 Event::Dispatcher& dispatcher,
+                                 Runtime::RandomGenerator& random) {
+  ::istio::mixer_control::tcp::Controller::Options options(
+      mixer_config.tcp_config);
 
-void MixerControl::ForwardAttributes(
-    HeaderMap& headers, const Utils::StringMap& route_attributes) const {
-  if (mixer_config_.forward_attributes.empty() && route_attributes.empty()) {
-    return;
-  }
-  std::string serialized_str = Utils::SerializeTwoStringMaps(
-      mixer_config_.forward_attributes, route_attributes);
-  std::string base64 =
-      Base64::encode(serialized_str.c_str(), serialized_str.size());
-  ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
-  headers.addReferenceKey(Utils::kIstioAttributeHeader, base64);
-}
+  CreateEnvironment(cm, dispatcher, random, &options.env);
 
-void MixerControl::BuildHttpCheck(
-    HttpRequestDataPtr request_data, HeaderMap& headers,
-    const ::istio::mixer::v1::Attributes_StringMap& map_pb,
-    const std::string& source_user, const Utils::StringMap& route_attributes,
-    const Network::Connection* connection) const {
-  for (const auto& it : map_pb.entries()) {
-    SetMeshAttribute(it.first, it.second, &request_data->attributes);
-  }
-  for (const auto& attribute : route_attributes) {
-    SetMeshAttribute(attribute.first, attribute.second,
-                     &request_data->attributes);
-  }
-  FillRequestHeaderAttributes(headers, &request_data->attributes);
-
-  if (connection) {
-    const Network::Address::Ip* remote_ip = connection->remoteAddress().ip();
-    if (remote_ip) {
-      SetIPAttribute(kSourceIp, *remote_ip, &request_data->attributes);
-      SetInt64Attribute(kSourcePort, remote_ip->port(),
-                        &request_data->attributes);
-    }
-  }
-
-  SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
-
-  AttributesBuilder(&request_data->attributes)
-      .AddTimestamp(kRequestTime, std::chrono::system_clock::now());
-  SetStringAttribute(kContextProtocol, "http", &request_data->attributes);
-
-  mixer_config_.ExtractQuotaAttributes(&request_data->attributes);
-  for (const auto& attribute : mixer_config_.mixer_attributes) {
-    SetMeshAttribute(attribute.first, attribute.second,
-                     &request_data->attributes);
-  }
-}
-
-void MixerControl::BuildHttpReport(HttpRequestDataPtr request_data,
-                                   const HeaderMap* response_headers,
-                                   const AccessLog::RequestInfo& request_info,
-                                   int check_status) const {
-  // Use all Check attributes for Report.
-  // Add additional Report attributes.
-  FillResponseHeaderAttributes(response_headers, &request_data->attributes);
-
-  FillRequestInfoAttributes(request_info, check_status,
-                            &request_data->attributes);
-
-  AttributesBuilder(&request_data->attributes)
-      .AddTimestamp(kResponseTime, std::chrono::system_clock::now());
-}
-
-void MixerControl::BuildTcpCheck(HttpRequestDataPtr request_data,
-                                 Network::Connection& connection,
-                                 const std::string& source_user) const {
-  SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
-
-  const Network::Address::Ip* remote_ip = connection.remoteAddress().ip();
-  if (remote_ip) {
-    SetIPAttribute(kSourceIp, *remote_ip, &request_data->attributes);
-    SetInt64Attribute(kSourcePort, remote_ip->port(),
-                      &request_data->attributes);
-  }
-
-  AttributesBuilder(&request_data->attributes)
-      .AddTimestamp(kContextTime, std::chrono::system_clock::now());
-  SetStringAttribute(kContextProtocol, "tcp", &request_data->attributes);
-
-  mixer_config_.ExtractQuotaAttributes(&request_data->attributes);
-  for (const auto& attribute : mixer_config_.mixer_attributes) {
-    SetMeshAttribute(attribute.first, attribute.second,
-                     &request_data->attributes);
-  }
-}
-
-void MixerControl::BuildTcpReport(
-    HttpRequestDataPtr request_data, uint64_t received_bytes,
-    uint64_t send_bytes, int check_status_code,
-    std::chrono::nanoseconds duration,
-    Upstream::HostDescriptionConstSharedPtr upstreamHost) const {
-  AttributesBuilder builder(&request_data->attributes);
-  builder.AddInt64(kConnectionReceviedBytes, received_bytes);
-  builder.AddInt64(kConnectionReceviedTotalBytes, received_bytes);
-  builder.AddInt64(kConnectionSendBytes, send_bytes);
-  builder.AddInt64(kConnectionSendTotalBytes, send_bytes);
-  builder.AddDuration(kConnectionDuration, duration);
-  builder.AddInt64(kCheckStatusCode, check_status_code);
-
-  if (upstreamHost && upstreamHost->address()) {
-    const Network::Address::Ip* destination_ip = upstreamHost->address()->ip();
-    if (destination_ip) {
-      SetIPAttribute(kDestinationIp, *destination_ip,
-                     &request_data->attributes);
-      SetInt64Attribute(kDestinationPort, destination_ip->port(),
-                        &request_data->attributes);
-    }
-  }
-
-  builder.AddTimestamp(kContextTime, std::chrono::system_clock::now());
-}
-
-// Mesh attributes from Pilot are all string type.
-// The attributes with ".ip" suffix will be treated
-// as ipv4 and use BYTES attribute type.
-void MixerControl::SetMeshAttribute(const std::string& name,
-                                    const std::string& value,
-                                    Attributes* attr) const {
-  // Check with ".ip" suffix,
-  if (name.length() <= kIPSuffix.length() ||
-      name.compare(name.length() - kIPSuffix.length(), kIPSuffix.length(),
-                   kIPSuffix) != 0) {
-    AttributesBuilder(attr).AddString(name, value);
-    return;
-  }
-
-  in_addr ipv4_bytes;
-  if (inet_pton(AF_INET, value.c_str(), &ipv4_bytes) == 1) {
-    AttributesBuilder(attr).AddBytes(
-        name, std::string(reinterpret_cast<const char*>(&ipv4_bytes),
-                          sizeof(ipv4_bytes)));
-    return;
-  }
-
-  in6_addr ipv6_bytes;
-  if (inet_pton(AF_INET6, value.c_str(), &ipv6_bytes) == 1) {
-    AttributesBuilder(attr).AddBytes(
-        name, std::string(reinterpret_cast<const char*>(&ipv6_bytes),
-                          sizeof(ipv6_bytes)));
-    return;
-  }
-
-  ENVOY_LOG(warn, "Could not convert to ip: {}: {}", name, value);
-  AttributesBuilder(attr).AddString(name, value);
+  controller_ = ::istio::mixer_control::tcp::Controller::Create(options);
 }
 
 }  // namespace Mixer

@@ -22,6 +22,7 @@
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/mixer_control.h"
+#include "src/envoy/mixer/utils.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -47,24 +48,26 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new MixerControl(mixer_config_, cm_, dispatcher, random));
+                  new TcpMixerControl(mixer_config_, cm_, dispatcher, random));
             });
   }
 
-  MixerControl& mixer_control() { return tls_->getTyped<MixerControl>(); }
+  TcpMixerControl& mixer_control() { return tls_->getTyped<TcpMixerControl>(); }
 };
 
 typedef std::shared_ptr<TcpConfig> TcpConfigPtr;
 
 class TcpInstance : public Network::Filter,
                     public Network::ConnectionCallbacks,
+                    public ::istio::mixer_control::tcp::CheckData,
+                    public ::istio::mixer_control::tcp::ReportData,
                     public Logger::Loggable<Logger::Id::filter> {
  private:
   enum class State { NotStarted, Calling, Completed, Closed };
 
   istio::mixer_client::CancelFunc cancel_check_;
-  MixerControl& mixer_control_;
-  std::shared_ptr<HttpRequestData> request_data_;
+  TcpMixerControl& mixer_control_;
+  std::unique_ptr<::istio::mixer_control::tcp::RequestHandler> handler_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
   State state_{State::NotStarted};
   bool calling_check_{};
@@ -126,26 +129,13 @@ class TcpInstance : public Network::Filter,
                    filter_callbacks_->connection().remoteAddress().asString(),
                    filter_callbacks_->connection().localAddress().asString());
 
-    // Reports are always enabled.. And TcpReport uses attributes
-    // extracted by BuildTcpCheck
-    request_data_ = std::make_shared<HttpRequestData>();
-
-    std::string origin_user;
-    Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
-    if (ssl != nullptr) {
-      origin_user = ssl->uriSanPeerCertificate();
-    }
-    mixer_control_.BuildTcpCheck(request_data_, filter_callbacks_->connection(),
-                                 origin_user);
-
-    if (state_ == State::NotStarted &&
-        !mixer_control_.MixerTcpCheckDisabled()) {
+    handler_ = mixer_control_.controller()->CreateRequestHandler();
+    if (state_ == State::NotStarted) {
       state_ = State::Calling;
       filter_callbacks_->connection().readDisable(true);
       calling_check_ = true;
-      cancel_check_ = mixer_control_.SendCheck(
-          request_data_, nullptr,
-          [this](const Status& status) { completeCheck(status); });
+      cancel_check_ = handler_->Check(
+          this, [this](const Status& status) { completeCheck(status); });
       calling_check_ = false;
     }
     return state_ == State::Calling ? Network::FilterStatus::StopIteration
@@ -184,13 +174,8 @@ class TcpInstance : public Network::Filter,
 
     if (event == Network::ConnectionEvent::RemoteClose ||
         event == Network::ConnectionEvent::LocalClose) {
-      if (state_ != State::Closed && request_data_) {
-        mixer_control_.BuildTcpReport(
-            request_data_, received_bytes_, send_bytes_, check_status_code_,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::system_clock::now() - start_time_),
-            filter_callbacks_->upstreamHost());
-        mixer_control_.SendReport(request_data_);
+      if (state_ != State::Closed && handler_) {
+        handler_->Report(this);
       }
       cancelCheck();
     }
@@ -198,6 +183,29 @@ class TcpInstance : public Network::Filter,
 
   void onAboveWriteBufferHighWatermark() override {}
   void onBelowWriteBufferLowWatermark() override {}
+
+  bool GetSourceIpPort(std::string* str_ip, int* port) const {
+    return Utils::GetIpPort(
+        filter_callbacks_->connection().remoteAddress().ip(), str_ip, port);
+  }
+  bool GetSourceUser(std::string* user) const {
+    return Utils::GetSourceUser(&filter_callbacks_->connection(), user);
+  }
+  bool GetDestinationIpPort(std::string* str_ip, int* port) const {
+    if (filter_callbacks_->upstreamHost() &&
+        filter_callbacks_->upstreamHost()->address()) {
+      return Utils::GetIpPort(
+          filter_callbacks_->upstreamHost()->address()->ip(), str_ip, port);
+    }
+    return false;
+  }
+  void GetReportInfo(
+      ::istio::mixer_control::tcp::ReportData::ReportInfo* data) const {
+    data->received_bytes = received_bytes_;
+    data->send_bytes = send_bytes_;
+    data->duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now() - start_time_);
+  }
 };
 
 }  // namespace Mixer

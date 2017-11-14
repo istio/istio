@@ -26,30 +26,6 @@ load(
 )
 
 envoy_cc_library(
-    name = "quota_config_lib",
-    srcs = [
-        "quota_config.cc",
-        "quota_config.h",
-    ],
-    repository = "@envoy",
-    deps = [
-        "//external:mixer_client_lib",
-	"@mixerapi_git//:mixer_client_config_cc_proto",
-    ],
-)
-
-envoy_cc_test(
-    name = "quota_config_test",
-    srcs = [
-        "quota_config_test.cc",
-    ],
-    repository = "@envoy",
-    deps = [
-        ":quota_config_lib",
-    ],
-)
-
-envoy_cc_library(
     name = "filter_lib",
     srcs = [
         "config.cc",
@@ -65,7 +41,8 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
-        "//external:mixer_client_lib",
+        "//external:mixer_http_control_lib",
+        "//external:mixer_tcp_control_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

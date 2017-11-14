@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-MIXER_CLIENT = "1dd5854013724cb0421b04fb4345062f9e77eb89"
+MIXER_CLIENT = "aa16c9e942b12fd4d4c6ec76f578798ec18b8681"
 
 def mixer_client_repositories(bind=True):
     native.git_repository(
@@ -28,4 +28,12 @@ def mixer_client_repositories(bind=True):
         native.bind(
             name = "mixer_client_lib",
             actual = "@mixerclient_git//:mixer_client_lib",
+        )
+        native.bind(
+            name = "mixer_http_control_lib",
+            actual = "@mixerclient_git//control/src/http:control_lib",
+        )
+        native.bind(
+            name = "mixer_tcp_control_lib",
+            actual = "@mixerclient_git//control/src/tcp:control_lib",
         )
