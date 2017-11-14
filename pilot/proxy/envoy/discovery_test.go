@@ -226,9 +226,6 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	addConfig(registry, egressRule, t)
 	addConfig(registry, egressRuleCBPolicy, t)
 
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t)
-
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-circuit-breaker.json", t)
@@ -250,9 +247,6 @@ func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) // original dst cluster should not have auth
-
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t) // original dst cluster should not have auth
 
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
