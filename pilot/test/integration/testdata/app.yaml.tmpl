@@ -51,6 +51,7 @@ spec:
         app: {{.service}}
         version: {{.version}}
     spec:
+      serviceAccountName: istio-pilot-service-account
       containers:
       - name: app
         image: {{.Hub}}/app:{{.Tag}}

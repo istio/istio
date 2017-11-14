@@ -32,7 +32,6 @@ import (
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/test/util"
 )
@@ -134,6 +133,9 @@ func (infra *infra) setup() error {
 	if err := deploy("rbac-beta.yaml.tmpl", infra.IstioNamespace); err != nil {
 		return err
 	}
+	if err := deploy("rbac-app.yaml.tmpl", infra.Namespace); err != nil {
+		return err
+	}
 
 	if err := deploy("config.yaml.tmpl", infra.IstioNamespace); err != nil {
 		return err
@@ -165,16 +167,17 @@ func (infra *infra) setup() error {
 			Version:         "integration-test",
 			Mesh:            mesh,
 			DebugMode:       debugMode,
+			Experimental:    true,
 		},
 	}
 
 	// NOTE: InitializerConfiguration is cluster-scoped and may be
 	// created and used by other tests in the same test cluster.
-	if infra.UseInitializer {
-		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-	}
+	//	if infra.UseInitializer {
+	//		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
+	//			return err
+	//		}
+	//	}
 
 	// TODO - Initializer configs can block initializers from being
 	// deployed. The workaround is to explicitly set the initializer
@@ -192,34 +195,34 @@ func (infra *infra) setup() error {
 	//
 	// See github.com/kubernetes/kubernetes/issues/49048 for k8s
 	// tracking issue.
-	if yaml, err := fill("initializer.yaml.tmpl", infra); err != nil {
-		return err
-	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
-		glog.Infof("Sidecar initializer could not be deleted: %v", err)
-	}
-
-	if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
-		return err
-	} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
-		return err
-	}
-	if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
-	}
-
-	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
-	}
-	if infra.Mixer {
-		if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-	}
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
-		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
-			return err
-		}
-	}
+	//	if yaml, err := fill("initializer.yaml.tmpl", infra); err != nil {
+	//		return err
+	//	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
+	//		glog.Infof("Sidecar initializer could not be deleted: %v", err)
+	//	}
+	//
+	//	if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
+	//		return err
+	//	} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
+	//		return err
+	//	}
+	//	if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
+	//		return err
+	//	}
+	//
+	//	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
+	//		return err
+	//	}
+	//	if infra.Mixer {
+	//		if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+	//			return err
+	//		}
+	//	}
+	//	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
+	//		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {
+	//			return err
+	//		}
+	//	}
 
 	if err := deploy("ca.yaml.tmpl", infra.IstioNamespace); err != nil {
 		return err
@@ -282,12 +285,7 @@ func (infra *infra) deployApps() error {
 
 func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,
 	version string, injectProxy bool, perServiceAuth bool) error {
-	// Eureka does not support management ports
-	// APIv2: healthPort := "true"
 	healthPort := "false"
-	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
-		healthPort = "false"
-	}
 
 	w, err := fill("app.yaml.tmpl", map[string]string{
 		"Hub":            infra.Hub,

@@ -32,8 +32,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-	v1 "k8s.io/api/core/v1"
 	v2alpha1 "k8s.io/api/batch/v2alpha1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -144,6 +144,7 @@ type Params struct {
 	// redirect outbound traffic to Envoy for these IP
 	// ranges. Otherwise all outbound traffic is redirected to Envoy.
 	IncludeIPRanges string `json:"includeIPRanges"`
+	Experimental    bool   `json:"experimental"`
 }
 
 // Config specifies the initializer configuration for sidecar
@@ -379,112 +380,161 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 		spec.InitContainers = append(spec.InitContainers, enableCoreDumpContainer)
 	}
 
-	// sidecar proxy container
-	args := []string{"proxy", "sidecar"}
+	if p.Experimental {
+		// sidecar proxy container
+		args := []string{"-v", "2", "--logtostderr", "--config", p.Mesh.DefaultConfig.ConfigPath}
 
-	if p.Verbosity > 0 {
-		args = append(args, "-v", strconv.Itoa(p.Verbosity))
-	}
+		volumeMounts := []v1.VolumeMount{
+			{
+				Name:      istioEnvoyConfigVolumeName,
+				MountPath: p.Mesh.DefaultConfig.ConfigPath,
+			},
+		}
 
-	serviceCluster := p.Mesh.DefaultConfig.ServiceCluster
+		spec.Volumes = append(spec.Volumes,
+			v1.Volume{
+				Name: istioEnvoyConfigVolumeName,
+				VolumeSource: v1.VolumeSource{
+					EmptyDir: &v1.EmptyDirVolumeSource{
+						Medium: v1.StorageMediumMemory,
+					},
+				},
+			})
 
-	// If 'app' label is available, use it as the default service cluster
-	if val, ok := metadata.GetLabels()["app"]; ok {
-		serviceCluster = val
-	}
+		sidecar := v1.Container{
+			Name:  ProxyContainerName,
+			Image: "gcr.io/istio-testing/proxy2:latest",
+			Args:  args,
+			Env: []v1.EnvVar{{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			}, {
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			}},
+			SecurityContext: &v1.SecurityContext{
+				RunAsUser: &p.SidecarProxyUID,
+			},
+			VolumeMounts: volumeMounts,
+		}
 
-	// set all proxy config flags
-	args = append(args, "--configPath", p.Mesh.DefaultConfig.ConfigPath)
-	args = append(args, "--binaryPath", p.Mesh.DefaultConfig.BinaryPath)
-	args = append(args, "--serviceCluster", serviceCluster)
-	args = append(args, "--drainDuration", timeString(p.Mesh.DefaultConfig.DrainDuration))
-	args = append(args, "--parentShutdownDuration", timeString(p.Mesh.DefaultConfig.ParentShutdownDuration))
-	args = append(args, "--discoveryAddress", p.Mesh.DefaultConfig.DiscoveryAddress)
-	args = append(args, "--discoveryRefreshDelay", timeString(p.Mesh.DefaultConfig.DiscoveryRefreshDelay))
-	args = append(args, "--zipkinAddress", p.Mesh.DefaultConfig.ZipkinAddress)
-	args = append(args, "--connectTimeout", timeString(p.Mesh.DefaultConfig.ConnectTimeout))
-	args = append(args, "--statsdUdpAddress", p.Mesh.DefaultConfig.StatsdUdpAddress)
-	args = append(args, "--proxyAdminPort", fmt.Sprintf("%d", p.Mesh.DefaultConfig.ProxyAdminPort))
-	args = append(args, "--controlPlaneAuthPolicy", p.Mesh.DefaultConfig.ControlPlaneAuthPolicy.String())
+		spec.Containers = append(spec.Containers, sidecar)
+	} else {
+		// sidecar proxy container
+		args := []string{"proxy", "sidecar"}
 
-	volumeMounts := []v1.VolumeMount{
-		{
-			Name:      istioEnvoyConfigVolumeName,
-			MountPath: p.Mesh.DefaultConfig.ConfigPath,
-		},
-	}
+		if p.Verbosity > 0 {
+			args = append(args, "-v", strconv.Itoa(p.Verbosity))
+		}
 
-	spec.Volumes = append(spec.Volumes,
-		v1.Volume{
-			Name: istioEnvoyConfigVolumeName,
+		serviceCluster := p.Mesh.DefaultConfig.ServiceCluster
+
+		// If 'app' label is available, use it as the default service cluster
+		if val, ok := metadata.GetLabels()["app"]; ok {
+			serviceCluster = val
+		}
+
+		// set all proxy config flags
+		args = append(args, "--configPath", p.Mesh.DefaultConfig.ConfigPath)
+		args = append(args, "--binaryPath", p.Mesh.DefaultConfig.BinaryPath)
+		args = append(args, "--serviceCluster", serviceCluster)
+		args = append(args, "--drainDuration", timeString(p.Mesh.DefaultConfig.DrainDuration))
+		args = append(args, "--parentShutdownDuration", timeString(p.Mesh.DefaultConfig.ParentShutdownDuration))
+		args = append(args, "--discoveryAddress", p.Mesh.DefaultConfig.DiscoveryAddress)
+		args = append(args, "--discoveryRefreshDelay", timeString(p.Mesh.DefaultConfig.DiscoveryRefreshDelay))
+		args = append(args, "--zipkinAddress", p.Mesh.DefaultConfig.ZipkinAddress)
+		args = append(args, "--connectTimeout", timeString(p.Mesh.DefaultConfig.ConnectTimeout))
+		args = append(args, "--statsdUdpAddress", p.Mesh.DefaultConfig.StatsdUdpAddress)
+		args = append(args, "--proxyAdminPort", fmt.Sprintf("%d", p.Mesh.DefaultConfig.ProxyAdminPort))
+		args = append(args, "--controlPlaneAuthPolicy", p.Mesh.DefaultConfig.ControlPlaneAuthPolicy.String())
+
+		volumeMounts := []v1.VolumeMount{
+			{
+				Name:      istioEnvoyConfigVolumeName,
+				MountPath: p.Mesh.DefaultConfig.ConfigPath,
+			},
+		}
+
+		spec.Volumes = append(spec.Volumes,
+			v1.Volume{
+				Name: istioEnvoyConfigVolumeName,
+				VolumeSource: v1.VolumeSource{
+					EmptyDir: &v1.EmptyDirVolumeSource{
+						Medium: v1.StorageMediumMemory,
+					},
+				},
+			})
+
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      istioCertVolumeName,
+			ReadOnly:  true,
+			MountPath: proxy.AuthCertsPath,
+		})
+
+		sa := spec.ServiceAccountName
+		if sa == "" {
+			sa = "default"
+		}
+		spec.Volumes = append(spec.Volumes, v1.Volume{
+			Name: istioCertVolumeName,
 			VolumeSource: v1.VolumeSource{
-				EmptyDir: &v1.EmptyDirVolumeSource{
-					Medium: v1.StorageMediumMemory,
+				Secret: &v1.SecretVolumeSource{
+					SecretName: istioCertSecretPrefix + sa,
+					Optional:   (func(b bool) *bool { return &b })(true),
 				},
 			},
 		})
 
-	volumeMounts = append(volumeMounts, v1.VolumeMount{
-		Name:      istioCertVolumeName,
-		ReadOnly:  true,
-		MountPath: proxy.AuthCertsPath,
-	})
+		// In debug mode we need to be able to write in the proxy container
+		// and change the iptables.
+		readOnly := !p.DebugMode
+		priviledged := p.DebugMode
 
-	sa := spec.ServiceAccountName
-	if sa == "" {
-		sa = "default"
+		sidecar := v1.Container{
+			Name:  ProxyContainerName,
+			Image: p.ProxyImage,
+			Args:  args,
+			Env: []v1.EnvVar{{
+				Name: "POD_NAME",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
+					},
+				},
+			}, {
+				Name: "POD_NAMESPACE",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
+					},
+				},
+			}, {
+				Name: "INSTANCE_IP",
+				ValueFrom: &v1.EnvVarSource{
+					FieldRef: &v1.ObjectFieldSelector{
+						FieldPath: "status.podIP",
+					},
+				},
+			}},
+			ImagePullPolicy: pullPolicy,
+			SecurityContext: &v1.SecurityContext{
+				RunAsUser:              &p.SidecarProxyUID,
+				ReadOnlyRootFilesystem: &readOnly,
+				Privileged:             &priviledged,
+			},
+			VolumeMounts: volumeMounts,
+		}
+
+		spec.Containers = append(spec.Containers, sidecar)
 	}
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: istioCertVolumeName,
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName: istioCertSecretPrefix + sa,
-				Optional:   (func(b bool) *bool { return &b })(true),
-			},
-		},
-	})
-
-	// In debug mode we need to be able to write in the proxy container
-	// and change the iptables.
-	readOnly := !p.DebugMode
-	priviledged := p.DebugMode
-
-	sidecar := v1.Container{
-		Name:  ProxyContainerName,
-		Image: p.ProxyImage,
-		Args:  args,
-		Env: []v1.EnvVar{{
-			Name: "POD_NAME",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "metadata.name",
-				},
-			},
-		}, {
-			Name: "POD_NAMESPACE",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "metadata.namespace",
-				},
-			},
-		}, {
-			Name: "INSTANCE_IP",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				},
-			},
-		}},
-		ImagePullPolicy: pullPolicy,
-		SecurityContext: &v1.SecurityContext{
-			RunAsUser:              &p.SidecarProxyUID,
-			ReadOnlyRootFilesystem: &readOnly,
-			Privileged:             &priviledged,
-		},
-		VolumeMounts: volumeMounts,
-	}
-
-	spec.Containers = append(spec.Containers, sidecar)
 }
 
 func intoObject(c *Config, in interface{}) (interface{}, error) {
@@ -506,9 +556,9 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 	// `in` is a pointer to an Object. Dereference it.
 	outValue := reflect.ValueOf(out).Elem()
 
-	var objectMeta *metav1.ObjectMeta;
-	var templateObjectMeta *metav1.ObjectMeta;
-	var templatePodSpec *v1.PodSpec;
+	var objectMeta *metav1.ObjectMeta
+	var templateObjectMeta *metav1.ObjectMeta
+	var templatePodSpec *v1.PodSpec
 	// CronJobs have JobTemplates in them, instead of Templates, so we
 	// special case them.
 	if job, ok := out.(*v2alpha1.CronJob); ok {
@@ -526,7 +576,6 @@ func intoObject(c *Config, in interface{}) (interface{}, error) {
 		templateObjectMeta = templateValue.FieldByName("ObjectMeta").Addr().Interface().(*metav1.ObjectMeta)
 		templatePodSpec = templateValue.FieldByName("Spec").Addr().Interface().(*v1.PodSpec)
 	}
-
 
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptable changes are assumed to be within the pod when,

@@ -58,7 +58,7 @@ func main() {
 		generator = &v2.Generator{Cache: config, ID: id, Path: "testdata"}
 		generator.Generate()
 	} else {
-		generator, err = v2.NewGenerator(config, id, kubeconfig)
+		generator, err = v2.NewGenerator(config, configPath, id, kubeconfig)
 		if err != nil {
 			glog.Fatal(err)
 		}
@@ -76,6 +76,7 @@ var (
 	id         string
 	namespace  string
 	binPath    string
+	configPath string
 	port       int
 
 	validate bool
@@ -90,4 +91,5 @@ func init() {
 	flag.BoolVar(&validate, "valid", false,
 		"Validate only (for testing and debugging)")
 	flag.StringVar(&binPath, "bin", "/usr/local/bin/envoy", "Envoy binary")
+	flag.StringVar(&configPath, "config", ".", "Config file path")
 }

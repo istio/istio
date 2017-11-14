@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path"
 	"sort"
 	"time"
 
@@ -47,7 +48,7 @@ type Generator struct {
 	Path  string
 }
 
-func NewGenerator(out cache.Cache, id string, kubeconfig string) (*Generator, error) {
+func NewGenerator(out cache.Cache, path, id, kubeconfig string) (*Generator, error) {
 	_, client, kuberr := kube.CreateInterface(kubeconfig)
 	if kuberr != nil {
 		return nil, multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -79,7 +80,7 @@ func NewGenerator(out cache.Cache, id string, kubeconfig string) (*Generator, er
 		config:   configController,
 		Cache:    out,
 		ID:       id,
-		Path:     ".",
+		Path:     path,
 	}
 
 	// register handlers
@@ -205,7 +206,7 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 		g.servicesHash = hash
 	}
 
-	err = ioutil.WriteFile("services.json", bytes, 0600)
+	err = ioutil.WriteFile(path.Join(g.Path, "services.json"), bytes, 0600)
 	if err != nil {
 		glog.Warning(err)
 	}
@@ -243,7 +244,7 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 		g.configHash = hash
 	}
 
-	err = ioutil.WriteFile("instances.json", bytes, 0600)
+	err = ioutil.WriteFile(path.Join(g.Path, "instances.json"), bytes, 0600)
 	if err != nil {
 		glog.Warning(err)
 	}
