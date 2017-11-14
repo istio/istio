@@ -295,6 +295,14 @@ func TestClusterDiscoveryIngressError(t *testing.T) {
 	}
 }
 
+func TestClusterDiscoveryWithEgressTCPRule(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, egressRuleTCP, t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-egress-rule-tcp.json", t)
+}
+
 func TestClusterDiscoveryRouterError(t *testing.T) {
 	_, _, ds := commonSetup(t)
 	mockDiscovery.ServicesError = errors.New("mock Services() error")

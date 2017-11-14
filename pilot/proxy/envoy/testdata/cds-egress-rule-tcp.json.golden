@@ -1,0 +1,190 @@
+{
+  "clusters": [
+   {
+    "name": "in.1081",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1081"
+     }
+    ]
+   },
+   {
+    "name": "in.1090",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1090"
+     }
+    ]
+   },
+   {
+    "name": "in.1100",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1100"
+     }
+    ]
+   },
+   {
+    "name": "in.1110",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:1110"
+     }
+    ]
+   },
+   {
+    "name": "in.3333",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:3333"
+     }
+    ]
+   },
+   {
+    "name": "in.80",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:80"
+     }
+    ]
+   },
+   {
+    "name": "in.9999",
+    "connect_timeout_ms": 1000,
+    "type": "static",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://127.0.0.1:9999"
+     }
+    ]
+   },
+   {
+    "name": "out.172.217.0.0/16|external-TCP-444",
+    "service_name": "172.217.0.0/16|external-TCP-444",
+    "connect_timeout_ms": 1000,
+    "type": "original_dst",
+    "lb_type": "original_dst_lb"
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|custom",
+    "service_name": "hello.default.svc.cluster.local|custom",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|http",
+    "service_name": "hello.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|http-status",
+    "service_name": "hello.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|mongo",
+    "service_name": "hello.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.hello.default.svc.cluster.local|redis",
+    "service_name": "hello.default.svc.cluster.local|redis",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.httpbin.default.svc.cluster.local|http",
+    "service_name": "httpbin.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.httpsbin.default.svc.cluster.local|https",
+    "service_name": "httpsbin.default.svc.cluster.local|https",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|custom",
+    "service_name": "world.default.svc.cluster.local|custom",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http",
+    "service_name": "world.default.svc.cluster.local|http",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|http-status",
+    "service_name": "world.default.svc.cluster.local|http-status",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|mongo",
+    "service_name": "world.default.svc.cluster.local|mongo",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "out.world.default.svc.cluster.local|redis",
+    "service_name": "world.default.svc.cluster.local|redis",
+    "connect_timeout_ms": 1000,
+    "type": "sds",
+    "lb_type": "round_robin"
+   },
+   {
+    "name": "mixer_server",
+    "connect_timeout_ms": 1000,
+    "type": "strict_dns",
+    "lb_type": "round_robin",
+    "hosts": [
+     {
+      "url": "tcp://istio-mixer.istio-system:9091"
+     }
+    ],
+    "features": "http2",
+    "circuit_breakers": {
+     "default": {
+      "max_pending_requests": 10000,
+      "max_requests": 10000
+     }
+    }
+   }
+  ]
+ }
