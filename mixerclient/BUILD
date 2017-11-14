@@ -40,6 +40,7 @@ cc_library(
     srcs = [
         "src/attribute_compressor.cc",
         "src/attribute_compressor.h",
+        "src/attributes_builder.cc",
         "src/check_cache.cc",
         "src/check_cache.h",
         "src/client_impl.cc",
