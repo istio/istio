@@ -27,36 +27,36 @@ func TestAddAndGet(t *testing.T) {
 	cache := newTestCache(2, time.Second, fakeClock, t)
 	// cache contents: {(1, 1)}
 	if evicted := cache.add(1, 1); evicted {
-		t.Errorf(`expiringLRUCache.add(1, 1) != false`)
+		t.Errorf(`add(1, 1), expect no eviction but evicted`)
 	}
 	// cache contents: {(1, 2)}
 	if evicted := cache.add(1, 2); evicted {
-		t.Errorf(`expiringLRUCache.add(1, 2) != false`)
+		t.Errorf(`add(1, 2), expect no eviction but evicted`)
 	}
 	if value, ok := cache.get(1); !ok || value != 2 {
-		t.Errorf(`expiringLRUCache.get(1) != 2, true`)
+		t.Errorf(`expect (1, 2) in cache, but not found`)
 	}
 	// cache contents: {(1,2), (2,3)}
 	if evicted := cache.add(2, 3); evicted {
-		t.Errorf(`expiringLRUCache.add(2, 3) != false`)
+		t.Errorf(`add(2, 3), expect no eviction, but evicted `)
 	}
 	// expiringLRUCache {(2,3}, (3,4)}
 	if evicted := cache.add(3, 4); !evicted {
-		t.Errorf(`expiringLRUCache.add(3, 4) != true`)
+		t.Errorf(`add(3, 4), expect eviction, but not evicted`)
 	}
 	if value, ok := cache.get(1); ok || value != nil {
-		t.Errorf(`expiringLRUCache.get(1) != nil, false`)
+		t.Errorf(`expect key 1 evicted, but found in cache`)
 	}
 	// expiringLRUCache {(3,4), (2,3)}
 	if value, ok := cache.get(2); !ok && (value == nil || value != 3) {
-		t.Errorf(`expiringLRUCache.get(2) != 3, true`)
+		t.Errorf(`expect (2, 3) in cache, but not found`)
 	}
 	// expiringLRUCache {(2,3), (4,5)}
 	if evicted := cache.add(4, 5); !evicted {
-		t.Errorf(`expiringLRUCache.add(4,5) != true`)
+		t.Errorf(`add(4, 5), expect eviction, but not evicted`)
 	}
 	if value, ok := cache.get(2); !ok || (value == nil || value != 3) {
-		t.Errorf(`expiringLRUCache.get(2) != 3, true`)
+		t.Errorf(`expect (2, 3) in cache, but not found`)
 	}
 }
 
@@ -65,11 +65,11 @@ func TestExpiration(t *testing.T) {
 	cache := newTestCache(2, time.Second, fakeClock, t)
 	// cache contents: {(1, 1)}
 	if evicted := cache.add(1, 1); evicted {
-		t.Errorf(`expiringLRUCache.add(1, 1) != false`)
+		t.Errorf(`add(1, 1), expect no eviction, but evicted`)
 	}
-	fakeClock.Advance(time.Second * 2)
+	fakeClock.Advance(time.Second + time.Nanosecond)
 	if value, ok := cache.get(1); ok || value != nil {
-		t.Errorf(`expiringLRUCache.get(1) != nil, false`)
+		t.Errorf(`expect key 1 expired, but still found in cache`)
 	}
 }
 
@@ -78,13 +78,20 @@ func TestRemove(t *testing.T) {
 	cache := newTestCache(2, time.Second, fakeClock, t)
 	// cache contents: {(1, 1)}
 	if evicted := cache.add(1, 1); evicted {
-		t.Errorf(`expiringLRUCache.add(1, 1) != false`)
+		t.Errorf(`add(1, 1), expect no eviction, but evicted`)
 	}
 	if ok := cache.remove(0); ok {
-		t.Errorf(`expiringLRUCache.remove(0) != false`)
+		t.Errorf(`expect remove(0) to return false'`)
 	}
+	if _, ok := cache.get(1); !ok {
+		t.Errorf(`expect key 1 in cache, but not found`)
+	}
+	// cache contents: {}
 	if ok := cache.remove(1); !ok {
-		t.Errorf(`expiringLRUCache.remove(0) != true`)
+		t.Errorf(`expect to remove existing key 1, but report key 1 not found`)
+	}
+	if _, ok := cache.get(1); ok {
+		t.Errorf(`key 1 should have been removed`)
 	}
 }
 
@@ -93,15 +100,18 @@ func TestPurge(t *testing.T) {
 	cache := newTestCache(2, time.Second, fakeClock, t)
 	// cache contents: {(1, 1)}
 	if evicted := cache.add(1, 1); evicted {
-		t.Errorf(`expiringLRUCache.add(1, 1) != false`)
+		t.Errorf(`add(1, 1), expect no eviction, but evicted`)
 	}
 	// cache contents: {(1, 1), {2, 3}
 	if evicted := cache.add(2, 3); evicted {
-		t.Errorf(`expiringLRUCache.add(2, 3) != false`)
+		t.Errorf(`add(2, 3), expect no eviction, but evicted`)
 	}
 	cache.purge()
+	if value, ok := cache.get(1); ok || value != nil {
+		t.Errorf(`expect empty cache, but key 1 exists`)
+	}
 	if value, ok := cache.get(2); ok || value != nil {
-		t.Errorf(`expiringLRUCache.get(2) != nil, false`)
+		t.Errorf(`expect empty cache, but key 2 exists`)
 	}
 }
 

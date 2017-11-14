@@ -31,13 +31,16 @@ type (
 
 	// A thread safe LRU cache with expiration.
 	expiringLRUCache struct {
-		mutex      sync.RWMutex
-		lru        *simplelru.LRU
-		clock      clockwork.Clock
+		mutex sync.RWMutex
+		lru   *simplelru.LRU
+		clock clockwork.Clock
+		// Items that stay in cache longer than expiration will be evicted.
 		expiration time.Duration
 	}
 )
 
+// add adds a key-value pair in cache and returns true if an eviction occurred. Overwriting an
+// existing key is not an eviction.
 func (c *expiringLRUCache) add(key, value interface{}) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -47,6 +50,8 @@ func (c *expiringLRUCache) add(key, value interface{}) bool {
 	})
 }
 
+// get gets the cached item of the given key. Expired item will be evicted. Returns false
+// if item doesn't exist or expired.
 func (c *expiringLRUCache) get(key interface{}) (interface{}, bool) {
 	value := c.getImpl(key)
 	if value == nil {
@@ -65,26 +70,28 @@ func (c *expiringLRUCache) get(key interface{}) (interface{}, bool) {
 	}
 
 	valueInCache := tmp.(*cacheValue)
-	if value == valueInCache ||
-		c.clock.Since(valueInCache.timestamp) > c.expiration {
+	if c.clock.Since(valueInCache.timestamp) > c.expiration {
 		c.lru.Remove(key)
 		return nil, false
 	}
 	return valueInCache.value, true
 }
 
+// remove removes the item of the given key and returns true if the item was in cache.
 func (c *expiringLRUCache) remove(key interface{}) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	return c.lru.Remove(key)
 }
 
+// purge purges all items in the cache.
 func (c *expiringLRUCache) purge() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.lru.Purge()
 }
 
+// getImpl gets the item of given key and returns nil if item doesn't exist.
 func (c *expiringLRUCache) getImpl(key interface{}) *cacheValue {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -95,6 +102,7 @@ func (c *expiringLRUCache) getImpl(key interface{}) *cacheValue {
 	return value.(*cacheValue)
 }
 
+// newExpiringLRUCache creates a cache of given size and expiration.
 func newExpiringLRUCache(size int, expiration time.Duration) (*expiringLRUCache, error) {
 	lru, err := simplelru.NewLRU(size, nil)
 	if err != nil {
