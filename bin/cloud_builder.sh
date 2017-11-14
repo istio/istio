@@ -35,17 +35,23 @@ OUTPUT_PATH=""
 # src/proxy
 PROXY_PATH="../../../../src/proxy"
 TAG_NAME="0.0.0"
+BUILD_DEBIAN="true"
+BUILD_DOCKER="true"
 
 function usage() {
   echo "$0
+    -b        opts out of building debian artifacts
+    -c        opts out of building docker artifacts
     -o        path to store build artifacts
     -p        path to proxy repo (relative to istio repo, defaults to ${PROXY_PATH} ) 
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts o:p:t: arg ; do
+while getopts bo:p:t: arg ; do
   case "${arg}" in
+    b) BUILD_DEBIAN="false";;
+    c) BUILD_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
     p) PROXY_PATH="${PROXY_PATH}";;
     t) TAG_NAME="${OPTARG}";;
@@ -79,8 +85,9 @@ pushd "${PROXY_PATH}"
 # mode that should shutdown bazel after each call.
 echo 'Setting bazel.rc'
 cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
-
-./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+fi
 popd
 
 # Pilot likes to check if the source tree is 'clean'
@@ -115,17 +122,27 @@ git checkout lintconfig.json
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
-./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+fi
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+fi
 popd
 
 pushd mixer
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+fi
 popd
 
 pushd security
-./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+if [ "${BUILD_DOCKER}" == "true" ]; then
+  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+fi
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+fi
 popd
 
 # store artifacts that are used by a separate cloud builder step to generate tar files

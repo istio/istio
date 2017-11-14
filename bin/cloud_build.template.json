@@ -7,8 +7,8 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
-      "args": [ "-c", "curl -L -o repo https://storage.googleapis.com/git-repo-downloads/repo && chmod u+x ./repo" ],
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/" ],
       "entrypoint": "bash"
     },
     {
@@ -18,18 +18,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
-      "args": [ "-c", "./repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && ./repo sync && cp .repo/manifest.xml /output/" ],
-      "entrypoint": "bash"
-    },
-    {
-      "volumes": [
-	{
-          "name": "buildoutput",
-          "path": "/output"
-	}
-      ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
       "args": [ "./bin/cloud_builder.sh", "-t", "$_VER_STRING", "-o", "/output" ]
     },
@@ -40,7 +29,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
       "args": [ "./bin/create_release_archives.sh", "-v", "$_VER_STRING", "-o", "/output" ]
     },
@@ -51,7 +40,7 @@
           "path": "/output"
         }
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.3.2",
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
       "args": [ "./bin/store_artifacts.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
     }
