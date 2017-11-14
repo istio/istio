@@ -68,11 +68,11 @@ done
 
 if [[ -n ${ALL_HUB_TAG} ]]; then
     PILOT_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    PILOT_TAG="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    PILOT_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     MIXER_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     CA_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
-    CA_TAG="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    CA_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
 fi
 
 if [[ -n ${PILOT_HUB_TAG} ]]; then
