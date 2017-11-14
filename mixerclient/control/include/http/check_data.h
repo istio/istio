@@ -47,7 +47,7 @@ class CheckData {
   virtual std::map<std::string, std::string> GetRequestHeaders() const = 0;
 
   // These headers are extracted into top level attributes.
-  // They can be retrieved at O(1) speed by Platform (Envoy).
+  // They can be retrieved at O(1) speed by environment (Envoy).
   // It is faster to use the map from GetRequestHeader() call.
   enum HeaderType {
     HEADER_PATH = 0,
