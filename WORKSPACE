@@ -362,7 +362,7 @@ go_repository(
 
 go_repository(
     name = "com_github_jonboulle_clockwork",
-    commit = "2eee05ed794112d45db504eb05aa693efd2b8b09",  # Jul 6, 2016 (v0.1.0)
+    commit = "bcac9884e7502bb2b474c0339d889cb981a2f27f",  # Sep 7, 2016 (clock mock)
     importpath = "github.com/jonboulle/clockwork",
 )
 
