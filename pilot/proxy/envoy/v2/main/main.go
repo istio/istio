@@ -29,6 +29,11 @@ func main() {
 			id = namespace + "/" + id
 		}
 	}
+	if domain == "" {
+		if namespace, exists := os.LookupEnv("POD_NAMESPACE"); exists {
+			domain = namespace + "svc.cluster.local"
+		}
+	}
 
 	config := cache.NewSimpleCache(v2.Hasher{}, nil /* TODO */)
 	server := xds.NewServer(config)
@@ -58,7 +63,7 @@ func main() {
 		generator = &v2.Generator{Cache: config, ID: id, Path: "testdata"}
 		generator.Generate()
 	} else {
-		generator, err = v2.NewGenerator(config, configPath, id, kubeconfig)
+		generator, err = v2.NewGenerator(config, configPath, id, domain, kubeconfig)
 		if err != nil {
 			glog.Fatal(err)
 		}
@@ -74,7 +79,7 @@ func main() {
 var (
 	kubeconfig string
 	id         string
-	namespace  string
+	domain     string
 	binPath    string
 	configPath string
 	port       int
@@ -86,6 +91,7 @@ func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	flag.StringVar(&id, "id", "", "Workload ID (e.g. pod namespace/name)")
+	flag.StringVar(&domain, "domain", "", "Workload domain (e.g. default.svc.cluster.local)")
 	flag.IntVar(&port, "port", 15003,
 		"ADS port")
 	flag.BoolVar(&validate, "valid", false,

@@ -17,7 +17,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	jsonnet "github.com/google/go-jsonnet"
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 )
@@ -29,18 +28,18 @@ func (Hasher) Hash(node *api.Node) (cache.Key, error) {
 }
 
 type Generator struct {
-	services     *kube.Controller
-	servicesHash [md5.Size]byte
+	services      *kube.Controller
+	servicesHash  [md5.Size]byte
+	instancesHash [md5.Size]byte
 
-	config     model.ConfigStoreCache
-	configHash [md5.Size]byte
+	vm     *jsonnet.VM
+	script string
 
-	vm *jsonnet.VM
-
-	script   string
-	snapshot *cache.Snapshot
-
-	version int
+	version   int
+	endpoints []proto.Message
+	clusters  []proto.Message
+	routes    []proto.Message
+	listeners []proto.Message
 
 	// Cache needs to be set
 	Cache cache.Cache
@@ -48,7 +47,7 @@ type Generator struct {
 	Path  string
 }
 
-func NewGenerator(out cache.Cache, path, id, kubeconfig string) (*Generator, error) {
+func NewGenerator(out cache.Cache, jpath, id, domain, kubeconfig string) (*Generator, error) {
 	_, client, kuberr := kube.CreateInterface(kubeconfig)
 	if kuberr != nil {
 		return nil, multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -59,28 +58,21 @@ func NewGenerator(out cache.Cache, path, id, kubeconfig string) (*Generator, err
 		DomainSuffix: "cluster.local",
 	}
 
-	configClient, err := crd.NewClient(kubeconfig, model.ConfigDescriptor{
-		model.RouteRule,
-		model.EgressRule,
-		model.DestinationPolicy,
-	}, options.DomainSuffix)
-
+	bytes, err := json.Marshal(context{Domain: domain})
 	if err != nil {
-		return nil, multierror.Prefix(err, "failed to open a config client.")
+		return nil, err
+	}
+	err = ioutil.WriteFile(path.Join(jpath, "context.json"), bytes, 0600)
+	if err != nil {
+		return nil, err
 	}
 
-	if err = configClient.RegisterResources(); err != nil {
-		return nil, multierror.Prefix(err, "failed to register custom resources.")
-	}
-
-	configController := crd.NewController(configClient, options)
 	ctl := kube.NewController(client, options)
 	g := &Generator{
 		services: ctl,
-		config:   configController,
 		Cache:    out,
 		ID:       id,
-		Path:     path,
+		Path:     jpath,
 	}
 
 	// register handlers
@@ -91,16 +83,15 @@ func NewGenerator(out cache.Cache, path, id, kubeconfig string) (*Generator, err
 		return nil, err
 	}
 
-	configController.RegisterEventHandler(model.RouteRule.Type, g.UpdateConfig)
-	configController.RegisterEventHandler(model.IngressRule.Type, g.UpdateConfig)
-	configController.RegisterEventHandler(model.EgressRule.Type, g.UpdateConfig)
-	configController.RegisterEventHandler(model.DestinationPolicy.Type, g.UpdateConfig)
 	return g, nil
 }
 
 func (g *Generator) Run(stop <-chan struct{}) {
 	go g.services.Run(stop)
-	go g.config.Run(stop)
+}
+
+type context struct {
+	Domain string `json:"domain"`
 }
 
 type stuff struct {
@@ -125,8 +116,9 @@ func (g *Generator) PrepareProgram() {
 
 func (g *Generator) Generate() {
 	g.PrepareProgram()
+	updated := false
 
-	if g.snapshot == nil {
+	if g.clusters == nil || g.routes == nil || g.listeners == nil {
 		glog.Infof("generating snapshot %d", g.version)
 		in, err := g.vm.EvaluateSnippet("envoy.jsonnet", g.script)
 		if err != nil {
@@ -138,46 +130,82 @@ func (g *Generator) Generate() {
 			glog.Warning(err)
 		}
 
-		listeners := make([]proto.Message, 0)
-		for _, listener := range out.Listeners {
-			l := api.Listener{}
-			s, _ := json.Marshal(listener)
-			listeners = append(listeners, &l)
-			if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		clusters := make([]proto.Message, 0)
+		g.clusters = make([]proto.Message, 0)
 		for _, cluster := range out.Clusters {
 			l := api.Cluster{}
 			s, _ := json.Marshal(cluster)
-			clusters = append(clusters, &l)
 			if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
 				log.Fatal(err)
 			}
+			g.clusters = append(g.clusters, &l)
 		}
 
-		routes := make([]proto.Message, 0)
+		g.routes = make([]proto.Message, 0)
 		for _, route := range out.Routes {
 			r := api.RouteConfiguration{}
 			s, _ := json.Marshal(route)
-			routes = append(routes, &r)
 			if err := jsonpb.UnmarshalString(string(s), &r); err != nil {
 				log.Fatal(err)
 			}
+			g.routes = append(g.routes, &r)
 		}
 
+		g.listeners = make([]proto.Message, 0)
+		for _, listener := range out.Listeners {
+			l := api.Listener{}
+			s, _ := json.Marshal(listener)
+			if err := jsonpb.UnmarshalString(string(s), &l); err != nil {
+				log.Fatal(err)
+			}
+			g.listeners = append(g.listeners, &l)
+		}
+
+		updated = true
+	}
+
+	// populate endpoints from clusters
+	if g.services != nil {
+		endpoints := make([]proto.Message, 0, len(g.clusters))
+		for _, msg := range g.clusters {
+			cluster := msg.(*api.Cluster)
+			if cluster.EdsClusterConfig != nil {
+				hostname, ports, labelcols := model.ParseServiceKey(cluster.EdsClusterConfig.ServiceName)
+				instances, err := g.services.Instances(hostname, ports.GetNames(), labelcols)
+				if err != nil {
+					glog.Warning(err)
+				}
+				addresses := make([]*api.LbEndpoint, 0, len(instances))
+				for _, instance := range instances {
+					addresses = append(addresses, &api.LbEndpoint{
+						Endpoint: &api.Endpoint{
+							Address: &api.Address{
+								Address: &api.Address_SocketAddress{
+									SocketAddress: &api.SocketAddress{
+										Address:       instance.Endpoint.Address,
+										PortSpecifier: &api.SocketAddress_PortValue{PortValue: uint32(instance.Endpoint.Port)},
+									},
+								},
+							},
+						},
+					})
+				}
+				endpoints = append(endpoints, &api.ClusterLoadAssignment{
+					ClusterName: cluster.Name,
+					Endpoints:   []*api.LocalityLbEndpoints{{LbEndpoints: addresses}}})
+			}
+		}
+		g.endpoints = endpoints
+		// TODO: avoid churn by sorting and caching
+	}
+
+	if updated && g.Cache != nil {
 		g.version++
 		snapshot := cache.NewSnapshot(fmt.Sprintf("%d", g.version),
-			nil, /* TODO */
-			clusters,
-			routes,
-			listeners)
-		if g.Cache != nil {
-			g.Cache.SetSnapshot("", snapshot)
-		}
-		g.snapshot = &snapshot
+			g.endpoints,
+			g.clusters,
+			g.routes,
+			g.listeners)
+		g.Cache.SetSnapshot("", snapshot)
 	}
 }
 
@@ -201,8 +229,7 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 	}
 
 	if hash := md5.Sum(bytes); hash != g.servicesHash {
-		// invalidate snapshot
-		g.snapshot = nil
+		g.routes = nil
 		g.servicesHash = hash
 	}
 
@@ -238,10 +265,9 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 		return
 	}
 
-	if hash := md5.Sum(bytes); hash != g.configHash {
-		// invalidate snapshot
-		g.snapshot = nil
-		g.configHash = hash
+	if hash := md5.Sum(bytes); hash != g.instancesHash {
+		g.routes = nil
+		g.instancesHash = hash
 	}
 
 	err = ioutil.WriteFile(path.Join(g.Path, "instances.json"), bytes, 0600)
@@ -250,8 +276,4 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 	}
 
 	g.Generate()
-}
-
-func (g *Generator) UpdateConfig(model.Config, model.Event) {
-	// g.Generate()
 }

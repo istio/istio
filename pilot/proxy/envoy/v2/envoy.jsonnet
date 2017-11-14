@@ -1,8 +1,6 @@
 local services = import "services.json";
 local instances = import "instances.json";
-local context = {
-    domain: "default.svc.cluster.local",
-};
+local context = import "context.json";
 
 // TODO: these functions are super slow! 1.2s vs 0.003s slow!
 local util = {
