@@ -226,14 +226,12 @@ func TestRun(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if len(server.authenticators) != tc.expectedAuthenticatorsLen {
-			t.Errorf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
+			t.Fatalf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
 				id, tc.expectedAuthenticatorsLen, len(server.authenticators))
-			continue
 		}
 
 		_, err = server.applyServerCertificate()
@@ -246,7 +244,7 @@ func TestRun(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 	}
 }

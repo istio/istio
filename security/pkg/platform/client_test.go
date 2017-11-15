@@ -76,8 +76,7 @@ func TestNewClient(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		credentialType := client.GetCredentialType()

@@ -37,5 +37,6 @@ go_test(
     deps = [
         "@com_github_aws_aws-sdk-go//aws:go_default_library",
         "@com_github_aws_aws-sdk-go//awstesting/unit:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
     ],
 )

@@ -89,8 +89,7 @@ func TestAuthenticate(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if !reflect.DeepEqual(tc.caller, result) {
@@ -154,8 +153,7 @@ func TestExtractBearerToken(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if actual != tc.expectedToken {

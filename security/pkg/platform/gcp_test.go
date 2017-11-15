@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -45,9 +46,7 @@ func (fetcher *mockTokenFetcher) FetchToken() (string, error) {
 
 func TestGetDialOptions(t *testing.T) {
 	creds, err := credentials.NewClientTLSFromFile("testdata/cert-chain-good.pem", "")
-	if err != nil {
-		t.Errorf("Ubable to get credential for testdata/cert-chain-good.pem")
-	}
+	assert.Equal(t, err, nil, "Unable to get credential for testdata/cert-chain-good.pem")
 
 	testCases := map[string]struct {
 		cfg             GcpConfig
@@ -109,8 +108,7 @@ func TestGetDialOptions(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		// Make sure there're two dial options, one for TLS and one for JWT.
@@ -156,7 +154,7 @@ func TestGcpGetRequestMetadata(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if !reflect.DeepEqual(c.expected, metadata) {
@@ -221,8 +219,7 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if string(c.expectedCredential) != string(credential) {
@@ -260,8 +257,7 @@ func TestGcpGetServiceIdentities(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if string(c.expectedIdentity) != string(serviceIdentity) {

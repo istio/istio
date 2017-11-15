@@ -17,6 +17,7 @@ package platform
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -26,6 +27,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/awstesting/unit"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -93,10 +95,7 @@ func TestAwsGetInstanceIdentityDocument(t *testing.T) {
 
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
-		if err != nil {
-			t.Errorf("%v: Unable to read file %s", id, c.sigFile)
-			continue
-		}
+		assert.Equal(t, err, nil, fmt.Sprintf("%v: Unable to read file %s", id, c.sigFile))
 
 		server := initTestServer(
 			c.requestPath,
@@ -118,15 +117,13 @@ func TestAwsGetInstanceIdentityDocument(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		doc := ec2metadata.EC2InstanceIdentityDocument{}
 		decode := json.NewDecoder(bytes.NewReader(docBytes)).Decode(&doc)
 		if decode != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if doc.InstanceType != c.expectedInstanceType {
@@ -156,10 +153,7 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
-		if err != nil {
-			t.Errorf("unable to read file %s", c.sigFile)
-			continue
-		}
+		assert.Equal(t, err, nil, fmt.Sprintf("%v: Unable to read file %s", id, c.sigFile))
 
 		server := initTestServer(
 			c.requestPath,
@@ -202,10 +196,7 @@ func TestGetGetAgentCredential(t *testing.T) {
 
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
-		if err != nil {
-			t.Errorf("unable to read file %s", c.sigFile)
-			continue
-		}
+		assert.Equal(t, err, nil, fmt.Sprintf("%v: Unable to read file %s", id, c.sigFile))
 
 		server := initTestServer(
 			c.requestPath,
@@ -227,8 +218,7 @@ func TestGetGetAgentCredential(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if string(credential) != c.expectedCredential {
@@ -280,10 +270,7 @@ func TestAwsGetDialOptions(t *testing.T) {
 
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
-		if err != nil {
-			t.Errorf("%v: Unable to read file: %s", id, c.sigFile)
-			continue
-		}
+		assert.Equal(t, err, nil, fmt.Sprintf("%v: Unable to read file %s", id, c.sigFile))
 
 		server := initTestServer(
 			c.requestPath,
@@ -305,14 +292,12 @@ func TestAwsGetDialOptions(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Errorf("%s: Unexpected Error: %v", id, err)
-			continue
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 
 		if len(options) != len(c.expectedOptions) {
-			t.Errorf("%s: Wrong dial options size. Expected %v, Actual %v",
+			t.Fatalf("%s: Wrong dial options size. Expected %v, Actual %v",
 				id, len(c.expectedOptions), len(options))
-			continue
 		}
 
 		for index, option := range c.expectedOptions {
@@ -340,10 +325,7 @@ func TestAwsGetCredentialTypes(t *testing.T) {
 
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
-		if err != nil {
-			t.Errorf("%v: Unable to read file %s", id, c.sigFile)
-			continue
-		}
+		assert.Equal(t, err, nil, fmt.Sprintf("%v: Unable to read file %s", id, c.sigFile))
 
 		server := initTestServer(
 			c.requestPath,
