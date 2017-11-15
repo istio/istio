@@ -1,4 +1,5 @@
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 gogoslick_proto_library(
     name = "go_default_library",
@@ -34,5 +35,18 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "//mixer/v1:go_default_library",
+    ],
+)
+
+cc_proto_library(
+    name = "cc_proto",
+    srcs = glob(
+        ["*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mixer/v1:cc_proto",
     ],
 )

@@ -15,7 +15,7 @@
 ################################################################################
 #
 
-def go_googleapis_repositories():
+def googleapis_repositories(bind=True):
     GOOGLEAPIS_BUILD_FILE = """
 package(default_visibility = ["//visibility:public"])
 
@@ -84,6 +84,21 @@ filegroup(
     ],
 )
 
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
+
+cc_proto_library(
+    name = "rpc_status_proto",
+    srcs = [
+        "google/rpc/status.proto",
+    ],
+    visibility = ["//visibility:public"],
+    protoc = "//external:protoc",
+    default_runtime = "//external:protobuf",
+    deps = [
+        "//external:cc_wkt_protos",
+    ],
+)
+
 """
     native.new_git_repository(
         name = "com_github_googleapis_googleapis",
@@ -91,3 +106,14 @@ filegroup(
         commit = "13ac2436c5e3d568bd0e938f6ed58b77a48aba15", # Oct 21, 2016 (only release pre-dates sha)
         remote = "https://github.com/googleapis/googleapis.git",
     )
+
+    if bind:
+        native.bind(
+            name = "rpc_status_proto",
+            actual = "@com_github_googleapis_googleapis//:rpc_status_proto",
+        )
+        native.bind(
+            name = "rpc_status_proto_genproto",
+            actual = "@com_github_googleapis_googleapis//:rpc_status_proto_genproto",
+        )
+

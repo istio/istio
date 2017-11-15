@@ -1,4 +1,5 @@
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 gogoslick_proto_library(
     name = "go_default_library",
@@ -45,4 +46,19 @@ filegroup(
     name = "attributes_file",
     srcs = ["global_dictionary.yaml"],
     visibility = ["//visibility:public"],
+)
+
+cc_proto_library(
+    name = "cc_proto",
+    srcs = glob(
+        ["*.proto"],
+    ),
+    default_runtime = "//external:protobuf",
+    protoc = "//external:protoc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//external:cc_gogoproto",
+        "//external:cc_wkt_protos",
+        "//external:rpc_status_proto",
+    ],
 )
