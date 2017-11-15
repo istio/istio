@@ -1,3 +1,5 @@
+# gazelle:exclude config.pb.go
+
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
 gogoslick_proto_library(
