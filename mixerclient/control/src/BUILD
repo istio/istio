@@ -28,7 +28,7 @@ cc_library(
     visibility = [":__subpackages__"],
     deps = [
         "//:mixer_client_lib",
-        "@mixerapi_git//:mixer_client_config_cc_proto",
+        "//external:mixer_client_config_cc_proto",
     ],
 )
 

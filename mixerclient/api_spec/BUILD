@@ -30,7 +30,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "@mixerapi_git//:mixer_client_config_cc_proto",
+        "//external:mixer_client_config_cc_proto",
     ],
 )
 

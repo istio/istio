@@ -24,12 +24,12 @@ py_binary(
 genrule(
    name = "global_dictionary_header_gen",
    srcs = [
-       "@mixerapi_git//:mixer/v1/global_dictionary.yaml",
+       "@mixerapi_git//mixer/v1:attributes_file",
    ],
    outs = [
        "src/global_dictionary.cc",
    ],
-   cmd = "$(location //:create_global_dictionary) $(location @mixerapi_git//:mixer/v1/global_dictionary.yaml) > $@",
+   cmd = "$(location //:create_global_dictionary) $(location @mixerapi_git//mixer/v1:attributes_file) > $@",
    tools = [
         "//:create_global_dictionary",
    ],
