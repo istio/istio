@@ -27,41 +27,41 @@ func TestNewClient(t *testing.T) {
 		expectedType string
 	}{
 		"onprem test": {
-			platform:        "onprem",
+			platform: "onprem",
 			cfg: ClientConfig{
 				OnPremConfig: OnPremConfig{
 					RootCACertFile: "testdata/cert-chain-good.pem",
 				},
 			},
-			caAddr:    "localhost",
-			expectedErr:   "",
+			caAddr:       "localhost",
+			expectedErr:  "",
 			expectedType: "onprem",
 		},
 		"gcp test": {
-			platform:        "gcp",
+			platform: "gcp",
 			cfg: ClientConfig{
 				GcpConfig: GcpConfig{
 					RootCACertFile: "testdata/cert-chain-good.pem",
 				},
 			},
-			caAddr:    "localhost",
-			expectedErr:   "",
+			caAddr:       "localhost",
+			expectedErr:  "",
 			expectedType: "gcp",
 		},
 		"aws test": {
-			platform:        "aws",
+			platform: "aws",
 			cfg: ClientConfig{
 				AwsConfig: AwsConfig{
 					RootCACertFile: "testdata/cert-chain-good.pem",
 				},
 			},
-			caAddr:    "localhost",
-			expectedErr:   "",
+			caAddr:       "localhost",
+			expectedErr:  "",
 			expectedType: "aws",
 		},
 		"invalid test": {
-			platform:        "invalid",
-			expectedErr:   "Invalid env invalid specified",
+			platform:    "invalid",
+			expectedErr: "Invalid env invalid specified",
 		},
 	}
 

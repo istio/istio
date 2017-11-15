@@ -144,11 +144,11 @@ func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x5
 
 	cert, err := pki.ParsePemEncodedCertificate(signerCertBytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%v", err)
+		return nil, nil, err
 	}
 	key, err := pki.ParsePemEncodedKey(signerPrivBytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%v", err)
+		return nil, nil, err
 	}
 
 	return cert, key, nil
