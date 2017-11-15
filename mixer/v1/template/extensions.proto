@@ -8,6 +8,7 @@ enum TemplateVariety {
     TEMPLATE_VARIETY_CHECK = 0;
     TEMPLATE_VARIETY_REPORT = 1;
     TEMPLATE_VARIETY_QUOTA = 2;
+    TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR = 3;
 }
 
 // File option for the TemplateVariety.
