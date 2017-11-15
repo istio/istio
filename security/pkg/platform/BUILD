@@ -35,8 +35,11 @@ go_test(
     data = glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
-        "@com_github_aws_aws-sdk-go//aws:go_default_library",
-        "@com_github_aws_aws-sdk-go//awstesting/unit:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws_sdk_go//awstesting/unit:go_default_library",
         "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials:go_default_library",
     ],
 )
