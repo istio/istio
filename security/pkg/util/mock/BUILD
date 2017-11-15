@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -6,7 +6,4 @@ go_library(
         "fakefileutil.go",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//security/pkg/util:go_default_library",
-    ],
 )
