@@ -8,16 +8,12 @@
 An open platform to connect, manage, and secure microservices.
 
 - [Introduction](#introduction)
-- [Istio authors](#istio-authors)
 - [Repositories](#repositories)
 - [Issue management](#issue-management)
-- [Community and support](#community-and-support)
 
 In addition, here are some other docs you may wish to read:
 
-- [Istio Working Groups](GROUPS.md) - how we partition work in the project
-- [Contribution Guidelines](CONTRIBUTING.md) - explains the process for contributing to the Istio code base
-- [Reviewing and Merging Pull Requests](REVIEWING.md) - explains the process we use to review code changes
+- [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
 - [Istio Developer's Guide](DEV-GUIDE.md) - explains how to setup and use an Istio development environment
 - [Project Conventions](DEV-CONVENTIONS.md) - describes the conventions we use within the code base
 - [Creating Fast and Lean Code](DEV-PERF.md) - performance-oriented advice and guidelines for the code base
@@ -58,11 +54,6 @@ Istio is composed of these components:
 
 Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.
-
-## Istio authors
-
-Istio is an open source project with an active development community. The project was started
-by teams from Google and IBM, in partnership with the Envoy team at Lyft.
 
 ## Repositories
 
@@ -116,8 +107,3 @@ milestone cannot be considered achieved if the issue isn't resolved.
 
 We don't annotate issues with Releases; Milestones are used instead. We don't use GitHub projects at all, that
 support is disabled for our organization.
-
-## Community and support
-
-There are several [communication channels](https://istio.io/community/) available to get
-support for Istio or to participate in its evolution.
