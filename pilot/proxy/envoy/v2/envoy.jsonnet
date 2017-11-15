@@ -27,13 +27,16 @@ local util = {
 local model = {
     key(hostname, labels, port_desc)::
         local labels_strings = ["%s=%s" % [key, labels[key]] for key in std.objectFields(labels)];
-        "%s|%s|%s" % [hostname, port_desc.name, std.join(",", std.sort(labels_strings))],
+        "%s|%s|%s" % [hostname, port_desc.name, std.join(',', std.sort(labels_strings))],
 
     is_http2(protocol)::
-        protocol == "HTTP2" || protocol == "GRPC",
+        protocol == 'HTTP2' || protocol == 'GRPC',
 
     is_http(protocol)::
-        protocol == "HTTP" || self.is_http2(protocol),
+        protocol == 'HTTP' || self.is_http2(protocol),
+
+    is_tcp(protocol)::
+        protocol == 'TCP',
 };
 
 local config = {
@@ -121,7 +124,7 @@ local config = {
                                     }],
                                 },
                             }
-                        else
+                        else if model.is_tcp(protocol) then
                             {
                                 name: "envoy.tcp_proxy",
                                 config: {
@@ -132,7 +135,7 @@ local config = {
                     ],
                 },
             ],
-        } for instance in instances if model.is_http(instance.endpoint.service_port.protocol)],  // TODO
+        } for instance in instances],
 
     outbound_http_ports(services)::
         std.set([
@@ -189,8 +192,9 @@ local config = {
                 ],
             }
             for service in services
+            if 'address' in service
             for port in service.ports
-            if !model.is_http(port.protocol) && false  // TODO
+            if model.is_tcp(port.protocol)
         ] + [
             {
                 local prefix = "out_HTTP_%d" % [port],
@@ -260,7 +264,7 @@ local config = {
     clusters: [
         listener.cluster
         for listener in self.listeners
-        if "cluster" in listener
+        if 'cluster' in listener
     ] + [
         host.cluster
         for route in self.routes

@@ -124,6 +124,7 @@ func (g *Generator) Generate() {
 		if err != nil {
 			glog.Warning(err)
 		}
+		glog.Infof("finished evaluation %d", g.version)
 
 		out := stuff{}
 		if err := json.Unmarshal([]byte(in), &out); err != nil {
