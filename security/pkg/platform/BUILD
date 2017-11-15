@@ -12,8 +12,8 @@ go_library(
     deps = [
         "//security/pkg/credential:go_default_library",
         "//security/pkg/pki:go_default_library",
-        "@com_github_aws_aws-sdk-go//aws/ec2metadata:go_default_library",
-        "@com_github_aws_aws-sdk-go//aws/session:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/session:go_default_library",
         "@com_github_fullsailor_pkcs7//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_google_cloud_go//compute/metadata:go_default_library",

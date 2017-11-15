@@ -19,6 +19,8 @@ go_test(
     srcs = ["controller_test.go"],
     library = ":go_default_library",
     deps = [
+        "//broker/pkg/model/config:go_default_library",
+        "//broker/pkg/model/osb:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_golang_mock//gomock:go_default_library",
         "@io_istio_api//:broker/v1/config",
