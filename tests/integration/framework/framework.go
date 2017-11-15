@@ -61,8 +61,6 @@ func (framework *IstioTestFramework) SetUp() (err error) {
 		return err
 	}
 
-	// TODO: Find more reliable way to tell if local components are ready to serve
-	time.Sleep(3 * time.Second)
 	return
 }
 

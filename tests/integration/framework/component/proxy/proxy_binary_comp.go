@@ -16,8 +16,8 @@ package proxy
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"time"
 
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
@@ -51,24 +51,17 @@ func (proxyComp *LocalComponent) GetName() string {
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	if _, err = util.Shell("bazel build -c opt %s/src/envoy/mixer:envoy", proxyRepo); err != nil {
-		log.Printf("Failed to build envoy from proxy repo")
-		return err
-	}
-	if proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
-		proxyRepo, proxyComp.logFile)); err != nil {
-		log.Printf("Failed to start component %s", proxyComp.GetName())
-		return err
-	}
+	proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
+		proxyRepo, proxyComp.logFile))
+
+	// TODO: Find more reliable way to tell if local components are ready to serve
+	time.Sleep(3 * time.Second)
 	return
 }
 
 // Stop kill the envory process
 func (proxyComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(proxyComp.process)
-	if err != nil {
-		log.Printf("Failed to Stop component %s", proxyComp.GetName())
-	}
 	return
 }
 

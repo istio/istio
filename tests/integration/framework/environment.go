@@ -22,11 +22,14 @@ type TestEnv interface {
 
 	// GetComponents is the key of a environment
 	// It defines what components a environment contains.
+	// Components will be stored in framework for start and stop
 	GetComponents() []Component
 
 	// Bringup doing general setup for environment level, not components.
+	// Bringup() is called by framework.SetUp()
 	Bringup() error
 
 	// Cleanup clean everything created by this test environment, not component level
+	// Cleanup() is being called in framework.TearDown()
 	Cleanup() error
 }

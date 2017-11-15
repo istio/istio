@@ -16,8 +16,8 @@ package fortioServer
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"time"
 
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
@@ -47,24 +47,16 @@ func (FortioServerComp *LocalComponent) GetName() string {
 
 // Start brings up a local fortio echo server
 func (FortioServerComp *LocalComponent) Start() (err error) {
-	if _, err = util.Shell("go get -u istio.io/fortio"); err != nil {
-		log.Printf("Failed to go get fortio")
-		return err
-	}
 	FortioServerComp.process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
-	if err != nil {
-		log.Printf("Failed to start component %s", FortioServerComp.GetName())
-		return err
-	}
+
+	// TODO: Find more reliable way to tell if local components are ready to serve
+	time.Sleep(2 * time.Second)
 	return
 }
 
 // Stop kill the fortio server process
 func (FortioServerComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(FortioServerComp.process)
-	if err != nil {
-		log.Printf("Failed to Stop component %s", FortioServerComp.GetName())
-	}
 	return
 }
 

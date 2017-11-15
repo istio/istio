@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"path/filepath"
 
@@ -51,10 +52,6 @@ func (mixerComp *LocalComponent) GetName() string {
 
 // Start brings up a local mixs using test config files in local file system
 func (mixerComp *LocalComponent) Start() (err error) {
-	if _, err = util.Shell("bazel build -c opt mixer/cmd/server:mixs"); err != nil {
-		log.Printf("Failed to build misx: %s", err)
-		return err
-	}
 	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
@@ -75,19 +72,15 @@ func (mixerComp *LocalComponent) Start() (err error) {
 
 	mixerComp.process, err = util.RunBackground(fmt.Sprintf("./bazel-bin/mixer/cmd/server/mixs server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s", mixerConfig, emptyDir))
-	if err != nil {
-		log.Printf("Failed to start component %s", mixerComp.GetName())
-		return err
-	}
+
+	// TODO: Find more reliable way to tell if local components are ready to serve
+	time.Sleep(3 * time.Second)
 	return
 }
 
 // Stop kill the mixer server process
 func (mixerComp *LocalComponent) Stop() (err error) {
 	err = util.KillProcess(mixerComp.process)
-	if err != nil {
-		log.Printf("Failed to Stop component %s", mixerComp.GetName())
-	}
 	return
 }
 

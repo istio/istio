@@ -23,7 +23,7 @@ import (
 	"log"
 
 	"istio.io/istio/tests/integration/framework"
-	env "istio.io/istio/tests/integration/framework/environment"
+	env "istio.io/istio/tests/integration/environment"
 )
 
 const (

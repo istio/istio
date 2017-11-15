@@ -20,9 +20,11 @@ type Component interface {
 	GetName() string
 
 	// Bringup doing setup for this component
+	// Start() is being called in framework.SetUp()
 	Start() error
 
 	// Stop stop this component
+	// Stop() is being called in framework.TearDown()
 	Stop() error
 
 	// IsAlive check if component is alive/running
