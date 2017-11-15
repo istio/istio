@@ -384,7 +384,7 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field Int64Primitive cannot be empty",
+			wantErr:       "expression for field 'Int64Primitive' cannot be empty",
 			willPanic:     false,
 		},
 		{
@@ -411,7 +411,7 @@ res1:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field Int64Primitive cannot be empty",
+			wantErr:       "expression for field 'Res1.Int64Primitive' cannot be empty",
 			willPanic:     false,
 		},
 		{
@@ -430,7 +430,7 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			wantErr:       "error type checking for field 'StringPrimitive': Evaluated expression type DOUBLE want STRING",
 			willPanic:     false,
 		},
 		{
@@ -457,7 +457,7 @@ res1:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			wantErr:       "error type checking for field 'Res1.StringPrimitive': Evaluated expression type DOUBLE want STRING",
 			willPanic:     false,
 		},
 		{
@@ -476,7 +476,7 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field StringPrimitive cannot be empty",
+			wantErr:       "expression for field 'StringPrimitive' cannot be empty",
 			willPanic:     false,
 		},
 
@@ -507,7 +507,7 @@ res1:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field StringPrimitive cannot be empty",
+			wantErr:       "expression for field 'Res1.StringPrimitive' cannot be empty",
 			willPanic:     false,
 		},
 		{
@@ -989,6 +989,35 @@ func TestProcessReport(t *testing.T) {
 			wantError: "unknown attribute bad.attribute",
 		},
 		{
+			name: "EvalAllErrorSubMessage",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "1"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res1: &sample_report.Res1InstanceParam{
+						Value:           "1",
+						Dimensions:      map[string]string{"s": "bad.attribute"},
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						Int64Map:        map[string]string{"a": "1"},
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+			},
+			hdlr:      &fakeReportHandler{},
+			wantError: "failed to evaluate field 'Res1.Dimensions' for instance 'foo'",
+		},
+		{
 			name: "EvalError",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
@@ -1005,6 +1034,35 @@ func TestProcessReport(t *testing.T) {
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unknown attribute bad.attribute",
+		},
+		{
+			name: "EvalErrorSubMsg",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res1: &sample_report.Res1InstanceParam{
+						Value:           "bad.attribute",
+						Dimensions:      map[string]string{"s": "2"},
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						Int64Map:        map[string]string{"a": "1"},
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+			},
+			hdlr:      &fakeReportHandler{},
+			wantError: "failed to evaluate field 'Res1.Value' for instance 'foo'",
 		},
 		{
 			name: "AttributeAbsentAtRuntime",
