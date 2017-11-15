@@ -46,13 +46,13 @@ func TestAuthenticate(t *testing.T) {
 		authenticateErrMsg string
 	}{
 		"no client certificate": {
-			certChain: nil,
-			caller:    nil,
+			certChain:          nil,
+			caller:             nil,
 			authenticateErrMsg: "no client certificate is presented",
 		},
 		"Empty cert chain": {
-			certChain: [][]*x509.Certificate{},
-			caller:    nil,
+			certChain:          [][]*x509.Certificate{},
+			caller:             nil,
 			authenticateErrMsg: "no verified chain is found",
 		},
 		"With client certificate": {
@@ -89,7 +89,8 @@ func TestAuthenticate(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if !reflect.DeepEqual(tc.caller, result) {
@@ -105,14 +106,14 @@ func TestExtractBearerToken(t *testing.T) {
 		extractBearerTokenErrMsg string
 	}{
 		"No metadata": {
-			expectedToken: "",
+			expectedToken:            "",
 			extractBearerTokenErrMsg: "no metadata is attached",
 		},
 		"No auth header": {
 			metadata: metadata.MD{
 				"random": []string{},
 			},
-			expectedToken: "",
+			expectedToken:            "",
 			extractBearerTokenErrMsg: "no HTTP authorization header exists",
 		},
 		"No bearer token": {
@@ -122,7 +123,7 @@ func TestExtractBearerToken(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedToken: "",
+			expectedToken:            "",
 			extractBearerTokenErrMsg: "no bearer token exists in HTTP authorization header",
 		},
 		"With bearer token": {
@@ -153,7 +154,8 @@ func TestExtractBearerToken(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if actual != tc.expectedToken {

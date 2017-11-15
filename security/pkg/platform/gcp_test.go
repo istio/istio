@@ -109,7 +109,8 @@ func TestGetDialOptions(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		// Make sure there're two dial options, one for TLS and one for JWT.
@@ -220,7 +221,8 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if string(c.expectedCredential) != string(credential) {
@@ -258,7 +260,8 @@ func TestGcpGetServiceIdentities(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if string(c.expectedIdentity) != string(serviceIdentity) {

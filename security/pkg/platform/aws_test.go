@@ -94,7 +94,7 @@ func TestAwsGetInstanceIdentityDocument(t *testing.T) {
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
 		if err != nil {
-			t.Errorf("unable to read file %s", c.sigFile)
+			t.Errorf("%v: Unable to read file %s", id, c.sigFile)
 			continue
 		}
 
@@ -118,13 +118,15 @@ func TestAwsGetInstanceIdentityDocument(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		doc := ec2metadata.EC2InstanceIdentityDocument{}
 		decode := json.NewDecoder(bytes.NewReader(docBytes)).Decode(&doc)
 		if decode != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if doc.InstanceType != c.expectedInstanceType {
@@ -238,7 +240,7 @@ func TestGetGetAgentCredential(t *testing.T) {
 func TestAwsGetDialOptions(t *testing.T) {
 	creds, err := credentials.NewClientTLSFromFile("testdata/cert-chain-good.pem", "")
 	if err != nil {
-		t.Errorf("Ubable to get credential for testdata/cert-chain-good.pem")
+		t.Fatal("Unable to get credential for testdata/cert-chain-good.pem")
 	}
 
 	testCases := map[string]struct {
@@ -279,7 +281,7 @@ func TestAwsGetDialOptions(t *testing.T) {
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
 		if err != nil {
-			t.Errorf("$v: Unable to read file: %s", id, c.sigFile)
+			t.Errorf("%v: Unable to read file: %s", id, c.sigFile)
 			continue
 		}
 
@@ -303,17 +305,19 @@ func TestAwsGetDialOptions(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if len(options) != len(c.expectedOptions) {
-			t.Fatalf("%s: Wrong dial options size. Expected %v, Actual %v",
+			t.Errorf("%s: Wrong dial options size. Expected %v, Actual %v",
 				id, len(c.expectedOptions), len(options))
+			continue
 		}
 
 		for index, option := range c.expectedOptions {
 			if reflect.ValueOf(options[index]).Pointer() != reflect.ValueOf(option).Pointer() {
-				t.Fatalf("%s: Wrong option found", id)
+				t.Errorf("%s: Wrong option found", id)
 			}
 		}
 	}
@@ -337,7 +341,7 @@ func TestAwsGetCredentialTypes(t *testing.T) {
 	for id, c := range testCases {
 		sigBytes, err := ioutil.ReadFile(c.sigFile)
 		if err != nil {
-			t.Errorf("%id: Unable to read file %s", id, c.sigFile)
+			t.Errorf("%v: Unable to read file %s", id, c.sigFile)
 			continue
 		}
 

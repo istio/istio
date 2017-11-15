@@ -102,9 +102,9 @@ func TestSign(t *testing.T) {
 			authenticators: []authenticator{&mockAuthenticator{
 				errMsg: "Not authorized",
 			}},
-			code:        codes.Unauthenticated,
-			authorizer:  &mockAuthorizer{},
-			ca:          &mockCA{errMsg: "cannot sign"},
+			code:       codes.Unauthenticated,
+			authorizer: &mockAuthorizer{},
+			ca:         &mockCA{errMsg: "cannot sign"},
 		},
 		"Unauthorized request": {
 			authenticators: []authenticator{&mockAuthenticator{}},
@@ -113,7 +113,7 @@ func TestSign(t *testing.T) {
 			},
 			csr:  csr,
 			code: codes.PermissionDenied,
-			ca:             &mockCA{errMsg: "cannot sign"},
+			ca:   &mockCA{errMsg: "cannot sign"},
 		},
 		"Failed to sign": {
 			authorizer:     &mockAuthorizer{},
@@ -210,7 +210,7 @@ func TestRun(t *testing.T) {
 			expectedErr:               "",
 			expectedAuthenticatorsLen: 2,
 			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
-					"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
+				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
 		},
 	}
 
@@ -226,12 +226,14 @@ func TestRun(t *testing.T) {
 			}
 			continue
 		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
+			t.Errorf("%s: Unexpected Error: %v", id, err)
+			continue
 		}
 
 		if len(server.authenticators) != tc.expectedAuthenticatorsLen {
-			t.Fatalf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
+			t.Errorf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
 				id, tc.expectedAuthenticatorsLen, len(server.authenticators))
+			continue
 		}
 
 		_, err = server.applyServerCertificate()
