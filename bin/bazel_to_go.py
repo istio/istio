@@ -218,12 +218,12 @@ def should_copy(src, dest):
     if not os.path.exists(dest):
         return True
     p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
-    p.wait()
+    (stdout, _) = p.communicate()
     if src.endswith('.pb.go'):
         # there might be diffs for 'source:' lines and others.
         has_diff = False
         linecount = 0
-        for l in p.stdout:
+        for l in stdout:
             linecount += 1
             if linecount < 3:
                 # first two lines are headers, skipping
@@ -249,7 +249,7 @@ def should_copy(src, dest):
             has_diff = True
             break
     else:
-        has_diff = (p.stdout.read() != '')
+        has_diff = (stdout.read() != '')
     return has_diff
 
 def protos(WKSPC, genfiles, genfiles_external):
