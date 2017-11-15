@@ -71,7 +71,7 @@ func GetPods(cl kubernetes.Interface, ns string) []string {
 
 func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 	for _, pod := range items {
-		if pod.Status.Phase != "Running" {
+		if pod.Status.Phase != "Pending" && pod.Status.Phase != "Running" {
 			continue
 		}
 		for _, container := range pod.Status.ContainerStatuses {
@@ -81,7 +81,12 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 			cmd := fmt.Sprintf("kubectl describe pods %s --kubeconfig %s -n %s",
 						pod.Name, kubeconfig, ns)
 			output, _ := Shell(cmd)
-			glog.Errorf("%s", output)
+			glog.Errorf("%s\n%s", cmd, output)
+
+			cmd = fmt.Sprintf("kubectl logs %s -c istio-proxy --kubeconfig %s -n %s",
+						pod.Name, kubeconfig, ns)
+			output, _ = Shell(cmd)
+			glog.Errorf("%s\n%s", cmd, output)
 		}
 	}
 }
@@ -133,7 +138,7 @@ func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (ma
 			}
 			if n > PodCheckBudget {
 				describeNotReadyPods(items, kubeconfig, ns)
-				return pods, fmt.Errorf("exceeded budget for checking pod status")
+				return pods, fmt.Errorf("exceeded budget %d for checking pod status", n)
 			}
 
 			time.Sleep(time.Second)
