@@ -6,6 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "client.go",
+        "expiringLRUCache.go",
         "svcctrl.go",
     ],
     visibility = ["//visibility:public"],
@@ -13,6 +14,8 @@ go_library(
         "//mixer/adapter/svcctrl/config:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/template/metric:go_default_library",
+        "@com_github_hashicorp_golang_lru//simplelru:go_default_library",
+        "@com_github_jonboulle_clockwork//:go_default_library",
         "@com_github_pborman_uuid//:go_default_library",
         "@org_golang_google_api//servicecontrol/v1:go_default_library",
         "@org_golang_x_net//context:go_default_library",
@@ -24,7 +27,10 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["svcctrl_test.go"],
+    srcs = [
+        "expiringLRUCache_test.go",
+        "svcctrl_test.go",
+    ],
     library = ":go_default_library",
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
