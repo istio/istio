@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "access.go",
+        "auth_exclusion.go",
         "driver.go",
         "egress_rules.go",
         "grpc.go",

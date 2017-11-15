@@ -7,9 +7,6 @@ go_library(
         "san.go",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "@com_github_golang_glog//:go_default_library",
-    ],
 )
 
 go_test(
