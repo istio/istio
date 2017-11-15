@@ -77,7 +77,10 @@ diff=`git diff`
 if [[ -n "$diff" ]]; then
   echo "Some uncommitted changes are found. Maybe miss committing some generated files? Here's the diff"
   echo $diff
-  exit -1
+  # Do not fail for the changes for now; presubmit bot may share the bazel-genfiles, and that will cause
+  # unrelated failure here randomly. See https://github.com/istio/istio/issues/1689 for the details.
+  # TODO: fix the problem and fail here again.
+  # exit -1
 fi
 
 HUB="gcr.io/istio-testing"
