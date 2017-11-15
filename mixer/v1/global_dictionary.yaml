@@ -230,3 +230,6 @@
 - request.auth.principal
 - request.auth.audiences
 - request.auth.presenter
+
+# api key
+- request.api_key
