@@ -80,9 +80,11 @@ func TestController(t *testing.T) {
 	}
 
 	// re-ordering of service instances -> does not trigger update
+	ts.Lock.Lock()
 	tmpReview := reviews[0]
 	reviews[0] = reviews[len(reviews)-1]
 	reviews[len(reviews)-1] = tmpReview
+	ts.Lock.Unlock()
 
 	time.Sleep(notifyThreshold)
 	if i := getCountAndReset(); i != 0 {
@@ -90,21 +92,27 @@ func TestController(t *testing.T) {
 	}
 
 	// same service, new tag -> triggers instance update
+	ts.Lock.Lock()
 	ts.Productpage[0].ServiceTags = append(ts.Productpage[0].ServiceTags, "new|tag")
+	ts.Lock.Unlock()
 	time.Sleep(notifyThreshold)
 	if i := getCountAndReset(); i != 1 {
 		t.Errorf("got %d notifications from controller, want %d", i, 2)
 	}
 
 	// delete a service instance -> trigger instance update
+	ts.Lock.Lock()
 	ts.Reviews = reviews[0:1]
+	ts.Lock.Unlock()
 	time.Sleep(notifyThreshold)
 	if i := getCountAndReset(); i != 1 {
 		t.Errorf("got %d notifications from controller, want %d", i, 1)
 	}
 
 	// delete a service -> trigger service and instance update
+	ts.Lock.Lock()
 	delete(ts.Services, "productpage")
+	ts.Lock.Unlock()
 	time.Sleep(notifyThreshold)
 	if i := getCountAndReset(); i != 2 {
 		t.Errorf("got %d notifications from controller, want %d", i, 2)
