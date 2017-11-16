@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
@@ -93,7 +94,8 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message
 func ApplyJSON(js string, pb proto.Message) error {
-	return jsonpb.UnmarshalString(js, pb)
+	m := jsonpb.Unmarshaler{AllowUnknownFields: true}
+	return m.Unmarshal(strings.NewReader(js), pb)
 }
 
 // FromYAML converts a canonical YAML to a proto message
