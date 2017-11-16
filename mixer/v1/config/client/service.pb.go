@@ -31,6 +31,7 @@
 		TcpClientConfig
 		JWT
 		EndUserAuthenticationPolicySpec
+		EndUserAuthenticationPolicySpecReference
 		EndUserAuthenticationPolicySpecBinding
 */
 package istio_mixer_v1_config_client
