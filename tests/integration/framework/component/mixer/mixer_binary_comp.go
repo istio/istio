@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
-
 	"path/filepath"
+	"time"
 
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"

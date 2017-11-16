@@ -20,7 +20,6 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/tests/integration/framework"
-	"istio.io/istio/tests/integration/framework/component/fortio_server"
 	"istio.io/istio/tests/integration/framework/component/mixer"
 	"istio.io/istio/tests/integration/framework/component/proxy"
 )
