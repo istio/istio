@@ -69,6 +69,15 @@ To run some of Istio's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
+Ensure your UID is in the docker group to access the docker daemon as a non-root user:
+
+```shell
+sudo adduser username docker
+```
+
+where:
+    username is your login name
+
 ### Setting up environment variables
 
 Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
@@ -256,13 +265,13 @@ tooling functions correctly
 Build the containers in your local docker cache:
 
 ```shell
-sudo -E make docker
+make docker
 ```
 
 Push the containers to your registry:
 
 ```shell
-sudo -E make push
+make push
 ```
 
 ### Building the Istio manifests
