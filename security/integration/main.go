@@ -29,10 +29,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/security/integration/utils"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/testutil"
-	"istio.io/istio/security/integration/utils"
 )
 
 const (
@@ -42,8 +42,7 @@ const (
 
 	// Certificates validation retry
 	certValidateRetry      = 10
-	certValidationInterval = 1 // Initially wait for 1 second.
-	                           // This value will be increased exponentially on retry
+	certValidationInterval = 1 // Initially wait for 1 second. This value will be increased exponentially on retry
 )
 
 var (
@@ -63,8 +62,8 @@ type options struct {
 	clientset      kubernetes.Interface
 	kubeconfig     string
 	namespace      string
-	org_root_cert  string
-	org_cert_chain string
+	orgRootCert    string
+	orgCertChain   string
 }
 
 func init() {
@@ -73,8 +72,8 @@ func init() {
 	flags.StringVar(&opts.containerImage, "image", "", "Name of Istio CA image")
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
-	flags.StringVar(&opts.org_root_cert, "root-cert", "", "Path to the original root ceritificate")
-	flags.StringVar(&opts.org_cert_chain, "cert-chain", "", "Path to the original certificate chain")
+	flags.StringVar(&opts.orgRootCert, "root-cert", "", "Path to the original root ceritificate")
+	flags.StringVar(&opts.orgCertChain, "cert-chain", "", "Path to the original certificate chain")
 
 	cmd.InitializeFlags(rootCmd)
 }
@@ -104,11 +103,11 @@ func runTests(cmd *cobra.Command, args []string) error {
 	}
 	cleanUpSelfSignedCATests()
 
-	err = runCertificatsRotationTests()
+	err = runCertificatesRotationTests()
 	if err != nil {
 		return err
 	}
-	cleanUpCertificatsRotationTests()
+	cleanUpCertificatesRotationTests()
 
 	err = runCAForNodeAgentTests()
 	if err != nil {
@@ -151,41 +150,40 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
 
 func runSelfSignedCATests() error {
 	// Create Istio CA with self signed certificates
-	self_signed_ca_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	selfSignedCaPod, err := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/istio-ca:%v", opts.containerHub, opts.containerTag), "istio-ca-self")
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
 	}
-	glog.Infof("Succesfully created Istio CA pod(%v) with the self-signed-ca option",
-		self_signed_ca_pod.GetName())
+	glog.Infof("Successfully created Istio CA pod(%v) with the self-signed-ca option",
+		selfSignedCaPod.GetName())
 
 	// Test the existence of istio.default secret.
-	if s, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
-		secretWaitTime); err != nil {
+	s, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+		secretWaitTime)
+	if err != nil {
 		return err
-	} else {
-		glog.Info(`Secret "istio.default" is correctly created`)
-		_, _, _, err = examineSecret(s)
-		if err != nil {
-			return err
-		}
+	}
+
+	glog.Info(`Secret "istio.default" is correctly created`)
+	_, _, _, err = examineSecret(s)
+	if err != nil {
+		return err
 	}
 
 	// Delete the secret.
 	do := &metav1.DeleteOptions{}
 	if err := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
 		return err
-	} else {
-		glog.Info(`Secret "istio.default" has been deleted`)
 	}
+	glog.Info(`Secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
 	if _, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
 		secretWaitTime); err != nil {
 		return err
-	} else {
-		glog.Info(`Secret "istio.default" is correctly re-created`)
 	}
+	glog.Info(`Secret "istio.default" is correctly re-created`)
 
 	return nil
 }
@@ -197,31 +195,30 @@ func cleanUpSelfSignedCATests() {
 	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
 }
 
-func runCertificatsRotationTests() error {
+func runCertificatesRotationTests() error {
 	// Create Istio CA with short lifetime certificates
-	istio_ca_short_ttl_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	_, err := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/istio-ca-short:%v", opts.containerHub, opts.containerTag), "istio-ca-short")
 	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+		return fmt.Errorf("failed to deploy Istio CA istio-ca-short")
 	}
-	glog.Infof("Succesfully created Istio CA pod(%v) with the short lifetime certificates",
-		istio_ca_short_ttl_pod.GetName())
+	glog.Infof("Successfully created Istio CA pod(istio-ca-short) with the short lifetime certificates")
 
-	initial_secret, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+	initialSecret, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
 		secretWaitTime)
 	if err != nil {
 		return err
 	}
 
-	initial_key, initial_cert, initial_root, err := examineSecret(initial_secret)
+	initialKey, initialCert, initialRoot, err := examineSecret(initialSecret)
 	if err != nil {
 		return err
 	}
 
-	max_retry := certValidateRetry
+	maxRetry := certValidateRetry
 	term := certValidationInterval
 
-	for i := 0; i < max_retry; i++ {
+	for i := 0; i < maxRetry; i++ {
 		if i > 0 {
 			glog.Infof("Checking certificate rotation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
@@ -239,19 +236,19 @@ func runCertificatsRotationTests() error {
 			return err
 		}
 
-		if string(initial_root) != string(root) {
-			return fmt.Errorf("Root certificates should be match.")
+		if string(initialRoot) != string(root) {
+			return fmt.Errorf("root certificates should be match")
 		}
 
-		if string(initial_key) != string(key) && string(initial_cert) != string(cert) {
+		if string(initialKey) != string(key) && string(initialCert) != string(cert) {
 			glog.Infof("Certificates were successfully rotated")
 			return nil
 		}
 	}
-	return fmt.Errorf("%v", "Failed to validate certificate rotation")
+	return fmt.Errorf("failed to validate certificate rotation")
 }
 
-func cleanUpCertificatsRotationTests() {
+func cleanUpCertificatesRotationTests() {
 	glog.Info("Removing pods: istio-ca-self")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-short")
 	glog.Info("Removing secrets: istio.default")
@@ -260,7 +257,7 @@ func cleanUpCertificatsRotationTests() {
 
 func runCAForNodeAgentTests() error {
 	// Create a Istio CA and Service with generated certificates
-	ca_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	caPod, err := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/istio-ca-test:%v", opts.containerHub, opts.containerTag),
 		"istio-ca-cert")
 	if err != nil {
@@ -269,13 +266,13 @@ func runCAForNodeAgentTests() error {
 
 	// Create the istio-ca service for NodeAgent pod
 	_, err = utils.CreateService(opts.clientset, opts.namespace, "istio-ca", 8060,
-		v1.ServiceTypeClusterIP, ca_pod)
+		v1.ServiceTypeClusterIP, caPod)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
 	}
 
 	// Create the NodeAgent pod
-	na_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	naPod, err := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/node-agent-test:%v", opts.containerHub, opts.containerTag),
 		"node-agent-cert")
 	if err != nil {
@@ -283,8 +280,8 @@ func runCAForNodeAgentTests() error {
 	}
 
 	// Create the service for NodeAgent pod
-	na_service, err := utils.CreateService(opts.clientset, opts.namespace, "node-agent", 8080,
-		v1.ServiceTypeLoadBalancer, na_pod)
+	naService, err := utils.CreateService(opts.clientset, opts.namespace, "node-agent", 8080,
+		v1.ServiceTypeLoadBalancer, naPod)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
 	}
@@ -296,12 +293,12 @@ func runCAForNodeAgentTests() error {
 	}
 
 	err = waitForNodeAgentCertificateUpdate(fmt.Sprintf("http://%v:%v",
-		na_service.Status.LoadBalancer.Ingress[0].IP, 8080))
+		naService.Status.LoadBalancer.Ingress[0].IP, 8080))
 	if err != nil {
 		return fmt.Errorf("failed to check certificate update node-agent (err: %v)", err)
-	} else {
-		glog.Info("Certificate of NodeAgent was updated and verified successfully")
 	}
+
+	glog.Info("Certificate of NodeAgent was updated and verified successfully")
 
 	return nil
 }
@@ -324,9 +321,10 @@ func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
 // This method examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
+// Returns []byte type of key, cert, root and error
 func examineSecret(secret *v1.Secret) ([]byte, []byte, []byte, error) {
 	if secret.Type != controller.IstioSecretType {
-		return nil, nil, nil, fmt.Errorf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
+		return nil, nil, nil, fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
 	}
 
@@ -349,7 +347,7 @@ func examineSecret(secret *v1.Secret) ([]byte, []byte, []byte, error) {
 	}
 
 	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
-		return nil, nil, nil, fmt.Errorf("Certificate verification failed: %v", err)
+		return nil, nil, nil, fmt.Errorf("certificate verification failed: %v", err)
 	}
 
 	return key, cert, root, nil
@@ -363,7 +361,7 @@ func readFile(path string) (string, error) {
 	return string(data), nil
 }
 
-func readUri(uri string) (string, error) {
+func readURI(uri string) (string, error) {
 	resp, err := http.Get(uri)
 	if err != nil {
 		return "", err
@@ -379,49 +377,49 @@ func readUri(uri string) (string, error) {
 }
 
 func waitForNodeAgentCertificateUpdate(appurl string) error {
-	max_retry := certValidateRetry
+	maxRetry := certValidateRetry
 	term := certValidationInterval
 
-	org_root_cert, err := readFile(opts.org_root_cert)
+	orgRootCert, err := readFile(opts.orgRootCert)
 	if err != nil {
-		return fmt.Errorf("Unable to read original root certificate: %v", opts.org_root_cert)
+		return fmt.Errorf("unable to read original root certificate: %v", opts.orgRootCert)
 	}
 
-	org_cert_chain, err := readFile(opts.org_cert_chain)
+	orgCertChain, err := readFile(opts.orgCertChain)
 	if err != nil {
-		return fmt.Errorf("Unable to read original certificate chain: %v", opts.org_cert_chain)
+		return fmt.Errorf("unable to read original certificate chain: %v", opts.orgCertChain)
 	}
 
-	for i := 0; i < max_retry; i++ {
+	for i := 0; i < maxRetry; i++ {
 		if i > 0 {
 			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
 			term = term * 2
 		}
 
-		certPEM, err := readUri(fmt.Sprintf("%v/cert", appurl))
+		certPEM, err := readURI(fmt.Sprintf("%v/cert", appurl))
 		if err != nil {
 			glog.Errorf("Failed to read the certificate of NodeAgent: %v", err)
 			continue
 		}
 
-		rootPEM, err := readUri(fmt.Sprintf("%v/root", appurl))
+		rootPEM, err := readURI(fmt.Sprintf("%v/root", appurl))
 		if err != nil {
 			glog.Errorf("Failed to read the root certificate of NodeAgent: %v", err)
 			continue
 		}
 
-		if org_root_cert != rootPEM {
-			return fmt.Errorf("Invalid root certificate was downloaded")
+		if orgRootCert != rootPEM {
+			return fmt.Errorf("invalid root certificate was downloaded")
 		}
 
-		if org_cert_chain == certPEM {
+		if orgCertChain == certPEM {
 			glog.Error("Certificate chain was not updated yet")
 			continue
 		}
 
 		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(org_root_cert))
+		ok := roots.AppendCertsFromPEM([]byte(orgRootCert))
 		if !ok {
 			return fmt.Errorf("failed to parse root certificate")
 		}
@@ -429,7 +427,6 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		block, _ := pem.Decode([]byte(certPEM))
 		if block == nil {
 			return fmt.Errorf("failed to parse certificate PEM")
-			continue
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)
@@ -448,5 +445,5 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		return nil
 	}
 
-	return fmt.Errorf("Failed to check certificate update and validate after %v retry", max_retry)
+	return fmt.Errorf("failed to check certificate update and validate after %v retry", max_retry)
 }
