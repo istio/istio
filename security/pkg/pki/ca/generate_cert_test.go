@@ -75,6 +75,59 @@ func TestGenCSRWithInvalidOption(t *testing.T) {
 	}
 }
 
+func TestLoadSignerCredsFromFiles(t *testing.T) {
+	testCases := map[string]struct {
+		certFile    string
+		keyFile     string
+		expectedErr string
+	}{
+		"Good certificates": {
+			certFile:    "testdata/cert.pem",
+			keyFile:     "testdata/key.pem",
+			expectedErr: "",
+		},
+		"Missing cert files": {
+			certFile:    "testdata/cert-not-exist.pem",
+			keyFile:     "testdata/key.pem",
+			expectedErr: "certificate file reading failure (open testdata/cert-not-exist.pem: no such file or directory)",
+		},
+		"Missing key files": {
+			certFile:    "testdata/cert.pem",
+			keyFile:     "testdata/key-not-exist.pem",
+			expectedErr: "private key file reading failure (open testdata/key-not-exist.pem: no such file or directory)",
+		},
+		"Bad cert files": {
+			certFile:    "testdata/cert-bad.pem",
+			keyFile:     "testdata/key.pem",
+			expectedErr: "Invalid PEM encoded certificate",
+		},
+		"Bad key files": {
+			certFile:    "testdata/cert.pem",
+			keyFile:     "testdata/key-bad.pem",
+			expectedErr: "Invalid PEM-encoded key",
+		},
+	}
+
+	for id, tc := range testCases {
+		cert, key, err := LoadSignerCredsFromFiles(tc.certFile, tc.keyFile)
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), tc.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if cert == nil || key == nil {
+			t.Errorf("%v: Faild to load signer credeitials from files: %v, %v", id, tc.certFile, tc.keyFile)
+		}
+	}
+}
+
 func TestGenCert(t *testing.T) {
 	// set "notBefore" to be 5 minutes ago, this ensures the issued certifiate to
 	// be valid as of now.

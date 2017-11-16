@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 func TestCompile(t *testing.T) {
@@ -44,7 +45,7 @@ func TestCompile(t *testing.T) {
 			}
 			finder := descriptor.NewFinder(conf)
 
-			result, err := Compile(test.E, finder)
+			result, err := Compile(test.E, finder, expr.FuncMap())
 
 			if err != nil {
 				if err.Error() != test.CompileErr {

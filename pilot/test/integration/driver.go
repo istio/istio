@@ -211,6 +211,7 @@ func runTests(envs ...infra) {
 			&egressRules{infra: &istio},
 			&routing{infra: &istio},
 			&zipkin{infra: &istio},
+			&authExclusion{infra: &istio},
 		}
 
 		for _, test := range tests {

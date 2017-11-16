@@ -275,7 +275,13 @@ func (infra *infra) deployApps() error {
 	if err := infra.deployApp("c-v2", "c", 80, 8080, 90, 9090, 70, 7070, "v2", true, false); err != nil {
 		return err
 	}
-	return infra.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true)
+	if err := infra.deployApp("d", "d", 80, 8080, 90, 9090, 70, 7070, "per-svc-auth", true, true); err != nil {
+		return err
+	}
+	// Add another service without sidecar to test mTLS blacklisting (as in the e2e test
+	// environment, pilot can see only services in the test namespaces). This service
+	// will be listed in mtlsExcludedServices in the mesh config.
+	return infra.deployApp("e", "fake-control", 80, 8080, 90, 9090, 70, 7070, "fake-control", false, false)
 }
 
 func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, port4, port5, port6 int,

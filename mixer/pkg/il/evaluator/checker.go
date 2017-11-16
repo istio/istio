@@ -12,21 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package evaluator
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
-func readAndUnmarshal(object interface{}, dir string, fileName string) error {
-	path := dir + string(os.PathSeparator) + fileName
-
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(bytes, object)
+// NewTypeChecker returns a new TypeChecker.
+func NewTypeChecker(cacheSize int) (expr.TypeChecker, error) {
+	return expr.NewTypeChecker(cacheSize, expr.FuncMap())
 }
