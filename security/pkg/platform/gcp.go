@@ -91,8 +91,15 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 
 // GetServiceIdentity gets the identity of the GCE service.
 func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
-	// TODO(wattli): update this once we are ready for GCE
-	return "", nil
+	serviceAccount, err := ci.fetcher.FetchServiceAccount()
+	if err != nil {
+		glog.Errorf("Failed to get service account from GCE metadata %v, please make sure this binary is running on a GCE VM", err)
+		return "", err
+	}
+
+	// Note: this is a temporary format, which might change.
+	serviceIdentity := fmt.Sprintf("spiffe://cluster.local/ns/default/sa/%s", serviceAccount)
+	return serviceIdentity, nil
 }
 
 // GetAgentCredential returns the GCP JWT for the serivce account.
