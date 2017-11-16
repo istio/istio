@@ -445,5 +445,5 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to check certificate update and validate after %v retry", max_retry)
+	return fmt.Errorf("failed to check certificate update and validate after %v retry", maxRetry)
 }
