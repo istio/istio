@@ -93,7 +93,7 @@ func (ci *GcpClientImpl) GetDialOptions() ([]grpc.DialOption, error) {
 func (ci *GcpClientImpl) GetServiceIdentity() (string, error) {
 	serviceAccount, err := ci.fetcher.FetchServiceAccount()
 	if err != nil {
-		glog.Errorf("Failed to get service account from GCE metadata %s, please make sure this binary is running on a GCE VM", err)
+		glog.Errorf("Failed to get service account from GCE metadata %v, please make sure this binary is running on a GCE VM", err)
 		return "", err
 	}
 
