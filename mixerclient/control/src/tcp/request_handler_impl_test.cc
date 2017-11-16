@@ -52,7 +52,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should not be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _)).Times(0);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
 
   client_config_.set_disable_check_calls(true);
   auto handler = controller_->CreateRequestHandler();
@@ -66,7 +66,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _)).Times(1);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(1);
 
   auto handler = controller_->CreateRequestHandler();
   handler->Check(&mock_data, nullptr);

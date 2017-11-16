@@ -18,6 +18,9 @@
 
 #include "environment.h"
 #include "options.h"
+#include "quota/include/requirement.h"
+
+#include <vector>
 
 namespace istio {
 namespace mixer_client {
@@ -59,8 +62,10 @@ class MixerClient {
   // The response data from mixer will be consumed by mixer client.
 
   // A check call.
-  virtual CancelFunc Check(const ::istio::mixer::v1::Attributes& attributes,
-                           TransportCheckFunc transport, DoneFunc on_done) = 0;
+  virtual CancelFunc Check(
+      const ::istio::mixer::v1::Attributes& attributes,
+      const std::vector<::istio::quota::Requirement>& quotas,
+      TransportCheckFunc transport, DoneFunc on_done) = 0;
 
   // A report call.
   virtual void Report(const ::istio::mixer::v1::Attributes& attributes) = 0;

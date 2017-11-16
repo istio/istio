@@ -69,9 +69,10 @@ ClientContextBase::ClientContextBase(const TransportConfig& config,
   mixer_client_ = ::istio::mixer_client::CreateMixerClient(options);
 }
 
-CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
-                                        DoneFunc on_done,
-                                        RequestContext* request) {
+CancelFunc ClientContextBase::SendCheck(
+    TransportCheckFunc transport, DoneFunc on_done,
+    const std::vector<::istio::quota::Requirement>& quotas,
+    RequestContext* request) {
   // Intercept the callback to save check status in request_context
   auto local_on_done = [request, on_done](const Status& status) {
     // save the check status code
@@ -82,7 +83,8 @@ CancelFunc ClientContextBase::SendCheck(TransportCheckFunc transport,
   // TODO: add debug message
   // GOOGLE_LOG(INFO) << "Check attributes: " <<
   // request->attributes.DebugString();
-  return mixer_client_->Check(request->attributes, transport, local_on_done);
+  return mixer_client_->Check(request->attributes, quotas, transport,
+                              local_on_done);
 }
 
 void ClientContextBase::SendReport(const RequestContext& request) {

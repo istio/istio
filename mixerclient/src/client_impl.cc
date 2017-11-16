@@ -43,9 +43,10 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
 
 MixerClientImpl::~MixerClientImpl() {}
 
-CancelFunc MixerClientImpl::Check(const Attributes &attributes,
-                                  TransportCheckFunc transport,
-                                  DoneFunc on_done) {
+CancelFunc MixerClientImpl::Check(
+    const Attributes &attributes,
+    const std::vector<::istio::quota::Requirement> &quotas,
+    TransportCheckFunc transport, DoneFunc on_done) {
   std::unique_ptr<CheckCache::CheckResult> check_result(
       new CheckCache::CheckResult);
   check_cache_->Check(attributes, check_result.get());
@@ -59,7 +60,7 @@ CancelFunc MixerClientImpl::Check(const Attributes &attributes,
   // Only use quota cache if Check is using cache with OK status.
   // Otherwise, a remote Check call may be rejected, but quota amounts were
   // substracted from quota cache already.
-  quota_cache_->Check(attributes, check_result->IsCacheHit(),
+  quota_cache_->Check(attributes, quotas, check_result->IsCacheHit(),
                       quota_result.get());
 
   CheckRequest request;

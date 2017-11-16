@@ -68,7 +68,7 @@ class QuotaCache {
     // Hold pending quota data needed to talk to server.
     struct Quota {
       std::string name;
-      uint64_t amount;
+      int64_t amount;
       bool best_effort;
 
       enum Result {
@@ -92,8 +92,9 @@ class QuotaCache {
   };
 
   // Check quota cache for a request, result will be stored in CacaheResult.
-  void Check(const ::istio::mixer::v1::Attributes& request, bool use_cache,
-             CheckResult* result);
+  void Check(const ::istio::mixer::v1::Attributes& request,
+             const std::vector<::istio::quota::Requirement>& quotas,
+             bool use_cache, CheckResult* result);
 
  private:
   // Check quota cache.

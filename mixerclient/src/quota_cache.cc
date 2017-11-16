@@ -21,15 +21,12 @@ using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::Attributes_AttributeValue;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
+using ::istio::quota::Requirement;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 
 namespace istio {
 namespace mixer_client {
-namespace {
-const std::string kQuotaName = "quota.name";
-const std::string kQuotaAmount = "quota.amount";
-}
 
 QuotaCache::CacheElem::CacheElem(const std::string& name) : name_(name) {
   prefetch_ = QuotaPrefetch::Create(
@@ -242,31 +239,11 @@ void QuotaCache::SetResponse(const Attributes& attributes,
   cache_->Insert(signature, quota_ref.pending_item.release(), 1);
 }
 
-void QuotaCache::Check(const Attributes& request, bool use_cache,
+void QuotaCache::Check(const Attributes& request,
+                       const std::vector<Requirement>& quotas, bool use_cache,
                        CheckResult* result) {
-  // Now, there is only one quota metric for a request.
-  // But it should be very easy to support multiple quota metrics.
-  static const std::vector<std::pair<std::string, std::string>>
-      kQuotaAttributes{{kQuotaName, kQuotaAmount}};
-  const auto& attributes_map = request.attributes();
-  for (const auto& pair : kQuotaAttributes) {
-    const std::string& name_attr = pair.first;
-    const std::string& amount_attr = pair.second;
-    const auto& name_it = attributes_map.find(name_attr);
-    if (name_it == attributes_map.end() ||
-        name_it->second.value_case() !=
-            Attributes_AttributeValue::kStringValue) {
-      continue;
-    }
-    CheckResult::Quota quota;
-    quota.name = name_it->second.string_value();
-    quota.amount = 1;
-    const auto& amount_it = attributes_map.find(amount_attr);
-    if (amount_it != attributes_map.end() &&
-        amount_it->second.value_case() ==
-            Attributes_AttributeValue::kInt64Value) {
-      quota.amount = amount_it->second.int64_value();
-    }
+  for (const auto& requirement : quotas) {
+    CheckResult::Quota quota = {requirement.quota, requirement.charge};
     CheckCache(request, use_cache, &quota);
     result->quotas_.push_back(quota);
   }

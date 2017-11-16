@@ -28,6 +28,7 @@ using ::istio::mixer_client::CancelFunc;
 using ::istio::mixer_client::TransportCheckFunc;
 using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::MixerClient;
+using ::istio::quota::Requirement;
 
 using ::testing::_;
 using ::testing::Invoke;
@@ -41,13 +42,15 @@ class RequestHandlerImplTest : public ::testing::Test {
   void SetUp() {
     mock_client_ = new ::testing::NiceMock<MockMixerClient>;
     client_context_ = std::make_shared<ClientContext>(
-        std::unique_ptr<MixerClient>(mock_client_), client_config_);
+        std::unique_ptr<MixerClient>(mock_client_), client_config_,
+        legacy_quotas_);
     controller_ =
         std::unique_ptr<Controller>(new ControllerImpl(client_context_));
   }
 
   std::shared_ptr<ClientContext> client_context_;
   HttpClientConfig client_config_;
+  std::vector<Requirement> legacy_quotas_;
   ::testing::NiceMock<MockMixerClient>* mock_client_;
   std::unique_ptr<Controller> controller_;
 };
@@ -59,7 +62,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(0);
 
   // Check should NOT be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _)).Times(0);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
 
   ServiceConfig legacy;
   legacy.set_enable_mixer_check(false);
@@ -79,7 +82,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should NOT be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _)).Times(0);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
 
   ServiceConfig legacy;
   legacy.set_enable_mixer_check(false);
@@ -98,15 +101,17 @@ TEST_F(RequestHandlerImplTest, TestHandlerMixerAttributes) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _))
-      .WillOnce(
-          Invoke([](const Attributes& attributes, TransportCheckFunc transport,
-                    DoneFunc on_done) -> CancelFunc {
-            auto map = attributes.attributes();
-            EXPECT_EQ(map["key1"].string_value(), "value1");
-            EXPECT_EQ(map["key2"].string_value(), "value2");
-            return nullptr;
-          }));
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _))
+      .WillOnce(Invoke([](const Attributes& attributes,
+                          const std::vector<Requirement>& quotas,
+                          TransportCheckFunc transport,
+                          DoneFunc on_done) -> CancelFunc {
+        auto map = attributes.attributes();
+        EXPECT_EQ(map["key1"].string_value(), "value1");
+        EXPECT_EQ(map["key2"].string_value(), "value2");
+        EXPECT_EQ(quotas.size(), 0);
+        return nullptr;
+      }));
 
   ServiceConfig legacy;
   legacy.set_enable_mixer_check(true);
@@ -128,7 +133,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _)).Times(1);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(1);
 
   ServiceConfig legacy;
   legacy.set_enable_mixer_check(true);

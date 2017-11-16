@@ -24,6 +24,7 @@ using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::CheckRequest;
 using ::istio::mixer::v1::CheckResponse;
 using ::istio::mixer::v1::ReferencedAttributes;
+using ::istio::quota::Requirement;
 using ::google::protobuf::util::Status;
 using ::google::protobuf::util::error::Code;
 using ::testing::Invoke;
@@ -42,13 +43,13 @@ class QuotaCacheTest : public ::testing::Test {
     cache_ = std::unique_ptr<QuotaCache>(new QuotaCache(options));
     ASSERT_TRUE((bool)(cache_));
 
-    AttributesBuilder(&request_).AddString("quota.name", kQuotaName);
+    quotas_.push_back({kQuotaName, 1});
   }
 
   void TestRequest(const Attributes& request, bool pass,
                    const CheckResponse& response) {
     QuotaCache::CheckResult result;
-    cache_->Check(request, true, &result);
+    cache_->Check(request, quotas_, true, &result);
 
     CheckRequest request_pb;
     result.BuildRequest(&request_pb);
@@ -64,14 +65,15 @@ class QuotaCacheTest : public ::testing::Test {
   }
 
   Attributes request_;
+  std::vector<Requirement> quotas_;
   std::unique_ptr<QuotaCache> cache_;
 };
 
 TEST_F(QuotaCacheTest, TestEmptyRequest) {
   // Quota is not required.
-  Attributes empty_request;
+  std::vector<Requirement> empty_list;
   QuotaCache::CheckResult result;
-  cache_->Check(empty_request, true, &result);
+  cache_->Check(request_, empty_list, true, &result);
 
   CheckRequest request;
   EXPECT_FALSE(result.BuildRequest(&request));
@@ -87,7 +89,7 @@ TEST_F(QuotaCacheTest, TestDisabledCache) {
   ASSERT_TRUE((bool)(cache_));
 
   QuotaCache::CheckResult result;
-  cache_->Check(request_, true, &result);
+  cache_->Check(request_, quotas_, true, &result);
 
   CheckRequest request;
   EXPECT_TRUE(result.BuildRequest(&request));
@@ -108,7 +110,7 @@ TEST_F(QuotaCacheTest, TestDisabledCache) {
 
 TEST_F(QuotaCacheTest, TestNotUseCache) {
   QuotaCache::CheckResult result;
-  cache_->Check(request_, false, &result);
+  cache_->Check(request_, quotas_, false, &result);
 
   CheckRequest request;
   EXPECT_TRUE(result.BuildRequest(&request));
@@ -130,7 +132,7 @@ TEST_F(QuotaCacheTest, TestNotUseCache) {
 
 TEST_F(QuotaCacheTest, TestUseCache) {
   QuotaCache::CheckResult result;
-  cache_->Check(request_, true, &result);
+  cache_->Check(request_, quotas_, true, &result);
 
   CheckRequest request;
   EXPECT_TRUE(result.BuildRequest(&request));
@@ -161,7 +163,7 @@ TEST_F(QuotaCacheTest, TestUseCacheRejected) {
   int rejected = 0;
   for (int i = 0; i < 10; i++) {
     QuotaCache::CheckResult result;
-    cache_->Check(request_, true, &result);
+    cache_->Check(request_, quotas_, true, &result);
 
     CheckRequest request;
     result.BuildRequest(&request);

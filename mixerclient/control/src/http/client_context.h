@@ -30,22 +30,33 @@ class ClientContext : public ClientContextBase {
  public:
   ClientContext(const Controller::Options& data)
       : ClientContextBase(data.config.transport(), data.env),
-        config_(data.config) {}
+        config_(data.config),
+        legacy_quotas_(data.legacy_quotas) {}
 
   // A constructor for unit-test to pass in a mock mixer_client
   ClientContext(
       std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client,
-      const ::istio::mixer::v1::config::client::HttpClientConfig& config)
-      : ClientContextBase(std::move(mixer_client)), config_(config) {}
+      const ::istio::mixer::v1::config::client::HttpClientConfig& config,
+      const std::vector<::istio::quota::Requirement>& legacy_quotas)
+      : ClientContextBase(std::move(mixer_client)),
+        config_(config),
+        legacy_quotas_(legacy_quotas) {}
 
   // Retrieve mixer client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config() const {
     return config_;
   }
 
+  const std::vector<::istio::quota::Requirement>& legacy_quotas() const {
+    return legacy_quotas_;
+  }
+
  private:
   // The http client config.
   const ::istio::mixer::v1::config::client::HttpClientConfig& config_;
+
+  // Legacy mixer config quota requirements.
+  const std::vector<::istio::quota::Requirement>& legacy_quotas_;
 };
 
 }  // namespace http

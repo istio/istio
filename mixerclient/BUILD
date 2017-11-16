@@ -71,9 +71,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":simple_lru_cache",
-        "//prefetch:quota_prefetch_lib",
         "//external:boringssl_crypto",
         "//external:mixer_api_cc_proto",
+        "//prefetch:quota_prefetch_lib",
+        "//quota:requirement_header",
     ],
 )
 

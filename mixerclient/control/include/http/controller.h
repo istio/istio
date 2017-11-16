@@ -52,11 +52,15 @@ class Controller {
   // * client_config: the mixer client config.
   // * some functions provided by the environment (Envoy)
   struct Options {
-    Options(const ::istio::mixer::v1::config::client::HttpClientConfig& config)
-        : config(config) {}
+    Options(const ::istio::mixer::v1::config::client::HttpClientConfig& config,
+            const std::vector<::istio::quota::Requirement>& legacy_quotas)
+        : config(config), legacy_quotas(legacy_quotas) {}
 
     // Mixer filter config
     const ::istio::mixer::v1::config::client::HttpClientConfig& config;
+
+    // Legacy mixer config quota requirements.
+    const std::vector<::istio::quota::Requirement>& legacy_quotas;
 
     // Some plaform functions for mixer client library.
     ::istio::mixer_client::Environment env;

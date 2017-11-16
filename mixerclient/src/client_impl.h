@@ -35,8 +35,10 @@ class MixerClientImpl : public MixerClient {
   // Destructor
   virtual ~MixerClientImpl();
 
-  virtual CancelFunc Check(const ::istio::mixer::v1::Attributes& attributes,
-                           TransportCheckFunc transport, DoneFunc on_done);
+  virtual CancelFunc Check(
+      const ::istio::mixer::v1::Attributes& attributes,
+      const std::vector<::istio::quota::Requirement>& quotas,
+      TransportCheckFunc transport, DoneFunc on_done);
   virtual void Report(const ::istio::mixer::v1::Attributes& attributes);
 
  private:

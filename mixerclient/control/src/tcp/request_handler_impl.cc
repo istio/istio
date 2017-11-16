@@ -19,6 +19,7 @@
 using ::google::protobuf::util::Status;
 using ::istio::mixer_client::CancelFunc;
 using ::istio::mixer_client::DoneFunc;
+using ::istio::quota::Requirement;
 
 namespace istio {
 namespace mixer_control {
@@ -42,7 +43,9 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data, DoneFunc on_done) {
     return nullptr;
   }
 
-  return client_context_->SendCheck(nullptr, on_done, &request_context_);
+  std::vector<Requirement> quotas;
+  return client_context_->SendCheck(nullptr, on_done, quotas,
+                                    &request_context_);
 }
 
 // Make remote report call.
