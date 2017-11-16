@@ -23,6 +23,16 @@ import (
 	"istio.io/istio/pilot/proxy"
 )
 
+func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
+	hostname, _, _ := model.ParseServiceKey(serviceName)
+	for _, serviceName := range mtlsExcludedServices {
+		if hostname == serviceName {
+			return true
+		}
+	}
+	return false
+}
+
 // applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
 func applyClusterPolicy(cluster *Cluster,
 	instances []*model.ServiceInstance,
@@ -40,7 +50,8 @@ func applyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		if conslidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
+			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
