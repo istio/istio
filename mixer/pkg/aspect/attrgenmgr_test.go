@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/mixer/pkg/config"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -72,7 +73,7 @@ func TestAttributeGeneratorManager(t *testing.T) {
 	if m.Kind() != config.AttributesKind {
 		t.Errorf("m.Kind() = %s; wanted %s", m.Kind(), config.AttributesKindName)
 	}
-	eval, _ := expr.NewTypeChecker(expr.DefaultCacheSize)
+	eval, _ := evaluator.NewTypeChecker(evaluator.DefaultCacheSize)
 	if err := m.ValidateConfig(m.DefaultConfig(), eval, nil); err != nil {
 		t.Errorf("ValidateConfig(DefaultConfig()) produced an error: %v", err)
 	}
@@ -125,7 +126,7 @@ func TestAttrGenMgr_ValidateConfig(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			eval, _ := expr.NewTypeChecker(expr.DefaultCacheSize)
+			eval, _ := evaluator.NewTypeChecker(evaluator.DefaultCacheSize)
 			err := m.ValidateConfig(v.params, eval, dfind)
 			if err != nil && !v.wantErr {
 				t.Errorf("Unexpected error '%v' for config: %#v", err, v.params)

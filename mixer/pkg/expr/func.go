@@ -18,85 +18,82 @@ import (
 	config "istio.io/api/mixer/v1/config/descriptor"
 )
 
-// FuncBase defines the interface that every expression function must implement.
-type FuncBase interface {
-	// Name uniquely identifies the function.
-	Name() string
+// FunctionMetadata contains type metadata for functions.
+type FunctionMetadata struct {
+	// Name is the name of the function.
+	Name    string
 
-	// ReturnType specifies the return type of this function.
-	ReturnType() config.ValueType
+	// ReturnType is the return type of the function.
+	ReturnType config.ValueType
 
-	// ArgTypes specifies the argument types in order expected by the function.
-	ArgTypes() []config.ValueType
+	// ArgumentTypes is the types of the arguments in the order that is expected by the function.
+	ArgumentTypes []config.ValueType
 }
 
-// baseFunc is basetype for many funcs
-type baseFunc struct {
-	name         string
-	argTypes     []config.ValueType
-	retType      config.ValueType
-	acceptsNulls bool
+func intrinsics() []FunctionMetadata {
+	return []FunctionMetadata{
+		{
+			Name:     "EQ",
+			ReturnType:  config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:     "NEQ",
+			ReturnType:  config.BOOL,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:     "OR",
+			ReturnType:  config.VALUE_TYPE_UNSPECIFIED,
+			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		},
+		{
+			Name:     "LOR",
+			ReturnType:  config.BOOL,
+			ArgumentTypes: []config.ValueType{config.BOOL, config.BOOL},
+		},
+		{
+			Name:     "LAND",
+			ReturnType:  config.BOOL,
+			ArgumentTypes: []config.ValueType{config.BOOL, config.BOOL},
+		},
+		{
+			Name:     "INDEX",
+			ReturnType:  config.STRING,
+			ArgumentTypes: []config.ValueType{config.STRING_MAP, config.STRING},
+		},
+	}
 }
 
-func (f *baseFunc) Name() string                 { return f.name }
-func (f *baseFunc) ReturnType() config.ValueType { return f.retType }
-func (f *baseFunc) ArgTypes() []config.ValueType { return f.argTypes }
 
-func inventory() []FuncBase {
-	return []FuncBase{
-		&baseFunc{
-			name:     "EQ",
-			retType:  config.BOOL,
-			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+func externs() []FunctionMetadata {
+	return []FunctionMetadata{
+		{
+			Name:     "ip",
+			ReturnType:  config.IP_ADDRESS,
+			ArgumentTypes: []config.ValueType{config.STRING},
 		},
-		&baseFunc{
-			name:     "NEQ",
-			retType:  config.BOOL,
-			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
+		{
+			Name:     "timestamp",
+			ReturnType:  config.TIMESTAMP,
+			ArgumentTypes: []config.ValueType{config.STRING},
 		},
-		&baseFunc{
-			name:     "OR",
-			retType:  config.VALUE_TYPE_UNSPECIFIED,
-			argTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
-		},
-		&baseFunc{
-			name:     "LOR",
-			retType:  config.BOOL,
-			argTypes: []config.ValueType{config.BOOL, config.BOOL},
-		},
-		&baseFunc{
-			name:     "LAND",
-			retType:  config.BOOL,
-			argTypes: []config.ValueType{config.BOOL, config.BOOL},
-		},
-		&baseFunc{
-			name:     "INDEX",
-			retType:  config.STRING,
-			argTypes: []config.ValueType{config.STRING_MAP, config.STRING},
-		},
-		&baseFunc{
-			name:     "ip",
-			retType:  config.IP_ADDRESS,
-			argTypes: []config.ValueType{config.STRING},
-		},
-		&baseFunc{
-			name:     "timestamp",
-			retType:  config.TIMESTAMP,
-			argTypes: []config.ValueType{config.STRING},
-		},
-		&baseFunc{
-			name:     "match",
-			retType:  config.BOOL,
-			argTypes: []config.ValueType{config.STRING, config.STRING},
+		{
+			Name:     "match",
+			ReturnType:  config.BOOL,
+			ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
 		},
 	}
 }
 
 // FuncMap provides inventory of available functions.
-func FuncMap() map[string]FuncBase {
-	m := make(map[string]FuncBase)
-	for _, fn := range inventory() {
-		m[fn.Name()] = fn
+func FuncMap() map[string]FunctionMetadata {
+	m := make(map[string]FunctionMetadata)
+	for _, fn := range intrinsics() {
+		m[fn.Name] = fn
+	}
+	for _, fn := range externs() {
+		m[fn.Name] = fn
 	}
 	return m
 }

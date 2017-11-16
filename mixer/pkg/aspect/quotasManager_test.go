@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/status"
 )
 
@@ -165,7 +166,7 @@ func TestQuotasManager_ValidateConfig(t *testing.T) {
 		"string":   &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.STRING},
 		"int64":    &cfgpb.AttributeManifest_AttributeInfo{ValueType: dpb.INT64},
 	})
-	v, _ := expr.NewTypeChecker(expr.DefaultCacheSize)
+	v, _ := evaluator.NewTypeChecker(evaluator.DefaultCacheSize)
 
 	validParam := aconfig.QuotasParams_Quota{
 		DescriptorName: quotaWithLabels.Name,

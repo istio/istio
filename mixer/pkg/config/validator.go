@@ -808,7 +808,10 @@ func convertAspectParams(f AspectValidatorFinder, name string, params interface{
 	if err := decode(params, ap, strict); err != nil {
 		return nil, ce.Appendf(name, "failed to decode aspect params: %v", err)
 	}
-	eval, err := expr.NewTypeChecker(expr.DefaultCacheSize)
+
+	// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
+	// and config packages is broken.
+	eval, err := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
 	if err != nil {
 		return nil, ce.Appendf(name, "failed to create expression evaluator: %v", err)
 	}
