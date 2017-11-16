@@ -9,6 +9,7 @@ reviewers:
   - mandarjog
   - frankbu
   - linsun
+  - apicl
 approvers:
   - geeknoid
   - andraxylia
@@ -20,3 +21,4 @@ approvers:
   - frankbu
   - linsun
   - hklai
+  - apicl
