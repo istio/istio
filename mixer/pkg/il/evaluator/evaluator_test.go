@@ -276,7 +276,7 @@ func Test_StringTableSizeBasedEviction(t *testing.T) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr)
+		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr, e.functions)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
