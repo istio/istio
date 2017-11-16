@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
@@ -43,16 +42,6 @@ func TestExpressions(t *testing.T) {
 		name := "IL/" + test.E
 		t.Run(name, func(tt *testing.T) {
 			testWithILEvaluator(test, tt)
-		})
-
-		name = "AST/" + test.E
-		t.Run(name, func(tt *testing.T) {
-			if test.SkipAst {
-				tt.Skip("Skipping: %s", name)
-				return
-			}
-
-			testWithASTEvaluator(test, tt)
 		})
 	}
 }
@@ -109,38 +98,8 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 			t.Errorf("Unexpected error: %v", err)
 		}
 		if abool != ebool {
-			t.Errorf("EvalPredicate failed: '%s' != '%s'", abool, ebool)
+			t.Errorf("EvalPredicate failed: '%v' != '%v'", abool, ebool)
 		}
-	}
-}
-
-func testWithASTEvaluator(test ilt.TestInfo, t *testing.T) {
-	ev, er := expr.NewCEXLEvaluator(1024)
-	if er != nil {
-		t.Errorf("Failed to create expression evaluator: %v", er)
-	}
-
-	input := test.I
-	if input == nil {
-		input = map[string]interface{}{}
-	}
-	attrs := &ilt.FakeBag{Attrs: input}
-	ret, err := ev.Eval(test.E, attrs)
-	if (err == nil) != (test.AstErr == "") {
-		t.Errorf("got %v, want %v", err, test.AstErr)
-		return
-	}
-
-	// check if error is of the correct type
-	if err != nil {
-		if !strings.Contains(err.Error(), test.AstErr) {
-			t.Errorf("got %s, want %s", err, test.AstErr)
-		}
-		return
-	}
-	// check result
-	if !ilt.AreEqual(test.R, ret) {
-		t.Errorf("got %v, want %v", ret, test.R)
 	}
 }
 
