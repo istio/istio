@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
 )
 
 func TestEvalAll(t *testing.T) {
@@ -107,7 +107,7 @@ func TestValidateLabels(t *testing.T) {
 	})
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			eval, _ := expr.NewTypeChecker(expr.DefaultCacheSize)
+			eval, _ := evaluator.NewTypeChecker(evaluator.DefaultCacheSize)
 			if err := validateLabels(tt.name, tt.labels, tt.descs, eval, dfind); err != nil || tt.err != "" {
 				if tt.err == "" {
 					t.Fatalf("validateLabels() = '%s', wanted no err", err.Error())

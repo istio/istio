@@ -93,7 +93,7 @@ type AttributeDescriptorFinder interface {
 }
 
 // EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -197,14 +197,14 @@ func (f *Function) String() string {
 }
 
 // EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
-	fn := fMap[f.Name]
-	if fn == nil {
+func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
+	fn, found := fMap[f.Name]
+	if !found {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
 	}
 
 	var idx int
-	argTypes := fn.ArgTypes()
+	argTypes := fn.ArgumentTypes
 
 	if len(f.Args) < len(argTypes) {
 		return valueType, fmt.Errorf("%s arity mismatch. Got %d arg(s), expected %d arg(s)", f, len(f.Args), len(argTypes))
@@ -234,9 +234,9 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 
 	// TODO check if we have excess args, only works when Fn is Variadic
 
-	retType := fn.ReturnType()
+	retType := fn.ReturnType
 	if retType == dpb.VALUE_TYPE_UNSPECIFIED {
-		// if return type is unspecified, you the discovered type
+		// if return type is unspecified, use the discovered type
 		retType = tmplType
 	}
 
@@ -425,7 +425,7 @@ const DefaultCacheSize = 1024
 type cexl struct {
 	cache *lru.Cache
 	// function Map
-	fMap map[string]FuncBase
+	fMap map[string]FunctionMetadata
 }
 
 func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
@@ -470,12 +470,15 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 }
 
 // NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (TypeChecker, error) {
+// Warning: This version of the type checker should only be called by the il-code.
+// TODO(ozben): This version of the type checker should eventually be subsumed into the il/compiler code.
+func NewTypeChecker(cacheSize int, functions map[string]FunctionMetadata) (TypeChecker, error) {
 	cache, err := lru.New(cacheSize)
 	if err != nil {
 		return nil, err
 	}
 	return &cexl{
-		fMap: FuncMap(), cache: cache,
+		fMap: functions,
+		cache: cache,
 	}, nil
 }
