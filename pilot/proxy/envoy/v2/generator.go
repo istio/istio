@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"path"
 	"sort"
 	"time"
 
@@ -28,6 +27,8 @@ func (Hasher) Hash(node *api.Node) (cache.Key, error) {
 }
 
 type Generator struct {
+	data map[string]string
+
 	services      *kube.Controller
 	servicesHash  [md5.Size]byte
 	instancesHash [md5.Size]byte
@@ -41,13 +42,19 @@ type Generator struct {
 	routes    []proto.Message
 	listeners []proto.Message
 
-	// Cache needs to be set
-	Cache cache.Cache
+	cache cache.Cache
 	ID    string
-	Path  string
 }
 
-func NewGenerator(out cache.Cache, jpath, id, domain, kubeconfig string) (*Generator, error) {
+func NewGenerator(out cache.Cache, data map[string]string) *Generator {
+	return &Generator{
+		data:  data,
+		cache: out,
+	}
+
+}
+
+func NewKubeGenerator(out cache.Cache, id, domain, kubeconfig string) (*Generator, error) {
 	_, client, kuberr := kube.CreateInterface(kubeconfig)
 	if kuberr != nil {
 		return nil, multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
@@ -62,18 +69,15 @@ func NewGenerator(out cache.Cache, jpath, id, domain, kubeconfig string) (*Gener
 	if err != nil {
 		return nil, err
 	}
-	err = ioutil.WriteFile(path.Join(jpath, "context.json"), bytes, 0600)
-	if err != nil {
-		return nil, err
-	}
 
 	ctl := kube.NewController(client, options)
-	g := &Generator{
-		services: ctl,
-		Cache:    out,
-		ID:       id,
-		Path:     jpath,
-	}
+	g := NewGenerator(out, map[string]string{
+		"instances.json": "[]",
+		"services.json":  "[]",
+		"context.json":   string(bytes),
+	})
+	g.ID = id
+	g.services = ctl
 
 	// register handlers
 	if err := ctl.AppendServiceHandler(g.UpdateServices); err != nil {
@@ -87,7 +91,11 @@ func NewGenerator(out cache.Cache, jpath, id, domain, kubeconfig string) (*Gener
 }
 
 func (g *Generator) Run(stop <-chan struct{}) {
-	go g.services.Run(stop)
+	g.Generate()
+	if g.services != nil {
+		go g.services.Run(stop)
+	}
+	<-stop
 }
 
 type context struct {
@@ -104,7 +112,6 @@ func (g *Generator) PrepareProgram() {
 	if g.vm == nil {
 		glog.Infof("prepare jsonnet VM")
 		vm := jsonnet.MakeVM()
-		vm.Importer(&jsonnet.FileImporter{JPaths: []string{g.Path}})
 		content, err := ioutil.ReadFile("envoy.jsonnet")
 		if err != nil {
 			glog.Fatal(err)
@@ -120,6 +127,7 @@ func (g *Generator) Generate() {
 
 	if g.clusters == nil || g.routes == nil || g.listeners == nil {
 		glog.Infof("generating snapshot %d", g.version)
+		g.vm.Importer(&jsonnet.MemoryImporter{g.data})
 		in, err := g.vm.EvaluateSnippet("envoy.jsonnet", g.script)
 		if err != nil {
 			glog.Warning(err)
@@ -201,14 +209,14 @@ func (g *Generator) Generate() {
 		// TODO: avoid churn by sorting and caching
 	}
 
-	if updated && g.Cache != nil {
+	if updated && g.cache != nil {
 		g.version++
 		snapshot := cache.NewSnapshot(fmt.Sprintf("%d", g.version),
 			g.endpoints,
 			g.clusters,
 			g.routes,
 			g.listeners)
-		g.Cache.SetSnapshot("", snapshot)
+		g.cache.SetSnapshot("", snapshot)
 	}
 }
 
@@ -234,11 +242,7 @@ func (g *Generator) UpdateServices(*model.Service, model.Event) {
 	if hash := md5.Sum(bytes); hash != g.servicesHash {
 		g.routes = nil
 		g.servicesHash = hash
-	}
-
-	err = ioutil.WriteFile(path.Join(g.Path, "services.json"), bytes, 0600)
-	if err != nil {
-		glog.Warning(err)
+		g.data["services.json"] = string(bytes)
 	}
 
 	g.Generate()
@@ -271,11 +275,7 @@ func (g *Generator) UpdateInstances(*model.ServiceInstance, model.Event) {
 	if hash := md5.Sum(bytes); hash != g.instancesHash {
 		g.routes = nil
 		g.instancesHash = hash
-	}
-
-	err = ioutil.WriteFile(path.Join(g.Path, "instances.json"), bytes, 0600)
-	if err != nil {
-		glog.Warning(err)
+		g.data["instances.json"] = string(bytes)
 	}
 
 	g.Generate()

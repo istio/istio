@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -60,15 +61,18 @@ func main() {
 
 	var generator *v2.Generator
 	if validate {
-		generator = &v2.Generator{Cache: config, ID: id, Path: "testdata"}
-		generator.Generate()
+		generator = v2.NewGenerator(config, map[string]string{
+			"services.json":  readFile("testdata/services.json"),
+			"instances.json": readFile("testdata/instances.json"),
+			"context.json":   readFile("testdata/context.json"),
+		})
 	} else {
-		generator, err = v2.NewGenerator(config, configPath, id, domain, kubeconfig)
+		generator, err = v2.NewKubeGenerator(config, id, domain, kubeconfig)
 		if err != nil {
 			glog.Fatal(err)
 		}
-		generator.Run(stop)
 	}
+	generator.Run(stop)
 
 	// expose profiling endpoint
 	http.ListenAndServe(":15005", nil)
@@ -76,12 +80,19 @@ func main() {
 	cmd.WaitSignal(stop)
 }
 
+func readFile(filename string) string {
+	bytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	return string(bytes)
+}
+
 var (
 	kubeconfig string
 	id         string
 	domain     string
 	binPath    string
-	configPath string
 	port       int
 
 	validate bool
@@ -97,5 +108,4 @@ func init() {
 	flag.BoolVar(&validate, "valid", false,
 		"Validate only (for testing and debugging)")
 	flag.StringVar(&binPath, "bin", "/usr/local/bin/envoy", "Envoy binary")
-	flag.StringVar(&configPath, "config", ".", "Config file path")
 }
