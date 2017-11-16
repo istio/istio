@@ -36,7 +36,7 @@ local model = {
         protocol == 'HTTP' || self.is_http2(protocol),
 
     is_tcp(protocol)::
-        protocol == 'TCP',
+        protocol == 'TCP' || protocol == 'HTTPS',
 };
 
 local config = {

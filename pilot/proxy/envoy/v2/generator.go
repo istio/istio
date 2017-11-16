@@ -194,8 +194,6 @@ func (g *Generator) Generate() {
 				endpoints = append(endpoints, &api.ClusterLoadAssignment{
 					ClusterName: cluster.EdsClusterConfig.ServiceName,
 					Endpoints:   []*api.LocalityLbEndpoints{{LbEndpoints: addresses}}})
-			} else {
-				glog.Warningf("unexpected missing EDS name %q", cluster.Name)
 			}
 		}
 		g.endpoints = endpoints
