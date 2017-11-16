@@ -30,16 +30,36 @@ option (istio.mixer.v1.template.template_variety) = {{.VarietyName}};
 {{.TemplateMessage.Comment}}
 message Type {
   {{range .TemplateMessage.Fields -}}
-  {{- if containsValueType .ProtoType}}
+  {{- if valueTypeOrResMsg .ProtoType}}
   {{.Comment}}
-  {{.ProtoType.Name}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
+  {{valueTypeOrResMsgFieldTypeName .ProtoType}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
   {{- end}}
   {{- end}}
 }
+
+{{range .ResourceMessages}}
+{{.Comment}}
+message {{getResourcMessageTypeName .Name}} {
+  {{range .Fields}}
+  {{- if valueTypeOrResMsg .ProtoType}}
+  {{.Comment}}
+  {{valueTypeOrResMsgFieldTypeName .ProtoType}} {{.ProtoName}} = {{.Number}};{{reportTypeUsed .ProtoType}}
+  {{- end}}
+  {{- end}}
+}
+{{end}}
 
 message InstanceParam {
   {{range .TemplateMessage.Fields}}
   {{stringify .ProtoType}} {{.ProtoName}} = {{.Number}};
   {{end}}
 }
+
+{{range .ResourceMessages}}
+message {{getResourcMessageInterfaceParamTypeName  .Name}} {
+  {{range .Fields}}
+  {{stringify .ProtoType}} {{.ProtoName}} = {{.Number}};
+  {{end}}
+}
+{{end}}
 `

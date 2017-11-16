@@ -34,7 +34,7 @@ import (
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/tests/e2e/util"
+	"istio.io/istio/tests/util"
 )
 
 var (
