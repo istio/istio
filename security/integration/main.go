@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/testutil"
-  "istio.io/istio/security/integration/utils"
+	"istio.io/istio/security/integration/utils"
 )
 
 const (
@@ -41,14 +41,14 @@ const (
 	secretWaitTime = 20 * time.Second
 
 	// Certificates validation retry
-	certValidateRetry = 10
+	certValidateRetry      = 10
 	certValidationInterval = 1 // Initially wait for 1 second.
 	                           // This value will be increased exponentially on retry
 )
 
 var (
 	rootCmd = &cobra.Command{
-		PreRunE: initializeIntegrationTest,
+		PreRunE:  initializeIntegrationTest,
 		RunE:     runTests,
 		PostRunE: cleanUpIntegrationTest,
 	}
@@ -102,11 +102,19 @@ func runTests(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	cleanUpSelfSignedCATests()
+
+	err = runCertificatsRotationTests()
+	if err != nil {
+		return err
+	}
+	cleanUpCertificatsRotationTests()
 
 	err = runCAForNodeAgentTests()
 	if err != nil {
 		return err
 	}
+	cleanUpCAForNodeAgentTests()
 
 	return nil
 }
@@ -157,9 +165,10 @@ func runSelfSignedCATests() error {
 		return err
 	} else {
 		glog.Info(`Secret "istio.default" is correctly created`)
-
-		expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", s.GetNamespace())
-		examineSecret(s, expectedID)
+		_, _, _, err = examineSecret(s)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Delete the secret.
@@ -178,13 +187,75 @@ func runSelfSignedCATests() error {
 		glog.Info(`Secret "istio.default" is correctly re-created`)
 	}
 
-	// Delete pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, self_signed_ca_pod.GetName());
+	return nil
+}
+
+func cleanUpSelfSignedCATests() {
+	glog.Info("Removing pods: istio-ca-self")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-self")
+	glog.Info("Removing secrets: istio.default")
+	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
+}
+
+func runCertificatsRotationTests() error {
+	// Create Istio CA with short lifetime certificates
+	istio_ca_short_ttl_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+		fmt.Sprintf("%v/istio-ca-short:%v", opts.containerHub, opts.containerTag), "istio-ca-short")
 	if err != nil {
-		return fmt.Errorf("failed to delete Istio CA (error: %v)", err)
+		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+	}
+	glog.Infof("Succesfully created Istio CA pod(%v) with the short lifetime certificates",
+		istio_ca_short_ttl_pod.GetName())
+
+	initial_secret, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+		secretWaitTime)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	initial_key, initial_cert, initial_root, err := examineSecret(initial_secret)
+	if err != nil {
+		return err
+	}
+
+	max_retry := certValidateRetry
+	term := certValidationInterval
+
+	for i := 0; i < max_retry; i++ {
+		if i > 0 {
+			glog.Infof("Checking certificate rotation in %v seconds", term)
+			time.Sleep(time.Duration(term) * time.Second)
+			term = term * 2
+		}
+
+		secret, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+			secretWaitTime)
+		if err != nil {
+			continue
+		}
+
+		key, cert, root, err := examineSecret(secret)
+		if err != nil {
+			return err
+		}
+
+		if string(initial_root) != string(root) {
+			return fmt.Errorf("Root certificates should be match.")
+		}
+
+		if string(initial_key) != string(key) && string(initial_cert) != string(cert) {
+			glog.Infof("Certificates were successfully rotated")
+			return nil
+		}
+	}
+	return fmt.Errorf("%v", "Failed to validate certificate rotation")
+}
+
+func cleanUpCertificatsRotationTests() {
+	glog.Info("Removing pods: istio-ca-self")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-short")
+	glog.Info("Removing secrets: istio.default")
+	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
 }
 
 func runCAForNodeAgentTests() error {
@@ -197,7 +268,7 @@ func runCAForNodeAgentTests() error {
 	}
 
 	// Create the istio-ca service for NodeAgent pod
-	ca_service, err := utils.CreateService(opts.clientset, opts.namespace, "istio-ca", 8060,
+	_, err = utils.CreateService(opts.clientset, opts.namespace, "istio-ca", 8060,
 		v1.ServiceTypeClusterIP, ca_pod)
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
@@ -232,29 +303,18 @@ func runCAForNodeAgentTests() error {
 		glog.Info("Certificate of NodeAgent was updated and verified successfully")
 	}
 
-	// Delete created services
-	err = utils.DeleteService(opts.clientset, opts.namespace, ca_service.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete CA service: %v (error: %v)", ca_service.GetName(), err)
-	}
-
-	err = utils.DeleteService(opts.clientset, opts.namespace, na_service.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete NodeAgent service: %v (error: %v)", na_service.GetName(), err)
-	}
-
-	// Delete created pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, ca_pod.GetName());
-	if err != nil {
-		return fmt.Errorf("failed to delete CA pod: %v (error: %v)", ca_pod.GetName(), err)
-	}
-
-	err = utils.DeletePod(opts.clientset, opts.namespace, na_pod.GetName());
-	if err != nil {
-		return fmt.Errorf("failed to delete NodeAgent pod: %v (error: %v)", na_pod.GetName(), err)
-	}
-
 	return nil
+}
+
+func cleanUpCAForNodeAgentTests() {
+	glog.Info("Removing services: istio-ca, node-agent")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "node-agent")
+	glog.Info("Removing pods: istio-ca-cert, node-agent-cert")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-cert")
+	_ = utils.DeletePod(opts.clientset, opts.namespace, "node-agent-cert")
+	glog.Info("Removing secrets: istio.default")
+	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
 }
 
 func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
@@ -264,31 +324,35 @@ func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
 // This method examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
-func examineSecret(secret *v1.Secret, expectedID string) error {
+func examineSecret(secret *v1.Secret) ([]byte, []byte, []byte, error) {
 	if secret.Type != controller.IstioSecretType {
-		return fmt.Errorf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
+		return nil, nil, nil, fmt.Errorf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
 	}
 
 	for _, key := range []string{controller.CertChainID, controller.RootCertID, controller.PrivateKeyID} {
 		if _, exists := secret.Data[key]; !exists {
-			return fmt.Errorf("%v does not exist in the data section", key)
+			return nil, nil, nil, fmt.Errorf("%v does not exist in the data section", key)
 		}
 	}
 
 	key := secret.Data[controller.PrivateKeyID]
 	cert := secret.Data[controller.CertChainID]
 	root := secret.Data[controller.RootCertID]
+
+	// should be valid
+	expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", secret.GetNamespace())
 	verifyFields := &testutil.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
+
 	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
-		return fmt.Errorf("Certificate verification failed: %v", err)
+		return nil, nil, nil, fmt.Errorf("Certificate verification failed: %v", err)
 	}
 
-	return nil
+	return key, cert, root, nil
 }
 
 func readFile(path string) (string, error) {

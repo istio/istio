@@ -156,6 +156,10 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
+func DeleteSecrets(clientset kubernetes.Interface, namespace string, name string) error {
+	return clientset.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{})
+}
+
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 }
