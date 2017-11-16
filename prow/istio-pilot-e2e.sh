@@ -39,9 +39,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
 
-  # Use volume mount from pilot-presubmit job's pod spec.
-  # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
 else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
@@ -52,9 +49,6 @@ source "${ROOT}/prow/cluster_lib.sh"
 trap delete_cluster EXIT
 create_cluster 'e2e-pilot'
 
-if [ -f /home/bootstrap/.kube/config ]; then
-  sudo rm /home/bootstrap/.kube/config
-fi
-
+ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
 HUB="gcr.io/istio-testing"
 make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false"
