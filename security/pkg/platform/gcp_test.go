@@ -266,7 +266,7 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
 
 		credential, err := gcp.GetAgentCredential()
 		if len(c.expectedErr) > 0 {
@@ -304,7 +304,7 @@ func TestGcpGetServiceIdentities(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr}}
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
 
 		serviceIdentity, err := gcp.GetServiceIdentity()
 		if len(c.expectedErr) > 0 {
@@ -342,7 +342,7 @@ func TestGcpGetCredentialTypes(t *testing.T) {
 	for id, c := range testCases {
 		gcp := GcpClientImpl{
 			config:  c.cfg,
-			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr},
+			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
 		}
 
 		credentialType := gcp.GetCredentialType()
