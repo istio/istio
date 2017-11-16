@@ -57,4 +57,4 @@ if [ -f /home/bootstrap/.kube/config ]; then
 fi
 
 HUB="gcr.io/istio-testing"
-make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
+make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false"
