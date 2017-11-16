@@ -81,8 +81,12 @@ func main() {
 
 	var signerCert *x509.Certificate
 	var signerPriv crypto.PrivateKey
+	var err error
 	if !*isSelfSigned {
-		signerCert, signerPriv = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+		signerCert, signerPriv, err = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
+		if err != nil {
+			glog.Fatal(err);
+		}
 	}
 
 	nb := getNotBefore()

@@ -12,8 +12,8 @@ go_library(
     deps = [
         "//security/pkg/credential:go_default_library",
         "//security/pkg/pki:go_default_library",
-        "@com_github_aws_aws-sdk-go//aws/ec2metadata:go_default_library",
-        "@com_github_aws_aws-sdk-go//aws/session:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/session:go_default_library",
         "@com_github_fullsailor_pkcs7//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_google_cloud_go//compute/metadata:go_default_library",
@@ -28,13 +28,18 @@ go_test(
     size = "small",
     srcs = [
         "aws_test.go",
+        "client_test.go",
         "gcp_test.go",
         "onprem_test.go",
     ],
     data = glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
-        "@com_github_aws_aws-sdk-go//aws:go_default_library",
-        "@com_github_aws_aws-sdk-go//awstesting/unit:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws:go_default_library",
+        "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
+        "@com_github_aws_aws_sdk_go//awstesting/unit:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials:go_default_library",
     ],
 )

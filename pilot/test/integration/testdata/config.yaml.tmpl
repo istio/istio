@@ -30,3 +30,4 @@ data:
     ingressControllerMode:    STRICT
     enableTracing:            true
     accessLogFile:            /dev/stdout
+    mtlsExcludedServices: [ "fake-control.{{.Namespace}}.svc.cluster.local" ]

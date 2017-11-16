@@ -41,16 +41,19 @@ func TestAuthenticate(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		certChain [][]*x509.Certificate
-		caller    *caller
+		certChain          [][]*x509.Certificate
+		caller             *caller
+		authenticateErrMsg string
 	}{
 		"no client certificate": {
-			certChain: nil,
-			caller:    nil,
+			certChain:          nil,
+			caller:             nil,
+			authenticateErrMsg: "no client certificate is presented",
 		},
 		"Empty cert chain": {
-			certChain: [][]*x509.Certificate{},
-			caller:    nil,
+			certChain:          [][]*x509.Certificate{},
+			caller:             nil,
+			authenticateErrMsg: "no verified chain is found",
 		},
 		"With client certificate": {
 			certChain: [][]*x509.Certificate{
@@ -75,7 +78,19 @@ func TestAuthenticate(t *testing.T) {
 			p := &peer.Peer{AuthInfo: tlsInfo}
 			ctx = peer.NewContext(ctx, p)
 		}
-		result, _ := auth.authenticate(ctx)
+
+		result, err := auth.authenticate(ctx)
+		if len(tc.authenticateErrMsg) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.authenticateErrMsg {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), tc.authenticateErrMsg)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
 
 		if !reflect.DeepEqual(tc.caller, result) {
 			t.Errorf("Case %q: Unexpected authentication result: want %v but got %v", id, tc.caller, result)
@@ -83,20 +98,22 @@ func TestAuthenticate(t *testing.T) {
 	}
 }
 
-// TODO: Test the error messages.
 func TestExtractBearerToken(t *testing.T) {
 	testCases := map[string]struct {
-		metadata      metadata.MD
-		expectedToken string
+		metadata                 metadata.MD
+		expectedToken            string
+		extractBearerTokenErrMsg string
 	}{
 		"No metadata": {
-			expectedToken: "",
+			expectedToken:            "",
+			extractBearerTokenErrMsg: "no metadata is attached",
 		},
 		"No auth header": {
 			metadata: metadata.MD{
 				"random": []string{},
 			},
-			expectedToken: "",
+			expectedToken:            "",
+			extractBearerTokenErrMsg: "no HTTP authorization header exists",
 		},
 		"No bearer token": {
 			metadata: metadata.MD{
@@ -105,7 +122,8 @@ func TestExtractBearerToken(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedToken: "",
+			expectedToken:            "",
+			extractBearerTokenErrMsg: "no bearer token exists in HTTP authorization header",
 		},
 		"With bearer token": {
 			metadata: metadata.MD{
@@ -124,7 +142,21 @@ func TestExtractBearerToken(t *testing.T) {
 		if tc.metadata != nil {
 			ctx = metadata.NewIncomingContext(ctx, tc.metadata)
 		}
-		if actual, _ := extractBearerToken(ctx); actual != tc.expectedToken {
+
+		actual, err := extractBearerToken(ctx)
+		if len(tc.extractBearerTokenErrMsg) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.extractBearerTokenErrMsg {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), tc.extractBearerTokenErrMsg)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if actual != tc.expectedToken {
 			t.Errorf("Case %q: unexpected token: want %s but got %s", id, tc.expectedToken, actual)
 		}
 	}

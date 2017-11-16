@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+
+set -e
+
+#This script only works in k8s environment
+#PILOT_URL, if not set, can be automatically discovered by this script.
+#By default, it assumes that istio is deployed in the istio-system namespace
+#with the service name as 'istio-pilot'. User can set shell environment variables
+#ISTIO_NAMESPACE and ISTIO_PILOT otherwise.
+: ${PILOT_URL:=}
+: ${ISTIO_NAMESPACE:=istio-system}
+: ${ISTIO_PILOT:=istio-pilot}
+: ${ISTIO_INGRESS:=istio-ingress}
+: ${ISTIO_EGRESS:=istio-egress}
+: ${CLUSTER_NAME:=istio-proxy}
+
+subcommand=$1
+
+function print_help {
+    echo 'istio-proxy-cfg lds sidecar|ingress|egress <pod_name>'
+    echo "    Get listeners built by istio pilot."
+    echo ""
+    echo 'istio-proxy-cfg cds sidecar|ingress|egress <pod_name>'
+    echo "    Get clusters built by istio pilot."
+    echo ""
+    echo 'istio-proxy-cfg rds sidecar|ingress|egress <route_name> <pod_name>'
+    echo "    Get routes built by istio pilot."
+    echo "    <route_name> is normally a port number that a service is bound to."
+    echo ""
+    echo 'istio-proxy-cfg sds [<"service_key">]'
+    echo "    Get service endpoints built by istio pilot."
+    echo "    <service_key> is a service_name, which can be obtained"
+    echo "    from the cds query output. It's optional and must be"
+    echo "    quoted if provided. Without it, all services and their"
+    echo "    endpoints are displayed except for versioned services."
+    echo ""
+    echo 'istio-proxy-cfg cache_stats'
+    echo "    dispaly cache stats."
+    echo ""
+    echo "istio-proxy-cfg help"
+    echo "    print help message."
+    echo ""
+    echo "pod_name: a string that is a prefix of a pod name."
+    echo "          If it matches multiple pod names, all of their proxy"
+    echo "          configuratoin will be displayed."
+    echo "          pod_name is IGNORED in the case of ingress/egress."
+    echo ""
+    echo "Aliases: lds, l, listeners"
+    echo "         cds, c, clusters"
+    echo "         rds, r, routes"
+    echo "         sds, s, endpoints"
+    echo "         sidecar, side, s"
+    echo "         ingress, ing, i"
+    echo "         egress, eg, e"
+    echo "         cache_stats, cs, cache"
+}
+
+function error_exit {
+    echo "$1" 1>&2
+    exit 1
+}
+
+function check_endof_cmdline {
+    if [[ -n $@ ]]; then
+        error_exit "Unknown arguments $@"
+        print_help
+    fi
+}
+
+function get_pilot_url {
+    if [[ -z $PILOT_URL ]]; then
+        pilot_ipport=(`kubectl get svc -n ${ISTIO_NAMESPACE} | grep ${ISTIO_PILOT} | awk '{print $2,$4}'`)
+        pilot_ip=${pilot_ipport[0]}
+        pilot_port=${pilot_ipport[1]}
+        pilot_port=${pilot_port/:/ }
+        pilot_port=(${pilot_port/\// })
+        pilot_port=${pilot_port[0]}
+        echo $pilot_ip:$pilot_port
+    else
+        echo $PILOT_URL
+    fi
+}
+
+function query {
+    echo "Issue Query: curl $1"
+    curl $1
+    echo ""
+}
+
+function get_proxy_keys {
+    role=$1
+    podname=$2
+    pods=$(kubectl get pod -o wide --all-namespaces | awk '{print $2,$1,$7}' | grep -e "^$podname")
+    if [[ -z $pods ]]; then
+        error_exit "Pod ${podname} doesn't exist"
+    fi
+    IFS=$'\n'
+    for pod in $pods; do
+        IFS=' '
+        podinfo=($pod)
+        echo ${role}~${podinfo[2]}~${podinfo[0]}.${podinfo[1]}~${podinfo[1]}.svc.cluster.local
+    done
+}
+
+function query_lds {
+    role=$1
+    podname=$2
+    pilot_url=`get_pilot_url`
+    for proxy_key in `get_proxy_keys $role $podname`; do
+        query ${pilot_url}/v1/listeners/${CLUSTER_NAME}/${proxy_key}
+    done
+}
+
+function query_cds {
+    role=$1
+    podname=$2
+    pilot_url=`get_pilot_url`
+    for proxy_key in `get_proxy_keys $role $podname`; do
+        query ${pilot_url}/v1/clusters/${CLUSTER_NAME}/${proxy_key}
+    done
+}
+
+function query_rds {
+    role=$1
+    route_name=$2
+    podname=$3
+    pilot_url=`get_pilot_url`
+    for proxy_key in `get_proxy_keys $role $podname`; do
+        query ${pilot_url}/v1/routes/${route_name}/${CLUSTER_NAME}/${proxy_key}
+    done
+}
+
+function query_sds {
+    servicekey=$1
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/v1/registration/${servicekey}
+}
+
+function query_cache_stats {
+    pilot_url=`get_pilot_url`
+    query ${pilot_url}/cache_stats
+}
+
+case ${subcommand} in
+    l|lds|listeners) queryfor=lds;;
+    c|cds|clusters) queryfor=cds;;
+    r|rds|routes) queryfor=rds;;
+    s|sds|endpoints) queryfor=sds;;
+    cs|cache|cache_stats)
+        query_cache_stats
+        exit
+        ;;
+    h|help)
+        print_help
+        exit
+        ;;
+    *) error_exit "Unrecognized subcommand ${subcommand}";;
+esac
+
+if [[ $queryfor != sds ]]; then
+    role=$2
+    case ${role} in
+        sidecar|side|s) role=sidecar;;
+        ingress|ing|i)
+            podname=$ISTIO_INGRESS
+            role=ingress
+            ;;
+        egress|eg|e)
+            podname=$ISTIO_EGRESS
+            role=egress
+            ;;
+        *) error_exit "Unrecognized role ${role}";;
+    esac
+fi
+
+case ${queryfor} in
+    lds)
+        podname=${podname:-$3}
+        if [[ -z $podname ]]; then
+            error_exit "Pod name is required"
+        fi
+        if [[ -z $3 ]]; then
+            shift 2
+        else
+            shift 3
+        fi
+        check_endof_cmdline $@
+        query_lds $role $podname
+        ;;
+    cds)
+        podname=${podname:-$3}
+        if [[ -z $podname ]]; then
+            error_exit "Pod name is required"
+        fi
+        if [[ -z $3 ]]; then
+            shift 2
+        else
+            shift 3
+        fi
+        check_endof_cmdline $@
+        query_cds $role $podname
+        ;;
+    rds)
+        route_name=$3
+        if [[ -z $route_name ]]; then
+            error_exit "Route name is required"
+        fi
+        podname=${podname:-$4}
+        if [[ -z $podname ]]; then
+            error_exit "Pod name is required"
+        fi
+        if [[ -z $4 ]]; then
+            shift 3
+        else
+            shift 4
+        fi
+        check_endof_cmdline $@
+        query_rds $role $route_name $podname
+        ;;
+    sds)
+        servicekey=$2
+        if [[ -z $servicekey ]]; then
+            shift 1
+        else
+            shift 2
+        fi
+        check_endof_cmdline $@
+        query_sds $servicekey
+        ;;
+esac
