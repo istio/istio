@@ -22,4 +22,5 @@ go_test(
     size = "small",
     srcs = ["service_test.go"],
     library = ":go_default_library",
+    deps = ["@io_istio_api//:proxy/v1/config"],
 )
