@@ -19,7 +19,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +27,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/attribute"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/pool"
 )
@@ -87,6 +85,7 @@ type Expression struct {
 	Fn    *Function
 }
 
+//
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
@@ -106,31 +105,6 @@ func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]F
 		return ad.ValueType, nil
 	}
 	return e.Fn.EvalType(attrs, fMap)
-}
-
-// Eval returns value of the contained variable or error
-func (v *Variable) Eval(attrs attribute.Bag) (interface{}, error) {
-	if val, ok := attrs.Get(v.Name); ok {
-		return val, nil
-	}
-	return nil, fmt.Errorf("unresolved attribute %s", v.Name)
-}
-
-// Eval evaluates the expression given an attribute bag and a function map.
-func (e *Expression) Eval(attrs attribute.Bag, fMap map[string]FuncBase) (interface{}, error) {
-	if e.Const != nil {
-		return e.Const.Value, nil
-	}
-	if e.Var != nil {
-		return e.Var.Eval(attrs)
-	}
-
-	fn := fMap[e.Fn.Name]
-	if fn == nil {
-		return nil, fmt.Errorf("unknown function: %s", e.Fn.Name)
-	}
-	// may panic
-	return fn.(Func).Call(attrs, e.Fn.Args, fMap)
 }
 
 // String produces postfix version with all operators converted to function names
@@ -478,39 +452,6 @@ func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
 	return ex, nil
 }
 
-func (e *cexl) Eval(s string, attrs attribute.Bag) (ret interface{}, err error) {
-	var ex *Expression
-	if ex, err = e.cacheGetExpression(s); err != nil {
-		return
-	}
-	return ex.Eval(attrs, e.fMap)
-}
-
-// Eval evaluates given expression using the attribute bag to a string
-func (e *cexl) EvalString(s string, attrs attribute.Bag) (ret string, err error) {
-	var uret interface{}
-	var ok bool
-	if uret, err = e.Eval(s, attrs); err != nil {
-		return
-	}
-	if ret, ok = uret.(string); ok {
-		return
-	}
-	return "", fmt.Errorf("typeError: got %s, expected string", reflect.TypeOf(uret).String())
-}
-
-func (e *cexl) EvalPredicate(s string, attrs attribute.Bag) (ret bool, err error) {
-	var uret interface{}
-	var ok bool
-	if uret, err = e.Eval(s, attrs); err != nil {
-		return
-	}
-	if ret, ok = uret.(bool); ok {
-		return
-	}
-	return false, fmt.Errorf("typeError: got %s, expected bool", reflect.TypeOf(uret).String())
-}
-
 func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
 	v, err := e.cacheGetExpression(expr)
 	if err != nil {
@@ -528,8 +469,8 @@ func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expecte
 	return nil
 }
 
-// NewCEXLEvaluator returns a new Evaluator of this type.
-func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
+// NewTypeChecker returns a new TypeChecker.
+func NewTypeChecker(cacheSize int) (TypeChecker, error) {
 	cache, err := lru.New(cacheSize)
 	if err != nil {
 		return nil, err
@@ -537,9 +478,4 @@ func NewCEXLEvaluator(cacheSize int) (Evaluator, error) {
 	return &cexl{
 		fMap: FuncMap(), cache: cache,
 	}, nil
-}
-
-// NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (TypeChecker, error) {
-	return NewCEXLEvaluator(cacheSize)
 }
