@@ -6,8 +6,5 @@ go_library(
         "fakeclient.go",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//security/pkg/platform:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
+    deps = ["@org_golang_google_grpc//:go_default_library"],
 )
