@@ -22,6 +22,7 @@ go_test(
         "ca_test.go",
         "generate_cert_test.go",
     ],
+    data = glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
         "//security/pkg/pki:go_default_library",
