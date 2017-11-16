@@ -14,4 +14,3 @@ spec:
   rewrite:
     uri: /new/path
     authority: foo.bar.com
-

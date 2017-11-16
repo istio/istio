@@ -29,6 +29,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+
+	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
 )
 
@@ -41,19 +43,11 @@ var (
 		".yaml": true,
 		".yml":  true,
 	}
-
-	emptyResource = &resource{}
 )
 
 // kindToMessageName converts from the k8s Kind to the protobuf message name used for storing the parsed config.
 func kindToMessageName(kind string) string {
 	return "istio.proxy.v1.config." + kind
-}
-
-// messageNameToKind converts from the protobuf message name to the k8s Kind.
-func messageNameToKind(messageName string) string {
-	parts := strings.Split(messageName, ".")
-	return parts[len(parts)-1]
 }
 
 // schemaForKind looks up the Istio protobuf schema for the given k8s Kind.
@@ -92,7 +86,6 @@ func (r *resource) toConfig() (*model.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Type:            schema.Type,
@@ -106,40 +99,34 @@ func (r *resource) toConfig() (*model.Config, error) {
 	}, nil
 }
 
-// compareResourceIds compares the IDs (i.e. Namespace, Kind, and Name) of the two resources and returns
+// compareResourceIds compares the IDs (i.e. Namespace, Kind, and Name) of the two byKey and returns
 // 0 if a == b, -1 if a < b, and 1 if a > b. Used for sorting resource arrays.
 func compareResourceIds(a, b *resource) int {
 	// Compare Namespace
 	if v := strings.Compare(a.Metadata.Namespace, b.Metadata.Namespace); v != 0 {
 		return v
 	}
-
 	// Compare Kind
 	if v := strings.Compare(a.Kind, b.Kind); v != 0 {
 		return v
 	}
-
 	// Compare Name
 	return strings.Compare(a.Metadata.Name, b.Metadata.Name)
 }
 
-// resources is an array of resource objects that is capable or sorting by Namespace, Kind, and Name.
-type resources []*resource
+// byKey is an array of resource objects that is capable or sorting by Namespace, Kind, and Name.
+type byKey []*resource
 
-func (rs resources) Len() int {
+func (rs byKey) Len() int {
 	return len(rs)
 }
 
-func (rs resources) Swap(i, j int) {
+func (rs byKey) Swap(i, j int) {
 	rs[i], rs[j] = rs[j], rs[i]
 }
 
-func (rs resources) Less(i, j int) bool {
+func (rs byKey) Less(i, j int) bool {
 	return compareResourceIds(rs[i], rs[j]) < 0
-}
-
-func (rs resources) Sort() {
-	sort.Sort(rs)
 }
 
 // Monitor will monitor a directory containing yaml files for changes, updating a ConfigStore as changes are
@@ -149,7 +136,47 @@ type Monitor struct {
 	root          string
 	kinds         map[string]bool
 	checkDuration time.Duration
-	resources     resources
+	resources     []*resource
+}
+
+// NewMonitor creates a new config store that monitors files under the given root directory for changes to config.
+// If no kinds are provided (nil or empty), all IstioConfigTypes will be allowed.
+func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, types []string) *Monitor {
+	monitor := &Monitor{
+		store:         delegateStore,
+		root:          rootDirectory,
+		kinds:         map[string]bool{},
+		checkDuration: defaultDuration,
+	}
+
+	if len(types) == 0 {
+		types = model.IstioConfigTypes.Types()
+	}
+
+	for _, k := range types {
+		if schema, ok := model.IstioConfigTypes.GetByType(k); ok {
+			monitor.kinds[crd.KabobCaseToCamelCase(schema.Type)] = true
+		}
+	}
+	return monitor
+}
+
+// Start launches a thread that monitors files under the root directory, updating the underlying config
+// store when changes are detected.
+func (m *Monitor) Start(ctx context.Context) {
+	m.checkAndUpdate()
+	tick := time.NewTicker(m.checkDuration)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				tick.Stop()
+				return
+			case <-tick.C:
+				m.checkAndUpdate()
+			}
+		}
+	}()
 }
 
 func (m *Monitor) checkAndUpdate() {
@@ -233,19 +260,18 @@ func (m *Monitor) deleteConfig(r *resource) {
 	}
 }
 
-func (m *Monitor) readFiles() resources {
-	var result resources
+func (m *Monitor) readFiles() byKey {
+	var result []*resource
 
 	err := filepath.Walk(m.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
-		}
-		if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
+		} else if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			glog.Warningf("Failed to read %m: %v", path, err)
+			glog.Warningf("Failed to read %s: %v", path, err)
 			return err
 		}
 		for _, r := range parseYaml(data) {
@@ -258,12 +284,11 @@ func (m *Monitor) readFiles() resources {
 		return nil
 	})
 	if err != nil {
-		glog.Errorf("failure during filepath.Walk: %v", err)
+		glog.Warningf("failure during filepath.Walk: %v", err)
 	}
 
-	// Sort the resources by their IDs.
-	result.Sort()
-
+	// Sort by the resource IDs.
+	sort.Sort(byKey(result))
 	return result
 }
 
@@ -274,7 +299,6 @@ func ParseYamlFile(path string) ([]*model.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return ParseYaml(data)
 }
 
@@ -292,30 +316,17 @@ func ParseYaml(data []byte) ([]*model.Config, error) {
 			return nil, err
 		}
 	}
-
 	return configs, nil
 }
 
-// parseYaml parses the data for an entire yaml file and returns slices for individual resources.
+// parseYaml parses the data for an entire yaml file and returns slices for individual byKey.
 func parseYaml(data []byte) []*resource {
-	if bytes.HasPrefix(data, []byte("---\n")) {
-		data = data[4:]
-	}
-	if bytes.HasSuffix(data, []byte("\n")) {
-		data = data[:len(data)-1]
-	}
-	if bytes.HasSuffix(data, []byte("\n---")) {
-		data = data[:len(data)-4]
-	}
-	if len(data) == 0 {
-		return nil
-	}
 	chunks := bytes.Split(data, []byte("\n---\n"))
 	resources := make([]*resource, 0, len(chunks))
 	for i, chunk := range chunks {
 		r, err := parseResource(chunk)
 		if err != nil {
-			glog.Errorf("Error processing config [%d]: %v", i, err)
+			glog.Infof("Error processing config [%d]: %v", i, err)
 			continue
 		}
 		if r == nil {
@@ -336,8 +347,9 @@ func parseResource(data []byte) (*resource, error) {
 		// Can be empty if no data or if it just contains comments.
 		return nil, nil
 	}
-	if r.Kind == "" && r.Metadata.Namespace == "" && r.Metadata.Name == "" {
-		return nil, fmt.Errorf("key elements are empty.\n <<%s>>", string(data))
+
+	if r.Kind == "" || r.Metadata.Name == "" {
+		return nil, fmt.Errorf("key elements are empty: %q", data)
 	}
 	r.sha = sha1.Sum(data)
 	return r, nil
@@ -345,46 +357,5 @@ func parseResource(data []byte) (*resource, error) {
 
 // Check if the parsed resource is empty
 func empty(r *resource) bool {
-	return reflect.DeepEqual(*r, *emptyResource)
-}
-
-// NewMonitor creates a new config store that monitors files under the given root directory for changes to config.
-// If no kinds are provided (nil or empty), all IstioConfigTypes will be allowed.
-func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, types []string) *Monitor {
-	monitor := &Monitor{
-		store:         delegateStore,
-		root:          rootDirectory,
-		kinds:         map[string]bool{},
-		checkDuration: defaultDuration,
-	}
-
-	if len(types) == 0 {
-		types = model.IstioConfigTypes.Types()
-	}
-
-	for _, k := range types {
-		if schema, ok := model.IstioConfigTypes.GetByType(k); ok {
-			monitor.kinds[messageNameToKind(schema.MessageName)] = true
-		}
-	}
-
-	return monitor
-}
-
-// Start launches a thread that monitors files under the root directory, updating the underlying config
-// store when changes are detected.
-func (m *Monitor) Start(ctx context.Context) {
-	m.checkAndUpdate()
-	tick := time.NewTicker(m.checkDuration)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				tick.Stop()
-				return
-			case <-tick.C:
-				m.checkAndUpdate()
-			}
-		}
-	}()
+	return reflect.DeepEqual(r, &resource{})
 }

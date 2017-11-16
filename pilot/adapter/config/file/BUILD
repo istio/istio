@@ -7,6 +7,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pilot/adapter/config/crd:go_default_library",
         "//pilot/model:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",

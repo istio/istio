@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"testing"
 
+	"path"
+
 	"istio.io/istio/pilot/adapter/config/file"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
@@ -63,7 +65,7 @@ type controllerManager struct {
 func (cm *controllerManager) setup(eventCh chan event) {
 	cm.controllerStop = make(chan struct{})
 	store := memory.Make(model.IstioConfigTypes)
-	cm.controller = memory.NewControllerWithBufferSize(store, 100)
+	cm.controller = memory.NewBufferedController(store, 100)
 
 	// Register changes to the repository
 	for _, s := range model.IstioConfigTypes.Types() {
@@ -87,17 +89,17 @@ type env struct {
 	controllerManager controllerManager
 	monitorCtx        context.Context
 	monitorCancel     context.CancelFunc
-	eventCh           chan event
+	events            chan event
 	fsroot            string
 	monitor           *file.Monitor
 }
 
 func (e *env) setup(tempDir string) {
-	e.eventCh = make(chan event)
+	e.events = make(chan event)
 
 	// Create and setup the controller.
 	e.controllerManager = controllerManager{}
-	e.controllerManager.setup(e.eventCh)
+	e.controllerManager.setup(e.events)
 
 	e.monitorCtx, e.monitorCancel = context.WithCancel(context.Background())
 	e.fsroot = tempDir
@@ -115,20 +117,18 @@ func (e *env) teardown() {
 	os.RemoveAll(e.fsroot)
 }
 
-func (e *env) watch() event {
-	return <-e.eventCh
-}
-
 func (e *env) watchFor(eventType model.Event) event {
-	for {
-		if ev := e.watch(); ev.event == eventType {
-			return ev
+	var ev event
+	for ev = range e.events {
+		if ev.event == eventType {
+			break
 		}
 	}
+	return ev
 }
 
 func copyTestFile(fileName string, toDir string) error {
-	return copyFile("testdata/"+fileName, toDir+"/"+fileName)
+	return copyFile(path.Join("testdata", fileName), path.Join(toDir, fileName))
 }
 
 func copyFile(src, dst string) error {
@@ -136,7 +136,6 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-
 	return ioutil.WriteFile(dst, data, os.ModePerm)
 }
 
@@ -159,27 +158,24 @@ func TestAdd(t *testing.T) {
 			expectedCfg, err := parseConfig("testdata/" + fileName)
 			if err != nil {
 				t.Fatalf("Unable to parse config: %s", fileName)
-				return
 			}
 
 			// Add the configuration.
 			if err := copyTestFile(fileName, e.fsroot); err != nil {
 				t.Fatalf("Failed adding config file: %s", fileName)
-				return
 			}
 
 			// Wait for the add to occur.
-			event := e.watch()
+			event := <-e.events
 
 			// Verify that the configuration was added properly.
 			if event.event != model.EventAdd {
-				t.Fatalf("Expected add event: %s", event)
-				return
+				t.Fatalf("event: %s wanted: %s", event.event, model.EventAdd)
 			}
 
 			// Need to clear the resource version before comparing.
 			if !reflect.DeepEqual(*expectedCfg, event.config) {
-				t.Fatalf("Config does not match.\nExpected:\n%s\nReceived:\n%s", *expectedCfg, event.config)
+				t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
 			}
 		})
 	}
@@ -205,10 +201,9 @@ func TestDelete(t *testing.T) {
 			expectedCfg, err := parseConfig("testdata/" + fileName)
 			if err != nil {
 				t.Fatalf("Unable to parse config: %s", fileName)
-				return
 			}
 
-			err = os.Remove(e.fsroot + "/" + fileName)
+			err = os.Remove(path.Join(e.fsroot, fileName))
 			if err != nil {
 				t.Fatalf("Unable to remove file: %s", fileName)
 			}
@@ -218,7 +213,7 @@ func TestDelete(t *testing.T) {
 			// Need to clear the resource version before comparing.
 			event.config.ResourceVersion = ""
 			if !reflect.DeepEqual(*expectedCfg, event.config) {
-				t.Fatalf("Config does not match.\nExpected:\n%s\nReceived:\n%s", *expectedCfg, event.config)
+				t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
 			}
 		})
 	}
@@ -240,13 +235,12 @@ func TestUpdate(t *testing.T) {
 
 	// Overwrite the original file with the updated.
 	updateFilePath := "testdata/cb-policy.yaml.update"
-	copyFile(updateFilePath, e.fsroot+"/"+"cb-policy.yaml")
+	copyFile(updateFilePath, path.Join(e.fsroot, "cb-policy.yaml"))
 
 	// Get the configuration that we expect to be deleted
 	expectedCfg, err := parseConfig(updateFilePath)
 	if err != nil {
 		t.Fatalf("Unable to parse config: %s", updateFilePath)
-		return
 	}
 
 	event := e.watchFor(model.EventUpdate)
@@ -254,6 +248,6 @@ func TestUpdate(t *testing.T) {
 	// Need to clear the resource version before comparing.
 	event.config.ResourceVersion = ""
 	if !reflect.DeepEqual(*expectedCfg, event.config) {
-		t.Fatalf("Config does not match.\nExpected:\n%s\nReceived:\n%s", *expectedCfg, event.config)
+		t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
 	}
 }

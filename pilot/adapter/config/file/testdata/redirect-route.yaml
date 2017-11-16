@@ -18,4 +18,3 @@ spec:
   redirect:
     uri: "/new/path"
     authority: "foo.bar.com"
-
