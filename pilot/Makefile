@@ -37,7 +37,7 @@ setup: platform/kube/config
 	@bin/init.sh
 
 .PHONY: build
-build:	
+build:
 	@bazel build ${BUILD_FLAGS} //pilot/...
 
 .PHONY: docker
