@@ -14,11 +14,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
 
 #######################################
-#                                     #
-#             e2e-suite               #
-#                                     #
+# Presubmit script triggered by Prow. #
 #######################################
 
 # Exit immediately for non zero status
@@ -28,15 +29,32 @@ set -u
 # Print commands
 set -x
 
-ROOT=(bazel info workspace)
+if [ "${CI:-}" == 'bootstrap' ]; then
+  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
+  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
+  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  ROOT=${GOPATH}/src/istio.io/istio
+  cd ${GOPATH}/src/istio.io/istio
+
+  # Use the provided pull head sha, from prow.
+  GIT_SHA="${PULL_PULL_SHA}"
+
+  # Use volume mount from pilot-presubmit job's pod spec.
+  # FIXME pilot should not need this
+  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
+else
+  # Use the current commit.
+  GIT_SHA="$(git rev-parse --verify HEAD)"
+fi
+
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT
-create_cluster 'cluster-wide-auth'
+create_cluster 'e2e-pilot'
 
 if [ -f /home/bootstrap/.kube/config ]; then
   sudo rm /home/bootstrap/.kube/config
 fi
 
-echo 'Running cluster-wide e2e rbac, auth Tests'
-./prow/e2e-suite-rbac-auth.sh --cluster_wide "$@"
+HUB="gcr.io/istio-testing"
+make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${TAG}" TESTOPTS="-mixer=false"
