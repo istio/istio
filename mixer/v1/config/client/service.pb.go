@@ -10,11 +10,13 @@
 		mixer/v1/config/client/api_spec.proto
 		mixer/v1/config/client/quota.proto
 		mixer/v1/config/client/client_config.proto
+		mixer/v1/config/client/auth.proto
 
 	It has these top-level messages:
 		IstioService
 		HTTPAPISpec
 		HTTPAPISpecPattern
+		APIKey
 		HTTPAPISpecReference
 		HTTPAPISpecBinding
 		QuotaSpec
@@ -27,6 +29,9 @@
 		TransportConfig
 		HttpClientConfig
 		TcpClientConfig
+		JWT
+		EndUserAuthenticationPolicySpec
+		EndUserAuthenticationPolicySpecBinding
 */
 package istio_mixer_v1_config_client
 

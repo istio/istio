@@ -5,11 +5,13 @@ gogoslick_proto_library(
     name = "go_default_library",
     importmap = {
         "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
+        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
         "mixer/v1/attributes.proto": "istio.io/api/mixer/v1",
         "mixer/v1/config/client/api_spec.proto": "istio.io/api/mixer/v1/config/client",
         "mixer/v1/config/client/quota.proto": "istio.io/api/mixer/v1/config/client",
         "mixer/v1/config/client/service.proto": "istio.io/api/mixer/v1/config/client",
         "mixer/v1/config/client/client_config.proto": "istio.io/api/mixer/v1/config/client",
+        "mixer/v1/config/client/auth.proto": "istio.io/api/mixer/v1/config/client",
     },
     imports = [
         "external/com_github_gogo_protobuf",
@@ -26,6 +28,7 @@ gogoslick_proto_library(
         "api_spec.proto",
         "quota.proto",
         "client_config.proto",
+        "auth.proto",
     ],
     verbose = 0,
     visibility = ["//visibility:public"],

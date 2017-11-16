@@ -65,6 +65,8 @@ option (gogoproto.gostring_all) = false;
 //           api.operation: deletePet
 //         httpMethod: DELETE
 //         uriTemplate: /api/pets/{id}
+//       api_keys:
+//       - query: api-key
 //
 message HTTPAPISpec {
   // List of attributes that are generated when *any* of the HTTP
@@ -74,6 +76,17 @@ message HTTPAPISpec {
 
   // List of HTTP patterns to match.
   repeated HTTPAPISpecPattern patterns = 2;
+
+  // List of APIKey that describes how to extract an API-KEY from an
+  // HTTP request. The first API-Key match found in the list is used,
+  // i.e. 'OR' semantics.
+  //
+  // The following default policies are used to generate the
+  // `request.api_key` attribute if no explicit APIKey is defined.
+  //
+  //     `query: key, `query: api-key`, and then `header: x-api-key`
+  //
+  repeated APIKey api_keys = 3;
 }
 
 // HTTPAPISpecPattern defines a single pattern to match against
@@ -120,6 +133,47 @@ message HTTPAPISpecPattern {
     //     "^/pets/(.*?)?"
     //
     string regex = 4;
+  }
+}
+
+// APIKey defines the explicit configuration for generating the
+// `request.api_key` attribute from HTTP requests.
+//
+// See https://swagger.io/docs/specification/authentication/api-keys
+// for a general overview of API keys as defined by OpenAPI.
+message APIKey {
+  oneof key {
+    // API Key is sent as a query parameter. `query` represents the
+    // query string parameter name.
+    //
+    // For example, `query=api_key` should be used with the
+    // following request:
+    //
+    //     GET /something?api_key=abcdef12345
+    //
+    string query = 1;
+
+    // API key is sent in a request header. `header` represents the
+    // header name.
+    //
+    // For example, `header=X-API-KEY` should be used with the
+    // following request:
+    //
+    //     GET /something HTTP/1.1
+    //     X-API-Key: abcdef12345
+    //
+    string header = 2;
+
+    // API key is sent in a
+    // [cookie](https://swagger.io/docs/specification/authentication/cookie-authentication),
+    //
+    // For example, `cookie=X-API-KEY` should be used for the
+    // following request:
+    //
+    //     GET /something HTTP/1.1
+    //     Cookie: X-API-KEY=abcdef12345
+    //
+    string cookie = 3;
   }
 }
 

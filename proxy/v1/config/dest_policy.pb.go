@@ -36,6 +36,7 @@ It has these top-level messages:
 	HTTPTimeout
 	HTTPRetry
 	CorsPolicy
+	Port
 */
 package istio_proxy_v1_config
 
