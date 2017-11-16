@@ -43,6 +43,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
+        "@com_github_golang_mock//gomock:go_default_library",
         "@io_istio_api//:broker/v1/config",
     ],
 )

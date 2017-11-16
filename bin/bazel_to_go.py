@@ -249,7 +249,7 @@ def should_copy(src, dest):
             has_diff = True
             break
     else:
-        has_diff = (stdout.read() != '')
+        has_diff = (stdout != '')
     return has_diff
 
 def protos(WKSPC, genfiles, genfiles_external):

@@ -49,7 +49,7 @@ func TestGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{OnPremConfig{CertChainFile: c.filename}}
+		onprem := NewOnPremClientImpl(OnPremConfig{CertChainFile: c.filename})
 		identity, err := onprem.GetServiceIdentity()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -95,7 +95,7 @@ func TestGetTLSCredentials(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{c.config}
+		onprem := NewOnPremClientImpl(c.config)
 
 		_, err := onprem.GetDialOptions()
 		if len(c.expectedErr) > 0 {
@@ -135,7 +135,7 @@ func TestGetAgentCredential(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{OnPremConfig{CertChainFile: c.filename}}
+		onprem := NewOnPremClientImpl(OnPremConfig{CertChainFile: c.filename})
 		cred, err := onprem.GetAgentCredential()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -146,5 +146,27 @@ func TestGetAgentCredential(t *testing.T) {
 		} else if !bytes.Equal(cred, c.expectedBytes) {
 			t.Errorf("%s: GetAgentCredential returns bytes: %s. It should be %s.", id, cred, c.expectedBytes)
 		}
+	}
+}
+
+func TestOnpremIsProperPlatform(t *testing.T) {
+	onprem := NewOnPremClientImpl(
+		OnPremConfig{
+			CertChainFile: "testdata/fake-cert.pem",
+		})
+	exptected := onprem.IsProperPlatform()
+	if !exptected {
+		t.Errorf("Unexpected response: %v.", exptected)
+	}
+}
+
+func TestOnpremGetCredentialType(t *testing.T) {
+	onprem := NewOnPremClientImpl(
+		OnPremConfig{
+			CertChainFile: "testdata/fake-cert.pem",
+		})
+	credentialType := onprem.GetCredentialType()
+	if credentialType != "onprem" {
+		t.Errorf("Unexpected credential type: %v.", credentialType)
 	}
 }
