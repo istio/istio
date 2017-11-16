@@ -26,9 +26,6 @@ type (
 		// Eval evaluates given expression using the attribute bag
 		Eval(expr string, attrs attribute.Bag) (interface{}, error)
 
-		// Eval evaluates given expression using the attribute bag to a string
-		EvalString(expr string, attrs attribute.Bag) (string, error)
-
 		PredicateEvaluator
 
 		TypeChecker

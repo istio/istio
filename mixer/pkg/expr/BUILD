@@ -23,10 +23,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "benchmark_test.go",
-        "eval_test.go",
         "expr_test.go",
-        "func_test.go",
     ],
     library = ":go_default_library",
     deps = [
