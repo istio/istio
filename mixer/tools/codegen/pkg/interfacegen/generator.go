@@ -31,15 +31,6 @@ import (
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
 
-const (
-	ResourceMsgTypeSuffix      = "Type"
-	ResourceMsgInstParamSuffix = "InstanceParam"
-	fullGoNameOfValueTypeEnum  = "istio_mixer_v1_config_descriptor.ValueType"
-	goFileImportFmt            = `"%s"`
-	protoFileImportFmt         = `import "%s";`
-	protoValueTypeImport       = "mixer/v1/config/descriptor/value_type.proto"
-)
-
 // Generator generates Go interfaces for adapters to implement for a given Template.
 type Generator struct {
 	OutInterfacePath   string
@@ -47,16 +38,23 @@ type Generator struct {
 	ImptMap            map[string]string
 }
 
+const (
+	fullGoNameOfValueTypeEnum = "istio_mixer_v1_config_descriptor.ValueType"
+)
+
 func toProtoMap(k string, v string) string {
 	return fmt.Sprintf("map<%s, %s>", k, v)
 }
 
-func containsValueType(ti modelgen.TypeInfo) bool {
-	return ti.IsValueType || ti.IsMap && ti.MapValue.IsValueType
+func stringify(protoType modelgen.TypeInfo) string {
+	if protoType.IsMap {
+		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
+	}
+	return "string"
 }
 
-func valueTypeOrResMsg(ti modelgen.TypeInfo) bool {
-	return ti.IsValueType || ti.IsResourceMessage || ti.IsMap && (ti.MapValue.IsValueType || ti.MapValue.IsResourceMessage)
+func containsValueType(ti modelgen.TypeInfo) bool {
+	return ti.IsValueType || ti.IsMap && ti.MapValue.IsValueType
 }
 
 // Generate creates a Go interfaces for adapters to implement for a given Template.
@@ -114,6 +112,8 @@ func (g *Generator) Generate(fdsFile string) error {
 	return nil
 }
 
+const goFileImportFmt = "\"%s\""
+
 func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error) {
 	imprts := make([]string, 0)
 	intfaceTmpl, err := template.New("ProcInterface").Funcs(
@@ -164,32 +164,16 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 	return imptd, nil
 }
 
-func stringify(protoType modelgen.TypeInfo) string {
-	if protoType.IsMap {
-		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
-	}
-	if protoType.IsResourceMessage {
-		return protoType.Name + ResourceMsgInstParamSuffix
-	}
-	return "string"
-}
+const protoFileImportFmt = "import \"%s\";"
+const protoValueTypeImport = "mixer/v1/config/descriptor/value_type.proto"
 
 func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, error) {
 	imports := make([]string, 0)
 
 	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
-			"valueTypeOrResMsg": valueTypeOrResMsg,
-			"valueTypeOrResMsgFieldTypeName": func(protoTypeInfo modelgen.TypeInfo) string {
-				if protoTypeInfo.IsResourceMessage {
-					return protoTypeInfo.Name + ResourceMsgTypeSuffix
-				}
-				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
-					return toProtoMap(protoTypeInfo.MapKey.Name, protoTypeInfo.MapValue.Name+ResourceMsgTypeSuffix)
-				}
-				return protoTypeInfo.Name
-			},
-			"stringify": stringify,
+			"containsValueType": containsValueType,
+			"stringify":         stringify,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
 				// Only record of type has ValueType. In augmented proto,
 				// the only types that are printed are ValueType or string.
@@ -201,12 +185,6 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, err
 				}
 				// do nothing, just record the import so that we can add them later (only for the types that got printed)
 				return ""
-			},
-			"getResourcMessageTypeName": func(s string) string {
-				return s + ResourceMsgTypeSuffix
-			},
-			"getResourcMessageInterfaceParamTypeName": func(s string) string {
-				return s + ResourceMsgInstParamSuffix
 			},
 		},
 	).Parse(tmpl.RevisedTemplateTmpl)

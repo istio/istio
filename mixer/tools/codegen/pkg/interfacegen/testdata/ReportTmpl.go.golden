@@ -60,54 +60,6 @@ type Instance struct {
 	TimeStamp time.Time
 
 	Duration time.Duration
-
-	Res3List []*Resource3
-
-	Res3Map map[string]*Resource3
-}
-
-type Resource1 struct {
-	Str string
-
-	SelfRefRes1 *Resource1
-
-	ResRef2 *Resource2
-}
-
-type Resource2 struct {
-	Str string
-
-	Res3 *Resource3
-
-	Res3List []*Resource3
-
-	Res3Map map[string]*Resource3
-}
-
-// resource3 comment
-type Resource3 struct {
-
-	// value is ...
-	Value interface{}
-
-	// dimensions are ...
-	Dimensions map[string]interface{}
-
-	Int64Primitive int64
-
-	BoolPrimitive bool
-
-	DoublePrimitive float64
-
-	StringPrimitive string
-
-	AnotherValueType interface{}
-
-	DimensionsFixedInt64ValueDType map[string]int64
-
-	TimeStamp time.Time
-
-	Duration time.Duration
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

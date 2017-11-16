@@ -314,6 +314,12 @@ const (
 	sSTRING  = "string"
 )
 
+// protoType returns a Proto type name for a Field's DescriptorProto.
+// We only support primitives that can be represented as ValueTypes,ValueType itself, or map<string, ValueType>.
+var supportedPrimitives = []string{"string", "int64", "double", "bool"}
+var supportedTypes = strings.Join(supportedPrimitives, ", ") + ", " + fullProtoNameOfValueTypeEnum + ", " +
+	fmt.Sprintf("map<string, %s | %s>", fullProtoNameOfValueTypeEnum, strings.Join(supportedPrimitives, " | "))
+
 // TypeName returns a full name for the underlying Object type.
 func (g *FileDescriptorSetParser) TypeName(obj Object) string {
 	return g.DefaultPackageName(obj) + camelCaseSlice(obj.TypeName())
