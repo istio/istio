@@ -15,6 +15,7 @@ package cache
 
 import (
 	"math"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -49,18 +50,30 @@ import (
 // used entries, we can avoid messing up processor caches by moving these entries and can use
 // read/write locks to increase scalability.
 //
+// Another idea to improve scalability is to turn the Get call into a read-only operation and
+// defer updating the LRU ordering to a background goroutine. Done right, this could allow
+// many concurrent readers and could trivially bring some of the effects of the MRU design by
+// 'slowing down' the rate of mutation to the list, eliminating the 'jitter' of frequently used
+// entries. The challenge with this approach is coordinating the code that runs under lock and the
+// async code that doesn't.
+//
 // Due to the use of the time.Time.UnixNano function in this code, expiration
 // will fail after the year 2262. Sorry, you'll need to upgrade to a newer version
 // of Istio at that time :-)
 
+// See use of SetFinalizer below for an explanation of this weird composition
+type lruWrapper struct {
+	*lruCache
+}
+
 type lruCache struct {
 	sync.Mutex
 	entries           []lruEntry
-	sentinel          *lruEntry
+	sentinel          *lruEntry           // direct pointer to entries[0] to avoid bounds checking
 	lookup            map[interface{}]int // keys => entry index
 	stats             Stats
 	defaultExpiration time.Duration
-	evictionTicker    *time.Ticker
+	stopEvicter       chan bool
 	baseTimeNanos     int64
 }
 
@@ -75,6 +88,9 @@ type lruEntry struct {
 
 // entry 0 in the slice is the sentinel node
 const sentinelIndex = 0
+
+// global variable for use by unit tests that need to verify the finalizer has run
+var lruEvictionLoopTerminated = false
 
 // NewLRU creates a new cache with an LRU and time-based eviction model.
 //
@@ -113,25 +129,33 @@ func NewLRU(defaultExpiration time.Duration, evictionInterval time.Duration, max
 
 	if evictionInterval > 0 {
 		c.baseTimeNanos = time.Now().UTC().UnixNano()
-		c.evictionTicker = time.NewTicker(evictionInterval)
-		go c.evicter()
+		c.stopEvicter = make(chan bool, 1)
+		go c.evicter(evictionInterval)
+
+		// We return a 'see-through' wrapper for the real object such that
+		// the finalizer can trigger on the wrapper. We can't set a finalizer
+		// on the main cache object because it would never fire, because the
+		// evicter goroutine is keeping it alive
+		result := &lruWrapper{c}
+		runtime.SetFinalizer(result, func(w *lruWrapper) { c.stopEvicter <- true })
+		return result
 	}
 
 	return c
 }
 
-func (c *lruCache) Close() error {
-	if c.evictionTicker != nil {
-		c.evictionTicker.Stop()
-	}
-
-	return nil
-}
-
-func (c *lruCache) evicter() {
+func (c *lruCache) evicter(evictionInterval time.Duration) {
 	// Wake up once in a while and evict stale items
-	for now := range c.evictionTicker.C {
-		c.evictExpired(now)
+	ticker := time.NewTicker(evictionInterval)
+	for {
+		select {
+		case now := <-ticker.C:
+			c.evictExpired(now)
+		case <-c.stopEvicter:
+			ticker.Stop()
+			lruEvictionLoopTerminated = true // record this global state for the sake of unit tests
+			return
+		}
 	}
 }
 

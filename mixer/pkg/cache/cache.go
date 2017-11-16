@@ -18,7 +18,6 @@
 package cache
 
 import (
-	"io"
 	"time"
 )
 
@@ -50,10 +49,7 @@ type Stats struct {
 //   - Have Set and Remove return the previous value for the key, if any.
 //   - Have Get return the expiration time for entries.
 //   - Add a Clear method to empty a cache.
-//   - Eliminate the Close method by using an internal finalizer to stop background goroutines.
 type Cache interface {
-	io.Closer
-
 	// Set inserts an entry in the cache. This will replace any entry with
 	// the same key that is already in the cache. The entry may be automatically
 	// expunged from the cache at some point, depending on the eviction policies
@@ -75,7 +71,7 @@ type Cache interface {
 // ExpiringCache is a cache with items that are evicted over time
 //
 // Ideas for the future:
-//	 - Add an Evict method to force eviction of stale items
+//   - Add an Evict method to force immediate eviction of stale items
 type ExpiringCache interface {
 	Cache
 

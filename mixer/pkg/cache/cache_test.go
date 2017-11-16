@@ -105,8 +105,6 @@ func testCacheBasic(c Cache, t *testing.T) {
 			}
 		})
 	}
-
-	_ = c.Close()
 }
 
 func testCacheConcurrent(c Cache, t *testing.T) {
@@ -148,7 +146,6 @@ func testCacheConcurrent(c Cache, t *testing.T) {
 		t.Errorf("Got %d writes, expecting %d", stats.Writes, workers*numIters*2)
 	}
 
-	_ = c.Close()
 }
 
 func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testing.T) {
@@ -192,8 +189,6 @@ func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testi
 	if ok {
 		t.Errorf("Got value, expected LATER to have been evicted")
 	}
-
-	_ = c.Close()
 }
 
 func testCacheEvicter(c ExpiringCache, t *testing.T) {
@@ -208,6 +203,19 @@ func testCacheEvicter(c ExpiringCache, t *testing.T) {
 	}
 }
 
+func testCacheFinalizer(gate *bool, t *testing.T) {
+	for i := 0; i < 100; i++ {
+		runtime.GC()
+		if *gate {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Errorf("Expecting eviction loop to have been terminated")
+}
+
 func benchmarkCacheGet(c Cache, b *testing.B) {
 	c.Set("foo", "bar")
 
@@ -215,8 +223,6 @@ func benchmarkCacheGet(c Cache, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		c.Get("foo")
 	}
-
-	_ = c.Close()
 }
 
 func benchmarkCacheGetConcurrent(c Cache, b *testing.B) {
@@ -249,8 +255,6 @@ func benchmarkCacheGetConcurrent(c Cache, b *testing.B) {
 		}()
 	}
 	wg.Wait()
-
-	_ = c.Close()
 }
 
 func benchmarkCacheSet(c Cache, b *testing.B) {
@@ -258,8 +262,6 @@ func benchmarkCacheSet(c Cache, b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		c.Set("foo", "bar")
 	}
-
-	_ = c.Close()
 }
 
 func benchmarkCacheSetConcurrent(c Cache, b *testing.B) {
@@ -284,8 +286,6 @@ func benchmarkCacheSetConcurrent(c Cache, b *testing.B) {
 		}()
 	}
 	wg.Wait()
-
-	_ = c.Close()
 }
 
 func benchmarkCacheSetRemove(c Cache, b *testing.B) {
@@ -295,6 +295,4 @@ func benchmarkCacheSetRemove(c Cache, b *testing.B) {
 		c.Set(name, "bar")
 		c.Remove(name)
 	}
-
-	_ = c.Close()
 }

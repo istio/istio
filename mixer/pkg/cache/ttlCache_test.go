@@ -29,13 +29,19 @@ func TestTTLConcurrent(t *testing.T) {
 }
 
 func TestTTLExpiration(t *testing.T) {
-	ttl := NewTTL(5*time.Second, 100*time.Second).(*ttlCache)
+	ttl := NewTTL(5*time.Second, 100*time.Second).(*ttlWrapper)
 	testCacheExpiration(ttl, ttl.evictExpired, t)
 }
 
 func TestTTLEvicter(t *testing.T) {
 	ttl := NewTTL(5*time.Second, 1*time.Millisecond)
 	testCacheEvicter(ttl, t)
+}
+
+func TestTTLFinalizer(t *testing.T) {
+	ttlEvictionLoopTerminated = false
+	_ = NewTTL(5*time.Second, 1*time.Millisecond)
+	testCacheFinalizer(&ttlEvictionLoopTerminated, t)
 }
 
 func BenchmarkTTLGet(b *testing.B) {

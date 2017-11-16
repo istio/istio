@@ -29,13 +29,19 @@ func TestLRUConcurrent(t *testing.T) {
 }
 
 func TestLRUExpiration(t *testing.T) {
-	lru := NewLRU(5*time.Second, 100*time.Second, 500).(*lruCache)
+	lru := NewLRU(5*time.Second, 100*time.Second, 500).(*lruWrapper)
 	testCacheExpiration(lru, lru.evictExpired, t)
 }
 
 func TestLRUEvicter(t *testing.T) {
 	lru := NewLRU(5*time.Second, 1*time.Millisecond, 500)
 	testCacheEvicter(lru, t)
+}
+
+func TestLRUFinalizer(t *testing.T) {
+	lruEvictionLoopTerminated = false
+	_ = NewLRU(5*time.Second, 1*time.Millisecond, 500)
+	testCacheFinalizer(&lruEvictionLoopTerminated, t)
 }
 
 func TestLRUBehavior(t *testing.T) {
