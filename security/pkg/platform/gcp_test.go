@@ -288,44 +288,6 @@ func TestGcpGetAgentCredentials(t *testing.T) {
 	}
 }
 
-func TestGcpGetServiceIdentities(t *testing.T) {
-	testCases := map[string]struct {
-		token            string
-		tokenFetchErr    string
-		expectedErr      string
-		expectedIdentity string
-	}{
-		"Good Identity": {
-			token:            "abcdef",
-			tokenFetchErr:    "",
-			expectedErr:      "",
-			expectedIdentity: "",
-		},
-	}
-
-	for id, c := range testCases {
-		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
-
-		serviceIdentity, err := gcp.GetServiceIdentity()
-		if len(c.expectedErr) > 0 {
-			if err == nil {
-				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
-			} else if err.Error() != c.expectedErr {
-				t.Errorf("%s: incorrect error message: %s VS %s",
-					id, err.Error(), c.expectedErr)
-			}
-			continue
-		} else if err != nil {
-			t.Fatalf("%s: Unexpected Error: %v", id, err)
-		}
-
-		if string(c.expectedIdentity) != string(serviceIdentity) {
-			t.Errorf("%s: identity Expected %v, Actual %v", id,
-				string(c.expectedIdentity), string(serviceIdentity))
-		}
-	}
-}
-
 func TestGcpGetCredentialTypes(t *testing.T) {
 	testCases := map[string]struct {
 		cfg           GcpConfig
