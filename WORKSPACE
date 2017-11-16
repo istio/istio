@@ -1125,6 +1125,21 @@ docker_build(
     url = "https://codeload.github.com/tianon/docker-brew-ubuntu-core/zip/b6f1fe19228e5b6b7aed98dcba02f18088282f90",
 )
 
+new_http_archive(
+    name = "docker_fedora",
+    build_file_content = """
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
+docker_build(
+    name = "f26",
+    tars = ["e5d3ad043980461b9cedbbcdbbf48ac6cec6045114c296fbc35fbfc2c894a491/layer.tar"],
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "c8b427ead6823cd561ae7a875a852ceed75b900dbb56ca4253c52d83b1485fa6",
+    type = "tar.xz",
+    url = "https://mirrors.cat.pdx.edu/fedora/linux/releases/26/Docker/x86_64/images/Fedora-Container-Minimal-Base-26-1.5.x86_64.tar.xz",
+)
+
 go_repository(
     name = "com_github_google_uuid",
     commit = "6a5e28554805e78ea6141142aba763936c4761c0",

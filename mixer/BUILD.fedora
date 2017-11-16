@@ -1,0 +1,9 @@
+# build base docker ubuntu image
+
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_build")
+
+docker_build(
+    name = "f26",
+    tars = ["e5d3ad043980461b9cedbbcdbbf48ac6cec6045114c296fbc35fbfc2c894a491/layer.tar"],
+    visibility = ["//visibility:public"],
+)
