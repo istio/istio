@@ -20,6 +20,7 @@
      {
       "prefix": "/websocket",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "use_websocket": true,
       "decorator": {
        "operation": "websocket"
@@ -28,6 +29,7 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -52,6 +54,7 @@
      {
       "prefix": "/",
       "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -78,6 +81,7 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
