@@ -40,6 +40,26 @@ namespace http {
 class RequestHandlerImplTest : public ::testing::Test {
  public:
   void SetUp() {
+    // add a global mixer attribute
+    auto map1 = client_config_.mutable_mixer_attributes()->mutable_attributes();
+    (*map1)["global-key"].set_string_value("global-value");
+
+    // add a legacy quota
+    legacy_quotas_.push_back({"legacy-quota", 10});
+
+    // add default route config with:
+    // * a mixer attribute
+    // * a route quota
+    ServiceConfig route_config;
+    route_config.set_enable_mixer_check(true);
+    auto map3 = route_config.mutable_mixer_attributes()->mutable_attributes();
+    (*map3)["route-key"].set_string_value("route-value");
+    auto quota = route_config.add_quota_spec()->add_rules()->add_quotas();
+    quota->set_quota("route-quota");
+    quota->set_charge(20);
+    client_config_.set_default_destination_service(":default");
+    (*client_config_.mutable_service_configs())[":default"] = route_config;
+
     mock_client_ = new ::testing::NiceMock<MockMixerClient>;
     client_context_ = std::make_shared<ClientContext>(
         std::unique_ptr<MixerClient>(mock_client_), client_config_,
@@ -95,7 +115,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
                  [](const Status& status) { EXPECT_TRUE(status.ok()); });
 }
 
-TEST_F(RequestHandlerImplTest, TestHandlerMixerAttributes) {
+TEST_F(RequestHandlerImplTest, TestHandlerLegacyRoute) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
@@ -107,9 +127,11 @@ TEST_F(RequestHandlerImplTest, TestHandlerMixerAttributes) {
                           TransportCheckFunc transport,
                           DoneFunc on_done) -> CancelFunc {
         auto map = attributes.attributes();
-        EXPECT_EQ(map["key1"].string_value(), "value1");
-        EXPECT_EQ(map["key2"].string_value(), "value2");
-        EXPECT_EQ(quotas.size(), 0);
+        EXPECT_EQ(map["global-key"].string_value(), "global-value");
+        EXPECT_EQ(map["legacy-key"].string_value(), "legacy-value");
+        EXPECT_EQ(quotas.size(), 1);
+        EXPECT_EQ(quotas[0].quota, "legacy-quota");
+        EXPECT_EQ(quotas[0].charge, 10);
         return nullptr;
       }));
 
@@ -118,11 +140,36 @@ TEST_F(RequestHandlerImplTest, TestHandlerMixerAttributes) {
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
-  auto map1 = client_config_.mutable_mixer_attributes()->mutable_attributes();
-  (*map1)["key1"].set_string_value("value1");
   auto map2 = legacy.mutable_mixer_attributes()->mutable_attributes();
-  (*map2)["key2"].set_string_value("value2");
+  (*map2)["legacy-key"].set_string_value("legacy-value");
 
+  auto handler = controller_->CreateRequestHandler(config);
+  handler->Check(&mock_data, nullptr, nullptr);
+}
+
+TEST_F(RequestHandlerImplTest, TestHandlerDefaultRoute) {
+  ::testing::NiceMock<MockCheckData> mock_data;
+  EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
+  EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
+
+  // Check should be called.
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _))
+      .WillOnce(Invoke([](const Attributes& attributes,
+                          const std::vector<Requirement>& quotas,
+                          TransportCheckFunc transport,
+                          DoneFunc on_done) -> CancelFunc {
+        auto map = attributes.attributes();
+        EXPECT_EQ(map["global-key"].string_value(), "global-value");
+        EXPECT_EQ(map["route-key"].string_value(), "route-value");
+        EXPECT_EQ(quotas.size(), 2);
+        EXPECT_EQ(quotas[0].quota, "legacy-quota");
+        EXPECT_EQ(quotas[0].charge, 10);
+        EXPECT_EQ(quotas[1].quota, "route-quota");
+        EXPECT_EQ(quotas[1].charge, 20);
+        return nullptr;
+      }));
+
+  Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
   handler->Check(&mock_data, nullptr, nullptr);
 }

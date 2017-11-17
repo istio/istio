@@ -38,7 +38,7 @@ class Controller {
     std::string destination_service;
 
     // if not NULL, legacy per-route config for 0.2 and before.
-    const ::istio::mixer::v1::config::client::ServiceConfig* legacy_config;
+    const ::istio::mixer::v1::config::client::ServiceConfig* legacy_config{};
   };
 
   // Creates a HTTP request handler.

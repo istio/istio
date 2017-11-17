@@ -17,6 +17,7 @@
 #define MIXERCONTROL_HTTP_CONTROLLER_IMPL_H
 
 #include <memory>
+#include <unordered_map>
 
 #include "client_context.h"
 #include "control/include/http/controller.h"
@@ -45,6 +46,10 @@ class ControllerImpl : public Controller {
 
   // The client context object to hold client config and client cache.
   std::shared_ptr<ClientContext> client_context_;
+
+  // The map to cache service context. key is destination.service
+  std::unordered_map<std::string, std::shared_ptr<ServiceContext>>
+      service_context_map_;
 };
 
 }  // namespace http

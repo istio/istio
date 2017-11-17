@@ -19,6 +19,7 @@
 #include "control/include/tcp/controller.h"
 #include "control/src/client_context_base.h"
 #include "control/src/request_context.h"
+#include "quota/include/config_parser.h"
 
 namespace istio {
 namespace mixer_control {
@@ -31,13 +32,17 @@ class ClientContext : public ClientContextBase {
  public:
   ClientContext(const Controller::Options& data)
       : ClientContextBase(data.config.transport(), data.env),
-        config_(data.config) {}
+        config_(data.config) {
+    BuildQuotaParser();
+  }
 
   // A constructor for unit-test to pass in a mock mixer_client
   ClientContext(
       std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client,
       const ::istio::mixer::v1::config::client::TcpClientConfig& config)
-      : ClientContextBase(std::move(mixer_client)), config_(config) {}
+      : ClientContextBase(std::move(mixer_client)), config_(config) {
+    BuildQuotaParser();
+  }
 
   // Add static mixer attributes.
   void AddStaticAttributes(RequestContext* request) const {
@@ -46,12 +51,29 @@ class ClientContext : public ClientContextBase {
     }
   }
 
+  // Add quota requirements from quota configs.
+  void AddQuotas(RequestContext* request) const {
+    if (quota_parser_) {
+      quota_parser_->GetRequirements(request->attributes, &request->quotas);
+    }
+  }
+
   bool enable_mixer_check() const { return !config_.disable_check_calls(); }
   bool enable_mixer_report() const { return !config_.disable_report_calls(); }
 
  private:
+  // If there is quota config, build quota parser.
+  void BuildQuotaParser() {
+    if (config_.has_connection_quota_spec()) {
+      quota_parser_ =
+          ::istio::quota::ConfigParser::Create(config_.connection_quota_spec());
+    }
+  }
   // The mixer client config.
   const ::istio::mixer::v1::config::client::TcpClientConfig& config_;
+
+  // The quota parser.
+  std::unique_ptr<::istio::quota::ConfigParser> quota_parser_;
 };
 
 }  // namespace tcp

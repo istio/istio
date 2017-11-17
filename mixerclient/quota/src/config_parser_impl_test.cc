@@ -105,9 +105,12 @@ struct Quota {
 using QV = std::vector<Quota>;
 
 // Converts the vector of Requirement to vector of Quota
-std::vector<Quota> ToQV(const std::vector<Requirement>& src) {
+std::vector<Quota> GetRequirements(const ConfigParser& parser,
+                                   const Attributes& attributes) {
+  std::vector<Requirement> requirements;
+  parser.GetRequirements(attributes, &requirements);
   std::vector<Quota> v;
-  for (const auto& it : src) {
+  for (const auto& it : requirements) {
     v.push_back({it.quota, it.charge});
   }
   return v;
@@ -120,7 +123,7 @@ TEST(ConfigParserTest, TestEmptyMatch) {
 
   Attributes attributes;
   // If match clause is empty, it matches all requests.
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)),
+  ASSERT_EQ(GetRequirements(*parser, attributes),
             QV({{"quota1", 1}, {"quota2", 2}}));
 }
 
@@ -131,25 +134,25 @@ TEST(ConfigParserTest, TestMatch) {
 
   Attributes attributes;
   AttributesBuilder builder(&attributes);
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV());
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV());
 
   // Wrong http_method
   builder.AddString("request.http_method", "POST");
   builder.AddString("request.path", "/books/1");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV());
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV());
 
   // Matched
   builder.AddString("request.http_method", "GET");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV({{"quota-name", 1}}));
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV({{"quota-name", 1}}));
 
   attributes.mutable_attributes()->clear();
   // Wrong api.operation
   builder.AddString("api.operation", "get_shelves");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV());
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV());
 
   // Matched
   builder.AddString("api.operation", "get_books");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV({{"quota-name", 1}}));
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV({{"quota-name", 1}}));
 }
 
 TEST(ConfigParserTest, TestRegexMatch) {
@@ -161,11 +164,11 @@ TEST(ConfigParserTest, TestRegexMatch) {
   AttributesBuilder builder(&attributes);
   // Not match
   builder.AddString("request.path", "/shelves/1/bar");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV());
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV());
 
   // match
   builder.AddString("request.path", "/shelves/10/books");
-  ASSERT_EQ(ToQV(parser->GetRequirements(attributes)), QV({{"quota-name", 1}}));
+  ASSERT_EQ(GetRequirements(*parser, attributes), QV({{"quota-name", 1}}));
 }
 
 }  // namespace

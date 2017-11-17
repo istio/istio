@@ -21,10 +21,16 @@
 #include "mock_report_data.h"
 
 using ::google::protobuf::util::Status;
+using ::istio::mixer::v1::Attributes;
 using ::istio::mixer::v1::config::client::TcpClientConfig;
+using ::istio::mixer_client::CancelFunc;
+using ::istio::mixer_client::TransportCheckFunc;
+using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::MixerClient;
+using ::istio::quota::Requirement;
 
 using ::testing::_;
+using ::testing::Invoke;
 
 namespace istio {
 namespace mixer_control {
@@ -33,6 +39,15 @@ namespace tcp {
 class RequestHandlerImplTest : public ::testing::Test {
  public:
   void SetUp() {
+    auto map1 = client_config_.mutable_mixer_attributes()->mutable_attributes();
+    (*map1)["key1"].set_string_value("value1");
+
+    auto quota = client_config_.mutable_connection_quota_spec()
+                     ->add_rules()
+                     ->add_quotas();
+    quota->set_quota("quota");
+    quota->set_charge(5);
+
     mock_client_ = new ::testing::NiceMock<MockMixerClient>;
     client_context_ = std::make_shared<ClientContext>(
         std::unique_ptr<MixerClient>(mock_client_), client_config_);
@@ -66,7 +81,18 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   // Check should be called.
-  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(1);
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _))
+      .WillOnce(Invoke([](const Attributes& attributes,
+                          const std::vector<Requirement>& quotas,
+                          TransportCheckFunc transport,
+                          DoneFunc on_done) -> CancelFunc {
+        auto map = attributes.attributes();
+        EXPECT_EQ(map["key1"].string_value(), "value1");
+        EXPECT_EQ(quotas.size(), 1);
+        EXPECT_EQ(quotas[0].quota, "quota");
+        EXPECT_EQ(quotas[0].charge, 5);
+        return nullptr;
+      }));
 
   auto handler = controller_->CreateRequestHandler();
   handler->Check(&mock_data, nullptr);

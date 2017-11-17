@@ -32,8 +32,8 @@ class ConfigParser {
   virtual ~ConfigParser() {}
 
   // Get quota requirements for a attribute set.
-  virtual std::vector<Requirement> GetRequirements(
-      const ::istio::mixer::v1::Attributes& attributes) const = 0;
+  virtual void GetRequirements(const ::istio::mixer::v1::Attributes& attributes,
+                               std::vector<Requirement>* results) const = 0;
 
   // The factory function to create a new instance of the parser.
   static std::unique_ptr<ConfigParser> Create(

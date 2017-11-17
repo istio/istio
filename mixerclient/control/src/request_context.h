@@ -18,6 +18,9 @@
 
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/attributes.pb.h"
+#include "quota/include/requirement.h"
+
+#include <vector>
 
 namespace istio {
 namespace mixer_control {
@@ -26,6 +29,8 @@ namespace mixer_control {
 struct RequestContext {
   // The attributes for both Check and Report.
   ::istio::mixer::v1::Attributes attributes;
+  // The quota requirements
+  std::vector<::istio::quota::Requirement> quotas;
   // The check status.
   ::google::protobuf::util::Status check_status;
 };

@@ -31,8 +31,8 @@ class ConfigParserImpl : public ConfigParser {
       const ::istio::mixer::v1::config::client::QuotaSpec& spec_pb);
 
   // Get quota requirements for a attribute set.
-  std::vector<Requirement> GetRequirements(
-      const ::istio::mixer::v1::Attributes& attributes) const override;
+  void GetRequirements(const ::istio::mixer::v1::Attributes& attributes,
+                       std::vector<Requirement>* results) const override;
 
  private:
   // Check one attribute match.

@@ -40,9 +40,8 @@ ConfigParserImpl::ConfigParserImpl(const QuotaSpec& spec_pb)
   }
 }
 
-std::vector<Requirement> ConfigParserImpl::GetRequirements(
-    const Attributes& attributes) const {
-  std::vector<Requirement> results;
+void ConfigParserImpl::GetRequirements(
+    const Attributes& attributes, std::vector<Requirement>* results) const {
   for (const auto& rule : spec_pb_.rules()) {
     bool matched = false;
     for (const auto& match : rule.match()) {
@@ -54,11 +53,10 @@ std::vector<Requirement> ConfigParserImpl::GetRequirements(
     // If not match, applies to all requests.
     if (matched || rule.match_size() == 0) {
       for (const auto& quota : rule.quotas()) {
-        results.push_back({quota.quota(), quota.charge()});
+        results->push_back({quota.quota(), quota.charge()});
       }
     }
   }
-  return results;
 }
 
 bool ConfigParserImpl::MatchAttributes(const AttributeMatch& match,

@@ -19,12 +19,14 @@ cc_library(
     srcs = [
         "attributes_builder.cc",
         "attributes_builder.h",
+        "client_context.cc",
         "client_context.h",
         "controller_impl.cc",
         "controller_impl.h",
         "request_handler_impl.cc",
         "request_handler_impl.h",
-        "service_context.h"
+        "service_context.cc",
+        "service_context.h",
     ],
     visibility = ["//visibility:public"],
     deps = [

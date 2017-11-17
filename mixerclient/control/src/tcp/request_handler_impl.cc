@@ -43,9 +43,9 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data, DoneFunc on_done) {
     return nullptr;
   }
 
-  std::vector<Requirement> quotas;
-  return client_context_->SendCheck(nullptr, on_done, quotas,
-                                    &request_context_);
+  client_context_->AddQuotas(&request_context_);
+
+  return client_context_->SendCheck(nullptr, on_done, &request_context_);
 }
 
 // Make remote report call.
