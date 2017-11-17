@@ -15,10 +15,38 @@
 package evaluator
 
 import (
+	"fmt"
+
+	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/runtime"
 )
 
-// NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (expr.TypeChecker, error) {
-	return expr.NewTypeChecker(cacheSize, expr.FuncMap())
+// Evaluator for a c-like expression language.
+type checker struct {
+	functions map[string]expr.FunctionMetadata
+}
+
+func (c *checker) EvalType(expression string, attrFinder expr.AttributeDescriptorFinder) (dpb.ValueType, error) {
+	v, err := expr.Parse(expression)
+	if err != nil {
+		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expression, err)
+	}
+	return v.EvalType(attrFinder, c.functions)
+}
+
+func (e *checker) AssertType(expression string, finder expr.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
+	if t, err := e.EvalType(expression, finder); err != nil {
+		return err
+	} else if t != expectedType {
+		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expression, t, expectedType)
+	}
+	return nil
+}
+
+// NewTypeChecker returns a new TypeChecker implementation.
+func NewTypeChecker() expr.TypeChecker {
+	return &checker{
+		functions: expr.FuncMap(runtime.ExternFunctionMetadata),
+	}
 }
