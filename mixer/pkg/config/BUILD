@@ -59,7 +59,6 @@ go_test(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/config/store:go_default_library",
         "//mixer/pkg/expr:go_default_library",
-        "//mixer/pkg/il/testing:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//mixer/template/sample:go_default_library",
         "//mixer/template/sample/report:go_default_library",
