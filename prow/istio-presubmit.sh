@@ -64,6 +64,27 @@ else
 fi
 cd $ROOT
 
+# go test setup
+time dep ensure -v
+#mkdir -p ~/.kube
+#cp ./.circleci/config ~/.kube/config
+#ln -sf ~/.kube/config ./pilot/platform/kube/config
+mkdir -p ~/envoy
+cd ~/envoy
+ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
+PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+PROXY=debug-$PROXYVERSION
+wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
+cd $ROOT
+
+# go test execution
+echo FIXME remove mixer tools exclusion after tests can be run without bazel
+time go test $(go list ./mixer/... | grep -v /tools/codegen)
+time go test ./pilot/...
+time go test ./security/...
+time go test ./broker/...
+
 # Build
 ${ROOT}/bin/init.sh
 
