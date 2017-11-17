@@ -10,7 +10,7 @@ ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
 PKGS="."
-GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go')
+GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go')
 
 UX=$(uname)
 

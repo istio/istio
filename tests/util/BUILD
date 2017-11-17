@@ -5,8 +5,8 @@ go_library(
     srcs = [
         "commonUtils.go",
         "compareUtils.go",
-        "processUtils.go",
         "kubeUtils.go",
+        "processUtils.go",
         "retry.go",
         "wrk.go",
     ],

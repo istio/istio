@@ -20,11 +20,11 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
-	"istio.io/istio/mixer/pkg/expr"
 )
 
 func TestCompile(t *testing.T) {
