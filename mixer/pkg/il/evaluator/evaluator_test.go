@@ -318,6 +318,29 @@ func Test_Stress(t *testing.T) {
 	}
 }
 
+func Test_TypeChecker_Uninitialized(t *testing.T) {
+	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+
+	aType, err := e.EvalType("attr", descriptor.NewFinder(&configString))
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+	if aType != pbv.STRING {
+		t.Fatalf("attr should have been a string: %s", aType)
+	}
+
+	aType, err = e.EvalType("attr", descriptor.NewFinder(&configInt))
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+	if aType != pbv.INT64 {
+		t.Fatalf("attr should have been an int: %s", aType)
+	}
+}
+
 func generateRandomStr(r *rand.Rand) string {
 	size := r.Intn(20) + 1
 	bytes := make([]byte, size)
