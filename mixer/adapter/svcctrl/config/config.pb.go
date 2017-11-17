@@ -2,13 +2,16 @@
 // source: mixer/adapter/svcctrl/config/config.proto
 
 /*
-Package config is a generated protocol buffer package.
+	Package config is a generated protocol buffer package.
 
-It is generated from these files:
-	mixer/adapter/svcctrl/config/config.proto
+	It is generated from these files:
+		mixer/adapter/svcctrl/config/config.proto
 
-It has these top-level messages:
-	Params
+	It has these top-level messages:
+		RuntimeConfig
+		Quota
+		GcpServiceSetting
+		Params
 */
 package config
 
@@ -16,6 +19,7 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
@@ -33,18 +37,195 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type Params struct {
+// Adapter runtime config paramters.
+type RuntimeConfig struct {
+	CheckCacheSize        int32                      `protobuf:"varint,1,opt,name=check_cache_size,json=checkCacheSize,proto3" json:"check_cache_size,omitempty"`
+	CheckResultExpiration *google_protobuf1.Duration `protobuf:"bytes,2,opt,name=check_result_expiration,json=checkResultExpiration" json:"check_result_expiration,omitempty"`
+}
+
+func (m *RuntimeConfig) Reset()                    { *m = RuntimeConfig{} }
+func (*RuntimeConfig) ProtoMessage()               {}
+func (*RuntimeConfig) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+
+type Quota struct {
+	// Istio quota name.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The corresponding Google quota metric name.
+	GoogleQuotaMetricName string `protobuf:"bytes,2,opt,name=google_quota_metric_name,json=googleQuotaMetricName,proto3" json:"google_quota_metric_name,omitempty"`
+	// Quota token expiration time period.
+	Expiration *google_protobuf1.Duration `protobuf:"bytes,3,opt,name=expiration" json:"expiration,omitempty"`
+}
+
+func (m *Quota) Reset()                    { *m = Quota{} }
+func (*Quota) ProtoMessage()               {}
+func (*Quota) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
+
+// Adapter setting for a managed GCP service.
+type GcpServiceSetting struct {
+	// Local service name on the mesh, which matches destination.service attribute.
+	MeshServiceName string `protobuf:"bytes,1,opt,name=mesh_service_name,json=meshServiceName,proto3" json:"mesh_service_name,omitempty"`
 	// Fully qualified GCP service name.
-	ServiceName string `protobuf:"bytes,1,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
+	GoogleServiceName string `protobuf:"bytes,2,opt,name=google_service_name,json=googleServiceName,proto3" json:"google_service_name,omitempty"`
+	// Quota configs
+	Quotas []*Quota `protobuf:"bytes,3,rep,name=quotas" json:"quotas,omitempty"`
+}
+
+func (m *GcpServiceSetting) Reset()                    { *m = GcpServiceSetting{} }
+func (*GcpServiceSetting) ProtoMessage()               {}
+func (*GcpServiceSetting) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{2} }
+
+// Sample adapter config:
+// '''
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: svcctrl
+// metadata:
+//   name: testhandler
+//   namespace: istio-system
+// spec:
+//   runtime_config:
+//     check_cache_size: 200
+//     check_result_expiration: 60s
+//   credential_path: "/path/to/token.json"
+//   service_configs:
+//     - mesh_service_name: "echo.local.svc"
+//       google_service_name: "echo.endpoints.cloud.goog"
+//       quotas:
+//         - name: ratelimit.quota.istio-system
+//           google_quota_metric_name: read-requests
+//           expiration: 1m
+// '''
+type Params struct {
+	RuntimeConfig *RuntimeConfig `protobuf:"bytes,1,opt,name=runtime_config,json=runtimeConfig" json:"runtime_config,omitempty"`
+	// A path to JSON token file, usually mounted as Kubernetes secret on pod.
+	CredentialPath string               `protobuf:"bytes,2,opt,name=credential_path,json=credentialPath,proto3" json:"credential_path,omitempty"`
+	ServiceConfigs []*GcpServiceSetting `protobuf:"bytes,3,rep,name=service_configs,json=serviceConfigs" json:"service_configs,omitempty"`
 }
 
 func (m *Params) Reset()                    { *m = Params{} }
 func (*Params) ProtoMessage()               {}
-func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{3} }
 
 func init() {
+	proto.RegisterType((*RuntimeConfig)(nil), "adapter.svcctrl.config.RuntimeConfig")
+	proto.RegisterType((*Quota)(nil), "adapter.svcctrl.config.Quota")
+	proto.RegisterType((*GcpServiceSetting)(nil), "adapter.svcctrl.config.GcpServiceSetting")
 	proto.RegisterType((*Params)(nil), "adapter.svcctrl.config.Params")
 }
+func (m *RuntimeConfig) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *RuntimeConfig) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.CheckCacheSize != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.CheckCacheSize))
+	}
+	if m.CheckResultExpiration != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.CheckResultExpiration.Size()))
+		n1, err := m.CheckResultExpiration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	return i, nil
+}
+
+func (m *Quota) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Quota) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if len(m.GoogleQuotaMetricName) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.GoogleQuotaMetricName)))
+		i += copy(dAtA[i:], m.GoogleQuotaMetricName)
+	}
+	if m.Expiration != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Expiration.Size()))
+		n2, err := m.Expiration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+
+func (m *GcpServiceSetting) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GcpServiceSetting) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.MeshServiceName) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.MeshServiceName)))
+		i += copy(dAtA[i:], m.MeshServiceName)
+	}
+	if len(m.GoogleServiceName) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.GoogleServiceName)))
+		i += copy(dAtA[i:], m.GoogleServiceName)
+	}
+	if len(m.Quotas) > 0 {
+		for _, msg := range m.Quotas {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
 func (m *Params) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -60,11 +241,33 @@ func (m *Params) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.ServiceName) > 0 {
+	if m.RuntimeConfig != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServiceName)))
-		i += copy(dAtA[i:], m.ServiceName)
+		i = encodeVarintConfig(dAtA, i, uint64(m.RuntimeConfig.Size()))
+		n3, err := m.RuntimeConfig.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	if len(m.CredentialPath) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.CredentialPath)))
+		i += copy(dAtA[i:], m.CredentialPath)
+	}
+	if len(m.ServiceConfigs) > 0 {
+		for _, msg := range m.ServiceConfigs {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	return i, nil
 }
@@ -78,12 +281,73 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *RuntimeConfig) Size() (n int) {
+	var l int
+	_ = l
+	if m.CheckCacheSize != 0 {
+		n += 1 + sovConfig(uint64(m.CheckCacheSize))
+	}
+	if m.CheckResultExpiration != nil {
+		l = m.CheckResultExpiration.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
+func (m *Quota) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Name)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.GoogleQuotaMetricName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.Expiration != nil {
+		l = m.Expiration.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
+func (m *GcpServiceSetting) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.MeshServiceName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.GoogleServiceName)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.Quotas) > 0 {
+		for _, e := range m.Quotas {
+			l = e.Size()
+			n += 1 + l + sovConfig(uint64(l))
+		}
+	}
+	return n
+}
+
 func (m *Params) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.ServiceName)
+	if m.RuntimeConfig != nil {
+		l = m.RuntimeConfig.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.CredentialPath)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.ServiceConfigs) > 0 {
+		for _, e := range m.ServiceConfigs {
+			l = e.Size()
+			n += 1 + l + sovConfig(uint64(l))
+		}
 	}
 	return n
 }
@@ -101,12 +365,49 @@ func sovConfig(x uint64) (n int) {
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+func (this *RuntimeConfig) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&RuntimeConfig{`,
+		`CheckCacheSize:` + fmt.Sprintf("%v", this.CheckCacheSize) + `,`,
+		`CheckResultExpiration:` + strings.Replace(fmt.Sprintf("%v", this.CheckResultExpiration), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Quota) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Quota{`,
+		`Name:` + fmt.Sprintf("%v", this.Name) + `,`,
+		`GoogleQuotaMetricName:` + fmt.Sprintf("%v", this.GoogleQuotaMetricName) + `,`,
+		`Expiration:` + strings.Replace(fmt.Sprintf("%v", this.Expiration), "Duration", "google_protobuf1.Duration", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *GcpServiceSetting) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&GcpServiceSetting{`,
+		`MeshServiceName:` + fmt.Sprintf("%v", this.MeshServiceName) + `,`,
+		`GoogleServiceName:` + fmt.Sprintf("%v", this.GoogleServiceName) + `,`,
+		`Quotas:` + strings.Replace(fmt.Sprintf("%v", this.Quotas), "Quota", "Quota", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *Params) String() string {
 	if this == nil {
 		return "nil"
 	}
 	s := strings.Join([]string{`&Params{`,
-		`ServiceName:` + fmt.Sprintf("%v", this.ServiceName) + `,`,
+		`RuntimeConfig:` + strings.Replace(fmt.Sprintf("%v", this.RuntimeConfig), "RuntimeConfig", "RuntimeConfig", 1) + `,`,
+		`CredentialPath:` + fmt.Sprintf("%v", this.CredentialPath) + `,`,
+		`ServiceConfigs:` + strings.Replace(fmt.Sprintf("%v", this.ServiceConfigs), "GcpServiceSetting", "GcpServiceSetting", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -118,6 +419,388 @@ func valueToStringConfig(v interface{}) string {
 	}
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
+}
+func (m *RuntimeConfig) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: RuntimeConfig: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: RuntimeConfig: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CheckCacheSize", wireType)
+			}
+			m.CheckCacheSize = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CheckCacheSize |= (int32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CheckResultExpiration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.CheckResultExpiration == nil {
+				m.CheckResultExpiration = &google_protobuf1.Duration{}
+			}
+			if err := m.CheckResultExpiration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Quota) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Quota: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Quota: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Name = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleQuotaMetricName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GoogleQuotaMetricName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Expiration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Expiration == nil {
+				m.Expiration = &google_protobuf1.Duration{}
+			}
+			if err := m.Expiration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GcpServiceSetting) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GcpServiceSetting: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GcpServiceSetting: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MeshServiceName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.MeshServiceName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GoogleServiceName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GoogleServiceName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Quotas", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Quotas = append(m.Quotas, &Quota{})
+			if err := m.Quotas[len(m.Quotas)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *Params) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -150,7 +833,40 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ServiceName", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field RuntimeConfig", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RuntimeConfig == nil {
+				m.RuntimeConfig = &RuntimeConfig{}
+			}
+			if err := m.RuntimeConfig.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CredentialPath", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -175,7 +891,38 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ServiceName = string(dAtA[iNdEx:postIndex])
+			m.CredentialPath = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceConfigs", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceConfigs = append(m.ServiceConfigs, &GcpServiceSetting{})
+			if err := m.ServiceConfigs[len(m.ServiceConfigs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -306,17 +1053,36 @@ var (
 func init() { proto.RegisterFile("mixer/adapter/svcctrl/config/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 186 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0xcc, 0xcd, 0xac, 0x48,
-	0x2d, 0xd2, 0x4f, 0x4c, 0x49, 0x2c, 0x28, 0x49, 0x2d, 0xd2, 0x2f, 0x2e, 0x4b, 0x4e, 0x2e, 0x29,
-	0xca, 0xd1, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x4c, 0x87, 0x52, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9,
-	0x42, 0x62, 0x50, 0x45, 0x7a, 0x50, 0x45, 0x7a, 0x10, 0x59, 0x29, 0x91, 0xf4, 0xfc, 0xf4, 0x7c,
-	0xb0, 0x12, 0x7d, 0x10, 0x0b, 0xa2, 0x5a, 0x49, 0x9b, 0x8b, 0x2d, 0x20, 0xb1, 0x28, 0x31, 0xb7,
-	0x58, 0x48, 0x91, 0x8b, 0xa7, 0x38, 0xb5, 0xa8, 0x2c, 0x33, 0x39, 0x35, 0x3e, 0x2f, 0x31, 0x37,
-	0x55, 0x82, 0x51, 0x81, 0x51, 0x83, 0x33, 0x88, 0x1b, 0x2a, 0xe6, 0x97, 0x98, 0x9b, 0xea, 0x64,
-	0x71, 0xe2, 0xa1, 0x1c, 0xc3, 0x85, 0x87, 0x72, 0x0c, 0x37, 0x1e, 0xca, 0x31, 0x7c, 0x78, 0x28,
-	0xc7, 0xd0, 0xf0, 0x48, 0x8e, 0x71, 0xc5, 0x23, 0x39, 0x86, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c,
-	0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0xf1, 0xc5, 0x23, 0x39, 0x86, 0x0f, 0x8f, 0xe4, 0x18, 0x27,
-	0x3c, 0x96, 0x63, 0x88, 0x62, 0x83, 0x58, 0x9e, 0xc4, 0x06, 0xb6, 0xcd, 0x18, 0x10, 0x00, 0x00,
-	0xff, 0xff, 0xda, 0x61, 0xbb, 0xea, 0xc8, 0x00, 0x00, 0x00,
+	// 485 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x92, 0xb1, 0x6e, 0x13, 0x31,
+	0x18, 0xc7, 0xcf, 0x0d, 0x8d, 0x84, 0xa3, 0x26, 0xc4, 0x50, 0x08, 0x95, 0xb0, 0xa2, 0x48, 0x88,
+	0x94, 0xc1, 0x27, 0x05, 0x21, 0x60, 0xa5, 0x20, 0x16, 0x40, 0xad, 0xb3, 0xb1, 0x58, 0xae, 0xe3,
+	0xde, 0x59, 0xe4, 0xce, 0x87, 0xcf, 0x57, 0x55, 0x9d, 0x78, 0x00, 0x24, 0x78, 0x0a, 0xc4, 0xa3,
+	0x74, 0xac, 0xc4, 0xc2, 0x48, 0x8e, 0x85, 0xb1, 0x8f, 0x80, 0xce, 0x76, 0x20, 0x11, 0x54, 0x4c,
+	0x71, 0xbe, 0xef, 0xf7, 0xfd, 0xff, 0xff, 0xef, 0x6c, 0xb8, 0x9b, 0xa9, 0x13, 0x69, 0x62, 0x3e,
+	0xe3, 0x85, 0x95, 0x26, 0x2e, 0x8f, 0x85, 0xb0, 0x66, 0x1e, 0x0b, 0x9d, 0x1f, 0xa9, 0x24, 0xfc,
+	0x90, 0xc2, 0x68, 0xab, 0xd1, 0xcd, 0x00, 0x91, 0x00, 0x11, 0xdf, 0xdd, 0xb9, 0x91, 0xe8, 0x44,
+	0x3b, 0x24, 0x6e, 0x4e, 0x9e, 0xde, 0xc1, 0x89, 0xd6, 0xc9, 0x5c, 0xc6, 0xee, 0xdf, 0x61, 0x75,
+	0x14, 0xcf, 0x2a, 0xc3, 0xad, 0xd2, 0xb9, 0xef, 0x8f, 0x3e, 0x00, 0xb8, 0x45, 0xab, 0xdc, 0xaa,
+	0x4c, 0xee, 0x39, 0x1d, 0x34, 0x86, 0xd7, 0x44, 0x2a, 0xc5, 0x5b, 0x26, 0xb8, 0x48, 0x25, 0x2b,
+	0xd5, 0xa9, 0x1c, 0x80, 0x21, 0x18, 0x6f, 0xd2, 0xae, 0xab, 0xef, 0x35, 0xe5, 0xa9, 0x3a, 0x95,
+	0xe8, 0x00, 0xde, 0xf2, 0xa4, 0x91, 0x65, 0x35, 0xb7, 0x4c, 0x9e, 0x14, 0xca, 0x8b, 0x0f, 0x36,
+	0x86, 0x60, 0xdc, 0x99, 0xdc, 0x26, 0xde, 0x9d, 0x2c, 0xdd, 0xc9, 0xb3, 0xe0, 0x4e, 0xb7, 0xdd,
+	0x24, 0x75, 0x83, 0xcf, 0x7f, 0xcf, 0x8d, 0x3e, 0x02, 0xb8, 0x79, 0x50, 0x69, 0xcb, 0x11, 0x82,
+	0x57, 0x72, 0x9e, 0x79, 0xeb, 0xab, 0xd4, 0x9d, 0xd1, 0x23, 0x38, 0xf0, 0x82, 0xec, 0x5d, 0xc3,
+	0xb0, 0x4c, 0x5a, 0xa3, 0x04, 0x73, 0xdc, 0x86, 0xe3, 0xb6, 0x7d, 0xdf, 0x49, 0xbc, 0x72, 0xdd,
+	0xd7, 0xcd, 0xe0, 0x13, 0x08, 0x57, 0xc2, 0xb5, 0xfe, 0x17, 0x6e, 0x05, 0x1e, 0x7d, 0x06, 0xb0,
+	0xff, 0x42, 0x14, 0x53, 0x69, 0x8e, 0x95, 0x90, 0x53, 0x69, 0xad, 0xca, 0x13, 0x74, 0x1f, 0xf6,
+	0x33, 0x59, 0xa6, 0xac, 0xf4, 0x65, 0xb6, 0x12, 0xb5, 0xd7, 0x34, 0x02, 0xee, 0xcc, 0x09, 0xbc,
+	0x1e, 0x52, 0xaf, 0xd1, 0x3e, 0x70, 0xdf, 0xb7, 0x56, 0xf9, 0x87, 0xb0, 0xed, 0xd6, 0x2b, 0x07,
+	0xad, 0x61, 0x6b, 0xdc, 0x99, 0xdc, 0x21, 0xff, 0xbe, 0x71, 0xe2, 0xb6, 0xa4, 0x01, 0x1e, 0x7d,
+	0x05, 0xb0, 0xbd, 0xcf, 0x0d, 0xcf, 0x4a, 0xf4, 0x12, 0x76, 0x8d, 0xbf, 0x53, 0xe6, 0x51, 0x17,
+	0xad, 0x33, 0xb9, 0x7b, 0x99, 0xd2, 0xda, 0x0b, 0xa0, 0x5b, 0x66, 0xed, 0x41, 0xdc, 0x83, 0x3d,
+	0x61, 0xe4, 0x4c, 0xe6, 0x56, 0xf1, 0x39, 0x2b, 0xb8, 0x4d, 0x43, 0xf6, 0xee, 0x9f, 0xf2, 0x3e,
+	0xb7, 0x29, 0xa2, 0xb0, 0xb7, 0xdc, 0xd0, 0xeb, 0x2e, 0x37, 0xd8, 0xbd, 0xcc, 0xf7, 0xaf, 0x0f,
+	0x4b, 0xbb, 0x41, 0xc1, 0x7b, 0x97, 0x4f, 0x1f, 0x9f, 0x2d, 0x70, 0x74, 0xbe, 0xc0, 0xd1, 0xb7,
+	0x05, 0x8e, 0x2e, 0x16, 0x38, 0x7a, 0x5f, 0x63, 0xf0, 0xa5, 0xc6, 0xd1, 0x59, 0x8d, 0xc1, 0x79,
+	0x8d, 0xc1, 0xf7, 0x1a, 0x83, 0x9f, 0x35, 0x8e, 0x2e, 0x6a, 0x0c, 0x3e, 0xfd, 0xc0, 0xd1, 0x9b,
+	0xb6, 0xd7, 0x3e, 0x6c, 0xbb, 0x7b, 0x7d, 0xf0, 0x2b, 0x00, 0x00, 0xff, 0xff, 0x82, 0xc3, 0xab,
+	0x63, 0x5b, 0x03, 0x00, 0x00,
 }
