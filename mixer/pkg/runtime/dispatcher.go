@@ -226,7 +226,7 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 	)
 	res, _ := cres.(*adapter.CheckResult)
 	if glog.V(3) {
-		glog.Infof("Check %s", res)
+		glog.Infof("Check %v", res)
 	}
 	return res, err
 }
