@@ -56,18 +56,18 @@ func compareIds(a, b *model.Config) int {
 	return strings.Compare(a.Name, b.Name)
 }
 
-// ByKey is an array of config objects that is capable or sorting by Namespace, Type, and Name.
-type ByKey []*model.Config
+// byKey is an array of config objects that is capable or sorting by Namespace, Type, and Name.
+type byKey []*model.Config
 
-func (rs ByKey) Len() int {
+func (rs byKey) Len() int {
 	return len(rs)
 }
 
-func (rs ByKey) Swap(i, j int) {
+func (rs byKey) Swap(i, j int) {
 	rs[i], rs[j] = rs[j], rs[i]
 }
 
-func (rs ByKey) Less(i, j int) bool {
+func (rs byKey) Less(i, j int) bool {
 	return compareIds(rs[i], rs[j]) < 0
 }
 
@@ -139,7 +139,7 @@ func parseInputs(data []byte) ([]*model.Config, error) {
 // objects sorted them according to their keys.
 func ParseYaml(data []byte) ([]*model.Config, error) {
 	configs, err := parseInputs(data)
-	sort.Sort(ByKey(configs))
+	sort.Sort(byKey(configs))
 	return configs, err
 }
 
@@ -240,6 +240,6 @@ func (m *Monitor) readFiles() []*model.Config {
 	}
 
 	// Sort by the config IDs.
-	sort.Sort(ByKey(result))
+	sort.Sort(byKey(result))
 	return result
 }
