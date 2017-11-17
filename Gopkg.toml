@@ -73,3 +73,11 @@
     name = "github.com/apache/thrift"
 
 
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/envoyproxy/go-control-plane"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/google/go-jsonnet"

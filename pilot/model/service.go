@@ -50,12 +50,12 @@ type Service struct {
 
 	// Ports is the set of network ports where the service is listening for
 	// connections
-	Ports PortList `json:"ports,omitempty"`
+	Ports PortList `json:"ports"`
 
 	// ExternalName is only set for external services and holds the external
 	// service DNS name.  External services are name-based solution to represent
 	// external service instances as a service inside the cluster.
-	ExternalName string `json:"external"`
+	ExternalName string `json:"external,omitempty"`
 
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
@@ -70,7 +70,7 @@ type Service struct {
 type Port struct {
 	// Name ascribes a human readable name for the port object. When a
 	// service has multiple ports, the name field is mandatory
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Port number where the service can be reached. Does not necessarily
 	// map to the corresponding port numbers for the instances behind the
@@ -78,7 +78,7 @@ type Port struct {
 	Port int `json:"port"`
 
 	// Protocol to be used for the port.
-	Protocol Protocol `json:"protocol,omitempty"`
+	Protocol Protocol `json:"protocol"`
 
 	// In combine with the mesh's AuthPolicy, controls authentication for
 	// Envoy-to-Envoy communication.

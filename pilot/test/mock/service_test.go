@@ -25,6 +25,7 @@ func TestMockServices(t *testing.T) {
 	if err != nil {
 		t.Errorf("Discovery.Services encountered error: %v", err)
 	}
+
 	for _, svc := range svcs {
 		if err := svc.Validate(); err != nil {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
