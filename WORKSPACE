@@ -295,12 +295,6 @@ go_repository(
 )
 
 go_repository(
-    name = "org_golang_x_oauth2",
-    commit = "3c3a985cb79f52a3190fbc056984415ca6763d01",  # Aug 26, 2016 (no releases)
-    importpath = "golang.org/x/oauth2",
-)
-
-go_repository(
     name = "com_github_juju_ratelimit",
     commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 23, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
@@ -416,7 +410,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_api",
-    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
+    commit = "406e6cffe51212e465c56554f243c115595e135a",  # Oct 3, 2017 (no release)
     importpath = "google.golang.org/api",
 )
 
@@ -816,10 +810,10 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_oauth2",
-    commit = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4",
+    commit = "9a379c6b3e95a790ffc43293c2a78dee0d7b6e20",  # Aug 7, 2017 (no releases)
     importpath = "golang.org/x/oauth2",
 )
-
+ 
 go_repository(
     name = "org_golang_x_time",
     commit = "8be79e1e0910c292df4e79c241bb7e8f7e725959",
