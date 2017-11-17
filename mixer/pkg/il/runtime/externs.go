@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	config "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 )
 
@@ -32,24 +30,6 @@ var Externs = map[string]interpreter.Extern{
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
-}
-
-var ExternFunctionMetadata = []expr.FunctionMetadata {
-	{
-		Name:     "ip",
-		ReturnType:  config.IP_ADDRESS,
-		ArgumentTypes: []config.ValueType{config.STRING},
-	},
-	{
-		Name:     "timestamp",
-		ReturnType:  config.TIMESTAMP,
-		ArgumentTypes: []config.ValueType{config.STRING},
-	},
-	{
-		Name:     "match",
-		ReturnType:  config.BOOL,
-		ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
-	},
 }
 
 func externIp(in string) ([]byte, error) {

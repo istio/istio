@@ -154,7 +154,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max number of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max number of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
-	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", evaluator.DefaultCacheSize,
+	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize,
 		"Number of entries in the expression cache")
 	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")

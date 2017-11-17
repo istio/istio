@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
@@ -84,6 +85,7 @@ type Expression struct {
 	Fn    *Function
 }
 
+//
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
@@ -414,4 +416,69 @@ func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
 	for _, arg := range ex.Fn.Args {
 		extractEQMatches(arg, eqMap)
 	}
+}
+
+// DefaultCacheSize is the default size for the expression cache.
+const DefaultCacheSize = 1024
+
+// Evaluator for a c-like expression language.
+type cexl struct {
+	cache *lru.Cache
+	// function Map
+	fMap map[string]FunctionMetadata
+}
+
+func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
+
+	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
+
+	if v, found := e.cache.Get(exprStr); found {
+		return v.(*Expression), nil
+	}
+
+	if glog.V(6) {
+		glog.Infof("expression cache miss for '%s'", exprStr)
+	}
+
+	ex, err = Parse(exprStr)
+	if err != nil {
+		return nil, err
+	}
+	if glog.V(6) {
+		glog.Infof("caching expression for '%s''", exprStr)
+	}
+
+	_ = e.cache.Add(exprStr, ex)
+	return ex, nil
+}
+
+func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
+	v, err := e.cacheGetExpression(expr)
+	if err != nil {
+		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
+	}
+	return v.EvalType(attrFinder, e.fMap)
+}
+
+func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
+	if t, err := e.EvalType(expr, finder); err != nil {
+		return err
+	} else if t != expectedType {
+		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
+	}
+	return nil
+}
+
+// NewTypeChecker returns a new TypeChecker.
+// Warning: This version of the type checker should only be called by the il-code.
+// TODO(ozben): This version of the type checker should eventually be subsumed into the il/compiler code.
+func NewTypeChecker(cacheSize int, functions map[string]FunctionMetadata) (TypeChecker, error) {
+	cache, err := lru.New(cacheSize)
+	if err != nil {
+		return nil, err
+	}
+	return &cexl{
+		fMap:  functions,
+		cache: cache,
+	}, nil
 }
