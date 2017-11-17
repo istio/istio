@@ -478,7 +478,7 @@ func NewTypeChecker(cacheSize int, functions map[string]FunctionMetadata) (TypeC
 		return nil, err
 	}
 	return &cexl{
-		fMap: functions,
+		fMap:  functions,
 		cache: cache,
 	}, nil
 }
