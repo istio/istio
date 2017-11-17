@@ -29,6 +29,9 @@ set -u
 # Print commands
 set -x
 
+go get -u github.com/golang/dep/cmd/dep
+time dep ensure -v
+
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
@@ -65,8 +68,6 @@ fi
 cd $ROOT
 
 # go test setup
-go get -u github.com/golang/dep/cmd/dep
-time dep ensure -v
 #mkdir -p ~/.kube
 #cp ./.circleci/config ~/.kube/config
 #ln -sf ~/.kube/config ./pilot/platform/kube/config
