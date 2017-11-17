@@ -374,7 +374,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		var err *adapter.ConfigErrors
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder,p.typeChecker); err != nil {
+			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder); err != nil {
 				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params: %v", err)
 				continue
 			}
@@ -790,9 +790,7 @@ func convertInstanceParam(tf template.Repository, templateName string, params in
 }
 
 // convertAspectParams converts returns a typed proto message based on available validator.
-func convertAspectParams(
-	f AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder, typeChecker expr.TypeChecker) (AspectParams, *adapter.ConfigErrors) {
-
+func convertAspectParams(f AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder) (AspectParams, *adapter.ConfigErrors) {
 	var ce *adapter.ConfigErrors
 	var avl AspectValidator
 	var found bool
@@ -811,7 +809,13 @@ func convertAspectParams(
 		return nil, ce.Appendf(name, "failed to decode aspect params: %v", err)
 	}
 
-	if err := avl.ValidateConfig(ap, typeChecker, df); err != nil {
+	// TODO: This should be replaced with pkg/il/evaluator.NewTypeChecker once dependency cycle between il/evaluator
+	// and config packages is broken.
+	eval, err := expr.NewTypeChecker(expr.DefaultCacheSize, expr.FuncMap())
+	if err != nil {
+		return nil, ce.Appendf(name, "failed to create expression evaluator: %v", err)
+	}
+	if err := avl.ValidateConfig(ap, eval, df); err != nil {
 		return nil, ce.Appendf(name, "aspect validation failed: %v", err)
 	}
 	return ap, nil

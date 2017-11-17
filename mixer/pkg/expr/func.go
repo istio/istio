@@ -65,14 +65,33 @@ func intrinsics() []FunctionMetadata {
 	}
 }
 
-// FuncMap generates a full function map, combining the intrinsic functions needed for type-checking,
-// along with external functions that are supplied as the functions parameter.
-func FuncMap(functions []FunctionMetadata) map[string]FunctionMetadata {
+func externs() []FunctionMetadata {
+	return []FunctionMetadata{
+		{
+			Name:          "ip",
+			ReturnType:    config.IP_ADDRESS,
+			ArgumentTypes: []config.ValueType{config.STRING},
+		},
+		{
+			Name:          "timestamp",
+			ReturnType:    config.TIMESTAMP,
+			ArgumentTypes: []config.ValueType{config.STRING},
+		},
+		{
+			Name:          "match",
+			ReturnType:    config.BOOL,
+			ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
+		},
+	}
+}
+
+// FuncMap provides inventory of available functions.
+func FuncMap() map[string]FunctionMetadata {
 	m := make(map[string]FunctionMetadata)
 	for _, fn := range intrinsics() {
 		m[fn.Name] = fn
 	}
-	for _, fn := range functions {
+	for _, fn := range externs() {
 		m[fn.Name] = fn
 	}
 	return m

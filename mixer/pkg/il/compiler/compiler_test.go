@@ -45,7 +45,7 @@ func TestCompile(t *testing.T) {
 			}
 			finder := descriptor.NewFinder(conf)
 
-			result, err := Compile(test.E, finder, expr.FuncMap(runtime.ExternFunctionMetadata))
+			result, err := Compile(test.E, finder, expr.FuncMap())
 
 			if err != nil {
 				if err.Error() != test.CompileErr {
