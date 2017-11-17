@@ -85,7 +85,7 @@ func main() {
 	if !*isSelfSigned {
 		signerCert, signerPriv, err = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 		if err != nil {
-			glog.Fatal(err);
+			glog.Fatal(err)
 		}
 	}
 

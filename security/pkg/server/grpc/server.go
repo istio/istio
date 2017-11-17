@@ -122,9 +122,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	authenticators := []authenticator{&clientCertAuthenticator{}}
 	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
 	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
-		glog.Errorf(
-			"failed to create JWT authenticator and JWT token will not be used for authentication (error %v)",
-			err)
+		glog.Errorf("failed to create JWT authenticator (error %v)", err)
 	} else {
 		authenticators = append(authenticators, jwtAuthenticator)
 	}

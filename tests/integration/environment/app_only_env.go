@@ -18,7 +18,7 @@ import (
 	"log"
 
 	"istio.io/istio/tests/integration/framework"
-	"istio.io/istio/tests/integration/framework/component/fortio_server"
+	fortioServer "istio.io/istio/tests/integration/framework/component/fortio_server"
 )
 
 // AppOnlyEnv is a test environment with only fortio echo server

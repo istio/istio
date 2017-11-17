@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
@@ -85,7 +84,6 @@ type Expression struct {
 	Fn    *Function
 }
 
-//
 // AttributeDescriptorFinder finds attribute descriptors.
 type AttributeDescriptorFinder interface {
 	// GetAttribute finds attribute descriptor in the vocabulary. returns nil if not found.
@@ -93,7 +91,7 @@ type AttributeDescriptorFinder interface {
 }
 
 // EvalType Function an expression using fMap and attribute vocabulary. Returns the type that this expression evaluates to.
-func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
+func (e *Expression) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
 	if e.Const != nil {
 		return e.Const.Type, nil
 	}
@@ -197,14 +195,14 @@ func (f *Function) String() string {
 }
 
 // EvalType Function using fMap and attribute vocabulary. Return static or computed return type if all args have correct type.
-func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FuncBase) (valueType dpb.ValueType, err error) {
-	fn := fMap[f.Name]
-	if fn == nil {
+func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]FunctionMetadata) (valueType dpb.ValueType, err error) {
+	fn, found := fMap[f.Name]
+	if !found {
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
 	}
 
 	var idx int
-	argTypes := fn.ArgTypes()
+	argTypes := fn.ArgumentTypes
 
 	if len(f.Args) < len(argTypes) {
 		return valueType, fmt.Errorf("%s arity mismatch. Got %d arg(s), expected %d arg(s)", f, len(f.Args), len(argTypes))
@@ -234,9 +232,9 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 
 	// TODO check if we have excess args, only works when Fn is Variadic
 
-	retType := fn.ReturnType()
+	retType := fn.ReturnType
 	if retType == dpb.VALUE_TYPE_UNSPECIFIED {
-		// if return type is unspecified, you the discovered type
+		// if return type is unspecified, use the discovered type
 		retType = tmplType
 	}
 
@@ -416,66 +414,4 @@ func extractEQMatches(ex *Expression, eqMap map[string]interface{}) {
 	for _, arg := range ex.Fn.Args {
 		extractEQMatches(arg, eqMap)
 	}
-}
-
-// DefaultCacheSize is the default size for the expression cache.
-const DefaultCacheSize = 1024
-
-// Evaluator for a c-like expression language.
-type cexl struct {
-	cache *lru.Cache
-	// function Map
-	fMap map[string]FuncBase
-}
-
-func (e *cexl) cacheGetExpression(exprStr string) (ex *Expression, err error) {
-
-	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
-
-	if v, found := e.cache.Get(exprStr); found {
-		return v.(*Expression), nil
-	}
-
-	if glog.V(6) {
-		glog.Infof("expression cache miss for '%s'", exprStr)
-	}
-
-	ex, err = Parse(exprStr)
-	if err != nil {
-		return nil, err
-	}
-	if glog.V(6) {
-		glog.Infof("caching expression for '%s''", exprStr)
-	}
-
-	_ = e.cache.Add(exprStr, ex)
-	return ex, nil
-}
-
-func (e *cexl) EvalType(expr string, attrFinder AttributeDescriptorFinder) (dpb.ValueType, error) {
-	v, err := e.cacheGetExpression(expr)
-	if err != nil {
-		return dpb.VALUE_TYPE_UNSPECIFIED, fmt.Errorf("failed to parse expression '%s': %v", expr, err)
-	}
-	return v.EvalType(attrFinder, e.fMap)
-}
-
-func (e *cexl) AssertType(expr string, finder AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := e.EvalType(expr, finder); err != nil {
-		return err
-	} else if t != expectedType {
-		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expr, t, expectedType)
-	}
-	return nil
-}
-
-// NewTypeChecker returns a new TypeChecker.
-func NewTypeChecker(cacheSize int) (TypeChecker, error) {
-	cache, err := lru.New(cacheSize)
-	if err != nil {
-		return nil, err
-	}
-	return &cexl{
-		fMap: FuncMap(), cache: cache,
-	}, nil
 }
