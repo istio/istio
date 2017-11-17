@@ -15,12 +15,19 @@
 package crd
 
 import (
+	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"os/user"
 	"testing"
+	"time"
 
 	"k8s.io/api/admission/v1alpha1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
@@ -33,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pilot/platform/kube/admit/testcerts"
 )
 
 const (
@@ -228,7 +236,7 @@ func TestAdmissionController(t *testing.T) {
 	}
 }
 
-func makeTestData(t *testing.T, valid bool) []byte {
+func makeTestData(t *testing.T) []byte {
 	review := v1alpha1.AdmissionReview{
 		Spec: v1alpha1.AdmissionReviewSpec{
 			Kind: metav1.GroupVersionKind{},
@@ -245,146 +253,147 @@ func makeTestData(t *testing.T, valid bool) []byte {
 	return reviewJSON
 }
 
-// Those test needs testing certs for TLS connection, currently disabled due to the dependency
-// of testcerts.
-// TODO: enable it.
-//
-// func makeTestClient() (*http.Client, error) {
-// 	clientCert, err := tls.X509KeyPair(testcerts.ClientCert, testcerts.ClientKey)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to load X509KeyPair: %v", err)
-// 	}
-// 	caCertPool := x509.NewCertPool()
-// 	caCertPool.AppendCertsFromPEM(testcerts.CACert)
-// 	tlsConfig := &tls.Config{
-// 		Certificates: []tls.Certificate{clientCert},
-// 		RootCAs:      caCertPool,
-// 	}
-// 	tlsConfig.BuildNameToCertificate()
-// 	return &http.Client{
-// 		Transport: &http.Transport{
-// 			TLSClientConfig: tlsConfig,
-// 		},
-// 		Timeout: 5 * time.Second,
-// 	}, nil
-// }
+func makeTestClient() (*http.Client, error) {
+	clientCert, err := tls.X509KeyPair(testcerts.ClientCert, testcerts.ClientKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load X509KeyPair: %v", err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(testcerts.CACert)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      caCertPool,
+	}
+	tlsConfig.BuildNameToCertificate()
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+		Timeout: 5 * time.Second,
+	}, nil
+}
 
-// func makeTestServer(handler http.Handler, tlsConfig *tls.Config) (*http.Server, net.Listener, error) {
-// 	ln, err := net.Listen("tcp", "localhost:0")
-// 	if err != nil {
-// 		return nil, nil, fmt.Errorf("net.Listen failed: %v", err)
-// 	}
-// 	server := &http.Server{
-// 		Handler:   handler,
-// 		TLSConfig: tlsConfig,
-// 	}
-// 	return server, tls.NewListener(ln, tlsConfig), nil
-// }
+func makeTestServer(handler http.Handler, tlsConfig *tls.Config) (*http.Server, net.Listener, error) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return nil, nil, fmt.Errorf("net.Listen failed: %v", err)
+	}
+	server := &http.Server{
+		Handler:   handler,
+		TLSConfig: tlsConfig,
+	}
+	return server, tls.NewListener(ln, tlsConfig), nil
+}
 
-// func TestServe(t *testing.T) {
-// 	validReview := makeTestData(t, true)
-// 	invalidReview := makeTestData(t, false)
+func TestServe(t *testing.T) {
+	review := makeTestData(t)
 
-// 	cases := []struct {
-// 		name           string
-// 		body           []byte
-// 		contentType    string
-// 		wantAllowed    bool
-// 		wantStatusCode int
-// 	}{
-// 		{
-// 			name:           "valid",
-// 			body:           validReview,
-// 			contentType:    "application/json",
-// 			wantAllowed:    true,
-// 			wantStatusCode: http.StatusOK,
-// 		},
-// 		{
-// 			name:           "invalid",
-// 			body:           invalidReview,
-// 			contentType:    "application/json",
-// 			wantAllowed:    false,
-// 			wantStatusCode: http.StatusOK,
-// 		},
-// 		{
-// 			name:           "wrong content-type",
-// 			body:           validReview,
-// 			contentType:    "application/yaml",
-// 			wantAllowed:    false,
-// 			wantStatusCode: http.StatusUnsupportedMediaType,
-// 		},
-// 		{
-// 			name:           "bad content",
-// 			body:           []byte{0, 1, 2, 3, 4, 5}, // random data
-// 			contentType:    "application/json",
-// 			wantAllowed:    false,
-// 			wantStatusCode: http.StatusBadRequest,
-// 		},
-// 	}
+	cases := []struct {
+		name           string
+		body           []byte
+		contentType    string
+		validator      store.BackendValidator
+		wantAllowed    bool
+		wantStatusCode int
+	}{
+		{
+			name:           "valid",
+			body:           review,
+			contentType:    "application/json",
+			validator:      &fakeValidator{},
+			wantAllowed:    true,
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:           "invalid",
+			body:           review,
+			contentType:    "application/json",
+			validator:      &fakeValidator{errors.New("fake error")},
+			wantAllowed:    false,
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:           "wrong content-type",
+			body:           review,
+			contentType:    "application/yaml",
+			validator:      &fakeValidator{},
+			wantAllowed:    false,
+			wantStatusCode: http.StatusUnsupportedMediaType,
+		},
+		{
+			name:           "bad content",
+			body:           []byte{0, 1, 2, 3, 4, 5}, // random data
+			contentType:    "application/json",
+			validator:      &fakeValidator{},
+			wantAllowed:    false,
+			wantStatusCode: http.StatusBadRequest,
+		},
+	}
 
-// 	testAdmissionController, err := NewController(nil, ControllerOptions{
-// 		ExternalAdmissionWebhookName: testAdmissionHookName,
-// 		ServiceName:                  testAdmissionServiceName,
-// 		ServiceNamespace:             "istio-system",
-// 		ValidateNamespaces:           []string{watchedNamespace},
-// 	})
-// 	if err != nil {
-// 		t.Fatal(err.Error())
-// 	}
+	testAdmissionController, err := NewController(nil, ControllerOptions{
+		ExternalAdmissionWebhookName: testAdmissionHookName,
+		ServiceName:                  testAdmissionServiceName,
+		ServiceNamespace:             "istio-system",
+		ValidateNamespaces:           []string{watchedNamespace},
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
-// 	tlsConfig, err := makeTLSConfig(testcerts.ServerCert, testcerts.ServerKey, testcerts.CACert)
-// 	if err != nil {
-// 		t.Fatalf("MakeTLSConfig failed: %v", err)
-// 	}
+	tlsConfig, err := makeTLSConfig(testcerts.ServerCert, testcerts.ServerKey, testcerts.CACert)
+	if err != nil {
+		t.Fatalf("MakeTLSConfig failed: %v", err)
+	}
 
-// 	testServer, testListener, err := makeTestServer(testAdmissionController, tlsConfig)
-// 	if err != nil {
-// 		t.Fatalf("Could not create test server: %v", err)
-// 	}
-// 	go func() {
-// 		if serverErr := testServer.Serve(testListener); serverErr != nil {
-// 			t.Log(serverErr.Error())
-// 		}
-// 	}()
-// 	defer testServer.Close() // nolint: errcheck
+	testServer, testListener, err := makeTestServer(testAdmissionController, tlsConfig)
+	if err != nil {
+		t.Fatalf("Could not create test server: %v", err)
+	}
+	go func() {
+		if serverErr := testServer.Serve(testListener); serverErr != nil {
+			t.Log(serverErr.Error())
+		}
+	}()
+	defer testServer.Close() // nolint: errcheck
 
-// 	testURL := fmt.Sprintf("https://%v", testListener.Addr().String())
+	testURL := fmt.Sprintf("https://%v", testListener.Addr().String())
 
-// 	testClient, err := makeTestClient()
-// 	if err != nil {
-// 		t.Fatalf("Could not create test client: %v", err)
-// 	}
+	testClient, err := makeTestClient()
+	if err != nil {
+		t.Fatalf("Could not create test client: %v", err)
+	}
 
-// 	for _, c := range cases {
-// 		res, err := testClient.Post(testURL, c.contentType, bytes.NewReader(c.body))
-// 		if err != nil {
-// 			t.Errorf("%v: Post(%v, %v) failed %v", c.name, c.contentType, string(c.body), err)
-// 			continue
-// 		}
+	for _, c := range cases {
+		testAdmissionController.options.Validator = c.validator
+		res, err := testClient.Post(testURL, c.contentType, bytes.NewReader(c.body))
+		if err != nil {
+			t.Errorf("%v: Post(%v, %v) failed %v", c.name, c.contentType, string(c.body), err)
+			continue
+		}
 
-// 		if res.StatusCode != c.wantStatusCode {
-// 			t.Errorf("%v: wrong status code: \ngot %v \nwant %v", c.name, res.StatusCode, c.wantStatusCode)
-// 		}
+		if res.StatusCode != c.wantStatusCode {
+			t.Errorf("%v: wrong status code: \ngot %v \nwant %v", c.name, res.StatusCode, c.wantStatusCode)
+		}
 
-// 		if res.StatusCode != http.StatusOK {
-// 			continue
-// 		}
+		if res.StatusCode != http.StatusOK {
+			continue
+		}
 
-// 		gotBody, err := ioutil.ReadAll(res.Body)
-// 		if err != nil {
-// 			t.Errorf("%v: could not read body: %v", c.name, err)
-// 			continue
-// 		}
-// 		var gotReview v1alpha1.AdmissionReview
-// 		if err := json.Unmarshal(gotBody, &gotReview); err != nil {
-// 			t.Errorf("%v: could not decode response body: %v", c.name, err)
-// 		}
-// 		if gotReview.Status.Allowed != c.wantAllowed {
-// 			t.Errorf("%v: AdmissionReview.Status.Allowed is wrong : got %v want %v",
-// 				c.name, gotReview.Status.Allowed, c.wantAllowed)
-// 		}
-// 	}
-// }
+		gotBody, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Errorf("%v: could not read body: %v", c.name, err)
+			continue
+		}
+		var gotReview v1alpha1.AdmissionReview
+		if err := json.Unmarshal(gotBody, &gotReview); err != nil {
+			t.Errorf("%v: could not decode response body: %v", c.name, err)
+		}
+		if gotReview.Status.Allowed != c.wantAllowed {
+			t.Errorf("%v: AdmissionReview.Status.Allowed is wrong : got %v want %v",
+				c.name, gotReview.Status.Allowed, c.wantAllowed)
+		}
+	}
+}
 
 func TestRegister(t *testing.T) {
 	testAdmissionController, err := NewController(nil, ControllerOptions{
@@ -442,7 +451,6 @@ func TestRegister(t *testing.T) {
 }
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	// TODO: this needs to be mocked.
 	usr, err := user.Current()
 	if err != nil {
 		t.Fatal(err.Error())
