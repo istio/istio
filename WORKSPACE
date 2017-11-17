@@ -704,11 +704,13 @@ go_repository(
     importpath = "github.com/go-openapi/swag",
 )
 
-go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-    importpath = "github.com/gogo/protobuf",
-)
+# gogo/protobuf dependency is described in mixer/adapter_author_deps.bzl.
+# This is not necessary.
+# go_repository(
+#     name = "com_github_gogo_protobuf",
+#     commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
+#     importpath = "github.com/gogo/protobuf",
+# )
 
 go_repository(
     name = "com_github_golang_glog",
