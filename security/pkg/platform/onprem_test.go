@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestGetServiceIdentity(t *testing.T) {
+func TestOnPremGetServiceIdentity(t *testing.T) {
 	testCases := map[string]struct {
 		filename    string
 		expectedID  string

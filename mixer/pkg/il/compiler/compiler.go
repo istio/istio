@@ -28,11 +28,11 @@ import (
 )
 
 type generator struct {
-	program *il.Program
-	builder *il.Builder
-	finder  expr.AttributeDescriptorFinder
+	program   *il.Program
+	builder   *il.Builder
+	finder    expr.AttributeDescriptorFinder
 	functions map[string]expr.FunctionMetadata
-	err     error
+	err       error
 }
 
 // nilMode is an enum flag for specifying how the emitted code should be handling potential nils.
@@ -72,9 +72,9 @@ func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[s
 	}
 
 	g := generator{
-		program: p,
-		builder: il.NewBuilder(p.Strings()),
-		finder:  finder,
+		program:   p,
+		builder:   il.NewBuilder(p.Strings()),
+		finder:    finder,
 		functions: functions,
 	}
 

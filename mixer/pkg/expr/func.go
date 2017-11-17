@@ -21,7 +21,7 @@ import (
 // FunctionMetadata contains type metadata for functions.
 type FunctionMetadata struct {
 	// Name is the name of the function.
-	Name    string
+	Name string
 
 	// ReturnType is the return type of the function.
 	ReturnType config.ValueType
@@ -33,54 +33,53 @@ type FunctionMetadata struct {
 func intrinsics() []FunctionMetadata {
 	return []FunctionMetadata{
 		{
-			Name:     "EQ",
-			ReturnType:  config.BOOL,
+			Name:          "EQ",
+			ReturnType:    config.BOOL,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
 		{
-			Name:     "NEQ",
-			ReturnType:  config.BOOL,
+			Name:          "NEQ",
+			ReturnType:    config.BOOL,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
 		{
-			Name:     "OR",
-			ReturnType:  config.VALUE_TYPE_UNSPECIFIED,
+			Name:          "OR",
+			ReturnType:    config.VALUE_TYPE_UNSPECIFIED,
 			ArgumentTypes: []config.ValueType{config.VALUE_TYPE_UNSPECIFIED, config.VALUE_TYPE_UNSPECIFIED},
 		},
 		{
-			Name:     "LOR",
-			ReturnType:  config.BOOL,
+			Name:          "LOR",
+			ReturnType:    config.BOOL,
 			ArgumentTypes: []config.ValueType{config.BOOL, config.BOOL},
 		},
 		{
-			Name:     "LAND",
-			ReturnType:  config.BOOL,
+			Name:          "LAND",
+			ReturnType:    config.BOOL,
 			ArgumentTypes: []config.ValueType{config.BOOL, config.BOOL},
 		},
 		{
-			Name:     "INDEX",
-			ReturnType:  config.STRING,
+			Name:          "INDEX",
+			ReturnType:    config.STRING,
 			ArgumentTypes: []config.ValueType{config.STRING_MAP, config.STRING},
 		},
 	}
 }
 
-
 func externs() []FunctionMetadata {
 	return []FunctionMetadata{
 		{
-			Name:     "ip",
-			ReturnType:  config.IP_ADDRESS,
+			Name:          "ip",
+			ReturnType:    config.IP_ADDRESS,
 			ArgumentTypes: []config.ValueType{config.STRING},
 		},
 		{
-			Name:     "timestamp",
-			ReturnType:  config.TIMESTAMP,
+			Name:          "timestamp",
+			ReturnType:    config.TIMESTAMP,
 			ArgumentTypes: []config.ValueType{config.STRING},
 		},
 		{
-			Name:     "match",
-			ReturnType:  config.BOOL,
+			Name:          "match",
+			ReturnType:    config.BOOL,
 			ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
 		},
 	}
