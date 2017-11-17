@@ -54,6 +54,7 @@ func main() {
 	// run envoy process
 	envoy := exec.Command(binPath,
 		"-c", "bootstrap.json",
+		"-l", debug,
 		"--drain-time-s", "1")
 	envoy.Stdout = os.Stdout
 	envoy.Stderr = os.Stderr
@@ -93,6 +94,7 @@ var (
 	id         string
 	domain     string
 	binPath    string
+	debug      string
 	port       int
 
 	validate bool
@@ -108,4 +110,5 @@ func init() {
 	flag.BoolVar(&validate, "valid", false,
 		"Validate only (for testing and debugging)")
 	flag.StringVar(&binPath, "bin", "/usr/local/bin/envoy", "Envoy binary")
+	flag.StringVar(&debug, "l", "info", "Envoy debug level")
 }

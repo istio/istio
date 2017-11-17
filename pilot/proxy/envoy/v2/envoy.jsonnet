@@ -37,6 +37,9 @@ local model = {
 
     is_tcp(protocol)::
         protocol == 'TCP' || protocol == 'HTTPS',
+
+    is_udp(protocol)::
+        protocol == 'UDP',
 };
 
 local config = {
@@ -124,7 +127,7 @@ local config = {
                                     }],
                                 },
                             }
-                        else if model.is_tcp(protocol) then
+                        else if !model.is_udp(protocol) then
                             {
                                 name: "envoy.tcp_proxy",
                                 config: {
