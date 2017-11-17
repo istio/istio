@@ -31,17 +31,18 @@ import (
 var (
 	files = []string{
 		"cb-policy.yaml",
-		"timeout-route-rule.yaml",
-		"weighted-route.yaml",
-		"fault-route.yaml",
-		"redirect-route.yaml",
-		"rewrite-route.yaml",
-		"websocket-route.yaml",
 		"egress-rule.yaml",
 		"egress-rule-cb-policy.yaml",
 		"egress-rule-timeout-route-rule.yaml",
-		"ingress-route-world.yaml",
+		"fault-route.yaml",
 		"ingress-route-foo.yaml",
+		"ingress-route-world.yaml",
+		"multi-rule.yaml",
+		"redirect-route.yaml",
+		"rewrite-route.yaml",
+		"timeout-route-rule.yaml",
+		"websocket-route.yaml",
+		"weighted-route.yaml",
 	}
 )
 
@@ -62,7 +63,7 @@ type controllerManager struct {
 	controllerStop chan struct{}
 }
 
-func (cm *controllerManager) setup(eventCh chan event) {
+func (cm *controllerManager) setup(events chan event) {
 	cm.controllerStop = make(chan struct{})
 	store := memory.Make(model.IstioConfigTypes)
 	cm.controller = memory.NewBufferedController(store, 100)
@@ -70,7 +71,7 @@ func (cm *controllerManager) setup(eventCh chan event) {
 	// Register changes to the repository
 	for _, s := range model.IstioConfigTypes.Types() {
 		cm.controller.RegisterEventHandler(s, func(config model.Config, ev model.Event) {
-			eventCh <- event{
+			events <- event{
 				config: config,
 				event:  ev,
 			}
@@ -139,12 +140,12 @@ func copyFile(src, dst string) error {
 	return ioutil.WriteFile(dst, data, os.ModePerm)
 }
 
-func parseConfig(path string) (*model.Config, error) {
-	configs, err := file.ParseYamlFile(path)
+func parseFile(path string) ([]*model.Config, error) {
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	return configs[0], nil
+	return file.ParseYaml(data)
 }
 
 func TestAdd(t *testing.T) {
@@ -155,7 +156,7 @@ func TestAdd(t *testing.T) {
 	for _, fileName := range files {
 		t.Run(fileName, func(t *testing.T) {
 			// Get the configuration that we expect to be added.
-			expectedCfg, err := parseConfig("testdata/" + fileName)
+			expectedCfgs, err := parseFile("testdata/" + fileName)
 			if err != nil {
 				t.Fatalf("Unable to parse config: %s", fileName)
 			}
@@ -165,17 +166,19 @@ func TestAdd(t *testing.T) {
 				t.Fatalf("Failed adding config file: %s", fileName)
 			}
 
-			// Wait for the add to occur.
-			event := <-e.events
-
-			// Verify that the configuration was added properly.
-			if event.event != model.EventAdd {
-				t.Fatalf("event: %s wanted: %s", event.event, model.EventAdd)
-			}
-
 			// Need to clear the resource version before comparing.
-			if !reflect.DeepEqual(*expectedCfg, event.config) {
-				t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
+			for _, expectedCfg := range expectedCfgs {
+				// Wait for the add to occur.
+				event := <-e.events
+
+				// Verify that the configuration was added properly.
+				if event.event != model.EventAdd {
+					t.Fatalf("event: %s wanted: %s", event.event, model.EventAdd)
+				}
+
+				if !reflect.DeepEqual(*expectedCfg, event.config) {
+					t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
+				}
 			}
 		})
 	}
@@ -198,7 +201,7 @@ func TestDelete(t *testing.T) {
 	for _, fileName := range files {
 		t.Run(fileName, func(t *testing.T) {
 			// Get the configuration that we expect to be deleted
-			expectedCfg, err := parseConfig("testdata/" + fileName)
+			expectedCfgs, err := parseFile("testdata/" + fileName)
 			if err != nil {
 				t.Fatalf("Unable to parse config: %s", fileName)
 			}
@@ -208,12 +211,15 @@ func TestDelete(t *testing.T) {
 				t.Fatalf("Unable to remove file: %s", fileName)
 			}
 
-			event := e.watchFor(model.EventDelete)
-
 			// Need to clear the resource version before comparing.
-			event.config.ResourceVersion = ""
-			if !reflect.DeepEqual(*expectedCfg, event.config) {
-				t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
+			for _, expectedCfg := range expectedCfgs {
+				event := e.watchFor(model.EventDelete)
+
+				// Need to clear the resource version before comparing.
+				event.config.ResourceVersion = ""
+				if !reflect.DeepEqual(*expectedCfg, event.config) {
+					t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
+				}
 			}
 		})
 	}
@@ -238,16 +244,19 @@ func TestUpdate(t *testing.T) {
 	copyFile(updateFilePath, path.Join(e.fsroot, "cb-policy.yaml"))
 
 	// Get the configuration that we expect to be deleted
-	expectedCfg, err := parseConfig(updateFilePath)
+	expectedCfgs, err := parseFile(updateFilePath)
 	if err != nil {
 		t.Fatalf("Unable to parse config: %s", updateFilePath)
 	}
 
-	event := e.watchFor(model.EventUpdate)
-
 	// Need to clear the resource version before comparing.
-	event.config.ResourceVersion = ""
-	if !reflect.DeepEqual(*expectedCfg, event.config) {
-		t.Fatalf("event.config:\n%v\nwanted:\n%q", event.config, expectedCfg)
+	for _, expectedCfg := range expectedCfgs {
+		event := e.watchFor(model.EventUpdate)
+
+		// Need to clear the resource version before comparing.
+		event.config.ResourceVersion = ""
+		if !reflect.DeepEqual(*expectedCfg, event.config) {
+			t.Fatalf("event.config:\n%v\nwanted:\n%v", event.config, expectedCfg)
+		}
 	}
 }
