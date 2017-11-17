@@ -7,7 +7,9 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il/interpreter:go_default_library",
+        "@io_istio_api//:mixer/v1/config/descriptor",
     ],
 )
 

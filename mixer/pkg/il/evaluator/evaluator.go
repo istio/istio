@@ -91,17 +91,13 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 }
 
 // EvalType evaluates expr using the attr attribute bag and returns the type of the result.
-func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
-	ctx := e.getAttrContext()
-
-	var entry cacheEntry
-	var err error
-	if entry, err = ctx.getOrCreateCacheEntry(expr, e.functions); err != nil {
-		glog.Infof("evaluator.EvalType failed expr:'%s', err: %v", expr, err)
+func (e *IL) EvalType(expression string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	exp, err := expr.Parse(expression)
+	if err != nil {
 		return pb.VALUE_TYPE_UNSPECIFIED, err
 	}
 
-	return entry.expression.EvalType(finder, e.functions)
+	return exp.EvalType(finder, e.functions)
 }
 
 // AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
@@ -224,6 +220,6 @@ func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) 
 	return &IL{
 		cacheSize:                  cacheSize,
 		maxStringTableSizeForPurge: maxStringTableSizeForPurge,
-		functions:                  expr.FuncMap(),
+		functions:                  expr.FuncMap(runtime.ExternFunctionMetadata),
 	}, nil
 }

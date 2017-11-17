@@ -17,7 +17,7 @@ package cmd
 import (
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -26,7 +26,7 @@ var defaultSeverArgs = serverArgs{
 	maxConcurrentStreams:          256,
 	apiWorkerPoolSize:             256,
 	adapterWorkerPoolSize:         256,
-	expressionEvalCacheSize:       expr.DefaultCacheSize,
+	expressionEvalCacheSize:       evaluator.DefaultCacheSize,
 	configAPIPort:                 0,
 	monitoringPort:                0,
 	singleThreaded:                false,
