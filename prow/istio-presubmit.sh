@@ -65,6 +65,7 @@ fi
 cd $ROOT
 
 # go test setup
+go get -u github.com/golang/dep/cmd/dep
 time dep ensure -v
 #mkdir -p ~/.kube
 #cp ./.circleci/config ~/.kube/config
@@ -76,6 +77,7 @@ PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
 PROXY=debug-$PROXYVERSION
 wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
 ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
+
 cd $ROOT
 
 # go test execution
