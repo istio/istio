@@ -39,7 +39,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   # cd ${GOPATH}/src/istio.io/istio
   go get -u github.com/golang/dep/cmd/dep
-  time dep ensure -v
 
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
@@ -73,6 +72,7 @@ cd $ROOT
 #mkdir -p ~/.kube
 #cp ./.circleci/config ~/.kube/config
 #ln -sf ~/.kube/config ./pilot/platform/kube/config
+
 mkdir -p ~/envoy
 cd ~/envoy
 ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
@@ -80,15 +80,25 @@ PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
 PROXY=debug-$PROXYVERSION
 wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
 ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
-
 cd $ROOT
 
 # go test execution
+time dep ensure -v
 echo FIXME remove mixer tools exclusion after tests can be run without bazel
 time go test $(go list ./mixer/... | grep -v /tools/codegen)
 time go test ./pilot/...
 time go test ./security/...
 time go test ./broker/...
+rm -rf vendor/
+
+if [ "${CI:-}" == 'bootstrap' ]; then
+  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
+  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
+  mv istio ${GOPATH}/src/istio.io/istio ${GOPATH}/src/github.com
+  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  ROOT=${GOPATH}/src/istio.io/istio
+  cd ${GOPATH}/src/istio.io/istio
+fi
 
 # Build
 ${ROOT}/bin/init.sh
