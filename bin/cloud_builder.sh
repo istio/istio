@@ -74,6 +74,8 @@ if [ ! -d "${PROXY_PATH}" ]; then
   usage
 fi
 
+export ISTIO_VERSION="${TAG_NAME}"
+
 # Proxy has some specific requirements for Bazel's
 # config (plus it's nicely places bazel in batch
 # mode) so this component gets built first.
@@ -144,9 +146,3 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
 fi
 popd
-
-# store artifacts that are used by a separate cloud builder step to generate tar files
-cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
-find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
-  -exec cp --parents {} "${OUTPUT_PATH}" \;
-find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;

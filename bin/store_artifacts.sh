@@ -89,8 +89,8 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
-    docker import "${TAR_PATH}" "${IMAGE_NAME}:${VER_STRING}"
-    docker tag "${IMAGE_NAME}:${VER_STRING}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
+    docker load -i "${TAR_PATH}"
+    docker tag "${IMAGE_NAME}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
