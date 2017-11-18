@@ -28,11 +28,13 @@ OUTPUT_PATH=""
 VER_STRING=""
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GCR_TEST_PATH=""
+GCS_TEST_PATH=""
 
 function usage() {
   echo "$0
     -o <path> path where build output/artifacts are stored        (required)
-    -q <name> GCR bucket & prefix path where build will be stored (optional)
+    -p <name> GCS bucket & prefix path where build will be stored (optional)
+    -q <name> GCR bucket & prefix path where build will be stored (optional [required if -p used] )
     -v <ver>  version info to include in filename (e.g., 1.0)     (required)"
   exit 1
 }
@@ -43,9 +45,10 @@ function error_exit() {
   exit ${2:-1}
 }
 
-while getopts o:q:v: arg ; do
+while getopts o:p:q:v: arg ; do
   case "${arg}" in
     o) OUTPUT_PATH="${OPTARG}";;
+    p) GCS_TEST_PATH="${OPTARG}";;
     q) GCR_TEST_PATH="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     *) usage;;
@@ -73,14 +76,13 @@ function copy_and_archive() {
   return 0
 }
 
-COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
-ISTIOCTL_URL="${COMMON_URL}/istioctl"
-DEBIAN_URL="${COMMON_URL}/deb"
-
 # generate a test set of tars for images on GCR
-if [[ -n "${GCR_TEST_PATH}" ]]; then
+if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
 
   DOCKER_HUB_TAG="gcr.io/${GCR_TEST_PATH},${VER_STRING}"
+  COMMON_URL="https://storage.googleapis.com/${GCS_TEST_PATH}"
+  ISTIOCTL_URL="${COMMON_URL}/istioctl"
+  DEBIAN_URL="${COMMON_URL}/deb"
   copy_and_archive
 
   # These files are only used for testing, so use a name to help make this clear
@@ -91,4 +93,7 @@ fi
 
 # generate the release set of tars
 DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
+COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
+ISTIOCTL_URL="${COMMON_URL}/istioctl"
+DEBIAN_URL="${COMMON_URL}/deb"
 copy_and_archive
