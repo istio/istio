@@ -119,6 +119,17 @@ func TestToDuration(t *testing.T) {
 	}
 }
 
+func TestGetInt64Address(t *testing.T) {
+	addr := getInt64Address(123)
+	if addr == nil {
+		t.Fatalf(`getInt64Address(123) returns nil`)
+	}
+
+	if *addr != 123 {
+		t.Errorf(`expect *getInt64Addr(123) == 123, but get %v`, *addr)
+	}
+}
+
 func TestGenerateConsumerIDFromAPIKey(t *testing.T) {
 	id := generateConsumerIDFromAPIKey("test-key")
 	if id != "api_key:test-key" {
