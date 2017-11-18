@@ -84,8 +84,8 @@ if [[ -n "${GCR_TEST_PATH}" ]]; then
   copy_and_archive
 
   # These files are only used for testing, so use a name to help make this clear
-  for TAR_FILE in ${OUTPUT_PATH}/*.tar; do
-    mv "$TAR_FILE" "${TAR_FILE%.tar}_TESTONLY.tar"
+  for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do
+    mv "$TAR_FILE" $(dirname "$TAR_FILE")/TESTONLY-$(basename "$TAR_FILE")
   done
 fi
 
