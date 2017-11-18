@@ -15,21 +15,13 @@
 package evaluator
 
 import (
-	"errors"
 	"fmt"
-	"math/rand"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
-	pbv "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/descriptor"
-	pb "istio.io/istio/mixer/pkg/config/proto"
-	ilt "istio.io/istio/mixer/pkg/il/testing"
+	dpb "istio.io/api/mixer/v1/config/descriptor"
+	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 )
-
 
 func TestTypeCheck(t *testing.T) {
 	af := newAF([]*ad{
@@ -74,7 +66,7 @@ func TestTypeCheck(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev := NewTypeChecker([]FunctionMetadata{})
+			ev := NewTypeChecker()
 			vt, err := ev.EvalType(tt.in, af)
 			if tt.err != "" || err != nil {
 				if !strings.Contains(err.Error(), tt.err) {
@@ -108,7 +100,7 @@ func TestAssertType(t *testing.T) {
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev := NewTypeChecker([]FunctionMetadata{})
+			ev := NewTypeChecker()
 			if err := ev.AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
 				if tt.err == "" {
 					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
