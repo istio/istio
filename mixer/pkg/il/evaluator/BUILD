@@ -26,7 +26,10 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "medium",
-    srcs = ["evaluator_test.go"],
+    srcs = [
+        "checker_test.go",
+        "evaluator_test.go"
+    ],
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/attribute:go_default_library",
