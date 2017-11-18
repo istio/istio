@@ -216,14 +216,6 @@ func TestEvalType_WrongType(t *testing.T) {
 	}
 }
 
-func TestAssertType(t *testing.T) {
-	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.getAttrContext().finder, pbv.BOOL)
-	if err != nil {
-		t.Fatalf("error: %s", err)
-	}
-}
-
 func TestAssertType_WrongType(t *testing.T) {
 	e := initEvaluator(t, configBool)
 	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
