@@ -72,7 +72,7 @@ for how to do this for your platform.
 Ensure your UID is in the docker group to access the docker daemon as a non-root user:
 
 ```shell
-sudo adduser username docker
+sudo adduser $USER docker
 ```
 
 where:
@@ -89,10 +89,16 @@ export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
 
-# Please change HUB and TAG to a desired HUB and TAG for custom docker
-# container builds.
-export HUB="gcr.io/yourid"
-export TAG=`whoami`
+# Please change HUB to the desired HUB for custom docker container
+# builds.
+export HUB="docker.io/$USER"
+
+# The Istio Docker build system will build images with a tag composed of
+# $USER and timestamp. The codebase doesn't consistently use the same timestamp
+# tag. To simplify development the development process when later using
+# updateVersion.sh you may find it helpful to set TAG to something consistent
+# such as $USER.
+export TAG=$USER
 
 # If your github username is not the same as your local user name (saved in the
 # shell variable $USER), then replace "$USER" below with your github username
@@ -283,6 +289,7 @@ to generate new manifests with mixer, pilot, and ca_cert custom built containers
 cd $ISTIO/istio
 install/updateVersion.sh -a${HUB},${TAG}
 ```
+
 ### Cleaning outputs
 
 You can delete any build artifacts with:
