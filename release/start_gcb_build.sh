@@ -114,7 +114,7 @@ pushd ${TEMP_DIR}
 popd
 
 # grab a copy of the template file
-cp "${TEMP_DIR}/${ISTIO_REPO_PATH}/bin/cloud_build.template.json" "${TEMPLATE}"
+cp "${TEMP_DIR}/${ISTIO_REPO_PATH}/release/cloud_build.template.json" "${TEMPLATE}"
 rm -rf "${TEMP_DIR}"
 
 # generate the json file, first strip off the closing } in the last line of the template

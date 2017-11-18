@@ -69,7 +69,7 @@ function copy_and_archive() {
   find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
   popd
 
-  ${ROOT}/bin/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
+  ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
   return 0
 }
 
