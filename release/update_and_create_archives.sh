@@ -80,7 +80,7 @@ DEBIAN_URL="${COMMON_URL}/deb"
 # generate a test set of tars for images on GCR
 if [[ -n "${GCR_TEST_PATH}" ]]; then
 
-  DOCKER_HUB_TAG="${GCR_TEST_PATH},${VER_STRING}"
+  DOCKER_HUB_TAG="gcr.io/${GCR_TEST_PATH},${VER_STRING}"
   copy_and_archive
 
   # These files are only used for testing, so use a name to help make this clear
