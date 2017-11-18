@@ -15,10 +15,12 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -29,24 +31,81 @@ const (
 
 // mockTokenFetcher implements the mock token fetcher.
 type mockTokenFetcher struct {
-	token        string
-	errorMessage string
+	token                  string
+	tokenErrorMsg          string
+	serviceAccount         string
+	serviceAccountErrorMsg string
 }
 
 // A mock fetcher for FetchToken.
 func (fetcher *mockTokenFetcher) FetchToken() (string, error) {
-	if len(fetcher.errorMessage) > 0 {
-		return "", fmt.Errorf(fetcher.errorMessage)
+	if len(fetcher.tokenErrorMsg) > 0 {
+		return "", fmt.Errorf(fetcher.tokenErrorMsg)
 	}
 
 	return fetcher.token, nil
 }
 
+// A mock fetcher for FetchToken.
+func (fetcher *mockTokenFetcher) FetchServiceAccount() (string, error) {
+	if len(fetcher.serviceAccountErrorMsg) > 0 {
+		return "", fmt.Errorf(fetcher.serviceAccountErrorMsg)
+	}
+
+	return fetcher.serviceAccount, nil
+}
+
+func TestGcpGetServiceIdentity(t *testing.T) {
+	testCases := map[string]struct {
+		cfg         GcpConfig
+		sa          string
+		err         string
+		expectedSa  string
+		expectedErr string
+	}{
+		"success": {
+			cfg: GcpConfig{
+				RootCACertFile: "testdata/cert-chain-good.pem",
+			},
+			sa:         "464382306716@developer.gserviceaccount.com",
+			expectedSa: "spiffe://cluster.local/ns/default/sa/464382306716@developer.gserviceaccount.com",
+		},
+		"fetch error": {
+			cfg: GcpConfig{
+				RootCACertFile: "testdata/cert-chain-good.pem",
+			},
+			err:         "failed to fetch service account",
+			expectedErr: "failed to fetch service account",
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{
+			config:  c.cfg,
+			fetcher: &mockTokenFetcher{"", "", c.sa, c.err},
+		}
+
+		actualSa, err := gcp.GetServiceIdentity()
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s", id, err.Error(), c.expectedErr)
+			}
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		// Make sure there're two dial options, one for TLS and one for JWT.
+		if actualSa != c.expectedSa {
+			t.Errorf("%s: Wrong Service Account. Expected %v, Actual %v", id, c.expectedSa, actualSa)
+		}
+	}
+}
+
 func TestGetDialOptions(t *testing.T) {
 	creds, err := credentials.NewClientTLSFromFile("testdata/cert-chain-good.pem", "")
-	if err != nil {
-		t.Errorf("Ubable to get credential for testdata/cert-chain-good.pem")
-	}
+	assert.Equal(t, err, nil, "Unable to get credential for testdata/cert-chain-good.pem")
 
 	testCases := map[string]struct {
 		cfg             GcpConfig
@@ -95,7 +154,7 @@ func TestGetDialOptions(t *testing.T) {
 	for id, c := range testCases {
 		gcp := GcpClientImpl{
 			config:  c.cfg,
-			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr},
+			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
 		}
 
 		options, err := gcp.GetDialOptions()
@@ -106,6 +165,7 @@ func TestGetDialOptions(t *testing.T) {
 				t.Errorf("%s: incorrect error message: %s VS %s",
 					id, err.Error(), c.expectedErr)
 			}
+			continue
 		} else if err != nil {
 			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
@@ -119,6 +179,138 @@ func TestGetDialOptions(t *testing.T) {
 			if reflect.ValueOf(options[index]).Pointer() != reflect.ValueOf(option).Pointer() {
 				t.Errorf("%s: Wrong option found", id)
 			}
+		}
+	}
+}
+
+func TestGcpGetRequestMetadata(t *testing.T) {
+	testCases := map[string]struct {
+		token       string
+		expectedErr string
+		expected    map[string]string
+	}{
+		"Good Identity": {
+			token:       "token",
+			expectedErr: "",
+			expected: map[string]string{
+				httpAuthHeader: "Bearer token",
+			},
+		},
+	}
+
+	for id, c := range testCases {
+		jwt := jwtAccess{
+			token: c.token,
+		}
+
+		metadata, err := jwt.GetRequestMetadata(context.Background(), "")
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if !reflect.DeepEqual(c.expected, metadata) {
+			t.Errorf("%s: metadata Expected %v, Actual %v", id, c.expected, metadata)
+		}
+	}
+}
+
+func TestGcpRequireTransportSecurity(t *testing.T) {
+	testCases := map[string]struct {
+		token       string
+		expectedErr string
+		expected    bool
+	}{
+		"Expected true": {
+			expected: true,
+		},
+	}
+
+	for id, c := range testCases {
+		jwt := jwtAccess{
+			token: c.token,
+		}
+		requireTransportSecurity := jwt.RequireTransportSecurity()
+		if c.expected != requireTransportSecurity {
+			t.Errorf("%s: Expected %v, Actual %v", id, c.expected, requireTransportSecurity)
+		}
+	}
+}
+
+func TestGcpGetAgentCredentials(t *testing.T) {
+	testCases := map[string]struct {
+		token              string
+		tokenFetchErr      string
+		expectedErr        string
+		expectedCredential []byte
+	}{
+		"Token abddef is exptected": {
+			token:              "abcdef",
+			tokenFetchErr:      "",
+			expectedErr:        "",
+			expectedCredential: []byte("abcdef"),
+		},
+		"Failed to fetch token": {
+			token:              "abcdef",
+			tokenFetchErr:      "Token Ftch Error",
+			expectedErr:        "Token Ftch Error",
+			expectedCredential: []byte(""),
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{GcpConfig{}, &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""}}
+
+		credential, err := gcp.GetAgentCredential()
+		if len(c.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), c.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if string(c.expectedCredential) != string(credential) {
+			t.Errorf("%s: credential Expected %v, Actual %v", id,
+				string(c.expectedCredential), string(credential))
+		}
+	}
+}
+
+func TestGcpGetCredentialTypes(t *testing.T) {
+	testCases := map[string]struct {
+		cfg           GcpConfig
+		token         string
+		tokenFetchErr string
+		expectedType  string
+	}{
+		"Good Identity": {
+			cfg:          GcpConfig{},
+			expectedType: "gcp",
+		},
+	}
+
+	for id, c := range testCases {
+		gcp := GcpClientImpl{
+			config:  c.cfg,
+			fetcher: &mockTokenFetcher{c.token, c.tokenFetchErr, "", ""},
+		}
+
+		credentialType := gcp.GetCredentialType()
+		if string(c.expectedType) != string(credentialType) {
+			t.Errorf("%s: type Expected %v, Actual %v", id,
+				string(c.expectedType), string(credentialType))
 		}
 	}
 }

@@ -4,7 +4,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["evaluator.go"],
+    srcs = [
+        "checker.go",
+        "evaluator.go",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//mixer/pkg/attribute:go_default_library",
@@ -23,12 +26,16 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "medium",
-    srcs = ["evaluator_test.go"],
+    srcs = [
+        "checker_test.go",
+        "evaluator_test.go"
+    ],
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
+        "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il/testing:go_default_library",
         "@io_istio_api//:mixer/v1/config/descriptor",
     ],

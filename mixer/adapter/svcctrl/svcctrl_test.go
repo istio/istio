@@ -17,49 +17,141 @@ package svcctrl
 import (
 	"reflect"
 	"testing"
-	"time"
 
-	"github.com/davecgh/go-spew/spew"
-	sc "google.golang.org/api/servicecontrol/v1"
+	pbtypes "github.com/gogo/protobuf/types"
+
+	"istio.io/istio/mixer/adapter/svcctrl/config"
+	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	at "istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/apikey"
+	"istio.io/istio/mixer/template/quota"
 )
 
-func TestHandleMetric(t *testing.T) {
-	timeNow := time.Now().Format(time.RFC3339Nano)
-	request, err := handleMetric(timeNow, "")
-
+func TestInitializeHandlerContext(t *testing.T) {
+	adapterCfg := getTestAdapterConfig()
+	ctx, err := initializeHandlerContext(at.NewEnv(t), adapterCfg, &mockSvcctrlClient{})
 	if err != nil {
-		t.Fatalf("handleMetric() failed with:%v", err)
+		t.Errorf("initializeHandlerContext() failed with %v", err)
 	}
 
-	metricValue := int64(1)
-	expected := &sc.ReportRequest{
-		Operations: []*sc.Operation{
+	expectedIdx := map[string]*config.GcpServiceSetting{
+		"service_a": adapterCfg.ServiceConfigs[0],
+		"service_b": adapterCfg.ServiceConfigs[1],
+	}
+	if !reflect.DeepEqual(expectedIdx, ctx.serviceConfigIndex) {
+		t.Errorf("expect serviceConfigIndex :%v, but get %v",
+			expectedIdx, ctx.serviceConfigIndex)
+	}
+}
+
+func TestConfigValidation(t *testing.T) {
+
+	{
+		b := getTestBuilder()
+		err := b.Validate()
+		if err != nil {
+			t.Errorf(`valid config, but get error %v`, err.Multi)
+		}
+	}
+
+	invalidBuilders := []*builder{
+		func() *builder {
+			b := getTestBuilder()
+			b.config.RuntimeConfig = nil
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs = []*config.GcpServiceSetting{}
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs = nil
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs[0].MeshServiceName = ""
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs[0].GoogleServiceName = ""
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs[0].Quotas[0].Name = ""
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			b.config.ServiceConfigs[0].Quotas[0].Expiration = nil
+			return b
+		}(),
+		func() *builder {
+			b := getTestBuilder()
+			expiration := b.config.ServiceConfigs[0].Quotas[0].Expiration
+			expiration.Seconds = 0
+			expiration.Nanos = 0
+			return b
+		}(),
+	}
+
+	for _, b := range invalidBuilders {
+		err := b.Validate()
+		if err == nil {
+			t.Errorf(`fail to detect invalid config: %v`, *b.config)
+		}
+	}
+}
+
+func TestGetInfo(t *testing.T) {
+	info := GetInfo()
+	expectedSupportedTemplate := []string{
+		apikey.TemplateName,
+		svcctrlreport.TemplateName,
+		quota.TemplateName,
+	}
+	if !reflect.DeepEqual(expectedSupportedTemplate, info.SupportedTemplates) {
+		t.Errorf("expected supported templates: %v, but get %v",
+			expectedSupportedTemplate,
+			info.SupportedTemplates)
+	}
+}
+
+func getTestAdapterConfig() *config.Params {
+	return &config.Params{
+		RuntimeConfig: &config.RuntimeConfig{CheckCacheSize: 10,
+			CheckResultExpiration: &pbtypes.Duration{
+				Seconds: 10,
+			},
+		},
+		ServiceConfigs: []*config.GcpServiceSetting{
 			{
-				OperationName: "reportMetrics",
-				StartTime:     timeNow,
-				EndTime:       timeNow,
-				Labels: map[string]string{
-					"cloud.googleapis.com/location": "global",
-				},
-				MetricValueSets: []*sc.MetricValueSet{
+				MeshServiceName:   "service_a",
+				GoogleServiceName: "service_a.googleapi.com",
+				Quotas: []*config.Quota{
 					{
-						MetricName: "serviceruntime.googleapis.com/api/producer/request_count",
-						MetricValues: []*sc.MetricValue{
-							{
-								StartTime:  timeNow,
-								EndTime:    timeNow,
-								Int64Value: &metricValue,
-							},
+						Name: "request-count",
+						GoogleQuotaMetricName: "request-metric",
+						Expiration: &pbtypes.Duration{
+							Seconds: 10,
 						},
 					},
 				},
 			},
+			{
+				MeshServiceName:   "service_b",
+				GoogleServiceName: "service_b.googleapi.com",
+			},
 		},
 	}
+}
 
-	cfg := spew.NewDefaultConfig()
-	cfg.DisablePointerAddresses = true
-	if !reflect.DeepEqual(*expected, *request) {
-		t.Errorf("expect op1 == op2, but op1 = %v, op2 = %v", cfg.Sdump(*expected), cfg.Sdump(*request))
+func getTestBuilder() *builder {
+	return &builder{
+		config: getTestAdapterConfig(),
 	}
 }
