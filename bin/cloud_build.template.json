@@ -31,7 +31,7 @@
       ],
       "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./bin/update_and_create_archives.sh", "-v", "$_VER_STRING", "-o", "/output" ]
+      "args": [ "./bin/update_and_create_archives.sh", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output" ]
     },
     {
       "volumes": [

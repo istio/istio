@@ -27,11 +27,13 @@ set -x
 OUTPUT_PATH=""
 VER_STRING=""
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GCR_TEST_PATH=""
 
 function usage() {
   echo "$0
-    -o <path> path where build output/artifacts are stored    (required)
-    -v <ver>  version info to include in filename (e.g., 1.0) (required)"
+    -o <path> path where build output/artifacts are stored        (required)
+    -q <name> GCR bucket & prefix path where build will be stored (optional)
+    -v <ver>  version info to include in filename (e.g., 1.0)     (required)"
   exit 1
 }
 
@@ -41,9 +43,10 @@ function error_exit() {
   exit ${2:-1}
 }
 
-while getopts o:v: arg ; do
+while getopts o:q:v: arg ; do
   case "${arg}" in
     o) OUTPUT_PATH="${OPTARG}";;
+    q) GCR_TEST_PATH="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
     *) usage;;
   esac
@@ -52,35 +55,40 @@ done
 [[ -z "${OUTPUT_PATH}"  ]] && usage
 [[ -z "${VER_STRING}"   ]] && usage
 
-## generate the test set of tars
-#DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
-#COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
-#ISTIOCTL_URL="${COMMON_URL}/istioctl"
-#DEBIAN_URL="${COMMON_URL}/deb"
-#
-# can't seem to set/override PROXY_TAG (sha), FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
-#./install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
-#                           -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
-#                           -r "${VER_STRING}" -E "${DEBIAN_URL}" -d "${OUTPUT_PATH}"
+function copy_and_archive() {
+  # can't seem to set/override PROXY_TAG (sha), FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
+  ${ROOT}/install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
+                                   -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
+                                   -r "${VER_STRING}" -E "${DEBIAN_URL}"
+  # save -d "${OUTPUT_PATH}" for later
+  
+  pushd ${ROOT}
+  cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
+  find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
+    -exec cp --parents {} "${OUTPUT_PATH}" \;
+  find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
+  popd
 
-# generate the release set of tars
-DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
+  ${ROOT}/bin/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
+  return 0
+}
+
 COMMON_URL="https://storage.googleapis.com/istio-release/releases/${VER_STRING}"
 ISTIOCTL_URL="${COMMON_URL}/istioctl"
 DEBIAN_URL="${COMMON_URL}/deb"
 
-# can't seem to set/override PROXY_TAG (sha), FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
-${ROOT}/install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
-                                 -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
-                                 -r "${VER_STRING}" -E "${DEBIAN_URL}"
-# save -d "${OUTPUT_PATH}" for later
+# generate a test set of tars for images on GCR
+if [[ -n "${GCR_TEST_PATH}" ]]; then
 
-# store artifacts that are used by a separate cloud builder step to generate tar files
-pushd ${ROOT}
-cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
-find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
-  -exec cp --parents {} "${OUTPUT_PATH}" \;
-find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
-popd
+  DOCKER_HUB_TAG="${GCR_TEST_PATH},${VER_STRING}"
+  copy_and_archive
 
-${ROOT}/bin/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
+  # These files are only used for testing, so use a name to help make this clear
+  for TAR_FILE in ${OUTPUT_PATH}/*.tar; do
+    mv "$TAR_FILE" "${TAR_FILE%.tar}_TESTONLY.tar"
+  done
+fi
+
+# generate the release set of tars
+DOCKER_HUB_TAG="docker.io/istio,${VER_STRING}"
+copy_and_archive
