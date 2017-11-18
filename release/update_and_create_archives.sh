@@ -79,6 +79,12 @@ function copy_and_archive() {
 # generate a test set of tars for images on GCR
 if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
 
+  # remove any trailing / since docker doesn't like to see //
+  # do the same for GCS for consistency
+
+  GCR_TEST_PATH=${GCR_TEST_PATH%/}
+  GCS_TEST_PATH=${GCS_TEST_PATH%/}
+
   DOCKER_HUB_TAG="gcr.io/${GCR_TEST_PATH},${VER_STRING}"
   COMMON_URL="https://storage.googleapis.com/${GCS_TEST_PATH}"
   ISTIOCTL_URL="${COMMON_URL}/istioctl"
