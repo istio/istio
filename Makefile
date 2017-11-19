@@ -51,11 +51,24 @@ setup: pilot/platform/kube/config
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
-.PHONY: precommit check
+.PHONY: precommit format check
+.PHONY: fmt format.gofmt format.goimports format.bazel
 .PHONY: check.vet check.lint
 
-precommit: check
+precommit: format check
+format: format.goimports
+fmt: format.gofmt format.goimports format.bazel # backward compatible with ./bin/fmt
 check: check.vet check.lint
+
+format.gofmt: $(info formatting files with go fmt...)
+	@ gofmt -s -w $(GO_FILES)
+
+format.goimports: ; $(info formatting files with goimports...)
+	@ goimports -w -local istio.io $(GO_FILES)
+
+format.bazel: ; $(info formatting bazel files...)
+	$(eval BAZEL_FILES = $(shell git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl'))
+	@ buildifier -mode=fix $(BAZEL_FILES)
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info running go vet on packages...)
@@ -73,9 +86,6 @@ check.lint: ; $(info running golint on packages...)
 
 build: setup
 	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
-
-fmt:
-	bin/fmt.sh
 
 clean:
 	@bazel clean
