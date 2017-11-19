@@ -72,11 +72,12 @@ func (b *distValueBuilder) updateCommonStatistics(value float64) {
 	} else {
 		dist.Minimum = math.Min(dist.Minimum, value)
 		dist.Maximum = math.Max(dist.Maximum, value)
-		dist.SumOfSquaredDeviation +=
-			float64(dist.Count) / (float64(dist.Count) + 1.0) *
-				math.Pow(float64(value)-dist.Mean, 2.0)
-		dist.Mean = float64(dist.Count)/float64(dist.Count+1)*dist.Mean +
-			value/float64(dist.Count+1)
+		// We use a well known online variance method to calculate square sum deviation.
+		// https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+		delta := value - dist.Mean
+		dist.Mean += delta / (float64(dist.Count) + 1.0)
+		delta2 := value - dist.Mean
+		dist.SumOfSquaredDeviation += delta * delta2
 	}
 	dist.Count++
 }

@@ -45,7 +45,7 @@ func getTestReportBuilder() *reportBuilder {
 		},
 		instance: &svcctrlreport.Instance{
 			ApiVersion:      "v1.0",
-			ApiOperation:    "POST /echo",
+			ApiOperation:    "echo",
 			ApiProtocol:     "REST",
 			ApiService:      "echo.test.com",
 			ApiKey:          "test_key",
@@ -61,7 +61,6 @@ func getTestReportBuilder() *reportBuilder {
 		resolver: &mockConsumerProjectIDResolver{
 			consumerProjectID: "test_consumer_project",
 		},
-		labelMap: make(map[string]string),
 	}
 }
 
@@ -77,14 +76,14 @@ func TestBuildLogEntry(t *testing.T) {
 	expected :=
 		`{
 			"api_name":"echo.test.com",
-			"api_method":"POST /echo",
+			"api_operation":"echo",
 			"api_key":"test_key",
 			"http_method":"POST",
 			"request_size_in_bytes":10,
 			"http_response_code":200,
 			"timestamp":"2017-10-21T17:09:05Z",
 			"location":"global",
-			"log_message":"Method:POST /echo"
+			"log_message":"Method:echo"
 		}`
 
 	actual := string(op.LogEntries[0].StructPayload)
@@ -101,9 +100,15 @@ func TestBuildMetricValue(t *testing.T) {
 		`{
 			"labels":{
 				"cloud.googleapis.com/location":"global",
-				"serviceruntime.googleapis.com/api_method":"POST /echo",
+				"serviceruntime.googleapis.com/api_method":"echo",
 				"serviceruntime.googleapis.com/api_version":"v1.0",
-				"serviceruntime.googleapis.com/consumer_project":"test_consumer_project"
+				"serviceruntime.googleapis.com/consumer_project":"test_consumer_project",
+				"/consumer_id":"api_key:test_key",
+				"/credential_id":"apiKey:test_key",
+				"/protocol":"REST",
+				"/response_code":"200",
+				"/response_code_class":"2xx",
+				"/status_code":"0"
 			},
 			"metricValueSets":[
 				{
@@ -112,14 +117,6 @@ func TestBuildMetricValue(t *testing.T) {
 						{
 							"endTime":"2017-10-21T17:09:05.1Z",
 							"int64Value":"1",
-							"labels":{
-								"/consumer_id":"api_key:test_key",
-								"/credential_id":"apiKey:test_key",
-								"/protocol":"REST",
-								"/response_code":"200",
-								"/response_code_class":"2xx",
-								"/status_code":"0"
-							},
 							"startTime":"2017-10-21T17:09:05Z"
 						}
 					]

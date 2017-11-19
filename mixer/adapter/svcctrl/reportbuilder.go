@@ -52,12 +52,12 @@ type (
 		labels         []string
 	}
 
-	// JSON payload in endpoint_log, see https://cloud.google.com/endpoints/docs/openapi/ref-endpoints-logs
-	endPointsLog struct {
+	// JSON payload
+	logPayload struct {
 		URL                 string `json:"url,omitempty"`
 		APIName             string `json:"api_name,omitempty"`
 		APIVersion          string `json:"api_version,omitempty"`
-		APIMethod           string `json:"api_method,omitempty"`
+		APIOperation        string `json:"api_operation,omitempty"`
 		APIKey              string `json:"api_key,omitempty"`
 		HTTPMethod          string `json:"http_method,omitempty"`
 		RequestSizeInBytes  int64  `json:"request_size_in_bytes,omitempty"`
@@ -75,7 +75,6 @@ type (
 		supportedMetrics []metricDef
 		instance         *svcctrlreport.Instance
 		resolver         consumerProjectIDResolver
-		labelMap         map[string]string
 	}
 )
 
@@ -201,13 +200,13 @@ func (b *reportBuilder) build(op *sc.Operation) {
 }
 
 // addMetricValues adds metric value sets to operation
-// TODO(manlinl): if /credential_id label is missing, don't include consumer metrics.
+// TODO(manlinl): if API key is missing, don't include consumer metrics.
 func (b *reportBuilder) addMetricValues(op *sc.Operation) {
 	if b.supportedMetrics == nil {
 		return
 	}
 
-	op.Labels = b.generateAPIResourceLables()
+	op.Labels = b.generateAPIResourceLabels()
 	metricValueSets := make([]*sc.MetricValueSet, 0, len(b.supportedMetrics))
 	for _, metric := range b.supportedMetrics {
 		metricSet := new(sc.MetricValueSet)
@@ -217,14 +216,10 @@ func (b *reportBuilder) addMetricValues(op *sc.Operation) {
 			continue
 		}
 
-		if len(metric.labels) > 0 {
-			metricValue.Labels = make(map[string]string)
-			for _, label := range metric.labels {
-				if labelValue, ok := b.getLabelValue(label); ok {
-					metricValue.Labels[label] = labelValue
-				}
-			}
+		for _, label := range metric.labels {
+			b.addMetricLabel(label, op)
 		}
+
 		metricSet.MetricValues = []*sc.MetricValue{metricValue}
 		metricValueSets = append(metricValueSets, metricSet)
 	}
@@ -232,21 +227,22 @@ func (b *reportBuilder) addMetricValues(op *sc.Operation) {
 	op.MetricValueSets = metricValueSets
 }
 
-func (b *reportBuilder) getLabelValue(label string) (string, bool) {
-	if value, found := b.labelMap[label]; found {
-		return value, true
+func (b *reportBuilder) addMetricLabel(label string, op *sc.Operation) {
+	if op.Labels == nil {
+		panic(`op.Labels should have been initialized`)
+	}
+
+	if _, found := op.Labels[label]; found {
+		return
 	}
 
 	labelGenerator, found := labelGeneratorMap[label]
-	if !found {
-		return "", false
+	if found {
+		labelValue, ok := labelGenerator(b.instance)
+		if ok {
+			op.Labels[label] = labelValue
+		}
 	}
-
-	labelValue, ok := labelGenerator(b.instance)
-	if ok {
-		b.labelMap[label] = labelValue
-	}
-	return labelValue, ok
 }
 
 // addLogEntry adds Endpoint log entry to operation
@@ -271,10 +267,10 @@ func (b *reportBuilder) addLogEntry(op *sc.Operation) {
 }
 
 func (b *reportBuilder) generateLogJSONPayload() ([]byte, error) {
-	payload := endPointsLog{}
+	payload := logPayload{}
 	payload.APIKey = b.instance.ApiKey
 	payload.APIName = b.instance.ApiService
-	payload.APIMethod = b.instance.ApiOperation
+	payload.APIOperation = b.instance.ApiOperation
 	payload.HTTPMethod = b.instance.RequestMethod
 	payload.RequestSizeInBytes = b.instance.RequestBytes
 	payload.HTTPResponseCode = b.instance.ResponseCode
@@ -286,7 +282,7 @@ func (b *reportBuilder) generateLogJSONPayload() ([]byte, error) {
 	return json.Marshal(payload)
 }
 
-func (b *reportBuilder) generateAPIResourceLables() map[string]string {
+func (b *reportBuilder) generateAPIResourceLabels() map[string]string {
 	labels := make(map[string]string)
 	if b.instance.ApiKey != "" {
 		consumerID := generateConsumerIDFromAPIKey(b.instance.ApiKey)
