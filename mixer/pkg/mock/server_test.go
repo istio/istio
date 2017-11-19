@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testenv
+package mock
 
 import (
 	"flag"
@@ -107,14 +107,14 @@ func TestDenierAdapter(t *testing.T) {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 	}
 
-	env, err := NewEnv(&args, template.SupportedTmplInfo, []adapter.InfoFn{denier.GetInfo})
+	env, err := NewServer(&args, template.SupportedTmplInfo, []adapter.InfoFn{denier.GetInfo})
 	if err != nil {
-		t.Fatalf("fail to create testenv: %v", err)
+		t.Fatalf("fail to create mock: %v", err)
 	}
 
 	defer closeHelper(env)
 
-	client, conn, err := env.CreateMixerClient()
+	client, conn, err := env.CreateClient()
 	if err != nil {
 		t.Fatalf("fail to create client connection: %v", err)
 	}
