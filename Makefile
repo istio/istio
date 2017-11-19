@@ -12,8 +12,18 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+#-----------------------------------------------------------------------------
+# Global Variables
+#-----------------------------------------------------------------------------
 TOP := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
+
+GO ?= go
+
+# @todo allow user to run for a single $PKG only?
+PACKAGES := $(shell $(GO) list ./...)
+GO_EXCLUDE := /vendor/|.pb.go|.gen.go
+GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 
 BAZEL_STARTUP_ARGS ?=
 BAZEL_BUILD_ARGS ?=
@@ -38,8 +48,28 @@ checkvars:
 
 setup: pilot/platform/kube/config
 
-check:
-	echo 'To be added'
+#-----------------------------------------------------------------------------
+# Target: precommit
+#-----------------------------------------------------------------------------
+.PHONY: precommit check
+.PHONY: check.vet check.lint
+
+precommit: check
+check: check.vet check.lint
+
+# @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
+check.vet: ; $(info running go vet on packages...)
+	@ $(GO) vet $(PACKAGES) || true
+
+# @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
+# @todo remove _test and mock_ from ignore list and fix the errors?
+check.lint: ; $(info running golint on packages...)
+	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
+	@ for p in $(PACKAGES); do \
+		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
+	done || true;
+
+# @todo gometalinter targets?
 
 build: setup
 	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
