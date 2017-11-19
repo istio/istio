@@ -24,6 +24,15 @@ import (
 // Due to the use of the time.Time.UnixNano function in this code, expiration
 // will fail after the year 2262. Sorry, you'll need to upgrade to a newer version
 // of Istio at that time :-)
+//
+// This code does some trickery with finalizers in order to avoid the need for a Close
+// method. Given the nature of this code, forgetting to call Close on one of these objects
+// can lead to a substantial permanent memory leak in a process by causing the cache to
+// remain alive forever, along with all the entries the cache points to. The use of the
+// ttlWrapper type makes it so we control the exposure of the underlying ttlCache pointer.
+// When the pointer to ttlWrapper is finalized, this tells us to go ahead and stop the
+// evicter goroutine, which allows the lruCache instance to be collected and everything
+// ends well.
 
 // See use of SetFinalizer below for an explanation of this weird composition
 type ttlWrapper struct {
@@ -36,6 +45,7 @@ type ttlCache struct {
 	defaultExpiration time.Duration
 	stopEvicter       chan bool
 	baseTimeNanos     int64
+	evicterTerminated bool // used by unit tests to verify the finalizer ran
 }
 
 // A single cache entry. This is the values we use in our storage map
@@ -43,9 +53,6 @@ type entry struct {
 	value      interface{}
 	expiration int64 // nanoseconds
 }
-
-// global variable for use by unit tests that need to verify the finalizer has run
-var ttlEvictionLoopTerminated = false
 
 // NewTTL creates a new cache with a time-based eviction model.
 //
@@ -95,7 +102,7 @@ func (c *ttlCache) evicter(evictionInterval time.Duration) {
 			c.evictExpired(now)
 		case <-c.stopEvicter:
 			ticker.Stop()
-			ttlEvictionLoopTerminated = true // record this global state for the sake of unit tests
+			c.evicterTerminated = true // record this global state for the sake of unit tests
 			return
 		}
 	}
@@ -109,18 +116,31 @@ func (c *ttlCache) evictExpired(t time.Time) {
 	n := t.UTC().UnixNano()
 	atomic.StoreInt64(&c.baseTimeNanos, n)
 
-	var count uint64
+	// This loop is inherently racy. As we iterate through the
+	// key/value pairs, the value assigned to a particular key may
+	// change at any point. So when we find an expired entry and
+	// delete it, it's possible that a concurrent update assigned a
+	// fresh value to the key at hand, and so we'll proceed to delete
+	// the fresh key/value combo.
+	//
+	// This is a cache, not a map. So we're OK with this extremely rare
+	// situation. So long as the cache never lies, it's OK if it spuriously
+	// forgets.
 
 	c.entries.Range(func(key interface{}, value interface{}) bool {
 		e := value.(*entry)
 		if e.expiration <= n {
 			c.entries.Delete(key)
-			count++
+
+			// Note: can miscount if the key was removed before it was evicted
+			atomic.AddUint64(&c.stats.Evictions, 1)
 		}
 		return true
 	})
+}
 
-	atomic.AddUint64(&c.stats.Writes, count)
+func (c *ttlCache) EvictExpired() {
+	c.evictExpired(time.Now())
 }
 
 func (c *ttlCache) Set(key interface{}, value interface{}) {
@@ -155,7 +175,20 @@ func (c *ttlCache) Get(key interface{}) (interface{}, bool) {
 
 func (c *ttlCache) Remove(key interface{}) {
 	c.entries.Delete(key)
-	atomic.AddUint64(&c.stats.Writes, 1)
+
+	// Note: we count this as a removal even in the case where the key wasn't actually in the map
+	atomic.AddUint64(&c.stats.Removals, 1)
+}
+
+func (c *ttlCache) RemoveAll() {
+	c.entries.Range(func(key interface{}, value interface{}) bool {
+		c.entries.Delete(key)
+
+		// Note: can miscount if the key was evicted before it was removed
+		atomic.AddUint64(&c.stats.Removals, 1)
+
+		return true
+	})
 }
 
 func (c *ttlCache) Stats() Stats {

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package cache
 
 import (
@@ -38,10 +39,15 @@ func TestTTLEvicter(t *testing.T) {
 	testCacheEvicter(ttl, t)
 }
 
+func TestTTLEvictExpired(t *testing.T) {
+	ttl := NewTTL(5*time.Second, 0)
+	testCacheEvictExpired(ttl, t)
+}
+
 func TestTTLFinalizer(t *testing.T) {
-	ttlEvictionLoopTerminated = false
-	_ = NewTTL(5*time.Second, 1*time.Millisecond)
-	testCacheFinalizer(&ttlEvictionLoopTerminated, t)
+	c := NewTTL(5*time.Second, 1*time.Millisecond).(*ttlWrapper)
+	gate := &c.evicterTerminated
+	testCacheFinalizer(gate, t)
 }
 
 func BenchmarkTTLGet(b *testing.B) {
@@ -62,6 +68,11 @@ func BenchmarkTTLSet(b *testing.B) {
 func BenchmarkTTLSetConcurrent(b *testing.B) {
 	c := NewTTL(5*time.Minute, 1*time.Minute)
 	benchmarkCacheSetConcurrent(c, b)
+}
+
+func BenchmarkTTLGetSetConcurrent(b *testing.B) {
+	c := NewTTL(5*time.Minute, 1*time.Minute)
+	benchmarkCacheGetSetConcurrent(c, b)
 }
 
 func BenchmarkTTLSetRemove(b *testing.B) {
