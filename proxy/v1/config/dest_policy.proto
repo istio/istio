@@ -61,7 +61,7 @@ package istio.proxy.v1.config;
 //         name: ROUND_ROBIN
 //
 // *Note:* Destination policies will be applied only if the corresponding
-// tagged instances are explicity routed to. In other words, for every
+// tagged instances are explicitly routed to. In other words, for every
 // destination policy defined, at least one route rule must refer to the
 // service version indicated in the destination policy.
 message DestinationPolicy {
@@ -80,12 +80,12 @@ message DestinationPolicy {
   CircuitBreaker circuit_breaker = 4;
 
   //(-- Other custom policy implementations --)
-  google.protobuf.Any custom = 100 ;
+  google.protobuf.Any custom = 100;
 }
 
 // Load balancing policy to use when forwarding traffic. These policies
 // directly correlate to [load balancer
-// types](https://envoyproxy.github.io/envoy/intro/arch_overview/load_balancing.html)
+// types](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing)
 // supported by Envoy. Example,
 //
 //     metadata:
@@ -98,7 +98,7 @@ message DestinationPolicy {
 //         name: RANDOM
 //
 message LoadBalancing {
-  // Load balancing algorithms supported by Envoy proxy.
+  // Load balancing algorithms supported by Envoy.
   enum SimpleLBPolicy {
 
     // Simple round robin policy.
@@ -128,8 +128,8 @@ message LoadBalancing {
 // continually return errors for API calls are ejected from the pool for a
 // pre-defined period of time.
 // See Envoy's
-// [circuit breaker](https://envoyproxy.github.io/envoy/intro/arch_overview/circuit_breaking.html)
-// and [outlier detection](https://envoyproxy.github.io/envoy/intro/arch_overview/outlier.html)
+// [circuit breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking)
+// and [outlier detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
 // for more details.
 message CircuitBreaker {
   // A simple circuit breaker can be set based on a number of criteria such as
