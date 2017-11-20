@@ -40,6 +40,14 @@ ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
 
+#-----------------------------------------------------------------------------
+# Output control
+#-----------------------------------------------------------------------------
+VERBOSE ?= 0
+V ?= $(or $(VERBOSE),0)
+Q = $(if $(filter 1,$V),,@)
+H = $(shell printf "\033[34;1m=>\033[0m")
+
 .DEFAULT_GOAL := build
 
 checkvars:
@@ -60,25 +68,25 @@ format: format.goimports
 fmt: format.gofmt format.goimports format.bazel # backward compatible with ./bin/fmt
 check: check.vet check.lint
 
-format.gofmt: $(info formatting files with go fmt...)
-	@ gofmt -s -w $(GO_FILES)
+format.gofmt: ; $(info $(H) formatting files with go fmt...)
+	$(Q) gofmt -s -w $(GO_FILES)
 
-format.goimports: ; $(info formatting files with goimports...)
-	@ goimports -w -local istio.io $(GO_FILES)
+format.goimports: ; $(info $(H) formatting files with goimports...)
+	$(Q) goimports -w -local istio.io $(GO_FILES)
 
-format.bazel: ; $(info formatting bazel files...)
+format.bazel: ; $(info $(H) formatting bazel files...)
 	$(eval BAZEL_FILES = $(shell git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl'))
-	@ buildifier -mode=fix $(BAZEL_FILES)
+	$(Q) buildifier -mode=fix $(BAZEL_FILES)
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
-check.vet: ; $(info running go vet on packages...)
-	@ $(GO) vet $(PACKAGES) || true
+check.vet: ; $(info $(H) running go vet on packages...)
+	$(Q) $(GO) vet $(PACKAGES) || true
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: ; $(info running golint on packages...)
+check.lint: ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
-	@ for p in $(PACKAGES); do \
+	$(Q) for p in $(PACKAGES); do \
 		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
