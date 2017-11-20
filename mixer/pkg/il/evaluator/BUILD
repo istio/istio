@@ -19,7 +19,7 @@ go_library(
         "//mixer/pkg/il/runtime:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_golang_lru//:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )
 
@@ -28,7 +28,7 @@ go_test(
     size = "medium",
     srcs = [
         "checker_test.go",
-        "evaluator_test.go"
+        "evaluator_test.go",
     ],
     library = ":go_default_library",
     deps = [
@@ -37,6 +37,6 @@ go_test(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il/testing:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )
