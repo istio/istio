@@ -66,7 +66,7 @@ function copy_and_archive() {
   # save -d "${OUTPUT_PATH}" for later
   
   pushd ${ROOT}
-  cp istio.VERSION LICENSE README.md CONTRIBUTING.md "${OUTPUT_PATH}/"
+  cp istio.VERSION LICENSE README.md "${OUTPUT_PATH}/"
   find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
     -exec cp --parents {} "${OUTPUT_PATH}" \;
   find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
