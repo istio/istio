@@ -18,10 +18,9 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"testing"
-
-	"path"
 
 	"istio.io/istio/pilot/adapter/config/file"
 	"istio.io/istio/pilot/adapter/config/memory"

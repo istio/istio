@@ -25,9 +25,9 @@ go_library(
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_howeyc_fsnotify//:go_default_library",
-        "@io_istio_api//:mixer/v1",
-        "@io_istio_api//:mixer/v1/config/client",
-        "@io_istio_api//:proxy/v1/config",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_api//mixer/v1/config/client:go_default_library",
+        "@io_istio_api//proxy/v1/config:go_default_library",
     ],
 )
 
@@ -57,7 +57,7 @@ go_test(
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_howeyc_fsnotify//:go_default_library",
-        "@io_istio_api//:proxy/v1/config",
+        "@io_istio_api//proxy/v1/config:go_default_library",
     ],
 )
 

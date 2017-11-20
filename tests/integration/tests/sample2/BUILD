@@ -7,6 +7,5 @@ go_test(
     deps = [
         "//tests/integration/environment:go_default_library",
         "//tests/integration/framework:go_default_library",
-        "//tests/util:go_default_library",
     ],
 )
