@@ -57,6 +57,27 @@ checkvars:
 setup: pilot/platform/kube/config
 
 #-----------------------------------------------------------------------------
+# Target: dependencies
+#-----------------------------------------------------------------------------
+.PHONY: depend 
+.PHONY: depend.status depend.ensure depend.graph
+
+depend: depend.ensure
+
+Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
+	$(Q) dep ensure -update
+
+depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
+	$(Q) dep status
+
+# @todo only run if there are changes (e.g., create a checksum file?) 
+depend.ensure: Gopkg.lock ; $(info $(H) ensuring dependencies are up to date...)
+	$(Q) dep ensure
+
+depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
+	$(Q) dep status -dot | dot -T png | display
+
+#-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
 .PHONY: precommit format check
