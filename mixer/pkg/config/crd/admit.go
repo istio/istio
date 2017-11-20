@@ -73,7 +73,7 @@ type ControllerOptions struct {
 	// namespace not in this list is unconditionally validated as
 	// good. This is useful when multiple validators are running in
 	// the same cluster managing different sets of namespaces
-	// (e.g. shared test clusters).
+	// (e.g. shared test clusters). Not for production use.
 	ValidateNamespaces []string
 
 	// // CAbundle is the PEM encoded CA bundle which will be used to
@@ -113,7 +113,7 @@ type AdmissionController struct {
 // client CA cert used by the "GenericAdmissionWebhook" plugin
 // admission controller.
 //
-// NOTE: this certificate is provided kubernetes. We do not control
+// NOTE: this certificate is provided by kubernetes. We do not control
 // its name or location.
 func getAPIServerExtensionCACert(cl kubernetes.Interface) ([]byte, error) {
 	const name = "extension-apiserver-authentication"
@@ -201,7 +201,7 @@ func setup(client kubernetes.Interface, options *ControllerOptions) (*tls.Config
 
 // Run implements the admission controller run loop.
 func (ac *AdmissionController) Run(stop <-chan struct{}) {
-	// TODO(github.com/kubernetes/kubernetes/issues/49987) -
+	// TODO(https://github.com/istio/istio/issues/1795) -
 	// Temporarily defer cert generation and registration to the run
 	// loop where it won't block other controllers. Ideally this
 	// should be performed synchronously as part of NewController()
@@ -255,7 +255,7 @@ func (ac *AdmissionController) unregister(client admissionClient.ExternalAdmissi
 	return client.Delete(ac.options.ExternalAdmissionWebhookName, nil)
 }
 
-// Register registers the external admission webhook for pilot
+// Register registers the external admission webhook for mixer
 // configuration types.
 func (ac *AdmissionController) register(client admissionClient.ExternalAdmissionHookConfigurationInterface, caCert []byte) error { // nolint: lll
 	webhook := &admissionregistrationv1alpha1.ExternalAdmissionHookConfiguration{
@@ -304,6 +304,8 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if r.Body != nil {
 		if data, err := ioutil.ReadAll(r.Body); err == nil {
 			body = data
+		} else {
+			glog.V(4).Infof("Failed to read request body: %v", err)
 		}
 	}
 

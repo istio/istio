@@ -49,7 +49,7 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceNamespace, "namespace", "istio-system", "the namespace where this webhook is deployed")
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceName, "webhook-name", "istio-mixer-webhook", "the name of the webhook")
 	validatorCmd.PersistentFlags().StringArrayVar(&vc.ValidateNamespaces, "target-namespaces", []string{},
-		"the list of namespaces where changes should be validated. Empty means to validate everything.")
+		"the list of namespaces where changes should be validated. Empty means to validate everything. Used for test only.")
 	validatorCmd.PersistentFlags().IntVarP(&vc.Port, "port", "p", 9099, "the port number of the webhook")
 	validatorCmd.PersistentFlags().StringVar(&vc.SecretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
 	validatorCmd.PersistentFlags().DurationVar(&vc.RegistrationDelay, "registration-delay", 5*time.Second, "Time to delay webhook registration after starting webhook server")
@@ -62,19 +62,13 @@ func createK8sClient() (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
+	return kubernetes.NewForConfig(config)
 }
 
 func runValidator(vc crd.ControllerOptions, kinds map[string]proto.Message, printf, fatalf shared.FormatFn) {
 	client, err := createK8sClient()
 	if err != nil {
-		printf("Failed to create kubernetes client: %v", err)
-		printf("Starting plain http server, but external admission hook is not enabled")
-		client = nil
+		fatalf("Failed to create kubernetes client: %v", err)
 	}
 	vs, err := crd.NewController(client, vc)
 	if err != nil {
