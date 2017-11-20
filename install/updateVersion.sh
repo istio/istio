@@ -36,6 +36,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -p ... <hub>,<tag> for the pilot docker image
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the istio-ca docker image
+    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, and istio-ca containers
     -r ... tag for proxy debian package
     -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
@@ -50,13 +51,14 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c:r:sA:P:E:d: arg; do
+while getopts :gi:n:p:x:c:a:r:sA:P:E:d: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
     p) PILOT_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     r) PROXY_TAG="${OPTARG}";;
     g) GIT_COMMIT=true;;
     s) CHECK_GIT_STATUS=true;;
@@ -67,6 +69,15 @@ while getopts :gi:n:p:x:c:r:sA:P:E:d: arg; do
     *) usage;;
   esac
 done
+
+if [[ -n ${ALL_HUB_TAG} ]]; then
+    PILOT_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    PILOT_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    MIXER_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    CA_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    CA_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+fi
 
 if [[ -n ${PILOT_HUB_TAG} ]]; then
     PILOT_HUB="$(echo ${PILOT_HUB_TAG}|cut -f1 -d,)"

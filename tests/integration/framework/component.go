@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package framework
 
-import (
-	"encoding/json"
-	"io/ioutil"
-	"os"
-)
+// Component is a interface of a test component
+type Component interface {
+	// GetName return component name
+	GetName() string
 
-func readAndUnmarshal(object interface{}, dir string, fileName string) error {
-	path := dir + string(os.PathSeparator) + fileName
+	// Bringup doing setup for this component
+	// Start() is being called in framework.SetUp()
+	Start() error
 
-	bytes, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
+	// Stop stop this component
+	// Stop() is being called in framework.TearDown()
+	Stop() error
 
-	return json.Unmarshal(bytes, object)
+	// IsAlive check if component is alive/running
+	IsAlive() (bool, error)
+
+	// Cleanup clean up tmp files and other resource created by this component
+	Cleanup() error
 }

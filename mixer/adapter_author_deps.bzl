@@ -38,7 +38,7 @@ def mixer_adapter_repositories():
 
     go_repository(
         name = "com_github_gogo_protobuf",
-        commit = "100ba4e885062801d56799d78530b73b178a78f3",  # Mar 7, 2017 (match pubref dep)
+        commit = "342cbe0a04158f6dcb03ca0079991a51a4248c02",  # Oct 7, 2017 (v0.5)
         importpath = "github.com/gogo/protobuf",
         build_file_proto_mode = "legacy",
     )
