@@ -31,7 +31,17 @@ type controller struct {
 func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	out := &controller{
 		configStore: cs,
-		monitor:     NewConfigStoreMonitor(cs),
+		monitor:     NewMonitor(cs),
+	}
+	return out
+}
+
+// NewBufferedController return an implementation of model.ConfigStoreCache. This differs from NewController in that it
+// allows for specifying the size of the internal event buffer.
+func NewBufferedController(cs model.ConfigStore, bufferSize int) model.ConfigStoreCache {
+	out := &controller{
+		configStore: cs,
+		monitor:     NewBufferedMonitor(cs, bufferSize),
 	}
 	return out
 }
