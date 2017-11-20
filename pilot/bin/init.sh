@@ -30,7 +30,7 @@ go version
 rm -rf $(pwd)/vendor
 
 # Vendorize bazel dependencies
-bin/bazel_to_go.py
+bin/bazel_to_go.py "${PDIR}/.."
 
 # Remove doubly-vendorized k8s dependencies
 rm -rf vendor/k8s.io/*/vendor
