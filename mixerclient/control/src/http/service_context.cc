@@ -28,6 +28,12 @@ ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
   service_config_.mutable_mixer_attributes()->MergeFrom(
       client_context->config().mixer_attributes());
 
+  // Build api_spec parsers
+  for (const auto& api_spec : service_config_.http_api_spec()) {
+    api_spec_parsers_.push_back(
+        std::move(::istio::api_spec::HttpApiSpecParser::Create(api_spec)));
+  }
+
   // Build quota parser
   for (const auto& quota : service_config_.quota_spec()) {
     quota_parsers_.push_back(
@@ -39,6 +45,21 @@ ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
 void ServiceContext::AddStaticAttributes(RequestContext* request) const {
   if (service_config_.has_mixer_attributes()) {
     request->attributes.MergeFrom(service_config_.mixer_attributes());
+  }
+}
+
+void ServiceContext::AddApiAttributes(CheckData* check_data,
+                                      RequestContext* request) const {
+  if (api_spec_parsers_.size() == 0) {
+    return;
+  }
+  std::string http_method;
+  std::string path;
+  if (check_data->FindRequestHeader(CheckData::HEADER_METHOD, &http_method) &&
+      check_data->FindRequestHeader(CheckData::HEADER_PATH, &path)) {
+    for (const auto& parser : api_spec_parsers_) {
+      parser->AddAttributes(http_method, path, &request->attributes);
+    }
   }
 }
 

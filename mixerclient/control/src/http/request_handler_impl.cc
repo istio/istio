@@ -40,6 +40,8 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
     AttributesBuilder builder(&request_context_);
     builder.ExtractForwardedAttributes(check_data);
     builder.ExtractCheckAttributes(check_data);
+
+    service_context_->AddApiAttributes(check_data, &request_context_);
   }
 
   if (service_context_->client_context()->config().has_forward_attributes()) {

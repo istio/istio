@@ -16,6 +16,7 @@
 #ifndef MIXERCONTROL_HTTP_SERVICE_CONTEXT_H
 #define MIXERCONTROL_HTTP_SERVICE_CONTEXT_H
 
+#include "api_spec/include/http_api_spec_parser.h"
 #include "client_context.h"
 #include "google/protobuf/stubs/status.h"
 #include "mixer/v1/attributes.pb.h"
@@ -39,6 +40,9 @@ class ServiceContext {
   // Add static mixer attributes.
   void AddStaticAttributes(RequestContext* request) const;
 
+  // Add api attributes from api_spec.
+  void AddApiAttributes(CheckData* check_data, RequestContext* request) const;
+
   // Add quota requirements from quota configs.
   void AddQuotas(RequestContext* request) const;
 
@@ -52,6 +56,10 @@ class ServiceContext {
  private:
   // The client context object.
   std::shared_ptr<ClientContext> client_context_;
+
+  // Api spec parsers to generate api attributes.
+  std::vector<std::unique_ptr<::istio::api_spec::HttpApiSpecParser>>
+      api_spec_parsers_;
 
   // The quota parsers for each quota config.
   std::vector<std::unique_ptr<::istio::quota::ConfigParser>> quota_parsers_;

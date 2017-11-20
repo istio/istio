@@ -30,6 +30,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//api_spec:api_spec_lib",
         "//control/include/http:headers_only",
         "//control/src:common_lib",
         "//control/src/utils:utils_lib",
