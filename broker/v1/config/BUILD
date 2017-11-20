@@ -6,4 +6,5 @@ go_proto_library(
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
     ],
+    visibility = ["//visibility:public"],
 )

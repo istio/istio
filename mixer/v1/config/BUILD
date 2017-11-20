@@ -39,4 +39,5 @@ genrule(
           "$(location :config_gen) | $(location @org_golang_x_tools_imports//:goimports) > $@",
     message = "Applying overrides to cfg proto",
     tools = ["@org_golang_x_tools_imports//:goimports"],
+    visibility = ["//visibility:public"],
 )

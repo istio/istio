@@ -20,6 +20,7 @@ gogoslick_proto_library(
         "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
