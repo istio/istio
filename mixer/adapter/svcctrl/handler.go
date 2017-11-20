@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
 )
@@ -80,8 +79,14 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 		return nil, err
 	}
 
+	quotaProc, err := newQuotaProcessor(meshServiceName, ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceProcessor{
 		checkProcessor: checkProc,
+		quotaProcessor: quotaProc,
 	}, nil
 }
 
@@ -103,10 +108,7 @@ func (h *handler) HandleSvcctrlReport(ctx context.Context, instances []*svcctrlr
 // HandleQuota handles rate limiting quota.
 func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance,
 	args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	return adapter.QuotaResult{
-		Status: status.OK,
-	}, nil
-
+	return h.svcProc.ProcessQuota(ctx, instance, args)
 }
 
 // Close closes a serviceProcessor

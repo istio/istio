@@ -119,6 +119,22 @@ func TestToDuration(t *testing.T) {
 	}
 }
 
+func TestToString(t *testing.T) {
+	if _, ok := toString(nil); ok {
+		t.Errorf(`toString(nil) doesn return false`)
+	}
+
+	str, ok := toString("abc")
+	if !ok || str != "abc" {
+		t.Errorf(`toString("abc") doesn't return "abc", true'`)
+	}
+
+	str, ok = toString(123)
+	if ok || str != "" {
+		t.Errorf(`toString(123) doens't return "",false`)
+	}
+}
+
 func TestGetInt64Address(t *testing.T) {
 	addr := getInt64Address(123)
 	if addr == nil {
@@ -134,6 +150,29 @@ func TestGenerateConsumerIDFromAPIKey(t *testing.T) {
 	id := generateConsumerIDFromAPIKey("test-key")
 	if id != "api_key:test-key" {
 		t.Errorf(` generateConsumerIDFromAPIKey("test-key") returns %v`, id)
+	}
+}
+
+func TestDimensionToString(t *testing.T) {
+	var dim = map[string]interface{}{
+		"key1": "abc",
+		"key2": 123,
+	}
+
+	str, ok := dimensionToString(dim, "key1")
+	if !ok || str != "abc" {
+		t.Errorf(`expect dimensionToString(dim, "key1") return "abc",true, but get %v, %v`,
+			str, ok)
+	}
+	str, ok = dimensionToString(dim, "key2")
+	if ok {
+		t.Errorf(`expect dimensionToString(dim, "key2") return "",false, but get %v`,
+			ok)
+	}
+	str, ok = dimensionToString(dim, "key3")
+	if ok {
+		t.Errorf(`expect dimensionToString(dim, "key3") return "",false, but get %v`,
+			ok)
 	}
 }
 
