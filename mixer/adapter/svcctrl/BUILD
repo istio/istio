@@ -7,7 +7,9 @@ go_library(
     srcs = [
         "checkprocessor.go",
         "client.go",
+        "distValueBuilder.go",
         "handler.go",
+        "reportbuilder.go",
         "svcctrl.go",
         "utils.go",
     ],
@@ -36,7 +38,9 @@ go_test(
     size = "small",
     srcs = [
         "checkprocessor_test.go",
+        "distValueBuilder_test.go",
         "handler_test.go",
+        "reportbuilder_test.go",
         "svcctrl_test.go",
         "testhelper.go",
         "utils_test.go",
