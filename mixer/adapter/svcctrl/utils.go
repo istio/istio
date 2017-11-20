@@ -113,6 +113,12 @@ func toDuration(durationProto *pbtypes.Duration) time.Duration {
 	return duration
 }
 
+func getInt64Address(i int64) *int64 {
+	addr := new(int64)
+	*addr = i
+	return addr
+}
+
 func generateConsumerIDFromAPIKey(apiKey string) string {
 	return apiKeyPrefix + apiKey
 }
