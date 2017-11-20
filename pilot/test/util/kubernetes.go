@@ -69,9 +69,31 @@ func GetPods(cl kubernetes.Interface, ns string) []string {
 	return out
 }
 
+func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
+	for _, pod := range items {
+		if pod.Status.Phase != "Pending" && pod.Status.Phase != "Running" {
+			continue
+		}
+		for _, container := range pod.Status.ContainerStatuses {
+			if container.Ready {
+				continue
+			}
+			cmd := fmt.Sprintf("kubectl describe pods %s --kubeconfig %s -n %s",
+						pod.Name, kubeconfig, ns)
+			output, _ := Shell(cmd)
+			glog.Errorf("%s\n%s", cmd, output)
+
+			cmd = fmt.Sprintf("kubectl logs %s -c istio-proxy --kubeconfig %s -n %s",
+						pod.Name, kubeconfig, ns)
+			output, _ = Shell(cmd)
+			glog.Errorf("%s\n%s", cmd, output)
+		}
+	}
+}
+
 // GetAppPods awaits till all pods are running in a namespace, and returns a map
 // from "app" label value to the pod names.
-func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, error) {
+func GetAppPods(cl kubernetes.Interface, kubeconfig string, nslist []string) (map[string][]string, error) {
 	pods := make(map[string][]string)
 	var items []v1.Pod
 
@@ -115,7 +137,8 @@ func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, 
 				break
 			}
 			if n > PodCheckBudget {
-				return pods, fmt.Errorf("exceeded budget for checking pod status")
+				describeNotReadyPods(items, kubeconfig, ns)
+				return pods, fmt.Errorf("exceeded budget %d for checking pod status", n)
 			}
 
 			time.Sleep(time.Second)

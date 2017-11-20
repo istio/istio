@@ -85,8 +85,8 @@ func (cca *clientCertAuthenticator) authenticate(ctx context.Context) (*caller, 
 	}, nil
 }
 
-// An authenticator that extracts identity from JWT. The JWT is requied to be
-// transmitted using the "Bearer" authencitation scheme.
+// An authenticator that extracts identity from JWT. The JWT is required to be
+// transmitted using the "Bearer" authentication scheme.
 type idTokenAuthenticator struct {
 	verifier *oidc.IDTokenVerifier
 }
