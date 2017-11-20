@@ -126,13 +126,11 @@ func parseInputs(data []byte) ([]*model.Config, error) {
 	configs, _, err := crd.ParseInputs(string(data))
 
 	// Convert to an array of pointers.
-	configRefs := make([]*model.Config, len(configs))
-	for i, cfg := range configs {
-		// Make a copy so that we can retain a pointer to it without it being overwritten in the next iteration.
-		tmpCfg := cfg
-		configRefs[i] = &tmpCfg
+	refs := make([]*model.Config, len(configs))
+	for i := range configs {
+		refs[i] = &configs[i]
 	}
-	return configRefs, err
+	return refs, err
 }
 
 // ParseYaml is a utility method used for testing purposes. It parses the given yaml file into an array of config
