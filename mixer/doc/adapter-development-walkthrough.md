@@ -678,7 +678,7 @@ import (
 
 	mixerapi "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/test/testenv"
+	"istio.io/istio/mixer/pkg/mock"
 	"istio.io/istio/mixer/template"
 	"path/filepath"
 )
@@ -689,7 +689,7 @@ func TestMySampleAdapter(t *testing.T) {
 		t.Fatalf("fail to get absolute path for sampleoperatorconfig: %v", err)
 	}
 
-	var args = testenv.Args{
+	var args = mock.Args{
 		// Start Mixer server on a free port on loop back interface
 		MixerServerAddr:               `127.0.0.1:0`,
 		ConfigStoreURL:                `fs://` + operatorCnfg,
@@ -699,20 +699,20 @@ func TestMySampleAdapter(t *testing.T) {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 	}
 
-	env, err := testenv.NewEnv(&args, template.SupportedTmplInfo, []adapter.InfoFn{GetInfo})
+	s, err := mock.NewServer(&args, template.SupportedTmplInfo, []adapter.InfoFn{GetInfo})
 	if err != nil {
 		t.Fatalf("fail to create testenv: %v", err)
 	}
-	defer closeHelper(env)
+	defer closeHelper(s)
 
-	client, conn, err := env.CreateMixerClient()
+	client, conn, err := s.CreateClient()
 	if err != nil {
 		t.Fatalf("fail to create client connection: %v", err)
 	}
 	defer closeHelper(conn)
 
 	attrs := map[string]interface{}{"response.code": int64(400)}
-	bag := testenv.GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
+	bag := mock.GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 	request := mixerapi.ReportRequest{Attributes: []mixerapi.Attributes{ bag}}
 	_, err = client.Report(context.Background(), &request)
 	if err != nil {
@@ -765,7 +765,7 @@ go_test(
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/template:go_default_library",
-        "//mixer/test/testenv:go_default_library",
+        "//mixer/pkg/mock:go_default_library",
         "//mixer/template:go_default_library",
         "@io_istio_api//:mixer/v1",  # keep
         "@org_golang_x_net//context:go_default_library",
