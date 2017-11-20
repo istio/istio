@@ -34,7 +34,7 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )
 
@@ -69,6 +69,6 @@ go_test(
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )

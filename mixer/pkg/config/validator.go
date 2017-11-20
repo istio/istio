@@ -374,7 +374,7 @@ func (p *validator) validateAspectRules(rules []*pb.AspectRule, path string, val
 		var err *adapter.ConfigErrors
 		path = path + "/" + rule.GetSelector()
 		for idx, aa := range rule.GetAspects() {
-			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder,p.typeChecker); err != nil {
+			if acfg, err = convertAspectParams(p.managerFinder, aa.Kind, aa.GetParams(), p.strict, p.descriptorFinder, p.typeChecker); err != nil {
 				ce = ce.Appendf(fmt.Sprintf("%s:%s[%d]", path, aa.Kind, idx), "failed to parse params: %v", err)
 				continue
 			}
