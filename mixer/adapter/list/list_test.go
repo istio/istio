@@ -384,6 +384,44 @@ func TestNoUrlStringList(t *testing.T) {
 	}
 }
 
+func TestRegexList(t *testing.T) {
+	cfg := &config.Params{
+		Overrides: []string{
+			"a+.*",
+			"efg",
+		},
+		EntryType: config.REGEX,
+	}
+	info := GetInfo()
+	b := info.NewBuilder().(*builder)
+	b.SetAdapterConfig(cfg)
+
+	h, err := b.Build(context.Background(), test.NewEnv(t))
+	if err != nil {
+		t.Fatalf("Got error %v, expecting success", err)
+	}
+
+	cases := []struct {
+		symbol string
+		result rpc.Code
+	}{
+		{"abc", rpc.OK},
+		{"B", rpc.NOT_FOUND},
+	}
+
+	rlh := h.(*handler)
+	for _, c := range cases {
+		result, err := rlh.HandleListEntry(context.Background(), &listentry.Instance{Value: c.symbol})
+		if err != nil {
+			t.Fatalf(`unexpected failure %v`, err)
+		}
+
+		if result.Status.Code != int32(c.result) {
+			t.Errorf(`Got '%v', expecting '%v'`, result.Status.Code, c.result)
+		}
+	}
+}
+
 func TestBadUrl(t *testing.T) {
 	cfg := config.Params{
 		ProviderUrl:     "https://localhost:80",

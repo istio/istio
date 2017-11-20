@@ -190,6 +190,15 @@ func (h *handler) fetchList() {
 			h.lock.Unlock()
 			return
 		}
+	case config.REGEX:
+		l, err = parseRegexList(buf, h.config.Overrides)
+		if err != nil {
+			err = h.log.Errorf("Could not parse data from %s: %v", h.config.ProviderUrl, err)
+			h.lock.Lock()
+			h.lastFetchError = err
+			h.lock.Unlock()
+			return
+		}
 	}
 
 	// install the new list
