@@ -86,10 +86,8 @@ depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
 
 precommit: format check
 format: format.goimports
+fmt: format.gofmt format.goimports format.bazel # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
-
-fmt: 
-	$(Q) bin/fmt.sh
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
 	$(Q) gofmt -s -w $(GO_FILES)
