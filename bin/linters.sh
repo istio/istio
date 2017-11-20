@@ -28,7 +28,7 @@ docker run\
 echo 'linters OK'
 
 echo 'Checking licences'
-bin/check_license.sh || true
+bin/check_license.sh
 echo 'licences OK'
 
 echo 'Running buildifier ...'
