@@ -12,6 +12,5 @@ go_library(
         "//tests/integration/framework/component/fortio_server:go_default_library",
         "//tests/integration/framework/component/mixer:go_default_library",
         "//tests/integration/framework/component/proxy:go_default_library",
-        "//tests/util:go_default_library",
     ],
 )

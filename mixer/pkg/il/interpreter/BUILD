@@ -31,7 +31,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/config/proto:go_default_library",
-        "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il:go_default_library",
         "//mixer/pkg/il/testing:go_default_library",
         "//mixer/pkg/il/text:go_default_library",
