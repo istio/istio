@@ -4,7 +4,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["testenv.go"],
+    srcs = ["server.go"],
     deps = [
         "//mixer/cmd/server/cmd:go_default_library",
         "//mixer/cmd/shared:go_default_library",
@@ -19,7 +19,7 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["testenv_test.go"],
+    srcs = ["server_test.go"],
     data = [
         "//mixer/testdata",
     ],
