@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testenv
+package mock
 
 import (
-	"io"
 	"net"
 
 	"google.golang.org/grpc"
@@ -28,13 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// TestEnv interface
-type TestEnv interface {
-	io.Closer
-	CreateMixerClient() (mixerpb.MixerClient, *grpc.ClientConn, error)
-}
-
-type testEnv struct {
+type Server struct {
 	addr         string
 	mixerContext *cmd.ServerContext
 	shutdown     chan struct{}
@@ -50,8 +43,8 @@ type Args struct {
 	ConfigIdentityAttributeDomain string
 }
 
-// NewEnv creates a TestEnv instance.
-func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn) (TestEnv, error) {
+// NewServer creates a Server instance.
+func NewServer(args *Args, info map[string]template.Info, adapters []adapter.InfoFn) (*Server, error) {
 	lis, err := net.Listen("tcp", args.MixerServerAddr)
 	if err != nil {
 		return nil, err
@@ -73,16 +66,16 @@ func NewEnv(args *Args, info map[string]template.Info, adapters []adapter.InfoFn
 		shutdown <- struct{}{}
 	}()
 
-	return &testEnv{
+	return &Server{
 		addr:         lis.Addr().String(),
 		mixerContext: context,
 		shutdown:     shutdown,
 	}, nil
 }
 
-// CreateMixerClient returns a Mixer Grpc client.
-func (env *testEnv) CreateMixerClient() (mixerpb.MixerClient, *grpc.ClientConn, error) {
-	conn, err := grpc.Dial(env.addr, grpc.WithInsecure())
+// CreateClient returns a Mixer Grpc client.
+func (s *Server) CreateClient() (mixerpb.MixerClient, *grpc.ClientConn, error) {
+	conn, err := grpc.Dial(s.addr, grpc.WithInsecure())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -90,12 +83,12 @@ func (env *testEnv) CreateMixerClient() (mixerpb.MixerClient, *grpc.ClientConn, 
 	return mixerpb.NewMixerClient(conn), conn, nil
 }
 
-// Close cleans up TestEnv.
-func (env *testEnv) Close() error {
-	env.mixerContext.Server.GracefulStop()
-	<-env.shutdown
-	close(env.shutdown)
-	env.mixerContext = nil
+// Close cleans up Server.
+func (s *Server) Close() error {
+	s.mixerContext.Server.GracefulStop()
+	<-s.shutdown
+	close(s.shutdown)
+	s.mixerContext = nil
 	return nil
 }
 
