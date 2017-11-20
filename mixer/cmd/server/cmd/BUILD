@@ -13,7 +13,7 @@ go_library(
     ],
     visibility = [
         "//mixer/cmd:__subpackages__",
-        "//mixer/test/testenv:__subpackages__",
+        "//mixer/pkg/mock:__subpackages__",
     ],
     deps = [
         "//mixer/cmd/shared:go_default_library",

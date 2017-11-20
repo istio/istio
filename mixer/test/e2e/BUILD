@@ -21,7 +21,7 @@ go_test(
         "//mixer/test/spyAdapter:go_default_library",
         "//mixer/test/template:go_default_library",
         "//mixer/test/template/report:go_default_library",
-        "//mixer/test/testenv:go_default_library",
+        "//mixer/pkg/mock:go_default_library",
         "@io_istio_api//:mixer/v1",
         "@io_istio_api//:mixer/v1/config/descriptor",
     ],
