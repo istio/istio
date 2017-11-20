@@ -35,7 +35,6 @@ It has these top-level messages:
 	HTTPTimeout
 	HTTPRetry
 	CorsPolicy
-	Port
 */
 package istio_proxy_v1_config
 
@@ -56,7 +55,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-// Load balancing algorithms supported by Envoy proxy.
+// Load balancing algorithms supported by Envoy.
 type LoadBalancing_SimpleLBPolicy int32
 
 const (
@@ -132,7 +131,7 @@ func (LoadBalancing_SimpleLBPolicy) EnumDescriptor() ([]byte, []int) {
 //         name: ROUND_ROBIN
 //
 // *Note:* Destination policies will be applied only if the corresponding
-// tagged instances are explicity routed to. In other words, for every
+// tagged instances are explicitly routed to. In other words, for every
 // destination policy defined, at least one route rule must refer to the
 // service version indicated in the destination policy.
 type DestinationPolicy struct {
@@ -192,7 +191,7 @@ func (m *DestinationPolicy) GetCustom() *google_protobuf.Any {
 
 // Load balancing policy to use when forwarding traffic. These policies
 // directly correlate to [load balancer
-// types](https://envoyproxy.github.io/envoy/intro/arch_overview/load_balancing.html)
+// types](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/load_balancing)
 // supported by Envoy. Example,
 //
 //     metadata:
@@ -326,8 +325,8 @@ func _LoadBalancing_OneofSizer(msg proto.Message) (n int) {
 // continually return errors for API calls are ejected from the pool for a
 // pre-defined period of time.
 // See Envoy's
-// [circuit breaker](https://envoyproxy.github.io/envoy/intro/arch_overview/circuit_breaking.html)
-// and [outlier detection](https://envoyproxy.github.io/envoy/intro/arch_overview/outlier.html)
+// [circuit breaker](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/circuit_breaking)
+// and [outlier detection](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/outlier)
 // for more details.
 type CircuitBreaker struct {
 	// Types that are valid to be assigned to CbPolicy:
