@@ -15,30 +15,68 @@
 package svcctrl
 
 import (
+	"errors"
+	"io/ioutil"
 	"net/http"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	sc "google.golang.org/api/servicecontrol/v1"
-
-	"istio.io/istio/mixer/pkg/adapter"
 )
 
+type client struct {
+	serviceControl *sc.Service
+}
+
+func (c *client) Check(serviceName string, request *sc.CheckRequest) (*sc.CheckResponse, error) {
+	return c.serviceControl.Services.Check(serviceName, request).Do()
+}
+
+func (c *client) Report(serviceName string, request *sc.ReportRequest) (*sc.ReportResponse, error) {
+	return c.serviceControl.Services.Report(serviceName, request).Do()
+}
+
+func (c *client) AllocateQuota(serviceName string, request *sc.AllocateQuotaRequest) (*sc.AllocateQuotaResponse, error) {
+	return c.serviceControl.Services.AllocateQuota(serviceName, request).Do()
+}
+
+func getTokenSource(ctx context.Context, jsonKey []byte) (oauth2.TokenSource, error) {
+	jwtCfg, err := google.JWTConfigFromJSON(jsonKey, sc.CloudPlatformScope, sc.ServicecontrolScope)
+	if err != nil {
+		return nil, err
+	}
+	return jwtCfg.TokenSource(ctx), nil
+}
+
+func getRawTokenBytes(credential string) ([]byte, error) {
+	return ioutil.ReadFile(credential)
+}
+
 // Creates a service control client. The client is authenticated with service control with Oauth2.
-func createClient(logger adapter.Logger) (*sc.Service, error) {
+func newClient(credentialPath string) (serviceControlClient, error) {
+	token, err := getRawTokenBytes(credentialPath)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: http.DefaultTransport})
 
-	client, err := google.DefaultClient(ctx, sc.CloudPlatformScope, sc.ServicecontrolScope)
+	tokenSrc, err := getTokenSource(ctx, token)
 	if err != nil {
-		return nil, logger.Errorf("unable to create http client %v", err.Error())
+		return nil, err
 	}
 
-	serviceControl, err := sc.New(client)
-	if err != nil {
-		return nil, logger.Errorf("unable to create service control client %v", err.Error())
+	httpClient := oauth2.NewClient(ctx, tokenSrc)
+	if httpClient == nil {
+		return nil, nil
 	}
-	logger.Infof("created service control client\n")
-	return serviceControl, nil
+
+	svcClient, err := sc.New(httpClient)
+	if err != nil {
+		return nil, errors.New("fail to create ServiceControl client")
+	}
+
+	return &client{svcClient}, nil
 }

@@ -28,6 +28,7 @@ go_test(
     size = "small",
     srcs = [
         "aws_test.go",
+        "client_test.go",
         "gcp_test.go",
         "onprem_test.go",
     ],
@@ -37,6 +38,7 @@ go_test(
         "@com_github_aws_aws_sdk_go//aws:go_default_library",
         "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
         "@com_github_aws_aws_sdk_go//awstesting/unit:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
     ],

@@ -31,7 +31,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/tests/e2e/framework"
-	"istio.io/istio/tests/e2e/util"
+	"istio.io/istio/tests/util"
 )
 
 const (

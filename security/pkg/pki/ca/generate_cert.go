@@ -131,27 +131,27 @@ func encodePem(isCSR bool, csrOrCert []byte, priv *rsa.PrivateKey) ([]byte, []by
 // LoadSignerCredsFromFiles loads the signer cert&key from the given files.
 //   signerCertFile: cert file name
 //   signerPrivFile: private key file name
-func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, crypto.PrivateKey) {
+func LoadSignerCredsFromFiles(signerCertFile string, signerPrivFile string) (*x509.Certificate, crypto.PrivateKey, error) {
 	signerCertBytes, err := ioutil.ReadFile(signerCertFile)
 	if err != nil {
-		glog.Fatalf("certificate file reading failure (%v)", err)
+		return nil, nil, fmt.Errorf("certificate file reading failure (%v)", err)
 	}
 
 	signerPrivBytes, err := ioutil.ReadFile(signerPrivFile)
 	if err != nil {
-		glog.Fatalf("private key file reading failure (%v)", err)
+		return nil, nil, fmt.Errorf("private key file reading failure (%v)", err)
 	}
 
 	cert, err := pki.ParsePemEncodedCertificate(signerCertBytes)
 	if err != nil {
-		glog.Fatal(err)
+		return nil, nil, err
 	}
 	key, err := pki.ParsePemEncodedKey(signerPrivBytes)
 	if err != nil {
-		glog.Fatal(err)
+		return nil, nil, err
 	}
 
-	return cert, key
+	return cert, key, nil
 }
 
 func genSerialNum() *big.Int {
