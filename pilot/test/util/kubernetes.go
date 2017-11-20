@@ -79,12 +79,12 @@ func describeNotReadyPods(items []v1.Pod, kubeconfig, ns string) {
 				continue
 			}
 			cmd := fmt.Sprintf("kubectl describe pods %s --kubeconfig %s -n %s",
-						pod.Name, kubeconfig, ns)
+				pod.Name, kubeconfig, ns)
 			output, _ := Shell(cmd)
 			glog.Errorf("%s\n%s", cmd, output)
 
 			cmd = fmt.Sprintf("kubectl logs %s -c istio-proxy --kubeconfig %s -n %s",
-						pod.Name, kubeconfig, ns)
+				pod.Name, kubeconfig, ns)
 			output, _ = Shell(cmd)
 			glog.Errorf("%s\n%s", cmd, output)
 		}

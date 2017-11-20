@@ -16,11 +16,10 @@ package svcctrl
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"errors"
 	"reflect"
+	"testing"
+	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	at "istio.io/istio/mixer/pkg/adapter/test"

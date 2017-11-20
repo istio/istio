@@ -27,8 +27,8 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	pb "istio.io/istio/mixer/pkg/config/proto"
-	tmpl "istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/pkg/il/testing"
+	tmpl "istio.io/istio/mixer/pkg/template"
 )
 
 type fakeTmplRepo struct {
