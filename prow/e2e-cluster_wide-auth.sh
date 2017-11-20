@@ -28,15 +28,11 @@ set -u
 # Print commands
 set -x
 
-ROOT=(bazel info workspace)
+ROOT="$(bazel info workspace)"
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT
 create_cluster 'cluster-wide-auth'
 
-if [ -f /home/bootstrap/.kube/config ]; then
-  sudo rm /home/bootstrap/.kube/config
-fi
-
 echo 'Running cluster-wide e2e rbac, auth Tests'
-./prow/e2e-suite-rbac-auth.sh --cluster_wide "$@"
+${ROOT}/prow/e2e-suite-rbac-auth.sh --cluster_wide "$@"
