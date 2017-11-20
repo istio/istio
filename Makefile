@@ -57,7 +57,7 @@ checkvars:
 setup: pilot/platform/kube/config
 
 #-----------------------------------------------------------------------------
-# Target: dependencies
+# Target: depend
 #-----------------------------------------------------------------------------
 .PHONY: depend 
 .PHONY: depend.status depend.ensure depend.graph
@@ -137,3 +137,19 @@ pilot/platform/kube/config:
 	ln -s ~/.kube/config pilot/platform/kube/
 
 .PHONY: artifacts build checkvars clean docker test setup push
+
+#-----------------------------------------------------------------------------
+# Target: environment and tools
+#-----------------------------------------------------------------------------
+.PHONY: show.env show.goenv
+
+show.env: ; $(info $(H) environment variables...)
+	$(Q) printenv
+
+show.goenv: ; $(info $(H) go environment...)
+	$(Q) $(GO) version
+	$(Q) $(GO) env
+
+# show makefile variables. Usage: make show.<variable-name>
+show.%: ; $(info $* $(H) $($*))
+	$(Q) true
