@@ -116,8 +116,20 @@ check.lint: ; $(info $(H) running golint on packages...)
 build: setup
 	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
 
-clean:
-	@bazel clean
+#-----------------------------------------------------------------------------
+# Target: precommit
+#-----------------------------------------------------------------------------
+.PHONY: clean
+.PHONY: clean.bazel clean.go
+
+clean: clean.bazel
+
+clean.bazel: ; $(info $(H) cleaning...)
+	$(Q) bazel clean
+
+clean.go: ; $(info $(H) cleaning...)
+	$(eval GO_CLEAN_FLAGS := -i -r)
+	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
 
 test: setup
 	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
