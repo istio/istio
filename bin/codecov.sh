@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -e
 set -u
-set -x
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$(dirname $SCRIPTPATH)
 cd $ROOTDIR
