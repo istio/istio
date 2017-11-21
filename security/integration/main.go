@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"bytes"
 	"istio.io/istio/security/integration/utils"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
@@ -166,8 +167,7 @@ func runSelfSignedCATests() error {
 	}
 
 	glog.Info(`Secret "istio.default" is correctly created`)
-	_, _, _, err = examineSecret(s)
-	if err != nil {
+	if err := examineSecret(s); err != nil {
 		return err
 	}
 
@@ -192,7 +192,9 @@ func cleanUpSelfSignedCATests() {
 	glog.Info("Removing pods: istio-ca-self")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-self")
 	glog.Info("Removing secrets: istio.default")
-	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
+	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
+	glog.Info("Removing secrets: istio-ca-secret")
+	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio-ca-secret")
 }
 
 func runCertificatesRotationTests() error {
@@ -210,8 +212,7 @@ func runCertificatesRotationTests() error {
 		return err
 	}
 
-	initialKey, initialCert, initialRoot, err := examineSecret(initialSecret)
-	if err != nil {
+	if err := examineSecret(initialSecret); err != nil {
 		return err
 	}
 
@@ -231,16 +232,16 @@ func runCertificatesRotationTests() error {
 			continue
 		}
 
-		key, cert, root, err := examineSecret(secret)
-		if err != nil {
+		if err := examineSecret(secret); err != nil {
 			return err
 		}
 
-		if string(initialRoot) != string(root) {
+		if !bytes.Equal(initialSecret.Data[controller.RootCertID], secret.Data[controller.RootCertID]) {
 			return fmt.Errorf("root certificates should be match")
 		}
 
-		if string(initialKey) != string(key) && string(initialCert) != string(cert) {
+		if !bytes.Equal(initialSecret.Data[controller.PrivateKeyID], secret.Data[controller.PrivateKeyID]) &&
+			!bytes.Equal(initialSecret.Data[controller.CertChainID], secret.Data[controller.CertChainID]) {
 			glog.Infof("Certificates were successfully rotated")
 			return nil
 		}
@@ -252,7 +253,9 @@ func cleanUpCertificatesRotationTests() {
 	glog.Info("Removing pods: istio-ca-self")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-short")
 	glog.Info("Removing secrets: istio.default")
-	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
+	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
+	glog.Info("Removing secrets: istio-ca-secret")
+	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio-ca-secret")
 }
 
 func runCAForNodeAgentTests() error {
@@ -311,7 +314,7 @@ func cleanUpCAForNodeAgentTests() {
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-cert")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "node-agent-cert")
 	glog.Info("Removing secrets: istio.default")
-	_ = utils.DeleteSecrets(opts.clientset, opts.namespace, "istio.default")
+	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
 }
 
 func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
@@ -322,21 +325,17 @@ func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
 // Returns []byte type of key, cert, root and error
-func examineSecret(secret *v1.Secret) ([]byte, []byte, []byte, error) {
+func examineSecret(secret *v1.Secret) error {
 	if secret.Type != controller.IstioSecretType {
-		return nil, nil, nil, fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
+		return fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
 	}
 
 	for _, key := range []string{controller.CertChainID, controller.RootCertID, controller.PrivateKeyID} {
 		if _, exists := secret.Data[key]; !exists {
-			return nil, nil, nil, fmt.Errorf("%v does not exist in the data section", key)
+			return fmt.Errorf("%v does not exist in the data section", key)
 		}
 	}
-
-	key := secret.Data[controller.PrivateKeyID]
-	cert := secret.Data[controller.CertChainID]
-	root := secret.Data[controller.RootCertID]
 
 	// should be valid
 	expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", secret.GetNamespace())
@@ -346,11 +345,13 @@ func examineSecret(secret *v1.Secret) ([]byte, []byte, []byte, error) {
 		IsCA:        false,
 	}
 
-	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
-		return nil, nil, nil, fmt.Errorf("certificate verification failed: %v", err)
+	if err := testutil.VerifyCertificate(secret.Data[controller.PrivateKeyID],
+		secret.Data[controller.CertChainID], secret.Data[controller.RootCertID],
+		expectedID, verifyFields); err != nil {
+		return fmt.Errorf("certificate verification failed: %v", err)
 	}
 
-	return key, cert, root, nil
+	return nil
 }
 
 func readFile(path string) (string, error) {
@@ -377,7 +378,6 @@ func readURI(uri string) (string, error) {
 }
 
 func waitForNodeAgentCertificateUpdate(appurl string) error {
-	maxRetry := certValidateRetry
 	term := certValidationInterval
 
 	orgRootCert, err := readFile(opts.orgRootCert)
@@ -390,7 +390,7 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		return fmt.Errorf("unable to read original certificate chain: %v", opts.orgCertChain)
 	}
 
-	for i := 0; i < maxRetry; i++ {
+	for i := 0; i < certValidateRetry; i++ {
 		if i > 0 {
 			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
@@ -445,5 +445,5 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to check certificate update and validate after %v retry", maxRetry)
+	return fmt.Errorf("failed to check certificate update and validate after %v retry", certValidateRetry)
 }

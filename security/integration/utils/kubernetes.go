@@ -29,6 +29,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var (
+	immediate int64 = 0
+)
+
 func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -61,7 +65,7 @@ func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 }
 
 func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error {
-	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{}); err != nil {
+	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{GracePeriodSeconds: &immediate}); err != nil {
 		return fmt.Errorf("failed to delete namespace %q (error: %v)", namespace, err)
 	}
 	glog.Infof("Namespace %v is deleted", namespace)
@@ -69,7 +73,7 @@ func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 }
 
 func CreateService(clientset kubernetes.Interface, namespace string, name string, port int32,
-	serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
+		serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	uuid := string(uuid.NewUUID())
 	_, err := clientset.CoreV1().Services(namespace).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -104,7 +108,7 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 }
 
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
+	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
@@ -155,12 +159,12 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
-func DeleteSecrets(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{})
+func DeleteSecret(clientset kubernetes.Interface, namespace string, name string) error {
+	return clientset.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
+	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 func CreateRole(clientset kubernetes.Interface, namespace string) error {
@@ -221,7 +225,7 @@ func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,
-	timeToWait time.Duration) error {
+		timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -250,7 +254,7 @@ func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace s
 }
 
 func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid string,
-	timeToWait time.Duration) error {
+		timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -277,7 +281,7 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 }
 
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
-	timeToWait time.Duration) (*v1.Secret, error) {
+		timeToWait time.Duration) (*v1.Secret, error) {
 	watch, err := clientset.CoreV1().Secrets(namespace).Watch(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)
