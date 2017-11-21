@@ -14,10 +14,10 @@
 
 package crd
 
-// Note: this file is copied from pilot/platform/kube/admit. Ideally we should
-// make a common component for this server side part, accepting component-specific
-// validation logic.
-// TODO: do so.
+// Note: this file is copied from pilot/platform/kube/admit.
+// TODO(https://github.com/istio/istio/issues/1812): make a common component for this
+// server side part, and let each istio component (mixer / pilot / etc?) attach
+// its own validation logic.
 
 import (
 	"crypto/tls"

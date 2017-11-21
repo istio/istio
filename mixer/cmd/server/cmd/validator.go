@@ -20,7 +20,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -33,6 +33,7 @@ import (
 
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
+	var kubeconfig string
 	kinds := runtime.KindMap(config.InventoryMap(adapters), info)
 	vc.ResourceNames = make([]string, 0, len(kinds))
 	for name := range kinds {
@@ -43,9 +44,11 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 		Use:   "validator",
 		Short: "Runs an https server for validations. Works as an external admission webhook for k8s",
 		Run: func(cmd *cobra.Command, args []string) {
-			runValidator(vc, kinds, printf, fatalf)
+			runValidator(vc, kinds, kubeconfig, printf, fatalf)
 		},
 	}
+	validatorCmd.PersistentFlags().StringVar(&vc.ExternalAdmissionWebhookName, "external-admission-webook-name", "mixer-webhook.istio.io",
+		"the name of the external admission webhook registration. Needs to be a domain with at least three segments separated by dots.")
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceNamespace, "namespace", "istio-system", "the namespace where this webhook is deployed")
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceName, "webhook-name", "istio-mixer-webhook", "the name of the webhook")
 	validatorCmd.PersistentFlags().StringArrayVar(&vc.ValidateNamespaces, "target-namespaces", []string{},
@@ -53,20 +56,20 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 	validatorCmd.PersistentFlags().IntVarP(&vc.Port, "port", "p", 9099, "the port number of the webhook")
 	validatorCmd.PersistentFlags().StringVar(&vc.SecretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
 	validatorCmd.PersistentFlags().DurationVar(&vc.RegistrationDelay, "registration-delay", 5*time.Second, "Time to delay webhook registration after starting webhook server")
+	validatorCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Use a Kubernetes configuration file instead of in-cluster configuration")
 	return validatorCmd
 }
 
-func createK8sClient() (*kubernetes.Clientset, error) {
-	// Validator needs to run within a cluster. It should work as long as InClusterConfig is valid.
-	config, err := rest.InClusterConfig()
+func createK8sClient(kubeconfig string) (*kubernetes.Clientset, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
 }
 
-func runValidator(vc crd.ControllerOptions, kinds map[string]proto.Message, printf, fatalf shared.FormatFn) {
-	client, err := createK8sClient()
+func runValidator(vc crd.ControllerOptions, kinds map[string]proto.Message, kubeconfig string, printf, fatalf shared.FormatFn) {
+	client, err := createK8sClient(kubeconfig)
 	if err != nil {
 		fatalf("Failed to create kubernetes client: %v", err)
 	}
