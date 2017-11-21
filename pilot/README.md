@@ -55,8 +55,8 @@ utilities.
 
 1. *Integration test:* Run `make e2etest HUB=docker.io/<username> TAG=<sometag>`
 with the same image hub and tag as the ones you used in the dockerize stage. This step will
-run end to end integration tests on Kubernetes. To specify additional test options, define TESTOPTS variable in the make
-command line, for example `make e2etest TESTOPTS='-help'` to see all available options.
+run end to end integration tests on Kubernetes. To specify additional test options, define TESTOPTS variable in the
+command line of `make`, for example `make e2etest TESTOPTS='-help'` to see all available options.
 Run `make e2etest HUB=docker.io/<username> TAG=<sometag> TESTOPS='-testtype <test name>'`
 to run a single e2e test by its name.
 
