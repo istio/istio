@@ -34,14 +34,14 @@ pids=""
 declare -a pkgs
 
 for d in $(go list ${DIR} | grep -v vendor); do
-    i=$[$i+1]
     #FIXME remove mixer tools exclusion after tests can be run without bazel
     if [[ $d == "istio.io/istio/tests"* || \
       $d == "istio.io/istio/mixer/tools/codegen"* ]];then
       echo "Skipped $d"
       continue
     fi
-    go test -coverprofile=$COVERAGEDIR/$i $d &
+    filename=`tr '/' '-'`
+    go test -coverprofile=$COVERAGEDIR/${filename}.txt $d &
     pid=$!
     pkgs[$pid]=$d
     pids+=" $pid"
@@ -52,6 +52,11 @@ for d in $(go list ${DIR} | grep -v vendor); do
       num=$(jobs -p|wc -l)
     done
 done
+
+if [ "${DIR}" == "./..." ]; then
+    touch /tmp/coverage/empty
+    cat /tmp/coverage/* > coverage.txt
+fi
 
 ret=0
 for p in $pids; do
