@@ -40,8 +40,10 @@ for d in $(go list ${DIR} | grep -v vendor); do
       echo "Skipped $d"
       continue
     fi
-    filename=`tr '/' '-'`
+    filename=`echo $d | tr '/' '-'`
+    set -x
     go test -coverprofile=$COVERAGEDIR/${filename}.txt $d &
+    set +x
     pid=$!
     pkgs[$pid]=$d
     pids+=" $pid"
