@@ -352,6 +352,7 @@ func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh.MixerAddress = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
+	addConfig(registry, egressRuleTCP, t)
 
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
