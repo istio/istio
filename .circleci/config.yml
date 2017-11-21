@@ -82,7 +82,7 @@ jobs:
             cd /go/src/istio.io/istio
             new=`shasum -a 256 Gopkg.lock`
             old=`cat vendor/circleci-cache.lock 2>/dev/null || echo -n ""`
-            if [ $new != $old ]; then
+            if [ "$new" != "$old" ]; then
                dep ensure
                echo $new >vendor/circleci-cache.lock
             fi
