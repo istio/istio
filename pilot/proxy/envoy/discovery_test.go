@@ -260,9 +260,6 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) // original dst cluster should not have auth
 
-	// add an egress rule for TCP to an external service (cloud.google.com, by IP range)
-	addConfig(registry, egressRuleTCP, t) // original dst cluster should not have auth
-
 	// Change mock service security for test.
 	mock.WorldService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_NONE
 
