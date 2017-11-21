@@ -83,8 +83,10 @@ function kubectl_setup() {
 
 function install_non_istio_svc() {
  execute kubectl create namespace $FORTIO_NAMESPACE
- execute kubectl -n $FORTIO_NAMESPACE run fortio --image=istio/fortio --port=8080
- execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio --target-port=8080 --type=LoadBalancer
+ execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
+ execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
+ execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
+ execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
 }
 
 function install_istio_svc() {
@@ -105,6 +107,28 @@ function get_fortio_k8s_ip() {
   echo "+++ In k8s fortio external ip: http://$FORTIO_K8S_IP:8080/fortio/"
 }
 
+# Doesn't work somehow...
+function setup_non_istio_ingress2() {
+  cat <<_EOF_ | kubectl apply -n fortio -f -
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: fortio-ingress2
+spec:
+  rules:
+  - http:
+      paths:
+       - path: /fortio1
+         backend:
+           serviceName: fortio1
+           servicePort: 8080
+       - path: /fortio2
+         backend:
+           serviceName: fortio2
+           servicePort: 8080
+_EOF_
+}
+
 function setup_non_istio_ingress() {
   cat <<_EOF_ | kubectl apply -n fortio -f -
 apiVersion: extensions/v1beta1
@@ -113,13 +137,15 @@ metadata:
   name: fortio-ingress
 spec:
   backend:
-    serviceName: fortio
+    serviceName: fortio1
     servicePort: 8080
 _EOF_
 }
 
+
 function get_non_istio_ingress_ip() {
   K8S_INGRESS_IP=$(kubectl -n $FORTIO_NAMESPACE get ingress -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
+#  echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio1/fortio/ and fortio2"
   echo "+++ In k8s non istio ingress: http://$K8S_INGRESS_IP/fortio/"
 }
 
@@ -193,8 +219,9 @@ setup_all
 #setup_vm_all
 
 # test/retry one step at a time, eg.
-# setup_non_istio_ingress
 #install_non_istio_svc
+#setup_non_istio_ingress
+#get_non_istio_ingress_ip
 #setup_istio_all
 #install_istio_svc
 #install_istio_ingress
