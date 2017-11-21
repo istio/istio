@@ -64,7 +64,7 @@ bazel run //security/cmd/generate_cert -- \
 IMAGES=()
 
 pushd docker
-  for image in istio-ca istio-ca-short istio-ca-test node-agent-test; do
+  for image in istio-ca istio-ca-test node-agent-test; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")

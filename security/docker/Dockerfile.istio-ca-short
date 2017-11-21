@@ -1,7 +1,0 @@
-FROM ubuntu:xenial
-
-ADD istio_ca /usr/local/bin/istio_ca
-
-ENTRYPOINT [ "/usr/local/bin/istio_ca", \
-"--self-signed-ca", \
-"--cert-ttl", "60s" ]

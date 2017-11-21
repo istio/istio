@@ -73,7 +73,7 @@ func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 }
 
 func CreateService(clientset kubernetes.Interface, namespace string, name string, port int32,
-		serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
+	serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	uuid := string(uuid.NewUUID())
 	_, err := clientset.CoreV1().Services(namespace).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,6 +112,10 @@ func DeleteService(clientset kubernetes.Interface, namespace string, name string
 }
 
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
+	return CreatePodWithCommand(clientset, namespace, image, name, []string{}, []string{})
+}
+
+func CreatePodWithCommand(clientset kubernetes.Interface, namespace string, image string, name string, command []string, args []string) (*v1.Pod, error) {
 	uuid := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
@@ -134,6 +138,13 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 				Image: image,
 			},
 		},
+	}
+
+	if len(command) > 0 {
+		spec.Containers[0].Command = command
+		if len(args) > 0 {
+			spec.Containers[0].Args = args
+		}
 	}
 
 	pod := &v1.Pod{
@@ -225,7 +236,7 @@ func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
 }
 
 func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace string, uuid string,
-		timeToWait time.Duration) error {
+	timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -254,7 +265,7 @@ func waitForServiceExternalIPAddress(clientset kubernetes.Interface, namespace s
 }
 
 func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid string,
-		timeToWait time.Duration) error {
+	timeToWait time.Duration) error {
 	selectors := labels.Set{"uuid": uuid}.AsSelectorPreValidated()
 	listOptions := metav1.ListOptions{
 		LabelSelector: selectors.String(),
@@ -281,7 +292,7 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 }
 
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
-		timeToWait time.Duration) (*v1.Secret, error) {
+	timeToWait time.Duration) (*v1.Secret, error) {
 	watch, err := clientset.CoreV1().Secrets(namespace).Watch(metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to set up watch for secret (error: %v)", err)

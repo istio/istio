@@ -88,7 +88,7 @@ func main() {
 
 	if err := rootCmd.Execute(); err != nil {
 		if opts.clientset != nil && len(opts.namespace) > 0 {
-			err = utils.DeleteTestNamespace(opts.clientset, opts.namespace)
+			err := utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 			if err != nil {
 				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, err)
 			}
@@ -199,8 +199,15 @@ func cleanUpSelfSignedCATests() {
 
 func runCertificatesRotationTests() error {
 	// Create Istio CA with short lifetime certificates
-	_, err := utils.CreatePod(opts.clientset, opts.namespace,
-		fmt.Sprintf("%v/istio-ca-short:%v", opts.containerHub, opts.containerTag), "istio-ca-short")
+	_, err := utils.CreatePodWithCommand(opts.clientset, opts.namespace,
+		fmt.Sprintf("%v/istio-ca:%v", opts.containerHub, opts.containerTag), "istio-ca-short",
+		[]string{
+			"/usr/local/bin/istio_ca",
+		},
+		[]string{
+			"--self-signed-ca",
+			"--cert-ttl", "60s",
+		})
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA istio-ca-short")
 	}
@@ -324,7 +331,6 @@ func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
 // This method examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
-// Returns []byte type of key, cert, root and error
 func examineSecret(secret *v1.Secret) error {
 	if secret.Type != controller.IstioSecretType {
 		return fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
@@ -337,7 +343,6 @@ func examineSecret(secret *v1.Secret) error {
 		}
 	}
 
-	// should be valid
 	expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", secret.GetNamespace())
 	verifyFields := &testutil.VerifyFields{
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
