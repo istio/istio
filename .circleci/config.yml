@@ -78,7 +78,7 @@ jobs:
     steps:
       - checkout
       - run:
-          command:
+          command: |
             cd /go/src/istio.io/istio
             touch vendor/circleci-cache.lock
             new=`md5 Gopkg.lock`
