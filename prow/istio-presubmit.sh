@@ -14,23 +14,27 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
-# ensure Go version is same as bazel's Go version.
-source "${ROOT}/bin/use_bazel_go.sh"
-go version
 
 #######################################
 # Presubmit script triggered by Prow. #
 #######################################
 
-# Exit immediately for non zero status
-set -e
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
 # Check unset variables
 set -u
 # Print commands
 set -x
+
+# ensure Go version is same as bazel's Go version.
+source "${ROOT}/bin/use_bazel_go.sh"
+go version
+
+# Exit immediately for non zero status
+set -e
+
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
