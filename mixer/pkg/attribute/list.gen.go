@@ -188,5 +188,6 @@ var (
 		"request.auth.principal",
 		"request.auth.audiences",
 		"request.auth.presenter",
+		"request.api_key",
 	}
 )
