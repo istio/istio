@@ -29,12 +29,12 @@ export GOARCH=amd64
 
 echo "Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies."
 
-go build ./cmd/pilot-agent
-go build ./cmd/pilot-discovery
-go build ./cmd/sidecar-initializer
-go build ./test/server
-go build ./test/client
-go build ./test/eurekamirror
+go build -i ./cmd/pilot-agent
+go build -i ./cmd/pilot-discovery
+go build -i ./cmd/sidecar-initializer
+go build -i ./test/server
+go build -i ./test/client
+go build -i ./test/eurekamirror
 
 # Collect artifacts for pushing
 cp -f  client docker/client
