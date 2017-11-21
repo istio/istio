@@ -17,6 +17,9 @@
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
+# ensure Go version is same as bazel's Go version.
+source "${ROOT}/bin/use_bazel_go.sh"
+go version
 
 #######################################
 # Presubmit script triggered by Prow. #
@@ -84,10 +87,6 @@ cd $ROOT
 
 # go test execution
 time dep ensure -v
-
-# ensure Go version is same as bazel's Go version.
-source "${ROOT}/bin/use_bazel_go.sh"
-go version
 
 echo FIXME remove mixer tools exclusion after tests can be run without bazel
 time go test $(go list ./mixer/... | grep -v /tools/codegen)
