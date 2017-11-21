@@ -124,7 +124,7 @@ jobs:
             PROXY=debug-$PROXYVERSION
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh pilot
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F unittest,pilot
@@ -152,7 +152,7 @@ jobs:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh mixer
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F unittest,mixer
@@ -180,7 +180,7 @@ jobs:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh security
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F unittest,security
@@ -208,7 +208,7 @@ jobs:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh broker
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F unittest,broker
