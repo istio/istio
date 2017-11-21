@@ -16,6 +16,7 @@ package svcctrl
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -88,5 +89,158 @@ func TestReport(t *testing.T) {
 	<-test.env.GetDoneChan()
 	if test.client.reportRequest == nil {
 		t.Error("report request failed")
+	}
+	expectedReport := `
+		{
+		   "operations":[
+			  {
+				 "consumerId":"api_key:test_key",
+				 "endTime":"2017-11-01T17:00:01Z",
+				 "labels":{
+					"/credential_id":"apiKey:test_key",
+					"/protocol":"gRPC",
+					"/response_code":"200",
+					"/response_code_class":"2xx",
+					"/status_code":"0",
+					"cloud.googleapis.com/location":"global",
+					"serviceruntime.googleapis.com/api_method":"echo.foo.bar",
+					"serviceruntime.googleapis.com/api_version":"v1"
+				 },
+				 "logEntries":[
+					{
+					   "name":"endpoints_log",
+					   "severity":"INFO",
+					   "structPayload":{
+						  "api_name":"echo.googleapi.com",
+						  "api_operation":"echo.foo.bar",
+						  "api_key":"test_key",
+						  "http_method":"POST",
+						  "request_size_in_bytes":10,
+						  "http_response_code":200,
+						  "request_latency_in_ms":1000,
+						  "timestamp":"2017-11-01T17:00:00Z",
+						  "location":"global",
+						  "log_message":"Method:echo.foo.bar"
+					   },
+					   "timestamp":"2017-11-01T17:00:00Z"
+					}
+				 ],
+				 "metricValueSets":[
+					{
+					   "metricName":"serviceruntime.googleapis.com/api/producer/request_count",
+					   "metricValues":[
+						  {
+							 "endTime":"2017-11-01T17:00:01Z",
+							 "int64Value":"1",
+							 "startTime":"2017-11-01T17:00:00Z"
+						  }
+					   ]
+					},
+					{
+					   "metricName":"serviceruntime.googleapis.com/api/producer/backend_latencies",
+					   "metricValues":[
+						  {
+							 "distributionValue":{
+								"bucketCounts":[
+									"0","0","0","0","0","0","0","0","0","0",
+									"0","0","0","0","0","0","0","0","0","0",
+									"1","0","0","0","0","0","0","0","0","0",
+									"0"
+								 ],
+								"count":"1",
+								"exponentialBuckets":{
+								   "growthFactor":2,
+								   "numFiniteBuckets":29,
+								   "scale":0.000001
+								},
+								"maximum":1,
+								"mean":1,
+								"minimum":1
+							 },
+							 "endTime":"2017-11-01T17:00:01Z",
+							 "startTime":"2017-11-01T17:00:00Z"
+						  }
+					   ]
+					},
+					{
+					   "metricName":"serviceruntime.googleapis.com/api/consumer/request_count",
+					   "metricValues":[
+						  {
+							 "endTime":"2017-11-01T17:00:01Z",
+							 "int64Value":"1",
+							 "startTime":"2017-11-01T17:00:00Z"
+						  }
+					   ]
+					},
+					{
+					   "metricName":"serviceruntime.googleapis.com/api/consumer/backend_latencies",
+					   "metricValues":[
+						  {
+							 "distributionValue":{
+								"bucketCounts":[
+									"0","0","0","0","0","0","0","0","0","0",
+									"0","0","0","0","0","0","0","0","0","0",
+									"1","0","0","0","0","0","0","0","0","0",
+									"0"
+								 ],
+								"count":"1",
+								"exponentialBuckets":{
+								   "growthFactor":2,
+								   "numFiniteBuckets":29,
+								   "scale":0.000001
+								},
+								"maximum":1,
+								"mean":1,
+								"minimum":1
+							 },
+							 "endTime":"2017-11-01T17:00:01Z",
+							 "startTime":"2017-11-01T17:00:00Z"
+						  }
+					   ]
+					}
+				 ],
+				 "operationName":"echo.foo.bar",
+				 "startTime":"2017-11-01T17:00:00Z"
+			  }
+		   ]
+		}`
+	actualRequest := test.client.reportRequest
+	if actualRequest.Operations == nil || len(actualRequest.Operations) != 1 {
+		t.Error(`operation is not found or more than one operations exist in request`)
+	}
+	// Clear UUID in operation ID before verification
+	actualRequest.Operations[0].OperationId = ""
+	actualRequestJSON, _ := actualRequest.MarshalJSON()
+
+	if !compareJSON(expectedReport, string(actualRequestJSON)) {
+		t.Errorf(`expect report actualRequest: %v, but get %v`, expectedReport, string(actualRequestJSON))
+	}
+}
+
+func TestNewReportProcessor(t *testing.T) {
+	ctx := &handlerContext{
+		env:    at.NewEnv(t),
+		client: new(mockSvcctrlClient),
+		serviceConfigIndex: map[string]*config.GcpServiceSetting{
+			"echo": &config.GcpServiceSetting{
+				MeshServiceName:   "echo",
+				GoogleServiceName: "echo.googleapi.com",
+			},
+		},
+	}
+	resolver := new(mockConsumerProjectIDResolver)
+	processor, err := newReportProcessor("echo", ctx, resolver)
+	if err != nil {
+		t.Fatalf(`fail to create reportProcessor %v`, err)
+	}
+
+	expectedProcessor := &reportImpl{
+		env:           ctx.env,
+		serviceConfig: ctx.serviceConfigIndex["echo"],
+		client:        ctx.client,
+		resolver:      resolver,
+	}
+	if !reflect.DeepEqual(expectedProcessor, processor) {
+		t.Errorf(`expect %v but get %v`, *expectedProcessor, *processor)
 	}
 }

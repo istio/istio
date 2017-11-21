@@ -26,13 +26,6 @@ var supportedMetrics = []metricDef{
 			"/status_code"},
 	},
 	{
-		name:           "serviceruntime.googleapis.com/api/producer/error_count",
-		valueGenerator: generateErrorCount,
-		labels: []string{
-			"/credential_id",
-			"/error_type"},
-	},
-	{
 		name:           "serviceruntime.googleapis.com/api/producer/backend_latencies",
 		valueGenerator: generateBackendLatencies,
 		labels:         []string{},
@@ -48,13 +41,6 @@ var supportedMetrics = []metricDef{
 			"/response_code_class",
 			"/status_code",
 		},
-	},
-	{
-		name:           "serviceruntime.googleapis.com/api/consumer/error_count",
-		valueGenerator: generateErrorCount,
-		labels: []string{
-			"/credential_id",
-			"/error_type"},
 	},
 	{
 		name:           "serviceruntime.googleapis.com/api/consumer/backend_latencies",

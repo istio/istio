@@ -36,6 +36,7 @@ type (
 	}
 )
 
+// ProcessReport processes svcctrlreport data point and send metrics and logs via Google ServiceControl API.
 func (r *reportImpl) ProcessReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
 	logger := r.env.Logger()
 	for _, inst := range instances {
@@ -55,6 +56,7 @@ func (r *reportImpl) Close() error {
 	return nil
 }
 
+// TODO(manlinl): Retry if report is failed to send.
 func (r *reportImpl) scheduleReport(op *sc.Operation) {
 	r.env.ScheduleWork(func() {
 		logger := r.env.Logger()
