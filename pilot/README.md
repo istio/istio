@@ -55,6 +55,8 @@ utilities.
 
 1. *Integration test:* Run `make e2etest HUB=docker.io/<username> TAG=<sometag>` 
 with same image tags as the one you used in the dockerize stage. This step will
-run end to end integration tests on Kubernetes.
+run end to end integration tests on Kubernetes. To pass additional flags to [e2e driver](test/integration/driver.go), define TESTOPTS variable in the make
+command line, for example `make e2etest HUB=docker.io/<username> TAG=<sometag> TESTOPS='-testtype <test name>'`
+to run a single e2e test.
 
 Detailed instructions for testing are available [here](doc/testing.md).
