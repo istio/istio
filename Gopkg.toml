@@ -69,7 +69,15 @@
  source = "https://github.com/mandarjog/zipkin-go-opentracing.git"
 
 [[override]]
-    revision = "d4df91709b724174aaf8a957f3edac3573be354e"
-    name = "github.com/apache/thrift"
+  revision = "d4df91709b724174aaf8a957f3edac3573be354e"
+  name = "github.com/apache/thrift"
+
+[[constraint]]
+  name = "istio.io/api"
+  branch = "master"
+
+[[constraint]]
+  name = "istio.io/fortio"
+  branch = "master"
 
 

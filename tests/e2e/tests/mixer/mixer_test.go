@@ -37,7 +37,7 @@ import (
 	"istio.io/fortio/fhttp"
 	"istio.io/fortio/periodic"
 	"istio.io/istio/tests/e2e/framework"
-	"istio.io/istio/tests/e2e/util"
+	"istio.io/istio/tests/util"
 )
 
 const (

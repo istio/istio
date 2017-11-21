@@ -26,13 +26,14 @@ import (
 type Env struct {
 	t *testing.T
 
-	lock sync.Mutex // guards logs
+	done chan struct{} // A channel to notify async work done
+	lock sync.Mutex    // guards logs
 	logs []string
 }
 
 // NewEnv returns an adapter environment that redirects logging output to the given testing context.
 func NewEnv(t *testing.T) *Env {
-	return &Env{t, sync.Mutex{}, make([]string, 0)}
+	return &Env{t, make(chan struct{}), sync.Mutex{}, make([]string, 0)}
 }
 
 // Logger returns a logger that writes to testing.T.Log
@@ -42,12 +43,18 @@ func (e *Env) Logger() adapter.Logger {
 
 // ScheduleWork runs the given function asynchronously.
 func (e *Env) ScheduleWork(fn adapter.WorkFunc) {
-	go fn()
+	go func() {
+		fn()
+		e.done <- struct{}{}
+	}()
 }
 
 // ScheduleDaemon runs the given function asynchronously.
 func (e *Env) ScheduleDaemon(fn adapter.DaemonFunc) {
-	go fn()
+	go func() {
+		fn()
+		e.done <- struct{}{}
+	}()
 }
 
 // Infof logs the provided message.
@@ -89,4 +96,8 @@ func (e *Env) log(format string, args ...interface{}) string {
 
 	e.t.Log(l)
 	return l
+}
+
+func (e *Env) GetDoneChan() chan struct{} {
+	return e.done
 }

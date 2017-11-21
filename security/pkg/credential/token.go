@@ -21,6 +21,7 @@ import (
 // TokenFetcher defines the interface to fetch token.
 type TokenFetcher interface {
 	FetchToken() (string, error)
+	FetchServiceAccount() (string, error)
 }
 
 // GcpTokenFetcher implements the token fetcher in GCP.
@@ -39,4 +40,10 @@ func (fetcher *GcpTokenFetcher) getTokenURI() string {
 // Note: this function only works in a GCE VM environment.
 func (fetcher *GcpTokenFetcher) FetchToken() (string, error) {
 	return metadata.Get(fetcher.getTokenURI())
+}
+
+// FetchToken fetches the GCE VM identity jwt token from its metadata server.
+// Note: this function only works in a GCE VM environment.
+func (fetcher *GcpTokenFetcher) FetchServiceAccount() (string, error) {
+	return metadata.Get("instance/service-accounts/default/email")
 }

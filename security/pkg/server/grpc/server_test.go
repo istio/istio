@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +45,7 @@ hKldzzeCKNgztEvsUKVqltFZ3ZYnkj/8/Cg8zUtTkOhHOjvuig==
 
 type mockCA struct {
 	cert   string
+	root   string
 	errMsg string
 }
 
@@ -57,97 +57,96 @@ func (ca *mockCA) Sign(csrPEM []byte) ([]byte, error) {
 }
 
 func (ca *mockCA) GetRootCertificate() []byte {
-	return nil
+	return []byte(ca.root)
 }
 
 type mockAuthenticator struct {
-	err error
+	authenticated bool
+	authSource    authSource
+	identities    []string
+	errMsg        string
 }
 
 func (authn *mockAuthenticator) authenticate(ctx context.Context) (*caller, error) {
-	if authn.err != nil {
-		return nil, authn.err
+	if len(authn.errMsg) > 0 {
+		return nil, fmt.Errorf("%v", authn.errMsg)
 	}
-	return &caller{}, nil
+
+	return &caller{
+		authSource: authn.authSource,
+		identities: authn.identities,
+	}, nil
 }
 
 type mockAuthorizer struct {
-	err error
+	errMsg string
 }
 
-func (authz *mockAuthorizer) authorize(*caller, []string) error {
-	return authz.err
+func (authz *mockAuthorizer) authorize(requester *caller, requestedIds []string) error {
+	if len(authz.errMsg) > 0 {
+		return fmt.Errorf("%v", authz.errMsg)
+	}
+	return nil
 }
 
 func TestSign(t *testing.T) {
 	testCases := map[string]struct {
-		authnErrMsg string
-		authzErrMsg string
-		ca          ca.CertificateAuthority
-		csr         string
-		cert        string
-		errCode     codes.Code
-		errMsg      string
+		authenticators []authenticator
+		authorizer     *mockAuthorizer
+		ca             ca.CertificateAuthority
+		csr            string
+		cert           string
+		code           codes.Code
 	}{
 		"Unauthenticated request": {
-			authnErrMsg: "authn error1",
-			errCode:     codes.Unauthenticated,
-			errMsg:      "request authenticate failure",
+			authenticators: []authenticator{&mockAuthenticator{
+				errMsg: "Not authorized",
+			}},
+			code:       codes.Unauthenticated,
+			authorizer: &mockAuthorizer{},
+			ca:         &mockCA{errMsg: "cannot sign"},
 		},
 		"Unauthorized request": {
-			authnErrMsg: "",
-			authzErrMsg: "authz error1",
-			csr:         csr,
-			errCode:     codes.PermissionDenied,
-			errMsg:      "request is not authorized (authz error1)",
+			authenticators: []authenticator{&mockAuthenticator{}},
+			authorizer: &mockAuthorizer{
+				errMsg: "not authorized",
+			},
+			csr:  csr,
+			code: codes.PermissionDenied,
+			ca:   &mockCA{errMsg: "cannot sign"},
 		},
 		"Failed to sign": {
-			authnErrMsg: "",
-			authzErrMsg: "",
-			ca:          &mockCA{errMsg: "sign error1"},
-			csr:         csr,
-			errCode:     codes.Internal,
-			errMsg:      "CSR signing error (sign error1)",
+			authorizer:     &mockAuthorizer{},
+			authenticators: []authenticator{&mockAuthenticator{}},
+			ca:             &mockCA{errMsg: "cannot sign"},
+			csr:            csr,
+			code:           codes.Internal,
 		},
 		"Successful signing": {
-			authnErrMsg: "",
-			authzErrMsg: "",
-			ca:          &mockCA{cert: "generated cert1"},
-			csr:         csr,
-			cert:        "generated cert1",
-			errCode:     codes.OK,
+			authenticators: []authenticator{&mockAuthenticator{}},
+			authorizer:     &mockAuthorizer{},
+			ca:             &mockCA{cert: "generated cert"},
+			csr:            csr,
+			cert:           "generated cert",
+			code:           codes.OK,
 		},
 	}
 
 	for id, c := range testCases {
-		var authnErr, authzErr error
-		authnErr = nil
-		authzErr = nil
-		if len(c.authnErrMsg) > 0 {
-			authnErr = fmt.Errorf(c.authnErrMsg)
-		}
-		if len(c.authzErrMsg) > 0 {
-			authzErr = fmt.Errorf(c.authzErrMsg)
-		}
 		server := &Server{
-			authenticators: []authenticator{&mockAuthenticator{authnErr}},
-			authorizer:     &mockAuthorizer{authzErr},
 			ca:             c.ca,
 			hostname:       "hostname",
 			port:           8080,
+			authorizer:     c.authorizer,
+			authenticators: c.authenticators,
 		}
 		request := &pb.Request{CsrPem: []byte(c.csr)}
 
 		response, err := server.HandleCSR(nil, request)
-		if c.errCode != grpc.Code(err) {
-			t.Errorf("Case %s: Error code mismatch: %d VS (expected) %d", id, grpc.Code(err), c.errCode)
-		}
-		if grpc.Code(err) != codes.OK {
-			if strings.Compare(grpc.ErrorDesc(err), c.errMsg) != 0 {
-				t.Errorf("Case %s: Error message mismatch: %s VS (expected) %s", id, grpc.ErrorDesc(err), c.errMsg)
-			}
-		} else if !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
-			t.Errorf("Case %s: issued cert mismatch: %s VS (expected) %s", id, response.SignedCertChain, c.cert)
+		if c.code != grpc.Code(err) {
+			t.Errorf("Case %s: expecting code to be (%d) but got (%d)", id, c.code, grpc.Code(err))
+		} else if c.code == codes.OK && !bytes.Equal(response.SignedCertChain, []byte(c.cert)) {
+			t.Errorf("Case %s: expecting cert to be (%s) but got (%s)", id, c.cert, response.SignedCertChain)
 		}
 	}
 }
@@ -186,6 +185,66 @@ func TestShouldRefresh(t *testing.T) {
 		result := shouldRefresh(tc.cert)
 		if tc.shouldRefresh != result {
 			t.Errorf("%s: expected result is %t but got %t", id, tc.shouldRefresh, result)
+		}
+	}
+}
+
+func TestRun(t *testing.T) {
+	testCases := map[string]struct {
+		ca                          *mockCA
+		hostname                    string
+		port                        int
+		expectedErr                 string
+		applyServerCertificateError string
+		expectedAuthenticatorsLen   int
+	}{
+		"Invalid listening port number": {
+			ca:          &mockCA{cert: csr},
+			port:        -1,
+			expectedErr: "cannot listen on port -1 (error: listen tcp: address -1: invalid port)",
+		},
+		"Random listening port number": {
+			ca:                        &mockCA{cert: csr},
+			hostname:                  "localhost",
+			port:                      0,
+			expectedErr:               "",
+			expectedAuthenticatorsLen: 2,
+			applyServerCertificateError: "tls: failed to find \"CERTIFICATE\" PEM block in certificate " +
+				"input after skipping PEM blocks of the following types: [CERTIFICATE REQUEST]",
+		},
+	}
+
+	for id, tc := range testCases {
+		server := New(tc.ca, tc.hostname, tc.port)
+		err := server.Run()
+		if len(tc.expectedErr) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.expectedErr {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), tc.expectedErr)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		}
+
+		if len(server.authenticators) != tc.expectedAuthenticatorsLen {
+			t.Fatalf("%s: Unexpected Authenticators Length. Expected: %v Actual: %v",
+				id, tc.expectedAuthenticatorsLen, len(server.authenticators))
+		}
+
+		_, err = server.applyServerCertificate()
+		if len(tc.applyServerCertificateError) > 0 {
+			if err == nil {
+				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
+			} else if err.Error() != tc.applyServerCertificateError {
+				t.Errorf("%s: incorrect error message: %s VS %s",
+					id, err.Error(), tc.applyServerCertificateError)
+			}
+			continue
+		} else if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
 		}
 	}
 }

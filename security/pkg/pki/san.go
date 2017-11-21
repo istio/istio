@@ -87,7 +87,7 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 
 	bs, err := asn1.Marshal(rawValues)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to marshal the raw values for SAN field (err: %s)", err)
+		return nil, fmt.Errorf("failed to marshal the raw values for SAN field (err: %s)", err)
 	}
 
 	return &pkix.Extension{Id: oidSubjectAlternativeName, Value: bs}, nil
@@ -99,19 +99,19 @@ func BuildSANExtension(identites []Identity) (*pkix.Extension, error) {
 // addition of supporting extracting URIs.
 func ExtractIDsFromSAN(sanExt *pkix.Extension) ([]Identity, error) {
 	if !sanExt.Id.Equal(oidSubjectAlternativeName) {
-		return nil, fmt.Errorf("The input is not a SAN extension")
+		return nil, fmt.Errorf("the input is not a SAN extension")
 	}
 
 	var sequence asn1.RawValue
 	if rest, err := asn1.Unmarshal(sanExt.Value, &sequence); err != nil {
 		return nil, err
 	} else if len(rest) != 0 {
-		return nil, fmt.Errorf("The SAN extension is incorrectly encoded")
+		return nil, fmt.Errorf("the SAN extension is incorrectly encoded")
 	}
 
 	// Check the rawValue is a sequence.
 	if !sequence.IsCompound || sequence.Tag != asn1.TagSequence || sequence.Class != asn1.ClassUniversal {
-		return nil, fmt.Errorf("The SAN extension is incorrectly encoded")
+		return nil, fmt.Errorf("the SAN extension is incorrectly encoded")
 	}
 
 	ids := []Identity{}

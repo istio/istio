@@ -7,6 +7,7 @@ go_library(
     srcs = [
         "ipList.go",
         "list.go",
+        "regexList.go",
         "stringList.go",
     ],
     visibility = ["//visibility:public"],
