@@ -35,7 +35,6 @@ go version
 # Exit immediately for non zero status
 set -e
 
-
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
@@ -75,11 +74,6 @@ else
 fi
 cd $ROOT
 
-# go test setup
-#mkdir -p ~/.kube
-#cp ./.circleci/config ~/.kube/config
-#ln -sf ~/.kube/config ./pilot/platform/kube/config
-
 mkdir -p ~/envoy
 cd ~/envoy
 ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
@@ -117,6 +111,7 @@ if [[ -n $(git status --porcelain) ]]; then
     die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
 fi
 
+# bazel test execution
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
 
