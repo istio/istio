@@ -15,12 +15,16 @@
 package circonus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	cgm "github.com/circonus-labs/circonus-gometrics"
-	"github.com/hashicorp/go-multierror"
+	"github.com/golang/glog"
+	"log"
+	"net/url"
 	"time"
 
+	"github.com/circonus-labs/circonus-gometrics/checkmgr"
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
@@ -33,10 +37,9 @@ type (
 	}
 
 	handler struct {
-		cm          cgm.CirconusMetrics
-		metricTypes map[string]*metric.Type
-		env         adapter.Env
-		metrics     map[string]config.Params_MetricInfo_Type
+		cm      cgm.CirconusMetrics
+		env     adapter.Env
+		metrics map[string]config.Params_MetricInfo_Type
 	}
 )
 
@@ -44,15 +47,25 @@ type (
 var _ metric.HandlerBuilder = &builder{}
 var _ metric.Handler = &handler{}
 
-///////////////// Configuration-time Methods ///////////////
+// bridge stdlog to glog used by env.Logger
+type log2glog struct{}
 
-// adapter.HandlerBuilder#Build
+// Build constructs a circonus-gometrics instance and sets up the handler
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-	cmc := &cgm.Config{}
-	cmc.CheckManager.Check.SubmissionURL = b.adpCfg.SubmissionUrl
-	cmc.Debug = true
-	cmc.Interval = "0"
+	var bridge log2glog
+
+	cmc := &cgm.Config{
+		CheckManager: checkmgr.Config{
+			Check: checkmgr.CheckConfig{
+				SubmissionURL: b.adpCfg.SubmissionUrl,
+			},
+		},
+		Log:      log.New(bridge, "", 0),
+		Debug:    true,
+		Interval: "0s",
+	}
+
 	cm, err := cgm.NewCirconusMetrics(cmc)
 	if err != nil {
 		err = env.Logger().Errorf("Could not create NewCirconusMetrics: %v", err)
@@ -61,102 +74,81 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 
 	metrics := make(map[string]config.Params_MetricInfo_Type)
 	ac := b.adpCfg
-	for _, metric := range ac.Metrics {
-
-		metrics[metric.Name] = metric.Type
+	for _, adpMetric := range ac.Metrics {
+		metrics[adpMetric.Name] = adpMetric.Type
 	}
-	return &handler{cm: *cm, metricTypes: b.metricTypes, env: env, metrics: metrics}, nil
+
+	return &handler{cm: *cm, env: env, metrics: metrics}, nil
 }
 
-// adapter.HandlerBuilder#SetAdapterConfig
+// SetAdapterConfig assigns operator configuration to the builder
 func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 	b.adpCfg = cfg.(*config.Params)
 }
 
-// adapter.HandlerBuilder#Validate
+// Validate checks the SubmissionUrl parameter is well formed, and needed metrics are declared
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	return nil
+
+	// verify the submission url is well formed
+	if _, err := url.ParseRequestURI(b.adpCfg.SubmissionUrl); err != nil {
+		ce = ce.Append("submission_url", err)
+	}
+
+	// put the metric config into a map for use below
+	configMetrics := make(map[string]config.Params_MetricInfo_Type)
+	for _, configMetric := range b.adpCfg.Metrics {
+		configMetrics[configMetric.Name] = configMetric.Type
+	}
+
+	// verify there are no metric types without a corresponding config item
+	for metricName := range b.metricTypes {
+		if _, ok := configMetrics[metricName]; !ok {
+			err := fmt.Errorf("missing metric configuration %v", metricName)
+			ce = ce.Append("metrics", err)
+		}
+	}
+
+	return
 }
 
-// metric.HandlerBuilder#SetMetricTypes
+// SetMetricTypes sets the available metric types in the builder
 func (b *builder) SetMetricTypes(types map[string]*metric.Type) {
 	b.metricTypes = types
 }
 
-////////////////// Request-time Methods //////////////////////////
-// metric.Handler#HandleMetric
+// HandleMetric submits metrics to Circonus via circonus-gometrics
 func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) error {
-	var result *multierror.Error
 
 	for _, inst := range insts {
 
 		metricName := inst.Name
-		if _, ok := h.metrics[metricName]; !ok {
-			result = multierror.Append(result, fmt.Errorf("Cannot find Type for instance %s", metricName))
-			continue
-		}
-
-		metricType, found := h.metrics[metricName]
-		if !found {
-			result = multierror.Append(result, fmt.Errorf("no type for metric named %s", metricName))
-			continue
-		}
+		metricType := h.metrics[metricName]
 
 		switch metricType {
 
 		case config.GAUGE:
-
-			value, ok := inst.Value.(int64)
-
-			if !ok {
-				result = multierror.Append(result, fmt.Errorf("could not record gauge '%v': %v, %v", metricName, inst, value))
-				continue
-			}
-
+			value, _ := inst.Value.(int64)
 			h.cm.Gauge(metricName, value)
 
 		case config.COUNTER:
-
-			value, ok := inst.Value.(int64)
-
-			if !ok {
-				result = multierror.Append(result, fmt.Errorf("could not record counter '%s': %v, %v", metricName, inst.Value, value))
-				continue
-			}
-
 			h.cm.Increment(metricName)
 
 		case config.DISTRIBUTION:
-
-			v, ok := inst.Value.(time.Duration)
-
-			if ok {
-				h.cm.Timing(metricName, float64(v))
-				continue
-			}
-
-			vint, ok := inst.Value.(float64)
-			if ok {
-				h.cm.Timing(metricName, float64(vint))
-				continue
-			}
-			result = multierror.Append(result, fmt.Errorf("could not record distribution '%s': %v", metricName, inst.Value))
-
+			value, _ := inst.Value.(time.Duration)
+			h.cm.Timing(metricName, float64(value))
 		}
 
 	}
 	h.env.ScheduleWork(h.cm.Flush)
 
-	theReturn := result.ErrorOrNil()
-	return theReturn
+	return nil
 }
 
-// adapter.Handler#Close
+// Executes any teardown, none needed for this adapter
 func (h *handler) Close() error {
 	return nil
 }
 
-////////////////// Bootstrap //////////////////////////
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{
@@ -168,4 +160,18 @@ func GetInfo() adapter.Info {
 		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 		DefaultConfig: &config.Params{SubmissionUrl: ""},
 	}
+}
+
+// log2glog converts "log" package writes used by cgm, to glog used by env.Logger()
+func (b log2glog) Write(msg []byte) (int, error) {
+	if bytes.HasPrefix(msg, []byte("[ERROR]")) {
+		glog.Error(string(msg))
+	} else if bytes.HasPrefix(msg, []byte("[WARN]")) {
+		glog.Warning(string(msg))
+	} else if bytes.HasPrefix(msg, []byte("[DEBUG]")) {
+		glog.Info(string(msg))
+	} else {
+		glog.Info(string(msg))
+	}
+	return len(msg), nil
 }

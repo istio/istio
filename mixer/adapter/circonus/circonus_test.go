@@ -15,9 +15,9 @@ package circonus
 
 import (
 	cgm "github.com/circonus-labs/circonus-gometrics"
-	"testing"
-
 	"golang.org/x/net/context"
+	"testing"
+	"time"
 
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -40,12 +40,13 @@ var (
 		Type: config.DISTRIBUTION,
 	}
 
-	histogramInstance = &metric.Instance{
+	histoDuration     time.Duration = 1234 * time.Millisecond
+	histogramInstance               = &metric.Instance{
 		Name:  histogramInfo.Name,
-		Value: float64(234.23),
+		Value: histoDuration,
 	}
 
-	histogramValSerialized = "H[2.3e+02]=1"
+	histogramValSerialized = "H[1.2e+09]=1"
 
 	gaugeInfo = &config.Params_MetricInfo{
 		Name: "/funky::gauge",
@@ -100,7 +101,7 @@ func TestCirconusHandleMetrics(t *testing.T) {
 
 			metricsHandler, err := builder.Build(context.Background(), test.NewEnv(t))
 			if err != nil {
-				t.Fatal("Build() returned error: %v", err)
+				t.Errorf("Build() returned error: %v", err)
 			}
 
 			handler := metricsHandler.(*handler)
