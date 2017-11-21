@@ -25,8 +25,8 @@
 
 set -ex
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source ${ROOT}/docker_lib.sh
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source ${ROOT}/bin/docker_lib.sh
 
 
 export GOOS=linux
@@ -34,27 +34,27 @@ export GOARCH=amd64
 
 echo "Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies."
 
-go build -i ./pilot/cmd/pilot-agent
-go build -i ./pilot/cmd/pilot-discovery
-go build -i ./pilot/cmd/sidecar-initializer
-go build -i ./pilot/test/server
-go build -i ./pilot/test/client
-go build -i ./pilot/test/eurekamirror
+go build -i ${ROOT}/pilot/cmd/pilot-agent
+go build -i ${ROOT}/pilot/cmd/pilot-discovery
+go build -i ${ROOT}/pilot/cmd/sidecar-initializer
+go build -i ${ROOT}/pilot/test/server
+go build -i ${ROOT}/pilot/test/client
+go build -i ${ROOT}/pilot/test/eurekamirror
 
 # Collect artifacts for pushing
-cp -f  client pilot/docker/client
-cp -f  server pilot/docker/server
-cp -f  pilot-agent pilot/docker/pilot-agent
-cp -f  pilot-discovery pilot/docker/pilot-discovery
-cp -f  sidecar-initializer pilot/docker/sidecar-initializer
-cp -f  eurekamirror pilot/docker/eurekamirror
+cp -f  client ${ROOT}/pilot/docker/client
+cp -f  server ${ROOT}/pilot/docker/server
+cp -f  pilot-agent ${ROOT}/pilot/docker/pilot-agent
+cp -f  pilot-discovery ${ROOT}/pilot/docker/pilot-discovery
+cp -f  sidecar-initializer ${ROOT}/pilot/docker/sidecar-initializer
+cp -f  eurekamirror ${ROOT}/pilot/docker/eurekamirror
 
 ## TODO: At some point mixer binaries and docker images need to be built in simple way
 ## TODO: Need to build istio-ca binary and docker image.
 
 IMAGES=()
 
-pushd pilot/docker
+pushd ${ROOT}/pilot/docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${image}" .
