@@ -30,9 +30,6 @@ jobs:
             - /home/circleci/.cache/bazel      
       - run: make docker HUB=$HUB TAG=$TAG  # make docker images for everything
       - run: cd pilot; mkdir /home/circleci/logs; make e2etest HUB=$HUB TAG=$TAG TESTOPTS="-mixer=false -errorlogsdir=/home/circleci/logs"
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash)
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -40,6 +37,7 @@ jobs:
     working_directory: /go/src/istio.io/istio
     docker:
       - image: istio/ci:go1.9-k8s1.7.4
+    resource_class: xlarge  
     steps:
       - checkout
       - run:
@@ -73,11 +71,165 @@ jobs:
           paths:
             - /go/src/istio.io/istio/vendor
 
+  dependencies:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
+      - save_cache:
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
+
+  unittest-pilot:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    resource_class: xlarge  
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run:
+          command: |
+            mkdir ~/envoy
+            cd ~/envoy
+            ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' /go/src/istio.io/istio/WORKSPACE))
+            PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+            PROXY=debug-$PROXYVERSION
+            wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+            ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,pilot
+
+  unittest-mixer:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,mixer
+
+  unittest-security:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    resource_class: xlarge  
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,security
+
+  unittest-broker:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    resource_class: xlarge  
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,broker
+
 workflows:
   version: 2
   all:
     jobs:
-      - unittest
+      - dependencies
+      - unittest-pilot:
+          requires:
+            - dependencies
+      - unittest-mixer:
+          requires:
+            - dependencies
+      - unittest-security:
+          requires:
+            - dependencies
+      - unittest-broker:
+          requires:
+            - dependencies
       - pilot-integration:
           requires:
-            - unittest
+            - unittest-pilot
