@@ -53,6 +53,6 @@ func NewClient(platform string, config ClientConfig, caAddr string) (Client, err
 	case "aws":
 		return NewAwsClientImpl(config.AwsConfig), nil
 	default:
-		return nil, fmt.Errorf("Invalid env %s specified", platform)
+		return nil, fmt.Errorf("invalid env %s specified", platform)
 	}
 }

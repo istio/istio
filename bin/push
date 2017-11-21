@@ -10,9 +10,13 @@ cd $ROOT
 pilot/bin/push-docker -hub ${HUB} -tag ${TAG} &
 mixer/bin/push-docker -hub ${HUB} -tag ${TAG} &
 security/bin/push-docker -hub ${HUB} -tag ${TAG} &
-pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/${TAG}/artifacts/istioctl" &
-pilot/bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/${TAG}/artifacts/debs" &
-security/bin/push-debian.sh -c opt -p "gs://istio-artifacts/auth/${TAG}/artifacts/debs" &
+
+# Permit $HUB overrides to suppress errors during push
+if [[ "${HUB}" =~ ^gcr\.io ]]; then
+    pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/${TAG}/artifacts/istioctl" &
+    pilot/bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/${TAG}/artifacts/debs" &
+    security/bin/push-debian.sh -c opt -p "gs://istio-artifacts/auth/${TAG}/artifacts/debs" &
+fi
 
 FAIL=0
 for job in `jobs -p`

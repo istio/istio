@@ -29,10 +29,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/security/integration/utils"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/testutil"
-  "istio.io/istio/security/integration/utils"
 )
 
 const (
@@ -41,14 +41,14 @@ const (
 	secretWaitTime = 20 * time.Second
 
 	// Certificates validation retry
-	certValidateRetry = 10
+	certValidateRetry      = 10
 	certValidationInterval = 1 // Initially wait for 1 second.
-	                           // This value will be increased exponentially on retry
+	// This value will be increased exponentially on retry
 )
 
 var (
 	rootCmd = &cobra.Command{
-		PreRunE: initializeIntegrationTest,
+		PreRunE:  initializeIntegrationTest,
 		RunE:     runTests,
 		PostRunE: cleanUpIntegrationTest,
 	}
@@ -179,7 +179,7 @@ func runSelfSignedCATests() error {
 	}
 
 	// Delete pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, self_signed_ca_pod.GetName());
+	err = utils.DeletePod(opts.clientset, opts.namespace, self_signed_ca_pod.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to delete Istio CA (error: %v)", err)
 	}
@@ -244,12 +244,12 @@ func runCAForNodeAgentTests() error {
 	}
 
 	// Delete created pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, ca_pod.GetName());
+	err = utils.DeletePod(opts.clientset, opts.namespace, ca_pod.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to delete CA pod: %v (error: %v)", ca_pod.GetName(), err)
 	}
 
-	err = utils.DeletePod(opts.clientset, opts.namespace, na_pod.GetName());
+	err = utils.DeletePod(opts.clientset, opts.namespace, na_pod.GetName())
 	if err != nil {
 		return fmt.Errorf("failed to delete NodeAgent pod: %v (error: %v)", na_pod.GetName(), err)
 	}

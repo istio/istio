@@ -1,0 +1,20 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: redirect
+  namespace: istio-testing
+spec:
+  destination:
+    name: world
+  match:
+    request:
+      headers:
+        scooby:
+          exact: doo
+        animal:
+          prefix: dog
+        name:
+          regex: "sco+do+"
+  redirect:
+    uri: "/new/path"
+    authority: "foo.bar.com"

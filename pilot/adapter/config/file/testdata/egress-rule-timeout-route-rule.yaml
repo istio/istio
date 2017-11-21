@@ -1,0 +1,15 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: egress-timeout
+  namespace: istio-testing
+spec:
+  destination:
+    service: "*.google.com"
+  httpReqTimeout:
+    simpleTimeout:
+      timeout: 30s
+  httpReqRetries:
+    simple_retry:
+      attempts: 1
+      perTryTimeout: 5s

@@ -1,0 +1,26 @@
+apiVersion: config.istio.io/v1alpha2
+kind: DestinationPolicy
+metadata:
+  name: circuit-breaker
+  namespace: istio-testing
+spec:
+  source:
+    name: hello
+    labels:
+      version: v0
+  destination:
+    name: world
+    labels:
+      version: v0
+  circuitBreaker:
+    simpleCb:
+      maxConnections: 50
+      sleepWindow: 2s
+      httpMaxRequests: 50
+      httpMaxRequestsPerConnection: 50
+      httpMaxPendingRequests: 50
+      httpConsecutiveErrors: 5
+      httpDetectionInterval: 15s
+      httpMaxEjectionPercent: 50
+  loadBalancing:
+    name: RANDOM
