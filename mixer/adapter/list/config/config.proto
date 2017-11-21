@@ -59,7 +59,7 @@ message Params {
         // List entries are treated as IP addresses and ranges.
         IP_ADDRESSES = 2;
 
-        // List entries are treated as regex.
+        // List entries are treated as re2 regexp. See https://github.com/google/re2/wiki/Syntax for syntax.
         REGEX = 3;
     }
 

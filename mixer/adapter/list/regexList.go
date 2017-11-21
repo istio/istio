@@ -36,6 +36,11 @@ func (l *regexList) numEntries() int {
 	return len(l.regexpList)
 }
 
+// parseRegexList parses regexp list from buf and overrides. buf is assumed to be '\n' separated regular expressions.
+// Each entry in overrides is a regular expression as well. regexList accepts RE2 regex syntax.
+// See https://github.com/google/re2/wiki/Syntax
+// Example:
+// buf:  "a+.*\nabc" expands to two regex, "a+.*" and "abc"
 func parseRegexList(buf []byte, overrides []string) (*regexList, error) {
 	lines := strings.Split(string(buf), "\n")
 	entries := make([]*regexp.Regexp, 0, len(lines)+len(overrides))
