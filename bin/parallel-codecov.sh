@@ -13,8 +13,6 @@ cd $ROOTDIR
 
 echo "Code coverage test"
 
-# Multiple circle ci jobs store coverage information in this directory
-# the final coverage job collates output in this directory and uploads to codecov
 COVERAGEDIR=/tmp/coverage
 mkdir -p $COVERAGEDIR
 
@@ -55,10 +53,8 @@ for d in $(go list ${DIR} | grep -v vendor); do
     done
 done
 
-if [ "${DIR}" == "./..." ]; then
-    touch /tmp/coverage/empty
-    cat /tmp/coverage/* > coverage.txt
-fi
+touch $COVERAGEDIR/empty
+cat $COVERAGEDIR/* > coverage.txt
 
 ret=0
 for p in $pids; do

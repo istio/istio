@@ -125,6 +125,9 @@ jobs:
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
       - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh pilot
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,pilot
 
   unittest-mixer:
     working_directory: /go/src/istio.io/istio
@@ -150,6 +153,9 @@ jobs:
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh mixer
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,mixer
 
   unittest-security:
     working_directory: /go/src/istio.io/istio
@@ -175,6 +181,9 @@ jobs:
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh security
+      - run:
+          command: |
+            bash <(curl -s https://codecov.io/bash) -F unittest,security
 
   unittest-broker:
     working_directory: /go/src/istio.io/istio
@@ -200,20 +209,9 @@ jobs:
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh broker
-
-  coverage:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: istio/ci:go1.9-k8s1.7.4
-    steps:
-      - checkout
-      - attach_workspace:
-          at: /tmp/coverage
       - run:
           command: |
-            touch /tmp/coverage/empty
-            cat /tmp/coverage/* > coverage.txt
-            bash <(curl -s https://codecov.io/bash)
+            bash <(curl -s https://codecov.io/bash) -F unittest,broker
 
 workflows:
   version: 2
@@ -232,12 +230,6 @@ workflows:
       - unittest-broker:
           requires:
             - dependencies
-      - coverage:
-          requires:
-            - unittest-pilot
-            - unittest-mixer
-            - unittest-security
-            - unittest-broker
       - pilot-integration:
           requires:
             - unittest-pilot
