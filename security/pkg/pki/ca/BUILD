@@ -22,11 +22,13 @@ go_test(
         "ca_test.go",
         "generate_cert_test.go",
     ],
+    data = glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
         "//security/pkg/pki:go_default_library",
         "//security/pkg/pki/testutil:go_default_library",
+        "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes/fake:go_default_library",
-        "@io_k8s_client_go//testing:go_default_library",
     ],
 )

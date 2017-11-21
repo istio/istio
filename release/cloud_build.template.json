@@ -1,0 +1,52 @@
+{
+  "steps": [
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/" ],
+      "entrypoint": "bash"
+    },
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/cloud_builder.sh", "-t", "$_VER_STRING", "-o", "/output" ]
+    },
+    {
+      "volumes": [
+	{
+          "name": "buildoutput",
+          "path": "/output"
+	}
+      ],
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/update_and_create_archives.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output" ]
+    },
+    {
+      "volumes": [
+        {
+          "name": "buildoutput",
+          "path": "/output"
+        }
+      ],
+      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "dir": "go/src/istio.io/istio",
+      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
+    }
+  ],
+  "options": {
+    "machineType": "N1_HIGHCPU_32"
+  },
+  "timeout": "3600s",
+}

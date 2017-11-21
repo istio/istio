@@ -407,9 +407,9 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	}
 }
 
-// conslidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
+// consolidateAuthPolicy returns service auth policy, if it's not INHERIT. Else,
 // returns mesh policy.
-func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyconfig.AuthenticationPolicy) proxyconfig.AuthenticationPolicy {
+func consolidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyconfig.AuthenticationPolicy) proxyconfig.AuthenticationPolicy {
 	if serviceAuthPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
 		return serviceAuthPolicy
 	}
@@ -425,10 +425,10 @@ func conslidateAuthPolicy(mesh *proxyconfig.MeshConfig, serviceAuthPolicy proxyc
 	}
 }
 
-// mayApplyInboundAuth adds ssl_context to the listener if conslidateAuthPolicy.
+// mayApplyInboundAuth adds ssl_context to the listener if consolidateAuthPolicy.
 func mayApplyInboundAuth(listener *Listener, mesh *proxyconfig.MeshConfig,
 	serviceAuthPolicy proxyconfig.AuthenticationPolicy) {
-	if conslidateAuthPolicy(mesh, serviceAuthPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+	if consolidateAuthPolicy(mesh, serviceAuthPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
 		listener.SSLContext = buildListenerSSLContext(proxy.AuthCertsPath)
 	}
 }
