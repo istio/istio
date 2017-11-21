@@ -306,3 +306,12 @@ func (b *reportBuilder) generateAPIResourceLabels() map[string]string {
 	labels["cloud.googleapis.com/location"] = "global"
 	return labels
 }
+
+func newReportBuilder(instance *svcctrlreport.Instance, supportedMetrics []metricDef,
+	resolver consumerProjectIDResolver) *reportBuilder {
+	return &reportBuilder{
+		supportedMetrics,
+		instance,
+		resolver,
+	}
+}
