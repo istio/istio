@@ -47,7 +47,7 @@ type FakeCAClient struct {
 func (f *FakeCAClient) SendCSR(req *pb.Request, pc platform.Client, cfg *Config) (*pb.Response, error) {
 	f.Counter++
 	if f.Counter > maxCAClientSuccessReturns {
-		return nil, fmt.Errorf("Terminating the test with errors")
+		return nil, fmt.Errorf("terminating the test with errors")
 	}
 	return f.response, f.err
 }
@@ -150,7 +150,7 @@ func TestStartWithArgs(t *testing.T) {
 		"SendCSR returns error": {
 			config:      &generalConfig,
 			pc:          mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
-			cAClient:    &FakeCAClient{0, nil, fmt.Errorf("Error returned from CA")},
+			cAClient:    &FakeCAClient{0, nil, fmt.Errorf("error returned from CA")},
 			expectedErr: "node agent can't get the CSR approved from Istio CA after max number of retries (3)",
 			sendTimes:   4,
 		},

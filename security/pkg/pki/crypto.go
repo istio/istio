@@ -31,12 +31,12 @@ const (
 func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 	cb, _ := pem.Decode(certBytes)
 	if cb == nil {
-		return nil, fmt.Errorf("Invalid PEM encoded certificate")
+		return nil, fmt.Errorf("invalid PEM encoded certificate")
 	}
 
 	cert, err := x509.ParseCertificate(cb.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse X.509 certificate")
+		return nil, fmt.Errorf("failed to parse X.509 certificate")
 	}
 
 	return cert, nil
@@ -47,11 +47,11 @@ func ParsePemEncodedCertificate(certBytes []byte) (*x509.Certificate, error) {
 func ParsePemEncodedCSR(csrBytes []byte) (*x509.CertificateRequest, error) {
 	block, _ := pem.Decode(csrBytes)
 	if block == nil {
-		return nil, fmt.Errorf("Certificate signing request is not properly encoded")
+		return nil, fmt.Errorf("certificate signing request is not properly encoded")
 	}
 	csr, err := x509.ParseCertificateRequest(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse X.509 certificate signing request")
+		return nil, fmt.Errorf("failed to parse X.509 certificate signing request")
 	}
 	return csr, nil
 }
@@ -60,23 +60,23 @@ func ParsePemEncodedCSR(csrBytes []byte) (*x509.CertificateRequest, error) {
 func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	kb, _ := pem.Decode(keyBytes)
 	if kb == nil {
-		return nil, fmt.Errorf("Invalid PEM-encoded key")
+		return nil, fmt.Errorf("invalid PEM-encoded key")
 	}
 
 	switch kb.Type {
 	case blockTypeECParameters:
 		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse the ECDSA private key")
+			return nil, fmt.Errorf("failed to parse the ECDSA private key")
 		}
 		return key, nil
 	case blockTypeRSAPrivateKey:
 		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse the RSA private key")
+			return nil, fmt.Errorf("failed to parse the RSA private key")
 		}
 		return key, nil
 	default:
-		return nil, fmt.Errorf("Unsupported PEM block type for a private key: %s", kb.Type)
+		return nil, fmt.Errorf("unsupported PEM block type for a private key: %s", kb.Type)
 	}
 }
