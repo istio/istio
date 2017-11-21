@@ -78,7 +78,7 @@ jobs:
     resource_class: xlarge  
     steps:
       - checkout
-      - run mkdir -p /tmp/coverage
+      - run: mkdir -p /tmp/coverage
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
@@ -118,7 +118,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - run mkdir -p /tmp/coverage
+      - run: mkdir -p /tmp/coverage
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
@@ -148,7 +148,7 @@ jobs:
     resource_class: xlarge  
     steps:
       - checkout
-      - run mkdir -p /tmp/coverage
+      - run: mkdir -p /tmp/coverage
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
@@ -178,7 +178,7 @@ jobs:
     resource_class: xlarge  
     steps:
       - checkout
-      - run mkdir -p /tmp/coverage
+      - run: mkdir -p /tmp/coverage
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
