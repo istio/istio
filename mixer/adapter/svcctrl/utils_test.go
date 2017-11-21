@@ -15,10 +15,9 @@
 package svcctrl
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
-
-	"encoding/json"
 
 	pbtypes "github.com/gogo/protobuf/types"
 	rpc "github.com/googleapis/googleapis/google/rpc"

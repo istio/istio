@@ -18,7 +18,7 @@ go_library(
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",
-        "@io_istio_api//:broker/v1/config",
+        "@io_istio_api//broker/v1/config:go_default_library",
     ],
 )
 
@@ -44,6 +44,6 @@ go_test(
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_golang_mock//gomock:go_default_library",
-        "@io_istio_api//:broker/v1/config",
+        "@io_istio_api//broker/v1/config:go_default_library",
     ],
 )

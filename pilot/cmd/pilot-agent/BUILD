@@ -15,7 +15,7 @@ go_library(
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
-        "@io_istio_api//:proxy/v1/config",
+        "@io_istio_api//proxy/v1/config:go_default_library",
     ],
 )
 
