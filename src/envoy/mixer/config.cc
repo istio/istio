@@ -65,10 +65,11 @@ void MixerConfig::Load(const Json::Object& json) {
 
   AttributesBuilder builder(http_config.mutable_mixer_attributes());
   if (json.hasObject(kQuotaName)) {
-    builder.AddString("quota.name", json.getString(kQuotaName));
-  }
-  if (json.hasObject(kQuotaAmount)) {
-    builder.AddInt64("quota.amount", std::stoi(json.getString(kQuotaAmount)));
+    int64_t amount = 1;
+    if (json.hasObject(kQuotaAmount)) {
+      amount = std::stoi(json.getString(kQuotaAmount));
+    }
+    legacy_quotas.push_back({json.getString(kQuotaName), amount});
   }
 
   // Copy mixer_attributes to TCP config.

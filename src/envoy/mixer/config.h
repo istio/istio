@@ -21,6 +21,7 @@
 
 #include "envoy/json/json_object.h"
 #include "mixer/v1/config/client/client_config.pb.h"
+#include "quota/include/requirement.h"
 
 namespace Envoy {
 namespace Http {
@@ -36,6 +37,8 @@ struct MixerConfig {
   ::istio::mixer::v1::config::client::HttpClientConfig http_config;
   // The Tcp client config.
   ::istio::mixer::v1::config::client::TcpClientConfig tcp_config;
+  // legacy quota requirment
+  std::vector<::istio::quota::Requirement> legacy_quotas;
 
   // Create per route legacy config.
   static void CreateLegacyRouteConfig(

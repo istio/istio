@@ -62,7 +62,7 @@ HttpMixerControl::HttpMixerControl(const MixerConfig& mixer_config,
                                    Runtime::RandomGenerator& random)
     : cm_(cm) {
   ::istio::mixer_control::http::Controller::Options options(
-      mixer_config.http_config);
+      mixer_config.http_config, mixer_config.legacy_quotas);
 
   CreateEnvironment(cm, dispatcher, random, &options.env);
 
