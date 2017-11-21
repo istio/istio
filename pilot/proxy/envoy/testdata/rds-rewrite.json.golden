@@ -20,6 +20,7 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -44,6 +45,7 @@
      {
       "prefix": "/",
       "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -72,6 +74,7 @@
       "prefix_rewrite": "/new/path",
       "host_rewrite": "foo.bar.com",
       "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "rewrite"
       }
@@ -79,6 +82,7 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
