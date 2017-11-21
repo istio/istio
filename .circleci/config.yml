@@ -77,17 +77,17 @@ jobs:
       - image: istio/ci:go1.9-k8s1.7.4
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
-            new=`shasum -a 256 Gopkg.lock`
-            old=`cat vendor/circleci-cache.lock 2>/dev/null || echo -n ""`
-            if [ "$new" != "$old" ]; then
+            if [ ! -d vendor ]; then
                dep ensure
-               echo $new >vendor/circleci-cache.lock
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+          key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -109,7 +109,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir ~/.kube
@@ -144,7 +144,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir ~/.kube
@@ -169,7 +169,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir ~/.kube
@@ -194,7 +194,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+            - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir ~/.kube
