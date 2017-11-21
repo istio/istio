@@ -19,22 +19,10 @@
 # This script creates a base image for the init image that includes iptables.
 # Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies
 
-set -o errexit
-set -o nounset
-set -o pipefail
-set -x
+set -ex
 
-hub="gcr.io/istio-testing"
-tag=$(whoami)_$(date +%y%m%d_%H%M%S)
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -tag) tag="$2"; shift ;;
-        -hub) hub="$2"; shift ;;
-        *) ;;
-    esac
-    shift
-done
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source ${ROOT}/../bin/docker_lib.sh
 
 export GOOS=linux
 export GOARCH=amd64
@@ -56,16 +44,15 @@ cp -f  pilot-discovery docker/pilot-discovery
 cp -f  sidecar-initializer docker/sidecar-initializer
 cp -f  eurekamirror docker/eurekamirror
 
-# Build and push images
-if [[ "$hub" =~ ^gcr\.io ]]; then
-  gcloud docker --authorize-only
-fi
+IMAGES=()
 
 pushd docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
-    docker build -f "Dockerfile.${image}" -t "$hub/$image:$tag" .
-    docker push "$hub/$image:$tag"
+    local_image="${image}:${local_tag}"
+    docker build -q -f "Dockerfile.${image}" -t "${image}" .
+    IMAGES+=("${image}")
   done
 popd
 
-echo Pushed images to $hub with tag $tag
+# Tag and push
+tag_and_push "${IMAGES[@]}"
