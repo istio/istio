@@ -33,7 +33,7 @@ type (
 	runtime struct {
 		Validated
 		// used to evaluate selectors
-		eval expr.PredicateEvaluator
+		eval expr.Evaluator
 
 		// config is organized around the identityAttribute.
 		identityAttribute       string
@@ -42,7 +42,7 @@ type (
 )
 
 // newRuntime returns a runtime object given a validated config and a predicate eval.
-func newRuntime(v *Validated, evaluator expr.PredicateEvaluator, identityAttribute, identityAttributeDomain string) *runtime {
+func newRuntime(v *Validated, evaluator expr.Evaluator, identityAttribute, identityAttributeDomain string) *runtime {
 	return &runtime{
 		Validated:               *v,
 		eval:                    evaluator,

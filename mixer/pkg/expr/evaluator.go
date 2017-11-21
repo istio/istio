@@ -26,13 +26,6 @@ type (
 		// Eval evaluates given expression using the attribute bag
 		Eval(expr string, attrs attribute.Bag) (interface{}, error)
 
-		PredicateEvaluator
-
-		TypeChecker
-	}
-
-	// PredicateEvaluator evaluates a predicate to true or false
-	PredicateEvaluator interface {
 		// EvalPredicate evaluates given predicate using the attribute bag
 		EvalPredicate(expr string, attrs attribute.Bag) (bool, error)
 	}
