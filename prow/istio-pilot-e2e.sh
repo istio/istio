@@ -39,51 +39,16 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
 
-  # check if rewrite history is present
-  PR_BRANCH=$(git show-ref | grep refs/pr | awk '{print $2}')
-
-  if [[ -z $PR_BRANCH ]];then
-    echo "Could not get PR branch"
-    git show-ref
-    exit -1
-  fi
-
-  git ls-tree  $PR_BRANCH | grep .history_rewritten_20171102
-  if [[ $? -ne 0 ]];then
-    echo "This PR is from an out of date clone of istio.io/istio"
-    echo "Create a fresh clone of istio.io/istio and re-submit the PR"
-    exit -1
-  fi
-
-  # Use volume mount from pilot-presubmit job's pod spec.
-  # FIXME pilot should not need this
-  ln -sf "${HOME}/.kube/config" pilot/platform/kube/config
 else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
-cd $ROOT
 
-# Build
-${ROOT}/bin/init.sh
+source "${ROOT}/prow/cluster_lib.sh"
 
-echo 'Running Unit Tests'
-time bazel test --test_output=all //...
+trap delete_cluster EXIT
+create_cluster 'e2e-pilot'
 
-# run linters in advisory mode
-SKIP_INIT=1 ${ROOT}/bin/linters.sh
-
-diff=`git diff`
-if [[ -n "$diff" ]]; then
-  echo "Some uncommitted changes are found. Maybe miss committing some generated files? Here's the diff"
-  echo $diff
-  # Do not fail for the changes for now; presubmit bot may share the bazel-genfiles, and that will cause
-  # unrelated failure here randomly. See https://github.com/istio/istio/issues/1689 for the details.
-  # TODO: fix the problem and fail here again.
-  # exit -1
-fi
-
+ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
 HUB="gcr.io/istio-testing"
-TAG="${GIT_SHA}"
-# upload images
-time make push HUB="${HUB}" TAG="${TAG}"
+make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false"
