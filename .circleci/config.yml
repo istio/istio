@@ -80,7 +80,7 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            new=`md5 Gopkg.lock`
+            new=`shasum -a 256 Gopkg.lock`
             old=`cat vendor/circleci-cache.lock 2>/dev/null || echo -n ""`
             if [ $new != $old ]; then
                dep ensure
