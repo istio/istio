@@ -114,7 +114,7 @@ func buildAllocateRequest(instance *quota.Instance,
 		return nil, fmt.Errorf("dimension %v not found in instance %v", apiOperationDimension, *instance)
 	}
 
-	// If GoogleQuotaMetric name is not set in config, assume it is the same of Istio quota name.
+	// If GoogleQuotaMetric name is not set in config, assume Istio quota name is Google's quota metric name.
 	metricName := quotaCfg.GoogleQuotaMetricName
 	if metricName == "" {
 		metricName = quotaCfg.Name
@@ -160,6 +160,8 @@ func getAllocatedQuotaAmount(args *adapter.QuotaArgs, quotaMetrics []*sc.MetricV
 	return amount
 }
 
+// ProcessQuota calls Google ServiceControl client to allocate requested quota.
+// TODO(manlinl): Support handling multiple QuotaArgs once Mixer supports it. And implement retry on retriable error.
 func (p *quotaImpl) ProcessQuota(ctx context.Context,
 	instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	quotaCfg, found := p.quotaIndex[instance.Name]

@@ -105,7 +105,8 @@ func serviceControlErrorToRPCCode(errorCode string) rpc.Code {
 	return rpc.UNKNOWN
 }
 
-func toString(value interface{}) (string, bool) {
+// Resolve interface{} to a string value. Return "", false if value isn't a string
+func resolveToString(value interface{}) (string, bool) {
 	if value == nil {
 		return "", false
 	}
@@ -132,7 +133,7 @@ func generateConsumerIDFromAPIKey(apiKey string) string {
 }
 
 func dimensionToString(dimensions map[string]interface{}, key string) (string, bool) {
-	if value, ok := toString(dimensions[key]); ok {
+	if value, ok := resolveToString(dimensions[key]); ok {
 		return value, true
 	}
 	return "", false

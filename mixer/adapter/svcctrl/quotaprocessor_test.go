@@ -87,12 +87,12 @@ func setupQuotaTest(t *testing.T) *quotaTest {
 func TestProcessQuota(t *testing.T) {
 	testCases := []*quotaTestCase{
 		{
-			adapter.QuotaArgs{
-				"-1-",
-				25,
-				true,
+			args: adapter.QuotaArgs{
+				DeduplicationID: "-1-",
+				QuotaAmount:     25,
+				BestEffort:      true,
 			},
-			`
+			expectedRequest: `
 				{
 				  "consumerId":"api_key:api-key",
 				  "methodName":"echo",
@@ -108,7 +108,7 @@ func TestProcessQuota(t *testing.T) {
 				  ],
 				  "quotaMode":"BEST_EFFORT"
 				}`,
-			&sc.AllocateQuotaResponse{
+			response: &sc.AllocateQuotaResponse{
 				OperationId: "cc56c90f-155f-4907-9461-64ed764fcbc1",
 				QuotaMetrics: []*sc.MetricValueSet{
 					{
@@ -124,15 +124,14 @@ func TestProcessQuota(t *testing.T) {
 					},
 				},
 			},
-			createQuotaResult(status.OK, time.Duration(60)*time.Second, 10),
+			expectedResult: createQuotaResult(status.OK, time.Duration(60)*time.Second, 10),
 		},
 		{
-			adapter.QuotaArgs{
-				"-2-",
-				15,
-				false,
+			args: adapter.QuotaArgs{
+				DeduplicationID: "-2-",
+				QuotaAmount:     15,
 			},
-			`
+			expectedRequest: `
 				{
 				  "consumerId":"api_key:api-key",
 				  "methodName":"echo",
@@ -148,7 +147,7 @@ func TestProcessQuota(t *testing.T) {
 				  ],
 				  "quotaMode":"NORMAL"
 				}`,
-			&sc.AllocateQuotaResponse{
+			response: &sc.AllocateQuotaResponse{
 				OperationId: "cc56c90f-155f-4907-9461-64ed764fcbc1",
 				QuotaMetrics: []*sc.MetricValueSet{
 					{
@@ -164,15 +163,14 @@ func TestProcessQuota(t *testing.T) {
 					},
 				},
 			},
-			createQuotaResult(status.OK, time.Duration(60)*time.Second, 15),
+			expectedResult: createQuotaResult(status.OK, time.Duration(60)*time.Second, 15),
 		},
 		{
-			adapter.QuotaArgs{
-				"-2-",
-				15,
-				false,
+			args: adapter.QuotaArgs{
+				DeduplicationID: "-2-",
+				QuotaAmount:     15,
 			},
-			`
+			expectedRequest: `
 				{
 				  "consumerId":"api_key:api-key",
 				  "methodName":"echo",
@@ -188,7 +186,7 @@ func TestProcessQuota(t *testing.T) {
 				  ],
 				  "quotaMode":"NORMAL"
 				}`,
-			&sc.AllocateQuotaResponse{
+			response: &sc.AllocateQuotaResponse{
 				OperationId: "cc56c90f-155f-4907-9461-64ed764fcbc1",
 				AllocateErrors: []*sc.QuotaError{
 					{
@@ -197,7 +195,7 @@ func TestProcessQuota(t *testing.T) {
 					},
 				},
 			},
-			createQuotaResult(status.WithMessage(rpc.RESOURCE_EXHAUSTED, "out of quota"),
+			expectedResult: createQuotaResult(status.WithMessage(rpc.RESOURCE_EXHAUSTED, "out of quota"),
 				time.Duration(60)*time.Second, 15),
 		},
 	}

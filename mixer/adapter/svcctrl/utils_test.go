@@ -119,19 +119,19 @@ func TestToDuration(t *testing.T) {
 	}
 }
 
-func TestToString(t *testing.T) {
-	if _, ok := toString(nil); ok {
-		t.Errorf(`toString(nil) doesn return false`)
+func TestResolveToString(t *testing.T) {
+	if _, ok := resolveToString(nil); ok {
+		t.Errorf(`resolveToString(nil) doesn't return false`)
 	}
 
-	str, ok := toString("abc")
+	str, ok := resolveToString("abc")
 	if !ok || str != "abc" {
-		t.Errorf(`toString("abc") doesn't return "abc", true'`)
+		t.Errorf(`resolveToString("abc") doesn't return ("abc", true)`)
 	}
 
-	str, ok = toString(123)
+	str, ok = resolveToString(123)
 	if ok || str != "" {
-		t.Errorf(`toString(123) doens't return "",false`)
+		t.Errorf(`resolveToString(123) doens't return ("",false)`)
 	}
 }
 
@@ -161,18 +161,18 @@ func TestDimensionToString(t *testing.T) {
 
 	str, ok := dimensionToString(dim, "key1")
 	if !ok || str != "abc" {
-		t.Errorf(`expect dimensionToString(dim, "key1") return "abc",true, but get %v, %v`,
+		t.Errorf(`expect dimensionToString(dim, "key1") return ("abc",true), but get (%v, %v)`,
 			str, ok)
 	}
 	str, ok = dimensionToString(dim, "key2")
 	if ok {
-		t.Errorf(`expect dimensionToString(dim, "key2") return "",false, but get %v`,
-			ok)
+		t.Errorf(`expect dimensionToString(dim, "key2") return ("",false), but get (%v, %v)`,
+			str, ok)
 	}
 	str, ok = dimensionToString(dim, "key3")
 	if ok {
-		t.Errorf(`expect dimensionToString(dim, "key3") return "",false, but get %v`,
-			ok)
+		t.Errorf(`expect dimensionToString(dim, "key3") return ("",false), but get (%v, %v)`,
+			str, ok)
 	}
 }
 
