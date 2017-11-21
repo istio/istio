@@ -105,6 +105,15 @@ func serviceControlErrorToRPCCode(errorCode string) rpc.Code {
 	return rpc.UNKNOWN
 }
 
+// Resolve interface{} to a string value. Return "", false if value isn't a string
+func resolveToString(value interface{}) (string, bool) {
+	if value == nil {
+		return "", false
+	}
+	result, ok := value.(string)
+	return result, ok
+}
+
 func toDuration(durationProto *pbtypes.Duration) time.Duration {
 	duration, err := pbtypes.DurationFromProto(durationProto)
 	if err != nil {
@@ -121,6 +130,13 @@ func getInt64Address(i int64) *int64 {
 
 func generateConsumerIDFromAPIKey(apiKey string) string {
 	return apiKeyPrefix + apiKey
+}
+
+func dimensionToString(dimensions map[string]interface{}, key string) (string, bool) {
+	if value, ok := resolveToString(dimensions[key]); ok {
+		return value, true
+	}
+	return "", false
 }
 
 func toFormattedJSON(marshaller json.Marshaler) (string, error) {
