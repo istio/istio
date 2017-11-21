@@ -83,9 +83,14 @@ type Event struct {
 	Value *Resource
 }
 
+// BackendValidator defines the interface to validte unstructured event.
+type BackendValidator interface {
+	Validate(ev *BackendEvent) error
+}
+
 // Validator defines the interface to validate a new change.
 type Validator interface {
-	Validate(t ChangeType, key Key, spec proto.Message) bool
+	Validate(ev *Event) error
 }
 
 // Store2Backend defines the typeless storage backend for mixer.
