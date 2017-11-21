@@ -98,27 +98,27 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte,
 	}
 
 	if na := expectedFields.NotAfter; !na.IsZero() && !na.Equal(cert.NotAfter) {
-		return fmt.Errorf("Unexpected value for 'NotAfter' field: want %v but got %v", na, cert.NotAfter)
+		return fmt.Errorf("unexpected value for 'NotAfter' field: want %v but got %v", na, cert.NotAfter)
 	}
 
 	if nb := expectedFields.NotBefore; !nb.IsZero() && !nb.Equal(cert.NotBefore) {
-		return fmt.Errorf("Unexpected value for 'NotBefore' field: want %v but got %v", nb, cert.NotBefore)
+		return fmt.Errorf("unexpected value for 'NotBefore' field: want %v but got %v", nb, cert.NotBefore)
 	}
 
 	if eku := expectedFields.ExtKeyUsage; !reflect.DeepEqual(eku, cert.ExtKeyUsage) {
-		return fmt.Errorf("Unexpected value for 'ExtKeyUsage' field: want %v but got %v", eku, cert.ExtKeyUsage)
+		return fmt.Errorf("unexpected value for 'ExtKeyUsage' field: want %v but got %v", eku, cert.ExtKeyUsage)
 	}
 
 	if ku := expectedFields.KeyUsage; ku != cert.KeyUsage {
-		return fmt.Errorf("Unexpected value for 'KeyUsage' field: want %v but got %v", ku, cert.KeyUsage)
+		return fmt.Errorf("unexpected value for 'KeyUsage' field: want %v but got %v", ku, cert.KeyUsage)
 	}
 
 	if isCA := expectedFields.IsCA; isCA != cert.IsCA {
-		return fmt.Errorf("Unexpected value for 'IsCA' field: want %t but got %t", isCA, cert.IsCA)
+		return fmt.Errorf("unexpected value for 'IsCA' field: want %t but got %t", isCA, cert.IsCA)
 	}
 
 	if org := expectedFields.Org; org != "" && !reflect.DeepEqual([]string{org}, cert.Issuer.Organization) {
-		return fmt.Errorf("Unexpected value for 'Organization' field: want %v but got %v",
+		return fmt.Errorf("unexpected value for 'Organization' field: want %v but got %v",
 			[]string{org}, cert.Issuer.Organization)
 	}
 

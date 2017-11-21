@@ -34,20 +34,20 @@ var Externs = map[string]interpreter.Extern{
 	"match":           interpreter.ExternFromFn("match", externMatch),
 }
 
-var ExternFunctionMetadata = []expr.FunctionMetadata {
+var ExternFunctionMetadata = []expr.FunctionMetadata{
 	{
-		Name:     "ip",
-		ReturnType:  config.IP_ADDRESS,
+		Name:          "ip",
+		ReturnType:    config.IP_ADDRESS,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
-		Name:     "timestamp",
-		ReturnType:  config.TIMESTAMP,
+		Name:          "timestamp",
+		ReturnType:    config.TIMESTAMP,
 		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 	{
-		Name:     "match",
-		ReturnType:  config.BOOL,
+		Name:          "match",
+		ReturnType:    config.BOOL,
 		ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
 	},
 }

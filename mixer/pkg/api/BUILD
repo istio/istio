@@ -18,7 +18,7 @@ go_library(
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//log:go_default_library",
-        "@io_istio_api//:mixer/v1",
+        "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_x_net//context:go_default_library",
@@ -41,7 +41,7 @@ go_test(
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/status:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@io_istio_api//:mixer/v1",
+        "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

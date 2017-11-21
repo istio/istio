@@ -704,8 +704,11 @@ func getDefaultNamespace(kubeconfig string) string {
 		return v1.NamespaceDefault
 	}
 
-	namespace := config.Contexts[config.CurrentContext].Namespace
-	if namespace == "" {
+	context, ok := config.Contexts[config.CurrentContext]
+	if !ok {
+		return v1.NamespaceDefault
+	}
+	if context.Namespace == "" {
 		return v1.NamespaceDefault
 	}
 	return namespace
