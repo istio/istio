@@ -25,3 +25,23 @@ set -e
 set -u
 # Print commands
 set -x
+
+die () {
+    echo "$@"
+    exit 1
+}
+
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
+cd ${ROOT}
+
+./scripts/generate-protos.sh || die "Could not generate *.pb.go"
+
+if [[ -n $(git status --porcelain) ]]; then
+    git status
+    die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
+fi
+
+exit 0
