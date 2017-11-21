@@ -84,6 +84,8 @@ cd $ROOT
 
 # go test execution
 time dep ensure -v
+go version
+
 echo FIXME remove mixer tools exclusion after tests can be run without bazel
 time go test $(go list ./mixer/... | grep -v /tools/codegen)
 time go test ./pilot/...
