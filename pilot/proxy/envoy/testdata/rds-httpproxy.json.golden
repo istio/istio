@@ -9,6 +9,7 @@
      {
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTPS-443",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -25,6 +26,7 @@
      {
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP-80",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -40,6 +42,7 @@
      {
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP2-8080",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -66,6 +69,7 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -86,6 +90,7 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http-status",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -110,6 +115,7 @@
      {
       "prefix": "/",
       "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -129,6 +135,7 @@
      {
       "prefix": "/",
       "cluster": "out.httpsbin.default.svc.cluster.local|https",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -155,6 +162,7 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -175,6 +183,7 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http-status",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }

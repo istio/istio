@@ -378,6 +378,7 @@
            {
             "prefix": "/websocket",
             "cluster": "in.1081",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
@@ -389,6 +390,7 @@
            {
             "prefix": "/",
             "cluster": "in.1081",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
@@ -663,6 +665,7 @@
            {
             "prefix": "/websocket",
             "cluster": "in.80",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
@@ -674,6 +677,7 @@
            {
             "prefix": "/",
             "cluster": "in.80",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
