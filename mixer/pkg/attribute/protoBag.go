@@ -27,6 +27,11 @@ import (
 
 // TODO: consider implementing a pool of proto bags
 
+type attributeRef struct {
+	Name string
+	MapKey string
+}
+
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type ProtoBag struct {
 	proto               *mixerpb.CompressedAttributes
@@ -37,7 +42,7 @@ type ProtoBag struct {
 	stringMapMutex      sync.RWMutex
 
 	// to keep track of attributes that are referenced
-	referencedAttrs      map[string]mixerpb.ReferencedAttributes_Condition
+	referencedAttrs      map[attributeRef]mixerpb.ReferencedAttributes_Condition
 	referencedAttrsMutex sync.Mutex
 }
 
@@ -56,8 +61,31 @@ func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int3
 		globalDict:      globalDict,
 		globalWordList:  globalWordList,
 		messageDict:     d,
-		referencedAttrs: make(map[string]mixerpb.ReferencedAttributes_Condition, 16),
+		referencedAttrs: make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, 16),
 	}
+}
+
+// StringMap wraps a map[string]string and reference counts it
+type StringMap struct {
+	// name of the stringmap  -- request.headers
+	name string
+	// entries in the stringmap
+	entries map[string]string
+	// protoBag that owns this stringmap
+	pb *ProtoBag
+}
+
+// Get returns a stringmap value and records access
+func (s StringMap) Get(key string)  (string, bool){
+	cond := mixerpb.ABSENCE
+	str, found := s.entries[key]
+
+	if found {
+		cond = mixerpb.EXACT
+	}
+	// TODO add REGEX condition
+	s.pb.trackMapReference(s.name, key, cond)
+	return str, found
 }
 
 // Get returns an attribute value.
@@ -92,7 +120,8 @@ func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalW
 	i := 0
 	for k, v := range pb.referencedAttrs {
 		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
-			Name:      ds.assignDictIndex(k),
+			Name:      ds.assignDictIndex(k.Name),
+			MapKey: ds.assignDictIndex(k.MapKey),
 			Condition: v,
 		}
 		i++
@@ -110,9 +139,15 @@ func (pb *ProtoBag) ClearReferencedAttributes() {
 	}
 }
 
+func (pb *ProtoBag) trackMapReference(name string, key string, condition mixerpb.ReferencedAttributes_Condition) {
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs[attributeRef{Name: name, MapKey: key}] = condition
+	pb.referencedAttrsMutex.Unlock()
+}
+
 func (pb *ProtoBag) trackReference(name string, condition mixerpb.ReferencedAttributes_Condition) {
 	pb.referencedAttrsMutex.Lock()
-	pb.referencedAttrs[name] = condition
+	pb.referencedAttrs[attributeRef{Name: name}] = condition
 	pb.referencedAttrsMutex.Unlock()
 }
 
@@ -158,7 +193,7 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		pb.convertedStringMaps[index] = m
 		pb.stringMapMutex.Unlock()
 
-		return m, true
+		return StringMap{name: name, entries:m, pb: pb}, true
 	}
 
 	value, ok = pb.proto.Int64S[index]
