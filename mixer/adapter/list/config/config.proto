@@ -58,6 +58,9 @@ message Params {
 
         // List entries are treated as IP addresses and ranges.
         IP_ADDRESSES = 2;
+
+        // List entries are treated as regex.
+        REGEX = 3;
     }
 
     // Determines the kind of list entry and overrides.
