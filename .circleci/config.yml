@@ -2,7 +2,7 @@ version: 2
 jobs:
   pilot-integration:
     machine: true
-    working_directory: ~/go/src/istio.io/istio
+    working_directory: /go/src/istio.io/istio #same as docker
     environment:
       CHANGE_MINIKUBE_NONE_USER: true
       HUB: docker.io/dnerepo
