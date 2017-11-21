@@ -22,7 +22,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: pilot/bin/push-docker -hub $HUB -tag $TAG -build-only
+      - run: pilot/bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build ./pilot/test/integration
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -errorlogsdir=/home/circleci/logs 
