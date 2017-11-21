@@ -12,80 +12,160 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl // import "istio.io/istio/mixer/adapter/svcctrl"
+package svcctrl
 
 import (
-	"bytes"
 	"context"
-	"time"
+	"errors"
+	"fmt"
 
-	"github.com/pborman/uuid"
-	sc "google.golang.org/api/servicecontrol/v1"
+	pbtypes "github.com/gogo/protobuf/types"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/svcctrl/config"
+	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/template/metric"
+	"istio.io/istio/mixer/template/apikey"
+	"istio.io/istio/mixer/template/quota"
 )
 
-type handler struct {
-	serviceControlClient *sc.Service
-	env                  adapter.Env
-	configParams         *config.Params
+// svcctrl adapter builder
+type builder struct {
+	config          *config.Params // Handler config
+	checkDataShape  map[string]*apikey.Type
+	reportDataShape map[string]*svcctrlreport.Type
+	quotaDataShape  map[string]*quota.Type
 }
 
-func (h *handler) HandleMetric(ctx context.Context, instances []*metric.Instance) error {
-	buf := bytes.NewBufferString("mixer-metric-report-id-")
-	_, err := buf.WriteString(uuid.New())
-	if err != nil {
-		return err
-	}
+////// Builder method from supported template //////
 
-	opID := buf.String()
-	reportReq, err := handleMetric(time.Now().Format(time.RFC3339Nano), opID)
-	if err != nil {
-		return err
-	}
-	_, err = h.serviceControlClient.Services.Report(h.configParams.ServiceName, reportReq).Do()
-	return err
+// SetApiKeyTypes sets apiKey template data type.
+func (b *builder) SetApiKeyTypes(types map[string]*apikey.Type) {
+	b.checkDataShape = types
 }
 
-func handleMetric(timeNow, opID string) (*sc.ReportRequest, error) {
-	op := &sc.Operation{
-		OperationId:   opID,
-		OperationName: "reportMetrics",
-		StartTime:     timeNow,
-		EndTime:       timeNow,
-		Labels: map[string]string{
-			"cloud.googleapis.com/location": "global",
-		},
-	}
-
-	value := int64(1)
-	metricValue := sc.MetricValue{
-		StartTime:  timeNow,
-		EndTime:    timeNow,
-		Int64Value: &value,
-	}
-
-	op.MetricValueSets = []*sc.MetricValueSet{
-		{
-			MetricName:   "serviceruntime.googleapis.com/api/producer/request_count",
-			MetricValues: []*sc.MetricValue{&metricValue},
-		},
-	}
-
-	reportReq := &sc.ReportRequest{
-		Operations: []*sc.Operation{op},
-	}
-	return reportReq, nil
+// SetSvcctrlReportTypes sets svcctrlreport template data type.
+func (b *builder) SetSvcctrlReportTypes(types map[string]*svcctrlreport.Type) {
+	b.reportDataShape = types
 }
 
-func (h *handler) Close() error {
-	h.serviceControlClient = nil
+// SetQuotaTypes sets qutoa template data type.
+func (b *builder) SetQuotaTypes(types map[string]*quota.Type) {
+	b.quotaDataShape = types
+}
+
+////// adapter.HandlerBuilder interface //////
+
+// SetAdapterConfig sets adapter config on builder.
+func (b *builder) SetAdapterConfig(cfg adapter.Config) {
+	b.config = cfg.(*config.Params)
+	if b.config == nil {
+		panic("fail to convert to config proto")
+	}
+}
+
+// Validate validates adapter config.
+func (b *builder) Validate() *adapter.ConfigErrors {
+	result := validateRuntimeConfig(b.config.RuntimeConfig)
+	result = multierror.Append(result, validateGcpServiceSetting(b.config.ServiceConfigs))
+	if result.ErrorOrNil() != nil {
+		return &adapter.ConfigErrors{Multi: result}
+	}
 	return nil
 }
 
-////////////////// Config //////////////////////////
+func validateRuntimeConfig(config *config.RuntimeConfig) *multierror.Error {
+	var result *multierror.Error
+	if config == nil {
+		result = multierror.Append(result, errors.New("RuntimeConfig is nil"))
+		return result
+	}
+
+	if config.CheckResultExpiration == nil {
+		result = multierror.Append(result, errors.New("RuntimeConfig.CheckResultExpiration is nil"))
+		return result
+	}
+	exp, err := pbtypes.DurationFromProto(config.CheckResultExpiration)
+	if err != nil {
+		result = multierror.Append(result, err)
+	} else if exp <= 0 {
+		result = multierror.Append(
+			result, fmt.Errorf("expect positive CheckResultExpiration, but get %v", exp))
+	}
+
+	return result
+}
+
+func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror.Error {
+	var result *multierror.Error
+	if settings == nil || len(settings) == 0 {
+		result = multierror.Append(result, errors.New("ServiceConfigs is nil or empty"))
+		return result
+	}
+	for _, setting := range settings {
+		if setting.MeshServiceName == "" || setting.GoogleServiceName == "" {
+			result = multierror.Append(result,
+				errors.New("MeshServiceName and GoogleServiceName must be non-empty"))
+		}
+
+		if setting.Quotas != nil {
+			for _, qCfg := range setting.Quotas {
+				if qCfg.Name == "" {
+					result = multierror.Append(result, errors.New("QuotaName is empty"))
+				}
+				if qCfg.Expiration == nil {
+					result = multierror.Append(result, errors.New("quota expiration is nil"))
+				} else {
+					expiration, err := pbtypes.DurationFromProto(qCfg.Expiration)
+					if err != nil {
+						result = multierror.Append(result, err)
+					} else if expiration <= 0 {
+						result = multierror.Append(
+							result, fmt.Errorf(
+								`quota must have postive expiration, but get %v`, expiration))
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
+// Build builds an adapter handler.
+func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
+	var _ apikey.HandlerBuilder = (*builder)(nil)
+	var _ svcctrlreport.HandlerBuilder = (*builder)(nil)
+	var _ quota.HandlerBuilder = (*builder)(nil)
+
+	client, err := newClient(b.config.CredentialPath)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, err := initializeHandlerContext(env, b.config, client)
+	if err != nil {
+		return nil, err
+	}
+	ctx.checkDataShape = b.checkDataShape
+	ctx.reportDataShape = b.reportDataShape
+	return newHandler(ctx)
+}
+
+func initializeHandlerContext(env adapter.Env, adapterCfg *config.Params,
+	client serviceControlClient) (*handlerContext, error) {
+
+	configIndex := make(map[string]*config.GcpServiceSetting, len(adapterCfg.ServiceConfigs))
+	for _, cfg := range adapterCfg.ServiceConfigs {
+		configIndex[cfg.MeshServiceName] = cfg
+	}
+
+	return &handlerContext{
+		env:                env,
+		config:             adapterCfg,
+		serviceConfigIndex: configIndex,
+		client:             client,
+	}, nil
+}
 
 // GetInfo registers Adapter with Mixer.
 func GetInfo() adapter.Info {
@@ -94,33 +174,11 @@ func GetInfo() adapter.Info {
 		Impl:        "istio.io/istio/mixer/adapter/svcctrl",
 		Description: "Interface to Google Service Control",
 		SupportedTemplates: []string{
-			metric.TemplateName,
+			apikey.TemplateName,
+			svcctrlreport.TemplateName,
+			quota.TemplateName,
 		},
-		DefaultConfig: &config.Params{
-			ServiceName: "library-example.sandbox.googleapis.com",
-		},
-
-		NewBuilder: func() adapter.HandlerBuilder { return &builder{} },
+		DefaultConfig: &config.Params{},
+		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
 	}
-}
-
-type builder struct {
-	adapterConfig *config.Params
-}
-
-func (*builder) SetMetricTypes(map[string]*metric.Type) {}
-func (b *builder) SetAdapterConfig(cfg adapter.Config)  { b.adapterConfig = cfg.(*config.Params) }
-func (*builder) Validate() (ce *adapter.ConfigErrors)   { return }
-
-func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
-	client, err := createClient(env.Logger())
-	if err != nil {
-		return nil, err
-	}
-
-	return &handler{
-		serviceControlClient: client,
-		env:                  env,
-		configParams:         b.adapterConfig,
-	}, nil
 }

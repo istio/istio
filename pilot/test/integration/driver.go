@@ -196,7 +196,7 @@ func runTests(envs ...infra) {
 		}
 
 		nslist := []string{istio.IstioNamespace, istio.Namespace}
-		istio.apps, errs = util.GetAppPods(client, nslist)
+		istio.apps, errs = util.GetAppPods(client, kubeconfig, nslist)
 		if errs != nil {
 			result = multierror.Append(result, errs)
 			break

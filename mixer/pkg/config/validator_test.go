@@ -526,7 +526,7 @@ func TestParseConfigKey(t *testing.T) {
 func TestUnknownKind(t *testing.T) {
 	name := "DOESNOTEXITS"
 	want := unknownKind(name)
-	_, ce := convertAspectParams(nil, name, "abc", true, nil)
+	_, ce := convertAspectParams(nil, name, "abc", true, nil, nil)
 	if ce == nil {
 		t.Errorf("got nil\nwant %s", want)
 	}
