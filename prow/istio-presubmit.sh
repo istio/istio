@@ -67,6 +67,12 @@ cd $ROOT
 # Build
 ${ROOT}/bin/init.sh
 
+./bin/generate-protos.sh || die "Could not generate *.pb.go"
+if [[ -n $(git status --porcelain) ]]; then
+    git status
+    die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
+fi
+
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
 

@@ -1077,11 +1077,6 @@ git_repository(
 )
 
 ## auth deps
-go_repository(
-    name = "com_github_aws_aws-sdk-go",
-    importpath = "github.com/aws/aws-sdk-go",
-    tag = "v1.12.5",
-)
 
 go_repository(
     name = "com_github_go_ini_ini",

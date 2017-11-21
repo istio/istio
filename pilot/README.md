@@ -31,7 +31,7 @@ proxy controllers.
   > integration tests, you need access to a working Kubernetes cluster.
 
 1. *Setup:* Run `make setup`. It installs the required tools and
-[vendorizes](https://golang.org/cmd/go/#hdr-Vendor_Directories) 
+[vendorizes](https://golang.org/cmd/go/#hdr-Vendor_Directories)
 the dependencies.
 
 1. Write code using your favorite IDE. Make sure to format code and run
@@ -49,12 +49,15 @@ the dependencies.
    > NOTE: If you are running on OS X, //proxy/envoy:go_default_test will
    > fail. You can ignore this failure.
 
-1. *Dockerize:* Run `make docker HUB=docker.io/<username> TAG=<sometag>`. 
-This will build a docker container for Pilot, the sidecar, and other 
+1. *Dockerize:* Run `make docker HUB=docker.io/<username> TAG=<sometag>`.
+This will build a docker container for Pilot, the sidecar, and other
 utilities.
 
-1. *Integration test:* Run `make e2etest HUB=docker.io/<username> TAG=<sometag>` 
-with same image tags as the one you used in the dockerize stage. This step will
-run end to end integration tests on Kubernetes.
+1. *Integration test:* Run `make e2etest HUB=docker.io/<username> TAG=<sometag>`
+with the same image hub and tag as the ones you used in the _dockerize_ step. This step will
+run end to end integration tests on Kubernetes. To specify additional test options, define TESTOPTS variable in the
+command line of `make`, for example `make e2etest TESTOPTS='-help'` to see all available options.
+Run `make e2etest HUB=docker.io/<username> TAG=<sometag> TESTOPS='-testtype <test name>'`
+to run a single integration test by its name.
 
 Detailed instructions for testing are available [here](doc/testing.md).
