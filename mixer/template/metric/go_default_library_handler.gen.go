@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
-// TemplateName is the fully qualified name of the template
+// Fully qualified name of the template
 const TemplateName = "metric"
 
 // Instance is constructed by Mixer for the 'metric' template.
