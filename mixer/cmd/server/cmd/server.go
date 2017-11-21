@@ -154,7 +154,7 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 	serverCmd.PersistentFlags().IntVarP(&sa.apiWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max number of goroutines in the API worker pool")
 	serverCmd.PersistentFlags().IntVarP(&sa.adapterWorkerPoolSize, "adapterWorkerPoolSize", "", 1024, "Max number of goroutines in the adapter worker pool")
 	// TODO: what is the right default value for expressionEvalCacheSize.
-	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", expr.DefaultCacheSize,
+	serverCmd.PersistentFlags().IntVarP(&sa.expressionEvalCacheSize, "expressionEvalCacheSize", "", evaluator.DefaultCacheSize,
 		"Number of entries in the expression cache")
 	serverCmd.PersistentFlags().BoolVarP(&sa.singleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
@@ -269,7 +269,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	if err != nil {
 		fatalf("Failed to connect to the configuration server. %v", err)
 	}
-	dispatcher, err = mixerRuntime.New(eval, gp, adapterGP,
+	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), gp, adapterGP,
 		sa.configIdentityAttribute, sa.configDefaultNamespace,
 		store2, adapterMap, info,
 	)
@@ -281,13 +281,13 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	repo := template.NewRepository(info)
 	store := configStore(sa.configStoreURL, sa.serviceConfigFile, sa.globalConfigFile, printf, fatalf)
 	adapterMgr := adapterManager.NewManager(legacyAdapters, aspect.Inventory(), evalForLegacy, gp, adapterGP)
-	configManager := config.NewManager(evalForLegacy, adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
+	configManager := config.NewManager(evalForLegacy, evaluator.NewTypeChecker(), adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds,
 		repo, store, time.Second*time.Duration(sa.configFetchIntervalSec),
 		sa.configIdentityAttribute,
 		sa.configIdentityAttributeDomain)
 
-	configAPIServer := config.NewAPI("v1", sa.configAPIPort, evalForLegacy,
+	configAPIServer := config.NewAPI("v1", sa.configAPIPort, evaluator.NewTypeChecker(),
 		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, adapters,
 		adapterMgr.SupportedKinds, store, repo)
 

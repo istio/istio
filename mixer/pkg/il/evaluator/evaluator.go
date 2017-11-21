@@ -39,7 +39,7 @@ type IL struct {
 	maxStringTableSizeForPurge int
 	context                    *attrContext
 	contextLock                sync.RWMutex
-	fMap                       map[string]expr.FuncBase
+	functions                  map[string]expr.FunctionMetadata
 }
 
 // attrContext captures the set of fields that needs to be kept & evicted together based on
@@ -91,17 +91,13 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 }
 
 // EvalType evaluates expr using the attr attribute bag and returns the type of the result.
-func (e *IL) EvalType(expr string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
-	ctx := e.getAttrContext()
-
-	var entry cacheEntry
-	var err error
-	if entry, err = ctx.getOrCreateCacheEntry(expr); err != nil {
-		glog.Infof("evaluator.EvalType failed expr:'%s', err: %v", expr, err)
+func (e *IL) EvalType(expression string, finder expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	exp, err := expr.Parse(expression)
+	if err != nil {
 		return pb.VALUE_TYPE_UNSPECIFIED, err
 	}
 
-	return entry.expression.EvalType(finder, e.fMap)
+	return exp.EvalType(finder, e.functions)
 }
 
 // AssertType evaluates the type of expr using the attribute set; if the evaluated type is equal to
@@ -152,15 +148,18 @@ func (e *IL) getAttrContext() *attrContext {
 
 func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, error) {
 	ctx := e.getAttrContext()
-	return ctx.evalResult(expr, attrs, e.maxStringTableSizeForPurge)
+	return ctx.evalResult(expr, attrs, e.functions, e.maxStringTableSizeForPurge)
 }
 
 func (ctx *attrContext) evalResult(
-	expr string, attrs attribute.Bag, maxStringTableSizeForPurge int) (interpreter.Result, error) {
+	expr string,
+	attrs attribute.Bag,
+	functions map[string]expr.FunctionMetadata,
+	maxStringTableSizeForPurge int) (interpreter.Result, error) {
 
 	var entry cacheEntry
 	var err error
-	if entry, err = ctx.getOrCreateCacheEntry(expr); err != nil {
+	if entry, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
 		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
@@ -172,7 +171,7 @@ func (ctx *attrContext) evalResult(
 	return r, err
 }
 
-func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
+func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]expr.FunctionMetadata) (cacheEntry, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
 	if entry, found := ctx.cache.Get(expr); found {
 		return entry.(cacheEntry), nil
@@ -184,7 +183,7 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string) (cacheEntry, error) {
 
 	var err error
 	var result compiler.Result
-	if result, err = compiler.Compile(expr, ctx.finder); err != nil {
+	if result, err = compiler.Compile(expr, ctx.finder, functions); err != nil {
 		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
 		return cacheEntry{}, err
 	}
@@ -221,6 +220,6 @@ func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) 
 	return &IL{
 		cacheSize:                  cacheSize,
 		maxStringTableSizeForPurge: maxStringTableSizeForPurge,
-		fMap: expr.FuncMap(),
+		functions:                  expr.FuncMap(runtime.ExternFunctionMetadata),
 	}, nil
 }

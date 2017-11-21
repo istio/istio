@@ -17,15 +17,14 @@ package sample1
 import (
 	"bytes"
 	"flag"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 
-	"log"
-
-	"istio.io/istio/tests/integration/framework"
 	env "istio.io/istio/tests/integration/environment"
+	"istio.io/istio/tests/integration/framework"
 )
 
 const (

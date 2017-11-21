@@ -13,7 +13,7 @@ go_library(
     ],
     visibility = [
         "//mixer/cmd:__subpackages__",
-        "//mixer/test/testenv:__subpackages__",
+        "//mixer/pkg/mock:__subpackages__",
     ],
     deps = [
         "//mixer/cmd/shared:go_default_library",
@@ -38,7 +38,7 @@ go_library(
         "@com_github_openzipkin_zipkin_go_opentracing//:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
-        "@io_istio_api//:mixer/v1",
+        "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials:go_default_library",
         "@org_golang_google_grpc//grpclog/glogger:go_default_library",

@@ -9,6 +9,8 @@ reviewers:
   - mandarjog
   - frankbu
   - linsun
+  - kyessenov
+  - hklai
 approvers:
   - geeknoid
   - andraxylia
@@ -19,4 +21,6 @@ approvers:
   - mandarjog
   - frankbu
   - linsun
+  - kyessenov
   - hklai
+

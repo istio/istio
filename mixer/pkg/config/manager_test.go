@@ -90,7 +90,7 @@ func TestConfigManager(t *testing.T) {
 			if mt.errStr != "" {
 				store.err = errors.New(mt.errStr)
 			}
-			ma := NewManager(evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, nil, vf.AdapterToAspectMapperFunc,
+			ma := NewManager(evaluator, evaluator, vf.FindAspectValidator, vf.FindAdapterValidator, nil, vf.AdapterToAspectMapperFunc,
 				template.NewRepository(nil), store, loopDelay, keyTargetService, keyServiceDomain)
 			testConfigManager(t, ma, mt)
 		})
@@ -100,7 +100,7 @@ func TestConfigManager(t *testing.T) {
 func TestManager_FetchError(t *testing.T) {
 	errStr := "TestManager_FetchError"
 	store := newFakeStore("{}", "{}")
-	mgr := NewManager(nil, nil, nil, nil, nil,
+	mgr := NewManager(nil, nil,nil, nil, nil, nil,
 		template.NewRepository(nil), store, loopDelay, keyTargetService, keyServiceDomain)
 
 	mgr.validate = func(cfg map[string]string) (rt *Validated, desc descriptor.Finder, ce *adapter.ConfigErrors) {

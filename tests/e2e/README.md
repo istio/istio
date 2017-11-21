@@ -125,6 +125,15 @@ Follow the sample of demo_test.go
 4. Each test file is supposed to have a `BUILD` and is built as a go_test target in its own director. Target must have
    `tags =  ["manual"]`, since tests cannot ran by `bazel test` who runs tests in sandbox where you can't connect to cluster.
 
+### Debugging
+The requests from the containers deployed in tests are performed by `client` program.
+For example, to perform a call from a deployed test container to https://console.bluemix.net/, run:
+
+`kubectl exec -it <test pod> -n <test namespace> -c app -- client -url https://console.bluemix.net/`
+
+To see its usage run:
+
+`kubectl exec -it <test pod> -n <test namespace> -c app -- client -h`
 
 ## Framework
 
