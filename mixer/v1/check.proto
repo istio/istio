@@ -119,8 +119,21 @@ message ReferencedAttributes {
     // The kind of match against the attribute value.
     Condition condition = 2;
 
-    // The matching regex in the case of condition = REGEX
+    // If a REGEX condition is provided for a STRING_MAP attribute,
+    // clients should use the regex value to match against map keys.
     string regex = 3;
+
+    // A key in a STRING_MAP. When multiple keys from a STRING_MAP
+    // attribute were referenced, there will be multiple AttributeMatch
+    // messages with different map_key values. Values for map_key SHOULD
+    // be ignored for attributes that are not STRING_MAP.
+    //
+    // Indices for the keys are used (taken either from the
+    // message dictionary from the `words` field or the global dictionary).
+    //
+    // If no map_key value is provided for a STRING_MAP attribute, the
+    // entire STRING_MAP will be used.
+    sint32 map_key = 4;
   }
 
   // The message-level dictionary. Refer to [CompressedAttributes][istio.mixer.v1.CompressedAttributes] for information
