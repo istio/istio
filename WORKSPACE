@@ -813,7 +813,7 @@ go_repository(
     commit = "9a379c6b3e95a790ffc43293c2a78dee0d7b6e20",  # Aug 7, 2017 (no releases)
     importpath = "golang.org/x/oauth2",
 )
- 
+
 go_repository(
     name = "org_golang_x_time",
     commit = "8be79e1e0910c292df4e79c241bb7e8f7e725959",

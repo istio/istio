@@ -99,12 +99,12 @@ func TestLoadSignerCredsFromFiles(t *testing.T) {
 		"Bad cert files": {
 			certFile:    "testdata/cert-bad.pem",
 			keyFile:     "testdata/key.pem",
-			expectedErr: "Invalid PEM encoded certificate",
+			expectedErr: "invalid PEM encoded certificate",
 		},
 		"Bad key files": {
 			certFile:    "testdata/cert.pem",
 			keyFile:     "testdata/key-bad.pem",
-			expectedErr: "Invalid PEM-encoded key",
+			expectedErr: "invalid PEM-encoded key",
 		},
 	}
 

@@ -61,7 +61,7 @@ func TestNewClient(t *testing.T) {
 		},
 		"invalid test": {
 			platform:    "invalid",
-			expectedErr: "Invalid env invalid specified",
+			expectedErr: "invalid env invalid specified",
 		},
 	}
 

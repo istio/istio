@@ -17,7 +17,7 @@ go_library(
         "//mixer/pkg/pool:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//:mixer/v1",
+        "@io_istio_api//mixer/v1:go_default_library",
     ],
 )
 
@@ -26,14 +26,14 @@ go_test(
     size = "small",
     srcs = ["bag_test.go"],
     library = ":go_default_library",
-    deps = ["@io_istio_api//:mixer/v1"],
+    deps = ["@io_istio_api//mixer/v1:go_default_library"],
 )
 
 genrule(
     name = "global_list",
-    srcs = ["@io_istio_api//:mixer/v1/attributes_file"],
+    srcs = ["@io_istio_api//mixer/v1:attributes_file"],
     outs = ["list.gen.go"],
-    cmd = "$(location //mixer:generate_word_list) $(location @io_istio_api//:mixer/v1/attributes_file) | $(location @org_golang_x_tools_imports//:goimports) > $@",
+    cmd = "$(location //mixer:generate_word_list) $(location @io_istio_api//mixer/v1:attributes_file) | $(location @org_golang_x_tools_imports//:goimports) > $@",
     message = "Generating word list",
     tools = [
         "//mixer:generate_word_list",

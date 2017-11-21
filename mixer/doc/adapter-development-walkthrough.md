@@ -767,7 +767,7 @@ go_test(
         "//mixer/pkg/template:go_default_library",
         "//mixer/pkg/mock:go_default_library",
         "//mixer/template:go_default_library",
-        "@io_istio_api//:mixer/v1",  # keep
+        "@io_istio_api//mixer/v1:go_default_library",  # keep
         "@org_golang_x_net//context:go_default_library",
     ],
 )

@@ -13,7 +13,7 @@ go_library(
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
-        "@io_istio_api//:mixer/v1/template",
+        "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
 
