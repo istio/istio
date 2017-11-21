@@ -71,6 +71,27 @@ jobs:
           paths:
             - /go/src/istio.io/istio/vendor
 
+  dependencies:
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: istio/ci:go1.9-k8s1.7.4
+    steps:
+      - checkout
+      - run:
+          command:
+            cd /go/src/istio.io/istio
+            touch vendor/circleci-cache.lock
+            new=`md5 Gopkg.lock`
+            old=`cat vendor/circleci-cache.lock`
+            if [ $new != $old ]; then
+               dep ensure
+               echo $new >vendor/circleci-cache.lock
+            fi
+      - save_cache:
+          key: dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
+          paths:
+            - /go/src/istio.io/istio/vendor
+
   unittest-pilot:
     working_directory: /go/src/istio.io/istio
     docker:
@@ -89,8 +110,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd /go/src/istio.io/istio; dep ensure
+            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
       - run:
           command: |
             mkdir ~/.kube
@@ -105,11 +125,7 @@ jobs:
             PROXY=debug-$PROXYVERSION
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh pilot
 
   unittest-mixer:
     working_directory: /go/src/istio.io/istio
@@ -129,17 +145,12 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd /go/src/istio.io/istio; dep ensure
+            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh mixer
 
   unittest-security:
     working_directory: /go/src/istio.io/istio
@@ -159,17 +170,12 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd /go/src/istio.io/istio; dep ensure
+            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh security
 
   unittest-broker:
     working_directory: /go/src/istio.io/istio
@@ -189,17 +195,12 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd /go/src/istio.io/istio; dep ensure
+            - dep-cache-{{ checksum "vendor/circleci-cache.lock" }}
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
-      - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
-          paths:
-            - /go/src/istio.io/istio/vendor
+      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh broker
 
   coverage:
     working_directory: /go/src/istio.io/istio
@@ -219,10 +220,19 @@ workflows:
   version: 2
   all:
     jobs:
-      - unittest-pilot
-      - unittest-mixer
-      - unittest-security
-      - unittest-broker
+      - dependencies
+      - unittest-pilot:
+          requires:
+            - dependencies
+      - unittest-mixer:
+          requires:
+            - dependencies
+      - unittest-security:
+          requires:
+            - dependencies
+      - unittest-broker:
+          requires:
+            - dependencies
       - coverage:
           requires:
             - unittest-pilot
