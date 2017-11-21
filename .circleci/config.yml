@@ -124,7 +124,7 @@ jobs:
             PROXY=debug-$PROXYVERSION
             wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
             ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh pilot
+      - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh pilot
 
   unittest-mixer:
     working_directory: /go/src/istio.io/istio
@@ -149,7 +149,7 @@ jobs:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=1 bin/parallel-codecov.sh mixer
+      - run: cd /go/src/istio.io/istio; maxprocs=4 bin/parallel-codecov.sh mixer
 
   unittest-security:
     working_directory: /go/src/istio.io/istio
