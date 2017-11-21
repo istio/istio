@@ -130,7 +130,7 @@ func (g *generator) evalType(e *expr.Expression) il.Type {
 func (g *generator) generate(e *expr.Expression, depth int, mode nilMode, valueJmpLabel string) {
 	switch {
 	case e.Const != nil:
-		g.generateConstant(e.Const)
+		g.generateConstant(e.Const, mode, valueJmpLabel)
 	case e.Var != nil:
 		g.generateVariable(e.Var, mode, valueJmpLabel)
 	case e.Fn != nil:
@@ -208,19 +208,11 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 		g.generateIndex(f, depth, mode, valueJmpLabel)
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
-	case "ip":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.builder.Call("ip")
-	case "timestamp":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.builder.Call("timestamp")
-	case "match":
-		g.generate(f.Args[0], depth+1, nmNone, "")
-		g.generate(f.Args[1], depth+1, nmNone, "")
-		g.builder.Call("match")
 	default:
-		// TODO: generalize "ip" and "match" case to iterate over Args and append Call
-		g.internalError("function not yet implemented: %s", f.Name)
+		for _, arg := range f.Args {
+			g.generate(arg, depth, nmNone, "")
+		}
+		g.builder.Call(f.Name)
 	}
 }
 
@@ -376,6 +368,8 @@ func (g *generator) generateIndex(f *expr.Function, depth int, mode nilMode, val
 }
 
 func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJmpLabel string) {
+	// TODO: Optimize code generation to check whether the first argument can be guaranteed to return a value (or error)
+	// If so, we can elide the right-hand-side entirely.
 	switch mode {
 	case nmNone:
 		// If the caller expects non-null result, evaluate Args[1] as non-null, and jump to end if
@@ -399,7 +393,7 @@ func (g *generator) generateOr(f *expr.Function, depth int, mode nilMode, valueJ
 	}
 }
 
-func (g *generator) generateConstant(c *expr.Constant) {
+func (g *generator) generateConstant(c *expr.Constant, mode nilMode, valueJmpLabel string) {
 	switch c.Type {
 	case dpb.STRING:
 		s := c.Value.(string)
@@ -418,6 +412,17 @@ func (g *generator) generateConstant(c *expr.Constant) {
 		g.builder.APushInt(int64(u))
 	default:
 		g.internalError("unhandled constant type: %v", c.Type)
+	}
+
+	switch mode {
+	case nmNone:
+		break
+
+	case nmJmpOnValue:
+		g.builder.Jmp(valueJmpLabel)
+
+	default:
+		g.internalError("unhandled nil mode: %v", mode)
 	}
 }
 
