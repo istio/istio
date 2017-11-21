@@ -29,6 +29,20 @@ set -u
 # Print commands
 set -x
 
+die () {
+  echo "$@"
+  exit 1
+}
+
+run_or_die_on_change() {
+  local script=$1
+  $script || die "Could not run ${script}"
+  if [[ -n $(git status --porcelain) ]]; then
+    git status
+    die "Repo has unstaged changes. Re-run ${script}"
+  fi
+}
+
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
@@ -67,11 +81,8 @@ cd $ROOT
 # Build
 ${ROOT}/bin/init.sh
 
-./bin/generate-protos.sh || die "Could not generate *.pb.go"
-if [[ -n $(git status --porcelain) ]]; then
-    git status
-    die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
-fi
+run_or_die_on_change ./bin/generate-protos.sh
+run_or_die_on_change ./bin/fmt.sh
 
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
