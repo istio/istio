@@ -72,7 +72,6 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http|version=v1",
-      "timeout_ms": 0,
       "headers": [
        {
         "name": "animal",
@@ -89,6 +88,7 @@
         "value": "doo"
        }
       ],
+      "timeout_ms": 0,
       "decorator": {
        "operation": "fault"
       }
