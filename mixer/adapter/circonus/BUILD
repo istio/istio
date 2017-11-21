@@ -15,7 +15,6 @@ go_library(
         "@com_github_circonuslabs_circonus_gometrics//checkmgr:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@com_github_tv42_httpunix//:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
 
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",

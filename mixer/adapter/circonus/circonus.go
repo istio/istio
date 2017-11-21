@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	cgm "github.com/circonus-labs/circonus-gometrics"
-	"github.com/golang/glog"
 	"log"
 	"net/url"
 	"time"
@@ -47,13 +46,15 @@ type (
 var _ metric.HandlerBuilder = &builder{}
 var _ metric.Handler = &handler{}
 
-// bridge stdlog to glog used by env.Logger
-type log2glog struct{}
+// bridge stdlog to env.Logger()
+type logToEnvLogger struct {
+	env adapter.Env
+}
 
 // Build constructs a circonus-gometrics instance and sets up the handler
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-	var bridge log2glog
+	bridge := &logToEnvLogger{env: env}
 
 	cmc := &cgm.Config{
 		CheckManager: checkmgr.Config{
@@ -139,6 +140,7 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 		}
 
 	}
+
 	h.env.ScheduleWork(h.cm.Flush)
 
 	return nil
@@ -162,16 +164,16 @@ func GetInfo() adapter.Info {
 	}
 }
 
-// log2glog converts "log" package writes used by cgm, to glog used by env.Logger()
-func (b log2glog) Write(msg []byte) (int, error) {
+// logToEnvLogger converts CGM log package writes to env.Logger()
+func (b logToEnvLogger) Write(msg []byte) (int, error) {
 	if bytes.HasPrefix(msg, []byte("[ERROR]")) {
-		glog.Error(string(msg))
+		b.env.Logger().Errorf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[WARN]")) {
-		glog.Warning(string(msg))
+		b.env.Logger().Warningf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[DEBUG]")) {
-		glog.Info(string(msg))
+		b.env.Logger().Infof(string(msg))
 	} else {
-		glog.Info(string(msg))
+		b.env.Logger().Infof(string(msg))
 	}
 	return len(msg), nil
 }
