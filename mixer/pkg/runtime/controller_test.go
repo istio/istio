@@ -671,7 +671,7 @@ func TestController_KindMap(t *testing.T) {
 		},
 	}
 
-	km := kindMap(ai, ti)
+	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
 		"t1":                  &cpb.Instance{},

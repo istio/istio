@@ -50,7 +50,7 @@ func New(eval expr.Evaluator, typeChecker expr.TypeChecker, gp *pool.GoroutinePo
 func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
 	ctx := context.Background()
-	kindMap := kindMap(adapterInfo, templateInfo)
+	kindMap := KindMap(adapterInfo, templateInfo)
 	if err := s.Init(ctx, kindMap); err != nil {
 		return nil, nil, err
 	}
@@ -62,8 +62,8 @@ func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	return s.List(), watchChan, nil
 }
 
-// kindMap generates a map from object kind to its proto message.
-func kindMap(adapterInfo map[string]*adapter.Info,
+// KindMap generates a map from object kind to its proto message.
+func KindMap(adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) map[string]proto.Message {
 	kindMap := make(map[string]proto.Message)
 	// typed instances
