@@ -25,7 +25,7 @@ import (
 type EvalBody func(string, attribute.Bag) (interface{}, error)
 
 type fakeEval struct {
-	expr.PredicateEvaluator
+	expr.Evaluator
 	expr.TypeChecker
 
 	body EvalBody

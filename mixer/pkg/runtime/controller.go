@@ -40,7 +40,8 @@ type Controller struct {
 	// Static information
 	adapterInfo            map[string]*adapter.Info // maps adapter shortName to Info.
 	templateInfo           map[string]template.Info // maps template name to Info.
-	eval                   expr.Evaluator           // Used to infer types. Used by resolver and dispatcher.
+	evaluator              expr.Evaluator           // used by resolver
+	typeChecker            expr.TypeChecker         // used to infer types
 	identityAttribute      string                   // used by resolver
 	defaultConfigNamespace string                   // used by resolver
 
@@ -114,7 +115,7 @@ func (c *Controller) publishSnapShot() {
 	// attribute manifests are used by type inference during handler creation.
 	attributes := c.processAttributeManifests()
 
-	if cl, ok := c.eval.(VocabularyChangeListener); ok {
+	if cl, ok := c.evaluator.(VocabularyChangeListener); ok {
 		cl.ChangeVocabulary(attributes)
 	}
 
@@ -127,7 +128,7 @@ func (c *Controller) publishSnapShot() {
 	instanceConfig := c.validInstanceConfigs()
 
 	// new handler factory is created for every config change.
-	hb := c.createHandlerFactory(c.templateInfo, c.eval, attributes, c.adapterInfo)
+	hb := c.createHandlerFactory(c.templateInfo, c.typeChecker, attributes, c.adapterInfo)
 
 	// new handler table is created for every config change. It uses handler factory
 	// to create new handlers.
@@ -151,7 +152,7 @@ func (c *Controller) publishSnapShot() {
 
 	// Create new resolver and cleanup the old resolver.
 	c.nextResolverID++
-	resolver := newResolver(c.eval, c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
+	resolver := newResolver(c.evaluator, c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
 	c.dispatcher.ChangeResolver(resolver)
 
 	// copy old for deletion.
