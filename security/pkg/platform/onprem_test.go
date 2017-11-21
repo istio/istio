@@ -39,7 +39,7 @@ func TestOnPremGetServiceIdentity(t *testing.T) {
 		"Bad cert format": {
 			filename:    "testdata/cert-chain-bad1.pem",
 			expectedID:  "",
-			expectedErr: "Invalid PEM encoded certificate",
+			expectedErr: "invalid PEM encoded certificate",
 		},
 		"Wrong file": {
 			filename:    "testdata/cert-chain-bad2.pem",
@@ -82,7 +82,7 @@ func TestGetTLSCredentials(t *testing.T) {
 				KeyFile:        "testdata/cert-from-root-not-exist.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
 			},
-			expectedErr: "Cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
+			expectedErr: "cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
 		},
 		"Loading root cert failure": {
 			config: OnPremConfig{
@@ -90,7 +90,7 @@ func TestGetTLSCredentials(t *testing.T) {
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-not-exist.pem",
 			},
-			expectedErr: "Failed to read CA cert: open testdata/cert-root-not-exist.pem: no such file or directory",
+			expectedErr: "failed to read CA cert: open testdata/cert-root-not-exist.pem: no such file or directory",
 		},
 	}
 
@@ -130,7 +130,7 @@ func TestGetAgentCredential(t *testing.T) {
 		"Missing cert": {
 			filename:      "testdata/fake-cert.pem",
 			expectedBytes: nil,
-			expectedErr:   "Failed to read cert file: testdata/fake-cert.pem",
+			expectedErr:   "failed to read cert file: testdata/fake-cert.pem",
 		},
 	}
 

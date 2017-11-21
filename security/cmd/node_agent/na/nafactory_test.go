@@ -44,7 +44,7 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				Env: "somethig else",
 			},
-			expectedErr: "Invalid env somethig else specified",
+			expectedErr: "invalid env somethig else specified",
 		},
 	}
 
