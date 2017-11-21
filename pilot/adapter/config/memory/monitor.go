@@ -47,8 +47,13 @@ type configstoreMonitor struct {
 	eventCh  chan ConfigEvent
 }
 
-// NewConfigStoreMonitor returns new Monitor implementation
-func NewConfigStoreMonitor(store model.ConfigStore) Monitor {
+// NewMonitor returns new Monitor implementation with a default event buffer size.
+func NewMonitor(store model.ConfigStore) Monitor {
+	return NewBufferedMonitor(store, BufferSize)
+}
+
+// NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
+func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
 	handlers := make(map[string][]Handler)
 
 	for _, typ := range store.ConfigDescriptor().Types() {
@@ -58,7 +63,7 @@ func NewConfigStoreMonitor(store model.ConfigStore) Monitor {
 	return &configstoreMonitor{
 		store:    store,
 		handlers: handlers,
-		eventCh:  make(chan ConfigEvent, BufferSize),
+		eventCh:  make(chan ConfigEvent, bufferSize),
 	}
 }
 

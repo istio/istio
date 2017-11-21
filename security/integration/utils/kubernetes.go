@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,8 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/golang/glog"
 )
 
 func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
@@ -112,7 +111,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	uuid := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
-		v1.EnvVar{
+		{
 			Name: "NAMESPACE",
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
@@ -125,7 +124,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 
 	spec := v1.PodSpec{
 		Containers: []v1.Container{
-			v1.Container{
+			{
 				Env:   env,
 				Name:  fmt.Sprintf("%v-pod-container", name),
 				Image: image,

@@ -23,7 +23,7 @@ so we can improve the doc.
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building the containers](#building-the-containers)
+  - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Running tests](#running-tests)
@@ -69,6 +69,15 @@ To run some of Istio's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
 
+Ensure your UID is in the docker group to access the docker daemon as a non-root user:
+
+```shell
+sudo adduser $USER docker
+```
+
+where:
+    username is your login name
+
 ### Setting up environment variables
 
 Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
@@ -79,6 +88,17 @@ typically added to your ~/.profile:
 export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
+
+# Please change HUB to the desired HUB for custom docker container
+# builds.
+export HUB="docker.io/$USER"
+
+# The Istio Docker build system will build images with a tag composed of
+# $USER and timestamp. The codebase doesn't consistently use the same timestamp
+# tag. To simplify development the development process when later using
+# updateVersion.sh you may find it helpful to set TAG to something consistent
+# such as $USER.
+export TAG=$USER
 
 # If your github username is not the same as your local user name (saved in the
 # shell variable $USER), then replace "$USER" below with your github username
@@ -246,38 +266,29 @@ tooling functions correctly
 (You can safely ignore some errors like
 `com_github_opencontainers_go_digest Does not exist`)
 
-### Building the containers
+### Building and pushing the containers
 
-This tool builds and publishes Mixer container images to the specified
-registry.
+Build the containers in your local docker cache:
 
+```shell
+make docker
 ```
-bin/publish-docker-images.sh -h gcr.io/my-project -t my-tag
+
+Push the containers to your registry:
+
+```shell
+make push
 ```
-
-where
-
-* The `-h` parameter `gcr.io/my-project` is the composition of the registry
-  hostname and the project id. This should be customized.
-* The `-t` parameter `my-tag` is the desired tag. This should be customized.
 
 ### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
-to generate new manifests with the specified Mixer containers.
+to generate new manifests with mixer, pilot, and ca_cert custom built containers:
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -xgcr.io/my-project,my-tag
+install/updateVersion.sh -a${HUB},${TAG}
 ```
-
-where
-
-* `gcr.io/my-project` is equivalent to the `-h` parameter specified to
-  `publish-docker-images.sh`.
-* `my-tag` is equivalent to the `-t` parameter specified to
-  `publish-docker-images.sh`.
-* `-x` and `,` and the parameters are not delimited by a space.
 
 ### Cleaning outputs
 
