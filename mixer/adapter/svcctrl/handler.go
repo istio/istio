@@ -79,14 +79,19 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 		return nil, err
 	}
 
+	reportProc, err := newReportProcessor(meshServiceName, ctx, checkProc)
+	if err != nil {
+		return nil, err
+	}
 	quotaProc, err := newQuotaProcessor(meshServiceName, ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &serviceProcessor{
-		checkProcessor: checkProc,
-		quotaProcessor: quotaProc,
+		checkProcessor:  checkProc,
+		reportProcessor: reportProc,
+		quotaProcessor:  quotaProc,
 	}, nil
 }
 
@@ -102,7 +107,12 @@ func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (
 
 // HandleSvcctrlReport handles reporting metrics and logs.
 func (h *handler) HandleSvcctrlReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
-	return nil
+	err := h.svcProc.ProcessReport(ctx, instances)
+	logger := h.ctx.env.Logger()
+	if err != nil {
+		logger.Errorf("svcctrl check failed: %v", err)
+	}
+	return err
 }
 
 // HandleQuota handles rate limiting quota.

@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
 	at "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/pkg/status"
@@ -30,6 +31,7 @@ import (
 
 type mockProcessor struct {
 	checkResult *adapter.CheckResult
+	reportError error
 	quotaResult *adapter.QuotaResult
 }
 
@@ -40,12 +42,20 @@ func (p *mockProcessor) ProcessCheck(ctx context.Context, instance *apikey.Insta
 	return *p.checkResult, nil
 }
 
+func (p *mockProcessor) ProcessReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
+	return p.reportError
+}
+
 func (p *mockProcessor) ProcessQuota(ctx context.Context,
 	instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 	if p.quotaResult == nil {
 		return adapter.QuotaResult{}, errors.New("injected error")
 	}
 	return *p.quotaResult, nil
+}
+
+func (p *mockProcessor) Close() error {
+	return nil
 }
 
 func TestHandleApiKey(t *testing.T) {
@@ -56,8 +66,7 @@ func TestHandleApiKey(t *testing.T) {
 	}
 
 	mock := &mockProcessor{}
-	h := getTesthandler(mock, t)
-
+	h := getTestHandler(mock, t)
 	mock.checkResult = &adapter.CheckResult{
 		Status: status.OK,
 	}
@@ -65,6 +74,33 @@ func TestHandleApiKey(t *testing.T) {
 	result, err := h.HandleApiKey(context.Background(), &instance)
 	if err != nil || !reflect.DeepEqual(*mock.checkResult, result) {
 		t.Errorf(`expect check result %v, but get %v`, *mock.checkResult, result)
+	}
+}
+
+func TestHandleReport(t *testing.T) {
+	now := time.Now()
+	instances := []*svcctrlreport.Instance{
+		{
+			ApiVersion:      "v1",
+			ApiOperation:    "echo.foo.bar",
+			ApiProtocol:     "gRPC",
+			ApiService:      "echo.googleapi.com",
+			ApiKey:          "test_key",
+			RequestTime:     now,
+			RequestMethod:   "POST",
+			RequestPath:     "/blah",
+			RequestBytes:    10,
+			ResponseTime:    now,
+			ResponseCode:    200,
+			ResponseBytes:   100,
+			ResponseLatency: time.Duration(1) * time.Second,
+		},
+	}
+	mock := &mockProcessor{}
+	h := getTestHandler(mock, t)
+	err := h.HandleSvcctrlReport(context.Background(), instances)
+	if err != nil {
+		t.Errorf(`expect success but failed with %v`, err)
 	}
 }
 
@@ -78,7 +114,7 @@ func TestHandleQuota(t *testing.T) {
 	}
 
 	mock := &mockProcessor{}
-	h := getTesthandler(mock, t)
+	h := getTestHandler(mock, t)
 	mock.quotaResult = &adapter.QuotaResult{
 		Status:        status.OK,
 		ValidDuration: time.Minute,
@@ -90,14 +126,15 @@ func TestHandleQuota(t *testing.T) {
 	}
 }
 
-func getTesthandler(mock *mockProcessor, t *testing.T) *handler {
+func getTestHandler(mock *mockProcessor, t *testing.T) *handler {
 	return &handler{
 		ctx: &handlerContext{
 			env: at.NewEnv(t),
 		},
 		svcProc: &serviceProcessor{
-			checkProcessor: mock,
-			quotaProcessor: mock,
+			checkProcessor:  mock,
+			reportProcessor: mock,
+			quotaProcessor:  mock,
 		},
 	}
 }
