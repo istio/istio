@@ -1463,6 +1463,99 @@ end`,
 		CompileErr: "EQ($ai, true) arg 2 (true) typeError got BOOL, expected INT64",
 		AstErr:     "unresolved attribute ai",
 	},
+
+	{
+		E:  `"foo" | "bar"`,
+		IL: `
+fn eval() string
+  apush_s "foo"
+  jmp L0
+  apush_s "bar"
+L0:
+  ret
+end
+		`,
+		R: "foo",
+	},
+
+	{
+		E:  `ip("1.2.3.4")`,
+		IL: `
+fn eval() interface
+  apush_s "1.2.3.4"
+  call ip
+  ret
+end
+		`,
+		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E:  `ip(as)`,
+		I: map[string]interface{} {
+			"as": "1.2.3.4",
+		},
+		IL: `
+fn eval() interface
+  resolve_s "as"
+  call ip
+  ret
+end
+		`,
+		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E:  `ip("1.2.3.4" | "5.6.7.8")`,
+		IL: `
+fn eval() interface
+  apush_s "1.2.3.4"
+  jmp L0
+  apush_s "5.6.7.8"
+L0:
+  call ip
+  ret
+end
+		`,
+		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E:  `ip(as | "5.6.7.8")`,
+		IL: `
+fn eval() interface
+  tresolve_s "as"
+  jnz L0
+  apush_s "5.6.7.8"
+L0:
+  call ip
+  ret
+end
+`,
+		R: []uint8(net.ParseIP("5.6.7.8")),
+	},
+
+	{
+		E:  `ip(as | bs)`,
+		I: map[string]interface{} {
+			"bs": "1.2.3.4",
+		},
+		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E:  `ip(as | bs)`,
+		Err: "lookup failed: 'bs'",
+	},
+
+	{
+		E:  `ip(ar["foo"])`,
+		IL: ``,
+		I: map[string]interface{} {
+			"ar": map[string]string{ "foo": "1.2.3.4" },
+		},
+		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
