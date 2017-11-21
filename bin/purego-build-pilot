@@ -34,33 +34,36 @@ export GOARCH=amd64
 
 echo "Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies."
 
-go build -i ${ROOT}/pilot/cmd/pilot-agent
-go build -i ${ROOT}/pilot/cmd/pilot-discovery
-go build -i ${ROOT}/pilot/cmd/sidecar-initializer
-go build -i ${ROOT}/pilot/test/server
-go build -i ${ROOT}/pilot/test/client
-go build -i ${ROOT}/pilot/test/eurekamirror
+pushd ${ROOT}/pilot
+go build -i ./cmd/pilot-agent
+go build -i ./cmd/pilot-discovery
+go build -i ./cmd/sidecar-initializer
+go build -i ./test/server
+go build -i ./test/client
+go build -i ./test/eurekamirror
 
 # Collect artifacts for pushing
-cp -f  client ${ROOT}/pilot/docker/client
-cp -f  server ${ROOT}/pilot/docker/server
-cp -f  pilot-agent ${ROOT}/pilot/docker/pilot-agent
-cp -f  pilot-discovery ${ROOT}/pilot/docker/pilot-discovery
-cp -f  sidecar-initializer ${ROOT}/pilot/docker/sidecar-initializer
-cp -f  eurekamirror ${ROOT}/pilot/docker/eurekamirror
+cp -f  client docker/client
+cp -f  server docker/server
+cp -f  pilot-agent docker/pilot-agent
+cp -f  pilot-discovery docker/pilot-discovery
+cp -f  sidecar-initializer docker/sidecar-initializer
+cp -f  eurekamirror docker/eurekamirror
 
 ## TODO: At some point mixer binaries and docker images need to be built in simple way
 ## TODO: Need to build istio-ca binary and docker image.
 
 IMAGES=()
 
-pushd ${ROOT}/pilot/docker
+pushd docker
   for image in app proxy proxy_init proxy_debug pilot sidecar_initializer eurekamirror; do
     local_image="${image}:${local_tag}"
     docker build -q -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")
   done
-popd
+popd #docker
+
+popd #${ROOT}/pilot
 
 # Tag and push
 tag_and_push "${IMAGES[@]}"
