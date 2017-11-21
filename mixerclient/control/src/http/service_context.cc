@@ -14,6 +14,7 @@
  */
 
 #include "service_context.h"
+#include "control/src/attribute_names.h"
 
 using ::istio::mixer::v1::config::client::ServiceConfig;
 
@@ -30,9 +31,9 @@ ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
 
   // Build api_spec parsers
   for (const auto& api_spec : service_config_.http_api_spec()) {
-    api_spec_parsers_.push_back(
-        std::move(::istio::api_spec::HttpApiSpecParser::Create(api_spec)));
+    api_spec_.MergeFrom(api_spec);
   }
+  api_spec_parser_ = ::istio::api_spec::HttpApiSpecParser::Create(api_spec_);
 
   // Build quota parser
   for (const auto& quota : service_config_.quota_spec()) {
@@ -50,16 +51,17 @@ void ServiceContext::AddStaticAttributes(RequestContext* request) const {
 
 void ServiceContext::AddApiAttributes(CheckData* check_data,
                                       RequestContext* request) const {
-  if (api_spec_parsers_.size() == 0) {
-    return;
-  }
   std::string http_method;
   std::string path;
-  if (check_data->FindRequestHeader(CheckData::HEADER_METHOD, &http_method) &&
-      check_data->FindRequestHeader(CheckData::HEADER_PATH, &path)) {
-    for (const auto& parser : api_spec_parsers_) {
-      parser->AddAttributes(http_method, path, &request->attributes);
-    }
+  if (check_data->FindHeaderByType(CheckData::HEADER_METHOD, &http_method) &&
+      check_data->FindHeaderByType(CheckData::HEADER_PATH, &path)) {
+    api_spec_parser_->AddAttributes(http_method, path, &request->attributes);
+  }
+
+  std::string api_key;
+  if (api_spec_parser_->ExtractApiKey(check_data, &api_key)) {
+    (*request->attributes.mutable_attributes())[AttributeName::kRequestApiKey]
+        .set_string_value(api_key);
   }
 }
 

@@ -18,6 +18,7 @@
 
 #include <string>
 
+#include "control/include/http/check_data.h"
 #include "mixer/v1/attributes.pb.h"
 #include "mixer/v1/config/client/api_spec.pb.h"
 
@@ -34,6 +35,11 @@ class HttpApiSpecParser {
   virtual void AddAttributes(const std::string& http_method,
                              const std::string& path,
                              ::istio::mixer::v1::Attributes* attributes) = 0;
+
+  // Extract api key, return true if api key is extracted.
+  virtual bool ExtractApiKey(
+      ::istio::mixer_control::http::CheckData* check_data,
+      std::string* api_key) = 0;
 
   // The factory function to create an instance.
   static std::unique_ptr<HttpApiSpecParser> Create(

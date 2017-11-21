@@ -49,7 +49,7 @@ void AttributesBuilder::ExtractRequestHeaderAttributes(CheckData* check_data) {
 
   for (const auto& it : attrs) {
     std::string data;
-    if (check_data->FindRequestHeader(it.header_type, &data)) {
+    if (check_data->FindHeaderByType(it.header_type, &data)) {
       builder.AddString(it.name, data);
     } else if (it.set_default) {
       builder.AddString(it.name, it.default_value);

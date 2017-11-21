@@ -37,17 +37,25 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "mock_headers",
+    hdrs = [
+        "mock_check_data.h",
+        "mock_report_data.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_test(
     name = "attributes_builder_test",
     size = "small",
     srcs = [
-        "mock_check_data.h",
-        "mock_report_data.h",
         "attributes_builder_test.cc",
     ],
     linkstatic = 1,
     deps = [
         ":control_lib",
+        ":mock_headers",
         "//external:googletest_main",
     ],
 )
@@ -56,13 +64,12 @@ cc_test(
     name = "request_handler_impl_test",
     size = "small",
     srcs = [
-        "mock_check_data.h",
-        "mock_report_data.h",
         "request_handler_impl_test.cc",
     ],
     linkstatic = 1,
     deps = [
         ":control_lib",
+        ":mock_headers",
         "//control/src:mock_mixer_client",
         "//external:googletest_main",
     ],

@@ -14,6 +14,7 @@
  */
 
 #include "client_context.h"
+#include "control/src/attribute_names.h"
 #include "control/src/mock_mixer_client.h"
 #include "controller_impl.h"
 #include "google/protobuf/text_format.h"
@@ -253,7 +254,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteQuota) {
 
 TEST_F(RequestHandlerImplTest, TestDefaultRouteApiSpec) {
   ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, FindRequestHeader(_, _))
+  EXPECT_CALL(mock_data, FindHeaderByType(_, _))
       .WillRepeatedly(
           Invoke([](CheckData::HeaderType type, std::string* value) -> bool {
             if (type == CheckData::HEADER_PATH) {
@@ -311,6 +312,36 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
+  auto handler = controller_->CreateRequestHandler(config);
+  handler->Check(&mock_data, nullptr, nullptr);
+}
+
+TEST_F(RequestHandlerImplTest, TestDefaultApiKey) {
+  ::testing::NiceMock<MockCheckData> mock_data;
+  EXPECT_CALL(mock_data, FindQueryParameter(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "key") {
+              *value = "test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  // Check should be called.
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _))
+      .WillOnce(Invoke([](const Attributes& attributes,
+                          const std::vector<Requirement>& quotas,
+                          TransportCheckFunc transport,
+                          DoneFunc on_done) -> CancelFunc {
+        auto map = attributes.attributes();
+        EXPECT_EQ(map[AttributeName::kRequestApiKey].string_value(),
+                  "test-api-key");
+        return nullptr;
+      }));
+
+  // destionation.server is empty, will use default one
+  Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
   handler->Check(&mock_data, nullptr, nullptr);
 }

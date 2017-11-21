@@ -34,6 +34,7 @@ struct AttributeName {
   static const char kRequestSize[];
   static const char kRequestTime[];
   static const char kRequestUserAgent[];
+  static const char kRequestApiKey[];
 
   static const char kResponseCode[];
   static const char kResponseDuration[];

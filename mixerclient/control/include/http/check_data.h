@@ -47,8 +47,10 @@ class CheckData {
   virtual std::map<std::string, std::string> GetRequestHeaders() const = 0;
 
   // These headers are extracted into top level attributes.
+  // This is for standard HTTP headers.  It supports both HTTP/1.1 and HTTP2
   // They can be retrieved at O(1) speed by environment (Envoy).
   // It is faster to use the map from GetRequestHeader() call.
+  //
   enum HeaderType {
     HEADER_PATH = 0,
     HEADER_HOST,
@@ -57,8 +59,22 @@ class CheckData {
     HEADER_METHOD,
     HEADER_REFERER,
   };
-  virtual bool FindRequestHeader(HeaderType header_type,
-                                 std::string* value) const = 0;
+  virtual bool FindHeaderByType(HeaderType header_type,
+                                std::string* value) const = 0;
+
+  // A generic way to find any HTTP header.
+  // This is for custom HTTP headers, such as x-api-key
+  // Envoy platform requires "name" to be lower_case.
+  virtual bool FindHeaderByName(const std::string& name,
+                                std::string* value) const = 0;
+
+  // Find query parameter by name.
+  virtual bool FindQueryParameter(const std::string& name,
+                                  std::string* value) const = 0;
+
+  // Find Cookie header.
+  virtual bool FindCookie(const std::string& name,
+                          std::string* value) const = 0;
 };
 
 }  // namespace http

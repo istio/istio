@@ -234,7 +234,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
         map["host"] = "localhost";
         return map;
       }));
-  EXPECT_CALL(mock_data, FindRequestHeader(_, _))
+  EXPECT_CALL(mock_data, FindHeaderByType(_, _))
       .WillRepeatedly(Invoke(
           [](CheckData::HeaderType header_type, std::string* value) -> bool {
             if (header_type == CheckData::HEADER_PATH) {

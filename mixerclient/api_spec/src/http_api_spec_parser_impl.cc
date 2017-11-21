@@ -16,15 +16,31 @@
 #include "http_api_spec_parser_impl.h"
 #include "google/protobuf/stubs/logging.h"
 
+#include <algorithm>
+#include <cctype>
+
+using ::istio::mixer_control::http::CheckData;
 using ::istio::mixer::v1::Attributes;
+using ::istio::mixer::v1::config::client::APIKey;
 using ::istio::mixer::v1::config::client::HTTPAPISpec;
 using ::istio::mixer::v1::config::client::HTTPAPISpecPattern;
 
 namespace istio {
 namespace api_spec {
+namespace {
+// If api-key is not defined in APISpec, use following defaults.
+const std::string kApiKeyDefaultQueryName1("key");
+const std::string kApiKeyDefaultQueryName2("api_key");
+const std::string kApiKeyDefaultHeader("x-api-key");
+}  // namespace
 
 HttpApiSpecParserImpl::HttpApiSpecParserImpl(const HTTPAPISpec& api_spec)
     : api_spec_(api_spec) {
+  BuildPathMatcher();
+  BuildApiKeyData();
+}
+
+void HttpApiSpecParserImpl::BuildPathMatcher() {
   PathMatcherBuilder<const Attributes*> pmb;
   for (const auto& pattern : api_spec_.patterns()) {
     if (pattern.pattern_case() == HTTPAPISpecPattern::kUriTemplate) {
@@ -39,6 +55,14 @@ HttpApiSpecParserImpl::HttpApiSpecParserImpl(const HTTPAPISpec& api_spec)
     }
   }
   path_matcher_ = pmb.Build();
+}
+
+void HttpApiSpecParserImpl::BuildApiKeyData() {
+  if (api_spec_.api_keys_size() == 0) {
+    api_spec_.add_api_keys()->set_query(kApiKeyDefaultQueryName1);
+    api_spec_.add_api_keys()->set_query(kApiKeyDefaultQueryName2);
+    api_spec_.add_api_keys()->set_header(kApiKeyDefaultHeader);
+  }
 }
 
 void HttpApiSpecParserImpl::AddAttributes(
@@ -59,6 +83,32 @@ void HttpApiSpecParserImpl::AddAttributes(
       attributes->MergeFrom(*re.attributes);
     }
   }
+}
+
+bool HttpApiSpecParserImpl::ExtractApiKey(CheckData* check_data,
+                                          std::string* value) {
+  for (const auto& api_key : api_spec_.api_keys()) {
+    switch (api_key.key_case()) {
+      case APIKey::kQuery:
+        if (check_data->FindQueryParameter(api_key.query(), value)) {
+          return true;
+        }
+        break;
+      case APIKey::kHeader:
+        if (check_data->FindHeaderByName(api_key.header(), value)) {
+          return true;
+        }
+        break;
+      case APIKey::kCookie:
+        if (check_data->FindCookie(api_key.cookie(), value)) {
+          return true;
+        }
+        break;
+      case APIKey::KEY_NOT_SET:
+        break;
+    }
+  }
+  return false;
 }
 
 std::unique_ptr<HttpApiSpecParser> HttpApiSpecParser::Create(

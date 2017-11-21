@@ -34,7 +34,16 @@ class HttpApiSpecParserImpl : public HttpApiSpecParser {
   void AddAttributes(const std::string& http_method, const std::string& path,
                      ::istio::mixer::v1::Attributes* attributes) override;
 
+  virtual bool ExtractApiKey(
+      ::istio::mixer_control::http::CheckData* check_data,
+      std::string* api_key) override;
+
  private:
+  // Build PatchMatcher for extracting api attributes.
+  void BuildPathMatcher();
+  // Build Api key extraction used data.
+  void BuildApiKeyData();
+
   // The http api spec.
   ::istio::mixer::v1::config::client::HTTPAPISpec api_spec_;
 

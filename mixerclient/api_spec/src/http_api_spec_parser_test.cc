@@ -14,6 +14,7 @@
  */
 
 #include "api_spec/include/http_api_spec_parser.h"
+#include "control/src/http/mock_check_data.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
@@ -21,9 +22,13 @@
 
 using ::istio::mixer::v1::Attributes;
 using ::istio::mixer_client::AttributesBuilder;
+using ::istio::mixer_control::http::MockCheckData;
 using ::istio::mixer::v1::config::client::HTTPAPISpec;
 using ::google::protobuf::TextFormat;
 using ::google::protobuf::util::MessageDifferencer;
+
+using ::testing::_;
+using ::testing::Invoke;
 
 namespace istio {
 namespace api_spec {
@@ -104,6 +109,125 @@ TEST(HttpApiSpecParserTest, TestBoth) {
   Attributes expected;
   ASSERT_TRUE(TextFormat::ParseFromString(kResult, &expected));
   EXPECT_TRUE(MessageDifferencer::Equals(attributes, expected));
+}
+
+TEST(HttpApiSpecParserTest, TestDefaultApiKey) {
+  HTTPAPISpec spec;
+  auto parser = HttpApiSpecParser::Create(spec);
+
+  // Failed
+  ::testing::NiceMock<MockCheckData> mock_data0;
+  std::string api_key0;
+  EXPECT_FALSE(parser->ExtractApiKey(&mock_data0, &api_key0));
+
+  // "key" query
+  ::testing::NiceMock<MockCheckData> mock_data1;
+  EXPECT_CALL(mock_data1, FindQueryParameter(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "key") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key1;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data1, &api_key1));
+  EXPECT_EQ(api_key1, "this-is-a-test-api-key");
+
+  // "api_key" query
+  ::testing::NiceMock<MockCheckData> mock_data2;
+  EXPECT_CALL(mock_data2, FindQueryParameter(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "api_key") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key2;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data2, &api_key2));
+  EXPECT_EQ(api_key2, "this-is-a-test-api-key");
+
+  // "x-api-key" header
+  ::testing::NiceMock<MockCheckData> mock_data3;
+  EXPECT_CALL(mock_data3, FindHeaderByName(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "x-api-key") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key3;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data3, &api_key3));
+  EXPECT_EQ(api_key3, "this-is-a-test-api-key");
+}
+
+TEST(HttpApiSpecParserTest, TestCustomApiKey) {
+  HTTPAPISpec spec;
+  spec.add_api_keys()->set_query("api_key_query");
+  spec.add_api_keys()->set_header("Api-Key-Header");
+  spec.add_api_keys()->set_cookie("Api-Key-Cookie");
+  auto parser = HttpApiSpecParser::Create(spec);
+
+  // Failed
+  ::testing::NiceMock<MockCheckData> mock_data0;
+  std::string api_key0;
+  EXPECT_FALSE(parser->ExtractApiKey(&mock_data0, &api_key0));
+
+  // "api_key_query"
+  ::testing::NiceMock<MockCheckData> mock_data1;
+  EXPECT_CALL(mock_data1, FindQueryParameter(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "api_key_query") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key1;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data1, &api_key1));
+  EXPECT_EQ(api_key1, "this-is-a-test-api-key");
+
+  // "api-key-header" header
+  ::testing::NiceMock<MockCheckData> mock_data2;
+  EXPECT_CALL(mock_data2, FindHeaderByName(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "Api-Key-Header") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key2;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data2, &api_key2));
+  EXPECT_EQ(api_key2, "this-is-a-test-api-key");
+
+  // "Api-Key-Cookie" cookie
+  ::testing::NiceMock<MockCheckData> mock_data3;
+  EXPECT_CALL(mock_data3, FindCookie(_, _))
+      .WillRepeatedly(
+          Invoke([](const std::string& name, std::string* value) -> bool {
+            if (name == "Api-Key-Cookie") {
+              *value = "this-is-a-test-api-key";
+              return true;
+            }
+            return false;
+          }));
+
+  std::string api_key3;
+  EXPECT_TRUE(parser->ExtractApiKey(&mock_data3, &api_key3));
+  EXPECT_EQ(api_key3, "this-is-a-test-api-key");
 }
 
 }  // namespace api_spec

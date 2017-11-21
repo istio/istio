@@ -57,9 +57,10 @@ class ServiceContext {
   // The client context object.
   std::shared_ptr<ClientContext> client_context_;
 
-  // Api spec parsers to generate api attributes.
-  std::vector<std::unique_ptr<::istio::api_spec::HttpApiSpecParser>>
-      api_spec_parsers_;
+  // Concatenated api_spec_
+  ::istio::mixer::v1::config::client::HTTPAPISpec api_spec_;
+  // Api spec parser to generate api attributes and api_key
+  std::unique_ptr<::istio::api_spec::HttpApiSpecParser> api_spec_parser_;
 
   // The quota parsers for each quota config.
   std::vector<std::unique_ptr<::istio::quota::ConfigParser>> quota_parsers_;

@@ -16,8 +16,8 @@
 #ifndef MIXERCLIENT_TIMER_H
 #define MIXERCLIENT_TIMER_H
 
-#include <memory>
 #include <functional>
+#include <memory>
 
 namespace istio {
 namespace mixer_client {
