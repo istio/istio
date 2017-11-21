@@ -59,7 +59,7 @@ func Run(name string, args ...string) (s string, err error) {
 }
 
 func NewEnvoy(conf, flags string, stress, faultInject bool) (*Envoy, error) {
-	bin_path := getTestBinRootPath() + "/src/envoy/mixer/envoy"
+	bin_path := getTestBinRootPath() + "/src/envoy/envoy"
 	log.Printf("Envoy binary: %v\n", bin_path)
 
 	conf_path := "/tmp/envoy.conf"

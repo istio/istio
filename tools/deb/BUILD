@@ -8,7 +8,7 @@ pkg_tar(
     files = [
         "istio-iptables.sh",
         "istio-start.sh",
-        "//src/envoy/mixer:envoy",
+        "//src/envoy",
     ],
     mode = "0755",
     package_dir = "/usr/local/bin",

@@ -36,8 +36,8 @@ gsutil stat "${DST}/${BINARY_NAME}" \
   || echo 'Building a new binary.'
 
 # Build the release binary
-bazel build --config=release //src/envoy/mixer:envoy_tar
-BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
+bazel build --config=release //src/envoy:envoy_tar
+BAZEL_TARGET="bazel-bin/src/envoy/envoy_tar.tar.gz"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 
@@ -60,8 +60,8 @@ gsutil cp "${BINARY_NAME}" "${SHA256_NAME}" "${DST}/"
 # Build the debug binary
 BINARY_NAME="envoy-debug-${SHA}.tar.gz"
 SHA256_NAME="envoy-debug-${SHA}.sha256"
-bazel build -c dbg //src/envoy/mixer:envoy_tar
-BAZEL_TARGET="bazel-bin/src/envoy/mixer/envoy_tar.tar.gz"
+bazel build -c dbg //src/envoy:envoy_tar
+BAZEL_TARGET="bazel-bin/src/envoy/envoy_tar.tar.gz"
 cp -f "${BAZEL_TARGET}" "${BINARY_NAME}"
 sha256sum "${BINARY_NAME}" > "${SHA256_NAME}"
 

@@ -41,7 +41,7 @@ REPO=${REPO:-gcr.io}
 
 TAG=${TAG:-$DOCKER_TAG}
 
-BAZEL_TARGET_DIR="bazel-bin/src/envoy/mixer"
+BAZEL_TARGET_DIR="bazel-bin/src/envoy"
 
 BAZEL_TARGET="${BAZEL_TARGET_DIR}/envoy"
 RELEASE_IMAGE_NAME=${RELEASE_IMAGE_NAME:-${REPO}/${PROJECT}/envoy:${TAG}}
@@ -53,7 +53,7 @@ fi
 
 echo Publishing debug docker image
 rm -f ${BAZEL_TARGET_DIR}/envoy
-bazel build -c dbg //src/envoy/mixer:envoy
+bazel build -c dbg //src/envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/envoy.json ${BAZEL_TARGET_DIR}
@@ -72,7 +72,7 @@ fi
 
 echo Publishing release docker image
 rm -f ${BAZEL_TARGET_DIR}/envoy
-bazel build --config=release //src/envoy/mixer:envoy
+bazel build --config=release //src/envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/envoy.json ${BAZEL_TARGET_DIR}

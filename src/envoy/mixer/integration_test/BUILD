@@ -45,7 +45,7 @@ go_library(
 
 go_test_suite(
     data = [
-        "//src/envoy/mixer:envoy",
+        "//src/envoy",
     ],
     library = ":go_default_library",
     tags = [

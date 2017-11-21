@@ -80,7 +80,7 @@ function start_all() {
   echo $! > $LOG_DIR/test_server.pid
 
   # 'lds' disabled, so we can use manual config.
-  bazel-bin/src/envoy/mixer/envoy -c tools/deb/test/envoy_local.json --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster istio-proxy --service-node sidecar~172.17.0.2~mysvc.~svc.cluster.local &
+  bazel-bin/src/envoy/envoy -c tools/deb/test/envoy_local.json --restart-epoch 0 --drain-time-s 2 --parent-shutdown-time-s 3 --service-cluster istio-proxy --service-node sidecar~172.17.0.2~mysvc.~svc.cluster.local &
   echo $! > $LOG_DIR/envoy.pid
 }
 

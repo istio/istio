@@ -14,3 +14,27 @@
 #
 ################################################################################
 #
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load(
+    "@envoy//bazel:envoy_build_system.bzl",
+    "envoy_cc_binary",
+)
+
+envoy_cc_binary(
+    name = "envoy",
+    repository = "@envoy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/envoy/auth:http_filter_config",
+        "//src/envoy/mixer:filter_lib",
+        "@envoy//source/exe:envoy_main_entry_lib",
+    ],
+)
+
+pkg_tar(
+    name = "envoy_tar",
+    extension = "tar.gz",
+    files = [":envoy"],
+    mode = "0755",
+    package_dir = "/usr/local/bin/",
+)
