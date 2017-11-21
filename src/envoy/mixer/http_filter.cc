@@ -95,10 +95,16 @@ class CheckData : public HttpCheckData,
                   public Logger::Loggable<Logger::Id::http> {
   HeaderMap& headers_;
   const Network::Connection* connection_;
+  Utility::QueryParams query_params_;
 
  public:
   CheckData(HeaderMap& headers, const Network::Connection* connection)
-      : headers_(headers), connection_(connection) {}
+      : headers_(headers), connection_(connection) {
+    if (headers_.Path()) {
+      query_params_ = Utility::parseQueryString(std::string(
+          headers_.Path()->value().c_str(), headers_.Path()->value().size()));
+    }
+  }
 
   // Find "x-istio-attributes" headers, if found base64 decode
   // its value and remove it from the headers.
@@ -135,8 +141,8 @@ class CheckData : public HttpCheckData,
     return Utils::ExtractHeaders(headers_);
   }
 
-  bool FindRequestHeader(HttpCheckData::HeaderType header_type,
-                         std::string* value) const override {
+  bool FindHeaderByType(HttpCheckData::HeaderType header_type,
+                        std::string* value) const override {
     switch (header_type) {
       case HttpCheckData::HEADER_PATH:
         if (headers_.Path()) {
@@ -181,6 +187,35 @@ class CheckData : public HttpCheckData,
           return true;
         }
       } break;
+    }
+    return false;
+  }
+
+  bool FindHeaderByName(const std::string& name,
+                        std::string* value) const override {
+    const HeaderEntry* entry = headers_.get(LowerCaseString(name));
+    if (entry) {
+      *value = std::string(entry->value().c_str(), entry->value().size());
+      return true;
+    }
+    return false;
+  }
+
+  bool FindQueryParameter(const std::string& name,
+                          std::string* value) const override {
+    const auto& it = query_params_.find(name);
+    if (it != query_params_.end()) {
+      *value = it->second;
+      return true;
+    }
+    return false;
+  }
+
+  bool FindCookie(const std::string& name, std::string* value) const override {
+    std::string cookie = Utility::parseCookieValue(headers_, name);
+    if (cookie != "") {
+      *value = cookie;
+      return true;
     }
     return false;
   }
