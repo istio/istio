@@ -15,12 +15,11 @@
 package svcctrl
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
 	sc "google.golang.org/api/servicecontrol/v1"
-
-	"reflect"
 
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 )
