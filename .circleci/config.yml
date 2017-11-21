@@ -33,8 +33,8 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
-      - run: cd pilot; go build -i ./test/integration
-      - run: cd pilot; ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -errorlogsdir=/home/circleci/logs 
+      - run: go build -i ./pilot/test/integration
+      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -errorlogsdir=/home/circleci/logs 
       - store_artifacts:
           path: /home/circleci/logs
 
