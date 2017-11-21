@@ -20,6 +20,8 @@ import (
 
 	sc "google.golang.org/api/servicecontrol/v1"
 
+	"reflect"
+
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 )
 
@@ -221,5 +223,28 @@ func TestGenerateLogErrorCause(t *testing.T) {
 	rb.instance.ResponseCode = 500
 	if generateLogErrorCause(rb.instance) != endPointsLogErrorCauseApplication {
 		t.Error(`expect to get application error when HTTP code = 500`)
+	}
+}
+
+func TestNewReportBuilder(t *testing.T) {
+	instance := new(svcctrlreport.Instance)
+	supportedMetrics := []metricDef{
+		{
+			name:           "test_metric",
+			valueGenerator: generateRequestCount,
+			labels: []string{
+				"/status_code",
+			},
+		},
+	}
+	resolver := new(mockConsumerProjectIDResolver)
+	builder := newReportBuilder(instance, supportedMetrics, resolver)
+	expectedBuilder := reportBuilder{
+		supportedMetrics,
+		instance,
+		resolver,
+	}
+	if builder == nil || !reflect.DeepEqual(expectedBuilder, *builder) {
+		t.Errorf(`expect to get %v, but get %v`, expectedBuilder, *builder)
 	}
 }
