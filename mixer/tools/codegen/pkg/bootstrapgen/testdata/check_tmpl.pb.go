@@ -9,7 +9,11 @@
 
 	It has these top-level messages:
 		Type
+		Res1Type
+		Res2Type
 		InstanceParam
+		Res1InstanceParam
+		Res2InstanceParam
 */
 package istio_mixer_template_list
 
@@ -42,6 +46,7 @@ type Type struct {
 	// dimensions are ...
 	Dimensions       map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
 	AnotherValueType istio_mixer_v1_config_descriptor.ValueType            `protobuf:"varint,7,opt,name=anotherValueType,proto3,enum=istio.mixer.v1.config.descriptor.ValueType" json:"anotherValueType,omitempty"`
+	Res1             *Res1Type                                             `protobuf:"bytes,11,opt,name=res1" json:"res1,omitempty"`
 }
 
 func (m *Type) Reset()                    { *m = Type{} }
@@ -69,21 +74,91 @@ func (m *Type) GetAnotherValueType() istio_mixer_v1_config_descriptor.ValueType 
 	return istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED
 }
 
+func (m *Type) GetRes1() *Res1Type {
+	if m != nil {
+		return m.Res1
+	}
+	return nil
+}
+
+type Res1Type struct {
+	Value      istio_mixer_v1_config_descriptor.ValueType            `protobuf:"varint,1,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType" json:"value,omitempty"`
+	Dimensions map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
+	Res2       *Res2Type                                             `protobuf:"bytes,11,opt,name=res2" json:"res2,omitempty"`
+	Res2Map    map[string]*Res2Type                                  `protobuf:"bytes,12,rep,name=res2_map,json=res2Map" json:"res2_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Res1Type) Reset()                    { *m = Res1Type{} }
+func (*Res1Type) ProtoMessage()               {}
+func (*Res1Type) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{1} }
+
+func (m *Res1Type) GetValue() istio_mixer_v1_config_descriptor.ValueType {
+	if m != nil {
+		return m.Value
+	}
+	return istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED
+}
+
+func (m *Res1Type) GetDimensions() map[string]istio_mixer_v1_config_descriptor.ValueType {
+	if m != nil {
+		return m.Dimensions
+	}
+	return nil
+}
+
+func (m *Res1Type) GetRes2() *Res2Type {
+	if m != nil {
+		return m.Res2
+	}
+	return nil
+}
+
+func (m *Res1Type) GetRes2Map() map[string]*Res2Type {
+	if m != nil {
+		return m.Res2Map
+	}
+	return nil
+}
+
+type Res2Type struct {
+	Value      istio_mixer_v1_config_descriptor.ValueType            `protobuf:"varint,1,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType" json:"value,omitempty"`
+	Dimensions map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
+}
+
+func (m *Res2Type) Reset()                    { *m = Res2Type{} }
+func (*Res2Type) ProtoMessage()               {}
+func (*Res2Type) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{2} }
+
+func (m *Res2Type) GetValue() istio_mixer_v1_config_descriptor.ValueType {
+	if m != nil {
+		return m.Value
+	}
+	return istio_mixer_v1_config_descriptor.VALUE_TYPE_UNSPECIFIED
+}
+
+func (m *Res2Type) GetDimensions() map[string]istio_mixer_v1_config_descriptor.ValueType {
+	if m != nil {
+		return m.Dimensions
+	}
+	return nil
+}
+
 type InstanceParam struct {
-	Value                          string            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	Dimensions                     map[string]string `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Int64Primitive                 string            `protobuf:"bytes,3,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
-	BoolPrimitive                  string            `protobuf:"bytes,4,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
-	DoublePrimitive                string            `protobuf:"bytes,5,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
-	StringPrimitive                string            `protobuf:"bytes,6,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
-	AnotherValueType               string            `protobuf:"bytes,7,opt,name=anotherValueType,proto3" json:"anotherValueType,omitempty"`
-	DimensionsFixedInt64ValueDType map[string]string `protobuf:"bytes,8,rep,name=dimensionsFixedInt64ValueDType" json:"dimensionsFixedInt64ValueDType,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	CheckExpression                string            `protobuf:"bytes,9,opt,name=check_expression,json=checkExpression,proto3" json:"check_expression,omitempty"`
+	Value                          string             `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Dimensions                     map[string]string  `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Int64Primitive                 string             `protobuf:"bytes,3,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive                  string             `protobuf:"bytes,4,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive                string             `protobuf:"bytes,5,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive                string             `protobuf:"bytes,6,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	AnotherValueType               string             `protobuf:"bytes,7,opt,name=anotherValueType,proto3" json:"anotherValueType,omitempty"`
+	DimensionsFixedInt64ValueDType map[string]string  `protobuf:"bytes,8,rep,name=dimensionsFixedInt64ValueDType" json:"dimensionsFixedInt64ValueDType,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	CheckExpression                string             `protobuf:"bytes,9,opt,name=check_expression,json=checkExpression,proto3" json:"check_expression,omitempty"`
+	Res1                           *Res1InstanceParam `protobuf:"bytes,11,opt,name=res1" json:"res1,omitempty"`
 }
 
 func (m *InstanceParam) Reset()                    { *m = InstanceParam{} }
 func (*InstanceParam) ProtoMessage()               {}
-func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{1} }
+func (*InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{3} }
 
 func (m *InstanceParam) GetValue() string {
 	if m != nil {
@@ -148,9 +223,146 @@ func (m *InstanceParam) GetCheckExpression() string {
 	return ""
 }
 
+func (m *InstanceParam) GetRes1() *Res1InstanceParam {
+	if m != nil {
+		return m.Res1
+	}
+	return nil
+}
+
+type Res1InstanceParam struct {
+	Value           string                        `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Dimensions      map[string]string             `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Int64Primitive  string                        `protobuf:"bytes,3,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+	BoolPrimitive   string                        `protobuf:"bytes,4,opt,name=boolPrimitive,proto3" json:"boolPrimitive,omitempty"`
+	DoublePrimitive string                        `protobuf:"bytes,5,opt,name=doublePrimitive,proto3" json:"doublePrimitive,omitempty"`
+	StringPrimitive string                        `protobuf:"bytes,6,opt,name=stringPrimitive,proto3" json:"stringPrimitive,omitempty"`
+	Int64Map        map[string]string             `protobuf:"bytes,7,rep,name=int64Map" json:"int64Map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	TimeStamp       string                        `protobuf:"bytes,9,opt,name=timeStamp,proto3" json:"timeStamp,omitempty"`
+	Duration        string                        `protobuf:"bytes,10,opt,name=duration,proto3" json:"duration,omitempty"`
+	Res2            *Res2InstanceParam            `protobuf:"bytes,11,opt,name=res2" json:"res2,omitempty"`
+	Res2Map         map[string]*Res2InstanceParam `protobuf:"bytes,12,rep,name=res2_map,json=res2Map" json:"res2_map,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *Res1InstanceParam) Reset()                    { *m = Res1InstanceParam{} }
+func (*Res1InstanceParam) ProtoMessage()               {}
+func (*Res1InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{4} }
+
+func (m *Res1InstanceParam) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetDimensions() map[string]string {
+	if m != nil {
+		return m.Dimensions
+	}
+	return nil
+}
+
+func (m *Res1InstanceParam) GetInt64Primitive() string {
+	if m != nil {
+		return m.Int64Primitive
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetBoolPrimitive() string {
+	if m != nil {
+		return m.BoolPrimitive
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetDoublePrimitive() string {
+	if m != nil {
+		return m.DoublePrimitive
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetStringPrimitive() string {
+	if m != nil {
+		return m.StringPrimitive
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetInt64Map() map[string]string {
+	if m != nil {
+		return m.Int64Map
+	}
+	return nil
+}
+
+func (m *Res1InstanceParam) GetTimeStamp() string {
+	if m != nil {
+		return m.TimeStamp
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetDuration() string {
+	if m != nil {
+		return m.Duration
+	}
+	return ""
+}
+
+func (m *Res1InstanceParam) GetRes2() *Res2InstanceParam {
+	if m != nil {
+		return m.Res2
+	}
+	return nil
+}
+
+func (m *Res1InstanceParam) GetRes2Map() map[string]*Res2InstanceParam {
+	if m != nil {
+		return m.Res2Map
+	}
+	return nil
+}
+
+type Res2InstanceParam struct {
+	Value          string            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Dimensions     map[string]string `protobuf:"bytes,2,rep,name=dimensions" json:"dimensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Int64Primitive string            `protobuf:"bytes,3,opt,name=int64Primitive,proto3" json:"int64Primitive,omitempty"`
+}
+
+func (m *Res2InstanceParam) Reset()                    { *m = Res2InstanceParam{} }
+func (*Res2InstanceParam) ProtoMessage()               {}
+func (*Res2InstanceParam) Descriptor() ([]byte, []int) { return fileDescriptorCheckTmpl, []int{5} }
+
+func (m *Res2InstanceParam) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+func (m *Res2InstanceParam) GetDimensions() map[string]string {
+	if m != nil {
+		return m.Dimensions
+	}
+	return nil
+}
+
+func (m *Res2InstanceParam) GetInt64Primitive() string {
+	if m != nil {
+		return m.Int64Primitive
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*Type)(nil), "istio.mixer.template.list.Type")
+	proto.RegisterType((*Res1Type)(nil), "istio.mixer.template.list.Res1Type")
+	proto.RegisterType((*Res2Type)(nil), "istio.mixer.template.list.Res2Type")
 	proto.RegisterType((*InstanceParam)(nil), "istio.mixer.template.list.InstanceParam")
+	proto.RegisterType((*Res1InstanceParam)(nil), "istio.mixer.template.list.Res1InstanceParam")
+	proto.RegisterType((*Res2InstanceParam)(nil), "istio.mixer.template.list.Res2InstanceParam")
 }
 func (this *Type) Equal(that interface{}) bool {
 	if that == nil {
@@ -190,6 +402,96 @@ func (this *Type) Equal(that interface{}) bool {
 	}
 	if this.AnotherValueType != that1.AnotherValueType {
 		return false
+	}
+	if !this.Res1.Equal(that1.Res1) {
+		return false
+	}
+	return true
+}
+func (this *Res1Type) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Res1Type)
+	if !ok {
+		that2, ok := that.(Res1Type)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Value != that1.Value {
+		return false
+	}
+	if len(this.Dimensions) != len(that1.Dimensions) {
+		return false
+	}
+	for i := range this.Dimensions {
+		if this.Dimensions[i] != that1.Dimensions[i] {
+			return false
+		}
+	}
+	if !this.Res2.Equal(that1.Res2) {
+		return false
+	}
+	if len(this.Res2Map) != len(that1.Res2Map) {
+		return false
+	}
+	for i := range this.Res2Map {
+		if !this.Res2Map[i].Equal(that1.Res2Map[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *Res2Type) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Res2Type)
+	if !ok {
+		that2, ok := that.(Res2Type)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Value != that1.Value {
+		return false
+	}
+	if len(this.Dimensions) != len(that1.Dimensions) {
+		return false
+	}
+	for i := range this.Dimensions {
+		if this.Dimensions[i] != that1.Dimensions[i] {
+			return false
+		}
 	}
 	return true
 }
@@ -255,13 +557,132 @@ func (this *InstanceParam) Equal(that interface{}) bool {
 	if this.CheckExpression != that1.CheckExpression {
 		return false
 	}
+	if !this.Res1.Equal(that1.Res1) {
+		return false
+	}
+	return true
+}
+func (this *Res1InstanceParam) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Res1InstanceParam)
+	if !ok {
+		that2, ok := that.(Res1InstanceParam)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Value != that1.Value {
+		return false
+	}
+	if len(this.Dimensions) != len(that1.Dimensions) {
+		return false
+	}
+	for i := range this.Dimensions {
+		if this.Dimensions[i] != that1.Dimensions[i] {
+			return false
+		}
+	}
+	if this.Int64Primitive != that1.Int64Primitive {
+		return false
+	}
+	if this.BoolPrimitive != that1.BoolPrimitive {
+		return false
+	}
+	if this.DoublePrimitive != that1.DoublePrimitive {
+		return false
+	}
+	if this.StringPrimitive != that1.StringPrimitive {
+		return false
+	}
+	if len(this.Int64Map) != len(that1.Int64Map) {
+		return false
+	}
+	for i := range this.Int64Map {
+		if this.Int64Map[i] != that1.Int64Map[i] {
+			return false
+		}
+	}
+	if this.TimeStamp != that1.TimeStamp {
+		return false
+	}
+	if this.Duration != that1.Duration {
+		return false
+	}
+	if !this.Res2.Equal(that1.Res2) {
+		return false
+	}
+	if len(this.Res2Map) != len(that1.Res2Map) {
+		return false
+	}
+	for i := range this.Res2Map {
+		if !this.Res2Map[i].Equal(that1.Res2Map[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *Res2InstanceParam) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Res2InstanceParam)
+	if !ok {
+		that2, ok := that.(Res2InstanceParam)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if this.Value != that1.Value {
+		return false
+	}
+	if len(this.Dimensions) != len(that1.Dimensions) {
+		return false
+	}
+	for i := range this.Dimensions {
+		if this.Dimensions[i] != that1.Dimensions[i] {
+			return false
+		}
+	}
+	if this.Int64Primitive != that1.Int64Primitive {
+		return false
+	}
 	return true
 }
 func (this *Type) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 8)
 	s = append(s, "&istio_mixer_template_list.Type{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
 	keysForDimensions := make([]string, 0, len(this.Dimensions))
@@ -278,6 +699,71 @@ func (this *Type) GoString() string {
 		s = append(s, "Dimensions: "+mapStringForDimensions+",\n")
 	}
 	s = append(s, "AnotherValueType: "+fmt.Sprintf("%#v", this.AnotherValueType)+",\n")
+	if this.Res1 != nil {
+		s = append(s, "Res1: "+fmt.Sprintf("%#v", this.Res1)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Res1Type) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 8)
+	s = append(s, "&istio_mixer_template_list.Res1Type{")
+	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%#v: %#v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	if this.Dimensions != nil {
+		s = append(s, "Dimensions: "+mapStringForDimensions+",\n")
+	}
+	if this.Res2 != nil {
+		s = append(s, "Res2: "+fmt.Sprintf("%#v", this.Res2)+",\n")
+	}
+	keysForRes2Map := make([]string, 0, len(this.Res2Map))
+	for k, _ := range this.Res2Map {
+		keysForRes2Map = append(keysForRes2Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	mapStringForRes2Map := "map[string]*Res2Type{"
+	for _, k := range keysForRes2Map {
+		mapStringForRes2Map += fmt.Sprintf("%#v: %#v,", k, this.Res2Map[k])
+	}
+	mapStringForRes2Map += "}"
+	if this.Res2Map != nil {
+		s = append(s, "Res2Map: "+mapStringForRes2Map+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Res2Type) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&istio_mixer_template_list.Res2Type{")
+	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%#v: %#v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	if this.Dimensions != nil {
+		s = append(s, "Dimensions: "+mapStringForDimensions+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -285,7 +771,7 @@ func (this *InstanceParam) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 13)
+	s := make([]string, 0, 14)
 	s = append(s, "&istio_mixer_template_list.InstanceParam{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
 	keysForDimensions := make([]string, 0, len(this.Dimensions))
@@ -320,6 +806,91 @@ func (this *InstanceParam) GoString() string {
 		s = append(s, "DimensionsFixedInt64ValueDType: "+mapStringForDimensionsFixedInt64ValueDType+",\n")
 	}
 	s = append(s, "CheckExpression: "+fmt.Sprintf("%#v", this.CheckExpression)+",\n")
+	if this.Res1 != nil {
+		s = append(s, "Res1: "+fmt.Sprintf("%#v", this.Res1)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Res1InstanceParam) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 15)
+	s = append(s, "&istio_mixer_template_list.Res1InstanceParam{")
+	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]string{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%#v: %#v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	if this.Dimensions != nil {
+		s = append(s, "Dimensions: "+mapStringForDimensions+",\n")
+	}
+	s = append(s, "Int64Primitive: "+fmt.Sprintf("%#v", this.Int64Primitive)+",\n")
+	s = append(s, "BoolPrimitive: "+fmt.Sprintf("%#v", this.BoolPrimitive)+",\n")
+	s = append(s, "DoublePrimitive: "+fmt.Sprintf("%#v", this.DoublePrimitive)+",\n")
+	s = append(s, "StringPrimitive: "+fmt.Sprintf("%#v", this.StringPrimitive)+",\n")
+	keysForInt64Map := make([]string, 0, len(this.Int64Map))
+	for k, _ := range this.Int64Map {
+		keysForInt64Map = append(keysForInt64Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForInt64Map)
+	mapStringForInt64Map := "map[string]string{"
+	for _, k := range keysForInt64Map {
+		mapStringForInt64Map += fmt.Sprintf("%#v: %#v,", k, this.Int64Map[k])
+	}
+	mapStringForInt64Map += "}"
+	if this.Int64Map != nil {
+		s = append(s, "Int64Map: "+mapStringForInt64Map+",\n")
+	}
+	s = append(s, "TimeStamp: "+fmt.Sprintf("%#v", this.TimeStamp)+",\n")
+	s = append(s, "Duration: "+fmt.Sprintf("%#v", this.Duration)+",\n")
+	if this.Res2 != nil {
+		s = append(s, "Res2: "+fmt.Sprintf("%#v", this.Res2)+",\n")
+	}
+	keysForRes2Map := make([]string, 0, len(this.Res2Map))
+	for k, _ := range this.Res2Map {
+		keysForRes2Map = append(keysForRes2Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	mapStringForRes2Map := "map[string]*Res2InstanceParam{"
+	for _, k := range keysForRes2Map {
+		mapStringForRes2Map += fmt.Sprintf("%#v: %#v,", k, this.Res2Map[k])
+	}
+	mapStringForRes2Map += "}"
+	if this.Res2Map != nil {
+		s = append(s, "Res2Map: "+mapStringForRes2Map+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Res2InstanceParam) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&istio_mixer_template_list.Res2InstanceParam{")
+	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]string{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%#v: %#v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	if this.Dimensions != nil {
+		s = append(s, "Dimensions: "+mapStringForDimensions+",\n")
+	}
+	s = append(s, "Int64Primitive: "+fmt.Sprintf("%#v", this.Int64Primitive)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -371,6 +942,132 @@ func (m *Type) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x38
 		i++
 		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.AnotherValueType))
+	}
+	if m.Res1 != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Res1.Size()))
+		n1, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	return i, nil
+}
+
+func (m *Res1Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Res1Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Value != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Value))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, _ := range m.Dimensions {
+			dAtA[i] = 0x12
+			i++
+			v := m.Dimensions[k]
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + sovCheckTmpl(uint64(v))
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x10
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(v))
+		}
+	}
+	if m.Res2 != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Res2.Size()))
+		n2, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if len(m.Res2Map) > 0 {
+		for k, _ := range m.Res2Map {
+			dAtA[i] = 0x62
+			i++
+			v := m.Res2Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovCheckTmpl(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + msgSize
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintCheckTmpl(dAtA, i, uint64(v.Size()))
+				n3, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n3
+			}
+		}
+	}
+	return i, nil
+}
+
+func (m *Res2Type) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Res2Type) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Value != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Value))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, _ := range m.Dimensions {
+			dAtA[i] = 0x12
+			i++
+			v := m.Dimensions[k]
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + sovCheckTmpl(uint64(v))
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x10
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(v))
+		}
 	}
 	return i, nil
 }
@@ -466,6 +1163,195 @@ func (m *InstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.CheckExpression)))
 		i += copy(dAtA[i:], m.CheckExpression)
 	}
+	if m.Res1 != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Res1.Size()))
+		n4, err := m.Res1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+
+func (m *Res1InstanceParam) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Res1InstanceParam) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Value) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.Value)))
+		i += copy(dAtA[i:], m.Value)
+	}
+	if len(m.Dimensions) > 0 {
+		for k, _ := range m.Dimensions {
+			dAtA[i] = 0x12
+			i++
+			v := m.Dimensions[k]
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Int64Primitive) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.Int64Primitive)))
+		i += copy(dAtA[i:], m.Int64Primitive)
+	}
+	if len(m.BoolPrimitive) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.BoolPrimitive)))
+		i += copy(dAtA[i:], m.BoolPrimitive)
+	}
+	if len(m.DoublePrimitive) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.DoublePrimitive)))
+		i += copy(dAtA[i:], m.DoublePrimitive)
+	}
+	if len(m.StringPrimitive) > 0 {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.StringPrimitive)))
+		i += copy(dAtA[i:], m.StringPrimitive)
+	}
+	if len(m.Int64Map) > 0 {
+		for k, _ := range m.Int64Map {
+			dAtA[i] = 0x3a
+			i++
+			v := m.Int64Map[k]
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.TimeStamp) > 0 {
+		dAtA[i] = 0x4a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.TimeStamp)))
+		i += copy(dAtA[i:], m.TimeStamp)
+	}
+	if len(m.Duration) > 0 {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.Duration)))
+		i += copy(dAtA[i:], m.Duration)
+	}
+	if m.Res2 != nil {
+		dAtA[i] = 0x5a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(m.Res2.Size()))
+		n5, err := m.Res2.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	if len(m.Res2Map) > 0 {
+		for k, _ := range m.Res2Map {
+			dAtA[i] = 0x62
+			i++
+			v := m.Res2Map[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovCheckTmpl(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + msgSize
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintCheckTmpl(dAtA, i, uint64(v.Size()))
+				n6, err := v.MarshalTo(dAtA[i:])
+				if err != nil {
+					return 0, err
+				}
+				i += n6
+			}
+		}
+	}
+	return i, nil
+}
+
+func (m *Res2InstanceParam) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Res2InstanceParam) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Value) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.Value)))
+		i += copy(dAtA[i:], m.Value)
+	}
+	if len(m.Dimensions) > 0 {
+		for k, _ := range m.Dimensions {
+			dAtA[i] = 0x12
+			i++
+			v := m.Dimensions[k]
+			mapSize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintCheckTmpl(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if len(m.Int64Primitive) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintCheckTmpl(dAtA, i, uint64(len(m.Int64Primitive)))
+		i += copy(dAtA[i:], m.Int64Primitive)
+	}
 	return i, nil
 }
 
@@ -494,6 +1380,61 @@ func (m *Type) Size() (n int) {
 	}
 	if m.AnotherValueType != 0 {
 		n += 1 + sovCheckTmpl(uint64(m.AnotherValueType))
+	}
+	if m.Res1 != nil {
+		l = m.Res1.Size()
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	return n
+}
+
+func (m *Res1Type) Size() (n int) {
+	var l int
+	_ = l
+	if m.Value != 0 {
+		n += 1 + sovCheckTmpl(uint64(m.Value))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, v := range m.Dimensions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + sovCheckTmpl(uint64(v))
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	if m.Res2 != nil {
+		l = m.Res2.Size()
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if len(m.Res2Map) > 0 {
+		for k, v := range m.Res2Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovCheckTmpl(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Res2Type) Size() (n int) {
+	var l int
+	_ = l
+	if m.Value != 0 {
+		n += 1 + sovCheckTmpl(uint64(m.Value))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, v := range m.Dimensions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + sovCheckTmpl(uint64(v))
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
 	}
 	return n
 }
@@ -545,6 +1486,99 @@ func (m *InstanceParam) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovCheckTmpl(uint64(l))
 	}
+	if m.Res1 != nil {
+		l = m.Res1.Size()
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	return n
+}
+
+func (m *Res1InstanceParam) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, v := range m.Dimensions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.Int64Primitive)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	l = len(m.BoolPrimitive)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	l = len(m.DoublePrimitive)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	l = len(m.StringPrimitive)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if len(m.Int64Map) > 0 {
+		for k, v := range m.Int64Map {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.TimeStamp)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	l = len(m.Duration)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if m.Res2 != nil {
+		l = m.Res2.Size()
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if len(m.Res2Map) > 0 {
+		for k, v := range m.Res2Map {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovCheckTmpl(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	return n
+}
+
+func (m *Res2InstanceParam) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Value)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
+	if len(m.Dimensions) > 0 {
+		for k, v := range m.Dimensions {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovCheckTmpl(uint64(len(k))) + 1 + len(v) + sovCheckTmpl(uint64(len(v)))
+			n += mapEntrySize + 1 + sovCheckTmpl(uint64(mapEntrySize))
+		}
+	}
+	l = len(m.Int64Primitive)
+	if l > 0 {
+		n += 1 + l + sovCheckTmpl(uint64(l))
+	}
 	return n
 }
 
@@ -579,6 +1613,61 @@ func (this *Type) String() string {
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
 		`Dimensions:` + mapStringForDimensions + `,`,
 		`AnotherValueType:` + fmt.Sprintf("%v", this.AnotherValueType) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1Type", "Res1Type", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Res1Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	keysForRes2Map := make([]string, 0, len(this.Res2Map))
+	for k, _ := range this.Res2Map {
+		keysForRes2Map = append(keysForRes2Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	mapStringForRes2Map := "map[string]*Res2Type{"
+	for _, k := range keysForRes2Map {
+		mapStringForRes2Map += fmt.Sprintf("%v: %v,", k, this.Res2Map[k])
+	}
+	mapStringForRes2Map += "}"
+	s := strings.Join([]string{`&Res1Type{`,
+		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`Dimensions:` + mapStringForDimensions + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2Type", "Res2Type", 1) + `,`,
+		`Res2Map:` + mapStringForRes2Map + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Res2Type) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	s := strings.Join([]string{`&Res2Type{`,
+		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`Dimensions:` + mapStringForDimensions + `,`,
 		`}`,
 	}, "")
 	return s
@@ -617,6 +1706,79 @@ func (this *InstanceParam) String() string {
 		`AnotherValueType:` + fmt.Sprintf("%v", this.AnotherValueType) + `,`,
 		`DimensionsFixedInt64ValueDType:` + mapStringForDimensionsFixedInt64ValueDType + `,`,
 		`CheckExpression:` + fmt.Sprintf("%v", this.CheckExpression) + `,`,
+		`Res1:` + strings.Replace(fmt.Sprintf("%v", this.Res1), "Res1InstanceParam", "Res1InstanceParam", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Res1InstanceParam) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]string{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	keysForInt64Map := make([]string, 0, len(this.Int64Map))
+	for k, _ := range this.Int64Map {
+		keysForInt64Map = append(keysForInt64Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForInt64Map)
+	mapStringForInt64Map := "map[string]string{"
+	for _, k := range keysForInt64Map {
+		mapStringForInt64Map += fmt.Sprintf("%v: %v,", k, this.Int64Map[k])
+	}
+	mapStringForInt64Map += "}"
+	keysForRes2Map := make([]string, 0, len(this.Res2Map))
+	for k, _ := range this.Res2Map {
+		keysForRes2Map = append(keysForRes2Map, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForRes2Map)
+	mapStringForRes2Map := "map[string]*Res2InstanceParam{"
+	for _, k := range keysForRes2Map {
+		mapStringForRes2Map += fmt.Sprintf("%v: %v,", k, this.Res2Map[k])
+	}
+	mapStringForRes2Map += "}"
+	s := strings.Join([]string{`&Res1InstanceParam{`,
+		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`Dimensions:` + mapStringForDimensions + `,`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
+		`BoolPrimitive:` + fmt.Sprintf("%v", this.BoolPrimitive) + `,`,
+		`DoublePrimitive:` + fmt.Sprintf("%v", this.DoublePrimitive) + `,`,
+		`StringPrimitive:` + fmt.Sprintf("%v", this.StringPrimitive) + `,`,
+		`Int64Map:` + mapStringForInt64Map + `,`,
+		`TimeStamp:` + fmt.Sprintf("%v", this.TimeStamp) + `,`,
+		`Duration:` + fmt.Sprintf("%v", this.Duration) + `,`,
+		`Res2:` + strings.Replace(fmt.Sprintf("%v", this.Res2), "Res2InstanceParam", "Res2InstanceParam", 1) + `,`,
+		`Res2Map:` + mapStringForRes2Map + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Res2InstanceParam) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForDimensions := make([]string, 0, len(this.Dimensions))
+	for k, _ := range this.Dimensions {
+		keysForDimensions = append(keysForDimensions, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForDimensions)
+	mapStringForDimensions := "map[string]string{"
+	for _, k := range keysForDimensions {
+		mapStringForDimensions += fmt.Sprintf("%v: %v,", k, this.Dimensions[k])
+	}
+	mapStringForDimensions += "}"
+	s := strings.Join([]string{`&Res2InstanceParam{`,
+		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`Dimensions:` + mapStringForDimensions + `,`,
+		`Int64Primitive:` + fmt.Sprintf("%v", this.Int64Primitive) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -803,6 +1965,547 @@ func (m *Type) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res1", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res1 == nil {
+				m.Res1 = &Res1Type{}
+			}
+			if err := m.Res1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Res1Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCheckTmpl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Res1Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Res1Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			m.Value = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Value |= (istio_mixer_v1_config_descriptor.ValueType(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dimensions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Dimensions == nil {
+				m.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+			}
+			var mapkey string
+			var mapvalue istio_mixer_v1_config_descriptor.ValueType
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (istio_mixer_v1_config_descriptor.ValueType(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Dimensions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res2 == nil {
+				m.Res2 = &Res2Type{}
+			}
+			if err := m.Res2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res2Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res2Map == nil {
+				m.Res2Map = make(map[string]*Res2Type)
+			}
+			var mapkey string
+			var mapvalue *Res2Type
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Res2Type{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res2Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Res2Type) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCheckTmpl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Res2Type: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Res2Type: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			m.Value = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Value |= (istio_mixer_v1_config_descriptor.ValueType(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dimensions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Dimensions == nil {
+				m.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+			}
+			var mapkey string
+			var mapvalue istio_mixer_v1_config_descriptor.ValueType
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (istio_mixer_v1_config_descriptor.ValueType(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Dimensions[mapkey] = mapvalue
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
@@ -1292,6 +2995,910 @@ func (m *InstanceParam) Unmarshal(dAtA []byte) error {
 			}
 			m.CheckExpression = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res1", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res1 == nil {
+				m.Res1 = &Res1InstanceParam{}
+			}
+			if err := m.Res1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Res1InstanceParam) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCheckTmpl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Res1InstanceParam: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Res1InstanceParam: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dimensions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Dimensions == nil {
+				m.Dimensions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Dimensions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Int64Primitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BoolPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.BoolPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DoublePrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DoublePrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StringPrimitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.StringPrimitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Int64Map == nil {
+				m.Int64Map = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Int64Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TimeStamp", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TimeStamp = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Duration = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res2 == nil {
+				m.Res2 = &Res2InstanceParam{}
+			}
+			if err := m.Res2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Res2Map", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Res2Map == nil {
+				m.Res2Map = make(map[string]*Res2InstanceParam)
+			}
+			var mapkey string
+			var mapvalue *Res2InstanceParam
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Res2InstanceParam{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Res2Map[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Res2InstanceParam) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowCheckTmpl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Res2InstanceParam: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Res2InstanceParam: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Value = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dimensions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Dimensions == nil {
+				m.Dimensions = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowCheckTmpl
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowCheckTmpl
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipCheckTmpl(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthCheckTmpl
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Dimensions[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Int64Primitive", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowCheckTmpl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthCheckTmpl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Int64Primitive = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipCheckTmpl(dAtA[iNdEx:])
@@ -1423,40 +4030,57 @@ func init() {
 }
 
 var fileDescriptorCheckTmpl = []byte{
-	// 558 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xcf, 0x6e, 0xd3, 0x40,
-	0x10, 0xc6, 0xe3, 0xa4, 0x29, 0x64, 0x51, 0xdb, 0xc8, 0xea, 0x21, 0xe4, 0xb0, 0xaa, 0x02, 0x42,
-	0x81, 0xaa, 0x5e, 0x35, 0x20, 0x54, 0x21, 0x71, 0x00, 0xb5, 0x48, 0x95, 0x90, 0x28, 0x11, 0x02,
-	0x6e, 0xd5, 0xda, 0x9e, 0xa4, 0x4b, 0xd6, 0x5e, 0xcb, 0x3b, 0x89, 0x12, 0x4e, 0x3c, 0x02, 0x12,
-	0xbc, 0x00, 0x37, 0x1e, 0x85, 0x63, 0xc5, 0x89, 0x1b, 0xc4, 0x70, 0xe0, 0xd8, 0x23, 0x47, 0xe4,
-	0x35, 0x8d, 0xd3, 0xf4, 0x0f, 0x6d, 0x6f, 0xd6, 0xe7, 0xdf, 0x7c, 0x33, 0xf3, 0xed, 0xda, 0x84,
-	0xbb, 0xfc, 0x2d, 0xc8, 0x35, 0xd5, 0x47, 0x26, 0x95, 0xc7, 0xe5, 0x5a, 0x87, 0x6b, 0x74, 0xfb,
-	0x42, 0xfa, 0xac, 0x0b, 0x61, 0x47, 0x48, 0xd0, 0x2c, 0x10, 0x43, 0x88, 0x19, 0x2a, 0x25, 0x35,
-	0xf3, 0x94, 0x0f, 0x5d, 0x08, 0x59, 0xd4, 0xeb, 0x32, 0x57, 0x29, 0xd4, 0x18, 0xf3, 0x28, 0x15,
-	0x10, 0x34, 0xfa, 0x1c, 0x39, 0xf3, 0xf6, 0xc0, 0xeb, 0xed, 0x62, 0x10, 0x49, 0x27, 0x8a, 0x15,
-	0x2a, 0xfb, 0xba, 0xd0, 0x28, 0x94, 0x63, 0x5c, 0x1c, 0x84, 0x20, 0x92, 0x1c, 0xc1, 0x91, 0x42,
-	0x63, 0xbd, 0x91, 0x59, 0x0f, 0xd6, 0xd9, 0xa1, 0xce, 0x60, 0x88, 0x10, 0x6a, 0xa1, 0x42, 0x9d,
-	0x95, 0xd7, 0x57, 0x27, 0x8c, 0xa7, 0xc2, 0x8e, 0xe8, 0x32, 0x1f, 0xb4, 0x17, 0x8b, 0x08, 0x55,
-	0xcc, 0x06, 0x5c, 0xf6, 0x61, 0x17, 0x47, 0x11, 0x64, 0x70, 0xe3, 0x7b, 0x91, 0xcc, 0xbd, 0x18,
-	0x45, 0x60, 0x3f, 0x22, 0x65, 0xf3, 0xb2, 0x66, 0xad, 0x58, 0xcd, 0xc5, 0xd6, 0xaa, 0x33, 0x3d,
-	0xc4, 0x60, 0xdd, 0xc9, 0xbc, 0x9c, 0xdc, 0xcb, 0x79, 0x99, 0xe2, 0x69, 0x6d, 0x3b, 0xab, 0xb4,
-	0x9f, 0x11, 0xe2, 0x8b, 0xe0, 0xdf, 0x30, 0xb5, 0xe2, 0x4a, 0xa9, 0x79, 0xad, 0xc5, 0x9c, 0x53,
-	0x97, 0x71, 0xd2, 0x5a, 0x67, 0x73, 0x52, 0xb1, 0x15, 0x62, 0x3c, 0x6a, 0x4f, 0x59, 0xd8, 0xaf,
-	0x48, 0x95, 0x87, 0x0a, 0xf7, 0x20, 0x9e, 0xf4, 0xaa, 0x5d, 0xb9, 0xf8, 0x78, 0xc7, 0x4c, 0xea,
-	0x6f, 0xc8, 0xd2, 0x4c, 0x5f, 0xbb, 0x4a, 0x4a, 0x3d, 0x18, 0x99, 0xed, 0x2b, 0xed, 0xf4, 0x31,
-	0x4f, 0xa4, 0x78, 0xd9, 0x44, 0x1e, 0x14, 0x37, 0xac, 0xc6, 0xa7, 0x32, 0x59, 0xd8, 0x0e, 0x35,
-	0xf2, 0xd0, 0x83, 0x1d, 0x1e, 0xf3, 0xc0, 0x5e, 0x9e, 0x8e, 0xba, 0x72, 0x98, 0xde, 0xeb, 0x13,
-	0xd2, 0xdb, 0x38, 0x23, 0xbd, 0x23, 0x9e, 0x67, 0xc6, 0x78, 0x8b, 0x2c, 0x8a, 0x10, 0xef, 0xdf,
-	0xdb, 0x89, 0x45, 0x20, 0x50, 0x0c, 0xa0, 0x56, 0x32, 0x8d, 0x67, 0x54, 0xfb, 0x26, 0x59, 0x70,
-	0x95, 0x92, 0x39, 0x36, 0x67, 0xb0, 0xa3, 0xa2, 0xdd, 0x24, 0x4b, 0xbe, 0xea, 0xbb, 0x12, 0x72,
-	0xae, 0x6c, 0xb8, 0x59, 0x39, 0x25, 0x35, 0xc6, 0x22, 0xec, 0xe6, 0xe4, 0x7c, 0x46, 0xce, 0xc8,
-	0xf6, 0x9d, 0x53, 0x0e, 0xba, 0x72, 0xfc, 0xec, 0xec, 0x8f, 0x16, 0xa1, 0xf9, 0x72, 0x4f, 0xc4,
-	0x10, 0xfc, 0xed, 0x74, 0x0f, 0x43, 0x6c, 0x9a, 0xd2, 0xab, 0x26, 0xbc, 0xa7, 0x97, 0x08, 0xef,
-	0x24, 0xbb, 0x2c, 0xd0, 0xff, 0xf4, 0xb4, 0x6f, 0x93, 0x6a, 0xf6, 0x21, 0xc3, 0x30, 0x8a, 0x41,
-	0xa7, 0x60, 0xad, 0x92, 0x6d, 0x6b, 0xf4, 0xad, 0x89, 0x5c, 0x7f, 0x78, 0x9e, 0xdb, 0xb7, 0x3c,
-	0x7d, 0xfb, 0x2a, 0x53, 0x17, 0xaa, 0xfe, 0x9c, 0xdc, 0x38, 0xc7, 0xc0, 0x17, 0xb1, 0x7c, 0xdc,
-	0xda, 0x1f, 0xd3, 0xc2, 0xb7, 0x31, 0x2d, 0x1c, 0x8c, 0xa9, 0xf5, 0x2e, 0xa1, 0xd6, 0xe7, 0x84,
-	0x5a, 0x5f, 0x12, 0x6a, 0xed, 0x27, 0xd4, 0xfa, 0x91, 0x50, 0xeb, 0x77, 0x42, 0x0b, 0x07, 0x09,
-	0xb5, 0xde, 0xff, 0xa4, 0x85, 0x3f, 0x5f, 0x7f, 0x7d, 0x28, 0x16, 0xdc, 0x79, 0xf3, 0x03, 0xb9,
-	0xfb, 0x37, 0x00, 0x00, 0xff, 0xff, 0x14, 0xc8, 0xc0, 0x0a, 0x11, 0x05, 0x00, 0x00,
+	// 822 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xd4, 0x56, 0xcb, 0x6e, 0xd3, 0x4a,
+	0x18, 0x8e, 0x93, 0x5e, 0x92, 0xe9, 0xf5, 0x8c, 0xba, 0xf0, 0x89, 0x8e, 0xac, 0x2a, 0x3d, 0x42,
+	0x81, 0x52, 0x9b, 0xb8, 0x08, 0xda, 0x02, 0x12, 0x54, 0x2d, 0x52, 0x05, 0x15, 0x25, 0xad, 0x0a,
+	0x0b, 0xa4, 0x68, 0x12, 0x4f, 0xd3, 0xa1, 0xb6, 0xc7, 0xf2, 0x4c, 0xa2, 0x84, 0x15, 0x4f, 0x80,
+	0x90, 0x60, 0xc1, 0x23, 0xf0, 0x0a, 0xbc, 0x01, 0xcb, 0x8a, 0x15, 0x4b, 0x9a, 0xb2, 0x60, 0x85,
+	0xba, 0x41, 0x62, 0x89, 0x3c, 0x4e, 0x13, 0xe7, 0xd2, 0x5c, 0xda, 0x52, 0xc4, 0x2a, 0xf1, 0xef,
+	0xff, 0xf6, 0x7d, 0xff, 0x37, 0xff, 0x18, 0xa0, 0x2c, 0x7a, 0x81, 0xcd, 0x39, 0x5a, 0xe0, 0x9a,
+	0x49, 0x73, 0xc8, 0x9c, 0xdb, 0x41, 0x8c, 0x67, 0x0b, 0xc4, 0x34, 0xb4, 0x3c, 0xb6, 0x77, 0x88,
+	0x89, 0x99, 0x66, 0x91, 0x12, 0x76, 0x35, 0x4e, 0xa9, 0xc9, 0xb4, 0x1c, 0x35, 0x70, 0x1e, 0xdb,
+	0x9a, 0xb3, 0x97, 0xd7, 0xb2, 0x94, 0x72, 0xc6, 0x5d, 0xe4, 0x78, 0x06, 0x8e, 0x19, 0x37, 0x10,
+	0x47, 0x5a, 0x6e, 0x17, 0xe7, 0xf6, 0x32, 0xdc, 0x72, 0x4c, 0xd5, 0x71, 0x29, 0xa7, 0xf0, 0x5f,
+	0xc2, 0x38, 0xa1, 0xaa, 0xc8, 0xa2, 0x72, 0x6c, 0x39, 0x26, 0xe2, 0x58, 0x35, 0x09, 0xe3, 0xf1,
+	0x84, 0x9f, 0xba, 0x98, 0xd2, 0x8e, 0xed, 0x1a, 0x2e, 0x71, 0x6c, 0x33, 0x42, 0x6d, 0xe6, 0x87,
+	0xc7, 0x67, 0x6b, 0x3e, 0x39, 0x6a, 0xef, 0x90, 0xbc, 0x66, 0x60, 0x96, 0x73, 0x89, 0xc3, 0xa9,
+	0xab, 0x15, 0x91, 0x59, 0xc0, 0x19, 0x5e, 0x76, 0xb0, 0xef, 0x9c, 0x78, 0x17, 0x01, 0x03, 0x5b,
+	0x65, 0x07, 0xc3, 0x7b, 0x60, 0x50, 0xbc, 0x94, 0xa5, 0x69, 0x29, 0x39, 0xae, 0xcf, 0xaa, 0xc1,
+	0x26, 0x8a, 0x29, 0xd5, 0xcf, 0xa5, 0xd6, 0x73, 0xa9, 0xdb, 0x9e, 0xbb, 0x17, 0x9b, 0xf6, 0x23,
+	0xe1, 0x23, 0x00, 0x0c, 0x62, 0x55, 0x9b, 0x91, 0xc3, 0xd3, 0x91, 0xe4, 0x88, 0xae, 0xa9, 0x27,
+	0x82, 0x51, 0xbd, 0x58, 0x75, 0xa5, 0x16, 0xb1, 0x6a, 0x73, 0xb7, 0x9c, 0x0e, 0xa4, 0x80, 0x4f,
+	0xc0, 0x24, 0xb2, 0x29, 0xdf, 0xc5, 0x6e, 0xad, 0x96, 0x3c, 0xdc, 0x7f, 0x7b, 0x2d, 0x49, 0xe0,
+	0x4d, 0x30, 0xe0, 0x62, 0x96, 0x92, 0x47, 0xa6, 0xa5, 0xe4, 0x88, 0x3e, 0xd3, 0xa1, 0xc7, 0x34,
+	0x66, 0x29, 0x91, 0x44, 0x04, 0xc4, 0x9f, 0x83, 0x89, 0xa6, 0x86, 0xe1, 0x24, 0x88, 0xec, 0xe1,
+	0xb2, 0xa0, 0x2d, 0x96, 0xf6, 0xfe, 0xd6, 0xa9, 0x0c, 0x9f, 0x96, 0xca, 0xa5, 0xf0, 0x82, 0x94,
+	0xf8, 0x11, 0x01, 0xd1, 0xe3, 0xf2, 0xe7, 0x31, 0x9e, 0xcd, 0x36, 0xe3, 0x99, 0xef, 0x01, 0x7a,
+	0xc7, 0x11, 0xf9, 0x4c, 0xea, 0xbd, 0x31, 0xa9, 0xd7, 0x98, 0xd4, 0xe1, 0x03, 0x10, 0xf5, 0x7e,
+	0x33, 0x16, 0x72, 0xe4, 0x51, 0xd1, 0xcb, 0xb5, 0x5e, 0x7a, 0xf1, 0xb2, 0xac, 0x23, 0xc7, 0x6f,
+	0x64, 0xd8, 0xf5, 0x9f, 0x2e, 0x72, 0x2c, 0xf1, 0x0c, 0x18, 0x0d, 0x36, 0xd1, 0xa6, 0xd0, 0x62,
+	0xb0, 0x50, 0x8f, 0xa4, 0x04, 0xe6, 0xfe, 0x2a, 0x2c, 0xe6, 0xae, 0xff, 0xc1, 0xb9, 0xeb, 0xdd,
+	0xe6, 0x7e, 0xa1, 0x07, 0xe1, 0x70, 0x10, 0x8c, 0xad, 0xd9, 0x8c, 0x23, 0x3b, 0x87, 0x37, 0x90,
+	0x8b, 0x2c, 0x38, 0x15, 0x64, 0x25, 0x76, 0x0c, 0xf4, 0x69, 0x1b, 0xa0, 0x0b, 0x1d, 0x80, 0x36,
+	0xe4, 0xec, 0xa8, 0xf2, 0x4b, 0x60, 0x9c, 0xd8, 0xfc, 0xc6, 0xf5, 0x0d, 0x97, 0x58, 0x84, 0x93,
+	0x22, 0x96, 0x23, 0xa2, 0x70, 0x93, 0x15, 0xfe, 0x0f, 0xc6, 0xb2, 0x94, 0x9a, 0x75, 0xb7, 0x01,
+	0xe1, 0xd6, 0x68, 0x84, 0x49, 0x30, 0x61, 0xd0, 0x42, 0xd6, 0xc4, 0x75, 0xbf, 0x41, 0xe1, 0xd7,
+	0x6c, 0xf6, 0x3c, 0x19, 0x77, 0x89, 0x9d, 0xaf, 0x7b, 0x0e, 0xf9, 0x9e, 0x4d, 0x66, 0x78, 0xe5,
+	0x84, 0x55, 0x19, 0x6b, 0xb3, 0xfd, 0xde, 0x4a, 0x40, 0xa9, 0x83, 0xbb, 0x4f, 0x4a, 0xd8, 0x58,
+	0xf3, 0x70, 0x08, 0x8f, 0x15, 0x11, 0x1a, 0x15, 0xe4, 0x3d, 0x3c, 0x05, 0x79, 0xed, 0xd2, 0xf9,
+	0x84, 0x76, 0xa9, 0x09, 0x2f, 0x83, 0x49, 0xff, 0x2a, 0xc4, 0x25, 0xc7, 0xc5, 0xcc, 0x73, 0x94,
+	0x63, 0x3e, 0x5a, 0x61, 0x5f, 0xad, 0x99, 0xe1, 0xdd, 0x86, 0xfd, 0x7d, 0xb5, 0xcb, 0xe2, 0x68,
+	0x68, 0xb5, 0xba, 0xc8, 0xef, 0xf4, 0xa2, 0xdf, 0xa9, 0xa0, 0x7e, 0x63, 0xc1, 0x25, 0xf0, 0x18,
+	0xcc, 0xf4, 0x00, 0xb9, 0x9f, 0x94, 0x89, 0x0f, 0x43, 0xe0, 0x9f, 0x96, 0x6e, 0x4f, 0x50, 0xfa,
+	0xb3, 0x36, 0x4a, 0xbf, 0xdd, 0x0f, 0x0b, 0x7f, 0xb9, 0xda, 0xb7, 0x41, 0x54, 0xf4, 0xb2, 0x8e,
+	0x1c, 0x79, 0x58, 0xa0, 0x5f, 0xea, 0x0b, 0xfd, 0x5a, 0x35, 0xd8, 0xc7, 0x5e, 0xcb, 0x05, 0xff,
+	0x03, 0x31, 0x4e, 0x2c, 0xbc, 0xc9, 0x91, 0xe5, 0x54, 0xb5, 0x57, 0x37, 0xc0, 0x38, 0x88, 0x1a,
+	0x05, 0x17, 0x71, 0x4f, 0x98, 0x40, 0xbc, 0xac, 0x3d, 0x57, 0x15, 0xa9, 0xf7, 0xa6, 0x48, 0xbd,
+	0x55, 0x91, 0x3a, 0xdc, 0x6a, 0xb9, 0x10, 0x17, 0xfb, 0xc2, 0xd4, 0xfe, 0x66, 0x3c, 0xa3, 0xce,
+	0x6f, 0x79, 0x9b, 0x37, 0xc0, 0x55, 0x5f, 0xc1, 0xbb, 0x5d, 0x6f, 0xca, 0xe5, 0xc6, 0x9b, 0xb2,
+	0x3f, 0xda, 0x02, 0x67, 0xe7, 0xbb, 0x24, 0xce, 0x8e, 0xfe, 0x9b, 0xce, 0x8e, 0x7e, 0xee, 0x67,
+	0xe7, 0x8c, 0x73, 0x59, 0xd6, 0xf7, 0x0f, 0x94, 0xd0, 0xe7, 0x03, 0x25, 0x74, 0x74, 0xa0, 0x48,
+	0x2f, 0x2b, 0x8a, 0xf4, 0xbe, 0xa2, 0x48, 0x1f, 0x2b, 0x8a, 0xb4, 0x5f, 0x51, 0xa4, 0x2f, 0x15,
+	0x45, 0xfa, 0x56, 0x51, 0x42, 0x47, 0x15, 0x45, 0x7a, 0x7d, 0xa8, 0x84, 0x7e, 0x7e, 0xfa, 0xfa,
+	0x26, 0x1c, 0xca, 0x0e, 0x89, 0x2f, 0xfe, 0xf9, 0x5f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x45, 0x49,
+	0x15, 0xcc, 0xc2, 0x0c, 0x00, 0x00,
 }
