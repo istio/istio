@@ -53,7 +53,7 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 	}
 
 	evaluator := initEvaluator(t, *config)
-	bag := ilt.NewFakeBag(test.I)
+	bag := &ilt.FakeBag{Attrs: test.I}
 
 	r, err := evaluator.Eval(test.E, bag)
 	if test.Err != "" || test.CompileErr != "" {
@@ -160,11 +160,11 @@ func TestConcurrent(t *testing.T) {
 
 	for i := 0; i < maxNum; i++ {
 		v := randString(6)
-		bags = append(bags, ilt.NewFakeBag(
-			map[string]interface{}{
+		bags = append(bags, &ilt.FakeBag{
+			Attrs: map[string]interface{}{
 				"attr": v,
 			},
-		))
+		})
 	}
 
 	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
@@ -349,7 +349,7 @@ func initBag(attrValue interface{}) attribute.Bag {
 	attrs := make(map[string]interface{})
 	attrs["attr"] = attrValue
 
-	return ilt.NewFakeBag(attrs)
+	return &ilt.FakeBag{Attrs: attrs}
 }
 
 func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
