@@ -102,8 +102,8 @@ void MixerConfig::CreateLegacyRouteConfig(
     bool disable_check, bool disable_report,
     const std::map<std::string, std::string>& attributes,
     ServiceConfig* config) {
-  config->set_enable_mixer_check(!disable_check);
-  config->set_enable_mixer_report(!disable_report);
+  config->set_disable_check_calls(disable_check);
+  config->set_disable_report_calls(disable_report);
 
   AttributesBuilder builder(config->mutable_mixer_attributes());
   for (const auto& it : attributes) {
