@@ -9,13 +9,15 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-goimports=`which goimports`
-if [[ -z $goimports ]]; then
+if which goimports; then
+  goimports=`which goimports`
+else
   bazel build @org_golang_x_tools_imports//:goimports
   goimports=$ROOTDIR/bazel-bin/external/org_golang_x_tools_imports/goimports
 fi
-buildifier=`which buildifier`
-if [[ -z $buildifier ]]; then
+if which buildifier; then
+  buildifier=`which buildifier`
+else
   bazel build @com_github_bazelbuild_buildtools//buildifier
   buildifier=$ROOTDIR/bazel-bin/external/com_github_bazelbuild_buildtools/buildifier/buildifier
 fi
