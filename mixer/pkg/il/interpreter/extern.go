@@ -128,7 +128,7 @@ func ilType(t reflect.Type) il.Type {
 		}
 	}
 
-	panic("Unmapped go type: "+t.Name()+" "+t.String()+" kind:"+t.Kind().String())
+	panic("Unmapped go type: " + t.Name() + " " + t.String() + " kind:" + t.Kind().String())
 	return il.Unknown
 }
 
