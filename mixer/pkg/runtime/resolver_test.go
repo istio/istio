@@ -185,6 +185,10 @@ func fakePred(reject bool, err string) *fakePredEval {
 	return f
 }
 
+func (f *fakePredEval) Eval(expr string, bag attribute.Bag) (interface{}, error) {
+	return f.EvalPredicate(expr, bag)
+}
+
 func (f *fakePredEval) EvalPredicate(expr string, _ attribute.Bag) (bool, error) {
 	return !f.reject, f.err
 }

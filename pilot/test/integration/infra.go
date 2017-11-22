@@ -210,8 +210,10 @@ func (infra *infra) setup() error {
 	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
 		return err
 	}
-	if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
+	if infra.Mixer {
+		if err := deploy("mixer.yaml.tmpl", infra.IstioNamespace); err != nil {
+			return err
+		}
 	}
 	if platform.ServiceRegistry(infra.Registry) == platform.EurekaRegistry {
 		if err := deploy("eureka.yaml.tmpl", infra.IstioNamespace); err != nil {

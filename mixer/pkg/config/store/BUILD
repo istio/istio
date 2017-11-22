@@ -13,6 +13,7 @@ go_library(
         "store.go",
         "store2.go",
         "testutil.go",
+        "validator.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -33,6 +34,7 @@ go_test(
         "queue_test.go",
         "store2_test.go",
         "store_test.go",
+        "validator_test.go",
     ],
     library = ":go_default_library",
     deps = [

@@ -34,13 +34,13 @@ import (
 // New creates a new runtime Dispatcher
 // Create a new controller and a dispatcher.
 // Returns a ready to use dispatcher.
-func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
+func New(eval expr.Evaluator, typeChecker expr.TypeChecker, gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 	identityAttribute string, defaultConfigNamespace string,
 	s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (Dispatcher, error) {
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp, identityAttribute)
-	err := startController(s, adapterInfo, templateInfo, eval, d,
+	err := startController(s, adapterInfo, templateInfo, eval, typeChecker, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
 	return d, err
@@ -50,7 +50,7 @@ func New(eval expr.Evaluator, gp *pool.GoroutinePool, handlerPool *pool.Goroutin
 func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) (map[store.Key]*store.Resource, <-chan store.Event, error) {
 	ctx := context.Background()
-	kindMap := kindMap(adapterInfo, templateInfo)
+	kindMap := KindMap(adapterInfo, templateInfo)
 	if err := s.Init(ctx, kindMap); err != nil {
 		return nil, nil, err
 	}
@@ -62,8 +62,8 @@ func startWatch(s store.Store2, adapterInfo map[string]*adapter.Info,
 	return s.List(), watchChan, nil
 }
 
-// kindMap generates a map from object kind to its proto message.
-func kindMap(adapterInfo map[string]*adapter.Info,
+// KindMap generates a map from object kind to its proto message.
+func KindMap(adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info) map[string]proto.Message {
 	kindMap := make(map[string]proto.Message)
 	// typed instances
@@ -86,7 +86,7 @@ func kindMap(adapterInfo map[string]*adapter.Info,
 
 // startController creates a controller from the given params.
 func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
-	templateInfo map[string]template.Info, eval expr.Evaluator,
+	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
 	dispatcher ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
 
@@ -98,7 +98,8 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
-		eval:                   eval,
+		evaluator:              eval,
+		typeChecker:            checker,
 		configState:            data,
 		dispatcher:             dispatcher,
 		resolver:               &resolver{}, // get an empty resolver

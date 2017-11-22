@@ -35,6 +35,10 @@ type trueEval struct {
 	ret    bool
 }
 
+func (t *trueEval) Eval(expression string, attrs attribute.Bag) (interface{}, error) {
+	return t.EvalPredicate(expression, attrs)
+}
+
 func (t *trueEval) EvalPredicate(expression string, attrs attribute.Bag) (bool, error) {
 	if t.ncalls == 0 {
 		return t.ret, t.err
