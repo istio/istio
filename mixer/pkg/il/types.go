@@ -73,3 +73,8 @@ func GetType(name string) (Type, bool) {
 	t, f := typesByName[name]
 	return t, f
 }
+
+//
+type StringMap interface {
+	Get(key string) (value string, found bool)
+}
