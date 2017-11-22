@@ -1465,7 +1465,7 @@ end`,
 	},
 
 	{
-		E:  `"foo" | "bar"`,
+		E: `"foo" | "bar"`,
 		IL: `
 fn eval() string
   apush_s "foo"
@@ -1479,7 +1479,7 @@ end
 	},
 
 	{
-		E:  `ip("1.2.3.4")`,
+		E: `ip("1.2.3.4")`,
 		IL: `
 fn eval() interface
   apush_s "1.2.3.4"
@@ -1491,8 +1491,8 @@ end
 	},
 
 	{
-		E:  `ip(as)`,
-		I: map[string]interface{} {
+		E: `ip(as)`,
+		I: map[string]interface{}{
 			"as": "1.2.3.4",
 		},
 		IL: `
@@ -1506,7 +1506,7 @@ end
 	},
 
 	{
-		E:  `ip("1.2.3.4" | "5.6.7.8")`,
+		E: `ip("1.2.3.4" | "5.6.7.8")`,
 		IL: `
 fn eval() interface
   apush_s "1.2.3.4"
@@ -1521,7 +1521,7 @@ end
 	},
 
 	{
-		E:  `ip(as | "5.6.7.8")`,
+		E: `ip(as | "5.6.7.8")`,
 		IL: `
 fn eval() interface
   tresolve_s "as"
@@ -1536,23 +1536,23 @@ end
 	},
 
 	{
-		E:  `ip(as | bs)`,
-		I: map[string]interface{} {
+		E: `ip(as | bs)`,
+		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
 		R: []uint8(net.ParseIP("1.2.3.4")),
 	},
 
 	{
-		E:  `ip(as | bs)`,
+		E:   `ip(as | bs)`,
 		Err: "lookup failed: 'bs'",
 	},
 
 	{
 		E:  `ip(ar["foo"])`,
 		IL: ``,
-		I: map[string]interface{} {
-			"ar": map[string]string{ "foo": "1.2.3.4" },
+		I: map[string]interface{}{
+			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
 		R: []uint8(net.ParseIP("1.2.3.4")),
 	},
