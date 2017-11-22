@@ -232,7 +232,7 @@ func TestNewReportProcessor(t *testing.T) {
 		env:    at.NewEnv(t),
 		client: new(mockSvcctrlClient),
 		serviceConfigIndex: map[string]*config.GcpServiceSetting{
-			"echo": {
+			"echo": &config.GcpServiceSetting{
 				MeshServiceName:   "echo",
 				GoogleServiceName: "echo.googleapi.com",
 			},
