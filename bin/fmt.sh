@@ -9,6 +9,17 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
+goimports=`which goimports`
+if [[ -z $goimports ]]; then
+  bazel build @org_golang_x_tools_imports//:goimports
+  goimports=$ROOTDIR/bazel-bin/external/org_golang_x_tools_imports/goimports
+fi
+buildifier=`which buildifier`
+if [[ -z $buildifier ]]; then
+  bazel build @com_github_bazelbuild_buildtools//buildifier
+  buildifier=$ROOTDIR/bazel-bin/external/com_github_bazelbuild_buildtools/buildifier/buildifier
+fi
+
 PKGS="."
 GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go')
 
@@ -23,5 +34,5 @@ for fl in ${GO_FILES}; do
 fi
 done
 gofmt -s -w ${GO_FILES}
-goimports -w -local istio.io ${GO_FILES}
-buildifier -mode=fix $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl')
+$goimports -w -local istio.io ${GO_FILES}
+$buildifier -mode=fix $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl')

@@ -39,6 +39,12 @@ load("//mixer:adapter_author_deps.bzl", "mixer_adapter_repositories")
 mixer_adapter_repositories()
 
 go_repository(
+    name = "com_github_bazelbuild_buildtools",
+    commit = "dce8b3c287652cbcaf43c8dd076b3f48c92ab44c",  # Nov 14, 2017 (no releases)
+    importpath = "github.com/bazelbuild/buildtools",
+)
+
+go_repository(
     name = "com_github_ghodss_yaml",
     commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c",  # Dec 6, 2016 (no releases)
     importpath = "github.com/ghodss/yaml",
