@@ -29,6 +29,7 @@ var time1977 = time.Date(1977, time.February, 4, 12, 00, 0, 0, time.UTC)
 var t, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:35Z")
 var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 
+// TestData contains the common set of tests that is used by various components of il.
 var TestData = []TestInfo{
 
 	// Tests from expr/eval_test.go TestGoodEval
