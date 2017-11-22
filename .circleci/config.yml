@@ -4,22 +4,6 @@ defaults: &defaults
   docker:
     - image: istio/ci:go1.9-k8s1.7.4
 
-setup: &setup
-  - checkout
-  - run: mkdir -p /tmp/coverage
-  - run:
-      name: Running Kubernetes API Server standalone
-      command: /tmp/apiserver/start-test-server.sh
-      background: true
-  - restore_cache:
-      keys:
-        - dep-cache-{{ checksum "Gopkg.lock" }}
-  - run:
-      command: |
-        mkdir ~/.kube
-        cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-  - run: ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-
 integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
@@ -28,9 +12,6 @@ integrationDefaults: &integrationDefaults
     HUB: docker.io/dnerepo
     TAG: dontpush
     GOPATH: /go      
-
-commonIntegrationSetup: &commonIntegrationSetup
-
 
 jobs:
   pilot-integration-auth:
@@ -119,7 +100,20 @@ jobs:
     <<: *defaults
     resource_class: xlarge  
     steps:
-      <<: *setup
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - run:
           command: |
             mkdir ~/envoy
@@ -138,7 +132,20 @@ jobs:
     <<: *defaults
     resource_class: xlarge
     steps:
-      <<: *setup
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
       - run:
           command: |
@@ -148,7 +155,20 @@ jobs:
     <<: *defaults
     resource_class: xlarge  
     steps:
-      <<: *setup
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
       - run:
           command: |
@@ -158,7 +178,20 @@ jobs:
     <<: *defaults
     resource_class: xlarge  
     steps:
-      <<: *setup
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
       - run:
           command: |
