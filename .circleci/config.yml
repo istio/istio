@@ -126,7 +126,7 @@ jobs:
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
-            bash <(curl -s https://codecov.io/bash) -F unittest,pilot
+            bash <(curl -s https://codecov.io/bash) -F pilot
 
   unittest-mixer:
     <<: *defaults
@@ -149,7 +149,7 @@ jobs:
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
       - run:
           command: |
-            bash <(curl -s https://codecov.io/bash) -F unittest,mixer
+            bash <(curl -s https://codecov.io/bash) -F mixer
 
   unittest-security:
     <<: *defaults
@@ -172,7 +172,7 @@ jobs:
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
       - run:
           command: |
-            bash <(curl -s https://codecov.io/bash) -F unittest,security
+            bash <(curl -s https://codecov.io/bash) -F security
 
   unittest-broker:
     <<: *defaults
@@ -195,7 +195,7 @@ jobs:
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
       - run:
           command: |
-            bash <(curl -s https://codecov.io/bash) -F unittest,broker
+            bash <(curl -s https://codecov.io/bash) -F broker
 
 workflows:
   version: 2
