@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"istio.io/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 func verifyStringMap(actual map[string]string, expected map[string]interface{}) error {

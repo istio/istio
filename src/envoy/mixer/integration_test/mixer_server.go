@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/mixer/pkg/attribute"
-	"istio.io/mixer/test"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/test"
 )
 
 type Handler struct {
