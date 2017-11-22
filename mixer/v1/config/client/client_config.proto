@@ -19,6 +19,7 @@ import "gogoproto/gogo.proto";
 import "mixer/v1/attributes.proto";
 import "mixer/v1/config/client/api_spec.proto";
 import "mixer/v1/config/client/quota.proto";
+import "mixer/v1/config/client/auth.proto";
 
 package istio.mixer.v1.config.client;
 
@@ -43,6 +44,9 @@ message ServiceConfig {
 
   // Quota specifications to generate quota requirements.
   repeated QuotaSpec quota_spec = 5;
+
+  // End user authentication policy.
+  EndUserAuthenticationPolicySpec end_user_authn_spec = 6;
 }
 
 // Defines the transport config on how to call Mixer.
