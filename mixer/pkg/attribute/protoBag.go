@@ -28,7 +28,7 @@ import (
 // TODO: consider implementing a pool of proto bags
 
 type attributeRef struct {
-	Name string
+	Name   string
 	MapKey string
 }
 
@@ -76,7 +76,7 @@ type StringMap struct {
 }
 
 // Get returns a stringmap value and records access
-func (s StringMap) Get(key string)  (string, bool){
+func (s StringMap) Get(key string) (string, bool) {
 	cond := mixerpb.ABSENCE
 	str, found := s.entries[key]
 
@@ -121,7 +121,7 @@ func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalW
 	for k, v := range pb.referencedAttrs {
 		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
 			Name:      ds.assignDictIndex(k.Name),
-			MapKey: ds.assignDictIndex(k.MapKey),
+			MapKey:    ds.assignDictIndex(k.MapKey),
 			Condition: v,
 		}
 		i++
@@ -193,7 +193,7 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		pb.convertedStringMaps[index] = m
 		pb.stringMapMutex.Unlock()
 
-		return StringMap{name: name, entries:m, pb: pb}, true
+		return StringMap{name: name, entries: m, pb: pb}, true
 	}
 
 	value, ok = pb.proto.Int64S[index]
