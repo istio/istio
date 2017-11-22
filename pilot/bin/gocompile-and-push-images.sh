@@ -29,12 +29,12 @@ export GOARCH=amd64
 
 echo "Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies."
 
-go build -i -ldflags -extldflags -static ./cmd/pilot-agent
-go build -i -ldflags -extldflags -static ./cmd/pilot-discovery
-go build -i -ldflags -extldflags -static ./cmd/sidecar-initializer
-go build -i -ldflags -extldflags -static ./test/server
-go build -i -ldflags -extldflags -static ./test/client
-go build -i -ldflags -extldflags -static ./test/eurekamirror
+go build -i -ldflags '-extldflags "-static"' ./cmd/pilot-agent
+go build -i -ldflags '-extldflags "-static"' ./cmd/pilot-discovery
+go build -i -ldflags '-extldflags "-static"' ./cmd/sidecar-initializer
+go build -i -ldflags '-extldflags "-static"' ./test/server
+go build -i -ldflags '-extldflags "-static"' ./test/client
+go build -i -ldflags '-extldflags "-static"' ./test/eurekamirror
 
 # Collect artifacts for pushing
 cp -f  client docker/client
