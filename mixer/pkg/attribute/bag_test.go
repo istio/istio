@@ -498,7 +498,7 @@ func compareAttributeValues(v1, v2 interface{}) (bool, error) {
 			}
 		}
 
-	case StringMap:  // compare entries
+	case StringMap:
 		return reflect.DeepEqual(t1.entries, v2), nil
 
 	case map[string]string:
