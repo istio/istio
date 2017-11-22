@@ -904,7 +904,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = tVal.(map[string]string)[tStr]
+			tStr, tFound = tVal.(il.StringMap).Get(tStr)
 			if tFound {
 				t3 = strings.GetID(tStr)
 				opstack[sp] = t3
@@ -927,7 +927,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = tVal.(map[string]string)[tStr]
+			tStr, tFound = tVal.(il.StringMap).Get(tStr)
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
@@ -948,7 +948,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = tVal.(map[string]string)[tStr]
+			tStr, tFound = tVal.(il.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}
@@ -969,7 +969,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = tVal.(map[string]string)[tStr]
+			tStr, tFound = tVal.(il.StringMap).Get(tStr)
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
@@ -991,7 +991,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = tVal.(map[string]string)[tStr]
+			tStr, tFound = tVal.(il.StringMap).Get(tStr)
 			if !tFound {
 				tStr = ""
 			}
