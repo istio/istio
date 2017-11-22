@@ -205,9 +205,8 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 				Annotations: func() map[string]string {
 					if test.port > 0 {
 						return map[string]string{portAuthenticationAnnotationKey(test.port): test.annotationValue}
-					} else {
-						return nil
 					}
+					return nil
 				}(),
 			},
 			Spec: v1.ServiceSpec{
