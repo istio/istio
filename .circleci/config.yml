@@ -184,20 +184,19 @@ workflows:
   version: 2
   all:
     jobs:
-      - pilot-integration
-      # - dependencies
-      # - unittest-pilot:
-      #     requires:
-      #       - dependencies
-      # - unittest-mixer:
-      #     requires:
-      #       - dependencies
-      # - unittest-security:
-      #     requires:
-      #       - dependencies
-      # - unittest-broker:
-      #     requires:
-      #       - dependencies
-      # - pilot-integration:
-      #     requires:
-      #       - unittest-pilot
+      - dependencies
+      - unittest-pilot:
+          requires:
+            - dependencies
+      - unittest-mixer:
+          requires:
+            - dependencies
+      - unittest-security:
+          requires:
+            - dependencies
+      - unittest-broker:
+          requires:
+            - dependencies
+      - pilot-integration:
+          requires:
+            - unittest-pilot
