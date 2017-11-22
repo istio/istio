@@ -88,7 +88,7 @@ func testCacheBasic(c Cache, t *testing.T) {
 					}
 				} else {
 					if value != nil {
-						t.Error("Got value %v, expected nil", value)
+						t.Errorf("Got value %v, expected nil", value)
 					}
 				}
 
