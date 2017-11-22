@@ -47,10 +47,10 @@ class ServiceContext {
   void AddQuotas(RequestContext* request) const;
 
   bool enable_mixer_check() const {
-    return service_config_.enable_mixer_check();
+    return !service_config_.disable_check_calls();
   }
   bool enable_mixer_report() const {
-    return service_config_.enable_mixer_report();
+    return !service_config_.disable_report_calls();
   }
 
  private:

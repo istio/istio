@@ -45,7 +45,6 @@ const char kDefaultClientConfig[] = R"(
 service_configs {
   key: ":default"
   value {
-    enable_mixer_check: true
     mixer_attributes {
       attributes {
         key: "route0-key"
@@ -105,8 +104,8 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_check(false);
-  legacy.set_enable_mixer_report(false);
+  legacy.set_disable_check_calls(true);
+  legacy.set_disable_report_calls(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
@@ -125,8 +124,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_check(false);
-  legacy.set_enable_mixer_report(true);
+  legacy.set_disable_check_calls(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
@@ -156,7 +154,6 @@ TEST_F(RequestHandlerImplTest, TestLegacyRoute) {
       }));
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_check(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
@@ -196,7 +193,6 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
   ServiceConfig route_config;
-  route_config.set_enable_mixer_check(true);
   auto map3 = route_config.mutable_mixer_attributes()->mutable_attributes();
   (*map3)["route1-key"].set_string_value("route1-value");
   SetServiceConfig("route1", route_config);
@@ -224,7 +220,6 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteQuota) {
   ::testing::NiceMock<MockCheckData> mock_data;
 
   ServiceConfig route_config;
-  route_config.set_enable_mixer_check(true);
   auto quota = route_config.add_quota_spec()->add_rules()->add_quotas();
   quota->set_quota("route0-quota");
   quota->set_charge(10);
@@ -269,7 +264,6 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteApiSpec) {
           }));
 
   ServiceConfig route_config;
-  route_config.set_enable_mixer_check(true);
   auto api_spec = route_config.add_http_api_spec();
   auto map1 = api_spec->mutable_attributes()->mutable_attributes();
   (*map1)["api.name"].set_string_value("test-name");
@@ -308,7 +302,6 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(1);
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_check(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
@@ -355,7 +348,6 @@ TEST_F(RequestHandlerImplTest, TestHandlerReport) {
   EXPECT_CALL(*mock_client_, Report(_)).Times(1);
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_report(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
@@ -372,7 +364,7 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledReport) {
   EXPECT_CALL(*mock_client_, Report(_)).Times(0);
 
   ServiceConfig legacy;
-  legacy.set_enable_mixer_report(false);
+  legacy.set_disable_report_calls(true);
   Controller::PerRouteConfig config;
   config.legacy_config = &legacy;
 
