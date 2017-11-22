@@ -38,7 +38,7 @@ type ProtoBag struct {
 	globalDict          map[string]int32
 	globalWordList      []string
 	messageDict         map[string]int32
-	convertedStringMaps map[int32]map[string]string
+	convertedStringMaps map[int32]StringMap
 	stringMapMutex      sync.RWMutex
 
 	// to keep track of attributes that are referenced
@@ -106,7 +106,11 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 		return nil, false
 	}
 
-	pb.trackReference(name, mixerpb.EXACT)
+	// Do not record StringMap access. Keys in it will be recorded separately.
+	if _, ok := result.(StringMap); !ok {
+		pb.trackReference(name, mixerpb.EXACT)
+	}
+
 	return result, ok
 }
 
@@ -119,9 +123,13 @@ func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalW
 	output.AttributeMatches = make([]mixerpb.ReferencedAttributes_AttributeMatch, len(pb.referencedAttrs))
 	i := 0
 	for k, v := range pb.referencedAttrs {
+		mk := int32(0)
+		if len(k.MapKey) > 0 {
+			mk = ds.assignDictIndex(k.MapKey)
+		}
 		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
 			Name:      ds.assignDictIndex(k.Name),
-			MapKey:    ds.assignDictIndex(k.MapKey),
+			MapKey:    mk,
 			Condition: v,
 		}
 		i++
@@ -186,14 +194,15 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		}
 
 		// cache the converted string map for later calls
+		ssm := StringMap{name: name, entries: m, pb: pb}
 		pb.stringMapMutex.Lock()
 		if pb.convertedStringMaps == nil {
-			pb.convertedStringMaps = make(map[int32]map[string]string)
+			pb.convertedStringMaps = make(map[int32]StringMap)
 		}
-		pb.convertedStringMaps[index] = m
+		pb.convertedStringMaps[index] = ssm
 		pb.stringMapMutex.Unlock()
 
-		return StringMap{name: name, entries: m, pb: pb}, true
+		return ssm, true
 	}
 
 	value, ok = pb.proto.Int64S[index]
