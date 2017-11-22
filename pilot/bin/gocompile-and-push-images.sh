@@ -30,7 +30,7 @@ export GOARCH=amd64
 echo "Prior to running this script, make sure to run 'dep ensure' to pull vendor dependencies."
 
 CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./cmd/pilot-agent
-CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./cmd/pilot-discoveryg
+CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./cmd/pilot-discovery
 CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./cmd/sidecar-initializer
 CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./test/server
 CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static"' ./test/client
