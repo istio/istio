@@ -55,7 +55,7 @@ func TestInterpreter_EvalFnID(t *testing.T) {
 
 	i := New(p, map[string]Extern{})
 	fnID := p.Functions.IDOf("main")
-	r, e := i.EvalFnID(fnID, &ilt.FakeBag{})
+	r, e := i.EvalFnID(fnID, ilt.NewFakeBag(nil))
 
 	if e != nil {
 		t.Fatal(e)
@@ -74,7 +74,7 @@ func TestInterpreter_Eval_FunctionNotFound(t *testing.T) {
 	`)
 
 	i := New(p, map[string]Extern{})
-	_, e := i.Eval("foo", &ilt.FakeBag{})
+	_, e := i.Eval("foo", ilt.NewFakeBag(nil))
 	if e == nil {
 		t.Fatal("expected error during Eval()")
 	}
@@ -1681,8 +1681,8 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func() map[string]string {
-					return map[string]string{"b": "c"}
+				"ext": ExternFromFn("ext", func() il.StringMap {
+					return ilt.NewStringMap("", map[string]string{"b": "c"})
 				}),
 			},
 		},
@@ -1837,8 +1837,9 @@ func TestInterpreter_Eval(t *testing.T) {
 				},
 			},
 			externs: map[string]Extern{
-				"ext": ExternFromFn("ext", func(r map[string]string) string {
-					return r["b"]
+				"ext": ExternFromFn("ext", func(r il.StringMap) string {
+					v, _ := r.Get("b")
+					return v
 				}),
 			},
 		},
@@ -2059,8 +2060,9 @@ end`,
 		}
 
 		test.code = code
+		name := n
 		t.Run(n, func(tt *testing.T) {
-			runTestCode(tt, test)
+			runTestCode(name, tt, test)
 		})
 	}
 }
@@ -2225,8 +2227,9 @@ end
 	for n, test := range tests {
 		test.code = fmt.Sprintf(template, test.code)
 		test.err = "stack underflow"
+		name := n
 		t.Run(n, func(tt *testing.T) {
-			runTestCode(tt, test)
+			runTestCode(name, tt, test)
 		})
 	}
 }
@@ -2247,7 +2250,7 @@ fn main() %s
 end`, ty),
 		}
 
-		t.Run("StackUnderflow_Ret_"+ty, func(tt *testing.T) { runTestCode(tt, tst) })
+		t.Run("StackUnderflow_Ret_"+ty, func(tt *testing.T) { runTestCode("StackUnderflow_Ret_"+ty, tt, tst) })
 	}
 }
 
@@ -2339,9 +2342,9 @@ end
 	for n, test := range tests {
 		test.err = "stack overflow"
 		test.code = fmt.Sprintf(template, test.code)
-
+		name := n
 		t.Run(n, func(tt *testing.T) {
-			runTestCode(tt, test)
+			runTestCode(name, tt, test)
 		})
 	}
 }
@@ -2378,13 +2381,14 @@ end
 				"b": "c",
 			},
 		}
+		name := n
 		t.Run(n, func(tt *testing.T) {
-			runTestCode(tt, test)
+			runTestCode(name, tt, test)
 		})
 	}
 }
 
-func runTestCode(t *testing.T, test test) {
+func runTestCode(name string, t *testing.T, test test) {
 	p := il.NewProgram()
 	err := text.MergeText(test.code, p)
 	if err != nil {
@@ -2396,7 +2400,7 @@ func runTestCode(t *testing.T, test test) {
 func runTestProgram(t *testing.T, p *il.Program, test test) {
 	s := NewStepper(p, test.externs)
 
-	bag := &ilt.FakeBag{Attrs: test.input}
+	bag := ilt.NewFakeBag(test.input)
 	for err := s.Begin("main", bag); !s.Done(); s.Step() {
 		if err != nil {
 			t.Fatal(s.Error())
