@@ -29,11 +29,11 @@ option (gogoproto.gostring_all) = false;
 
 // Defines the per-service client configuration.
 message ServiceConfig {
-  // If true, call Mixer Check.
-  bool enable_mixer_check = 1;
+  // If true, do not call Mixer Check.
+  bool disable_check_calls = 1;
 
-  // If true, call Mixer Report.
-  bool enable_mixer_Report = 2;
+  // If true, do not call Mixer Report.
+  bool disable_report_calls = 2;
 
   // Send these attributes to Mixer in both Check and Report. This
   // typically includes the "destination.service" attribute.
