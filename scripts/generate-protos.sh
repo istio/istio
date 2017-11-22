@@ -14,3 +14,5 @@ for src in ${files}; do
         install -m 0640 ${src} ${dst}
     fi
 done
+
+rm mixer/v1/config/cfg.pb.go
