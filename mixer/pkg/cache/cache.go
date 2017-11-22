@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The cache package provides general-purpose in-memory caches.
+// Package cache provides general-purpose in-memory caches.
 // Different caches provide different eviction policies suitable for
 // specific use cases.
 package cache
