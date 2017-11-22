@@ -228,7 +228,7 @@ func TestGenerateLogErrorCause(t *testing.T) {
 
 func TestNewReportBuilder(t *testing.T) {
 	instance := new(svcctrlreport.Instance)
-	supportedMetrics := []metricDef{
+	metrics := []metricDef{
 		{
 			name:           "test_metric",
 			valueGenerator: generateRequestCount,
@@ -238,9 +238,9 @@ func TestNewReportBuilder(t *testing.T) {
 		},
 	}
 	resolver := new(mockConsumerProjectIDResolver)
-	builder := newReportBuilder(instance, supportedMetrics, resolver)
+	builder := newReportBuilder(instance, metrics, resolver)
 	expectedBuilder := reportBuilder{
-		supportedMetrics,
+		metrics,
 		instance,
 		resolver,
 	}
