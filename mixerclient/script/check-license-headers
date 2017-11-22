@@ -47,7 +47,7 @@ do
   if is_source_code_file "${file}"; then
     istio_copyright_count="$(head -n 20 ${file} | grep "${ISTIO_COPYRIGHT}" | wc -l)"
     istio_license_count="$(head -n 20 ${file} | grep "${ISTIO_LICENSE}" | wc -l)"
-    if [[ "${istio_copyright_count}" != 1 || "${istio_license_count}" != 1 ]]; then
+    if [[ "${istio_copyright_count}" == 0 || "${istio_license_count}" == 0 ]]; then
       echo ${file}
       BAD_LICENSE=1
     fi
