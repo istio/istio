@@ -301,6 +301,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 						continue
 					}
 
+					fmt.Printf("HI. GetPodByIp %v\n", ea.IP)
 					pod, exists := c.pods.getPodByIP(ea.IP)
 					az, sa := "", ""
 					if exists {
@@ -354,17 +355,22 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 							continue
 						}
 						labels, _ := c.pods.labelsByIP(ea.IP)
+						portAlias := extractPortAlias(int(port.Port), item.ObjectMeta)
 						pod, exists := c.pods.getPodByIP(ea.IP)
 						az, sa := "", ""
 						if exists {
+							fmt.Println("Pod %v\n", pod)
 							az, _ = c.GetPodAZ(pod)
 							sa = kubeToIstioServiceAccount(pod.Spec.ServiceAccountName, pod.GetNamespace(), c.domainSuffix)
+							if podPortAlias := extractPortAlias(int(port.Port), pod.ObjectMeta); podPortAlias != 0 {
+								portAlias = podPortAlias
+							}
 						}
 						out = append(out, &model.ServiceInstance{
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
 								Port:        int(port.Port),
-								PortAlias:   extractPortAlias(int(port.Port), item.ObjectMeta),
+								PortAlias:   portAlias,
 								ServicePort: svcPort,
 							},
 							Service:          svc,

@@ -54,7 +54,7 @@ func (r *portAlias) makeRequests() error {
 	funcs := make(map[string]func() status)
 	for _, src := range srcPods {
 		for _, dst := range dstPods {
-			for _, port := range []string{":10080", ":10081", ":10082"} {
+			for _, port := range []string{":10080", ":10081", ":10082", ":20080"} {
 				for _, domain := range []string{"", "." + r.Namespace} {
 					name := fmt.Sprintf("HTTP Request from %s to %s%s%s", src, dst, domain, port)
 					funcs[name] = (func(src, dst, port, domain string) func() status {
@@ -70,7 +70,7 @@ func (r *portAlias) makeRequests() error {
 								return errAgain
 							}
 							if src == "t" &&
-								(port == ":10082" || (r.Auth == proxyconfig.MeshConfig_MUTUAL_TLS && port == ":10080")) {
+								(port == ":10082" || (r.Auth == proxyconfig.MeshConfig_MUTUAL_TLS && (port == ":10080" || port == ":20080"))) {
 								// When auth is enable, non-envoy service t cannot connect.
 								if len(resp.id) == 0 {
 									return nil

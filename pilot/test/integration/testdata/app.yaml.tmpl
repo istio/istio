@@ -61,6 +61,8 @@ spec:
       labels:
         app: {{.service}}
         version: {{.version}}
+      annotations:
+        portalias.istio.io/20080: "80"
     spec:
       containers:
       - name: app
@@ -96,6 +98,7 @@ spec:
         - containerPort: {{.port4}}
         - containerPort: 10090
         - containerPort: 19090
+        - containerPort: 20080
 {{if eq .healthPort "true"}}
         - name: tcp-health-port
           containerPort: 3333
