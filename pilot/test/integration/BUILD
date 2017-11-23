@@ -12,9 +12,10 @@ go_library(
         "http.go",
         "infra.go",
         "ingress.go",
+        "port_alias.go",
         "routing.go",
         "tcp.go",
-        "zipkin.go",
+        "zipkin.go",        
     ],
     visibility = ["//visibility:private"],
     deps = [

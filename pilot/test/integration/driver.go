@@ -212,6 +212,7 @@ func runTests(envs ...infra) {
 			&routing{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
+			&portAlias{infra: &istio},
 		}
 
 		for _, test := range tests {
