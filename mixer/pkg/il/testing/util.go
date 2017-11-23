@@ -23,9 +23,9 @@ func AreEqual(e interface{}, a interface{}) bool {
 	if eb, ok := e.([]byte); ok {
 		if ab, ok := a.([]byte); ok {
 			return bytes.Equal(ab, eb)
-		} else {
-			return false
 		}
+
+		return false
 	}
 
 	return a == e
