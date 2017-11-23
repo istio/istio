@@ -107,7 +107,7 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 	return clientset.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 }
 
-// DeleteService takes identity information of a service and deletes it.
+// DeleteService takes identity information of a service and deletes the service.
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
 }
@@ -161,7 +161,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
-// DeletePod takes ideneity information of a pod and deletes it.
+// DeletePod takes ideneity information of a pod and deletes the pod.
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 }
