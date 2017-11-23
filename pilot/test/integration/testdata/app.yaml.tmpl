@@ -43,6 +43,8 @@ spec:
     name: http-alias-plaintext
   - port: 10082
     name: http-alias-secure
+  - port: 20080
+    name: http-alias-by-pod
   selector:
     app: {{.service}}
 ---
