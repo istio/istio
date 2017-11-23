@@ -253,12 +253,12 @@ func TestPortAliasAnnotation(t *testing.T) {
 	}{
 		{8080, "8080", 8080},
 		{8080, "9999", 9999},
-		{8080, "", 8080},
-		{8080, "bad-value", 8080},
-		// Annotation is not for the testing port (8080), original port value is used.
-		{9999, "8888", 8080},
+		{8080, "", 0},
+		{8080, "bad-value", 0},
+		// Annotation is not for the testing port (8080), alias should be 0.
+		{9999, "8888", 0},
 		// No annotation
-		{0, "", 8080},
+		{0, "", 0},
 	}
 	for _, test := range testCases {
 		localSvc := v1.Service{

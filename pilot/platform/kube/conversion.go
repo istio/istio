@@ -77,12 +77,12 @@ func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) pr
 
 func extractPortAlias(port int, obj meta_v1.ObjectMeta) int {
 	if obj.Annotations == nil {
-		return port
+		return 0
 	}
 	if val, ok := strconv.Atoi(obj.Annotations[portAliasAnnotationKey(port)]); ok == nil {
 		return val
 	}
-	return port
+	return 0
 }
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
