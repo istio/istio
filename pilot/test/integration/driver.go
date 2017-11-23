@@ -209,9 +209,6 @@ func runTests(envs ...infra) {
 			&headless{infra: &istio},
 			&ingress{infra: &istio},
 			&egressRules{infra: &istio},
-			// disable the test until the following issue in envoy is resolved
-			//    https://github.com/envoyproxy/envoy/issues/2096
-			//&egressRulesHTTPTLSOrigination{egressRules: &egressRules{infra: &istio}},
 			&routing{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
