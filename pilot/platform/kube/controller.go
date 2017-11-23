@@ -364,6 +364,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 							Endpoint: model.NetworkEndpoint{
 								Address:     ea.IP,
 								Port:        int(port.Port),
+								PortAlias:   extractPortAlias(int(port.Port), item.ObjectMeta),
 								ServicePort: svcPort,
 							},
 							Service:          svc,

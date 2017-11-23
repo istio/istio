@@ -84,9 +84,6 @@ type Port struct {
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
 	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"authentication_policy"`
-
-	// PortAlias
-	PortAlias int `json:"port_alias,omitempty"`
 }
 
 // PortList is a set of ports
@@ -152,6 +149,8 @@ type NetworkEndpoint struct {
 	// need not be the same as the port where the service is accessed.
 	// e.g., catalog.mystore.com:8080 -> 172.16.0.1:55446
 	Port int `json:"port"`
+
+	PortAlias int `json:"port_alias"`
 
 	// Port declaration from the service declaration This is the port for
 	// the service associated with this instance (e.g.,

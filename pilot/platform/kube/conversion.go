@@ -91,7 +91,6 @@ func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 		Port:                 int(port.Port),
 		Protocol:             ConvertProtocol(port.Name, port.Protocol),
 		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
-		PortAlias:            extractPortAlias(int(port.Port), obj),
 	}
 }
 

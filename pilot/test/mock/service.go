@@ -74,6 +74,7 @@ var (
 		ID:        "router.default",
 		Domain:    "default.svc.cluster.local",
 	}
+	PortAlias = map[string]int{}
 )
 
 // NewDiscovery builds a mock ServiceDiscovery
@@ -158,10 +159,16 @@ func MakeInstance(service *model.Service, port *model.Port, version int) *model.
 		target = target + 1000
 	}
 
+	portAlias := 0
+	if val, ok := PortAlias[fmt.Sprintf("%s:%d", service.Hostname, target)]; ok {
+		portAlias = val
+	}
+
 	return &model.ServiceInstance{
 		Endpoint: model.NetworkEndpoint{
 			Address:     MakeIP(service, version),
 			Port:        target,
+			PortAlias:   portAlias,
 			ServicePort: port,
 		},
 		Service: service,

@@ -715,7 +715,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 		endpoint := instance.Endpoint
 		servicePort := endpoint.ServicePort
 		protocol := servicePort.Protocol
-		endpointPort := endpoint.ServicePort.PortAlias
+		endpointPort := endpoint.PortAlias // endpoint.ServicePort.PortAlias
 		if endpointPort <= 0 {
 			endpointPort = endpoint.Port
 		}
