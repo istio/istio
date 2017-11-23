@@ -84,6 +84,9 @@ type Port struct {
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
 	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"authentication_policy"`
+
+	// PortAlias
+	PortAlias int `json:"port_alias,omitempty"`
 }
 
 // PortList is a set of ports

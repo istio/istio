@@ -240,6 +240,68 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 
 }
 
+func TestPortAliasAnnotation(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+
+	ip := "10.0.0.1"
+
+	testCases := []struct {
+		port      int
+		aliasPort string
+		want      int
+	}{
+		{8080, "8080", 8080},
+		{8080, "9999", 9999},
+		{8080, "", 8080},
+		{8080, "bad-value", 8080},
+		// Annotation is not for the testing port (8080), original port value is used.
+		{9999, "8888", 8080},
+		// No annotation
+		{0, "", 8080},
+	}
+	for _, test := range testCases {
+		localSvc := v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: namespace,
+				Annotations: func() map[string]string {
+					if test.port > 0 {
+						return map[string]string{portAliasAnnotationKey(test.port): test.aliasPort}
+					}
+					return nil
+				}(),
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: ip,
+				Ports: []v1.ServicePort{
+					{
+						Name:     "http",
+						Port:     8080,
+						Protocol: v1.ProtocolTCP,
+					},
+				},
+			},
+		}
+
+		service := convertService(localSvc, domainSuffix)
+		if service == nil {
+			t.Errorf("could not convert service")
+		}
+
+		if len(service.Ports) != 1 {
+			t.Errorf("incorrect number of ports => %v, want 1\n",
+				len(service.Ports))
+		}
+
+		if service.Ports[0].PortAlias != test.want {
+			t.Errorf("incorrect port alias: get %v, want %v\n",
+				service.Ports[0].PortAlias,
+				test.want)
+		}
+	}
+}
+
 func TestExternalServiceConversion(t *testing.T) {
 	serviceName := "service1"
 	namespace := "default"

@@ -48,6 +48,10 @@ const (
 	// PortAuthenticationAnnotationKeyPrefix is the annotation key prefix that used to define
 	// authentication policy.
 	PortAuthenticationAnnotationKeyPrefix = "auth.istio.io"
+
+	// PortAliasAnnotationKeyPrefix is the annotation key prefix that used to define
+	// port alias.
+	PortAliasAnnotationKeyPrefix = "portalias.istio.io"
 )
 
 func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
@@ -71,12 +75,23 @@ func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) pr
 	return proxyconfig.AuthenticationPolicy_INHERIT
 }
 
+func extractPortAlias(port int, obj meta_v1.ObjectMeta) int {
+	if obj.Annotations == nil {
+		return port
+	}
+	if val, ok := strconv.Atoi(obj.Annotations[portAliasAnnotationKey(port)]); ok == nil {
+		return val
+	}
+	return port
+}
+
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Port),
 		Protocol:             ConvertProtocol(port.Name, port.Protocol),
 		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
+		PortAlias:            extractPortAlias(int(port.Port), obj),
 	}
 }
 
@@ -134,6 +149,10 @@ func canonicalToIstioServiceAccount(saname string) string {
 
 func portAuthenticationAnnotationKey(port int) string {
 	return fmt.Sprintf("%s/%d", PortAuthenticationAnnotationKeyPrefix, port)
+}
+
+func portAliasAnnotationKey(port int) string {
+	return fmt.Sprintf("%s/%d", PortAliasAnnotationKeyPrefix, port)
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
