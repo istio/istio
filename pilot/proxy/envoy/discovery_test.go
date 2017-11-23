@@ -310,6 +310,17 @@ func TestClusterDiscoveryRouter(t *testing.T) {
 	compareResponse(response, "testdata/cds-router.json", t)
 }
 
+func TestClusterDiscoveryPortAlias(t *testing.T) {
+	// Change mock service security for test.
+	mock.WorldService.Ports[0].PortAlias = 801234
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-port-alias.json", t)
+	// Reset mock service security option.
+	mock.WorldService.Ports[0].PortAlias = 0
+}
+
 // Test listing all routes
 func TestRouteDiscoveryAllRoutes(t *testing.T) {
 	_, _, ds := commonSetup(t)
@@ -636,6 +647,16 @@ func TestListenerDiscoverySidecarAuthOptOut(t *testing.T) {
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-v0-none-auth-optout.json", t)
 	mock.HelloService.Ports[0].AuthenticationPolicy = proxyconfig.AuthenticationPolicy_INHERIT
+}
+
+func TestListenerDiscoverySidecarPortAlias(t *testing.T) {
+	// Make port 80 alias with endpoint 801234.
+	mock.HelloService.Ports[0].PortAlias = 801234
+	_, _, ds := commonSetup(t)
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-v0-none-port-alias.json", t)
+	mock.HelloService.Ports[0].PortAlias = 0
 }
 
 func TestRouteDiscoverySidecarError(t *testing.T) {
