@@ -923,7 +923,7 @@ func ValidateEgressRuleDestination(destination *proxyconfig.IstioService) error 
 }
 
 // ValidateEgressRuleService validates service field of egress rules. Service field of egress rule contains either
-// domain, according to the defintion of Envoy's domain of virtual hosts, or CIDR, according to the definition of
+// domain, according to the definition of Envoy's domain of virtual hosts, or CIDR, according to the definition of
 // destination_ip_list of a route in Envoy's TCP Proxy filter.
 func ValidateEgressRuleService(service string) error {
 	if strings.Count(service, "/") == 1 {
