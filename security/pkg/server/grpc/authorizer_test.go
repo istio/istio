@@ -36,7 +36,7 @@ func TestAuthroizer(t *testing.T) {
 		},
 	}
 
-	authz := &sameIdAuthorizer{}
+	authz := &sameIDAuthorizer{}
 	for id, tc := range testCases {
 		err := authz.authorize(&caller{authSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
 		if len(tc.expectedErr) > 0 {
