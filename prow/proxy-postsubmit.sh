@@ -35,12 +35,6 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/proxy
   cd ${GOPATH}/src/istio.io/proxy
-
-  # Use the provided pull head sha, from prow.
-  #GIT_SHA="${PULL_PULL_SHA}"
-else
-  # Use the current commit.
-  #GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
 GIT_SHA="$(git rev-parse --verify HEAD)"
