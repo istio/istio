@@ -85,7 +85,7 @@ type StringMap interface {
 // MapGet abstracts over map[string]string and refcounted stringMap
 // refcounted stringmaps are used by the protobag.
 // standard maps are used by attribute producing adapters.
-func MapGet(tVal interface{}, tStr string) (ret string, found bool){
+func MapGet(tVal interface{}, tStr string) (ret string, found bool) {
 	switch v := tVal.(type) {
 	case map[string]string:
 		ret, found = v[tStr]

@@ -128,8 +128,7 @@ func ilType(t reflect.Type) il.Type {
 		}
 	}
 
-	panic("Unmapped go type: "+t.Name()+" "+t.String()+" kind:"+t.Kind().String())
-	return il.Unknown
+	panic("Unmapped go type: " + t.Name() + " " + t.String() + " kind:" + t.Kind().String())
 }
 
 // invoke calls the extern function via reflection, using the interpreter's calling convention.
