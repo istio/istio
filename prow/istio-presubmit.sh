@@ -74,11 +74,11 @@ else
 fi
 cd $ROOT
 
-./bin/generate-protos.sh || die "Could not generate *.pb.go"
-if [[ -n $(git status --porcelain) ]]; then
-    git status
-    die "Repo has unstaged changes. Re-run ./bin/generate-protos.sh"
-fi
+# ./bin/generate-protos.sh || die "Could not generate *.pb.go"
+# if [[ -n $(git status --porcelain) ]]; then
+#     git status
+#     die "Repo has unstaged changes. Re-run ./bin/generate-protos.sh"
+# fi
 
 mkdir -p ~/envoy
 cd ~/envoy
