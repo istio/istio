@@ -8,6 +8,7 @@ go_library(
         "conversion.go",
         "service.go",
         "validation.go",
+        "egress_rules.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
