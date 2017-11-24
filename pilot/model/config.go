@@ -646,4 +646,4 @@ func SortQuotaSpec(specs []Config) {
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
 }
->>>>>>> Define CRDs for HTTPAPI and Quota spec and distribute to proxies (#1845)
+

@@ -83,6 +83,7 @@ func IsEgressRulesSupportedHTTPProtocol(protocol Protocol) bool {
 	return ok
 }
 
+
 // IsEgressRulesSupportedTCPProtocol returns true if the protocol is supported
 // by egress rules, as a TCP protocol (service names can contain CIDR)
 func IsEgressRulesSupportedTCPProtocol(protocol Protocol) bool {
