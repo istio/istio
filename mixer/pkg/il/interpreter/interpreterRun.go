@@ -15,21 +15,6 @@ import (
 	"istio.io/istio/mixer/pkg/il"
 )
 
-// mapGet abstracts over map[string]string and refcounted stringMap
-// refcounted stringmaps are used by the protobag.
-// standard maps are used by attribute producing adapters.
-func mapGet(tVal interface{}, tStr string) (ret string, found bool){
-	switch v := tVal.(type) {
-	case map[string]string:
-		ret, found = v[tStr]
-		return ret, found
-	case il.StringMap:
-		return v.Get(tStr)
-	default:
-		panic(fmt.Sprintf("Unknown map type %T", v))
-	}
-}
-
 func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Result, error) {
 
 	var registers [registerCount]uint32
@@ -919,7 +904,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = mapGet(tVal, tStr)
+			tStr, tFound = il.MapGet(tVal, tStr)
 			if tFound {
 				t3 = strings.GetID(tStr)
 				opstack[sp] = t3
@@ -942,7 +927,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = mapGet(tVal, tStr)
+			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
@@ -963,7 +948,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = mapGet(tVal, tStr)
+			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				tStr = ""
 			}
@@ -984,7 +969,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = mapGet(tVal, tStr)
+			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				tErr = fmt.Errorf("member lookup failed: '%v'", strings.GetString(t1))
 				goto RETURN_ERR
@@ -1006,7 +991,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				goto INVALID_HEAP_ACCESS
 			}
 			tVal = heap[t2]
-			tStr, tFound = mapGet(tVal, tStr)
+			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				tStr = ""
 			}
