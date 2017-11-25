@@ -25,3 +25,4 @@ END
 
 printf "%s\n\n" "${BANNER}" >${SCRIPT_DIR}/interpreterRun.go
 clang -x c -E -P ${SCRIPT_DIR}/interpreterRun.got >>${SCRIPT_DIR}/interpreterRun.go
+gofmt -w ${SCRIPT_DIR}/interpreterRun.go

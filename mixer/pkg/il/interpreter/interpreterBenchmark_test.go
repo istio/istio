@@ -124,7 +124,7 @@ func BenchmarkIL(b *testing.B) {
 			b.Fatal("function not found: 'eval'")
 		}
 
-		bg := &ilt.FakeBag{Attrs: bt.attrs}
+		bg := ilt.NewFakeBag(bt.attrs)
 
 		in := New(p, map[string]Extern{})
 
