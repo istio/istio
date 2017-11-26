@@ -66,24 +66,17 @@ func (t *egressRules) run() error {
 			},
 		},
 		{
-			description: "prohibit external traffic to cloud.google.com",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://cloud.google.com:443", false)
+				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
-			description: "allow https external traffic to *google.com",
-			config:      "egress-rule-google.yaml.tmpl",
+			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://cloud.google.com:443", true)
-			},
-		},
-		{
-			description: "prohibit http external traffic to *google.com",
-			config:      "egress-rule-google.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("http://cloud.google.com", false)
+				return t.verifyReachable("https://cnn.com", false)
 			},
 		},
 	}
