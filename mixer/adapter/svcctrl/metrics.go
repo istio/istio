@@ -30,6 +30,18 @@ var supportedMetrics = []metricDef{
 		valueGenerator: generateBackendLatencies,
 		labels:         []string{},
 	},
+	// by consumer metrics
+	{
+		name:           "serviceruntime.googleapis.com/api/producer/by_consumer/request_count",
+		valueGenerator: generateRequestCount,
+		labels: []string{
+			"/credential_id",
+			"/protocol",
+			"/response_code",
+			"/response_code_class",
+			"/status_code",
+		},
+	},
 	// Consumer destination metrics
 	{
 		name:           "serviceruntime.googleapis.com/api/consumer/request_count",
