@@ -78,16 +78,21 @@ var supportedTCPProtocols = map[Protocol]bool{
 	ProtocolTCP: true,
 }
 
+// IsEgressRulesSupportedHTTPProtocol returns true if the protocol is supported
+// by egress rules, as an HTTP protocol (service names can contain wildcard domain names)
 func IsEgressRulesSupportedHTTPProtocol(protocol Protocol) bool {
 	_, ok := supportedHTTPProtocols[protocol]
 	return ok
 }
 
+// IsEgressRulesSupportedTCPProtocol returns true if the protocol is supported
+// by egress rules, as a TCP protocol (service names can contain CIDR)
 func IsEgressRulesSupportedTCPProtocol(protocol Protocol) bool {
 	_, ok := supportedTCPProtocols[protocol]
 	return ok
 }
 
+// IsEgressRulesSupportedProtocol returns true if the protocol is supported by egress rules
 func IsEgressRulesSupportedProtocol(protocol Protocol) bool {
 	return IsEgressRulesSupportedHTTPProtocol(protocol) || IsEgressRulesSupportedTCPProtocol(protocol)
 }
