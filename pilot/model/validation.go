@@ -966,7 +966,7 @@ func ValidateEgressRulePort(port *proxyconfig.EgressRule_Port) error {
 	}
 
 	if !IsEgressRulesSupportedProtocol(Protocol(strings.ToUpper(port.Protocol))) {
-		return fmt.Errorf("Egress rule support is available only for the following protocols: %s.",
+		return fmt.Errorf("egress rule support is available only for the following protocols: %s",
 			egressRulesSupportedProtocols())
 	}
 	return nil
