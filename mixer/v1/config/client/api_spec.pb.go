@@ -77,7 +77,7 @@ type HTTPAPISpec struct {
 	// The following default policies are used to generate the
 	// `request.api_key` attribute if no explicit APIKey is defined.
 	//
-	//     `query: key, `query: api-key`, and then `header: x-api-key`
+	//     `query: key, `query: api_key`, and then `header: x-api-key`
 	//
 	ApiKeys []*APIKey `protobuf:"bytes,3,rep,name=api_keys,json=apiKeys" json:"api_keys,omitempty"`
 }
