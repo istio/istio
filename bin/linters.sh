@@ -21,9 +21,10 @@ echo 'Running linters .... in advisory mode'
 docker run\
   -v $(bazel info output_base):$(bazel info output_base)\
   -v $(pwd):/go/src/istio.io/istio\
+  -v /tmp:/tmp\
   -w /go/src/istio.io/istio\
   gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10\
-  --config=./lintconfig.json \
+  --config=/tmp/istio-lintconfig.json \
   ./...
 echo 'linters OK'
 
