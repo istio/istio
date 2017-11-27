@@ -27,11 +27,11 @@ stores the validated input in the store.
 ## 2. Configuration storage
 
 Istio configuration storage is platform-specific. Below, we focus on Kubernetes,
-since Istio Pilot model is close to Kubernetes model of Third-Party
+since Istio Pilot model is close to Kubernetes model of Custom
 Resources. In fact, `kubectl` could be used instead of `istioctl` if validation
-and patching semantics of Third-Party Resources was supported.
+and patching semantics of Custom Resources was supported.
 
-Each Istio configuration object is stored as a Kubernetes Third-Party resource
+Each Istio configuration object is stored as a Kubernetes custom resource
 of kind `istioconfig`. The name of the resource is a combination of Istio kind
 and configuration name, and namespaces are shared between Kubernetes and Istio.
 Internally, this means Kubernetes assigns a key subset in `etcd` to Istio,

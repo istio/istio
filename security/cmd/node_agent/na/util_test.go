@@ -67,7 +67,7 @@ func TestGetWaitTime(t *testing.T) {
 		"Invalid cert pem": {
 			cert:        []byte(`INVALIDCERT`),
 			now:         time.Date(2017, time.August, 23, 21, 00, 00, 40, time.UTC),
-			expectedErr: "Invalid PEM encoded certificate",
+			expectedErr: "invalid PEM encoded certificate",
 		},
 	}
 

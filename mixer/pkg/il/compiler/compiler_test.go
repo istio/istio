@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/il/runtime"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
@@ -44,7 +45,7 @@ func TestCompile(t *testing.T) {
 			}
 			finder := descriptor.NewFinder(conf)
 
-			result, err := Compile(test.E, finder)
+			result, err := Compile(test.E, finder, expr.FuncMap(runtime.ExternFunctionMetadata))
 
 			if err != nil {
 				if err.Error() != test.CompileErr {
@@ -75,10 +76,10 @@ func TestCompile(t *testing.T) {
 			if input == nil {
 				input = map[string]interface{}{}
 			}
-			b := ilt.FakeBag{Attrs: input}
+			b := ilt.NewFakeBag(input)
 
 			i := interpreter.New(result.Program, runtime.Externs)
-			v, err := i.Eval("eval", &b)
+			v, err := i.Eval("eval", b)
 			if err != nil {
 				if test.Err != err.Error() {
 					tt.Fatalf("expected error not found: E:'%v', A:'%v'", test.Err, err)

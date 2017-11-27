@@ -43,7 +43,7 @@ bazel build ${BUILD_FLAGS} //security/...
 #!/bin/bash
 
 echo "Generate certificate and private key for Istio CA"
-bazel run ${BUILD_FLAGS} //security/cmd/generate_cert -- \
+bazel run //security/cmd/generate_cert -- \
 -key-size=2048 \
 -out-cert=${ROOT}/docker/istio_ca.crt \
 -out-priv=${ROOT}/docker/istio_ca.key \
@@ -52,7 +52,7 @@ bazel run ${BUILD_FLAGS} //security/cmd/generate_cert -- \
 -ca=true
 
 echo "Generate certificate and private key for node agent"
-bazel run ${BUILD_FLAGS} //security/cmd/generate_cert -- \
+bazel run //security/cmd/generate_cert -- \
 -key-size=2048 \
 -out-cert=${ROOT}/docker/node_agent.crt \
 -out-priv=${ROOT}/docker/node_agent.key \

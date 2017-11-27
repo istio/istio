@@ -233,14 +233,14 @@ def template_protos(WKSPC):
                         # check if there are files under /template/<some uber dir>/<some template dir>
                         if file2.endswith("_tmpl.pb.go") or file2.endswith("handler.gen.go"):
                             makelink(WKSPC + "/bazel-genfiles/mixer/template/" + template + "/" + file + "/" + file2, WKSPC + "/mixer/template/" + template + "/" + file + "/" + file2)
-    for template in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/template"):
+    for template in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/spyAdapter/template"):
         if template.endswith(".gen.go"):
-            makelink(WKSPC + "/bazel-genfiles/mixer/test/template/" + template, WKSPC + "/mixer/test/template/" + template)
-        if os.path.isdir(WKSPC + "/bazel-genfiles/mixer/test/template/" + template):
-            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/template/" + template):
+            makelink(WKSPC + "/bazel-genfiles/mixer/test/spyAdapter/template/" + template, WKSPC + "/mixer/test/spyAdapter/template/" + template)
+        if os.path.isdir(WKSPC + "/bazel-genfiles/mixer/test/spyAdapter/template/" + template):
+            for file in os.listdir(WKSPC + "/bazel-genfiles/mixer/test/spyAdapter/template/" + template):
                 # check if there are files under /template/<some template dir>
                 if file.endswith("_tmpl.pb.go") or file.endswith("handler.gen.go"):
-                    makelink(WKSPC + "/bazel-genfiles/mixer/test/template/" + template + "/" + file, WKSPC + "/mixer/test/template/" +template + "/" + file)
+                    makelink(WKSPC + "/bazel-genfiles/mixer/test/spyAdapter/template/" + template + "/" + file, WKSPC + "/mixer/test/spyAdapter/template/" +template + "/" + file)
 
 def aspect_protos(WKSPC):
     for aspect in os.listdir(WKSPC + "/bazel-genfiles/mixer/pkg/aspect/"):

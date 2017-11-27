@@ -16,7 +16,6 @@ package eureka
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/golang/glog"
 
@@ -122,42 +121,15 @@ func convertPorts(instance *instance) model.PortList {
 
 const protocolMetadata = "istio.protocol" // metadata key for port protocol
 
-// supported protocol metadata values
-const (
-	metadataUDP   = "udp"
-	metadataTCP   = "tcp"
-	metadataHTTP  = "http"
-	metadataHTTP2 = "http2"
-	metadataHTTPS = "https"
-	metadataGRPC  = "grpc"
-	metadataMongo = "mongo"
-	metadataRedis = "redis"
-)
-
 func convertProtocol(md metadata) model.Protocol {
+	name := md[protocolMetadata]
+
 	if md != nil {
-		protocol := strings.ToLower(md[protocolMetadata])
-		switch protocol {
-		case metadataUDP:
-			return model.ProtocolUDP
-		case metadataTCP:
-			return model.ProtocolTCP
-		case metadataHTTP:
-			return model.ProtocolHTTP
-		case metadataHTTP2:
-			return model.ProtocolHTTP2
-		case metadataHTTPS:
-			return model.ProtocolHTTPS
-		case metadataGRPC:
-			return model.ProtocolGRPC
-		case metadataMongo:
-			return model.ProtocolMongo
-		case metadataRedis:
-			return model.ProtocolRedis
-		case "":
-			// fallthrough to default protocol
-		default:
-			glog.Warningf("unsupported protocol value: %s", protocol)
+		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+		if protocol == model.ProtocolUnsupported {
+			glog.Warningf("unsupported protocol value: %s", name)
+		} else {
+			return protocol
 		}
 	}
 	return model.ProtocolTCP // default protocol

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,6 +81,7 @@ type mockServer struct {
 	Services    map[string][]string
 	Productpage []*api.CatalogService
 	Reviews     []*api.CatalogService
+	Lock        sync.Mutex
 }
 
 func newServer() *mockServer {
@@ -97,15 +99,21 @@ func newServer() *mockServer {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/catalog/services" {
+			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Services)
+			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/reviews" {
+			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Reviews)
+			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else if r.URL.Path == "/v1/catalog/service/productpage" {
+			m.Lock.Lock()
 			data, _ := json.Marshal(&m.Productpage)
+			m.Lock.Unlock()
 			w.Header().Set("Content-Type", "application/json")
 			fmt.Fprintln(w, string(data))
 		} else {

@@ -1,0 +1,16 @@
+apiVersion: config.istio.io/v1alpha2
+kind: RouteRule
+metadata:
+  name: rewrite
+  namespace: istio-testing
+spec:
+  destination:
+    name: world
+  match:
+    request:
+      headers:
+        uri:
+          prefix: /old/path
+  rewrite:
+    uri: /new/path
+    authority: foo.bar.com

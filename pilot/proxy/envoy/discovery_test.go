@@ -247,6 +247,7 @@ func TestClusterDiscoveryWithSecurityOn(t *testing.T) {
 	mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) // original dst cluster should not have auth
+
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -274,6 +275,7 @@ func TestClusterDiscoveryWithAuthOptOut(t *testing.T) {
 func TestClusterDiscoveryIngress(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
+	addConfig(registry, egressRuleTCP, t)
 	url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/cds-ingress.json", t)
@@ -350,6 +352,8 @@ func TestRouteDiscoveryV0Mixerless(t *testing.T) {
 	mesh.MixerAddress = ""
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t) //expect *.google.com and *.yahoo.com
+	addConfig(registry, egressRuleTCP, t)
+
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -373,6 +377,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 func TestRouteDiscoveryTimeout(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, egressRule, t)
+
 	addConfig(registry, timeoutRouteRule, t)
 	addConfig(registry, egressRuleTimeoutRule, t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -556,6 +561,10 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			name: "egress-rule",
 			file: egressRule,
 		},
+		{
+			name: "egress-rule-tcp",
+			file: egressRuleTCP,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -655,6 +664,8 @@ func TestListenerDiscoveryIngress(t *testing.T) {
 	mesh := makeMeshConfig()
 	registry := memory.Make(model.IstioConfigTypes)
 	addConfig(registry, egressRule, t)
+	addConfig(registry, egressRuleTCP, t)
+
 	addIngressRoutes(registry, t)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
@@ -732,6 +743,7 @@ func TestListenerDiscoveryRouter(t *testing.T) {
 	registry := memory.Make(model.IstioConfigTypes)
 	ds := makeDiscoveryService(t, registry, &mesh)
 	addConfig(registry, egressRule, t)
+
 	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/lds-router.json", t)

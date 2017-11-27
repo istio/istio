@@ -10,6 +10,7 @@
      {
       "prefix": "/",
       "cluster": "out.*.google.com|external-HTTP-80",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -36,6 +37,7 @@
      {
       "prefix": "/",
       "cluster": "out.hello.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -60,6 +62,7 @@
      {
       "prefix": "/",
       "cluster": "out.httpbin.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
@@ -86,6 +89,7 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
       "decorator": {
        "operation": "default-route"
       }
