@@ -273,3 +273,30 @@ func dumpAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.CompressedAtt
 	_ = tw.Flush()
 	printf("%s", buf.String())
 }
+
+func dumpReferencedAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.ReferencedAttributes) {
+	vals := make([]string, 0, len(attrs.AttributeMatches))
+	for _, at := range attrs.AttributeMatches {
+		out := attrs.Words[-1*at.Name-1]
+		if at.MapKey != 0 {
+			out += "::" + attrs.Words[-1*at.MapKey-1]
+		}
+		out += " " + at.Condition.String()
+		vals = append(vals, out)
+	}
+
+	sort.Strings(vals)
+
+	buf := bytes.Buffer{}
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
+	fmt.Fprint(tw, "  Referenced Attributes\n")
+
+	for _, v := range vals {
+		fmt.Fprintf(tw, "  %s\n", v)
+	}
+
+	_ = tw.Flush()
+	printf("%s", buf.String())
+
+}

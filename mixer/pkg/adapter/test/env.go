@@ -98,6 +98,7 @@ func (e *Env) log(format string, args ...interface{}) string {
 	return l
 }
 
+// GetDoneChan returns the channel that returns notification when the async work is done.
 func (e *Env) GetDoneChan() chan struct{} {
 	return e.done
 }

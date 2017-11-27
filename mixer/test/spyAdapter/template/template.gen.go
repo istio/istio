@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 
-	"istio.io/istio/mixer/test/template/report"
+	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 const emptyQuotes = "\"\""

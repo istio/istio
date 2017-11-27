@@ -9,7 +9,8 @@ source $SCRIPTPATH/use_bazel_go.sh
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-PKGS="."
+PKGS=${PKGS:-"."}
+
 GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go')
 
 UX=$(uname)
