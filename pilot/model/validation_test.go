@@ -1097,6 +1097,41 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 	}
 }
 
+func TestValidateEgressRuleService(t *testing.T) {
+	services := map[string]bool{
+		"cnn.com":        true,
+		"cnn..com":       false,
+		"10.0.0.100":     true,
+		"cnn.com:80":     false,
+		"*cnn.com":       true,
+		"*.cnn.com":      true,
+		"*-cnn.com":      true,
+		"*.0.0.100":      true,
+		"*0.0.100":       true,
+		"*cnn*.com":      false,
+		"cnn.*.com":      false,
+		"*com":           true,
+		"*0":             true,
+		"**com":          false,
+		"**0":            false,
+		"*":              true,
+		"":               false,
+		"*.":             false,
+		"192.168.3.0/24": true,
+		"50.1.2.3/32":    true,
+		"10.15.0.0/16":   true,
+		"10.15.0.0/0":    true,
+		"10.15.0/16":     false,
+		"10.15.0.0/33":   false,
+	}
+
+	for service, valid := range services {
+		if got := ValidateEgressRuleService(service); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s", got == nil, valid, got, service)
+		}
+	}
+}
+
 func TestValidateEgressRulePort(t *testing.T) {
 	ports := map[*proxyconfig.EgressRule_Port]bool{
 		{Port: 80, Protocol: "http"}:    true,
@@ -1107,7 +1142,8 @@ func TestValidateEgressRulePort(t *testing.T) {
 		{Port: 443, Protocol: "http"}:   true,
 		{Port: 1, Protocol: "http"}:     true,
 		{Port: 2, Protocol: "https"}:    true,
-		{Port: 80, Protocol: "tcp"}:     false,
+		{Port: 80, Protocol: "tcp"}:     true,
+		{Port: 80, Protocol: "udp"}:     false,
 		{Port: 0, Protocol: "http"}:     false,
 		{Port: 65536, Protocol: "http"}: false,
 		{Port: 65535, Protocol: "http"}: true,
@@ -1160,6 +1196,40 @@ func TestValidateEgressRule(t *testing.T) {
 				},
 				UseEgressProxy: false},
 			valid: true},
+		{name: "valid egress rule with IP address",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+
+		{name: "valid egress rule with tcp ports",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "tcp"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+		{name: "egress rule with tcp ports, an http protocol",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "http"},
+				},
+				UseEgressProxy: false},
+			valid: false},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
 			in: &proxyconfig.EgressRule{
 				Destination: &proxyconfig.IstioService{

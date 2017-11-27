@@ -27,6 +27,8 @@
     ],
     "exclude": [
         "vendor",
+        "mixer/adapter/svcctrl",
+        "^security",
         ".pb.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
