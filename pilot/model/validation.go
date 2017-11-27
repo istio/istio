@@ -24,11 +24,15 @@ import (
 	"strings"
 	"time"
 
+	gogoproto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
+	mpb "istio.io/api/mixer/v1"
+	mccpb "istio.io/api/mixer/v1/config/client"
 	proxyconfig "istio.io/api/proxy/v1/config"
 )
 
@@ -87,7 +91,7 @@ func ValidatePort(port int) error {
 // Validate checks that each name conforms to the spec and has a ProtoMessage
 func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
-	types := make(map[string]bool)
+	descriptorTypes := make(map[string]bool)
 	messages := make(map[string]bool)
 
 	for _, v := range descriptor {
@@ -97,13 +101,13 @@ func (descriptor ConfigDescriptor) Validate() error {
 		if !IsDNS1123Label(v.Plural) {
 			errs = multierror.Append(errs, fmt.Errorf("invalid plural: %q", v.Type))
 		}
-		if proto.MessageType(v.MessageName) == nil {
+		if proto.MessageType(v.MessageName) == nil && gogoproto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
-		if _, exists := types[v.Type]; exists {
+		if _, exists := descriptorTypes[v.Type]; exists {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
-		types[v.Type] = true
+		descriptorTypes[v.Type] = true
 		if _, exists := messages[v.MessageName]; exists {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
 		}
@@ -1221,4 +1225,211 @@ func ValidateProxyConfig(config *proxyconfig.ProxyConfig) (errs error) {
 	}
 
 	return
+}
+
+// ValidateMixerAttributes checks that Mixer attributes is
+// well-formed.
+func ValidateMixerAttributes(msg proto.Message) error {
+	in, ok := msg.(*mpb.Attributes)
+	if !ok {
+		return errors.New("cannot case to attributes")
+	}
+	if in == nil || len(in.Attributes) == 0 {
+		return errors.New("list of attributes is nil/empty")
+	}
+	var errs error
+	for k, v := range in.Attributes {
+		switch val := v.Value.(type) {
+		case *mpb.Attributes_AttributeValue_StringValue:
+			if val.StringValue == "" {
+				errs = multierror.Append(errs,
+					fmt.Errorf("string attribute for %q should not be empty", k))
+			}
+		case *mpb.Attributes_AttributeValue_DurationValue:
+			if val.DurationValue == nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("duration attribute for %q should not be nil", k))
+			}
+			if _, err := types.DurationFromProto(val.DurationValue); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *mpb.Attributes_AttributeValue_BytesValue:
+			if len(val.BytesValue) == 0 {
+				errs = multierror.Append(errs,
+					fmt.Errorf("bytes attribute for %q should not be ", k))
+			}
+		case *mpb.Attributes_AttributeValue_TimestampValue:
+			if val.TimestampValue == nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("timestamp attribute for %q should not be nil", k))
+			}
+			if _, err := types.TimestampFromProto(val.TimestampValue); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *mpb.Attributes_AttributeValue_StringMapValue:
+			if val.StringMapValue == nil || val.StringMapValue.Entries == nil {
+				errs = multierror.Append(errs,
+					fmt.Errorf("stringmap attribute for %q should not be nil", k))
+			}
+		}
+	}
+	return errs
+}
+
+// ValidateHTTPAPISpec checks that HTTPAPISpec is well-formed.
+func ValidateHTTPAPISpec(msg proto.Message) error {
+	in, ok := msg.(*mccpb.HTTPAPISpec)
+	if !ok {
+		return errors.New("cannot case to HTTPAPISpec")
+	}
+	var errs error
+	// top-level list of attributes is optional
+	if in.Attributes != nil {
+		if err := ValidateMixerAttributes(in.Attributes); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if len(in.Patterns) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one pattern must be specified"))
+	}
+	for _, pattern := range in.Patterns {
+		if err := ValidateMixerAttributes(in.Attributes); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+		if pattern.HttpMethod == "" {
+			errs = multierror.Append(errs, errors.New("http_method cannot be empty"))
+		}
+		switch m := pattern.Pattern.(type) {
+		case *mccpb.HTTPAPISpecPattern_UriTemplate:
+			if m.UriTemplate == "" {
+				errs = multierror.Append(errs, errors.New("uri_template cannot be empty"))
+			}
+		case *mccpb.HTTPAPISpecPattern_Regex:
+			if m.Regex == "" {
+				errs = multierror.Append(errs, errors.New("regex cannot be empty"))
+			}
+		}
+	}
+	for _, key := range in.ApiKeys {
+		switch m := key.Key.(type) {
+		case *mccpb.APIKey_Query:
+			if m.Query == "" {
+				errs = multierror.Append(errs, errors.New("query cannot be empty"))
+			}
+		case *mccpb.APIKey_Header:
+			if m.Header == "" {
+				errs = multierror.Append(errs, errors.New("header cannot be empty"))
+			}
+		case *mccpb.APIKey_Cookie:
+			if m.Cookie == "" {
+				errs = multierror.Append(errs, errors.New("cookie cannot be empty"))
+			}
+		}
+	}
+	return errs
+}
+
+// ValidateHTTPAPISpecBinding checks that HTTPAPISpecBinding is well-formed.
+func ValidateHTTPAPISpecBinding(msg proto.Message) error {
+	in, ok := msg.(*mccpb.HTTPAPISpecBinding)
+	if !ok {
+		return errors.New("cannot case to HTTPAPISpecBinding")
+	}
+	var errs error
+	if len(in.Services) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
+	}
+	for _, service := range in.Services {
+		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if len(in.ApiSpecs) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one spec must be specified"))
+	}
+	for _, spec := range in.ApiSpecs {
+		if spec.Name == "" {
+			errs = multierror.Append(errs, errors.New("name is mandatory for HTTPAPISpecReference"))
+		}
+		if spec.Namespace != "" && !IsDNS1123Label(spec.Namespace) {
+			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
+		}
+	}
+	return errs
+}
+
+// ValidateQuotaSpec checks that Quota is well-formed.
+func ValidateQuotaSpec(msg proto.Message) error {
+	in, ok := msg.(*mccpb.QuotaSpec)
+	if !ok {
+		return errors.New("cannot case to HTTPAPISpecBinding")
+	}
+	var errs error
+	if len(in.Rules) == 0 {
+		errs = multierror.Append(errs, errors.New("a least one rule must be specified"))
+	}
+	for _, rule := range in.Rules {
+		for _, match := range rule.Match {
+			for name, clause := range match.Clause {
+				switch matchType := clause.MatchType.(type) {
+				case *mccpb.StringMatch_Exact:
+					if matchType.Exact == "" {
+						errs = multierror.Append(errs,
+							fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name)) // nolint: golint
+					}
+				case *mccpb.StringMatch_Prefix:
+					if matchType.Prefix == "" {
+						errs = multierror.Append(errs,
+							fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name)) // nolint: golint
+					}
+				case *mccpb.StringMatch_Regex:
+					if matchType.Regex == "" {
+						errs = multierror.Append(errs,
+							fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name)) // nolint: golint
+					}
+				}
+			}
+		}
+		if len(rule.Quotas) == 0 {
+			errs = multierror.Append(errs, errors.New("a least one quota must be specified"))
+		}
+		for _, quota := range rule.Quotas {
+			if quota.Quota == "" {
+				errs = multierror.Append(errs, errors.New("quota name cannot be empty"))
+			}
+			if quota.Charge <= 0 {
+				errs = multierror.Append(errs, errors.New("quota charge amount must be positive"))
+			}
+		}
+	}
+	return errs
+}
+
+// ValidateQuotaSpecBinding checks that QuotaSpecBinding is well-formed.
+func ValidateQuotaSpecBinding(msg proto.Message) error {
+	in, ok := msg.(*mccpb.QuotaSpecBinding)
+	if !ok {
+		return errors.New("cannot case to HTTPAPISpecBinding")
+	}
+	var errs error
+	if len(in.Services) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one service must be specified"))
+	}
+	for _, service := range in.Services {
+		if err := ValidateIstioService(mixerToProxyIstioService(service)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	if len(in.QuotaSpecs) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one spec must be specified"))
+	}
+	for _, spec := range in.QuotaSpecs {
+		if spec.Name == "" {
+			errs = multierror.Append(errs, errors.New("name is mandatory for QuotaSpecReference"))
+		}
+		if spec.Namespace != "" && !IsDNS1123Label(spec.Namespace) {
+			errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
+		}
+	}
+	return errs
 }

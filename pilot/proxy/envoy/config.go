@@ -276,7 +276,7 @@ func buildSidecarListenersClusters(
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
 			buildHTTPListener(mesh, node, instances, nil, listenAddress, int(mesh.ProxyHttpPort),
-				RDSAll, useRemoteAddress, traceOperation))
+				RDSAll, useRemoteAddress, traceOperation, config))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -327,7 +327,8 @@ func buildRDSRoute(mesh *proxyconfig.MeshConfig, node proxy.Node, routeName stri
 // buildHTTPListener constructs a listener for the network interface address and port.
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances []*model.ServiceInstance,
-	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool, direction string) *Listener {
+	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool, direction string,
+	store model.IstioConfigStore) *Listener {
 	filters := buildFaultFilters(routeConfig)
 
 	filters = append(filters, HTTPFilter{
@@ -336,19 +337,6 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 		Config: FilterRouterConfig{},
 	})
 
-	// This is the mixer 'destination.service'
-	var services []string
-	if instances != nil {
-		serviceSet := make(map[string]bool, len(instances))
-		for _, instance := range instances {
-			serviceSet[instance.Service.Hostname] = true
-		}
-		for service := range serviceSet {
-			services = append(services, service)
-		}
-		sort.Strings(services)
-	}
-
 	filter := HTTPFilter{
 		Name:   CORSFilter,
 		Config: CORSFilterConfig{},
@@ -356,7 +344,7 @@ func buildHTTPListener(mesh *proxyconfig.MeshConfig, node proxy.Node, instances 
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(node, services)
+		mixerConfig := mixerHTTPRouteConfig(node, instances, store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -524,7 +512,7 @@ func buildOutboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node, in
 		}
 
 		l := buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
-			fmt.Sprintf("%d", port), useRemoteAddress, operation)
+			fmt.Sprintf("%d", port), useRemoteAddress, operation, config)
 		listeners = append(listeners, l)
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
@@ -768,9 +756,9 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 
 			host.Routes = append(host.Routes, defaultRoute)
 
-			config := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
-			listener = buildHTTPListener(mesh, sidecar, instances, config, endpoint.Address,
-				endpoint.Port, "", false, IngressTraceOperation)
+			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
+			listener = buildHTTPListener(mesh, sidecar, instances, routeConfig, endpoint.Address,
+				endpoint.Port, "", false, IngressTraceOperation, config)
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
@@ -782,7 +770,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 				filter := &NetworkFilter{
 					Type:   both,
 					Name:   MixerFilter,
-					Config: mixerTCPConfig(sidecar, !mesh.DisablePolicyChecks),
+					Config: mixerTCPConfig(sidecar, !mesh.DisablePolicyChecks, instance),
 				}
 				listener.Filters = append([]*NetworkFilter{filter}, listener.Filters...)
 			}

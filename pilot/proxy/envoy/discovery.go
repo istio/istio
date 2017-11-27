@@ -226,6 +226,13 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		configCache.RegisterEventHandler(model.IngressRule.Type, configHandler)
 		configCache.RegisterEventHandler(model.EgressRule.Type, configHandler)
 		configCache.RegisterEventHandler(model.DestinationPolicy.Type, configHandler)
+
+		// TODO: Changes to mixerclient HTTP and Quota should not
+		// trigger recompute of full LDS/RDS/CDS/EDS
+		configCache.RegisterEventHandler(model.HTTPAPISpec.Type, configHandler)
+		configCache.RegisterEventHandler(model.HTTPAPISpecBinding.Type, configHandler)
+		configCache.RegisterEventHandler(model.QuotaSpec.Type, configHandler)
+		configCache.RegisterEventHandler(model.QuotaSpecBinding.Type, configHandler)
 	}
 
 	return out, nil
