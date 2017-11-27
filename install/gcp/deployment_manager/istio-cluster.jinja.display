@@ -1,7 +1,7 @@
 metadataVersion: v1test
 
 description:
-  title: Istio on GKE Launcher
+  title: Istio on GKE with Deployment Manager
   version: 0.0.1
   url: 'https://istio.io/'
   tagline: Running Istio on GKE
@@ -9,7 +9,7 @@ description:
   logo: 'https://avatars3.githubusercontent.com/u/23534644?s=100&v=4'
   icon: 'https://avatars3.githubusercontent.com/u/23534644?s=100&v=4'
   architectureDiagram: 'https://avatars3.githubusercontent.com/u/23534644?s=100&v=4'
-  architectureDescription: 'Istio is an open platform that provides a uniform way to connect, manage, and secure microservices. Istio supports managing traffic flows between microservices, enforcing access policies, and aggregating telemetry data, all without requiring changes to the microservice code'
+  architectureDescription: 'Istio is an open platform that provides a uniform way to connect, manage, and secure microservices. Istio supports managing traffic flows between microservices, enforcing access policies, and aggregating telemetry data, all without requiring changes to the microservice code. <li><b>Note: You must set your compute service account with "Container Engine Admin" IAM Role.</b></li> <li>For more information, see <a href="https://istio.io/docs/setup/kubernetes/quick-start-gke-dm.html">Quick Start with Google Kubernetes Engine</a></li>'
   author:
     title: Google Click to Deploy
   documentations:
