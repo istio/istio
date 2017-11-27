@@ -40,6 +40,7 @@ type builder struct {
 ////// Builder method from supported template //////
 
 // SetApiKeyTypes sets apiKey template data type.
+// nolint:golint
 func (b *builder) SetApiKeyTypes(types map[string]*apikey.Type) {
 	b.checkDataShape = types
 }

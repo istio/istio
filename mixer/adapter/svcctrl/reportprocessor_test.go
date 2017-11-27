@@ -140,27 +140,50 @@ func TestReport(t *testing.T) {
 							"metricName":"serviceruntime.googleapis.com/api/producer/backend_latencies",
 							"metricValues":[
 								{
-								 "distributionValue":{
-									"bucketCounts":[
-										"0","0","0","0","0","0","0","0","0","0",
-										"0","0","0","0","0","0","0","0","0","0",
-										"1","0","0","0","0","0","0","0","0","0",
-										"0"
-									 ],
-									"count":"1",
-									"exponentialBuckets":{
-									   "growthFactor":2,
-									   "numFiniteBuckets":29,
-									   "scale":0.000001
+									"distributionValue":{
+										"bucketCounts":[
+											"0","0","0","0","0","0","0","0","0","0",
+											"0","0","0","0","0","0","0","0","0","0",
+											"1","0","0","0","0","0","0","0","0","0",
+											"0"
+										 ],
+										"count":"1",
+										"exponentialBuckets":{
+											"growthFactor":2,
+											"numFiniteBuckets":29,
+											"scale":0.000001
+										},
+										"maximum":1,
+										"mean":1,
+										"minimum":1
 									},
-									"maximum":1,
-									"mean":1,
-									"minimum":1
-								 },
-								 "endTime":"2017-11-01T17:00:01Z",
-								 "startTime":"2017-11-01T17:00:00Z"
-							  }
-						   ]
+									"endTime":"2017-11-01T17:00:01Z",
+									"startTime":"2017-11-01T17:00:00Z"
+								}
+							]
+						},
+						{
+							"metricName": "serviceruntime.googleapis.com/api/producer/request_sizes",
+							"metricValues": [
+								{
+									"distributionValue": {
+										"bucketCounts": [
+											"0","0","1","0","0","0","0","0","0","0"
+										],
+										"count": "1",
+										"exponentialBuckets": {
+											 "growthFactor": 10,
+											 "numFiniteBuckets": 8,
+											 "scale": 1
+										},
+										"maximum": 10,
+										"mean": 10,
+										"minimum": 10
+									},
+									"endTime": "2017-11-01T17:00:01Z",
+									"startTime": "2017-11-01T17:00:00Z"
+								}
+							]
 						},
 						{
 							"metricName":"serviceruntime.googleapis.com/api/producer/by_consumer/request_count",

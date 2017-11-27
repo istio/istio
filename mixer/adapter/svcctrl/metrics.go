@@ -26,8 +26,18 @@ var supportedMetrics = []metricDef{
 			"/status_code"},
 	},
 	{
+		name:           "serviceruntime.googleapis.com/api/producer/error_count",
+		valueGenerator: generateErrorCount,
+		labels:         []string{" /error_type"},
+	},
+	{
 		name:           "serviceruntime.googleapis.com/api/producer/backend_latencies",
 		valueGenerator: generateBackendLatencies,
+		labels:         []string{},
+	},
+	{
+		name:           "serviceruntime.googleapis.com/api/producer/request_sizes",
+		valueGenerator: generateRequestSize,
 		labels:         []string{},
 	},
 	// by consumer metrics
