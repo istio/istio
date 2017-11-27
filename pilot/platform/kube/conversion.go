@@ -174,9 +174,9 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 		if i >= 0 {
 			prefix = name[:i]
 		}
-		out := model.ConvertCaseInsensitiveStringToProtocol(prefix)
-		if out != model.ProtocolUDP && out != model.ProtocolUnsupported {
-			return out
+		protocol := model.ConvertCaseInsensitiveStringToProtocol(prefix)
+		if protocol != model.ProtocolUDP && protocol != model.ProtocolUnsupported {
+			out = protocol
 		}
 	}
 	return out
