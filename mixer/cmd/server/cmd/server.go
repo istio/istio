@@ -180,7 +180,8 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 	serverCmd.PersistentFlags().StringVarP(&sa.zipkinUser, "zipkinUser", "", "", "Username for zipkin (http basic auth)")
 	serverCmd.PersistentFlags().StringVarP(&sa.zipkinPass, "zipkinPass", "", "", "Password for zipkin (http basic auth)")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.jaegerAddr, "jaegerAddr", "", "", "URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'")
+	serverCmd.PersistentFlags().StringVarP(&sa.jaegerAddr, "jaegerAddr", "", "",
+		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'")
 	serverCmd.PersistentFlags().StringVarP(&sa.jaegerUser, "jaegerUser", "", "", "Username for jaeger (http basic auth)")
 	serverCmd.PersistentFlags().StringVarP(&sa.jaegerPass, "jaegerPass", "", "", "Password for jaeger (http basic auth)")
 
@@ -356,7 +357,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	var interceptors []grpc.UnaryServerInterceptor
 
 	if len(sa.zipkinAddr) > 0 || len(sa.jaegerAddr) > 0 || sa.logTraceSpans {
-		opts := make([]tracing.TracingOption, 0, 3)
+		opts := make([]tracing.Option, 0, 3)
 		if len(sa.zipkinAddr) > 0 {
 			opts = append(opts, tracing.WithBasicAuthZipkinCollector(sa.zipkinAddr, sa.zipkinUser, sa.zipkinPass))
 		}
@@ -417,7 +418,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
-	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
+	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs, Closers: closers}
 }
 
 func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) {

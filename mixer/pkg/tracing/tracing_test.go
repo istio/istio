@@ -55,20 +55,20 @@ func TestNewTracer(t *testing.T) {
 
 	cases := []struct {
 		name       string
-		opts       []TracingOption
+		opts       []Option
 		wantJaeger bool
 		wantZipkin bool
 		wantLog    bool
 	}{
 		{"no options", nil, false, false, false},
-		{"with logging", []TracingOption{loggingOpt}, false, false, true},
-		{"with jaeger", []TracingOption{jaegerOpt}, true, false, false},
-		{"with jaeger auth", []TracingOption{jaegerAuthOpt}, true, false, false},
-		{"with jaeger auth (fail)", []TracingOption{jaegerBadAuthOpt}, false, false, false},
-		{"with zipkin", []TracingOption{zipkinOpt}, false, true, false},
-		{"with zipkin auth", []TracingOption{zipkinAuthOpt}, false, true, false},
-		{"with zipkin auth (fail)", []TracingOption{zipkinBadAuthOpt}, false, false, false},
-		{"with jaeger and zipkin", []TracingOption{jaegerOpt, zipkinOpt}, true, true, false},
+		{"with logging", []Option{loggingOpt}, false, false, true},
+		{"with jaeger", []Option{jaegerOpt}, true, false, false},
+		{"with jaeger auth", []Option{jaegerAuthOpt}, true, false, false},
+		{"with jaeger auth (fail)", []Option{jaegerBadAuthOpt}, false, false, false},
+		{"with zipkin", []Option{zipkinOpt}, false, true, false},
+		{"with zipkin auth", []Option{zipkinAuthOpt}, false, true, false},
+		{"with zipkin auth (fail)", []Option{zipkinBadAuthOpt}, false, false, false},
+		{"with jaeger and zipkin", []Option{jaegerOpt, zipkinOpt}, true, true, false},
 	}
 
 	for _, v := range cases {

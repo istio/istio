@@ -50,13 +50,13 @@ type tracingOpts struct {
 	logger log.Logger
 }
 
-// TracingOption is a function that configures Mixer self-tracing options.
-type TracingOption func(*tracingOpts)
+// Option is a function that configures Mixer self-tracing options.
+type Option func(*tracingOpts)
 
 // NewTracer returns a new tracer for use with Mixer, based on the supplied options.
 // The closer returned is used to ensure flushing of all existing span data during
 // Mixer shutdown.
-func NewTracer(serviceName string, options ...TracingOption) (opentracing.Tracer, io.Closer, error) {
+func NewTracer(serviceName string, options ...Option) (opentracing.Tracer, io.Closer, error) {
 	opts := tracingOpts{serviceName: serviceName}
 	for _, opt := range options {
 		opt(&opts)
@@ -66,7 +66,7 @@ func NewTracer(serviceName string, options ...TracingOption) (opentracing.Tracer
 
 // WithZipkinCollector configures Mixer tracing to export span data to a zipkin
 // collector at the supplied URL.
-func WithZipkinCollector(addr string) TracingOption {
+func WithZipkinCollector(addr string) Option {
 	return func(opts *tracingOpts) {
 		opts.zipkinAddr = addr
 	}
@@ -74,7 +74,7 @@ func WithZipkinCollector(addr string) TracingOption {
 
 // WithBasicAuthZipkinCollector configures Mixer tracing to export span data to
 // a zipkin collector at the supplied URL using HTTP Basic Authentication.
-func WithBasicAuthZipkinCollector(addr, user, pass string) TracingOption {
+func WithBasicAuthZipkinCollector(addr, user, pass string) Option {
 	return func(opts *tracingOpts) {
 		opts.zipkinAddr = addr
 		opts.zipkinUser = user
@@ -84,7 +84,7 @@ func WithBasicAuthZipkinCollector(addr, user, pass string) TracingOption {
 
 // WithJaegerHTTPCollector configures Mixer tracing to export span data to a
 // jaeger HTTP collector at the supplied URL using HTTP Basic Authentication.
-func WithJaegerHTTPCollector(addr string) TracingOption {
+func WithJaegerHTTPCollector(addr string) Option {
 	return func(opts *tracingOpts) {
 		opts.jaegerAddr = addr
 	}
@@ -92,7 +92,7 @@ func WithJaegerHTTPCollector(addr string) TracingOption {
 
 // WithBasicAuthJaegerHTTPCollector configures Mixer tracing to export span data
 // to a jaeger HTTP collector at the supplied URL using HTTP Basic Authentication.
-func WithBasicAuthJaegerHTTPCollector(addr, user, pass string) TracingOption {
+func WithBasicAuthJaegerHTTPCollector(addr, user, pass string) Option {
 	return func(opts *tracingOpts) {
 		opts.jaegerAddr = addr
 		opts.jaegerUser = user
@@ -101,11 +101,11 @@ func WithBasicAuthJaegerHTTPCollector(addr, user, pass string) TracingOption {
 }
 
 // WithLogger configures Mixer tracing to log span data to the console.
-func WithLogger() TracingOption {
+func WithLogger() Option {
 	return withLogger(gLogger)
 }
 
-func withLogger(logger log.Logger) TracingOption {
+func withLogger(logger log.Logger) Option {
 	return func(opts *tracingOpts) {
 		opts.logger = logger
 	}
