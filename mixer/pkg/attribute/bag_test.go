@@ -498,16 +498,11 @@ func compareAttributeValues(v1, v2 interface{}) (bool, error) {
 			}
 		}
 
+	case StringMap:
+		return reflect.DeepEqual(t1.entries, v2), nil
+
 	case map[string]string:
-		t2, ok := v2.(map[string]string)
-		if result = ok && len(t1) == len(t2); result {
-			for k, v := range t1 {
-				if v != t2[k] {
-					result = false
-					break
-				}
-			}
-		}
+		return reflect.DeepEqual(t1, v2), nil
 
 	default:
 		return false, fmt.Errorf("unsupported attribute value type: %T", v1)

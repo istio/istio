@@ -22,7 +22,8 @@ else
   buildifier=$ROOTDIR/bazel-bin/external/com_github_bazelbuild_buildtools/buildifier/buildifier
 fi
 
-PKGS="."
+PKGS=${PKGS:-"."}
+
 GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go')
 
 UX=$(uname)

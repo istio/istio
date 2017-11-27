@@ -55,7 +55,8 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 		"the list of namespaces where changes should be validated. Empty means to validate everything. Used for test only.")
 	validatorCmd.PersistentFlags().IntVarP(&vc.Port, "port", "p", 9099, "the port number of the webhook")
 	validatorCmd.PersistentFlags().StringVar(&vc.SecretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
-	validatorCmd.PersistentFlags().DurationVar(&vc.RegistrationDelay, "registration-delay", 5*time.Second, "Time to delay webhook registration after starting webhook server")
+	validatorCmd.PersistentFlags().DurationVar(&vc.RegistrationDelay, "registration-delay", 5*time.Second,
+		"Time to delay webhook registration after starting webhook server")
 	validatorCmd.PersistentFlags().StringVar(&kubeconfig, "kubeconfig", "", "Use a Kubernetes configuration file instead of in-cluster configuration")
 	return validatorCmd
 }

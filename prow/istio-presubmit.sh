@@ -88,6 +88,12 @@ else
 fi
 cd $ROOT
 
+# ./bin/generate-protos.sh || die "Could not generate *.pb.go"
+# if [[ -n $(git status --porcelain) ]]; then
+#     git status
+#     die "Repo has unstaged changes. Re-run ./bin/generate-protos.sh"
+# fi
+
 mkdir -p ~/envoy
 cd ~/envoy
 ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
@@ -119,7 +125,6 @@ fi
 # Build
 ${ROOT}/bin/init.sh
 
-run_or_die_on_change ./bin/generate-protos.sh
 run_or_die_on_change ./bin/fmt.sh
 
 # bazel test execution

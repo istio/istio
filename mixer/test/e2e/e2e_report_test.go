@@ -26,8 +26,8 @@ import (
 	testEnv "istio.io/istio/mixer/pkg/mock"
 	"istio.io/istio/mixer/pkg/template"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
-	e2eTmpl "istio.io/istio/mixer/test/template"
-	reportTmpl "istio.io/istio/mixer/test/template/report"
+	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 const (
