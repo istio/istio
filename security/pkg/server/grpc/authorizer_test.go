@@ -30,13 +30,13 @@ func TestAuthroizer(t *testing.T) {
 			callerIDs:    []string{"id1", "id2"},
 		},
 		"Unauthorized": {
-			expectedErr:  "The requested identity (\"id3\") does not match the caller's identities",
+			expectedErr:  "the requested identity (\"id3\") does not match the caller's identities",
 			requestedIDs: []string{"id3"},
 			callerIDs:    []string{"id1", "id2"},
 		},
 	}
 
-	authz := &sameIdAuthorizer{}
+	authz := &sameIDAuthorizer{}
 	for id, tc := range testCases {
 		err := authz.authorize(&caller{authSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
 		if len(tc.expectedErr) > 0 {
