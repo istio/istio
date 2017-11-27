@@ -18,4 +18,4 @@ kubedns
 # pilot
 pilot/platform/config
 # lint
-lintconfig.json
+lintconfig.gen.json
