@@ -94,8 +94,6 @@ cd $ROOT
 #     die "Repo has unstaged changes. Re-run ./bin/generate-protos.sh"
 # fi
 
-run_or_die_on_change ./bin/fmt.sh
-
 mkdir -p ~/envoy
 cd ~/envoy
 ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
@@ -126,6 +124,8 @@ fi
 
 # Build
 ${ROOT}/bin/init.sh
+
+run_or_die_on_change ./bin/fmt.sh
 
 # bazel test execution
 echo 'Running Unit Tests'
