@@ -17,6 +17,7 @@ package kube
 import (
 	"errors"
 	"fmt"
+	"net"
 	"reflect"
 	"time"
 
@@ -241,6 +242,20 @@ func (c *Controller) GetPodAZ(pod *v1.Pod) (string, bool) {
 	}
 
 	return fmt.Sprintf("%v/%v", region, zone), true
+}
+
+// NodeIP find NodeIP
+func (c *Controller) NodeIP(podIP string) string {
+	nodes, _ := c.client.CoreV1().Nodes().List(meta_v1.ListOptions{})
+	for _, node := range nodes.Items {
+		_, nw, _ := net.ParseCIDR(node.Spec.PodCIDR)
+		for _, addr := range node.Status.Addresses {
+			if addr.Type == v1.NodeInternalIP && nw.Contains(net.ParseIP(podIP)) {
+				return addr.Address
+			}
+		}
+	}
+	return ""
 }
 
 // ManagementPorts implements a service catalog operation

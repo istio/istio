@@ -24,6 +24,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	proxyconfig "istio.io/api/proxy/v1/config"
 	configaggregate "istio.io/istio/pilot/adapter/config/aggregate"
@@ -52,8 +53,8 @@ type eurekaArgs struct {
 }
 
 type args struct {
-	kubeconfig string
-	meshconfig string
+	kubeconfigs []string
+	meshconfig  string
 
 	// namespace for the controller (typically istio installation namespace)
 	namespace string
@@ -100,12 +101,7 @@ var (
 				flags.namespace = os.Getenv("POD_NAMESPACE")
 			}
 
-			_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
-			if kuberr != nil {
-				return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
-			}
-
-			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
+			configClient, err := crd.NewClient(flags.kubeconfigs[0], model.ConfigDescriptor{
 				model.RouteRule,
 				model.EgressRule,
 				model.DestinationPolicy,
@@ -120,14 +116,13 @@ var (
 
 			configController := crd.NewController(configClient, flags.controllerOptions)
 			serviceControllers := aggregate.NewController()
-			registered := make(map[platform.ServiceRegistry]bool)
-			for _, r := range flags.registries {
-				serviceRegistry := platform.ServiceRegistry(r)
-				if _, exists := registered[serviceRegistry]; exists {
-					return multierror.Prefix(err, r+" registry specified multiple times.")
+			var localClient kubernetes.Interface
+			for index, kc := range flags.kubeconfigs {
+				_, client, kuberr := kube.CreateInterface(kc)
+				if kuberr != nil {
+					return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Kubernetes API: %s", kc))
 				}
-				registered[serviceRegistry] = true
-				glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
+
 				switch serviceRegistry {
 				case platform.KubernetesRegistry:
 					kubectl := kube.NewController(client, flags.controllerOptions)
@@ -138,21 +133,29 @@ var (
 							ServiceAccounts:  kubectl,
 							Controller:       kubectl,
 						})
-					if mesh.IngressControllerMode != proxyconfig.MeshConfig_OFF {
-						configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
-							configController,
-							ingress.NewController(client, mesh, flags.controllerOptions),
-						})
-						if err != nil {
-							return err
-						}
-					}
 
-					if ingressSyncer, errSyncer := ingress.NewStatusSyncer(mesh, client,
-						flags.namespace, flags.controllerOptions); errSyncer != nil {
-						glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
-					} else {
-						go ingressSyncer.Run(stop)
+					serviceRegistry := platform.KubernetesRegistry
+
+					kubectl := kube.NewController(client, flags.controllerOptions)
+					serviceControllers.AddRegistry(aggregate.NewRegistry(serviceRegistry, kubectl, kubectl, kubectl, index == 0))
+					if index == 0 {
+						localClient = client
+						if mesh.IngressControllerMode != proxyconfig.MeshConfig_OFF {
+							configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
+								configController,
+								ingress.NewController(client, mesh, flags.controllerOptions),
+							})
+							if err != nil {
+								return err
+							}
+						}
+
+						if ingressSyncer, errSyncer := ingress.NewStatusSyncer(mesh, client,
+							flags.namespace, flags.controllerOptions); errSyncer != nil {
+							glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
+						} else {
+							go ingressSyncer.Run(stop)
+						}
 					}
 
 				case platform.ConsulRegistry:
@@ -218,7 +221,7 @@ var (
 			flags.admissionArgs.ValidateNamespaces = []string{
 				flags.controllerOptions.WatchedNamespace,
 			}
-			admissionController, err := admit.NewController(client, flags.admissionArgs)
+			admissionController, err := admit.NewController(localClient, flags.admissionArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create validation admission controller: %v", err)
 			}
@@ -238,7 +241,13 @@ func init() {
 		[]string{string(platform.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
 			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
-	discoveryCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
+
+	// For the purpose of POC, change this config option as a list of k8s config files.
+	// The first config file should belong to the k8s cluster where this pilot instance resides.
+	// A real implementation should properly identify a cluster across the mesh, and be able to
+	// add/remove/modify a cluster at runtime.
+	discoveryCmd.PersistentFlags().StringSliceVar(&flags.kubeconfigs, "kubeconfigs",
+		[]string{string("")},
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
 		fmt.Sprintf("File name for Istio mesh configuration"))
