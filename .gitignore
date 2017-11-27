@@ -16,4 +16,4 @@ vendor
 cluster.env
 kubedns
 # pilot
-pilot/platform/config
+pilot/platform/kube/config
