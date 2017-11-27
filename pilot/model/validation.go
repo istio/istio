@@ -91,7 +91,7 @@ func ValidatePort(port int) error {
 // Validate checks that each name conforms to the spec and has a ProtoMessage
 func (descriptor ConfigDescriptor) Validate() error {
 	var errs error
-	types := make(map[string]bool)
+	descriptorTypes := make(map[string]bool)
 	messages := make(map[string]bool)
 
 	for _, v := range descriptor {
@@ -104,10 +104,10 @@ func (descriptor ConfigDescriptor) Validate() error {
 		if proto.MessageType(v.MessageName) == nil && gogoproto.MessageType(v.MessageName) == nil {
 			errs = multierror.Append(errs, fmt.Errorf("cannot discover proto message type: %q", v.MessageName))
 		}
-		if _, exists := types[v.Type]; exists {
+		if _, exists := descriptorTypes[v.Type]; exists {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate type: %q", v.Type))
 		}
-		types[v.Type] = true
+		descriptorTypes[v.Type] = true
 		if _, exists := messages[v.MessageName]; exists {
 			errs = multierror.Append(errs, fmt.Errorf("duplicate message type: %q", v.MessageName))
 		}
