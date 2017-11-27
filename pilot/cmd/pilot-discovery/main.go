@@ -109,6 +109,10 @@ var (
 				model.RouteRule,
 				model.EgressRule,
 				model.DestinationPolicy,
+				model.HTTPAPISpec,
+				model.HTTPAPISpecBinding,
+				model.QuotaSpec,
+				model.QuotaSpecBinding,
 			}, flags.controllerOptions.DomainSuffix)
 			if err != nil {
 				return multierror.Prefix(err, "failed to open a config client.")
