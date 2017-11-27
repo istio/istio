@@ -1375,17 +1375,17 @@ func ValidateQuotaSpec(msg proto.Message) error {
 				case *mccpb.StringMatch_Exact:
 					if matchType.Exact == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name))
+							fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name)) // nolint: golint
 					}
 				case *mccpb.StringMatch_Prefix:
 					if matchType.Prefix == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name))
+							fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name)) // nolint: golint
 					}
 				case *mccpb.StringMatch_Regex:
 					if matchType.Regex == "" {
 						errs = multierror.Append(errs,
-							fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name))
+							fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name)) // nolint: golint
 					}
 				}
 			}

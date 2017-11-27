@@ -1329,13 +1329,13 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 				UriTemplate: "/pet/{id}",
 			},
 		}
-		invalidPatternHttpMethod = &mccpb.HTTPAPISpecPattern{
+		invalidPatternHTTPMethod = &mccpb.HTTPAPISpecPattern{
 			Attributes: validAttributes,
 			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
 				UriTemplate: "/pet/{id}",
 			},
 		}
-		invalidPatternUriTemplate = &mccpb.HTTPAPISpecPattern{
+		invalidPatternURITemplate = &mccpb.HTTPAPISpecPattern{
 			Attributes: validAttributes,
 			HttpMethod: "POST",
 			Pattern:    &mccpb.HTTPAPISpecPattern_UriTemplate{},
@@ -1375,7 +1375,7 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 			name: "invalid pattern (bad http_method)",
 			in: &mccpb.HTTPAPISpec{
 				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternHttpMethod},
+				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternHTTPMethod},
 				ApiKeys:    []*mccpb.APIKey{validAPIKey},
 			},
 		},
@@ -1383,7 +1383,7 @@ func TestValidateHTTPAPISpec(t *testing.T) {
 			name: "invalid pattern (missing uri_template)",
 			in: &mccpb.HTTPAPISpec{
 				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternUriTemplate},
+				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternURITemplate},
 				ApiKeys:    []*mccpb.APIKey{validAPIKey},
 			},
 		},
@@ -1494,7 +1494,7 @@ func TestValidateQuotaSpec(t *testing.T) {
 	var (
 		validMatch = &mccpb.AttributeMatch{
 			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": &mccpb.StringMatch{
+				"api.operation": {
 					MatchType: &mccpb.StringMatch_Exact{
 						Exact: "getPet",
 					},
@@ -1503,21 +1503,21 @@ func TestValidateQuotaSpec(t *testing.T) {
 		}
 		invalidMatchExact = &mccpb.AttributeMatch{
 			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": &mccpb.StringMatch{
+				"api.operation": {
 					MatchType: &mccpb.StringMatch_Exact{Exact: ""},
 				},
 			},
 		}
 		invalidMatchPrefix = &mccpb.AttributeMatch{
 			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": &mccpb.StringMatch{
+				"api.operation": {
 					MatchType: &mccpb.StringMatch_Prefix{Prefix: ""},
 				},
 			},
 		}
 		invalidMatchRegex = &mccpb.AttributeMatch{
 			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": &mccpb.StringMatch{
+				"api.operation": {
 					MatchType: &mccpb.StringMatch_Regex{Regex: ""},
 				},
 			},

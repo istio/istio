@@ -105,7 +105,7 @@ var (
 		Rules: []*mccpb.QuotaRule{{
 			Match: []*mccpb.AttributeMatch{{
 				Clause: map[string]*mccpb.StringMatch{
-					"api.operation": &mccpb.StringMatch{
+					"api.operation": {
 						MatchType: &mccpb.StringMatch_Exact{
 							Exact: "getPet",
 						},

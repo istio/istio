@@ -317,7 +317,7 @@ var (
 		Validate:    ValidateDestinationPolicy,
 	}
 
-	//  describes
+	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
 		Plural:      "http-api-specs",
@@ -325,7 +325,7 @@ var (
 		Validate:    ValidateHTTPAPISpec,
 	}
 
-	//  describes
+	// HTTPAPISpecBinding describes an HTTP API specification binding.
 	HTTPAPISpecBinding = ProtoSchema{
 		Type:        "http-api-spec-binding",
 		Plural:      "http-api-spec-bindings",
@@ -333,7 +333,7 @@ var (
 		Validate:    ValidateHTTPAPISpecBinding,
 	}
 
-	//  describes
+	// QuotaSpec describes an Quota specification.
 	QuotaSpec = ProtoSchema{
 		Type:        "quota-spec",
 		Plural:      "quota-specs",
@@ -341,7 +341,7 @@ var (
 		Validate:    ValidateQuotaSpec,
 	}
 
-	//  describes
+	// QuotaSpecBinding describes an Quota specification binding.
 	QuotaSpecBinding = ProtoSchema{
 		Type:        "quota-spec-binding",
 		Plural:      "quota-spec-bindings",
