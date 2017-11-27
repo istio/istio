@@ -112,7 +112,33 @@ const (
 	ProtocolMongo Protocol = "Mongo"
 	// ProtocolRedis declares that the port carries redis traffic
 	ProtocolRedis Protocol = "Redis"
+	// ProtocolUnsupported - value to signify that the protocol is unsupported
+	ProtocolUnsupported Protocol = "UnsupportedProtocol"
 )
+
+// ConvertCaseInsensitiveStringToProtocol converts a case-insensitive protocol to Protocol
+func ConvertCaseInsensitiveStringToProtocol(protocolAsString string) Protocol {
+	switch strings.ToLower(protocolAsString) {
+	case "tcp":
+		return ProtocolTCP
+	case "udp":
+		return ProtocolUDP
+	case "grpc":
+		return ProtocolGRPC
+	case "http":
+		return ProtocolHTTP
+	case "http2":
+		return ProtocolHTTP2
+	case "https":
+		return ProtocolHTTPS
+	case "mongo":
+		return ProtocolMongo
+	case "redis":
+		return ProtocolRedis
+	}
+
+	return ProtocolUnsupported
+}
 
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (p Protocol) IsHTTP() bool {
