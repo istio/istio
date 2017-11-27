@@ -877,7 +877,7 @@ func ValidateEgressRule(msg proto.Message) error {
 			errs = multierror.Append(errs, err)
 		}
 
-		if cidrDestinationService && Protocol(strings.ToUpper(port.Protocol)) != ProtocolTCP {
+		if cidrDestinationService && ConvertCaseInsensitiveStringToProtocol(port.Protocol) != ProtocolTCP {
 			errs = multierror.Append(errs, fmt.Errorf("Only TCP protocol can be defined for CIDR destination "+
 				"service notation. port: %d protocol: %s destination.service: %s",
 				port.Port, port.Protocol, destination.Service))
