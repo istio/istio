@@ -121,20 +121,9 @@ func convertPorts(instance *instance) model.PortList {
 
 const protocolMetadata = "istio.protocol" // metadata key for port protocol
 
-// supported protocol metadata values
-const (
-	metadataUDP   = "udp"
-	metadataTCP   = "tcp"
-	metadataHTTP  = "http"
-	metadataHTTP2 = "http2"
-	metadataHTTPS = "https"
-	metadataGRPC  = "grpc"
-	metadataMongo = "mongo"
-	metadataRedis = "redis"
-)
-
 func convertProtocol(md metadata) model.Protocol {
 	name := md[protocolMetadata]
+
 	if md != nil {
 		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
 		if protocol == model.ProtocolUnsupported {
