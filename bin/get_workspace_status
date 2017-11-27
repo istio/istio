@@ -42,6 +42,15 @@ else
     BRANCH=unknown
 fi
 
+# Check for local changes
+git diff-index --quiet HEAD --
+if [[ $? == 0 ]];
+then
+    tree_status="Clean"
+else
+    tree_status="Modified"
+fi
+
 RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
 
 VERSION="${BUILD_GIT_REVISION}"
@@ -58,8 +67,11 @@ echo buildGitBranch     "${BRANCH}"
 echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
 
+
+
 # used by mixer/broker version package
 echo "buildVersion ${VERSION}"
+echo "buildStatus ${tree_status}"
 
 # used by security version package
 echo host "$(hostname -f)"
