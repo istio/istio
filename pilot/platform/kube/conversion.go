@@ -174,19 +174,9 @@ func ConvertProtocol(name string, proto v1.Protocol) model.Protocol {
 		if i >= 0 {
 			prefix = name[:i]
 		}
-		switch prefix {
-		case "grpc":
-			out = model.ProtocolGRPC
-		case "http":
-			out = model.ProtocolHTTP
-		case "http2":
-			out = model.ProtocolHTTP2
-		case "https":
-			out = model.ProtocolHTTPS
-		case "mongo":
-			out = model.ProtocolMongo
-		case "redis":
-			out = model.ProtocolRedis
+		out := model.ConvertCaseInsensitiveStringToProtocol(prefix)
+		if out != model.ProtocolUDP && out != model.ProtocolUnsupported {
+			return out
 		}
 	}
 	return out
