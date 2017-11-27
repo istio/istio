@@ -125,14 +125,14 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
 	opts.namespace = namespace
 
 	// Create Role
-	err = utils.CreateRole(opts.clientset, opts.namespace)
+	err = utils.CreateIstioCARole(opts.clientset, opts.namespace)
 	if err != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a role (error: %v)", err)
 	}
 
 	// Create RoleBinding
-	err = utils.CreateRoleBinding(opts.clientset, opts.namespace)
+	err = utils.CreateIstioCARoleBinding(opts.clientset, opts.namespace)
 	if err != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a rolebinding (error: %v)", err)

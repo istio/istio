@@ -107,7 +107,7 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 	return clientset.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 }
 
-// DeleteService takes identity information of a service and deletes the service.
+// DeleteService deletes a service.
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
 }
@@ -161,13 +161,13 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
-// DeletePod takes ideneity information of a pod and deletes the pod.
+// DeletePod deletes a pod.
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 }
 
-// CreateRole creates a role object named "istio-ca-role".
-func CreateRole(clientset kubernetes.Interface, namespace string) error {
+// CreateIstioCARole creates a role object named "istio-ca-role".
+func CreateIstioCARole(clientset kubernetes.Interface, namespace string) error {
 	role := rbac.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -195,8 +195,8 @@ func CreateRole(clientset kubernetes.Interface, namespace string) error {
 	return nil
 }
 
-// CreateRoleBinding binds role "istio-ca-role" to default service account.
-func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
+// CreateIstioCARoleBinding binds role "istio-ca-role" to default service account.
+func CreateIstioCARoleBinding(clientset kubernetes.Interface, namespace string) error {
 	rolebinding := rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
