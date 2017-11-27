@@ -177,3 +177,34 @@ func TestGetByPort(t *testing.T) {
 		t.Errorf("GetByPort(88) => want none but got %v, %t", port, exists)
 	}
 }
+
+func TestConvertCaseInsensitiveStringToProtocol(t *testing.T) {
+	var testPairs = []struct {
+		name string
+		out  Protocol
+	}{
+		{"tcp", ProtocolTCP},
+		{"http", ProtocolHTTP},
+		{"HTTP", ProtocolHTTP},
+		{"Http", ProtocolHTTP},
+		{"https", ProtocolHTTPS},
+		{"http2", ProtocolHTTP2},
+		{"grpc", ProtocolGRPC},
+		{"udp", ProtocolUDP},
+		{"Mongo", ProtocolMongo},
+		{"mongo", ProtocolMongo},
+		{"MONGO", ProtocolMongo},
+		{"Redis", ProtocolRedis},
+		{"redis", ProtocolRedis},
+		{"REDIS", ProtocolRedis},
+		{"", ProtocolUnsupported},
+		{"SMTP", ProtocolUnsupported},
+	}
+
+	for _, testPair := range testPairs {
+		out := ConvertCaseInsensitiveStringToProtocol(testPair.name)
+		if out != testPair.out {
+			t.Errorf("ConvertCaseInsensitiveStringToProtocol(%q) => %q, want %q", testPair.name, out, testPair.out)
+		}
+	}
+}
