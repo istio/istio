@@ -43,6 +43,34 @@ message Action {
   map<string, istio.mixer.v1.config.descriptor.ValueType> extra = 5;
 }
 
+// authz template defines subject and action. Adapters using authz template
+// should validate “subject” allowed to do an “action”.
+//
+// When writing the configuration, the value for the fields associated with this template can either be a
+// literal or an [expression](https://istio.io/docs/reference/config/mixer/expression-language.html).
+// Please note that if the datatype of a field is not istio.mixer.v1.config.descriptor.ValueType,
+// then the expression's [inferred type](https://istio.io/docs/reference/config/mixer/expression-language.html#type-checking)
+// must match the datatype of the field.
+//
+// Example config:
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: authz
+// metadata:
+//   name: authinfo
+//   namespace: istio-system
+// Spec:
+//  subject:
+//    user: source.user | request.auth.token[user] | ""
+//    groups: request.auth.token[groups]
+//    extra:
+//     iss: request.auth.token["iss"]
+//  action:
+//    namespace: target.namespace | "default"
+//    service: target.service | ""
+//    path: request.path | "/"
+//    method: request.method | "post"
+//    extra:
+//      version: destination.labels[version] | ""
 message Template {
   Subject subject = 1;
   Action action = 2;
