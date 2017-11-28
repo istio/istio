@@ -36,6 +36,12 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
@@ -68,6 +74,12 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
@@ -111,6 +123,12 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
+      - run:
+          command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
@@ -143,6 +161,12 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
+      - run:
+          command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
@@ -166,6 +190,12 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
+      - run:
+          command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
@@ -187,6 +217,12 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
