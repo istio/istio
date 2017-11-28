@@ -24,7 +24,6 @@ import (
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	proxyconfig "istio.io/api/proxy/v1/config"
-
 	"istio.io/istio/pilot/model/test"
 )
 
