@@ -16,8 +16,6 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-touch /tmp/iran
-
 function get_branch() {
     local branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
     if [[ "${branch}" == 'HEAD' ]]; then
@@ -44,7 +42,9 @@ else
     BRANCH=unknown
 fi
 
-# XXX This needs to be updated to accomodate tags added after buliding, rather than prior ot builds
+# XXX This needs to be updated to accomodate tags added after building, rather than prior to builds
+# for now I've added a redundant ISTIO_RELEASE_VERSION that only gets set during cloud builds
+# as a temporary workaround.
 RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
 
 # security wanted VERSION='unknown'
