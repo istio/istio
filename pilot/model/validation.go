@@ -882,7 +882,7 @@ func ValidateEgressRule(msg proto.Message) error {
 		}
 
 		if cidrDestinationService &&
-			!IsEgressRulesSupportedTCPProtocol(Protocol(strings.ToUpper(port.Protocol))) {
+			!IsEgressRulesSupportedTCPProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
 			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
 				"CIDR destination service notation: %s. "+
 				"This rule - port: %d protocol: %s destination.service: %s",
@@ -969,7 +969,7 @@ func ValidateEgressRulePort(port *proxyconfig.EgressRule_Port) error {
 		return err
 	}
 
-	if !IsEgressRulesSupportedProtocol(Protocol(strings.ToUpper(port.Protocol))) {
+	if !IsEgressRulesSupportedProtocol(ConvertCaseInsensitiveStringToProtocol(port.Protocol)) {
 		return fmt.Errorf("egress rule support is available only for the following protocols: %s",
 			egressRulesSupportedProtocols())
 	}
