@@ -8,6 +8,7 @@ go_library(
         "conversion.go",
         "service.go",
         "validation.go",
+        "egress_rules.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -54,6 +55,7 @@ go_test(
     srcs = [
         "config_test.go",
         "conversion_test.go",
+        "egress_rules_test.go",
     ],
     deps = [
         ":go_default_library",
