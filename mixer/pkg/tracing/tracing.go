@@ -33,7 +33,7 @@ import (
 var (
 	httpTimeout = 5 * time.Second
 	sampler     = jaeger.NewConstSampler(true)
-	poolSpans   = jaeger.TracerOptions.PoolSpans(true)
+	poolSpans   = jaeger.TracerOptions.PoolSpans(false)
 )
 
 type tracingOpts struct {
