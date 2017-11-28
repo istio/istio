@@ -15,13 +15,12 @@
 package tracing
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"bytes"
 )
 
 var (
