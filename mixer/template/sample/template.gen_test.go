@@ -1358,7 +1358,8 @@ func TestProcessQuota(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
 			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
-			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, newFakeExpr(), *h, adapter.QuotaArgs{})
+			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName,
+				tst.inst, fakeBag{}, newFakeExpr(), *h, adapter.QuotaArgs{})
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {

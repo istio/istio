@@ -62,13 +62,17 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Type, error)
+				var BuildTemplate func(param *istio_mixer_adapter_sample_check.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Type, error)
 
-				var BuildRes1 func(param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1Type, error)
+				var BuildRes1 func(param *istio_mixer_adapter_sample_check.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Res1Type, error)
 
-				var BuildRes2 func(param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2Type, error)
+				var BuildRes2 func(param *istio_mixer_adapter_sample_check.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Res2Type, error)
 
-				BuildTemplate = func(param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Type, error) {
+				BuildTemplate = func(param *istio_mixer_adapter_sample_check.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -90,7 +94,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"StringMap", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StringMap", t, istio_mixer_v1_config_descriptor.STRING)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"StringMap", t, istio_mixer_v1_config_descriptor.STRING)
 						}
 					}
 
@@ -104,7 +109,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes1 = func(param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1Type, error) {
+				BuildRes1 = func(param *istio_mixer_adapter_sample_check.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Res1Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -173,7 +179,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -217,7 +224,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes2 = func(param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2Type, error) {
+				BuildRes2 = func(param *istio_mixer_adapter_sample_check.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_check.Res2Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -271,13 +279,17 @@ var (
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
 				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
-				var BuildTemplate func(instName string, param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Instance, error)
 
-				var BuildRes1 func(instName string, param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1, error)
+				var BuildRes1 func(instName string,
+					param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1, error)
 
-				var BuildRes2 func(instName string, param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2, error)
+				var BuildRes2 func(instName string,
+					param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_adapter_sample_check.InstanceParam, path string) (*istio_mixer_adapter_sample_check.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -327,7 +339,8 @@ var (
 					}, nil
 				}
 
-				BuildRes1 = func(instName string, param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1, error) {
+				BuildRes1 = func(instName string,
+					param *istio_mixer_adapter_sample_check.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res1, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -460,7 +473,8 @@ var (
 					}, nil
 				}
 
-				BuildRes2 = func(instName string, param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2, error) {
+				BuildRes2 = func(instName string,
+					param *istio_mixer_adapter_sample_check.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_check.Res2, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -530,13 +544,17 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Type, error)
+				var BuildTemplate func(param *istio_mixer_adapter_sample_quota.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Type, error)
 
-				var BuildRes1 func(param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1Type, error)
+				var BuildRes1 func(param *istio_mixer_adapter_sample_quota.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Res1Type, error)
 
-				var BuildRes2 func(param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2Type, error)
+				var BuildRes2 func(param *istio_mixer_adapter_sample_quota.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Res2Type, error)
 
-				BuildTemplate = func(param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Type, error) {
+				BuildTemplate = func(param *istio_mixer_adapter_sample_quota.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -558,7 +576,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"BoolMap", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolMap", t, istio_mixer_v1_config_descriptor.BOOL)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolMap", t, istio_mixer_v1_config_descriptor.BOOL)
 						}
 					}
 
@@ -572,7 +591,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes1 = func(param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1Type, error) {
+				BuildRes1 = func(param *istio_mixer_adapter_sample_quota.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Res1Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -641,7 +661,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -685,7 +706,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes2 = func(param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2Type, error) {
+				BuildRes2 = func(param *istio_mixer_adapter_sample_quota.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_quota.Res2Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -739,13 +761,17 @@ var (
 			ProcessQuota: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
 				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
-				var BuildTemplate func(instName string, param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Instance, error)
 
-				var BuildRes1 func(instName string, param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1, error)
+				var BuildRes1 func(instName string,
+					param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1, error)
 
-				var BuildRes2 func(instName string, param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2, error)
+				var BuildRes2 func(instName string,
+					param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_adapter_sample_quota.InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -795,7 +821,8 @@ var (
 					}, nil
 				}
 
-				BuildRes1 = func(instName string, param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1, error) {
+				BuildRes1 = func(instName string,
+					param *istio_mixer_adapter_sample_quota.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res1, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -928,7 +955,8 @@ var (
 					}, nil
 				}
 
-				BuildRes2 = func(instName string, param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2, error) {
+				BuildRes2 = func(instName string,
+					param *istio_mixer_adapter_sample_quota.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_quota.Res2, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -997,13 +1025,17 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Type, error)
+				var BuildTemplate func(param *istio_mixer_adapter_sample_report.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Type, error)
 
-				var BuildRes1 func(param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1Type, error)
+				var BuildRes1 func(param *istio_mixer_adapter_sample_report.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Res1Type, error)
 
-				var BuildRes2 func(param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2Type, error)
+				var BuildRes2 func(param *istio_mixer_adapter_sample_report.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Res2Type, error)
 
-				BuildTemplate = func(param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Type, error) {
+				BuildTemplate = func(param *istio_mixer_adapter_sample_report.InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1072,7 +1104,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1106,7 +1139,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes1 = func(param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1Type, error) {
+				BuildRes1 = func(param *istio_mixer_adapter_sample_report.Res1InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Res1Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1175,7 +1209,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1219,7 +1254,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes2 = func(param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2Type, error) {
+				BuildRes2 = func(param *istio_mixer_adapter_sample_report.Res2InstanceParam,
+					path string) (*istio_mixer_adapter_sample_report.Res2Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1272,13 +1308,17 @@ var (
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				var BuildTemplate func(instName string, param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Instance, error)
 
-				var BuildRes1 func(instName string, param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1, error)
+				var BuildRes1 func(instName string,
+					param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1, error)
 
-				var BuildRes2 func(instName string, param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2, error)
+				var BuildRes2 func(instName string,
+					param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_adapter_sample_report.InstanceParam, path string) (*istio_mixer_adapter_sample_report.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1398,7 +1438,8 @@ var (
 					}, nil
 				}
 
-				BuildRes1 = func(instName string, param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1, error) {
+				BuildRes1 = func(instName string,
+					param *istio_mixer_adapter_sample_report.Res1InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res1, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1531,7 +1572,8 @@ var (
 					}, nil
 				}
 
-				BuildRes2 = func(instName string, param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2, error) {
+				BuildRes2 = func(instName string,
+					param *istio_mixer_adapter_sample_report.Res2InstanceParam, path string) (*istio_mixer_adapter_sample_report.Res2, error) {
 					if param == nil {
 						return nil, nil
 					}

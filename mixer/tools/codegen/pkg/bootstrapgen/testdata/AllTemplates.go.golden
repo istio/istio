@@ -64,13 +64,17 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Type, error)
+				var BuildTemplate func(param *istio_mixer_template_list.InstanceParam,
+					path string) (*istio_mixer_template_list.Type, error)
 
-				var BuildRes1 func(param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1Type, error)
+				var BuildRes1 func(param *istio_mixer_template_list.Res1InstanceParam,
+					path string) (*istio_mixer_template_list.Res1Type, error)
 
-				var BuildRes2 func(param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2Type, error)
+				var BuildRes2 func(param *istio_mixer_template_list.Res2InstanceParam,
+					path string) (*istio_mixer_template_list.Res2Type, error)
 
-				BuildTemplate = func(param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Type, error) {
+				BuildTemplate = func(param *istio_mixer_template_list.InstanceParam,
+					path string) (*istio_mixer_template_list.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -146,7 +150,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"DimensionsFixedInt64ValueDType", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -170,7 +175,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes1 = func(param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1Type, error) {
+				BuildRes1 = func(param *istio_mixer_template_list.Res1InstanceParam,
+					path string) (*istio_mixer_template_list.Res1Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -239,7 +245,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -283,7 +290,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes2 = func(param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2Type, error) {
+				BuildRes2 = func(param *istio_mixer_template_list.Res2InstanceParam,
+					path string) (*istio_mixer_template_list.Res2Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -337,13 +345,17 @@ var (
 			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
 				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
-				var BuildTemplate func(instName string, param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Instance, error)
 
-				var BuildRes1 func(instName string, param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1, error)
+				var BuildRes1 func(instName string,
+					param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1, error)
 
-				var BuildRes2 func(instName string, param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2, error)
+				var BuildRes2 func(instName string,
+					param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_template_list.InstanceParam, path string) (*istio_mixer_template_list.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -463,7 +475,8 @@ var (
 					}, nil
 				}
 
-				BuildRes1 = func(instName string, param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1, error) {
+				BuildRes1 = func(instName string,
+					param *istio_mixer_template_list.Res1InstanceParam, path string) (*istio_mixer_template_list.Res1, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -596,7 +609,8 @@ var (
 					}, nil
 				}
 
-				BuildRes2 = func(instName string, param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2, error) {
+				BuildRes2 = func(instName string,
+					param *istio_mixer_template_list.Res2InstanceParam, path string) (*istio_mixer_template_list.Res2, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -666,9 +680,11 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Type, error)
+				var BuildTemplate func(param *istio_mixer_template_quota.InstanceParam,
+					path string) (*istio_mixer_template_quota.Type, error)
 
-				BuildTemplate = func(param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Type, error) {
+				BuildTemplate = func(param *istio_mixer_template_quota.InstanceParam,
+					path string) (*istio_mixer_template_quota.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -744,7 +760,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"DimensionsFixedInt64ValueDType", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -768,9 +785,11 @@ var (
 			ProcessQuota: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
 				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
-				var BuildTemplate func(instName string, param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Instance, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_template_quota.InstanceParam, path string) (*istio_mixer_template_quota.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -897,13 +916,17 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Type, error)
+				var BuildTemplate func(param *istio_mixer_template_log.InstanceParam,
+					path string) (*istio_mixer_template_log.Type, error)
 
-				var BuildRes1 func(param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1Type, error)
+				var BuildRes1 func(param *istio_mixer_template_log.Res1InstanceParam,
+					path string) (*istio_mixer_template_log.Res1Type, error)
 
-				var BuildRes2 func(param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2Type, error)
+				var BuildRes2 func(param *istio_mixer_template_log.Res2InstanceParam,
+					path string) (*istio_mixer_template_log.Res2Type, error)
 
-				BuildTemplate = func(param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Type, error) {
+				BuildTemplate = func(param *istio_mixer_template_log.InstanceParam,
+					path string) (*istio_mixer_template_log.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -979,7 +1002,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"DimensionsFixedInt64ValueDType", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1013,7 +1037,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes1 = func(param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1Type, error) {
+				BuildRes1 = func(param *istio_mixer_template_log.Res1InstanceParam,
+					path string) (*istio_mixer_template_log.Res1Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1082,7 +1107,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Int64Map", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Map", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1126,7 +1152,8 @@ var (
 					return infrdType, err
 				}
 
-				BuildRes2 = func(param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2Type, error) {
+				BuildRes2 = func(param *istio_mixer_template_log.Res2InstanceParam,
+					path string) (*istio_mixer_template_log.Res2Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1179,13 +1206,17 @@ var (
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				var BuildTemplate func(instName string, param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Instance, error)
 
-				var BuildRes1 func(instName string, param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1, error)
+				var BuildRes1 func(instName string,
+					param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1, error)
 
-				var BuildRes2 func(instName string, param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2, error)
+				var BuildRes2 func(instName string,
+					param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_template_log.InstanceParam, path string) (*istio_mixer_template_log.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1315,7 +1346,8 @@ var (
 					}, nil
 				}
 
-				BuildRes1 = func(instName string, param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1, error) {
+				BuildRes1 = func(instName string,
+					param *istio_mixer_template_log.Res1InstanceParam, path string) (*istio_mixer_template_log.Res1, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1448,7 +1480,8 @@ var (
 					}, nil
 				}
 
-				BuildRes2 = func(instName string, param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2, error) {
+				BuildRes2 = func(instName string,
+					param *istio_mixer_template_log.Res2InstanceParam, path string) (*istio_mixer_template_log.Res2, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1523,9 +1556,11 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Type, error)
+				var BuildTemplate func(param *istio_mixer_template_metric.InstanceParam,
+					path string) (*istio_mixer_template_metric.Type, error)
 
-				BuildTemplate = func(param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Type, error) {
+				BuildTemplate = func(param *istio_mixer_template_metric.InstanceParam,
+					path string) (*istio_mixer_template_metric.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1601,7 +1636,8 @@ var (
 							if e != nil {
 								return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"DimensionsFixedInt64ValueDType", e)
 							}
-							return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
+							return nil, fmt.Errorf(
+								"error type checking for field '%s': Evaluated expression type %v want %v", path+"DimensionsFixedInt64ValueDType", t, istio_mixer_v1_config_descriptor.INT64)
 						}
 					}
 
@@ -1624,9 +1660,11 @@ var (
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				var BuildTemplate func(instName string, param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Instance, error)
+				var BuildTemplate func(instName string,
+					param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Instance, error)
 
-				BuildTemplate = func(instName string, param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *istio_mixer_template_metric.InstanceParam, path string) (*istio_mixer_template_metric.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}

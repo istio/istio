@@ -56,9 +56,11 @@ var (
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *samplereport.InstanceParam, path string) (*samplereport.Type, error)
+				var BuildTemplate func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error)
 
-				BuildTemplate = func(param *samplereport.InstanceParam, path string) (*samplereport.Type, error) {
+				BuildTemplate = func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -101,9 +103,11 @@ var (
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				var BuildTemplate func(instName string, param *samplereport.InstanceParam, path string) (*samplereport.Instance, error)
+				var BuildTemplate func(instName string,
+					param *samplereport.InstanceParam, path string) (*samplereport.Instance, error)
 
-				BuildTemplate = func(instName string, param *samplereport.InstanceParam, path string) (*samplereport.Instance, error) {
+				BuildTemplate = func(instName string,
+					param *samplereport.InstanceParam, path string) (*samplereport.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}

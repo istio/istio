@@ -76,13 +76,15 @@ var (
 				{{$goPkgName := .GoPackageName}}
 				{{range getAllMsgs .}}
 				{{with $msg := .}}
-				var {{getBuildFnName $msg.Name}} func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error)
+				var {{getBuildFnName $msg.Name}} func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}},
+					path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error)
 				{{end}}
 				{{end}}
 
 				{{range getAllMsgs .}}
 				{{with $msg := .}}
-				{{getBuildFnName $msg.Name}} = func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error) {
+				{{getBuildFnName $msg.Name}} = func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}},
+					path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error) {
 				if param == nil {
 					return nil, nil
 				}
@@ -131,7 +133,8 @@ var (
 									if e != nil {
 										return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", e)
 									}
-									return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType.MapValue}})
+									return nil, fmt.Errorf(
+										"error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType.MapValue}})
 								}
 							}
 						{{else}}
@@ -180,12 +183,14 @@ var (
 			{{$goPkgName := .GoPackageName}}
 			{{range getAllMsgs .}}
 			{{with $msg := .}}
-			var {{getBuildFnName $msg.Name}} func(instName string, param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
+			var {{getBuildFnName $msg.Name}} func(instName string,
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
 			{{end}}
 			{{end}}
 			{{range getAllMsgs .}}
 			{{with $msg := .}}
-			{{getBuildFnName $msg.Name}} = func(instName string, param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
+			{{getBuildFnName $msg.Name}} = func(instName string,
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
 				if param == nil {
 					return nil, nil
 				}

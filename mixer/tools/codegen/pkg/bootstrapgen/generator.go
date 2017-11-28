@@ -65,9 +65,10 @@ type bootstrapModel struct {
 }
 
 const goImportFmt = "\"%s\""
-const ResourceMsgTypeSuffix = "Type"
-const ResourceMsgInstanceSuffix = "Instance"
-const ResourceMsgInstParamSuffix = "InstanceParam"
+const resourceMsgTypeSuffix = "Type"
+const resourceMsgInstanceSuffix = "Instance"
+const resourceMsgInstParamSuffix = "InstanceParam"
+const templateName = "Template"
 
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
@@ -90,23 +91,23 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				return ""
 			},
 			"getResourcMessageTypeName": func(s string) string {
-				if s == "Template" {
-					return ResourceMsgTypeSuffix
+				if s == templateName {
+					return resourceMsgTypeSuffix
 				}
-				return s + ResourceMsgTypeSuffix
+				return s + resourceMsgTypeSuffix
 			},
 			"getResourcMessageInstanceName": func(s string) string {
-				if s == "Template" {
-					return ResourceMsgInstanceSuffix
+				if s == templateName {
+					return resourceMsgInstanceSuffix
 				}
 				return s
 			},
 
 			"getResourcMessageInterfaceParamTypeName": func(s string) string {
-				if s == "Template" {
-					return ResourceMsgInstParamSuffix
+				if s == templateName {
+					return resourceMsgInstParamSuffix
 				}
-				return s + ResourceMsgInstParamSuffix
+				return s + resourceMsgInstParamSuffix
 			},
 			"getAllMsgs": func(model modelgen.Model) []modelgen.MessageInfo {
 				res := make([]modelgen.MessageInfo, 0)
