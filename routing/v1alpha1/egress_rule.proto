@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-import "proxy/v1/config/route_rule.proto";
+import "routing/v1alpha1/route_rule.proto";
 
-package istio.proxy.v1.config;
+package istio.routing.v1alpha1.config;
 
 // Egress rules describe the properties of a service outside Istio. When transparent proxying
 // is used, egress rules signify a white listed set of domains that microserves in the mesh

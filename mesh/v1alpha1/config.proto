@@ -16,7 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-package istio.proxy.v1.config;
+package istio.mesh.v1apha1;
 
 // AuthenticationPolicy defines authentication policy. It can be set for
 // different scopes (mesh, service …), and the most narrow scope with

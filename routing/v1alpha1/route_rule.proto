@@ -17,10 +17,10 @@ syntax = "proto3";
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
-import "proxy/v1/config/http_fault.proto";
-import "proxy/v1/config/l4_fault.proto";
+import "routing/v1alpha1/http_fault.proto";
+import "routing/v1alpha1/l4_fault.proto";
 
-package istio.proxy.v1.config;
+package istio.routing.v1alpha1.config;
 
 // ### Glossary & concepts
 //
