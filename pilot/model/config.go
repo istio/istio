@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model/test"
 )
 

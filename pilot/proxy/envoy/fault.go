@@ -20,7 +20,7 @@ package envoy
 import (
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route

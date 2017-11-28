@@ -34,7 +34,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
@@ -133,7 +133,7 @@ func main() {
 	}
 
 	params.Name = "(default infra)"
-	params.Auth = proxyconfig.MeshConfig_NONE
+	params.Auth = meshconfig.MeshConfig_NONE
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
@@ -166,8 +166,8 @@ func main() {
 func setAuth(params infra) infra {
 	out := params
 	out.Name = "(auth infra)"
-	out.Auth = proxyconfig.MeshConfig_MUTUAL_TLS
-	out.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	out.Auth = meshconfig.MeshConfig_MUTUAL_TLS
+	out.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	out.MixerCustomConfigFile = mixerConfigAuthFile
 	out.PilotCustomConfigFile = pilotConfigAuthFile
 	return out

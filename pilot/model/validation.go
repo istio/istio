@@ -31,9 +31,10 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 )
 
 const (
@@ -1125,7 +1126,7 @@ func ValidateConnectTimeout(timeout *duration.Duration) error {
 }
 
 // ValidateMeshConfig checks that the mesh config is well-formed
-func ValidateMeshConfig(mesh *proxyconfig.MeshConfig) (errs error) {
+func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
 	if mesh.EgressProxyAddress != "" {
 		if err := ValidateProxyAddress(mesh.EgressProxyAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, "invalid egress proxy address:"))
@@ -1147,7 +1148,7 @@ func ValidateMeshConfig(mesh *proxyconfig.MeshConfig) (errs error) {
 	}
 
 	switch mesh.AuthPolicy {
-	case proxyconfig.MeshConfig_NONE, proxyconfig.MeshConfig_MUTUAL_TLS:
+	case meshconfig.MeshConfig_NONE, meshconfig.MeshConfig_MUTUAL_TLS:
 	default:
 		errs = multierror.Append(errs, fmt.Errorf("unrecognized auth policy %q", mesh.AuthPolicy))
 	}
@@ -1166,7 +1167,7 @@ func ValidateMeshConfig(mesh *proxyconfig.MeshConfig) (errs error) {
 }
 
 // ValidateProxyConfig checks that the mesh config is well-formed
-func ValidateProxyConfig(config *proxyconfig.ProxyConfig) (errs error) {
+func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	if config.ConfigPath == "" {
 		errs = multierror.Append(errs, errors.New("config path must be set"))
 	}
@@ -1217,7 +1218,7 @@ func ValidateProxyConfig(config *proxyconfig.ProxyConfig) (errs error) {
 	}
 
 	switch config.ControlPlaneAuthPolicy {
-	case proxyconfig.AuthenticationPolicy_NONE, proxyconfig.AuthenticationPolicy_MUTUAL_TLS:
+	case meshconfig.AuthenticationPolicy_NONE, meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 	default:
 		errs = multierror.Append(errs,
 			fmt.Errorf("unrecognized control plane auth policy %q", config.ControlPlaneAuthPolicy))

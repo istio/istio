@@ -21,7 +21,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"

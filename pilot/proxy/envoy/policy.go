@@ -18,7 +18,8 @@
 package envoy
 
 import (
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -37,7 +38,7 @@ func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []str
 func applyClusterPolicy(cluster *Cluster,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore,
-	mesh *proxyconfig.MeshConfig,
+	mesh *meshconfig.MeshConfig,
 	accounts model.ServiceAccounts) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
@@ -51,7 +52,7 @@ func applyClusterPolicy(cluster *Cluster,
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
 		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
-			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)

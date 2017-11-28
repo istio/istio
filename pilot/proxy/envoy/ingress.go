@@ -23,12 +23,13 @@ import (
 
 	"github.com/golang/glog"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
 
-func buildIngressListeners(mesh *proxyconfig.MeshConfig,
+func buildIngressListeners(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
@@ -53,7 +54,7 @@ func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 	return listeners
 }
 
-func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
@@ -136,7 +137,7 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *proxyconfig.MeshConfig,
+func buildIngressRoute(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {

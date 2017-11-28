@@ -21,7 +21,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 )
 
 // RejectConflictingEgressRules rejects rules that have the destination which is equal to

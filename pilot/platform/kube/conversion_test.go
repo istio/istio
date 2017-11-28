@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
@@ -185,17 +185,17 @@ func TestServiceSecurityAnnotation(t *testing.T) {
 	testCases := []struct {
 		port            int
 		annotationValue string
-		want            proxyconfig.AuthenticationPolicy
+		want            meshconfig.AuthenticationPolicy
 	}{
-		{8080, "MUTUAL_TLS", proxyconfig.AuthenticationPolicy_MUTUAL_TLS},
-		{8080, "NONE", proxyconfig.AuthenticationPolicy_NONE},
-		{8080, "invalid-option", proxyconfig.AuthenticationPolicy_INHERIT},
-		{8080, "", proxyconfig.AuthenticationPolicy_INHERIT},
+		{8080, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_MUTUAL_TLS},
+		{8080, "NONE", meshconfig.AuthenticationPolicy_NONE},
+		{8080, "invalid-option", meshconfig.AuthenticationPolicy_INHERIT},
+		{8080, "", meshconfig.AuthenticationPolicy_INHERIT},
 		// Annotation is not for the testing port (8080), default policy (INHERIT)
 		// should be set.
-		{9999, "MUTUAL_TLS", proxyconfig.AuthenticationPolicy_INHERIT},
+		{9999, "MUTUAL_TLS", meshconfig.AuthenticationPolicy_INHERIT},
 		// No annotation
-		{0, "", proxyconfig.AuthenticationPolicy_INHERIT},
+		{0, "", meshconfig.AuthenticationPolicy_INHERIT},
 	}
 	for _, test := range testCases {
 		localSvc := v1.Service{

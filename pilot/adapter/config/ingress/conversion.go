@@ -25,7 +25,8 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 )
@@ -166,18 +167,18 @@ func isRegularExpression(s string) bool {
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
-func shouldProcessIngress(mesh *proxyconfig.MeshConfig, ingress *v1beta1.Ingress) bool {
+func shouldProcessIngress(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress) bool {
 	class, exists := "", false
 	if ingress.Annotations != nil {
 		class, exists = ingress.Annotations[kube.IngressClassAnnotation]
 	}
 
 	switch mesh.IngressControllerMode {
-	case proxyconfig.MeshConfig_OFF:
+	case meshconfig.MeshConfig_OFF:
 		return false
-	case proxyconfig.MeshConfig_STRICT:
+	case meshconfig.MeshConfig_STRICT:
 		return exists && class == mesh.IngressClass
-	case proxyconfig.MeshConfig_DEFAULT:
+	case meshconfig.MeshConfig_DEFAULT:
 		return !exists || class == mesh.IngressClass
 	default:
 		glog.Warningf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)

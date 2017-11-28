@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"sort"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 

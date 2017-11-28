@@ -25,9 +25,10 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -912,18 +913,18 @@ func TestValidateConnectTimeout(t *testing.T) {
 }
 
 func TestValidateMeshConfig(t *testing.T) {
-	if ValidateMeshConfig(&proxyconfig.MeshConfig{}) == nil {
+	if ValidateMeshConfig(&meshconfig.MeshConfig{}) == nil {
 		t.Error("expected an error on an empty mesh config")
 	}
 
-	invalid := proxyconfig.MeshConfig{
+	invalid := meshconfig.MeshConfig{
 		EgressProxyAddress: "10.0.0.100",
 		MixerAddress:       "10.0.0.100",
 		ProxyListenPort:    0,
 		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
 		AuthPolicy:         -1,
 		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
-		DefaultConfig:      &proxyconfig.ProxyConfig{},
+		DefaultConfig:      &meshconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -943,11 +944,11 @@ func TestValidateMeshConfig(t *testing.T) {
 }
 
 func TestValidateProxyConfig(t *testing.T) {
-	if ValidateProxyConfig(&proxyconfig.ProxyConfig{}) == nil {
+	if ValidateProxyConfig(&meshconfig.ProxyConfig{}) == nil {
 		t.Error("expected an error on an empty proxy config")
 	}
 
-	invalid := proxyconfig.ProxyConfig{
+	invalid := meshconfig.ProxyConfig{
 		ConfigPath:             "",
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
