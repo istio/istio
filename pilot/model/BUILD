@@ -6,9 +6,9 @@ go_library(
         "config.go",
         "controller.go",
         "conversion.go",
+        "egress_rules.go",
         "service.go",
         "validation.go",
-        "egress_rules.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
