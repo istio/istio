@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	configaggregate "istio.io/istio/pilot/adapter/config/aggregate"
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/adapter/config/ingress"

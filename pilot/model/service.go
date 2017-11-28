@@ -28,7 +28,7 @@ import (
 	"sort"
 	"strings"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)

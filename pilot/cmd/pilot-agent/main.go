@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"

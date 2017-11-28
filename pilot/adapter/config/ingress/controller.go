@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 )

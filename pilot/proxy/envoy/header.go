@@ -19,11 +19,11 @@ import (
 	"regexp"
 	"sort"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routerule "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
-func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
+func buildHTTPRouteMatch(matches *routerule.MatchCondition) *HTTPRoute {
 	path := ""
 	prefix := "/"
 	var headers Headers
@@ -32,13 +32,13 @@ func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 			if name == model.HeaderURI {
 				// assumes `uri` condition is non-empty
 				switch m := match.MatchType.(type) {
-				case *proxyconfig.StringMatch_Exact:
+				case *routerule.StringMatch_Exact:
 					path = m.Exact
 					prefix = ""
-				case *proxyconfig.StringMatch_Prefix:
+				case *routerule.StringMatch_Prefix:
 					path = ""
 					prefix = m.Prefix
-				case *proxyconfig.StringMatch_Regex:
+				case *routerule.StringMatch_Regex:
 					headers = append(headers, buildHeader(name, match))
 				}
 			} else {
@@ -54,18 +54,18 @@ func buildHTTPRouteMatch(matches *proxyconfig.MatchCondition) *HTTPRoute {
 	}
 }
 
-func buildHeader(name string, match *proxyconfig.StringMatch) Header {
+func buildHeader(name string, match *routerule.StringMatch) Header {
 	header := Header{Name: name}
 
 	switch m := match.MatchType.(type) {
-	case *proxyconfig.StringMatch_Exact:
+	case *routerule.StringMatch_Exact:
 		header.Value = m.Exact
-	case *proxyconfig.StringMatch_Prefix:
+	case *routerule.StringMatch_Prefix:
 		// Envoy regex grammar is ECMA-262 (http://en.cppreference.com/w/cpp/regex/ecmascript)
 		// Golang has a slightly different regex grammar
 		header.Value = fmt.Sprintf("^%s.*", regexp.QuoteMeta(m.Prefix))
 		header.Regex = true
-	case *proxyconfig.StringMatch_Regex:
+	case *routerule.StringMatch_Regex:
 		header.Value = m.Regex
 		header.Regex = true
 	}

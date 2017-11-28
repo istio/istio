@@ -17,7 +17,7 @@ package mock
 import (
 	"testing"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestMockServices(t *testing.T) {

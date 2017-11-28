@@ -34,7 +34,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"

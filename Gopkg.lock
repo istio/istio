@@ -34,8 +34,8 @@
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","awstesting/unit","internal/shareddefaults","private/protocol","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/xml/xmlutil","service/sts"]
-  revision = "a32b1dcd091264b5dee7b386149b6cc3823395c9"
-  version = "v1.12.31"
+  revision = "0c22c3d22be15d3be3d22b8dedabbf5dd4304730"
+  version = "v1.12.34"
 
 [[projects]]
   branch = "master"
@@ -125,7 +125,7 @@
   branch = "master"
   name = "github.com/go-openapi/spec"
   packages = ["."]
-  revision = "a4fa9574c7aa73b2fc54e251eb9524d0482bb592"
+  revision = "bfb48d37839bcacb52be3f539ffac5abcda7e195"
 
 [[projects]]
   branch = "master"
@@ -219,10 +219,10 @@
   version = "v1.2.0"
 
 [[projects]]
-  branch = "master"
+  branch = "better_docs"
   name = "github.com/grpc-ecosystem/go-grpc-middleware"
   packages = ["."]
-  revision = "fa8fef87dcecac0bda02d36abb3c790ab9e0030b"
+  revision = "63e69ea2fcaa6764e67826381756e528db9203ab"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -418,8 +418,8 @@
 [[projects]]
   name = "github.com/uber/jaeger-client-go"
   packages = [".","internal/baggage","internal/spanlog","log","thrift-gen/agent","thrift-gen/jaeger","thrift-gen/sampling","thrift-gen/zipkincore","transport","transport/zipkin","utils"]
-  revision = "0ce42f3f87dae4f5ba84bdc60c99a908db419cb8"
-  version = "v2.10.0"
+  revision = "ff3efa227b65e419701a4f48985379ca106a89e7"
+  version = "v2.11.0"
 
 [[projects]]
   name = "github.com/uber/jaeger-lib"
@@ -454,13 +454,13 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ed25519","ed25519/internal/edwards25519","ssh/terminal"]
-  revision = "9f005a07e0d31d45e6656d241bb5c0f2efd4bc94"
+  revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "9dfe39835686865bff950a07b394c12a98ddc811"
+  revision = "6921abc35dffd00438a0c020584ce560108737ea"
 
 [[projects]]
   branch = "master"
@@ -478,13 +478,13 @@
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "328643532ee3c60c099171d4ce2cad0ca0354ca9"
+  revision = "1006bb3484c92b19a5b6612452e038b554fadb9c"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
   packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable","width"]
-  revision = "88f656faf3f37f690df1a32515b479415e1a6769"
+  revision = "572a2b141f625f4360cf42a41a43622067e0510b"
 
 [[projects]]
   branch = "master"
@@ -496,13 +496,13 @@
   branch = "master"
   name = "golang.org/x/tools"
   packages = ["go/ast/astutil","imports"]
-  revision = "6d70fb2e85323e81c89374331d3d2b93304faa36"
+  revision = "2c687adedb6d6e9609b0f4b0c69d445c6e2cd69c"
 
 [[projects]]
   branch = "master"
   name = "google.golang.org/api"
   packages = ["gensupport","googleapi","googleapi/internal/uritemplates","googleapi/transport","internal","iterator","option","servicecontrol/v1","storage/v1","support/bundler","transport","transport/grpc","transport/http"]
-  revision = "790790d1b4a7d6b0d03d3725f980eedf80dc2707"
+  revision = "b804618854e387dc7fdd9e50496183ddcbb4b120"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -514,7 +514,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/api/annotations","googleapis/api/distribution","googleapis/api/label","googleapis/api/metric","googleapis/api/monitoredres","googleapis/iam/v1","googleapis/logging/type","googleapis/logging/v2","googleapis/monitoring/v3","googleapis/rpc/status","protobuf/field_mask"]
-  revision = "891aceb7c239e72692819142dfca057bdcbfcb96"
+  revision = "7f0da29060c682909f650ad8ed4e515bd74fa12a"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -540,16 +540,15 @@
   revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
 
 [[projects]]
-  branch = "master"
   name = "istio.io/api"
-  packages = ["broker/v1/config","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","proxy/v1/config"]
-  revision = "80e750910cd1a63367153b30e2a047973b68e5f0"
+  packages = ["broker/v1/config","mesh/v1alpha1","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","routing/v1alpha1"]
+  revision = "cda38551dd4b693d703cae0e72b649a293550aba"
 
 [[projects]]
   branch = "master"
   name = "istio.io/fortio"
   packages = ["fhttp","log","periodic","stats"]
-  revision = "352aab8335fe279251e986d7168fd6d53f09faa3"
+  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
 
 [[projects]]
   name = "k8s.io/api"
@@ -584,6 +583,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7e463f6a8f1c4d2515ecd17ee57d34627be7f05f7e7d4634536b4a0ddc9f5c94"
+  inputs-digest = "7577f2b92319f31e637e9b4007856780e02b31edfc83878d4e43de605ea25fbf"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -29,7 +29,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 )
 

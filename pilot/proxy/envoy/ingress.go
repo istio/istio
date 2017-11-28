@@ -23,7 +23,8 @@ import (
 
 	"github.com/golang/glog"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
+	routerule "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -71,11 +72,11 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 		}
 
 		host := "*"
-		ingress := rule.Spec.(*proxyconfig.IngressRule)
+		ingress := rule.Spec.(*routerule.IngressRule)
 		if ingress.Match != nil && ingress.Match.Request != nil {
 			if authority, ok := ingress.Match.Request.Headers[model.HeaderAuthority]; ok {
 				switch match := authority.GetMatchType().(type) {
-				case *proxyconfig.StringMatch_Exact:
+				case *routerule.StringMatch_Exact:
 					host = match.Exact
 				default:
 					glog.Warningf("Unsupported match type for authority condition %T, falling back to %q", match, host)
@@ -140,7 +141,7 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
-	ingress := rule.Spec.(*proxyconfig.IngressRule)
+	ingress := rule.Spec.(*routerule.IngressRule)
 	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
 	service, err := discovery.GetService(destination)
 	if err != nil {
@@ -187,16 +188,16 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 }
 
 // extractPort extracts the destination service port from the given destination,
-func extractPort(svc *model.Service, ingress *proxyconfig.IngressRule) (*model.Port, error) {
+func extractPort(svc *model.Service, ingress *routerule.IngressRule) (*model.Port, error) {
 	switch p := ingress.GetDestinationServicePort().(type) {
-	case *proxyconfig.IngressRule_DestinationPort:
+	case *routerule.IngressRule_DestinationPort:
 		num := p.DestinationPort
 		port, exists := svc.Ports.GetByPort(int(num))
 		if !exists {
 			return nil, fmt.Errorf("cannot find port %d in %q", num, svc.Hostname)
 		}
 		return port, nil
-	case *proxyconfig.IngressRule_DestinationPortName:
+	case *routerule.IngressRule_DestinationPortName:
 		name := p.DestinationPortName
 		port, exists := svc.Ports.Get(name)
 		if !exists {

@@ -26,7 +26,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 )

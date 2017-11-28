@@ -41,7 +41,7 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 )

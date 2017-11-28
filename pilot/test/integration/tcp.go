@@ -17,7 +17,7 @@ package main
 import (
 	"fmt"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform"
 )
 

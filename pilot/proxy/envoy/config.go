@@ -29,7 +29,8 @@ import (
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
+	routerule "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -739,7 +740,7 @@ func buildInboundListeners(mesh *proxyconfig.MeshConfig, sidecar proxy.Node,
 				// sort for the output uniqueness
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					rule := config.Spec.(*proxyconfig.RouteRule)
+					rule := config.Spec.(*routerule.RouteRule)
 					if route := buildInboundRoute(config, rule, cluster); route != nil {
 						// set server-side mixer filter config for inbound HTTP routes
 						// Note: websocket routes do not call the filter chain. Will be
@@ -808,7 +809,7 @@ func truncateClusterName(name string) string {
 	return name
 }
 
-func buildEgressVirtualHost(rule *proxyconfig.EgressRule,
+func buildEgressVirtualHost(rule *routerule.EgressRule,
 	mesh *proxyconfig.MeshConfig, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
@@ -917,7 +918,7 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 		glog.Warningf("Rejected rules: %v", errs)
 	}
 
-	tcpRulesByPort := make(map[int][]*proxyconfig.EgressRule)
+	tcpRulesByPort := make(map[int][]*routerule.EgressRule)
 	tcpProtocolByPort := make(map[int]model.Protocol)
 
 	for _, rule := range egressRules {
@@ -954,7 +955,7 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 
 // buildEgressTCPRoute builds a tcp route and a cluster per port of a TCP egress service
 // see comment to buildOutboundTCPListeners
-func buildEgressTCPRoute(rule *proxyconfig.EgressRule,
+func buildEgressTCPRoute(rule *routerule.EgressRule,
 	mesh *proxyconfig.MeshConfig, port *model.Port) (*TCPRoute, *Cluster) {
 
 	// Create a unique orig dst cluster for each service defined by egress rule

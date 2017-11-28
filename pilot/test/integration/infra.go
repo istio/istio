@@ -29,7 +29,7 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"

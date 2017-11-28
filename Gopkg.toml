@@ -69,7 +69,7 @@
 
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  revision = "cda38551dd4b693d703cae0e72b649a293550aba"
 
 [[constraint]]
   name = "istio.io/fortio"
