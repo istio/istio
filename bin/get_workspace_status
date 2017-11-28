@@ -5,7 +5,7 @@
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
-
+#
 #       http://www.apache.org/licenses/LICENSE-2.0
 
 #   Unless required by applicable law or agreed to in writing, software
@@ -42,6 +42,15 @@ else
     BRANCH=unknown
 fi
 
+# Check for local changes
+git diff-index --quiet HEAD --
+if [[ $? == 0 ]];
+then
+    tree_status="Clean"
+else
+    tree_status="Modified"
+fi
+
 RELEASE_TAG=$(git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --exact-match 2> /dev/null || echo "")
 
 VERSION="${BUILD_GIT_REVISION}"
@@ -51,8 +60,22 @@ elif [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}-${BUILD_GIT_REVISION}"
 fi
 
+# used by pilot/istioctl version package
 echo buildAppVersion    "${VERSION}"
 echo buildGitRevision   "${BUILD_GIT_REVISION}"
 echo buildGitBranch     "${BRANCH}"
 echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
+
+
+
+# used by mixer/broker version package
+echo "buildVersion ${VERSION}"
+echo "buildStatus ${tree_status}"
+
+# used by security version package
+echo host "$(hostname -f)"
+echo gitBranch "${BRANCH}"
+echo gitRevision "${BUILD_GIT_REVISION}"
+echo user "$(whoami)"
+echo version "${VERSION}"
