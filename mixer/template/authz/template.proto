@@ -21,6 +21,7 @@ import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
+// List of subjects
 message Subject {
   // The user.
   string user = 1;
@@ -30,6 +31,7 @@ message Subject {
   map<string, istio.mixer.v1.config.descriptor.ValueType> extra = 3;
 }
 
+// List of actions
 message Action {
   // Namespace the target action is taking place in.
   string namespace = 1;
@@ -43,7 +45,7 @@ message Action {
   map<string, istio.mixer.v1.config.descriptor.ValueType> extra = 5;
 }
 
-// authz template defines subject and action. Adapters using authz template
+// Authz template defines subject and action. Adapters using authz template
 // should validate “subject” allowed to do an “action”.
 //
 // When writing the configuration, the value for the fields associated with this template can either be a
@@ -53,6 +55,7 @@ message Action {
 // must match the datatype of the field.
 //
 // Example config:
+// ```
 // apiVersion: "config.istio.io/v1alpha2"
 // kind: authz
 // metadata:
@@ -71,6 +74,7 @@ message Action {
 //    method: request.method | "post"
 //    extra:
 //      version: destination.labels[version] | ""
+//  ```
 message Template {
   Subject subject = 1;
   Action action = 2;
