@@ -45,8 +45,6 @@ func RejectConflictingEgressRules(egressRules map[string]*proxyconfig.EgressRule
 	sort.Strings(keys)
 
 	// domains - a map where keys are of the form domain:port and values are the keys of
-
-	// domains - a map where keys are of the form domain:port and values are the keys of
 	// egress-rule configuration objects
 	domains := make(map[string]string)
 	for _, egressRuleKey := range keys {
