@@ -73,52 +73,89 @@ var (
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
-				var err error = nil
-				cpb := cp.(*{{.GoPackageName}}.InstanceParam)
-				infrdType := &{{.GoPackageName}}.Type{}
+				{{$goPkgName := .GoPackageName}}
+				{{range getAllMsgs .}}
+				{{with $msg := .}}
+				var {{getBuildFnName $msg.Name}} func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}},
+					path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error)
+				{{end}}
+				{{end}}
 
-				{{range .TemplateMessage.Fields}}
-					{{if containsValueType .GoType}}
+				{{range getAllMsgs .}}
+				{{with $msg := .}}
+				{{getBuildFnName $msg.Name}} = func(param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}},
+					path string) (*{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}, error) {
+				if param == nil {
+					return nil, nil
+				}
+				infrdType := &{{$goPkgName}}.{{getResourcMessageTypeName $msg.Name}}{}
+				var err error = nil
+
+				{{range $msg.Fields}}
+					{{if containsValueTypeOrResMsg .GoType}}
 						{{if .GoType.IsMap}}
-							infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]istio_mixer_v1_config_descriptor.ValueType, len(cpb.{{.GoName}}))
-							for k, v := range cpb.{{.GoName}} {
+							{{$typeName := getTypeName .GoType.MapValue}}
+							{{if .GoType.MapValue.IsResourceMessage}}
+								infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]*{{$goPkgName}}.{{getResourcMessageTypeName $typeName}}, len(param.{{.GoName}}))
+							{{else}}
+								infrdType.{{.GoName}} = make(map[{{.GoType.MapKey.Name}}]{{$typeName}}, len(param.{{.GoName}}))
+							{{end}}
+							for k, v := range param.{{.GoName}} {
+							{{if .GoType.MapValue.IsResourceMessage}}
+								if infrdType.{{.GoName}}[k], err = {{getBuildFnName $typeName}}(v, path + "{{.GoName}}[" + k + "]."); err != nil {
+							{{else}}
 								if infrdType.{{.GoName}}[k], err = tEvalFn(v); err != nil {
-									return nil, err
+							{{end}}
+									return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", err)
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == emptyQuotes {
-								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
-							}
-							if infrdType.{{.GoName}}, err = tEvalFn(cpb.{{.GoName}}); err != nil {
-								return nil, err
-							}
+							{{if .GoType.IsResourceMessage}}
+								if param.{{.GoName}} != nil {
+									{{$typeName := getTypeName .GoType}}
+									if infrdType.{{.GoName}}, err = {{getBuildFnName $typeName}}(param.{{.GoName}}, path + "{{.GoName}}."); err != nil {
+										return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", err)
+									}
+								}
+							{{else}}
+								if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+									return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
+								}
+								if infrdType.{{.GoName}}, err = tEvalFn(param.{{.GoName}}); err != nil {
+									return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", err)
+								}
+							{{end}}
 						{{end}}
 					{{else}}
 						{{if .GoType.IsMap}}
-							for _, v := range cpb.{{.GoName}} {
+							for _, v := range param.{{.GoName}} {
 								if t, e := tEvalFn(v); e != nil || t != {{getValueType .GoType.MapValue}} {
 									if e != nil {
-										return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+										return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path + "{{.GoName}}", e)
 									}
-									return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{getValueType .GoType.MapValue}})
+									return nil, fmt.Errorf(
+										"error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType.MapValue}})
 								}
 							}
 						{{else}}
-							if cpb.{{.GoName}} == "" || cpb.{{.GoName}} == emptyQuotes {
-								return nil, errors.New("expression for field {{.GoName}} cannot be empty")
+							if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+								return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
 							}
-							if t, e := tEvalFn(cpb.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
+							if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
 								if e != nil {
-									return nil, fmt.Errorf("failed to evaluate expression for field {{.GoName}}: %v", e)
+									return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path + "{{.GoName}}", e)
 								}
-								return nil, fmt.Errorf("error type checking for field {{.GoName}}: Evaluated expression type %v want %v", t, {{getValueType .GoType}})
+								return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path + "{{.GoName}}", t, {{getValueType .GoType}})
 							}
 						{{end}}
 					{{end}}
 				{{end}}
-				_ = cpb
 				return infrdType, err
+				}
+				{{end}}
+				{{end}}
+
+                return BuildTemplate(cp.(*{{.GoPackageName}}.InstanceParam), "")
 			},
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
@@ -133,43 +170,95 @@ var (
 			},
 			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
 				ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-					var instances []*{{.GoPackageName}}.Instance
-					for name, inst := range insts {
-						md := inst.(*{{.GoPackageName}}.InstanceParam)
-						{{range .TemplateMessage.Fields}}
+			{{end}}
+			{{if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
+				ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+			{{end}}
+			{{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
+				ProcessQuota: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+			{{end}}
+			{{$varietyName := .VarietyName}}
+			{{$goPkgName := .GoPackageName}}
+			{{range getAllMsgs .}}
+			{{with $msg := .}}
+			var {{getBuildFnName $msg.Name}} func(instName string,
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
+					*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
+			{{end}}
+			{{end}}
+			{{range getAllMsgs .}}
+			{{with $msg := .}}
+			{{getBuildFnName $msg.Name}} = func(instName string,
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
+					*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
+				if param == nil {
+					return nil, nil
+				}
+				var err error
+				_ = err
+			{{range $msg.Fields}}
+				{{if .GoType.IsMap}}
+					{{if .GoType.MapValue.IsResourceMessage}}
+						{{$typeName := getTypeName .GoType.MapValue}}
+						{{.GoName}} := make(map[{{.GoType.MapKey.Name}}]*{{$goPkgName}}.{{$typeName}}, len(param.{{.GoName}}))
+						for k, v := range param.{{.GoName}} {
+							if {{.GoName}}[k], err = {{getBuildFnName $typeName}}(instName, v, path + "{{.GoName}}[" + k + "]."); err != nil {
+								return nil, fmt.Errorf("failed to evaluate field '%s' for instance '%s': %v", path + "{{.GoName}}", instName, err)
+							}
+						}
+					{{else}}
+						{{.GoName}}, err := template.EvalAll(param.{{.GoName}}, attrs, mapper)
+					{{end}}
+				{{else}}
+					{{if .GoType.IsResourceMessage}}
+					{{$typeName := getTypeName .GoType}}
+					{{.GoName}}, err := {{getBuildFnName $typeName}}(instName, param.{{.GoName}}, path + "{{.GoName}}.")
+					{{else }}
+					{{.GoName}}, err := mapper.Eval(param.{{.GoName}}, attrs)
+					{{end}}
+				{{end}}
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path + "{{.GoName}}", instName, err)
+						glog.Error(msg)
+						return nil, errors.New(msg)
+					}
+			{{end}}
+				_ = param
+				return &{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}{
+					{{if eq $msg.Name "Template"}}
+					Name:       instName,
+					{{end}}
+					{{range $msg.Fields}}
+						{{if containsValueTypeOrResMsg .GoType}}
+							{{.GoName}}: {{.GoName}},
+						{{else}}
 							{{if .GoType.IsMap}}
-								{{.GoName}}, err := template.EvalAll(md.{{.GoName}}, attrs, mapper)
+								{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
+									res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
+									for k, v := range m {
+										res[k] = v.({{.GoType.MapValue.Name}})
+									}
+									return res
+								}({{.GoName}}),
 							{{else}}
-								{{.GoName}}, err := mapper.Eval(md.{{.GoName}}, attrs)
+								{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
 							{{end}}
-								if err != nil {
-									msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", name, err)
-									glog.Error(msg)
-									return errors.New(msg)
-								}
 						{{end}}
-
-						instances = append(instances, &{{.GoPackageName}}.Instance{
-							Name:       name,
-							{{range .TemplateMessage.Fields}}
-								{{if containsValueType .GoType}}
-									{{.GoName}}: {{.GoName}},
-								{{else}}
-									{{if .GoType.IsMap}}
-										{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-											res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-											for k, v := range m {
-												res[k] = v.({{.GoType.MapValue.Name}})
-											}
-											return res
-										}({{.GoName}}),
-									{{else}}
-										{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
-									{{end}}
-								{{end}}
-							{{end}}
-						})
-						_ = md
+					{{end}}
+				}, nil
+			}
+			{{end}}
+			{{end}}
+			{{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
+					var instances []*{{.GoPackageName}}.Instance
+					for instName, inst := range insts {
+						instance, err := BuildTemplate(instName, inst.(*{{.GoPackageName}}.InstanceParam), "")
+						if err != nil {
+							return err
+						}
+						instances = append(instances, instance)
 					}
 
 					if err := handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instances); err != nil {
@@ -177,88 +266,19 @@ var (
 					}
 					return nil
 				},
-			{{else if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-				ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
-					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
-					{{range .TemplateMessage.Fields}}
-						{{if .GoType.IsMap}}
-							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
-						{{else}}
-							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
-						{{end}}
-							if err != nil {
-								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", instName, err)
-								glog.Error(msg)
-								return adapter.CheckResult{}, errors.New(msg)
-							}
-					{{end}}
-					_ = castedInst
-
-					instance := &{{.GoPackageName}}.Instance{
-						Name:	instName,
-						{{range .TemplateMessage.Fields}}
-							{{if containsValueType .GoType}}
-								{{.GoName}}: {{.GoName}},
-							{{else}}
-								{{if .GoType.IsMap}}
-									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-										for k, v := range m {
-											res[k] = v.({{.GoType.MapValue.Name}})
-										}
-										return res
-									}({{.GoName}}),
-								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
-								{{end}}
-							{{end}}
-						{{end}}
-					}
-					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
-				},
 			{{else}}
-				ProcessQuota: func(ctx context.Context, quotaName string, inst proto.Message, attrs attribute.Bag,
-				 mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-					castedInst := inst.(*{{.GoPackageName}}.InstanceParam)
-					{{range .TemplateMessage.Fields}}
-						{{if .GoType.IsMap}}
-							{{.GoName}}, err := template.EvalAll(castedInst.{{.GoName}}, attrs, mapper)
-						{{else}}
-							{{.GoName}}, err := mapper.Eval(castedInst.{{.GoName}}, attrs)
-						{{end}}
-							if err != nil {
-								msg := fmt.Sprintf("failed to eval {{.GoName}} for instance '%s': %v", quotaName, err)
-								glog.Error(msg)
-								return adapter.QuotaResult{}, errors.New(msg)
-							}
-					{{end}}
-
-					instance := &{{.GoPackageName}}.Instance{
-						Name:       quotaName,
-						{{range .TemplateMessage.Fields}}
-							{{if containsValueType .GoType}}
-								{{.GoName}}: {{.GoName}},
-							{{else}}
-								{{if .GoType.IsMap}}
-									{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
-										res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
-										for k, v := range m {
-											res[k] = v.({{.GoType.MapValue.Name}})
-										}
-										return res
-									}({{.GoName}}),
-								{{else}}
-									{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
-								{{end}}
-							{{end}}
+					instance, err := BuildTemplate(instName, inst.(*{{.GoPackageName}}.InstanceParam), "")
+					if err != nil {
+						{{if eq $varietyName "TEMPLATE_VARIETY_CHECK"}}
+						return adapter.CheckResult{}, err
+						{{else}}return adapter.QuotaResult{}, err
 						{{end}}
 					}
-
-					return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance, args)
+					{{if eq $varietyName "TEMPLATE_VARIETY_CHECK"}}return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance)
+					{{else}}return handler.({{.GoPackageName}}.Handler).Handle{{.InterfaceName}}(ctx, instance, args)
+					{{end}}
 				},
 			{{end}}
-
 		},
 	{{end}}
 	}
