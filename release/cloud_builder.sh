@@ -75,6 +75,7 @@ if [ ! -d "${PROXY_PATH}" ]; then
 fi
 
 export ISTIO_VERSION="${TAG_NAME}"
+export ISTIO_RELEASE_VERSION="${TAG_NAME}"
 
 # Proxy has some specific requirements for Bazel's
 # config (plus it's nicely places bazel in batch
