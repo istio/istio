@@ -16,7 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/duration.proto";
 
-package istio.routing.v1alpha1.config;
+package istio.routing.v1alpha1;
 
 // (-- Faults can be injected into the connections from downstream by the
 // Envoy, for testing the failure recovery capabilities of downstream

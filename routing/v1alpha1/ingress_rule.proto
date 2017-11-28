@@ -16,7 +16,7 @@ syntax = "proto3";
 
 import "routing/v1alpha1/route_rule.proto";
 
-package istio.routing.v1alpha1.config;
+package istio.routing.v1alpha1;
 
 // Ingress rules are routing rules applied to the ingress proxy pool. The
 // ingress proxes serve as the receiving edge proxy for the entire mesh, but
