@@ -153,7 +153,7 @@ func runSelfSignedCATests() error {
 
 	// Test the existence of istio.default secret.
 	secret, errors := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
-		secretWaitTime);
+		secretWaitTime)
 	if errors != nil {
 		return errors
 	}

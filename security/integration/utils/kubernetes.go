@@ -141,7 +141,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"podUuid":      podUuid,
+				"podUuid":   podUuid,
 				"pod-group": fmt.Sprintf("%v-pod-group", name),
 			},
 			Name: name,
