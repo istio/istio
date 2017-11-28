@@ -27,6 +27,8 @@ import (
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
 
+	"regexp"
+
 	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
 )
@@ -164,28 +166,35 @@ func (g *Generator) getInterfaceGoContent(model *modelgen.Model) ([]byte, error)
 	return imptd, nil
 }
 
-func stringify(protoType modelgen.TypeInfo) string {
-	if protoType.IsMap {
-		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
-	}
-	if protoType.IsResourceMessage {
-		return protoType.Name + resourceMsgInstParamSuffix
-	}
-	return "string"
+func trimPackageName(fullName string, pkgName string) string {
+	re := regexp.MustCompile(`(?i)` + pkgName + "\\.")
+	return re.ReplaceAllString(fullName, "")
 }
 
 func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, error) {
 	imports := make([]string, 0)
+
+	var stringify func(protoType modelgen.TypeInfo) string
+	stringify = func(protoType modelgen.TypeInfo) string {
+		if protoType.IsMap {
+			return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
+		}
+		if protoType.IsResourceMessage {
+			return trimPackageName(protoType.Name, model.PackageName) + resourceMsgInstParamSuffix
+		}
+		return "string"
+	}
 
 	augmentedTemplateTmpl, err := template.New("AugmentedTemplateTmpl").Funcs(
 		template.FuncMap{
 			"valueTypeOrResMsg": valueTypeOrResMsg,
 			"valueTypeOrResMsgFieldTypeName": func(protoTypeInfo modelgen.TypeInfo) string {
 				if protoTypeInfo.IsResourceMessage {
-					return protoTypeInfo.Name + resourceMsgTypeSuffix
+
+					return trimPackageName(protoTypeInfo.Name, model.PackageName) + resourceMsgTypeSuffix
 				}
 				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
-					return toProtoMap(protoTypeInfo.MapKey.Name, protoTypeInfo.MapValue.Name+resourceMsgTypeSuffix)
+					return toProtoMap(protoTypeInfo.MapKey.Name, trimPackageName(protoTypeInfo.MapValue.Name, model.PackageName)+resourceMsgTypeSuffix)
 				}
 				return protoTypeInfo.Name
 			},

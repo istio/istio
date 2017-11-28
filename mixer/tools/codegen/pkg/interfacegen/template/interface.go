@@ -44,6 +44,18 @@ type Instance struct {
   {{end}}
 }
 
+{{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
+// Output struct is returned by the attribute producing adapters that handle this template.{{if ne .OutputTemplateMessage.Comment ""}}
+//
+{{.OutputTemplateMessage.Comment}}{{end}}
+type Output struct {
+  {{range .OutputTemplateMessage.Fields}}
+  {{.Comment}}
+  {{.GoName}} {{replaceGoValueTypeToInterface .GoType}}{{reportTypeUsed .GoType}}
+  {{end}}
+}
+{{end}}
+
 {{range .ResourceMessages}}
 {{.Comment}}
 type {{.Name}} struct {
@@ -61,10 +73,11 @@ type {{.Name}} struct {
 // it with adapter-specific configuration as well as all template-specific type information.
 type HandlerBuilder interface {
 	adapter.HandlerBuilder
-
+	{{if ne .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
 	// Set{{.InterfaceName}}Types is invoked by Mixer to pass the template-specific Type information for instances that an adapter
 	// may receive at runtime. The type information describes the shape of the instance.
 	Set{{.InterfaceName}}Types(map[string]*Type /*Instance name -> Type*/)
+	{{end}}
 }
 
 // Handler must be implemented by adapter code if it wants to
@@ -72,11 +85,11 @@ type HandlerBuilder interface {
 //
 // Mixer uses this interface to call into the adapter at request time in order to dispatch
 // created instances to the adapter. Adapters take the incoming instances and do what they
-// need to achieve their primary function.
+// need to achieve their primary function.{{if ne .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
 //
 // The name of each instance can be used as a key into the Type map supplied to the adapter
 // at configuration time via the method 'Set{{.InterfaceName}}Types'.
-// These Type associated with an instance describes the shape of the instance
+// These Type associated with an instance describes the shape of the instance{{end}}
 type Handler interface {
   adapter.Handler
 
@@ -86,8 +99,10 @@ type Handler interface {
     Handle{{.InterfaceName}}(context.Context, *Instance) (adapter.CheckResult, error)
   {{else if eq .VarietyName "TEMPLATE_VARIETY_QUOTA" -}}
     Handle{{.InterfaceName}}(context.Context, *Instance, adapter.QuotaArgs) (adapter.QuotaResult, error)
-  {{else -}}
+  {{else if eq .VarietyName "TEMPLATE_VARIETY_REPORT" -}}
     Handle{{.InterfaceName}}(context.Context, []*Instance) error
+  {{else if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR" -}}
+    Generate{{.InterfaceName}}Attributes(context.Context, *Instance) (*Output, error)
   {{end}}
 }
 `
