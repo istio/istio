@@ -22,6 +22,6 @@ go_library(
 go_binary(
     name = "pilot-agent",
     library = ":go_default_library",
-    linkstamp = "istio.io/pilot/tools/version",
+    linkstamp = "istio.io/istio/pilot/tools/version",
     visibility = ["//visibility:public"],
 )

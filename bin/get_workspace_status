@@ -16,6 +16,8 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+touch /tmp/iran
+
 function get_branch() {
     local branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
     if [[ "${branch}" == 'HEAD' ]]; then
@@ -63,8 +65,8 @@ echo buildUser          "$(whoami)"
 echo buildHost          "$(hostname -f)"
 
 # security wants these but I don't see a consumer in the build
-# echo host "$(hostname -f)"
-# echo gitBranch "${BRANCH}"
-# echo gitRevision "${BUILD_GIT_REVISION}"
-# echo user "$(whoami)"
-# echo version "${VERSION}"
+echo host "$(hostname -f)"
+echo gitBranch "${BRANCH}"
+echo gitRevision "${BUILD_GIT_REVISION}"
+echo user "$(whoami)"
+echo version "${VERSION}"
