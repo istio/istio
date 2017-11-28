@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
@@ -31,7 +32,19 @@ import (
 func (ps *ProtoSchema) Make() (proto.Message, error) {
 	pbt := proto.MessageType(ps.MessageName)
 	if pbt == nil {
-		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		// goproto and gogoproto maintain their own separate registry
+		// of linked proto files. istio.io/api/proxy protobufs use
+		// goproto and istio.io/api/mixer protobufs use
+		// gogoproto. Until use of goproto vs. gogoproto is reconciled
+		// we need to check both registries when dealing to handle
+		// proxy and mixerclient types.
+		//
+		// NOTE: this assumes that protobuf type names are unique
+		// across goproto and gogoproto.
+		pbt = gogoproto.MessageType(ps.MessageName)
+		if pbt == nil {
+			return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		}
 	}
 	return reflect.New(pbt.Elem()).Interface().(proto.Message), nil
 }

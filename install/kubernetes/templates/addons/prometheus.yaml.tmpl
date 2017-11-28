@@ -71,11 +71,10 @@ spec:
     spec:
       containers:
       - name: prometheus
-        image: quay.io/coreos/prometheus:v1.1.1
+        image: docker.io/prom/prometheus:v2.0.0
         args:
-          - '-storage.local.retention=6h'
-          - '-storage.local.memory-chunks=500000'
-          - '-config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.retention=6h'
+          - '--config.file=/etc/prometheus/prometheus.yml'
         ports:
         - name: web
           containerPort: 9090

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package test supplies a fake Mixer server for use in testing. It should NOT
+// Package mockapi supplies a fake Mixer server for use in testing. It should NOT
 // be used outside of testing contexts.
-package test // import "istio.io/istio/mixer/test"
+package mockapi // import "istio.io/istio/mixer/pkg/mockapi"
 
 import (
 	"errors"

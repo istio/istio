@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
 	at "istio.io/istio/mixer/pkg/adapter/test"
@@ -71,7 +72,7 @@ func TestHandleApiKey(t *testing.T) {
 		Status: status.OK,
 	}
 
-	result, err := h.HandleApiKey(context.Background(), &instance)
+	result, err := h.HandleApiKey(createTestContext(), &instance)
 	if err != nil || !reflect.DeepEqual(*mock.checkResult, result) {
 		t.Errorf(`expect check result %v, but get %v`, *mock.checkResult, result)
 	}
@@ -98,7 +99,7 @@ func TestHandleReport(t *testing.T) {
 	}
 	mock := &mockProcessor{}
 	h := getTestHandler(mock, t)
-	err := h.HandleSvcctrlReport(context.Background(), instances)
+	err := h.HandleSvcctrlReport(createTestContext(), instances)
 	if err != nil {
 		t.Errorf(`expect success but failed with %v`, err)
 	}
@@ -120,9 +121,51 @@ func TestHandleQuota(t *testing.T) {
 		ValidDuration: time.Minute,
 		Amount:        10,
 	}
-	result, err := h.HandleQuota(context.Background(), &instance, adapter.QuotaArgs{})
+	result, err := h.HandleQuota(createTestContext(), &instance, adapter.QuotaArgs{})
 	if err != nil || !reflect.DeepEqual(*mock.quotaResult, result) {
 		t.Errorf(`expect quota result %v, but get %v`, *mock.checkResult, result)
+	}
+}
+
+func TestUnknownService(t *testing.T) {
+	h := getTestHandler(&mockProcessor{}, t)
+	delete(h.ctx.serviceConfigIndex, "test_service")
+	delete(h.svcProcMap, "test_service")
+	_, err := h.getServiceProcessor(createTestContext())
+	if err == nil {
+		t.Errorf(`expect non-nil error`)
+	}
+}
+
+func TestNewHandler(t *testing.T) {
+	ctx := &handlerContext{
+		env: at.NewEnv(t),
+		config: &config.Params{
+			ServiceConfigs: []*config.GcpServiceSetting{
+				{
+					MeshServiceName:   "test_service",
+					GoogleServiceName: "echo.googleapi.com",
+				},
+			},
+		},
+		serviceConfigIndex: map[string]*config.GcpServiceSetting{
+			"test_service": {
+				MeshServiceName:   "test_service",
+				GoogleServiceName: "echo.googleapi.com",
+			},
+		},
+	}
+
+	h, err := newHandler(ctx)
+	if err != nil {
+		t.Fatal(`fail to create handler`)
+	}
+	if !reflect.DeepEqual(*ctx, *h.ctx) {
+		t.Errorf(`handler not initialized with handleContext`)
+	}
+
+	if h.svcProcMap == nil {
+		t.Errorf(`handler.svcProcMap not initialized`)
 	}
 }
 
@@ -130,11 +173,27 @@ func getTestHandler(mock *mockProcessor, t *testing.T) *handler {
 	return &handler{
 		ctx: &handlerContext{
 			env: at.NewEnv(t),
+			serviceConfigIndex: map[string]*config.GcpServiceSetting{
+				"test_service": {
+					MeshServiceName:   "test_service",
+					GoogleServiceName: "echo.googleapi.com",
+				},
+			},
 		},
-		svcProc: &serviceProcessor{
-			checkProcessor:  mock,
-			reportProcessor: mock,
-			quotaProcessor:  mock,
+		svcProcMap: map[string]*serviceProcessor{
+			"test_service": {
+				checkProcessor:  mock,
+				reportProcessor: mock,
+				quotaProcessor:  mock,
+			},
 		},
 	}
+}
+
+func createTestContext() context.Context {
+	return adapter.NewContextWithRequestData(context.Background(), &adapter.RequestData{
+		DestinationService: adapter.Service{
+			FullName: "test_service",
+		},
+	})
 }
