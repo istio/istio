@@ -71,8 +71,10 @@ func setupReportTest(t *testing.T) *reportTest {
 				MeshServiceName:   "echo",
 				GoogleServiceName: "echo.googleapi.com",
 			},
-			client:   mockClient,
-			resolver: &mockConsumerProjectIDResolver{},
+			client: mockClient,
+			resolver: &mockConsumerProjectIDResolver{
+				consumerProjectID: "project_number:123",
+			},
 		},
 	}
 	return test
@@ -104,7 +106,8 @@ func TestReport(t *testing.T) {
 						"/status_code":"0",
 						"cloud.googleapis.com/location":"global",
 						"serviceruntime.googleapis.com/api_method":"echo.foo.bar",
-						"serviceruntime.googleapis.com/api_version":"v1"
+						"serviceruntime.googleapis.com/api_version":"v1",
+						"serviceruntime.googleapis.com/consumer_project": "project_number:123"
 					},
 					"logEntries":[
 						{
