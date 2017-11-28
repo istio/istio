@@ -37,7 +37,7 @@ std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(
   // If use legacy config
   if (config.legacy_config) {
     return std::make_shared<ServiceContext>(client_context_,
-                                            *config.legacy_config);
+                                            config.legacy_config);
   }
 
   const std::string& origin_name = config.destination_service;
@@ -45,13 +45,17 @@ std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(
   if (!service_context) {
     // Get the valid service name from service_configs map.
     auto valid_name = client_context_->GetServiceName(origin_name);
-    service_context = service_context_map_[valid_name];
+    if (valid_name != origin_name) {
+      service_context = service_context_map_[valid_name];
+    }
     if (!service_context) {
       service_context = std::make_shared<ServiceContext>(
           client_context_, client_context_->GetServiceConfig(valid_name));
       service_context_map_[valid_name] = service_context;
     }
-    service_context_map_[origin_name] = service_context;
+    if (valid_name != origin_name) {
+      service_context_map_[origin_name] = service_context;
+    }
   }
   return service_context;
 }

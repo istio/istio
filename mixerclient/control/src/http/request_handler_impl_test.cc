@@ -66,14 +66,29 @@ mixer_attributes {
 }
 )";
 
+// The client config with empty service map.
+const char kEmptyClientConfig[] = R"(
+forward_attributes {
+  attributes {
+    key: "source-key"
+    value {
+      string_value: "source-value"
+    }
+  }
+}
+)";
+
 class RequestHandlerImplTest : public ::testing::Test {
  public:
   void SetUp() {
     // add a legacy quota
     legacy_quotas_.push_back({"legacy-quota", 10});
 
-    ASSERT_TRUE(
-        TextFormat::ParseFromString(kDefaultClientConfig, &client_config_));
+    SetUpMockController(kDefaultClientConfig);
+  }
+
+  void SetUpMockController(const std::string& config_text) {
+    ASSERT_TRUE(TextFormat::ParseFromString(config_text, &client_config_));
 
     mock_client_ = new ::testing::NiceMock<MockMixerClient>;
     client_context_ = std::make_shared<ClientContext>(
@@ -370,6 +385,40 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledReport) {
 
   auto handler = controller_->CreateRequestHandler(config);
   handler->Report(&mock_data);
+}
+
+TEST_F(RequestHandlerImplTest, TestEmptyConfig) {
+  SetUpMockController(kEmptyClientConfig);
+
+  ::testing::NiceMock<MockCheckData> mock_check;
+  // Not to extract attributes since both Check and Report are disabled.
+  EXPECT_CALL(mock_check, GetSourceIpPort(_, _)).Times(0);
+  EXPECT_CALL(mock_check, GetSourceUser(_)).Times(0);
+
+  // Attributes is forwarded.
+  EXPECT_CALL(mock_check, AddIstioAttributes(_))
+      .WillOnce(Invoke([](const std::string& data) {
+        Attributes forwarded_attr;
+        EXPECT_TRUE(forwarded_attr.ParseFromString(data));
+        auto map = forwarded_attr.attributes();
+        EXPECT_EQ(map["source-key"].string_value(), "source-value");
+      }));
+
+  // Check should NOT be called.
+  EXPECT_CALL(*mock_client_, Check(_, _, _, _)).Times(0);
+
+  ::testing::NiceMock<MockReportData> mock_report;
+  EXPECT_CALL(mock_report, GetResponseHeaders()).Times(0);
+  EXPECT_CALL(mock_report, GetReportInfo(_)).Times(0);
+
+  // Report should NOT be called.
+  EXPECT_CALL(*mock_client_, Report(_)).Times(0);
+
+  Controller::PerRouteConfig config;
+  auto handler = controller_->CreateRequestHandler(config);
+  handler->Check(&mock_check, nullptr,
+                 [](const Status& status) { EXPECT_TRUE(status.ok()); });
+  handler->Report(&mock_report);
 }
 
 }  // namespace http

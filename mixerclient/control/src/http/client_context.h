@@ -49,7 +49,7 @@ class ClientContext : public ClientContextBase {
   const std::string& GetServiceName(const std::string& service_name) const;
 
   // Get the service config by the name.
-  const ::istio::mixer::v1::config::client::ServiceConfig& GetServiceConfig(
+  const ::istio::mixer::v1::config::client::ServiceConfig* GetServiceConfig(
       const std::string& service_name) const;
 
  private:

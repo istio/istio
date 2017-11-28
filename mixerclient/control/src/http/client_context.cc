@@ -53,13 +53,14 @@ const std::string& ClientContext::GetServiceName(
 }
 
 // Get the service config by the name.
-const ServiceConfig& ClientContext::GetServiceConfig(
+const ServiceConfig* ClientContext::GetServiceConfig(
     const std::string& service_name) const {
   const auto& config_map = config_.service_configs();
   auto it = config_map.find(service_name);
-  // The name should be a valid one checked by GetServiceName()
-  GOOGLE_CHECK(it != config_map.end());
-  return it->second;
+  if (it != config_map.end()) {
+    return &it->second;
+  }
+  return nullptr;
 }
 
 }  // namespace http

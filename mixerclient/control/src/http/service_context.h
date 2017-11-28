@@ -31,7 +31,7 @@ class ServiceContext {
  public:
   ServiceContext(
       std::shared_ptr<ClientContext> client_context,
-      const ::istio::mixer::v1::config::client::ServiceConfig& config);
+      const ::istio::mixer::v1::config::client::ServiceConfig* config);
 
   std::shared_ptr<ClientContext> client_context() const {
     return client_context_;
@@ -47,13 +47,16 @@ class ServiceContext {
   void AddQuotas(RequestContext* request) const;
 
   bool enable_mixer_check() const {
-    return !service_config_.disable_check_calls();
+    return service_config_ && !service_config_->disable_check_calls();
   }
   bool enable_mixer_report() const {
-    return !service_config_.disable_report_calls();
+    return service_config_ && !service_config_->disable_report_calls();
   }
 
  private:
+  // Pre-process the config data to build parser objects.
+  void BuildParsers();
+
   // The client context object.
   std::shared_ptr<ClientContext> client_context_;
 
@@ -66,7 +69,7 @@ class ServiceContext {
   std::vector<std::unique_ptr<::istio::quota::ConfigParser>> quota_parsers_;
 
   // The service config.
-  ::istio::mixer::v1::config::client::ServiceConfig service_config_;
+  const ::istio::mixer::v1::config::client::ServiceConfig* service_config_{};
 };
 
 }  // namespace http

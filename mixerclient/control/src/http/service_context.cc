@@ -23,20 +23,23 @@ namespace mixer_control {
 namespace http {
 
 ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
-                               const ServiceConfig& config)
+                               const ServiceConfig* config)
     : client_context_(client_context), service_config_(config) {
-  // Merge client config mixer attributes.
-  service_config_.mutable_mixer_attributes()->MergeFrom(
-      client_context->config().mixer_attributes());
+  BuildParsers();
+}
 
+void ServiceContext::BuildParsers() {
+  if (!service_config_) {
+    return;
+  }
   // Build api_spec parsers
-  for (const auto& api_spec : service_config_.http_api_spec()) {
+  for (const auto& api_spec : service_config_->http_api_spec()) {
     api_spec_.MergeFrom(api_spec);
   }
   api_spec_parser_ = ::istio::api_spec::HttpApiSpecParser::Create(api_spec_);
 
   // Build quota parser
-  for (const auto& quota : service_config_.quota_spec()) {
+  for (const auto& quota : service_config_->quota_spec()) {
     quota_parsers_.push_back(
         std::move(::istio::quota::ConfigParser::Create(quota)));
   }
@@ -44,13 +47,19 @@ ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
 
 // Add static mixer attributes.
 void ServiceContext::AddStaticAttributes(RequestContext* request) const {
-  if (service_config_.has_mixer_attributes()) {
-    request->attributes.MergeFrom(service_config_.mixer_attributes());
+  if (client_context_->config().has_mixer_attributes()) {
+    request->attributes.MergeFrom(client_context_->config().mixer_attributes());
+  }
+  if (service_config_->has_mixer_attributes()) {
+    request->attributes.MergeFrom(service_config_->mixer_attributes());
   }
 }
 
 void ServiceContext::AddApiAttributes(CheckData* check_data,
                                       RequestContext* request) const {
+  if (!api_spec_parser_) {
+    return;
+  }
   std::string http_method;
   std::string path;
   if (check_data->FindHeaderByType(CheckData::HEADER_METHOD, &http_method) &&
