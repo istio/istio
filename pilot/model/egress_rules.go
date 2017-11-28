@@ -20,7 +20,8 @@ import (
 	"sort"
 
 	multierror "github.com/hashicorp/go-multierror"
-	routerule   "istio.io/api/routing/v1alpha1"
+
+	routerule "istio.io/api/routing/v1alpha1"
 )
 
 // RejectConflictingEgressRules rejects rules that have the destination which is equal to

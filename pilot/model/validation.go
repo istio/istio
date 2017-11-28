@@ -31,9 +31,9 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 
+	proxyconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/mesh/v1alpha1"
 	routerule "istio.io/api/routing/v1alpha1"
 )
 
