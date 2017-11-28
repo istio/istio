@@ -31,7 +31,7 @@ func getTestReportBuilder() *reportBuilder {
 	return &reportBuilder{
 		supportedMetrics: []metricDef{
 			{
-				name:           "test_metric",
+				name:           "test_request_count",
 				valueGenerator: generateRequestCount,
 				labels: []string{
 					"/consumer_id",
@@ -42,6 +42,21 @@ func getTestReportBuilder() *reportBuilder {
 					"/response_code_class",
 					"/status_code",
 				},
+			},
+			{
+				name:           "test_request_error_count",
+				valueGenerator: generateErrorCount,
+				labels:         []string{},
+			},
+			{
+				name:           "test_request_size",
+				valueGenerator: generateRequestSize,
+				labels:         []string{},
+			},
+			{
+				name:           "test_backend_latency",
+				valueGenerator: generateBackendLatencies,
+				labels:         []string{},
 			},
 		},
 		instance: &svcctrlreport.Instance{
@@ -113,7 +128,7 @@ func TestBuildMetricValue(t *testing.T) {
 			},
 			"metricValueSets":[
 				{
-					"metricName":"test_metric",
+					"metricName":"test_request_count",
 					"metricValues":[
 						{
 							"endTime":"2017-10-21T17:09:05.1Z",
@@ -121,10 +136,57 @@ func TestBuildMetricValue(t *testing.T) {
 							"startTime":"2017-10-21T17:09:05Z"
 						}
 					]
+				},
+				{
+					"metricName":"test_request_size",
+					"metricValues":[
+						{
+						   "distributionValue":{
+							  "bucketCounts":[
+									"0","0","1","0","0","0","0","0","0","0"
+							  ],
+							  "count":"1",
+							  "exponentialBuckets":{
+								 "growthFactor":10,
+								 "numFiniteBuckets":8,
+								 "scale":1
+							  },
+							  "maximum":10,
+							  "mean":10,
+							  "minimum":10
+						   },
+						   "endTime":"2017-10-21T17:09:05.1Z",
+						   "startTime":"2017-10-21T17:09:05Z"
+						}
+					]
+				},
+				{
+					"metricName":"test_backend_latency",
+					"metricValues":[
+						{
+							"distributionValue":{
+							"bucketCounts":[
+								"0","1","0","0","0","0","0","0","0","0",
+								"0","0","0","0","0","0","0","0","0","0",
+								"0","0","0","0","0","0","0","0","0","0",
+								"0"],
+							"count":"1",
+							"exponentialBuckets":{
+								"growthFactor":2,
+								"numFiniteBuckets":29,
+								"scale":0.000001
+								},
+								"maximum":0.000001,
+								"mean":0.000001,
+								"minimum":0.000001
+							},
+							"endTime":"2017-10-21T17:09:05.1Z",
+							"startTime":"2017-10-21T17:09:05Z"
+							}
+					]
 				}
 			]
 		}`
-
 	actual, _ := op.MarshalJSON()
 	if !compareJSON(expected, string(actual)) {
 		t.Errorf(`expect Operation: %v but get %v`, expected, string(actual))
