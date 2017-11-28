@@ -14,3 +14,28 @@
 
 package component
 
+import (
+	"os"
+
+	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/util"
+)
+
+type CommonComp struct {
+	framework.Component
+	Name string
+}
+
+func (cc *CommonComp) GetName() string {
+	return cc.Name
+}
+
+type CommonProcesssComp struct {
+	CommonComp
+	process *os.Process
+}
+
+func (cpc *CommonProcesssComp) Stop() (err error) {
+	err = util.KillProcess(cpc.process)
+	return
+}
