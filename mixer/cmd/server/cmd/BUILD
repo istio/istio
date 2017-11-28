@@ -41,6 +41,7 @@ go_library(
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
         "@org_golang_google_grpc//:go_default_library",

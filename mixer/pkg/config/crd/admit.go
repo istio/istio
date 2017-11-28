@@ -269,6 +269,7 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 					Operations: []admissionregistrationv1alpha1.OperationType{
 						admissionregistrationv1alpha1.Create,
 						admissionregistrationv1alpha1.Update,
+						admissionregistrationv1alpha1.Delete,
 					},
 					Rule: admissionregistrationv1alpha1.Rule{
 						APIGroups:   []string{apiGroup},
@@ -298,7 +299,7 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 
 // ServeHTTP implements the external admission webhook.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.V(4).Infof("AdmissionController ServeHTTP request=%#v", r)
+	glog.V(7).Infof("AdmissionController ServeHTTP request=%#v", r)
 
 	var body []byte
 	if r.Body != nil {
@@ -308,6 +309,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			glog.V(4).Infof("Failed to read request body: %v", err)
 		}
 	}
+	glog.V(4).Infof("request body: %s", body)
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
@@ -327,7 +329,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Status: *status,
 	}
 
-	glog.V(2).Info("AdmissionReview for %v: status=%v", review.Spec.Name, status)
+	glog.V(4).Infof("AdmissionReview for %v: status=%v", review.Spec.Name, status)
 
 	resp, err := json.Marshal(ar)
 	if err != nil {
@@ -360,28 +362,34 @@ func (ac *AdmissionController) admit(review *v1alpha1.AdmissionReview) *v1alpha1
 		}
 	}
 
-	var t store.ChangeType
+	if !watched(ac.options.ValidateNamespaces, review.Spec.Namespace) {
+		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
+	}
+
+	ev := &store.BackendEvent{
+		Key: store.Key{
+			Namespace: review.Spec.Namespace,
+			Kind:      review.Spec.Kind.Kind,
+		},
+	}
 	switch review.Spec.Operation {
 	case admission.Create, admission.Update:
-		t = store.Update
+		ev.Type = store.Update
+		var obj unstructured.Unstructured
+		if err := yaml.Unmarshal(review.Spec.Object.Raw, &obj); err != nil {
+			return makeErrorStatus("cannot decode configuration: %v", err)
+		}
+		ev.Value = backEndResource(&obj)
+		ev.Key.Name = ev.Value.Metadata.Name
 	case admission.Delete:
-		t = store.Delete
+		ev.Type = store.Delete
+		ev.Key.Name = review.Spec.Name
 	default:
 		glog.Warningf("Unsupported webhook operation %v", review.Spec.Operation)
 		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
 	}
 
-	var obj unstructured.Unstructured
-	if err := yaml.Unmarshal(review.Spec.Object.Raw, &obj); err != nil {
-		return makeErrorStatus("cannot decode configuration: %v", err)
-	}
-
-	if !watched(ac.options.ValidateNamespaces, obj.GetNamespace()) {
-		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
-	}
-
-	ev := toEvent(t, &obj)
-	if err := ac.options.Validator.Validate(&ev); err != nil {
+	if err := ac.options.Validator.Validate(ev); err != nil {
 		return makeErrorStatus("failed to validate", err)
 	}
 
