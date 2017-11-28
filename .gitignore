@@ -17,3 +17,5 @@ cluster.env
 kubedns
 # pilot
 pilot/platform/config
+# lint
+lintconfig.gen.json
