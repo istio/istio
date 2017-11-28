@@ -235,10 +235,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *svcctrlreport.InstanceParam, path string) (*svcctrlreport.Instance, error)
+					param *svcctrlreport.InstanceParam, path string) (
+					*svcctrlreport.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *svcctrlreport.InstanceParam, path string) (*svcctrlreport.Instance, error) {
+					param *svcctrlreport.InstanceParam, path string) (
+					*svcctrlreport.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -497,10 +499,12 @@ var (
 				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
 				var BuildTemplate func(instName string,
-					param *apikey.InstanceParam, path string) (*apikey.Instance, error)
+					param *apikey.InstanceParam, path string) (
+					*apikey.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *apikey.InstanceParam, path string) (*apikey.Instance, error) {
+					param *apikey.InstanceParam, path string) (
+					*apikey.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -624,10 +628,12 @@ var (
 				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
 				var BuildTemplate func(instName string,
-					param *checknothing.InstanceParam, path string) (*checknothing.Instance, error)
+					param *checknothing.InstanceParam, path string) (
+					*checknothing.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *checknothing.InstanceParam, path string) (*checknothing.Instance, error) {
+					param *checknothing.InstanceParam, path string) (
+					*checknothing.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -711,10 +717,12 @@ var (
 				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
 				var BuildTemplate func(instName string,
-					param *listentry.InstanceParam, path string) (*listentry.Instance, error)
+					param *listentry.InstanceParam, path string) (
+					*listentry.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *listentry.InstanceParam, path string) (*listentry.Instance, error) {
+					param *listentry.InstanceParam, path string) (
+					*listentry.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -847,10 +855,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *logentry.InstanceParam, path string) (*logentry.Instance, error)
+					param *logentry.InstanceParam, path string) (
+					*logentry.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *logentry.InstanceParam, path string) (*logentry.Instance, error) {
+					param *logentry.InstanceParam, path string) (
+					*logentry.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1015,10 +1025,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *metric.InstanceParam, path string) (*metric.Instance, error)
+					param *metric.InstanceParam, path string) (
+					*metric.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *metric.InstanceParam, path string) (*metric.Instance, error) {
+					param *metric.InstanceParam, path string) (
+					*metric.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1147,10 +1159,12 @@ var (
 				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
 				var BuildTemplate func(instName string,
-					param *quota.InstanceParam, path string) (*quota.Instance, error)
+					param *quota.InstanceParam, path string) (
+					*quota.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *quota.InstanceParam, path string) (*quota.Instance, error) {
+					param *quota.InstanceParam, path string) (
+					*quota.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1232,10 +1246,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *reportnothing.InstanceParam, path string) (*reportnothing.Instance, error)
+					param *reportnothing.InstanceParam, path string) (
+					*reportnothing.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *reportnothing.InstanceParam, path string) (*reportnothing.Instance, error) {
+					param *reportnothing.InstanceParam, path string) (
+					*reportnothing.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -1383,10 +1399,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *tracespan.InstanceParam, path string) (*tracespan.Instance, error)
+					param *tracespan.InstanceParam, path string) (
+					*tracespan.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *tracespan.InstanceParam, path string) (*tracespan.Instance, error) {
+					param *tracespan.InstanceParam, path string) (
+					*tracespan.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}

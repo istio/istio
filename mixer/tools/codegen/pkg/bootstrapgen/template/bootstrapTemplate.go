@@ -184,13 +184,15 @@ var (
 			{{range getAllMsgs .}}
 			{{with $msg := .}}
 			var {{getBuildFnName $msg.Name}} func(instName string,
-				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
+					*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error)
 			{{end}}
 			{{end}}
 			{{range getAllMsgs .}}
 			{{with $msg := .}}
 			{{getBuildFnName $msg.Name}} = func(instName string,
-				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
+				param *{{$goPkgName}}.{{getResourcMessageInterfaceParamTypeName $msg.Name}}, path string) (
+					*{{$goPkgName}}.{{getResourcMessageInstanceName $msg.Name}}, error) {
 				if param == nil {
 					return nil, nil
 				}

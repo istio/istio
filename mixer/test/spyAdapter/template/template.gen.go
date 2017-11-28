@@ -104,10 +104,12 @@ var (
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *samplereport.InstanceParam, path string) (*samplereport.Instance, error)
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error)
 
 				BuildTemplate = func(instName string,
-					param *samplereport.InstanceParam, path string) (*samplereport.Instance, error) {
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
