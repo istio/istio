@@ -20,14 +20,13 @@ import (
 	"go/format"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"golang.org/x/tools/imports"
-
-	"regexp"
 
 	tmpl "istio.io/istio/mixer/tools/codegen/pkg/interfacegen/template"
 	"istio.io/istio/mixer/tools/codegen/pkg/modelgen"
