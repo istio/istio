@@ -9,8 +9,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//tests/integration/framework:go_default_library",
-        "//tests/integration/framework/component/fortio_server:go_default_library",
-        "//tests/integration/framework/component/mixer:go_default_library",
-        "//tests/integration/framework/component/proxy:go_default_library",
+        "//tests/integration/component/fortio_server:go_default_library",
+        "//tests/integration/component/mixer:go_default_library",
+        "//tests/integration/component/proxy:go_default_library",
     ],
 )
