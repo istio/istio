@@ -63,8 +63,8 @@ type options struct {
 	clientset      kubernetes.Interface
 	kubeconfig     string
 	namespace      string
-	org_root_cert  string
-	org_cert_chain string
+	orgRootCert    string
+	orgCertChain   string
 }
 
 func init() {
@@ -73,8 +73,8 @@ func init() {
 	flags.StringVar(&opts.containerImage, "image", "", "Name of Istio CA image")
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
-	flags.StringVar(&opts.org_root_cert, "root-cert", "", "Path to the original root ceritificate")
-	flags.StringVar(&opts.org_cert_chain, "cert-chain", "", "Path to the original certificate chain")
+	flags.StringVar(&opts.orgRootCert, "root-cert", "", "Path to the original root ceritificate")
+	flags.StringVar(&opts.orgCertChain, "cert-chain", "", "Path to the original workload certificate chain")
 
 	cmd.InitializeFlags(rootCmd)
 }
@@ -82,60 +82,60 @@ func init() {
 func main() {
 	// HACKHACK: let `flag.Parsed()` return true to prevent glog from emitting errors
 	flag.CommandLine = flag.NewFlagSet("", flag.ContinueOnError)
-	if err := flag.CommandLine.Parse([]string{}); err != nil {
-		glog.Fatal(err)
+	if errors := flag.CommandLine.Parse([]string{}); errors != nil {
+		glog.Fatal(errors)
 	}
 
-	if err := rootCmd.Execute(); err != nil {
+	if errors := rootCmd.Execute(); errors != nil {
 		if opts.clientset != nil && len(opts.namespace) > 0 {
-			err = utils.DeleteTestNamespace(opts.clientset, opts.namespace)
-			if err != nil {
-				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, err)
+			errors = utils.DeleteTestNamespace(opts.clientset, opts.namespace)
+			if errors != nil {
+				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, errors)
 			}
 		}
-		glog.Fatal(err)
+		glog.Fatal(errors)
 	}
 }
 
 func runTests(cmd *cobra.Command, args []string) error {
-	err := runSelfSignedCATests()
-	if err != nil {
-		return err
+	errors := runSelfSignedCATests()
+	if errors != nil {
+		return errors
 	}
 
-	err = runCAForNodeAgentTests()
-	if err != nil {
-		return err
+	errors = runCAForNodeAgentTests()
+	if errors != nil {
+		return errors
 	}
 
 	return nil
 }
 
 func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
-	clientset, err := utils.CreateClientset(opts.kubeconfig)
-	if err != nil {
-		return err
+	clientset, errors := utils.CreateClientset(opts.kubeconfig)
+	if errors != nil {
+		return errors
 	}
 	opts.clientset = clientset
 
-	namespace, err := utils.CreateTestNamespace(opts.clientset, integrationTestNamespacePrefix)
-	if err != nil {
-		return err
+	namespace, errors := utils.CreateTestNamespace(opts.clientset, integrationTestNamespacePrefix)
+	if errors != nil {
+		return errors
 	}
 	opts.namespace = namespace
 
 	// Create Role
-	err = utils.CreateRole(opts.clientset, opts.namespace)
-	if err != nil {
+	errors = utils.CreateIstioCARole(opts.clientset, opts.namespace)
+	if errors != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
-		return fmt.Errorf("failed to create a role (error: %v)", err)
+		return fmt.Errorf("failed to create a role (error: %v)", errors)
 	}
 
 	// Create RoleBinding
-	err = utils.CreateRoleBinding(opts.clientset, opts.namespace)
-	if err != nil {
+	errors = utils.CreateIstioCARoleBinding(opts.clientset, opts.namespace)
+	if errors != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
-		return fmt.Errorf("failed to create a rolebinding (error: %v)", err)
+		return fmt.Errorf("failed to create a rolebinding (error: %v)", errors)
 	}
 
 	return nil
@@ -143,45 +143,43 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
 
 func runSelfSignedCATests() error {
 	// Create Istio CA with self signed certificates
-	self_signed_ca_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	selfSignedCaPod, errors := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/istio-ca:%v", opts.containerHub, opts.containerTag), "istio-ca-self")
-	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+	if errors != nil {
+		return fmt.Errorf("failed to deploy Istio CA (error: %v)", errors)
 	}
-	glog.Infof("Succesfully created Istio CA pod(%v) with the self-signed-ca option",
-		self_signed_ca_pod.GetName())
+	glog.Infof("Successfully created Istio CA pod(%v) with the self-signed-ca option",
+		selfSignedCaPod.GetName())
 
 	// Test the existence of istio.default secret.
-	if s, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
-		secretWaitTime); err != nil {
-		return err
-	} else {
-		glog.Info(`Secret "istio.default" is correctly created`)
-
-		expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%s/sa/default", s.GetNamespace())
-		examineSecret(s, expectedID)
+	secret, errors := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+		secretWaitTime);
+	if errors != nil {
+		return errors
 	}
+	glog.Info(`Secret "istio.default" is correctly created`)
+
+	expectedID := fmt.Sprintf("spiffe://cluster.local/ns/%secret/sa/default", secret.GetNamespace())
+	examineSecret(secret, expectedID)
 
 	// Delete the secret.
 	do := &metav1.DeleteOptions{}
-	if err := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
-		return err
-	} else {
-		glog.Info(`Secret "istio.default" has been deleted`)
+	if errors := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); errors != nil {
+		return errors
 	}
+	glog.Info(`Secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
-	if _, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
-		secretWaitTime); err != nil {
-		return err
-	} else {
-		glog.Info(`Secret "istio.default" is correctly re-created`)
+	if _, errors := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+		secretWaitTime); errors != nil {
+		return errors
 	}
+	glog.Info(`Secret "istio.default" is correctly re-created`)
 
 	// Delete pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, self_signed_ca_pod.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete Istio CA (error: %v)", err)
+	errors = utils.DeletePod(opts.clientset, opts.namespace, selfSignedCaPod.GetName())
+	if errors != nil {
+		return fmt.Errorf("failed to delete Istio CA (error: %v)", errors)
 	}
 
 	return nil
@@ -189,69 +187,68 @@ func runSelfSignedCATests() error {
 
 func runCAForNodeAgentTests() error {
 	// Create a Istio CA and Service with generated certificates
-	ca_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	caPod, errors := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/istio-ca-test:%v", opts.containerHub, opts.containerTag),
 		"istio-ca-cert")
-	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+	if errors != nil {
+		return fmt.Errorf("failed to deploy Istio CA (error: %v)", errors)
 	}
 
 	// Create the istio-ca service for NodeAgent pod
-	ca_service, err := utils.CreateService(opts.clientset, opts.namespace, "istio-ca", 8060,
-		v1.ServiceTypeClusterIP, ca_pod)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+	caService, errors := utils.CreateService(opts.clientset, opts.namespace, "istio-ca", 8060,
+		v1.ServiceTypeClusterIP, caPod)
+	if errors != nil {
+		return fmt.Errorf("failed to deploy Istio CA (error: %v)", errors)
 	}
 
 	// Create the NodeAgent pod
-	na_pod, err := utils.CreatePod(opts.clientset, opts.namespace,
+	naPod, errors := utils.CreatePod(opts.clientset, opts.namespace,
 		fmt.Sprintf("%v/node-agent-test:%v", opts.containerHub, opts.containerTag),
 		"node-agent-cert")
-	if err != nil {
-		return fmt.Errorf("failed to deploy NodeAgent pod (error: %v)", err)
+	if errors != nil {
+		return fmt.Errorf("failed to deploy NodeAgent pod (error: %v)", errors)
 	}
 
 	// Create the service for NodeAgent pod
-	na_service, err := utils.CreateService(opts.clientset, opts.namespace, "node-agent", 8080,
-		v1.ServiceTypeLoadBalancer, na_pod)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+	naService, errors := utils.CreateService(opts.clientset, opts.namespace, "node-agent", 8080,
+		v1.ServiceTypeLoadBalancer, naPod)
+	if errors != nil {
+		return fmt.Errorf("failed to deploy Istio CA (error: %v)", errors)
 	}
 
 	// Test certificates of NodeAgent were updated and valid
-	_, err = opts.clientset.CoreV1().Services(opts.namespace).Get("node-agent", metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get the external IP adddress of node-agent service: %v", err)
+	_, errors = opts.clientset.CoreV1().Services(opts.namespace).Get("node-agent", metav1.GetOptions{})
+	if errors != nil {
+		return fmt.Errorf("failed to get the external IP adddress of node-agent service: %v", errors)
 	}
 
-	err = waitForNodeAgentCertificateUpdate(fmt.Sprintf("http://%v:%v",
-		na_service.Status.LoadBalancer.Ingress[0].IP, 8080))
-	if err != nil {
-		return fmt.Errorf("failed to check certificate update node-agent (err: %v)", err)
-	} else {
-		glog.Info("Certificate of NodeAgent was updated and verified successfully")
+	errors = waitForNodeAgentCertificateUpdate(fmt.Sprintf("http://%v:%v",
+		naService.Status.LoadBalancer.Ingress[0].IP, 8080))
+	if errors != nil {
+		return fmt.Errorf("failed to check certificate update node-agent (errors: %v)", errors)
 	}
+	glog.Info("Certificate of NodeAgent was updated and verified successfully")
 
 	// Delete created services
-	err = utils.DeleteService(opts.clientset, opts.namespace, ca_service.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete CA service: %v (error: %v)", ca_service.GetName(), err)
+	errors = utils.DeleteService(opts.clientset, opts.namespace, caService.GetName())
+	if errors != nil {
+		return fmt.Errorf("failed to delete CA service: %v (error: %v)", caService.GetName(), errors)
 	}
 
-	err = utils.DeleteService(opts.clientset, opts.namespace, na_service.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete NodeAgent service: %v (error: %v)", na_service.GetName(), err)
+	errors = utils.DeleteService(opts.clientset, opts.namespace, naService.GetName())
+	if errors != nil {
+		return fmt.Errorf("failed to delete NodeAgent service: %v (error: %v)", naService.GetName(), errors)
 	}
 
 	// Delete created pods
-	err = utils.DeletePod(opts.clientset, opts.namespace, ca_pod.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete CA pod: %v (error: %v)", ca_pod.GetName(), err)
+	errors = utils.DeletePod(opts.clientset, opts.namespace, caPod.GetName())
+	if errors != nil {
+		return fmt.Errorf("failed to delete CA pod: %v (error: %v)", caPod.GetName(), errors)
 	}
 
-	err = utils.DeletePod(opts.clientset, opts.namespace, na_pod.GetName())
-	if err != nil {
-		return fmt.Errorf("failed to delete NodeAgent pod: %v (error: %v)", na_pod.GetName(), err)
+	errors = utils.DeletePod(opts.clientset, opts.namespace, naPod.GetName())
+	if errors != nil {
+		return fmt.Errorf("failed to delete NodeAgent pod: %v (error: %v)", naPod.GetName(), errors)
 	}
 
 	return nil
@@ -266,7 +263,7 @@ func cleanUpIntegrationTest(cmd *cobra.Command, args []string) error {
 // * Key, certificate and CA root are correctly saved in the data section;
 func examineSecret(secret *v1.Secret, expectedID string) error {
 	if secret.Type != controller.IstioSecretType {
-		return fmt.Errorf(`Unexpected value for the "type" annotation: expecting %v but got %v`,
+		return fmt.Errorf(`unexpected value for the "type" annotation: expecting %v but got %v`,
 			controller.IstioSecretType, secret.Type)
 	}
 
@@ -284,30 +281,30 @@ func examineSecret(secret *v1.Secret, expectedID string) error {
 		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
 		IsCA:        false,
 	}
-	if err := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); err != nil {
-		return fmt.Errorf("Certificate verification failed: %v", err)
+	if errors := testutil.VerifyCertificate(key, cert, root, expectedID, verifyFields); errors != nil {
+		return fmt.Errorf("certificate verification failed: %v", errors)
 	}
 
 	return nil
 }
 
 func readFile(path string) (string, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
+	data, errors := ioutil.ReadFile(path)
+	if errors != nil {
+		return "", errors
 	}
 	return string(data), nil
 }
 
-func readUri(uri string) (string, error) {
-	resp, err := http.Get(uri)
-	if err != nil {
-		return "", err
+func readURI(uri string) (string, error) {
+	resp, errors := http.Get(uri)
+	if errors != nil {
+		return "", errors
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	bodyBytes, errors := ioutil.ReadAll(resp.Body)
+	if errors != nil {
 		return "", nil
 	}
 
@@ -315,49 +312,49 @@ func readUri(uri string) (string, error) {
 }
 
 func waitForNodeAgentCertificateUpdate(appurl string) error {
-	max_retry := certValidateRetry
+	maxRetry := certValidateRetry
 	term := certValidationInterval
 
-	org_root_cert, err := readFile(opts.org_root_cert)
-	if err != nil {
-		return fmt.Errorf("Unable to read original root certificate: %v", opts.org_root_cert)
+	orgRootCert, errors := readFile(opts.orgRootCert)
+	if errors != nil {
+		return fmt.Errorf("unable to read original root certificate: %v", opts.orgRootCert)
 	}
 
-	org_cert_chain, err := readFile(opts.org_cert_chain)
-	if err != nil {
-		return fmt.Errorf("Unable to read original certificate chain: %v", opts.org_cert_chain)
+	orgCertChain, errors := readFile(opts.orgCertChain)
+	if errors != nil {
+		return fmt.Errorf("unable to read original certificate chain: %v", opts.orgCertChain)
 	}
 
-	for i := 0; i < max_retry; i++ {
+	for i := 0; i < maxRetry; i++ {
 		if i > 0 {
 			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
 			term = term * 2
 		}
 
-		certPEM, err := readUri(fmt.Sprintf("%v/cert", appurl))
-		if err != nil {
-			glog.Errorf("Failed to read the certificate of NodeAgent: %v", err)
+		certPEM, errors := readURI(fmt.Sprintf("%v/cert", appurl))
+		if errors != nil {
+			glog.Errorf("Failed to read the certificate of NodeAgent: %v", errors)
 			continue
 		}
 
-		rootPEM, err := readUri(fmt.Sprintf("%v/root", appurl))
-		if err != nil {
-			glog.Errorf("Failed to read the root certificate of NodeAgent: %v", err)
+		rootPEM, errors := readURI(fmt.Sprintf("%v/root", appurl))
+		if errors != nil {
+			glog.Errorf("Failed to read the root certificate of NodeAgent: %v", errors)
 			continue
 		}
 
-		if org_root_cert != rootPEM {
-			return fmt.Errorf("Invalid root certificate was downloaded")
+		if orgRootCert != rootPEM {
+			return fmt.Errorf("invalid root certificate was downloaded")
 		}
 
-		if org_cert_chain == certPEM {
+		if orgCertChain == certPEM {
 			glog.Error("Certificate chain was not updated yet")
 			continue
 		}
 
 		roots := x509.NewCertPool()
-		ok := roots.AppendCertsFromPEM([]byte(org_root_cert))
+		ok := roots.AppendCertsFromPEM([]byte(orgRootCert))
 		if !ok {
 			return fmt.Errorf("failed to parse root certificate")
 		}
@@ -365,24 +362,23 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		block, _ := pem.Decode([]byte(certPEM))
 		if block == nil {
 			return fmt.Errorf("failed to parse certificate PEM")
-			continue
 		}
 
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse certificate: %v", err)
+		cert, errors := x509.ParseCertificate(block.Bytes)
+		if errors != nil {
+			return fmt.Errorf("failed to parse certificate: %v", errors)
 		}
 
 		opts := x509.VerifyOptions{
 			Roots: roots,
 		}
 
-		if _, err := cert.Verify(opts); err != nil {
-			return fmt.Errorf("failed to verify certificate: %v", err)
+		if _, errors := cert.Verify(opts); errors != nil {
+			return fmt.Errorf("failed to verify certificate: %v", errors)
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("Failed to check certificate update and validate after %v retry", max_retry)
+	return fmt.Errorf("failed to check certificate update and validate after %v retry", maxRetry)
 }

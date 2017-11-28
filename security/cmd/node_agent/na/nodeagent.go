@@ -49,7 +49,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Con
 	}
 	conn, err := grpc.Dial(cfg.IstioCAAddress, dialOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to dial %s: %s", cfg.IstioCAAddress, err)
+		return nil, fmt.Errorf("failed to dial %s: %s", cfg.IstioCAAddress, err)
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
