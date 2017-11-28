@@ -918,20 +918,22 @@ func buildEgressTCPListeners(mesh *proxyconfig.MeshConfig, node proxy.Node,
 	}
 
 	tcpRulesByPort := make(map[int][]*proxyconfig.EgressRule)
+	tcpProtocolByPort := make(map[int]model.Protocol)
 
 	for _, rule := range egressRules {
 		for _, port := range rule.Ports {
 			protocol := model.Protocol(strings.ToUpper(port.Protocol))
-			if protocol != model.ProtocolTCP {
+			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}
 			intPort := int(port.Port)
 			tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
+			tcpProtocolByPort[intPort] = protocol
 		}
 	}
 
 	for intPort, rules := range tcpRulesByPort {
-		protocol := model.ProtocolTCP
+		protocol := tcpProtocolByPort[intPort]
 		modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
 			Port: intPort, Protocol: protocol}
 
