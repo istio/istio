@@ -37,7 +37,11 @@ if [ "${CI:-}" == 'bootstrap' ]; then
     cd ${GOPATH}/src/istio.io/istio
   fi
 
-  GIT_SHA="${PULL_BASE_SHA}"
+  if [ -z "${PULL_PULL_SHA:-}" ]; then
+    GIT_SHA="${PULL_BASE_SHA}"
+  else
+    GIT_SHA="${PULL_PULL_SHA}"
+  fi
 
   # bootsrap upload all artifacts in _artifacts to the log bucket.
   ARTIFACTS_DIR=${ARTIFACTS_DIR:-"${GOPATH}/src/istio.io/istio/_artifacts"}
