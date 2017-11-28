@@ -137,6 +137,38 @@ func TestUnknownService(t *testing.T) {
 	}
 }
 
+func TestNewHandler(t *testing.T) {
+	ctx := &handlerContext{
+		env: at.NewEnv(t),
+		config: &config.Params{
+			ServiceConfigs: []*config.GcpServiceSetting{
+				{
+					MeshServiceName:   "test_service",
+					GoogleServiceName: "echo.googleapi.com",
+				},
+			},
+		},
+		serviceConfigIndex: map[string]*config.GcpServiceSetting{
+			"test_service": {
+				MeshServiceName:   "test_service",
+				GoogleServiceName: "echo.googleapi.com",
+			},
+		},
+	}
+
+	h, err := newHandler(ctx)
+	if err != nil {
+		t.Fatal(`fail to create handler`)
+	}
+	if !reflect.DeepEqual(*ctx, *h.ctx) {
+		t.Errorf(`handler not initialized with handleContext`)
+	}
+
+	if h.svcProcMap == nil {
+		t.Errorf(`handler.svcProcMap not initialized`)
+	}
+}
+
 func getTestHandler(mock *mockProcessor, t *testing.T) *handler {
 	return &handler{
 		ctx: &handlerContext{

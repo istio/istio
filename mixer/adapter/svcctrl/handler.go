@@ -73,7 +73,9 @@ type (
 		ctx *handlerContext
 
 		// lock protects svcProcMap.
-		lock       sync.Mutex
+		lock sync.Mutex
+		// Istio mesh service name to serviceProcessor map. Each serviceProcessor instance handles a single
+		// service.
 		svcProcMap map[string]*serviceProcessor
 	}
 )
@@ -101,6 +103,8 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 }
 
 // HandleApiKey handles apikey check.
+// nolint:golint
+// Disable lint warning of HandleApiKey name
 func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (adapter.CheckResult, error) {
 	svcProc, err := h.getServiceProcessor(ctx)
 	if err != nil {
@@ -126,7 +130,8 @@ func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance,
 	svcProc, err := h.getServiceProcessor(ctx)
 	if err != nil {
 		return adapter.QuotaResult{
-			Status: status.WithPermissionDenied(err.Error()),
+			// This map to rpc.INTERNAL.
+			Status: status.WithError(err),
 		}, nil
 	}
 	return svcProc.ProcessQuota(ctx, instance, args)
