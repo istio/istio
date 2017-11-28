@@ -6,7 +6,7 @@ set -o nounset
 bazel build //...
 
 genfiles=$(bazel info bazel-genfiles)
-files=$(find -L ${genfiles} -name "*.pb.go")
+files=$(find -L ${genfiles} -type f \( -name '*.pb.go' -or -name '*.gen.go' \) )
 
 for src in ${files}; do
     dst=${src##${genfiles}/}

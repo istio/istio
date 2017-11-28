@@ -35,8 +35,8 @@ func (c *checker) EvalType(expression string, attrFinder expr.AttributeDescripto
 	return v.EvalType(attrFinder, c.functions)
 }
 
-func (e *checker) AssertType(expression string, finder expr.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
-	if t, err := e.EvalType(expression, finder); err != nil {
+func (c *checker) AssertType(expression string, finder expr.AttributeDescriptorFinder, expectedType dpb.ValueType) error {
+	if t, err := c.EvalType(expression, finder); err != nil {
 		return err
 	} else if t != expectedType {
 		return fmt.Errorf("expression '%s' evaluated to type %v, expected type %v", expression, t, expectedType)

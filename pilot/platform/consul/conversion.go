@@ -139,27 +139,10 @@ func parseHostname(hostname string) (name string, err error) {
 }
 
 func convertProtocol(name string) model.Protocol {
-	switch name {
-	case "tcp":
-		return model.ProtocolTCP
-	case "udp":
-		return model.ProtocolUDP
-	case "grpc":
-		return model.ProtocolGRPC
-	case "http":
-		return model.ProtocolHTTP
-	case "http2":
-		return model.ProtocolHTTP2
-	case "https":
-		return model.ProtocolHTTPS
-	case "mongo":
-		return model.ProtocolMongo
-	case "redis":
-		return model.ProtocolRedis
-	case "":
-		// fallthrough to default protocol
-	default:
+	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+	if protocol == model.ProtocolUnsupported {
 		glog.Warningf("unsupported protocol value: %s", name)
+		return model.ProtocolTCP
 	}
-	return model.ProtocolTCP
+	return protocol
 }

@@ -50,7 +50,7 @@ func TestNewContextWithRequestData(t *testing.T) {
 func TestRequestDataFromContextWithCollidingInt0Key(t *testing.T) {
 	badKey := 0
 	wantBadKeyData := "some data associated with bad key"
-	ctx := context.WithValue(context.Background(), badKey, wantBadKeyData)
+	ctx := context.WithValue(context.Background(), badKey, wantBadKeyData) // nolint: golint
 
 	wantGoodKeyData := &RequestData{DestinationService: Service{FullName: "foo.bar"}}
 	ctx = context.WithValue(ctx, requestDataKey, wantGoodKeyData)

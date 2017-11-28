@@ -790,8 +790,8 @@ func convertInstanceParam(tf template.Repository, templateName string, params in
 }
 
 // convertAspectParams converts returns a typed proto message based on available validator.
-func convertAspectParams(
-	f AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder, typeChecker expr.TypeChecker) (AspectParams, *adapter.ConfigErrors) {
+func convertAspectParams(f AspectValidatorFinder, name string, params interface{}, strict bool, df descriptor.Finder,
+	typeChecker expr.TypeChecker) (AspectParams, *adapter.ConfigErrors) {
 
 	var ce *adapter.ConfigErrors
 	var avl AspectValidator
