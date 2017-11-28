@@ -64,13 +64,8 @@
   revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
 
 [[override]]
- name = "github.com/openzipkin/zipkin-go-opentracing"
- revision = "75836a71be339e7faf1b6b775e0703a875f484de"
- source = "https://github.com/mandarjog/zipkin-go-opentracing.git"
-
-[[override]]
-  revision = "d4df91709b724174aaf8a957f3edac3573be354e"
-  name = "github.com/apache/thrift"
+ name = "github.com/apache/thrift"
+ version = ">=0.9.3, <0.11.0"
 
 [[constraint]]
   name = "istio.io/api"
@@ -79,5 +74,3 @@
 [[constraint]]
   name = "istio.io/fortio"
   branch = "master"
-
-
