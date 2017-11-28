@@ -22,7 +22,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
+	mccpb "istio.io/api/mixer/v1/config/client"
 	proxyconfig "istio.io/api/proxy/v1/config"
+
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -242,6 +244,14 @@ type IstioConfigStore interface {
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
+
+	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
+	// associated with destination service instances.
+	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
+
+	// QuotaSpecByDestination selects Mixerclient quota specifications
+	// associated with destination service instances.
+	QuotaSpecByDestination(instance *ServiceInstance) []Config
 }
 
 const (
@@ -307,12 +317,48 @@ var (
 		Validate:    ValidateDestinationPolicy,
 	}
 
+	// HTTPAPISpec describes an HTTP API specification.
+	HTTPAPISpec = ProtoSchema{
+		Type:        "http-api-spec",
+		Plural:      "http-api-specs",
+		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
+		Validate:    ValidateHTTPAPISpec,
+	}
+
+	// HTTPAPISpecBinding describes an HTTP API specification binding.
+	HTTPAPISpecBinding = ProtoSchema{
+		Type:        "http-api-spec-binding",
+		Plural:      "http-api-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
+		Validate:    ValidateHTTPAPISpecBinding,
+	}
+
+	// QuotaSpec describes an Quota specification.
+	QuotaSpec = ProtoSchema{
+		Type:        "quota-spec",
+		Plural:      "quota-specs",
+		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
+		Validate:    ValidateQuotaSpec,
+	}
+
+	// QuotaSpecBinding describes an Quota specification binding.
+	QuotaSpecBinding = ProtoSchema{
+		Type:        "quota-spec-binding",
+		Plural:      "quota-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
+		Validate:    ValidateQuotaSpecBinding,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
 		IngressRule,
 		EgressRule,
 		DestinationPolicy,
+		HTTPAPISpec,
+		HTTPAPISpecBinding,
+		QuotaSpec,
+		QuotaSpecBinding,
 	}
 )
 
@@ -529,4 +575,118 @@ func RejectConflictingEgressRules(egressRules map[string]*proxyconfig.EgressRule
 	}
 
 	return filteredEgressRules, errs
+}
+
+// `istio.mixer.v1.config.client.IstioService` and
+// `istio.proxy.v1.config.IstioService` are logically
+// equivalent. Convert from mixer-to-proxy representation so we can
+// use ResolveHostname below.
+func mixerToProxyIstioService(in *mccpb.IstioService) *proxyconfig.IstioService {
+	return &proxyconfig.IstioService{
+		Name:      in.Name,
+		Namespace: in.Namespace,
+		Domain:    in.Domain,
+		Service:   in.Service,
+		Labels:    in.Labels,
+	}
+}
+
+// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
+// associated with destination service instances.
+func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(HTTPAPISpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(HTTPAPISpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of HTTP API spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.ApiSpecs {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of quota spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.QuotaSpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.QuotaSpecs {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+// SortHTTPAPISpec sorts a slice in a stable manner.
+func SortHTTPAPISpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.HTTPAPISpec)
+		jrule, _ := specs[j].Spec.(*mccpb.HTTPAPISpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
+}
+
+// SortQuotaSpec sorts a slice in a stable manner.
+func SortQuotaSpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.QuotaSpec)
+		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
 }
