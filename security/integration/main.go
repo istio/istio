@@ -164,15 +164,15 @@ func runSelfSignedCATests() error {
 
 	// Delete the secret.
 	do := &metav1.DeleteOptions{}
-	if errors := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); errors != nil {
-		return errors
+	if delErr := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); delErr != nil {
+		return delErr
 	}
 	glog.Info(`Secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
-	if _, errors := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
-		secretWaitTime); errors != nil {
-		return errors
+	if _, creErr := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+		secretWaitTime); creErr != nil {
+		return creErr
 	}
 	glog.Info(`Secret "istio.default" is correctly re-created`)
 
