@@ -377,7 +377,8 @@ func getProtoArray(typeName string) string {
 	return "repeated " + typeName
 }
 
-func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (protoType TypeInfo, goType TypeInfo, err error) {
+func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (
+	protoType TypeInfo, goType TypeInfo, err error) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
 		return TypeInfo{Name: "string"}, TypeInfo{Name: sSTRING}, nil

@@ -34,7 +34,8 @@ func TestErrorInTemplate(t *testing.T) {
 		{"testdata/missing_both_required.descriptor_set", []string{"There has to be one proto file that has the " +
 			"extension istio.mixer.v1.template.template_variety"}},
 		{"testdata/missing_template_message.descriptor_set", []string{"message 'Template' not defined"}},
-		{"testdata/reserved_field_in_template.descriptor_set", []string{"proto:14: Template message must not contain the reserved field name 'Name'"}},
+		{"testdata/reserved_field_in_template.descriptor_set", []string{"proto:14: Template message " +
+			"must not contain the reserved field name 'Name'"}},
 		{"testdata/proto2_bad_syntax.descriptor_set", []string{"Proto2BadSyntax.proto:3: Only proto3 template files are allowed."}},
 		{"testdata/unsupported_field_type_primitive.descriptor_set", []string{"unsupported type for field 'o'. " +
 			"Supported types are 'istio.mixer.v1.config.descriptor.ValueType, string, int64, double, bool, other messages " +
@@ -45,7 +46,8 @@ func TestErrorInTemplate(t *testing.T) {
 			"name 'foo.badStrNumbersNotAllowed123' must match the reges '^[a-zA-Z]+$'"}},
 		{"testdata/unsupported_valuetype_in_apa.descriptor_set", []string{"testdata/UnsupportedValueTypeInAPA.proto:12: " +
 			"unsupported type for field 'o'. Supported types are 'string, int64, double, bool, other messages defined " +
-			"within the same package, map<string, any of the listed supported types>'.", "testdata/UnsupportedValueTypeInAPA.proto: message 'OutputTemplate' not defined."}},
+			"within the same package, map<string, any of the listed supported types>'.",
+			"testdata/UnsupportedValueTypeInAPA.proto: message 'OutputTemplate' not defined."}},
 	}
 
 	for idx, tt := range tests {
