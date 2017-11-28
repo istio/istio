@@ -16,13 +16,17 @@ package svcctrl
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"sync"
 
 	sc "google.golang.org/api/servicecontrol/v1"
 
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
 )
@@ -67,9 +71,12 @@ type (
 
 	handler struct {
 		ctx *handlerContext
-		// TODO(manlinl): Switch to a LRU cache of serviceProcessor once Mixer includes destination.service in all
-		// instances by default. Then we can enable a single handler to server multiple services.
-		svcProc *serviceProcessor
+
+		// lock protects svcProcMap.
+		lock sync.Mutex
+		// Istio mesh service name to serviceProcessor map. Each serviceProcessor instance handles a single
+		// service.
+		svcProcMap map[string]*serviceProcessor
 	}
 )
 
@@ -96,40 +103,80 @@ func newServiceProcessor(meshServiceName string, ctx *handlerContext) (*serviceP
 }
 
 // HandleApiKey handles apikey check.
+// nolint:golint
+// Disable lint warning of HandleApiKey name
 func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (adapter.CheckResult, error) {
-	result, err := h.svcProc.ProcessCheck(ctx, instance)
-	logger := h.ctx.env.Logger()
+	svcProc, err := h.getServiceProcessor(ctx)
 	if err != nil {
-		logger.Errorf("svcctrl check failed: %v", err)
+		return adapter.CheckResult{
+			Status: status.WithPermissionDenied(err.Error()),
+		}, nil
 	}
-	return result, err
+	return svcProc.ProcessCheck(ctx, instance)
 }
 
 // HandleSvcctrlReport handles reporting metrics and logs.
 func (h *handler) HandleSvcctrlReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
-	err := h.svcProc.ProcessReport(ctx, instances)
-	logger := h.ctx.env.Logger()
+	svcProc, err := h.getServiceProcessor(ctx)
 	if err != nil {
-		logger.Errorf("svcctrl check failed: %v", err)
+		return err
 	}
-	return err
+	return svcProc.ProcessReport(ctx, instances)
 }
 
 // HandleQuota handles rate limiting quota.
 func (h *handler) HandleQuota(ctx context.Context, instance *quota.Instance,
 	args adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	return h.svcProc.ProcessQuota(ctx, instance, args)
+	svcProc, err := h.getServiceProcessor(ctx)
+	if err != nil {
+		return adapter.QuotaResult{
+			// This map to rpc.INTERNAL.
+			Status: status.WithError(err),
+		}, nil
+	}
+	return svcProc.ProcessQuota(ctx, instance, args)
 }
 
-// Close closes a serviceProcessor
+// Close closes a handler.
+// TODO(manlinl): Run svcProc.Close in goroutine after reportProcessor implements buffering.
 func (h *handler) Close() error {
-	return h.svcProc.Close()
+	h.lock.Lock()
+	defer h.lock.Lock()
+	for _, svcProc := range h.svcProcMap {
+		svcProc.Close()
+	}
+	return nil
 }
 
-func newHandler(ctx *handlerContext) (*handler, error) {
-	svcProc, err := newServiceProcessor(ctx.config.ServiceConfigs[0].MeshServiceName, ctx)
+func (h *handler) getServiceProcessor(ctx context.Context) (*serviceProcessor, error) {
+	requestData, ok := adapter.RequestDataFromContext(ctx)
+	if !ok {
+		return nil, errors.New(`no RequestData found in context`)
+	}
+
+	serviceFullName := requestData.DestinationService.FullName
+	if _, ok := h.ctx.serviceConfigIndex[serviceFullName]; !ok {
+		return nil, fmt.Errorf("unknown service %v", serviceFullName)
+	}
+
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	svcProc, found := h.svcProcMap[serviceFullName]
+	if found {
+		return svcProc, nil
+	}
+
+	svcProc, err := newServiceProcessor(serviceFullName, h.ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &handler{ctx, svcProc}, nil
+	h.svcProcMap[serviceFullName] = svcProc
+	return svcProc, nil
+}
+
+func newHandler(ctx *handlerContext) (*handler, error) {
+	return &handler{
+		ctx:        ctx,
+		svcProcMap: make(map[string]*serviceProcessor, len(ctx.config.ServiceConfigs)),
+	}, nil
 }
