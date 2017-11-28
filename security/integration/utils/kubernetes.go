@@ -114,7 +114,7 @@ func DeleteService(clientset kubernetes.Interface, namespace string, name string
 
 // CreatePod creates a pod object and returns a pointer pointing to this object on success.
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
-	podUuid := string(uuid.NewUUID())
+	podUUID := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
 		{
@@ -141,7 +141,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"podUuid":   podUuid,
+				"podUUID":   podUUID,
 				"pod-group": fmt.Sprintf("%v-pod-group", name),
 			},
 			Name: name,
@@ -154,7 +154,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		return nil, err
 	}
 
-	if err := waitForPodRunning(clientset, namespace, podUuid, 60*time.Second); err != nil {
+	if err := waitForPodRunning(clientset, namespace, podUUID, 60*time.Second); err != nil {
 		return nil, err
 	}
 
