@@ -885,7 +885,7 @@ func ValidateEgressRule(msg proto.Message) error {
 			!IsEgressRulesSupportedTCPProtocol(Protocol(strings.ToUpper(port.Protocol))) {
 			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
 				"CIDR destination service notation: %s. "+
-				"This rule: port: %d protocol: %s destination.service: %s",
+				"This rule - port: %d protocol: %s destination.service: %s",
 				egressRulesSupportedTCPProtocols(), port.Port, port.Protocol, destination.Service))
 		}
 	}
