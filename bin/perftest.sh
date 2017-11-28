@@ -8,7 +8,7 @@ cd $ROOT
 
 
 echo "Perf test"
-DIRS="pkg/api pkg/expr pkg/il/interpreter"
+DIRS="mixer/pkg/api mixer/pkg/cache mixer/pkg/expr mixer/pkg/il/interpreter"
 cd $ROOT
 for pkgdir in ${DIRS}; do
     cd ${ROOT}/${pkgdir} 
