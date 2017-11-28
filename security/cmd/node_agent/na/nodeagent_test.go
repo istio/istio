@@ -246,7 +246,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "Istio CA address is empty",
+			expectedErr: "istio CA address is empty",
 		},
 		"IstioCAAddress is incorrect": {
 			config: &Config{
