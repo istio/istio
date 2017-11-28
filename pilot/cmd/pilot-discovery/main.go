@@ -109,6 +109,10 @@ var (
 				model.RouteRule,
 				model.EgressRule,
 				model.DestinationPolicy,
+				model.HTTPAPISpec,
+				model.HTTPAPISpecBinding,
+				model.QuotaSpec,
+				model.QuotaSpecBinding,
 			}, flags.controllerOptions.DomainSuffix)
 			if err != nil {
 				return multierror.Prefix(err, "failed to open a config client.")
@@ -173,13 +177,13 @@ var (
 						})
 				case platform.EurekaRegistry:
 					glog.V(2).Infof("Eureka url: %v", flags.eureka.serverURL)
-					client := eureka.NewClient(flags.eureka.serverURL)
+					eurekaClient := eureka.NewClient(flags.eureka.serverURL)
 					serviceControllers.AddRegistry(
 						aggregate.Registry{
 							Name: serviceRegistry,
 							// TODO: Remove sync time hardcoding!
-							Controller:       eureka.NewController(client, 2*time.Second),
-							ServiceDiscovery: eureka.NewServiceDiscovery(client),
+							Controller:       eureka.NewController(eurekaClient, 2*time.Second),
+							ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 							ServiceAccounts:  eureka.NewServiceAccounts(),
 						})
 				default:

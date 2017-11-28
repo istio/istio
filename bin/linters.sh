@@ -23,8 +23,8 @@ docker run\
   -v $(pwd):/go/src/istio.io/istio\
   -w /go/src/istio.io/istio\
   gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10\
-  --config=./lintconfig.json \
-  ./... || true
+  --config=./lintconfig.gen.json \
+  ./...
 echo 'linters OK'
 
 echo 'Checking licences'

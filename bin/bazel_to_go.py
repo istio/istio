@@ -185,7 +185,7 @@ def bazel_to_vendor(WKSPC):
     with open(os.path.join(WKSPC, "lintconfig_base.json")) as fin:
         conf = json.load(fin)
     conf['exclude'].extend(manifest)
-    with open(os.path.join(WKSPC, "lintconfig.json"), "wt") as fout:
+    with open(os.path.join(WKSPC, "lintconfig.gen.json"), "wt") as fout:
         json.dump(conf, fout, sort_keys=True, indent=4, separators=(',', ': '))
 
 

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
+// Server is an in-memory Mixer service.
 type Server struct {
 	addr         string
 	mixerContext *cmd.ServerContext
