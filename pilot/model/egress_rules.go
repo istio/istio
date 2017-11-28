@@ -15,6 +15,7 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 
@@ -85,7 +86,6 @@ func IsEgressRulesSupportedHTTPProtocol(protocol Protocol) bool {
 	return ok
 }
 
-
 // IsEgressRulesSupportedTCPProtocol returns true if the protocol is supported
 // by egress rules, as a TCP protocol (service names can contain CIDR)
 func IsEgressRulesSupportedTCPProtocol(protocol Protocol) bool {
@@ -100,17 +100,17 @@ func IsEgressRulesSupportedProtocol(protocol Protocol) bool {
 
 func protocolMapAsString(protocolMap map[Protocol]bool) string {
 	first := true
-	result := ""
+	var result bytes.Buffer
 
 	for key := range protocolMap {
 		if !first {
-			result += ","
+			result.WriteString(",")
 		}
-		result += string(key)
+		result.WriteString(string(key))
 		first = false
 	}
 
-	return result
+	return result.String()
 }
 
 func egressRulesSupportedHTTPProtocols() string {
