@@ -19,7 +19,7 @@ package envoy
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	proxyconfig "istio.io/api/routing/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -67,17 +67,17 @@ func applyClusterPolicy(cluster *Cluster,
 		return
 	}
 
-	policy := policyConfig.Spec.(*proxyconfig.DestinationPolicy)
+	policy := policyConfig.Spec.(*routing.DestinationPolicy)
 
 	// Load balancing policies do not apply for Original DST clusters
 	// as the intent is to go directly to the instance.
 	if policy.LoadBalancing != nil && cluster.Type != ClusterTypeOriginalDST {
 		switch policy.LoadBalancing.GetName() {
-		case proxyconfig.LoadBalancing_ROUND_ROBIN:
+		case routing.LoadBalancing_ROUND_ROBIN:
 			cluster.LbType = LbTypeRoundRobin
-		case proxyconfig.LoadBalancing_LEAST_CONN:
+		case routing.LoadBalancing_LEAST_CONN:
 			cluster.LbType = LbTypeLeastRequest
-		case proxyconfig.LoadBalancing_RANDOM:
+		case routing.LoadBalancing_RANDOM:
 			cluster.LbType = LbTypeRandom
 		}
 	}

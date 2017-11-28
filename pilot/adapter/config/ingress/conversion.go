@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	proxyconfig "istio.io/api/routing/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 )
@@ -64,53 +64,53 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 
 func createIngressRule(name, host, path, domainSuffix string,
 	ingress v1beta1.Ingress, backend v1beta1.IngressBackend, tlsSecret string) model.Config {
-	rule := &proxyconfig.IngressRule{
-		Destination: &proxyconfig.IstioService{
+	rule := &routing.IngressRule{
+		Destination: &routing.IstioService{
 			Name: backend.ServiceName,
 		},
 		TlsSecret: tlsSecret,
-		Match: &proxyconfig.MatchCondition{
-			Request: &proxyconfig.MatchRequest{
-				Headers: make(map[string]*proxyconfig.StringMatch, 2),
+		Match: &routing.MatchCondition{
+			Request: &routing.MatchRequest{
+				Headers: make(map[string]*routing.StringMatch, 2),
 			},
 		},
 	}
 	switch backend.ServicePort.Type {
 	case intstr.Int:
-		rule.DestinationServicePort = &proxyconfig.IngressRule_DestinationPort{
+		rule.DestinationServicePort = &routing.IngressRule_DestinationPort{
 			DestinationPort: int32(backend.ServicePort.IntValue()),
 		}
 	case intstr.String:
-		rule.DestinationServicePort = &proxyconfig.IngressRule_DestinationPortName{
+		rule.DestinationServicePort = &routing.IngressRule_DestinationPortName{
 			DestinationPortName: backend.ServicePort.String(),
 		}
 	}
 
 	if host != "" {
-		rule.Match.Request.Headers[model.HeaderAuthority] = &proxyconfig.StringMatch{
-			MatchType: &proxyconfig.StringMatch_Exact{Exact: host},
+		rule.Match.Request.Headers[model.HeaderAuthority] = &routing.StringMatch{
+			MatchType: &routing.StringMatch_Exact{Exact: host},
 		}
 	}
 
 	if path != "" {
 		if isRegularExpression(path) {
 			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
-					MatchType: &proxyconfig.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
+				rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+					MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 				}
 			} else {
-				rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
-					MatchType: &proxyconfig.StringMatch_Regex{Regex: path},
+				rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+					MatchType: &routing.StringMatch_Regex{Regex: path},
 				}
 			}
 		} else {
-			rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
-				MatchType: &proxyconfig.StringMatch_Exact{Exact: path},
+			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+				MatchType: &routing.StringMatch_Exact{Exact: path},
 			}
 		}
 	} else {
-		rule.Match.Request.Headers[model.HeaderURI] = &proxyconfig.StringMatch{
-			MatchType: &proxyconfig.StringMatch_Prefix{Prefix: "/"},
+		rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+			MatchType: &routing.StringMatch_Prefix{Prefix: "/"},
 		}
 	}
 
