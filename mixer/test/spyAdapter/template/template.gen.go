@@ -55,26 +55,39 @@ var (
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
-				var err error = nil
-				cpb := cp.(*samplereport.InstanceParam)
-				infrdType := &samplereport.Type{}
 
-				if cpb.Value == "" || cpb.Value == emptyQuotes {
-					return nil, errors.New("expression for field Value cannot be empty")
-				}
-				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
-					return nil, err
-				}
+				var BuildTemplate func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error)
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
-				for k, v := range cpb.Dimensions {
-					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
-						return nil, err
+				BuildTemplate = func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error) {
+					if param == nil {
+						return nil, nil
 					}
+					infrdType := &samplereport.Type{}
+					var err error = nil
+
+					if param.Value == "" || param.Value == emptyQuotes {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
+					}
+					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Value", err)
+					}
+
+					infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(param.Dimensions))
+
+					for k, v := range param.Dimensions {
+
+						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Dimensions", err)
+						}
+					}
+
+					return infrdType, err
 				}
 
-				_ = cpb
-				return infrdType, err
+				return BuildTemplate(cp.(*samplereport.InstanceParam), "")
 			},
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
@@ -89,34 +102,54 @@ var (
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-				var instances []*samplereport.Instance
-				for name, inst := range insts {
-					md := inst.(*samplereport.InstanceParam)
 
-					Value, err := mapper.Eval(md.Value, attrs)
+				var BuildTemplate func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error)
+
+				BuildTemplate = func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Value, err := mapper.Eval(param.Value, attrs)
 
 					if err != nil {
-						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
 						glog.Error(msg)
-						return errors.New(msg)
+						return nil, errors.New(msg)
 					}
 
-					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
+					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
 
 					if err != nil {
-						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
 						glog.Error(msg)
-						return errors.New(msg)
+						return nil, errors.New(msg)
 					}
 
-					instances = append(instances, &samplereport.Instance{
-						Name: name,
+					_ = param
+					return &samplereport.Instance{
+
+						Name: instName,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
-					})
-					_ = md
+					}, nil
+				}
+
+				var instances []*samplereport.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*samplereport.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
 				}
 
 				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {

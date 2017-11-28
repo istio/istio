@@ -36,8 +36,9 @@ const (
 )
 
 var (
-	remotePath = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
-	localPath  = flag.String("istioctl", "", "Use local istioctl instead of remote")
+	defaultProxy = flag.Bool("default_proxy", false, "Test with default proxy hub and tag")
+	remotePath   = flag.String("istioctl_url", os.Getenv(istioctlURL), "URL to download istioctl")
+	localPath    = flag.String("istioctl", "", "Use local istioctl instead of remote")
 )
 
 // Istioctl gathers istioctl information.
@@ -137,6 +138,10 @@ func (i *Istioctl) run(format string, args ...interface{}) error {
 
 // KubeInject use istio kube-inject to create new yaml with a proxy as sidecar.
 func (i *Istioctl) KubeInject(src, dest string) error {
+	if *defaultProxy {
+		return i.run("kube-inject -f %s -o %s -n %s -i %s",
+			src, dest, i.namespace, i.namespace)
+	}
 	return i.run("kube-inject -f %s -o %s --hub %s --tag %s -n %s -i %s",
 		src, dest, i.proxyHub, i.proxyTag, i.namespace, i.namespace)
 }

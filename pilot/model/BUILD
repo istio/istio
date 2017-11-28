@@ -6,6 +6,7 @@ go_library(
         "config.go",
         "controller.go",
         "conversion.go",
+        "egress_rules.go",
         "service.go",
         "validation.go",
     ],
@@ -54,6 +55,7 @@ go_test(
     srcs = [
         "config_test.go",
         "conversion_test.go",
+        "egress_rules_test.go",
     ],
     deps = [
         ":go_default_library",
