@@ -36,4 +36,7 @@ if [ $BRANCH_NAME != '(no branch)' ]; then
 
     echo "generating pb.go files..."
     bin/generate-protos.sh
+
+    echo "formatting..."
+    bin/fmt.sh
 fi
