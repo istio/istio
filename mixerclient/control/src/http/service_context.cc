@@ -24,7 +24,10 @@ namespace http {
 
 ServiceContext::ServiceContext(std::shared_ptr<ClientContext> client_context,
                                const ServiceConfig* config)
-    : client_context_(client_context), service_config_(config) {
+    : client_context_(client_context) {
+  if (config) {
+    service_config_.reset(new ServiceConfig(*config));
+  }
   BuildParsers();
 }
 

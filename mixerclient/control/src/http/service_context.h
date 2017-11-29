@@ -69,7 +69,8 @@ class ServiceContext {
   std::vector<std::unique_ptr<::istio::quota::ConfigParser>> quota_parsers_;
 
   // The service config.
-  const ::istio::mixer::v1::config::client::ServiceConfig* service_config_{};
+  std::unique_ptr<::istio::mixer::v1::config::client::ServiceConfig>
+      service_config_;
 };
 
 }  // namespace http
