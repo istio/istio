@@ -262,7 +262,7 @@ type HTTPRoute struct {
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 
 	Headers      Headers           `json:"headers,omitempty"`
-	TimeoutMS    int64             `json:"timeout_ms,omitempty"`
+	TimeoutMS    int64             `json:"timeout_ms"`
 	RetryPolicy  *RetryPolicy      `json:"retry_policy,omitempty"`
 	OpaqueConfig map[string]string `json:"opaque_config,omitempty"`
 

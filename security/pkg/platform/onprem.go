@@ -78,7 +78,7 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 		return "", err
 	}
 	if len(serviceIDs) != 1 {
-		return "", fmt.Errorf("Cert has %v SAN fields, should be 1", len(serviceIDs))
+		return "", fmt.Errorf("cert has %v SAN fields, should be 1", len(serviceIDs))
 	}
 	return serviceIDs[0], nil
 }
@@ -87,7 +87,7 @@ func (ci *OnPremClientImpl) GetServiceIdentity() (string, error) {
 func (ci *OnPremClientImpl) GetAgentCredential() ([]byte, error) {
 	certBytes, err := ioutil.ReadFile(ci.config.CertChainFile)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read cert file: %s", ci.config.CertChainFile)
+		return nil, fmt.Errorf("failed to read cert file: %s", ci.config.CertChainFile)
 	}
 	return certBytes, nil
 }
@@ -105,19 +105,19 @@ func getTLSCredentials(certificateFile string, keyFile string,
 	// Load the certificate from disk
 	certificate, err := tls.LoadX509KeyPair(certificateFile, keyFile)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot load key pair: %s", err)
+		return nil, fmt.Errorf("cannot load key pair: %s", err)
 	}
 
 	// Create a certificate pool
 	certPool := x509.NewCertPool()
 	bs, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read CA cert: %s", err)
+		return nil, fmt.Errorf("failed to read CA cert: %s", err)
 	}
 
 	ok := certPool.AppendCertsFromPEM(bs)
 	if !ok {
-		return nil, fmt.Errorf("Failed to append certificates")
+		return nil, fmt.Errorf("failed to append certificates")
 	}
 
 	config := tls.Config{

@@ -278,6 +278,11 @@ var (
 		file: "testdata/egress-rule-timeout-route-rule.yaml.golden",
 	}
 
+	egressRuleTCP = fileConfig{
+		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google-cloud-tcp"},
+		file: "testdata/egress-rule-tcp.yaml.golden",
+	}
+
 	ingressRouteRule1 = fileConfig{
 		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "world"},
 		file: "testdata/ingress-route-world.yaml.golden",

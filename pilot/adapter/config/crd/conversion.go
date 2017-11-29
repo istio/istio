@@ -79,30 +79,49 @@ func ResourceName(s string) string {
 	return strings.Replace(s, "-", "", -1)
 }
 
+// TODO - add special cases for type-to-kind and kind-to-type
+// conversions with initial-isms. Consider adding additional type
+// information to the abstract model and/or elevating k8s
+// representation to first-class type to avoid extra conversions.
+
 // KabobCaseToCamelCase converts "my-name" to "MyName"
 func KabobCaseToCamelCase(s string) string {
-	words := strings.Split(s, "-")
-	out := ""
-	for _, word := range words {
-		out = out + strings.Title(word)
+	switch s {
+	case "http-api-spec":
+		return "HTTPAPISpec"
+	case "http-api-spec-binding":
+		return "HTTPAPISpecBinding"
+	default:
+		words := strings.Split(s, "-")
+		out := ""
+		for _, word := range words {
+			out = out + strings.Title(word)
+		}
+		return out
 	}
-	return out
 }
 
 // CamelCaseToKabobCase converts "MyName" to "my-name"
 func CamelCaseToKabobCase(s string) string {
-	var out bytes.Buffer
-	for i := range s {
-		if 'A' <= s[i] && s[i] <= 'Z' {
-			if i > 0 {
-				out.WriteByte('-')
+	switch s {
+	case "HTTPAPISpec":
+		return "http-api-spec"
+	case "HTTPAPISpecBinding":
+		return "http-api-spec-binding"
+	default:
+		var out bytes.Buffer
+		for i := range s {
+			if 'A' <= s[i] && s[i] <= 'Z' {
+				if i > 0 {
+					out.WriteByte('-')
+				}
+				out.WriteByte(s[i] - 'A' + 'a')
+			} else {
+				out.WriteByte(s[i])
 			}
-			out.WriteByte(s[i] - 'A' + 'a')
-		} else {
-			out.WriteByte(s[i])
 		}
+		return out.String()
 	}
-	return out.String()
 }
 
 // ParseInputs reads multiple documents from `kubectl` output and checks with

@@ -25,6 +25,8 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
+	mpb "istio.io/api/mixer/v1"
+	mccpb "istio.io/api/mixer/v1/config/client"
 	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model/test"
 )
@@ -1097,6 +1099,41 @@ func TestValidateEgressRuleDomain(t *testing.T) {
 	}
 }
 
+func TestValidateEgressRuleService(t *testing.T) {
+	services := map[string]bool{
+		"cnn.com":        true,
+		"cnn..com":       false,
+		"10.0.0.100":     true,
+		"cnn.com:80":     false,
+		"*cnn.com":       true,
+		"*.cnn.com":      true,
+		"*-cnn.com":      true,
+		"*.0.0.100":      true,
+		"*0.0.100":       true,
+		"*cnn*.com":      false,
+		"cnn.*.com":      false,
+		"*com":           true,
+		"*0":             true,
+		"**com":          false,
+		"**0":            false,
+		"*":              true,
+		"":               false,
+		"*.":             false,
+		"192.168.3.0/24": true,
+		"50.1.2.3/32":    true,
+		"10.15.0.0/16":   true,
+		"10.15.0.0/0":    true,
+		"10.15.0/16":     false,
+		"10.15.0.0/33":   false,
+	}
+
+	for service, valid := range services {
+		if got := ValidateEgressRuleService(service); (got == nil) != valid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %s", got == nil, valid, got, service)
+		}
+	}
+}
+
 func TestValidateEgressRulePort(t *testing.T) {
 	ports := map[*proxyconfig.EgressRule_Port]bool{
 		{Port: 80, Protocol: "http"}:    true,
@@ -1107,7 +1144,8 @@ func TestValidateEgressRulePort(t *testing.T) {
 		{Port: 443, Protocol: "http"}:   true,
 		{Port: 1, Protocol: "http"}:     true,
 		{Port: 2, Protocol: "https"}:    true,
-		{Port: 80, Protocol: "tcp"}:     false,
+		{Port: 80, Protocol: "tcp"}:     true,
+		{Port: 80, Protocol: "udp"}:     false,
 		{Port: 0, Protocol: "http"}:     false,
 		{Port: 65536, Protocol: "http"}: false,
 		{Port: 65535, Protocol: "http"}: true,
@@ -1160,6 +1198,40 @@ func TestValidateEgressRule(t *testing.T) {
 				},
 				UseEgressProxy: false},
 			valid: true},
+		{name: "valid egress rule with IP address",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 443, Protocol: "https"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+
+		{name: "valid egress rule with tcp ports",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "tcp"},
+				},
+				UseEgressProxy: false},
+			valid: true},
+		{name: "egress rule with tcp ports, an http protocol",
+			in: &proxyconfig.EgressRule{
+				Destination: &proxyconfig.IstioService{
+					Service: "192.168.3.0/24",
+				},
+				Ports: []*proxyconfig.EgressRule_Port{
+					{Port: 80, Protocol: "tcp"},
+					{Port: 443, Protocol: "http"},
+				},
+				UseEgressProxy: false},
+			valid: false},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
 			in: &proxyconfig.EgressRule{
 				Destination: &proxyconfig.IstioService{
@@ -1206,6 +1278,383 @@ func TestValidateEgressRule(t *testing.T) {
 		if got := ValidateEgressRule(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateEgressRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+var (
+	validService    = &mccpb.IstioService{Service: "*cnn.com"}
+	invalidService  = &mccpb.IstioService{Service: "^-foobar"}
+	validAttributes = &mpb.Attributes{
+		Attributes: map[string]*mpb.Attributes_AttributeValue{
+			"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+		},
+	}
+	invalidAttributes = &mpb.Attributes{
+		Attributes: map[string]*mpb.Attributes_AttributeValue{
+			"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{""}},
+		},
+	}
+)
+
+func TestValidateMixerAttributes(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name:  "valid",
+			in:    validAttributes,
+			valid: true,
+		},
+		{
+			name: "invalid",
+			in:   invalidAttributes,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateMixerAttributes(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateMixerAttributes(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateHTTPAPISpec(t *testing.T) {
+	var (
+		validPattern = &mccpb.HTTPAPISpecPattern{
+			Attributes: validAttributes,
+			HttpMethod: "POST",
+			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+				UriTemplate: "/pet/{id}",
+			},
+		}
+		invalidPatternHTTPMethod = &mccpb.HTTPAPISpecPattern{
+			Attributes: validAttributes,
+			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+				UriTemplate: "/pet/{id}",
+			},
+		}
+		invalidPatternURITemplate = &mccpb.HTTPAPISpecPattern{
+			Attributes: validAttributes,
+			HttpMethod: "POST",
+			Pattern:    &mccpb.HTTPAPISpecPattern_UriTemplate{},
+		}
+		invalidPatternRegex = &mccpb.HTTPAPISpecPattern{
+			Attributes: validAttributes,
+			HttpMethod: "POST",
+			Pattern:    &mccpb.HTTPAPISpecPattern_Regex{},
+		}
+		validAPIKey         = &mccpb.APIKey{Key: &mccpb.APIKey_Query{"api_key"}}
+		invalidAPIKeyQuery  = &mccpb.APIKey{Key: &mccpb.APIKey_Query{}}
+		invalidAPIKeyHeader = &mccpb.APIKey{Key: &mccpb.APIKey_Header{}}
+		invalidAPIKeyCookie = &mccpb.APIKey{Key: &mccpb.APIKey_Cookie{}}
+	)
+
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "missing pattern",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+		},
+		{
+			name: "invalid pattern (bad attributes)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: invalidAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+		},
+		{
+			name: "invalid pattern (bad http_method)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternHTTPMethod},
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+		},
+		{
+			name: "invalid pattern (missing uri_template)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternURITemplate},
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+		},
+		{
+			name: "invalid pattern (missing regex)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternRegex},
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+		},
+		{
+			name: "invalid api-key (missing query)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
+				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyQuery},
+			},
+		},
+		{
+			name: "invalid api-key (missing header)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
+				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyHeader},
+			},
+		},
+		{
+			name: "invalid api-key (missing cookie)",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
+				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyCookie},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.HTTPAPISpec{
+				Attributes: validAttributes,
+				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
+				ApiKeys:    []*mccpb.APIKey{validAPIKey},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateHTTPAPISpec(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateHTTPAPISpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateHTTPAPISpecBinding(t *testing.T) {
+	var (
+		validHTTPAPISpecRef   = &mccpb.HTTPAPISpecReference{Name: "foo", Namespace: "bar"}
+		invalidHTTPAPISpecRef = &mccpb.HTTPAPISpecReference{Name: "foo", Namespace: "--bar"}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no service",
+			in: &mccpb.HTTPAPISpecBinding{
+				Services: []*mccpb.IstioService{},
+				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
+			},
+		},
+		{
+			name: "invalid service",
+			in: &mccpb.HTTPAPISpecBinding{
+				Services: []*mccpb.IstioService{invalidService},
+				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
+			},
+		},
+		{
+			name: "no spec",
+			in: &mccpb.HTTPAPISpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				ApiSpecs: []*mccpb.HTTPAPISpecReference{},
+			},
+		},
+		{
+			name: "invalid spec",
+			in: &mccpb.HTTPAPISpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				ApiSpecs: []*mccpb.HTTPAPISpecReference{invalidHTTPAPISpecRef},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.HTTPAPISpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateHTTPAPISpecBinding(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateHTTPAPISpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateQuotaSpec(t *testing.T) {
+	var (
+		validMatch = &mccpb.AttributeMatch{
+			Clause: map[string]*mccpb.StringMatch{
+				"api.operation": {
+					MatchType: &mccpb.StringMatch_Exact{
+						Exact: "getPet",
+					},
+				},
+			},
+		}
+		invalidMatchExact = &mccpb.AttributeMatch{
+			Clause: map[string]*mccpb.StringMatch{
+				"api.operation": {
+					MatchType: &mccpb.StringMatch_Exact{Exact: ""},
+				},
+			},
+		}
+		invalidMatchPrefix = &mccpb.AttributeMatch{
+			Clause: map[string]*mccpb.StringMatch{
+				"api.operation": {
+					MatchType: &mccpb.StringMatch_Prefix{Prefix: ""},
+				},
+			},
+		}
+		invalidMatchRegex = &mccpb.AttributeMatch{
+			Clause: map[string]*mccpb.StringMatch{
+				"api.operation": {
+					MatchType: &mccpb.StringMatch_Regex{Regex: ""},
+				},
+			},
+		}
+		invalidQuota = &mccpb.Quota{
+			Quota:  "",
+			Charge: 0,
+		}
+		validQuota = &mccpb.Quota{
+			Quota:  "myQuota",
+			Charge: 2,
+		}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no rules",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{}},
+			},
+		},
+		{
+			name: "invalid match (exact)",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{invalidMatchExact},
+					Quotas: []*mccpb.Quota{validQuota},
+				}},
+			},
+		},
+		{
+			name: "invalid match (prefix)",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{invalidMatchPrefix},
+					Quotas: []*mccpb.Quota{validQuota},
+				}},
+			},
+		},
+		{
+			name: "invalid match (regex)",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{invalidMatchRegex},
+					Quotas: []*mccpb.Quota{validQuota},
+				}},
+			},
+		},
+		{
+			name: "no quota",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{validMatch},
+					Quotas: []*mccpb.Quota{},
+				}},
+			},
+		},
+		{
+			name: "invalid quota/charge",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{validMatch},
+					Quotas: []*mccpb.Quota{invalidQuota},
+				}},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.QuotaSpec{
+				Rules: []*mccpb.QuotaRule{{
+					Match:  []*mccpb.AttributeMatch{validMatch},
+					Quotas: []*mccpb.Quota{validQuota},
+				}},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateQuotaSpec(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateQuotaSpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateQuotaSpecBinding(t *testing.T) {
+	var (
+		validQuotaSpecRef   = &mccpb.QuotaSpecBinding_QuotaSpecReference{Name: "foo", Namespace: "bar"}
+		invalidQuotaSpecRef = &mccpb.QuotaSpecBinding_QuotaSpecReference{Name: "foo", Namespace: "--bar"}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no service",
+			in: &mccpb.QuotaSpecBinding{
+				Services:   []*mccpb.IstioService{},
+				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
+			},
+		},
+		{
+			name: "invalid service",
+			in: &mccpb.QuotaSpecBinding{
+				Services:   []*mccpb.IstioService{invalidService},
+				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
+			},
+		},
+		{
+			name: "no spec",
+			in: &mccpb.QuotaSpecBinding{
+				Services:   []*mccpb.IstioService{validService},
+				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{},
+			},
+		},
+		{
+			name: "invalid spec",
+			in: &mccpb.QuotaSpecBinding{
+				Services:   []*mccpb.IstioService{validService},
+				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{invalidQuotaSpecRef},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.QuotaSpecBinding{
+				Services:   []*mccpb.IstioService{validService},
+				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateQuotaSpecBinding(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
 }

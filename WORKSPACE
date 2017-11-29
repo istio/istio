@@ -2,7 +2,7 @@
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -93,9 +93,9 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 
@@ -295,12 +295,6 @@ go_repository(
 )
 
 go_repository(
-    name = "org_golang_x_oauth2",
-    commit = "3c3a985cb79f52a3190fbc056984415ca6763d01",  # Aug 26, 2016 (no releases)
-    importpath = "golang.org/x/oauth2",
-)
-
-go_repository(
     name = "com_github_juju_ratelimit",
     commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 23, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
@@ -416,7 +410,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_api",
-    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
+    commit = "406e6cffe51212e465c56554f243c115595e135a",  # Oct 3, 2017 (no release)
     importpath = "google.golang.org/api",
 )
 
@@ -451,18 +445,9 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_openzipkin_zipkin_go_opentracing",
-    build_file_proto_mode = "legacy",
-    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
-    importpath = "github.com/openzipkin/zipkin-go-opentracing",
-    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
-    vcs = "git",
-)
-
-go_repository(
     name = "com_github_apache_thrift",
     build_file_name = "BUILD.bazel",
-    commit = "d4df91709b724174aaf8a957f3edac3573be354e",  # Oct 26, 2017 (HEAD) required by openzipkin dependency.
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Pinned to 0.10.0 Release until jaeger libraries can update
     importpath = "github.com/apache/thrift",
 )
 
@@ -704,11 +689,13 @@ go_repository(
     importpath = "github.com/go-openapi/swag",
 )
 
-go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-    importpath = "github.com/gogo/protobuf",
-)
+# gogo/protobuf dependency is described in mixer/adapter_author_deps.bzl.
+# This is not necessary.
+# go_repository(
+#     name = "com_github_gogo_protobuf",
+#     commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
+#     importpath = "github.com/gogo/protobuf",
+# )
 
 go_repository(
     name = "com_github_golang_glog",
@@ -814,7 +801,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_oauth2",
-    commit = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4",
+    commit = "9a379c6b3e95a790ffc43293c2a78dee0d7b6e20",  # Aug 7, 2017 (no releases)
     importpath = "golang.org/x/oauth2",
 )
 
@@ -1051,9 +1038,9 @@ go_repository(
 ## Proxy image
 ##
 
-# Change this and the docker/Dockerfile.proxy* files together
+# Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "a05c813aa01b8eed00d1698f5daba3f468b0a293"
+ISTIO_PROXY_BUCKET = "ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
 
 http_file(
     name = "envoy_binary",
@@ -1081,11 +1068,6 @@ git_repository(
 )
 
 ## auth deps
-go_repository(
-    name = "com_github_aws_aws-sdk-go",
-    importpath = "github.com/aws/aws-sdk-go",
-    tag = "v1.12.5",
-)
 
 go_repository(
     name = "com_github_go_ini_ini",
@@ -1149,4 +1131,22 @@ go_repository(
     name = "com_github_gorilla_context",
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_client_go",
+    commit = "ffe98ab2252526eee5389b09328d6433024625f6",
+    importpath = "github.com/uber/jaeger-client-go",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_lib",
+    commit = "bc381f836083a0f7d5778d4216022388c4aeaf46",
+    importpath = "github.com/uber/jaeger-lib",
+)
+
+go_repository(
+    name = "com_github_codahale_hdrhistogram",
+    commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
+    importpath = "github.com/codahale/hdrhistogram",
 )

@@ -268,7 +268,7 @@ spec:
           - --configStoreURL=fs:///etc/opt/mixer/configroot
           - --configStore2URL=k8s://
           - --configDefaultNamespace=istio-system
-          - --traceOutput=http://zipkin:9411/api/v1/spans
+          - --zipkinURL=http://zipkin:9411/api/v1/spans
           - --logtostderr
           - -v
           - "2"
@@ -672,6 +672,8 @@ spec:
     request.auth.audiences:
       valueType: STRING
     request.auth.presenter:
+      valueType: STRING
+    request.api_key:
       valueType: STRING
 
 ---

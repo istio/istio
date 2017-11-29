@@ -46,7 +46,8 @@ func TestControllerEmpty(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            make(map[string]*adapter.Info),
 		templateInfo:           make(map[string]template.Info),
-		eval:                   nil,
+		evaluator:              nil,
+		typeChecker:            nil,
 		configState:            make(map[store.Key]*store.Resource),
 		dispatcher:             d,
 		resolver:               &resolver{}, // get an empty resolver
@@ -206,7 +207,8 @@ func TestController_workflow(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
-		eval:                   nil,
+		evaluator:              nil,
+		typeChecker:            nil,
 		configState:            configState,
 		dispatcher:             d,
 		resolver:               res, // get an empty resolver
@@ -669,7 +671,7 @@ func TestController_KindMap(t *testing.T) {
 		},
 	}
 
-	km := kindMap(ai, ti)
+	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
 		"t1":                  &cpb.Instance{},

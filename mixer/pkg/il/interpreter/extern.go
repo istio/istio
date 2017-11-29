@@ -121,9 +121,14 @@ func ilType(t reflect.Type) il.Type {
 		case "Time":
 			return il.Interface
 		}
+	case reflect.Interface:
+		switch t.Name() {
+		case "StringMap":
+			return il.Interface
+		}
 	}
 
-	return il.Unknown
+	panic("Unmapped go type: " + t.Name() + " " + t.String() + " kind:" + t.Kind().String())
 }
 
 // invoke calls the extern function via reflection, using the interpreter's calling convention.

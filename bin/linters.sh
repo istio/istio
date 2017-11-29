@@ -22,13 +22,13 @@ docker run\
   -v $(bazel info output_base):$(bazel info output_base)\
   -v $(pwd):/go/src/istio.io/istio\
   -w /go/src/istio.io/istio\
-  gcr.io/istio-testing/linter:bfcc1d6942136fd86eb6f1a6fb328de8398fbd80\
-  --config=./lintconfig.json \
-  ./... || true
+  gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10\
+  --config=./lintconfig.gen.json \
+  ./...
 echo 'linters OK'
 
 echo 'Checking licences'
-bin/check_license.sh || true
+bin/check_license.sh
 echo 'licences OK'
 
 echo 'Running buildifier ...'

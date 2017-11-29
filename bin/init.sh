@@ -15,6 +15,10 @@ if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
+# Clean up vendor dir
+rm -rf ${ROOT}/vendor
+mkdir -p ${ROOT}/vendor
+
 # This step is to fetch resources and create genfiles
 time bazel build //...
 time bazel build $(bazel query 'tests(//...)')

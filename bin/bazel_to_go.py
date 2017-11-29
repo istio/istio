@@ -31,10 +31,6 @@ def keywords(stmt):
     u = urlparse(path)
     return u.netloc + u.path, kw["name"]
 
-pathmap = {
-    "github.com/istio/api": "istio.io/api"
-}
-
 known_repos = {
         "org_golang_google": "google.golang.org",
         "com_github": "github.com",
@@ -86,8 +82,8 @@ class WORKSPACE(object):
 def process(fl, external, genfiles, vendor):
     src = subprocess.Popen("bazel query 'kind(\"go_repository|new_git.*_repository\", \"//external:*\")' --output=build", shell=True, stdout=subprocess.PIPE).stdout.read()
     tree = ast.parse(src, fl)
-    lst = []
     wksp = WORKSPACE(external, genfiles, vendor)
+    lst = [wksp.go_repository('io_istio_api', 'istio.io/api')]
 
     for stmt in ast.walk(tree):
         stmttype = type(stmt)
@@ -100,7 +96,6 @@ def process(fl, external, genfiles, vendor):
             path, name = keywords(stmt)
             if path.endswith(".git"):
                 path = path[:-4]
-            path = pathmap.get(path, path)
             tup = fn(name, path)
             lst.append(tup)
 
@@ -166,9 +161,6 @@ def bazel_to_vendor(WKSPC):
         if not link:
             # print "Could not resolve", ext_target
             continue
-        if link in pathmap:
-            # skip remapped deps
-            continue
         linksrc = os.path.join(vendor, link)
 
         # only make this link if we have not made it above
@@ -193,7 +185,7 @@ def bazel_to_vendor(WKSPC):
     with open(os.path.join(WKSPC, "lintconfig_base.json")) as fin:
         conf = json.load(fin)
     conf['exclude'].extend(manifest)
-    with open(os.path.join(WKSPC, "lintconfig.json"), "wt") as fout:
+    with open(os.path.join(WKSPC, "lintconfig.gen.json"), "wt") as fout:
         json.dump(conf, fout, sort_keys=True, indent=4, separators=(',', ': '))
 
 
@@ -218,12 +210,12 @@ def should_copy(src, dest):
     if not os.path.exists(dest):
         return True
     p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
-    p.wait()
+    (stdout, _) = p.communicate()
     if src.endswith('.pb.go'):
         # there might be diffs for 'source:' lines and others.
         has_diff = False
         linecount = 0
-        for l in p.stdout:
+        for l in stdout:
             linecount += 1
             if linecount < 3:
                 # first two lines are headers, skipping
@@ -249,7 +241,7 @@ def should_copy(src, dest):
             has_diff = True
             break
     else:
-        has_diff = (p.stdout.read() != '')
+        has_diff = (stdout != '')
     return has_diff
 
 def protos(WKSPC, genfiles, genfiles_external):
