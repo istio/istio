@@ -54,7 +54,7 @@ func RejectConflictingEgressRules(egressRules map[string]*routing.EgressRule) ( 
 		keyOfAnEgressRuleWithTheSameDomain, conflictingRule := domains[domain]
 		if conflictingRule {
 			errs = multierror.Append(errs,
-				fmt.Errorf("rule %q conflicts with rule %q on domain "+
+				fmt.Errorf("rule %s conflicts with rule %s on domain "+
 					"%s, is rejected", egressRuleKey,
 					keyOfAnEgressRuleWithTheSameDomain, domain))
 			continue

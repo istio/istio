@@ -180,12 +180,12 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 	for _, c := range cases {
 		got, errs := model.RejectConflictingEgressRules(c.in)
 		if (errs == nil) != c.valid {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v",
-				c.name, errs == nil, c.valid)
+			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v, errs=%v",
+				c.name, errs == nil, c.valid, errs)
 		}
 		if !reflect.DeepEqual(got, c.out) {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v: %v",
-				c.name, got, c.in)
+			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v, errs= %v",
+				c.name, got, c.in, errs)
 		}
 	}
 }
