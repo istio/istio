@@ -78,10 +78,12 @@ func (mixerComp *LocalComponent) Start() (err error) {
 
 	mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-		"/Users/yutongz/go/src/istio.io/istio/bazel-bin/mixer/cmd/server/mixs", mixerConfig, emptyDir))
+			mixerComp.BinaryPath, mixerConfig, emptyDir))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
+
+	log.Printf("Started component %s", mixerComp.GetName())
 	return
 }
 

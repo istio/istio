@@ -17,13 +17,6 @@
 # Print commands
 set -x
 
-cleanup () {
-  if [ ! -z "${TEMP_DIR}" ] && [ -d "${TEMP_DIR}" ]; then
-    rm -r ${TEMP_DIR}
-  fi
-}
-#trap cleanup EXIT
-
 function process_result() {
     if [[ $1 -eq 0 ]]; then
         SUMMARY+="\nPASSED: $2 "
@@ -33,23 +26,22 @@ function process_result() {
     fi
 }
 
-#cleanup
-TEMP_DIR=$(pwd)/integration_tmp
-mkdir ${TEMP_DIR}
-
-
 # Build mixer binary
-bazel build -c opt mixer/cmd/server:mixs
+bazel build //mixer/cmd/server:mixs
+MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/server/mixs
 
 # Get fortio
 go get -u istio.io/fortio
 
 # Download Proxy
-ISTIO_PROXY_BUCKET="ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
-ENVOY_URL="https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_PROXY_BUCKET}.tar.gz"
-wget -O ${TEMP_DIR}/envoy_tar ${ENVOY_URL}
-tar xvfz ${TEMP_DIR}/envoy_tar -C ${TEMP_DIR}
-ENVOY_BINARY=${TEMP_DIR}/usr/local/bin/envoy
+cd ..
+cd proxy || git clone https://github.com/istio/proxy; cd proxy
+git pull
+bazel build //src/envoy/mixer:envoy
+ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
+cd ../istio
+
+pwd
 
 # Run Tests
 TESTSPATH='tests/integration/tests'
@@ -57,8 +49,13 @@ TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)")) || error_exit 'Could 
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
+TESTARG=(-envoy_binary ${ENVOY_BINARY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+
 for T in ${TESTS_TARGETS[@]}; do
     echo "Running ${T}"
-    bazel run ${T}
+    bazel run ${T} -- ${TESTARG[@]}
     process_result $? ${T}
 done
+
+printf "${SUMMARY}\n"
+exit ${FAILURE_COUNT}

@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/tests/integration/component"
 	"istio.io/istio/tests/util"
+	"log"
 )
 
 var (
@@ -49,10 +50,12 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 
 // Start brings up a local fortio echo server
 func (FortioServerComp *LocalComponent) Start() (err error) {
-	FortioServerComp.Process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.LogFile))
+	FortioServerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server > %s 2>&1 &",
+		FortioServerComp.BinaryPath, FortioServerComp.LogFile))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(2 * time.Second)
+	log.Printf("Started component %s", FortioServerComp.GetName())
 	return
 }
 

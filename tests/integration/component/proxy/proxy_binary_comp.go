@@ -17,6 +17,7 @@ package proxy
 import (
 	"flag"
 	"fmt"
+	"log"
 	"time"
 
 	"istio.io/istio/tests/integration/component"
@@ -24,7 +25,7 @@ import (
 )
 
 var (
-	envoryBinary = flag.String("envoy_binary", "", "Envoy binary path.")
+	envoyBinary = flag.String("envoy_binary", "", "Envoy binary path.")
 )
 
 // LocalComponent is a component of local proxy binary in process
@@ -42,7 +43,7 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 				Name:    n,
 				LogFile: logFile,
 			},
-			BinaryPath: *envoryBinary,
+			BinaryPath: *envoyBinary,
 		},
 	}
 }
@@ -50,10 +51,12 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
 	proxyComp.Process, err = util.RunBackground(fmt.Sprintf("%s > %s 2>&1",
-		"/Users/yutongz/go/src/istio.io/istio/integration_tmp/usr/local/bin/envoy", proxyComp.LogFile))
+		proxyComp.BinaryPath, proxyComp.LogFile))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
+
+	log.Printf("Started component %s", proxyComp.GetName())
 	return
 }
 

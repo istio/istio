@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
+	"log"
 )
 
 type CommonComp struct {
@@ -38,6 +39,7 @@ type CommonProcessComp struct {
 }
 
 func (cpc *CommonProcessComp) Stop() (err error) {
+	log.Printf("Stopping component %s", cpc.GetName())
 	err = util.KillProcess(cpc.Process)
 	return
 }
