@@ -175,6 +175,112 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				},
 			},
 			valid: false},
+		{name: "no conflicts on port",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.EgressRule_Port{
+						{Port: 80, Protocol: "http2"},
+						{Port: 1000, Protocol: "tcp"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.EgressRule_Port{
+						{Port: 80, Protocol: "http2"},
+						{Port: 1000, Protocol: "tcp"},
+					},
+				},
+			},
+			valid: true},
+		{name: "conflicts on port between tcp protocols",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.EgressRule_Port{
+						{Port: 80, Protocol: "http2"},
+						{Port: 1000, Protocol: "mongo"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+			},
+			valid: false},
+		{name: "conflicts on port between http protocols",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.EgressRule_Port{
+						{Port: 80, Protocol: "mongo"},
+						{Port: 1000, Protocol: "tcp"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.EgressRule_Port{
+					{Port: 80, Protocol: "http"},
+					{Port: 1000, Protocol: "tcp"},
+				},
+			},
+			},
+			valid: false},
 	}
 
 	for _, c := range cases {
