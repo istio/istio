@@ -15,6 +15,7 @@
 package fortioServer
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -22,22 +23,26 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+var (
+	fortioBinary = flag.String("fortio_binary", "", "Fortio binary path.")
+)
+
 // LocalComponent is a local fortio server componment
 type LocalComponent struct {
-	component.CommonProcesssComp
+	component.CommonProcessComp
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, binaryPath, logDir string) *LocalComponent {
+func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 
 	return &LocalComponent{
-		CommonProcesssComp: component.CommonProcesssComp{
+		CommonProcessComp: component.CommonProcessComp{
 			CommonComp: component.CommonComp{
 				Name:    n,
 				LogFile: logFile,
 			},
-			BinaryPath: binaryPath,
+			BinaryPath: *fortioBinary,
 		},
 	}
 }

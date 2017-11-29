@@ -56,7 +56,7 @@ func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
 	}
 
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", "/tmp", logDir))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", logDir))
 
 	return comps
 }

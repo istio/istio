@@ -15,6 +15,7 @@
 package proxy
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -22,22 +23,26 @@ import (
 	"istio.io/istio/tests/util"
 )
 
+var (
+	envoryBinary = flag.String("envoy_binary", "", "Envoy binary path.")
+)
+
 // LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
-	component.CommonProcesssComp
+	component.CommonProcessComp
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, binaryPath, logDir string) *LocalComponent {
+func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 
 	return &LocalComponent{
-		CommonProcesssComp: component.CommonProcesssComp{
+		CommonProcessComp: component.CommonProcessComp{
 			CommonComp: component.CommonComp{
 				Name:    n,
 				LogFile: logFile,
 			},
-			BinaryPath: binaryPath,
+			BinaryPath: *envoryBinary,
 		},
 	}
 }

@@ -31,13 +31,13 @@ func (cc *CommonComp) GetName() string {
 	return cc.Name
 }
 
-type CommonProcesssComp struct {
+type CommonProcessComp struct {
 	CommonComp
 	Process *os.Process
 	BinaryPath string
 }
 
-func (cpc *CommonProcesssComp) Stop() (err error) {
+func (cpc *CommonProcessComp) Stop() (err error) {
 	err = util.KillProcess(cpc.Process)
 	return
 }

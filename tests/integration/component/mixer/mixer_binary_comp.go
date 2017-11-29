@@ -15,6 +15,7 @@
 package mixer
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -25,26 +26,30 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-const(
+const (
 	testConfigPath = "mixer/testdata/config"
+)
+
+var (
+	mixerBinary = flag.String("mixer_binary", "", "Mixer binary path.")
 )
 
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
-	component.CommonProcesssComp
+	component.CommonProcessComp
 	configDir string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
-func NewLocalComponent(n, binaryPath, logDir, configDir string) *LocalComponent {
+func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &LocalComponent{
-		CommonProcesssComp: component.CommonProcesssComp{
+		CommonProcessComp: component.CommonProcessComp{
 			CommonComp: component.CommonComp{
 				Name:    n,
 				LogFile: logFile,
 			},
-			BinaryPath: binaryPath,
+			BinaryPath: *mixerBinary,
 		},
 		configDir: configDir,
 	}
@@ -73,7 +78,7 @@ func (mixerComp *LocalComponent) Start() (err error) {
 
 	mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-			"/Users/yutongz/go/src/istio.io/istio/bazel-bin/mixer/cmd/server/mixs", mixerConfig, emptyDir))
+		"/Users/yutongz/go/src/istio.io/istio/bazel-bin/mixer/cmd/server/mixs", mixerConfig, emptyDir))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)

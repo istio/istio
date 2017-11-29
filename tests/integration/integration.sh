@@ -48,7 +48,7 @@ go get -u istio.io/fortio
 ISTIO_PROXY_BUCKET="ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
 ENVOY_URL="https://storage.googleapis.com/istio-build/proxy/envoy-debug-${ISTIO_PROXY_BUCKET}.tar.gz"
 wget -O ${TEMP_DIR}/envoy_tar ${ENVOY_URL}
-tar xvfz ${TEMP_DIR}/envoy_tar
+tar xvfz ${TEMP_DIR}/envoy_tar -C ${TEMP_DIR}
 ENVOY_BINARY=${TEMP_DIR}/usr/local/bin/envoy
 
 # Run Tests
@@ -58,7 +58,7 @@ TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
 for T in ${TESTS_TARGETS[@]}; do
-    print_block "Running ${T}"
+    echo "Running ${T}"
     bazel run ${T}
     process_result $? ${T}
 done

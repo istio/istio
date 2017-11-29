@@ -15,7 +15,6 @@
 package environment
 
 import (
-	"flag"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -24,10 +23,6 @@ import (
 	"istio.io/istio/tests/integration/component/mixer"
 	"istio.io/istio/tests/integration/component/proxy"
 	"istio.io/istio/tests/integration/framework"
-)
-
-var (
-	envoryBinary = flag.String("envoy_binary", "", "Envoy binary path.")
 )
 
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
@@ -66,7 +61,7 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 	comps := []framework.Component{}
 	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", logDir))
 	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", logDir, configDir))
-	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", *envoryBinary, logDir))
+	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", logDir))
 
 	return comps
 }
