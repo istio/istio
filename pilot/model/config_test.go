@@ -422,7 +422,7 @@ func TestEgressRules(t *testing.T) {
 			Service: "*.foo.com",
 		},
 		Ports: []*routing.Port{{
-			Number:     80,
+			Number:   80,
 			Protocol: "HTTP",
 		}},
 	}
