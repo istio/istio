@@ -34,9 +34,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*routing.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Ports: []*routing.Port{
+					{Number: 80, Protocol: "http"},
+					{Number: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
@@ -44,9 +44,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*bbc.com",
 					},
 
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},
@@ -54,18 +54,18 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*routing.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Ports: []*routing.Port{
+					{Number: 80, Protocol: "http"},
+					{Number: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
 					Destination: &routing.IstioService{
 						Service: "*bbc.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},
@@ -75,18 +75,18 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*routing.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Ports: []*routing.Port{
+					{Number: 80, Protocol: "http"},
+					{Number: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},
@@ -95,9 +95,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},
@@ -107,18 +107,18 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*routing.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Ports: []*routing.Port{
+					{Number: 80, Protocol: "http"},
+					{Number: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 8080, Protocol: "http"},
-						{Port: 8081, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 8080, Protocol: "http"},
+						{Number: 8081, Protocol: "https"},
 					},
 				},
 			},
@@ -127,9 +127,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 8080, Protocol: "http"},
-						{Port: 8081, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 8080, Protocol: "http"},
+						{Number: 8081, Protocol: "https"},
 					},
 				},
 			},
@@ -139,27 +139,27 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*routing.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
+				Ports: []*routing.Port{
+					{Number: 80, Protocol: "http"},
+					{Number: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 				"cnn3": {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},
@@ -168,9 +168,9 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*routing.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
+					Ports: []*routing.Port{
+						{Number: 80, Protocol: "http"},
+						{Number: 443, Protocol: "https"},
 					},
 				},
 			},

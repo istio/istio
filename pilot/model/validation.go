@@ -873,10 +873,10 @@ func ValidateEgressRule(msg proto.Message) error {
 
 	ports := make(map[int32]bool)
 	for _, port := range rule.Ports {
-		if _, exists := ports[port.Port]; exists {
-			errs = multierror.Append(errs, fmt.Errorf("duplicate port: %d", port.Port))
+		if _, exists := ports[port.Number]; exists {
+			errs = multierror.Append(errs, fmt.Errorf("duplicate port: %d", port.Number))
 		}
-		ports[port.Port] = true
+		ports[port.Number] = true
 
 		if err := ValidateEgressRulePort(port); err != nil {
 			errs = multierror.Append(errs, err)
@@ -887,7 +887,7 @@ func ValidateEgressRule(msg proto.Message) error {
 			errs = multierror.Append(errs, fmt.Errorf("Only the following protocols can be defined for "+
 				"CIDR destination service notation: %s. "+
 				"This rule - port: %d protocol: %s destination.service: %s",
-				egressRulesSupportedTCPProtocols(), port.Port, port.Protocol, destination.Service))
+				egressRulesSupportedTCPProtocols(), port.Number, port.Protocol, destination.Service))
 		}
 	}
 
@@ -964,9 +964,9 @@ func ValidateEgressRuleDomain(domain string) error {
 }
 
 // ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
-func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
+func ValidateEgressRulePort(port *routing.Port) error {
 
-	if err := ValidatePort(int(port.Port)); err != nil {
+	if err := ValidatePort(int(port.Number)); err != nil {
 		return err
 	}
 
