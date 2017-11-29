@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
@@ -453,35 +452,10 @@ func buildTCPListener(tcpConfig *TCPRouteConfig, ip string, port int, protocol m
 				baseTCPProxy,
 			},
 		}
-	case model.ProtocolRedis:
-		// Redis filter requires the cluster name to be specified
-		// as part of the filter. We extract the cluster from the
-		// TCPRoute. Since TCPRoute has only one route, we take the
-		// cluster from the first route. The moment this route array
-		// has multiple routes, we need a fallback. For the moment,
-		// fallback to base TCP.
-
-		// Unlike Mongo, Redis is a standalone filter, that is not
-		// stacked on top of tcp_proxy
-		if len(tcpConfig.Routes) == 1 {
-			return &Listener{
-				Name:    fmt.Sprintf("redis_%s_%d", ip, port),
-				Address: fmt.Sprintf("tcp://%s:%d", ip, port),
-				Filters: []*NetworkFilter{{
-					Type: both,
-					Name: RedisProxyFilter,
-					Config: &RedisProxyFilterConfig{
-						ClusterName: tcpConfig.Routes[0].Cluster,
-						StatPrefix:  "redis",
-						ConnPool: &RedisConnPool{
-							OperationTimeoutMS: int64(RedisDefaultOpTimeout / time.Millisecond),
-						},
-					},
-				}},
-			}
-		}
 	}
 
+	// Use Envoy's TCP proxy for TCP and Redis protocols. Currently, Envoy does not support CDS clusters
+	// for Redis proxy.
 	return &Listener{
 		Name:    fmt.Sprintf("tcp_%s_%d", ip, port),
 		Address: fmt.Sprintf("tcp://%s:%d", ip, port),
