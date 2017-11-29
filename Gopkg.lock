@@ -540,16 +540,14 @@
   revision = "287cf08546ab5e7e37d55a84f7ed3fd1db036de5"
 
 [[projects]]
-  branch = "master"
   name = "istio.io/api"
   packages = ["broker/v1/config","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","proxy/v1/config"]
-  revision = "80e750910cd1a63367153b30e2a047973b68e5f0"
+  revision = "9f333d0643ba30f18dbc43bc08e0604e9371fe76"
 
 [[projects]]
-  branch = "master"
   name = "istio.io/fortio"
   packages = ["fhttp","log","periodic","stats"]
-  revision = "352aab8335fe279251e986d7168fd6d53f09faa3"
+  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
 
 [[projects]]
   name = "k8s.io/api"
@@ -584,6 +582,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7e463f6a8f1c4d2515ecd17ee57d34627be7f05f7e7d4634536b4a0ddc9f5c94"
+  inputs-digest = "97b03a1286969e211bcfa9771f8581b25a773e5079838aa952d204643b4b4750"
   solver-name = "gps-cdcl"
   solver-version = 1
