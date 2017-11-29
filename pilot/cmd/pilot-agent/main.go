@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
@@ -108,7 +108,7 @@ var (
 
 			glog.V(2).Infof("Proxy role: %#v", role)
 
-			proxyConfig := proxyconfig.ProxyConfig{}
+			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -127,11 +127,11 @@ var (
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
-			case proxyconfig.AuthenticationPolicy_NONE.String():
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_NONE
-			case proxyconfig.AuthenticationPolicy_MUTUAL_TLS.String():
+			case meshconfig.AuthenticationPolicy_NONE.String():
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				var ns string
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if serviceregistry == platform.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]

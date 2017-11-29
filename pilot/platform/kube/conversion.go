@@ -25,7 +25,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
@@ -60,15 +60,15 @@ func convertLabels(obj meta_v1.ObjectMeta) model.Labels {
 
 // Extracts security option for given port from annotation. If there is no such
 // annotation, or the annotation value is not recognized, returns
-// proxyconfig.AuthenticationPolicy_INHERIT
-func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) proxyconfig.AuthenticationPolicy {
+// meshconfig.AuthenticationPolicy_INHERIT
+func extractAuthenticationPolicy(port v1.ServicePort, obj meta_v1.ObjectMeta) meshconfig.AuthenticationPolicy {
 	if obj.Annotations == nil {
-		return proxyconfig.AuthenticationPolicy_INHERIT
+		return meshconfig.AuthenticationPolicy_INHERIT
 	}
-	if val, ok := proxyconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
-		return proxyconfig.AuthenticationPolicy(val)
+	if val, ok := meshconfig.AuthenticationPolicy_value[obj.Annotations[portAuthenticationAnnotationKey(int(port.Port))]]; ok {
+		return meshconfig.AuthenticationPolicy(val)
 	}
-	return proxyconfig.AuthenticationPolicy_INHERIT
+	return meshconfig.AuthenticationPolicy_INHERIT
 }
 
 func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {

@@ -18,52 +18,52 @@ import (
 	"reflect"
 	"testing"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
 func TestRejectConflictingEgressRules(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    map[string]*proxyconfig.EgressRule
-		out   map[string]*proxyconfig.EgressRule
+		in    map[string]*routing.EgressRule
+		out   map[string]*routing.EgressRule
 		valid bool
 	}{
 		{name: "no conflicts",
-			in: map[string]*proxyconfig.EgressRule{"cnn": {
-				Destination: &proxyconfig.IstioService{
+			in: map[string]*routing.EgressRule{"cnn": {
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*bbc.com",
 					},
 
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
 				},
 			},
-			out: map[string]*proxyconfig.EgressRule{"cnn": {
-				Destination: &proxyconfig.IstioService{
+			out: map[string]*routing.EgressRule{"cnn": {
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"bbc": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*bbc.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
@@ -71,31 +71,31 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			},
 			valid: true},
 		{name: "a conflict in a domain",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
+			in: map[string]*routing.EgressRule{"cnn2": {
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
 				},
 			},
-			out: map[string]*proxyconfig.EgressRule{
+			out: map[string]*routing.EgressRule{
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
@@ -103,31 +103,31 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			},
 			valid: false},
 		{name: "a conflict in a domain, different ports",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
+			in: map[string]*routing.EgressRule{"cnn2": {
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 8080, Protocol: "http"},
 						{Port: 8081, Protocol: "https"},
 					},
 				},
 			},
-			out: map[string]*proxyconfig.EgressRule{
+			out: map[string]*routing.EgressRule{
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 8080, Protocol: "http"},
 						{Port: 8081, Protocol: "https"},
 					},
@@ -135,40 +135,40 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 			},
 			valid: false},
 		{name: "two conflicts, two rules rejected",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
+			in: map[string]*routing.EgressRule{"cnn2": {
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 			},
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
 				},
 				"cnn3": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
 				},
 			},
-			out: map[string]*proxyconfig.EgressRule{
+			out: map[string]*routing.EgressRule{
 				"cnn1": {
-					Destination: &proxyconfig.IstioService{
+					Destination: &routing.IstioService{
 						Service: "*cnn.com",
 					},
-					Ports: []*proxyconfig.EgressRule_Port{
+					Ports: []*routing.EgressRule_Port{
 						{Port: 80, Protocol: "http"},
 						{Port: 443, Protocol: "https"},
 					},
