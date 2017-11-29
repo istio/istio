@@ -23,12 +23,8 @@ import (
 	"testing"
 
 	restful "github.com/emicklei/go-restful"
-<<<<<<< HEAD
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-=======
-	proxyconfig "istio.io/api/proxy/v1/config"
->>>>>>> initial pilot api az functionality
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
@@ -823,18 +819,42 @@ func TestDiscoveryCache(t *testing.T) {
 
 func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 	tests := []struct {
-		name string
-		want string
+		name          string
+		hostInstances []*model.ServiceInstance
+		err           error
+		want          string
 	}{
 		{
 			name: "golden path returns region/zone",
+			hostInstances: []*model.ServiceInstance{
+				&model.ServiceInstance{AvailabilityZone: "region/zone"},
+			},
 			want: "region/zone",
+		},
+		{
+			name: "when no AZ return blank",
+			hostInstances: []*model.ServiceInstance{
+				&model.ServiceInstance{},
+			},
+			want: "",
+		},
+		{
+			name:          "when unable to find the given cluster node tell us",
+			hostInstances: []*model.ServiceInstance{},
+			want:          "AvailabilityZone couldn't find the given cluster node",
+		},
+		{
+			name: "when HostInstaces errors return that error",
+			err:  errors.New("bang"),
+			want: "AvailabilityZone bang",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, ds := commonSetup(t)
 			url := fmt.Sprintf("/v1/az/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+			mock.Discovery.WantHostInstances = tt.hostInstances
+			mockDiscovery.HostInstancesError = tt.err
 			response := makeDiscoveryRequest(ds, "GET", url, t)
 			if tt.want != string(response) {
 				t.Errorf("wanted %v but received %v", tt.want, string(response))

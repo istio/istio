@@ -455,9 +455,10 @@ func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response 
 		return
 	}
 	if len(instances) <= 0 {
-		errorResponse(response, http.StatusNotFound, "AvailabilityZone couldn't find a AZ for the given cluster node")
+		errorResponse(response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
+		return
 	}
-	// All instances are going to have the same addr so will all be in the same AZ
+	// All instances are going to have the same IP addr therefore will all be in the same AZ
 	writeResponse(response, []byte(instances[0].AvailabilityZone))
 }
 

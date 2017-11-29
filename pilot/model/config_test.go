@@ -281,35 +281,20 @@ func TestMatchSource(t *testing.T) {
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-<<<<<<< HEAD
 			svc:       &routing.IstioService{Name: "world"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
-=======
-			svc:       &proxyconfig.IstioService{Name: "world"},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
->>>>>>> initial pilot api az functionality
 			want:      false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-<<<<<<< HEAD
 			svc:       &routing.IstioService{Name: "hello"},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
-=======
-			svc:       &proxyconfig.IstioService{Name: "hello"},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
->>>>>>> initial pilot api az functionality
 			want:      true,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-<<<<<<< HEAD
 			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
-			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
-=======
-			svc:       &proxyconfig.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")},
->>>>>>> initial pilot api az functionality
 			want:      true,
 		},
 	}

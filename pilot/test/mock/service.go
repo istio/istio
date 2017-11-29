@@ -186,6 +186,7 @@ func MakeIP(service *model.Service, version int) string {
 type ServiceDiscovery struct {
 	services           map[string]*model.Service
 	versions           int
+	WantHostInstances  []*model.ServiceInstance
 	ServicesError      error
 	GetServiceError    error
 	InstancesError     error
@@ -252,13 +253,16 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.Servi
 	if sd.HostInstancesError != nil {
 		return nil, sd.HostInstancesError
 	}
+	if sd.WantHostInstances != nil {
+		return sd.WantHostInstances, nil
+	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
 				if addrs[MakeIP(service, v)] {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v, "region/zone"))
+						out = append(out, MakeInstance(service, port, v, ""))
 					}
 				}
 			}
