@@ -67,10 +67,12 @@
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
+### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
+### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  branch = "master"
+  revision = "9f333d0643ba30f18dbc43bc08e0604e9371fe76"
 
 [[constraint]]
   name = "istio.io/fortio"
-  branch = "master"
+  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
