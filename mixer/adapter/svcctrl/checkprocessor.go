@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
 )
@@ -35,9 +36,19 @@ import (
 type checkImpl struct {
 	env                   adapter.Env
 	checkResultExpiration time.Duration
-	runtimeConfig         *config.RuntimeConfig
-	serviceConfig         *config.GcpServiceSetting
-	client                serviceControlClient
+	// A LRU cache, keyed by checkCacheKey struct and value is of type *sc.CheckResponse
+	responseCache cache.ExpiringCache
+	runtimeConfig *config.RuntimeConfig
+	serviceConfig *config.GcpServiceSetting
+	client        serviceControlClient
+}
+
+// Cache key used with checkImpl.responseCache. The cache is at handler level, so it stores check responses for multiple
+// GCP services.
+type checkCacheKey struct {
+	googleServiceName string
+	consumerID        string
+	operation         string
 }
 
 // ProcessCheck processes check call and converts CheckResponse to adapter.CheckResult.
@@ -48,21 +59,10 @@ func (c *checkImpl) ProcessCheck(ctx context.Context, instance *apikey.Instance)
 				fmt.Sprintf(
 					"instance:%s, api key and api operation must not be empty", instance.Name))), nil
 	}
-
 	consumerID := generateConsumerIDFromAPIKey(instance.ApiKey)
 	response, err := c.doCheck(consumerID, instance.ApiOperation, instance.Timestamp)
 	if err != nil {
-		return c.checkResult(
-			rpc.Status{
-				Code:    int32(rpc.PERMISSION_DENIED),
-				Message: err.Error(),
-			}), nil
-	}
-
-	if c.env.Logger().VerbosityLevel(logDebug) {
-		if responseDetail, err := toFormattedJSON(response); err == nil {
-			c.env.Logger().Infof("response: %v", string(responseDetail))
-		}
+		return c.checkResult(status.WithPermissionDenied(err.Error())), nil
 	}
 
 	return c.responseToCheckResult(response)
@@ -85,6 +85,17 @@ func (c *checkImpl) ResolveConsumerProjectID(consumerID, opName string) (string,
 
 // doCheck calls Check on Google ServiceControl client.
 func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Time) (*sc.CheckResponse, error) {
+	cacheKey := checkCacheKey{
+		googleServiceName: c.serviceConfig.GoogleServiceName,
+		consumerID:        consumerID,
+		operation:         operationName,
+	}
+
+	cachedResponse, found := c.responseCache.Get(cacheKey)
+	if found {
+		return cachedResponse.(*sc.CheckResponse), nil
+	}
+
 	request := &sc.CheckRequest{
 		Operation: &sc.Operation{
 			OperationId:   uuid.New(),
@@ -93,7 +104,26 @@ func (c *checkImpl) doCheck(consumerID, operationName string, timestamp time.Tim
 			ConsumerId:    consumerID,
 		},
 	}
-	return c.client.Check(c.serviceConfig.GoogleServiceName, request)
+
+	if c.env.Logger().VerbosityLevel(logDebug) {
+		if requestDetail, err := toFormattedJSON(request); err == nil {
+			c.env.Logger().Infof("request: %v", string(requestDetail))
+		}
+	}
+
+	response, err := c.client.Check(c.serviceConfig.GoogleServiceName, request)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.env.Logger().VerbosityLevel(logDebug) {
+		if responseDetail, err := toFormattedJSON(response); err == nil {
+			c.env.Logger().Infof("response: %v", string(responseDetail))
+		}
+	}
+
+	c.responseCache.Set(cacheKey, response)
+	return response, nil
 }
 
 // responseToCheckResult converts ServiceControl CheckResponse to Mixer CheckerResult
@@ -132,6 +162,7 @@ func newCheckProcessor(meshServiceName string, ctx *handlerContext) (*checkImpl,
 	return &checkImpl{
 		ctx.env,
 		toDuration(ctx.config.RuntimeConfig.CheckResultExpiration),
+		ctx.checkResponseCache,
 		ctx.config.RuntimeConfig,
 		serviceConfig,
 		ctx.client,
