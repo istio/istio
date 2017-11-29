@@ -827,14 +827,14 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		{
 			name: "golden path returns region/zone",
 			hostInstances: []*model.ServiceInstance{
-				&model.ServiceInstance{AvailabilityZone: "region/zone"},
+				{AvailabilityZone: "region/zone"},
 			},
 			want: "region/zone",
 		},
 		{
 			name: "when no AZ return blank",
 			hostInstances: []*model.ServiceInstance{
-				&model.ServiceInstance{},
+				{},
 			},
 			want: "",
 		},
