@@ -16,8 +16,6 @@ package utils
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1beta1"
@@ -27,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
+	"time"
 )
 
 var (

@@ -15,25 +15,23 @@
 package main
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"time"
-
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
-	"bytes"
+	"io/ioutil"
 	"istio.io/istio/security/integration/utils"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/testutil"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"net/http"
+	"time"
 )
 
 const (
