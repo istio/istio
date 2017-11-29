@@ -1443,4 +1443,5 @@ func ValidateRouteRule2(msg proto.Message) error {
 	if in.Host == nil {
 		multierror.Append(errs, errors.New("route rule must have a host"))
 	}
+	return errs
 }
