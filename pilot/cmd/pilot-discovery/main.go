@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	configaggregate "istio.io/istio/pilot/adapter/config/aggregate"
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/adapter/config/ingress"
@@ -142,7 +142,7 @@ var (
 							ServiceAccounts:  kubectl,
 							Controller:       kubectl,
 						})
-					if mesh.IngressControllerMode != proxyconfig.MeshConfig_OFF {
+					if mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 						configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
 							configController,
 							ingress.NewController(client, mesh, flags.controllerOptions),
@@ -191,7 +191,7 @@ var (
 				}
 			}
 			var mixerSAN []string
-			if mesh.DefaultConfig.ControlPlaneAuthPolicy == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+			if mesh.DefaultConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				mixerSAN = envoy.GetMixerSAN(flags.controllerOptions.DomainSuffix, flags.namespace)
 			}
 

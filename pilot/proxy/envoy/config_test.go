@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
@@ -337,7 +337,7 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 	}
 }
 
-func makeProxyConfig() proxyconfig.ProxyConfig {
+func makeProxyConfig() meshconfig.ProxyConfig {
 	proxyConfig := proxy.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
@@ -350,13 +350,13 @@ var (
 	pilotSAN = []string{"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
 )
 
-func makeProxyConfigControlPlaneAuth() proxyconfig.ProxyConfig {
+func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
-	proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	return proxyConfig
 }
 
-func makeMeshConfig() proxyconfig.MeshConfig {
+func makeMeshConfig() meshconfig.MeshConfig {
 	mesh := proxy.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)

@@ -21,7 +21,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 )
 
 // RejectConflictingEgressRules rejects rules that have the destination which is equal to
@@ -31,9 +31,9 @@ import (
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func RejectConflictingEgressRules(egressRules map[string]*proxyconfig.EgressRule) ( // long line split
-	map[string]*proxyconfig.EgressRule, error) {
-	filteredEgressRules := make(map[string]*proxyconfig.EgressRule)
+func RejectConflictingEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
+	filteredEgressRules := make(map[string]*routing.EgressRule)
 	var errs error
 
 	var keys []string

@@ -21,21 +21,21 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
 func TestProtoSchemaConversions(t *testing.T) {
 	routeRuleSchema := &model.ProtoSchema{MessageName: model.RouteRule.MessageName}
 
-	msg := &proxyconfig.RouteRule{
-		Destination: &proxyconfig.IstioService{
+	msg := &routing.RouteRule{
+		Destination: &routing.IstioService{
 			Name: "foo",
 		},
 		Precedence: 5,
-		Route: []*proxyconfig.DestinationWeight{
-			{Destination: &proxyconfig.IstioService{Name: "bar"}, Weight: 75},
-			{Destination: &proxyconfig.IstioService{Name: "baz"}, Weight: 25},
+		Route: []*routing.DestinationWeight{
+			{Destination: &routing.IstioService{Name: "bar"}, Weight: 75},
+			{Destination: &routing.IstioService{Name: "baz"}, Weight: 25},
 		},
 	}
 

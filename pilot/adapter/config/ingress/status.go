@@ -31,7 +31,7 @@ import (
 	"k8s.io/ingress/core/pkg/ingress/status"
 	"k8s.io/ingress/core/pkg/ingress/store"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
 )
 
@@ -54,7 +54,7 @@ func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 }
 
 // NewStatusSyncer creates a new instance
-func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
+func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	client kubernetes.Interface,
 	ingressNamespace string,
 	options kube.ControllerOptions) (*StatusSyncer, error) {
@@ -107,14 +107,14 @@ func NewStatusSyncer(mesh *proxyconfig.MeshConfig,
 // convertIngressControllerMode converts Ingress controller mode into k8s ingress status syncer ingress class and
 // default ingress class. Ingress class and default ingress class are used by the syncer to determine whether or not to
 // update the IP of a ingress resource.
-func convertIngressControllerMode(mode proxyconfig.MeshConfig_IngressControllerMode,
+func convertIngressControllerMode(mode meshconfig.MeshConfig_IngressControllerMode,
 	class string) (string, string) {
 	var ingressClass, defaultIngressClass string
 	switch mode {
-	case proxyconfig.MeshConfig_DEFAULT:
+	case meshconfig.MeshConfig_DEFAULT:
 		defaultIngressClass = class
 		ingressClass = class
-	case proxyconfig.MeshConfig_STRICT:
+	case meshconfig.MeshConfig_STRICT:
 		ingressClass = class
 	}
 	return ingressClass, defaultIngressClass
