@@ -165,8 +165,10 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 			client: ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")}),
 		}
 
-		serviceIdentity, _ := awsc.GetServiceIdentity()
-		if serviceIdentity != c.expectedServiceIdentity {
+		serviceIdentity, err := awsc.GetServiceIdentity()
+		if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		} else if serviceIdentity != c.expectedServiceIdentity {
 			t.Errorf("%s: Wrong Service Identity. Expected %v, Actual %v", id,
 				string(c.expectedServiceIdentity), string(serviceIdentity))
 		}
