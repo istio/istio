@@ -92,6 +92,8 @@ else
 fi
 cd $ROOT
 
+rm -rf `bazel info bazel-genfiles`/*
+
 # ./bin/generate-protos.sh || die "Could not generate *.pb.go"
 # if [[ -n $(git status --porcelain) ]]; then
 #     git status
@@ -128,8 +130,6 @@ fi
 
 # Build
 ${ROOT}/bin/init.sh
-
-rm -rf `bazel info bazel-genfiles`/*
 
 run_or_die_on_change ./bin/fmt.sh
 
