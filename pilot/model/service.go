@@ -57,6 +57,9 @@ type Service struct {
 	// external service instances as a service inside the cluster.
 	ExternalName string `json:"external"`
 
+	// ExternalIPs
+	ExternalIPs []string `json:"addresses,omitempty"`
+
 	// ServiceAccounts specifies the service accounts that run the service.
 	ServiceAccounts []string `json:"serviceaccounts,omitempty"`
 
@@ -76,6 +79,9 @@ type Port struct {
 	// map to the corresponding port numbers for the instances behind the
 	// service. See NetworkEndpoint definition below.
 	Port int `json:"port"`
+
+	// NodePort
+	NodePort int `json:"port"`
 
 	// Protocol to be used for the port.
 	Protocol Protocol `json:"protocol,omitempty"`
@@ -245,6 +251,9 @@ type ServiceDiscovery interface {
 
 	// HostInstances lists service instances for a given set of IPv4 addresses.
 	HostInstances(addrs map[string]bool) ([]*ServiceInstance, error)
+
+	// NodeIP lists node ips in a given cluster
+	NodeIP(podIP string) string
 
 	// ManagementPorts lists set of management ports associated with an IPv4 address.
 	// These management ports are typically used by the platform for out of band management

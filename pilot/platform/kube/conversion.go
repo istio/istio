@@ -75,6 +75,7 @@ func convertPort(port v1.ServicePort, obj meta_v1.ObjectMeta) *model.Port {
 	return &model.Port{
 		Name:                 port.Name,
 		Port:                 int(port.Port),
+		NodePort:             int(port.NodePort),
 		Protocol:             ConvertProtocol(port.Name, port.Protocol),
 		AuthenticationPolicy: extractAuthenticationPolicy(port, obj),
 	}
@@ -88,6 +89,12 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 
 	if svc.Spec.Type == v1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		external = svc.Spec.ExternalName
+	}
+
+	var extIPs []string
+	if len(svc.Spec.ExternalIPs) > 0 {
+		extIPs = make([]string, len(svc.Spec.ExternalIPs))
+		copy(extIPs, svc.Spec.ExternalIPs)
 	}
 
 	ports := make([]*model.Port, 0, len(svc.Spec.Ports))
@@ -113,10 +120,14 @@ func convertService(svc v1.Service, domainSuffix string) *model.Service {
 	sort.Sort(sort.StringSlice(serviceaccounts))
 
 	return &model.Service{
+		Name:                  svc.ObjectMeta.Name,
+		Namespace:             svc.ObjectMeta.Namespace,
+		Type:                  string(svc.Spec.Type),
 		Hostname:              serviceHostname(svc.Name, svc.Namespace, domainSuffix),
 		Ports:                 ports,
 		Address:               addr,
 		ExternalName:          external,
+		ExternalIPs:           extIPs,
 		ServiceAccounts:       serviceaccounts,
 		LoadBalancingDisabled: loadBalancingDisabled,
 	}

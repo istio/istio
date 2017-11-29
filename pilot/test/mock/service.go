@@ -220,6 +220,11 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 	return val, sd.GetServiceError
 }
 
+// NodeIP implements discovery interface
+func (sd *ServiceDiscovery) NodeIP(podIP string) string {
+	return ""
+}
+
 // Instances implements discovery interface
 func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {

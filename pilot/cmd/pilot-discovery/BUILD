@@ -26,6 +26,7 @@ go_library(
         "@com_github_spf13_cobra//:go_default_library",
         "@io_istio_api//proxy/v1/config:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
     ],
 )
 

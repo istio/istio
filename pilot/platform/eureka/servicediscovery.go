@@ -31,6 +31,11 @@ type serviceDiscovery struct {
 	client Client
 }
 
+// NodeIP return node IPs in a given cluster
+func (sd *serviceDiscovery) NodeIP(podIP string) string {
+	return ""
+}
+
 // Services implements a service catalog operation
 func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 	apps, err := sd.client.Applications()
