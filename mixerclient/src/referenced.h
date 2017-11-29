@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "mixer/v1/check.pb.h"
+#include "utils/md5.h"
 
 namespace istio {
 namespace mixer_client {
@@ -31,14 +32,15 @@ class Referenced {
   // Fill the object from the protobuf from Check response.
   // Return false if any attribute names could not be decoded from client
   // global dictionary.
-  bool Fill(const ::istio::mixer::v1::ReferencedAttributes& reference);
+  bool Fill(const ::istio::mixer::v1::Attributes &attributes,
+            const ::istio::mixer::v1::ReferencedAttributes &reference);
 
   // Calculate a cache signature for the attributes.
   // Return false if attributes are mismatched, such as "absence" attributes
   // present
   // or "exact" match attributes don't present.
-  bool Signature(const ::istio::mixer::v1::Attributes& attributes,
-                 const std::string& extra_key, std::string* signature) const;
+  bool Signature(const ::istio::mixer::v1::Attributes &attributes,
+                 const std::string &extra_key, std::string *signature) const;
 
   // A hash value to identify an instance.
   std::string Hash() const;
@@ -47,10 +49,32 @@ class Referenced {
   std::string DebugString() const;
 
  private:
+  // Holds reference to an attribute and potentially a map key
+  struct AttributeRef {
+    // name of the attribute
+    std::string name;
+    // only used if attribute is a stringMap
+    std::string map_key;
+
+    // make vector<AttributeRef> sortable
+    bool operator<(const AttributeRef &b) {
+      int cmp = name.compare(b.name);
+      if (cmp == 0) {
+        return map_key.compare(b.map_key) < 0;
+      }
+
+      return cmp < 0;
+    };
+  };
+
   // The keys should be absence.
-  std::vector<std::string> absence_keys_;
+  std::vector<AttributeRef> absence_keys_;
+
   // The keys should match exactly.
-  std::vector<std::string> exact_keys_;
+  std::vector<AttributeRef> exact_keys_;
+
+  // Updates hasher with keys
+  static void UpdateHash(const std::vector<AttributeRef> &keys, MD5 *hasher);
 };
 
 }  // namespace mixer_client

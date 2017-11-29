@@ -26,7 +26,7 @@ namespace istio {
 namespace mixer_client {
 
 void CheckCache::CacheElem::CacheElem::SetResponse(
-    const CheckResponse& response, Tick time_now) {
+    const CheckResponse &response, Tick time_now) {
   if (response.has_precondition()) {
     status_ = parent_.ConvertRpcStatus(response.precondition().status());
 
@@ -63,7 +63,7 @@ bool CheckCache::CheckResult::IsCacheHit() const {
   return status_.error_code() != Code::UNAVAILABLE;
 }
 
-CheckCache::CheckCache(const CheckOptions& options) : options_(options) {
+CheckCache::CheckCache(const CheckOptions &options) : options_(options) {
   if (options.num_entries > 0) {
     cache_.reset(new CheckLRUCache(options.num_entries));
   }
@@ -74,15 +74,15 @@ CheckCache::~CheckCache() {
   FlushAll();
 }
 
-void CheckCache::Check(const Attributes& attributes, CheckResult* result) {
+void CheckCache::Check(const Attributes &attributes, CheckResult *result) {
   Status status = Check(attributes, system_clock::now());
   if (status.error_code() != Code::NOT_FOUND) {
     result->status_ = status;
   }
 
-  result->on_response_ = [this](const Status& status,
-                                const Attributes& attributes,
-                                const CheckResponse& response) -> Status {
+  result->on_response_ = [this](const Status &status,
+                                const Attributes &attributes,
+                                const CheckResponse &response) -> Status {
     if (!status.ok()) {
       if (options_.network_fail_open) {
         return Status::OK;
@@ -95,14 +95,14 @@ void CheckCache::Check(const Attributes& attributes, CheckResult* result) {
   };
 }
 
-Status CheckCache::Check(const Attributes& attributes, Tick time_now) {
+Status CheckCache::Check(const Attributes &attributes, Tick time_now) {
   if (!cache_) {
     // By returning NOT_FOUND, caller will send request to server.
     return Status(Code::NOT_FOUND, "");
   }
 
-  for (const auto& it : referenced_map_) {
-    const Referenced& reference = it.second;
+  for (const auto &it : referenced_map_) {
+    const Referenced &reference = it.second;
     std::string signature;
     if (!reference.Signature(attributes, "", &signature)) {
       continue;
@@ -111,7 +111,7 @@ Status CheckCache::Check(const Attributes& attributes, Tick time_now) {
     std::lock_guard<std::mutex> lock(cache_mutex_);
     CheckLRUCache::ScopedLookup lookup(cache_.get(), signature);
     if (lookup.Found()) {
-      CacheElem* elem = lookup.value();
+      CacheElem *elem = lookup.value();
       if (elem->IsExpired(time_now)) {
         cache_->Remove(signature);
         return Status(Code::NOT_FOUND, "");
@@ -123,8 +123,8 @@ Status CheckCache::Check(const Attributes& attributes, Tick time_now) {
   return Status(Code::NOT_FOUND, "");
 }
 
-Status CheckCache::CacheResponse(const Attributes& attributes,
-                                 const CheckResponse& response, Tick time_now) {
+Status CheckCache::CacheResponse(const Attributes &attributes,
+                                 const CheckResponse &response, Tick time_now) {
   if (!cache_ || !response.has_precondition()) {
     if (response.has_precondition()) {
       return ConvertRpcStatus(response.precondition().status());
@@ -135,7 +135,8 @@ Status CheckCache::CacheResponse(const Attributes& attributes,
   }
 
   Referenced referenced;
-  if (!referenced.Fill(response.precondition().referenced_attributes())) {
+  if (!referenced.Fill(attributes,
+                       response.precondition().referenced_attributes())) {
     // Failed to decode referenced_attributes, not to cache this result.
     return ConvertRpcStatus(response.precondition().status());
   }
@@ -161,7 +162,7 @@ Status CheckCache::CacheResponse(const Attributes& attributes,
     return lookup.value()->status();
   }
 
-  CacheElem* cache_elem = new CacheElem(*this, response, time_now);
+  CacheElem *cache_elem = new CacheElem(*this, response, time_now);
   cache_->Insert(signature, cache_elem, 1);
   return cache_elem->status();
 }
@@ -177,7 +178,7 @@ Status CheckCache::FlushAll() {
   return Status::OK;
 }
 
-Status CheckCache::ConvertRpcStatus(const ::google::rpc::Status& status) const {
+Status CheckCache::ConvertRpcStatus(const ::google::rpc::Status &status) const {
   // If server status code is INTERNAL, check network_fail_open flag.
   if (status.code() == Code::INTERNAL && options_.network_fail_open) {
     return Status::OK;

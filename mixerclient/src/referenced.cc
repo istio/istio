@@ -16,8 +16,8 @@
 #include "referenced.h"
 
 #include "global_dictionary.h"
-#include "utils/md5.h"
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <sstream>
@@ -32,64 +32,132 @@ namespace {
 const char kDelimiter[] = "\0";
 const int kDelimiterLength = 1;
 const std::string kWordDelimiter = ":";
-}  // namespace
 
-bool Referenced::Fill(const ReferencedAttributes& reference) {
-  const std::vector<std::string>& global_words = GetGlobalWords();
-
-  for (const auto& match : reference.attribute_matches()) {
-    std::string name;
-    // name index from Mixer server needs to be decoded into string
-    // based on the global dictionary and per-message word list.
-    int idx = match.name();
-    if (idx >= 0) {
-      if ((unsigned int)idx >= global_words.size()) {
-        GOOGLE_LOG(ERROR) << "Global word index is too big: " << idx
-                          << " >= " << global_words.size();
-        return false;
-      }
-      name = global_words[idx];
-    } else {
-      // per-message index is negative, its format is:
-      //    per_message_idx = -(array_idx + 1)
-      idx = -idx - 1;
-      if (idx >= reference.words_size()) {
-        GOOGLE_LOG(ERROR) << "Per message word index is too big: " << idx
-                          << " >= " << reference.words_size();
-        return false;
-      }
-      name = reference.words(idx);
-    }
-
-    if (match.condition() == ReferencedAttributes::ABSENCE) {
-      absence_keys_.push_back(name);
-    } else if (match.condition() == ReferencedAttributes::EXACT) {
-      exact_keys_.push_back(name);
-    } else if (match.condition() == ReferencedAttributes::REGEX) {
-      // Don't support REGEX yet, return false to no caching the response.
-      GOOGLE_LOG(ERROR) << "Received REGEX in ReferencedAttributes for "
-                        << name;
+// Decode dereferences index into str using global and local word lists.
+// Decode returns false if it is unable to Decode.
+bool Decode(int idx, const std::vector<std::string> &global_words,
+            const ReferencedAttributes &reference, std::string *str) {
+  if (idx >= 0) {
+    if ((unsigned int)idx >= global_words.size()) {
+      GOOGLE_LOG(ERROR) << "Global word index is too big: " << idx
+                        << " >= " << global_words.size();
       return false;
     }
+    *str = global_words[idx];
+  } else {
+    // per-message index is negative, its format is:
+    //    per_message_idx = -(array_idx + 1)
+    idx = -idx - 1;
+    if (idx >= reference.words_size()) {
+      GOOGLE_LOG(ERROR) << "Per message word index is too big: " << idx
+                        << " >= " << reference.words_size();
+      return false;
+    }
+    *str = reference.words(idx);
   }
 
   return true;
 }
 
-bool Referenced::Signature(const Attributes& attributes,
-                           const std::string& extra_key,
-                           std::string* signature) const {
-  const auto& attributes_map = attributes.attributes();
-  for (const std::string& key : absence_keys_) {
-    // if an "absence" key exists, return false for mis-match.
-    if (attributes_map.find(key) != attributes_map.end()) {
+}  // namespace
+
+// Updates hasher with keys
+void Referenced::UpdateHash(const std::vector<AttributeRef> &keys,
+                            MD5 *hasher) {
+  // keys are already sorted during Fill
+  for (const AttributeRef &key : keys) {
+    hasher->Update(key.name);
+    hasher->Update(kDelimiter, kDelimiterLength);
+    if (!key.map_key.empty()) {
+      hasher->Update(key.map_key);
+      hasher->Update(kDelimiter, kDelimiterLength);
+    }
+  }
+}
+
+bool Referenced::Fill(const Attributes &attributes,
+                      const ReferencedAttributes &reference) {
+  const std::vector<std::string> &global_words = GetGlobalWords();
+  const auto &attributes_map = attributes.attributes();
+
+  for (const auto &match : reference.attribute_matches()) {
+    AttributeRef ar;
+    if (!Decode(match.name(), global_words, reference, &ar.name)) {
+      return false;
+    }
+
+    const auto it = attributes_map.find(ar.name);
+    if (it != attributes_map.end()) {
+      const Attributes_AttributeValue &value = it->second;
+      if (value.value_case() == Attributes_AttributeValue::kStringMapValue) {
+        if (!Decode(match.map_key(), global_words, reference, &ar.map_key)) {
+          return false;
+        }
+      }
+    }
+
+    if (match.condition() == ReferencedAttributes::ABSENCE) {
+      absence_keys_.push_back(ar);
+    } else if (match.condition() == ReferencedAttributes::EXACT) {
+      exact_keys_.push_back(ar);
+    } else if (match.condition() == ReferencedAttributes::REGEX) {
+      // Don't support REGEX yet, return false to no caching the response.
+      GOOGLE_LOG(ERROR) << "Received REGEX in ReferencedAttributes for "
+                        << ar.name;
       return false;
     }
   }
 
+  std::sort(absence_keys_.begin(), absence_keys_.end());
+  std::sort(exact_keys_.begin(), exact_keys_.end());
+
+  return true;
+}
+
+bool Referenced::Signature(const Attributes &attributes,
+                           const std::string &extra_key,
+                           std::string *signature) const {
+  const auto &attributes_map = attributes.attributes();
+
+  for (std::size_t i = 0; i < absence_keys_.size(); ++i) {
+    const auto &key = absence_keys_[i];
+    const auto it = attributes_map.find(key.name);
+    if (it == attributes_map.end()) {
+      continue;
+    }
+
+    const Attributes_AttributeValue &value = it->second;
+    // if an "absence" key exists for a non stringMap attribute, return false
+    // for mis-match.
+    if (value.value_case() != Attributes_AttributeValue::kStringMapValue) {
+      return false;
+    }
+
+    std::string map_key = key.map_key;
+    const auto &smap = value.string_map_value().entries();
+    // Since absence_keys_ are sorted by key.name,
+    // continue processing stringMaps until a new name is found.
+    do {
+      // if subkey is found, it is a violation of "absence" constrain.
+      if (smap.find(map_key) != smap.end()) {
+        return false;
+      }
+      // break loop if at the end or keyname changes.
+      if (i + 1 == absence_keys_.size() ||
+          absence_keys_[i + 1].name != key.name) {
+        break;
+      }
+
+      map_key = absence_keys_[++i].map_key;
+
+    } while (true);
+  }
+
   MD5 hasher;
-  for (const std::string& key : exact_keys_) {
-    const auto it = attributes_map.find(key);
+
+  for (std::size_t i = 0; i < exact_keys_.size(); ++i) {
+    const auto &key = exact_keys_[i];
+    const auto it = attributes_map.find(key.name);
     // if an "exact" attribute not present, return false for mismatch.
     if (it == attributes_map.end()) {
       return false;
@@ -98,7 +166,7 @@ bool Referenced::Signature(const Attributes& attributes,
     hasher.Update(it->first);
     hasher.Update(kDelimiter, kDelimiterLength);
 
-    const Attributes_AttributeValue& value = it->second;
+    const Attributes_AttributeValue &value = it->second;
     switch (value.value_case()) {
       case Attributes_AttributeValue::kStringValue:
         hasher.Update(value.string_value());
@@ -133,18 +201,30 @@ bool Referenced::Signature(const Attributes& attributes,
         hasher.Update(&nanos, sizeof(nanos));
       } break;
       case Attributes_AttributeValue::kStringMapValue: {
-        // protobuf map doesn't have deterministic order:
-        // each run the order is different.
-        // copy to std::map with deterministic order.
-        const auto& pb_map = value.string_map_value().entries();
-        std::map<std::string, std::string> stl_map(pb_map.begin(),
-                                                   pb_map.end());
-        for (const auto& sub_it : stl_map) {
-          hasher.Update(sub_it.first);
+        std::string map_key = key.map_key;
+        const auto &smap = value.string_map_value().entries();
+        // Since exact_keys_ are sorted by key.name,
+        // continue processing stringMaps until a new name is found.
+        do {
+          const auto sub_it = smap.find(map_key);
+          // exact match of map_key is missing
+          if (sub_it == smap.end()) {
+            return false;
+          }
+
+          hasher.Update(sub_it->first);
           hasher.Update(kDelimiter, kDelimiterLength);
-          hasher.Update(sub_it.second);
+          hasher.Update(sub_it->second);
           hasher.Update(kDelimiter, kDelimiterLength);
-        }
+
+          // break loop if at the end or keyname changes.
+          if (i + 1 == exact_keys_.size() ||
+              exact_keys_[i + 1].name != key.name) {
+            break;
+          }
+
+          map_key = exact_keys_[++i].map_key;
+        } while (true);
       } break;
       case Attributes_AttributeValue::VALUE_NOT_SET:
         break;
@@ -159,20 +239,11 @@ bool Referenced::Signature(const Attributes& attributes,
 
 std::string Referenced::Hash() const {
   MD5 hasher;
-  // Use std::set to sort the words
-  std::set<std::string> sorted_absence_keys(absence_keys_.begin(),
-                                            absence_keys_.end());
-  for (const auto& key : sorted_absence_keys) {
-    hasher.Update(key);
-    hasher.Update(kDelimiter, kDelimiterLength);
-  }
+
+  // keys are sorted during Fill
+  UpdateHash(absence_keys_, &hasher);
   hasher.Update(kWordDelimiter);
-  std::set<std::string> sorted_exact_keys(exact_keys_.begin(),
-                                          exact_keys_.end());
-  for (const auto& key : sorted_exact_keys) {
-    hasher.Update(key);
-    hasher.Update(kDelimiter, kDelimiterLength);
-  }
+  UpdateHash(exact_keys_, &hasher);
 
   return hasher.Digest();
 }
@@ -180,12 +251,20 @@ std::string Referenced::Hash() const {
 std::string Referenced::DebugString() const {
   std::stringstream ss;
   ss << "Absence-keys: ";
-  for (const auto& key : absence_keys_) {
-    ss << key + ", ";
+  for (const auto &key : absence_keys_) {
+    ss << key.name;
+    if (!key.map_key.empty()) {
+      ss << "[" + key.map_key + "]";
+    }
+    ss << ", ";
   }
   ss << "Exact-keys: ";
-  for (const auto& key : exact_keys_) {
-    ss << key + ", ";
+  for (const auto &key : exact_keys_) {
+    ss << key.name;
+    if (!key.map_key.empty()) {
+      ss << "[" + key.map_key + "]";
+    }
+    ss << ", ";
   }
   return ss.str();
 }

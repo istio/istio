@@ -37,6 +37,8 @@ words: "int-key"
 words: "time-key"
 words: "duration-key"
 words: "string-map-key"
+words: "User-Agent"
+words: "If-Match"
 attribute_matches {
   name: 9,
   condition: ABSENCE,
@@ -75,7 +77,31 @@ attribute_matches {
 }
 attribute_matches {
   name: -8,
+  map_key: -10,
   condition: EXACT,
+}
+attribute_matches {
+  name: -8,
+  map_key: -9,
+  condition: ABSENCE,
+}
+)";
+
+const char kAttributesText[] = R"(
+attributes {
+   key: "string-map-key"
+   value {
+     string_map_value {
+       entries {
+         key: "User-Agent"
+         value: "chrome60"
+       }
+       entries {
+         key: "path"
+         value: "/books"
+       }
+     }
+   }
 }
 )";
 
@@ -101,39 +127,47 @@ TEST(ReferencedTest, FillSuccessTest) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedText, &pb));
 
+  ::istio::mixer::v1::Attributes attrs;
+  ASSERT_TRUE(TextFormat::ParseFromString(kAttributesText, &attrs));
+
   Referenced referenced;
-  EXPECT_TRUE(referenced.Fill(pb));
+  EXPECT_TRUE(referenced.Fill(attrs, pb));
 
   EXPECT_EQ(referenced.DebugString(),
-            "Absence-keys: target.service, target.name, Exact-keys: bool-key, "
-            "bytes-key, string-key, double-key, int-key, time-key, "
-            "duration-key, string-map-key, ");
+            "Absence-keys: string-map-key[User-Agent], target.name, "
+            "target.service, Exact-keys: bool-key, bytes-key, double-key, "
+            "duration-key, int-key, string-key, string-map-key[If-Match], "
+            "time-key, ");
 
   EXPECT_EQ(MD5::DebugString(referenced.Hash()),
-            "e8066212fef8b8a2fde6daf0f7974d01");
+            "602d5bbd45b623c3560d2bdb6104f3ab");
 }
 
 TEST(ReferencedTest, FillFail1Test) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedFailText1, &pb));
 
+  ::istio::mixer::v1::Attributes attrs;
   Referenced referenced;
-  EXPECT_FALSE(referenced.Fill(pb));
+  EXPECT_FALSE(referenced.Fill(attrs, pb));
 }
 
 TEST(ReferencedTest, FillFail2Test) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedFailText2, &pb));
+  ::istio::mixer::v1::Attributes attrs;
 
   Referenced referenced;
-  EXPECT_FALSE(referenced.Fill(pb));
+  EXPECT_FALSE(referenced.Fill(attrs, pb));
 }
 
 TEST(ReferencedTest, NegativeSignature1Test) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedText, &pb));
+  ::istio::mixer::v1::Attributes attrs;
+  ASSERT_TRUE(TextFormat::ParseFromString(kAttributesText, &attrs));
   Referenced referenced;
-  EXPECT_TRUE(referenced.Fill(pb));
+  EXPECT_TRUE(referenced.Fill(attrs, pb));
 
   std::string signature;
 
@@ -151,8 +185,6 @@ TEST(ReferencedTest, NegativeSignature1Test) {
 TEST(ReferencedTest, OKSignature1Test) {
   ::istio::mixer::v1::ReferencedAttributes pb;
   ASSERT_TRUE(TextFormat::ParseFromString(kReferencedText, &pb));
-  Referenced referenced;
-  EXPECT_TRUE(referenced.Fill(pb));
 
   Attributes attributes;
   AttributesBuilder builder(&attributes);
@@ -169,14 +201,17 @@ TEST(ReferencedTest, OKSignature1Test) {
       "duration-key",
       std::chrono::duration_cast<std::chrono::nanoseconds>(secs));
 
-  std::map<std::string, std::string> string_map = {{"key1", "value1"},
+  std::map<std::string, std::string> string_map = {{"If-Match", "value1"},
                                                    {"key2", "value2"}};
   builder.AddStringMap("string-map-key", std::move(string_map));
+
+  Referenced referenced;
+  EXPECT_TRUE(referenced.Fill(attributes, pb));
 
   std::string signature;
   EXPECT_TRUE(referenced.Signature(attributes, "extra", &signature));
 
-  EXPECT_EQ(MD5::DebugString(signature), "cd3ee7fbe836b973f84f5075ef4ac29d");
+  EXPECT_EQ(MD5::DebugString(signature), "751b028b2e2c230ef9c4e59ac556ca04");
 }
 
 }  // namespace

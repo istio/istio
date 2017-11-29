@@ -209,7 +209,7 @@ void QuotaCache::SetResponse(const Attributes& attributes,
   }
 
   Referenced referenced;
-  if (!referenced.Fill(result->referenced_attributes())) {
+  if (!referenced.Fill(attributes, result->referenced_attributes())) {
     return;
   }
 
