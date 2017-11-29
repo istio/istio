@@ -35,6 +35,24 @@ go version
 # Exit immediately for non zero status
 set -e
 
+die () {
+  echo "$@"
+  exit 1
+}
+
+run_or_die_on_change() {
+  local script=$1
+  $script || die "Could not run ${script}"
+  # "generated_files" can be modified by other presubmit runs, since
+  # build caches are shared among them. For now, it should be excluded for
+  # the observed changes.
+  # TODO(https://github.com/istio/istio/issues/1689): fix this.
+  if [[ -n $(git status --porcelain | grep -v generated_files) ]]; then
+    git status
+    die "Repo has unstaged changes. Re-run ${script}"
+  fi
+}
+
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
@@ -90,14 +108,14 @@ ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
 cd $ROOT
 
 # go test execution
-time dep ensure -v
+# time dep ensure -v
 
-echo FIXME remove mixer tools exclusion after tests can be run without bazel
-time go test $(go list ./mixer/... | grep -v /tools/codegen)
-time go test ./pilot/...
-time go test ./security/...
-time go test ./broker/...
-rm -rf vendor/
+# echo FIXME remove mixer tools exclusion after tests can be run without bazel
+# time go test $(go list ./mixer/... | grep -v /tools/codegen)
+# time go test ./pilot/...
+# time go test ./security/...
+# time go test ./broker/...
+# rm -rf vendor/
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
@@ -111,6 +129,7 @@ fi
 # Build
 ${ROOT}/bin/init.sh
 
+run_or_die_on_change ./bin/fmt.sh
 
 # bazel test execution
 echo 'Running Unit Tests'

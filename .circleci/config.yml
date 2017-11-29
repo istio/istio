@@ -35,7 +35,13 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
@@ -67,7 +73,13 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
@@ -84,7 +96,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -92,7 +104,7 @@ jobs:
                dep ensure
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          key: dep-cache-{{ checksum "Gopkg.toml" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -108,7 +120,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -140,7 +158,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -163,7 +187,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -186,7 +216,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube

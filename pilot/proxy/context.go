@@ -24,7 +24,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 )
 
@@ -40,7 +40,7 @@ type Environment struct {
 	model.IstioConfigStore
 
 	// Mesh is the mesh config (to be merged into the config store)
-	Mesh *proxyconfig.MeshConfig
+	Mesh *meshconfig.MeshConfig
 
 	// Mixer subject alternate name for mutual TLS
 	MixerSAN []string
@@ -127,8 +127,8 @@ const (
 )
 
 // DefaultProxyConfig for individual proxies
-func DefaultProxyConfig() proxyconfig.ProxyConfig {
-	return proxyconfig.ProxyConfig{
+func DefaultProxyConfig() meshconfig.ProxyConfig {
+	return meshconfig.ProxyConfig{
 		ConfigPath:             "/etc/istio/proxy",
 		BinaryPath:             "/usr/local/bin/envoy",
 		ServiceCluster:         "istio-proxy",
@@ -141,23 +141,23 @@ func DefaultProxyConfig() proxyconfig.ProxyConfig {
 		ConnectTimeout:         ptypes.DurationProto(1 * time.Second),
 		StatsdUdpAddress:       "",
 		ProxyAdminPort:         15000,
-		ControlPlaneAuthPolicy: proxyconfig.AuthenticationPolicy_NONE,
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_NONE,
 		CustomConfigFile:       "",
 	}
 }
 
 // DefaultMeshConfig configuration
-func DefaultMeshConfig() proxyconfig.MeshConfig {
+func DefaultMeshConfig() meshconfig.MeshConfig {
 	config := DefaultProxyConfig()
-	return proxyconfig.MeshConfig{
+	return meshconfig.MeshConfig{
 		EgressProxyAddress:    "",
 		MixerAddress:          "",
 		DisablePolicyChecks:   false,
 		ProxyListenPort:       15001,
 		ConnectTimeout:        ptypes.DurationProto(1 * time.Second),
 		IngressClass:          "istio",
-		IngressControllerMode: proxyconfig.MeshConfig_STRICT,
-		AuthPolicy:            proxyconfig.MeshConfig_NONE,
+		IngressControllerMode: meshconfig.MeshConfig_STRICT,
+		AuthPolicy:            meshconfig.MeshConfig_NONE,
 		RdsRefreshDelay:       ptypes.DurationProto(1 * time.Second),
 		EnableTracing:         true,
 		AccessLogFile:         "/dev/stdout",
@@ -167,7 +167,7 @@ func DefaultMeshConfig() proxyconfig.MeshConfig {
 
 // ApplyMeshConfigDefaults returns a new MeshConfig decoded from the
 // input YAML with defaults applied to omitted configuration values.
-func ApplyMeshConfigDefaults(yaml string) (*proxyconfig.MeshConfig, error) {
+func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	out := DefaultMeshConfig()
 	if err := model.ApplyYAML(yaml, &out); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
