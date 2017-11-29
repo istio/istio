@@ -225,6 +225,9 @@ func quotaTestImpl(testCase *quotaTestCase, t *testing.T) {
 	test := setupQuotaTest(t)
 	test.client.setQuotaAllocateRespone(testCase.response)
 	result, err := test.processor.ProcessQuota(context.Background(), &test.instance, testCase.args)
+	if test.client.allocateQuotaRequest != nil && err != nil {
+		t.Errorf(`unexpected quota allocate error %v`, err)
+	}
 
 	test.client.allocateQuotaRequest.AllocateOperation.OperationId = ""
 	allocOp, err := test.client.allocateQuotaRequest.AllocateOperation.MarshalJSON()

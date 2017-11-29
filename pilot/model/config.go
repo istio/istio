@@ -22,7 +22,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -226,7 +226,7 @@ type IstioConfigStore interface {
 	ConfigStore
 
 	// EgressRules lists all egress rules
-	EgressRules() map[string]*proxyconfig.EgressRule
+	EgressRules() map[string]*routing.EgressRule
 
 	// RouteRules selects routing rules by source service instances and
 	// destination service.  A rule must match at least one of the input service
@@ -287,7 +287,7 @@ var (
 	RouteRule = ProtoSchema{
 		Type:        "route-rule",
 		Plural:      "route-rules",
-		MessageName: "istio.proxy.v1.config.RouteRule",
+		MessageName: "istio.routing.v1alpha1.RouteRule",
 		Validate:    ValidateRouteRule,
 	}
 
@@ -295,7 +295,7 @@ var (
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
-		MessageName: "istio.proxy.v1.config.IngressRule",
+		MessageName: "istio.routing.v1alpha1.IngressRule",
 		Validate:    ValidateIngressRule,
 	}
 
@@ -303,7 +303,7 @@ var (
 	EgressRule = ProtoSchema{
 		Type:        "egress-rule",
 		Plural:      "egress-rules",
-		MessageName: "istio.proxy.v1.config.EgressRule",
+		MessageName: "istio.routing.v1alpha1.EgressRule",
 		Validate:    ValidateEgressRule,
 	}
 
@@ -311,7 +311,7 @@ var (
 	DestinationPolicy = ProtoSchema{
 		Type:        "destination-policy",
 		Plural:      "destination-policies",
-		MessageName: "istio.proxy.v1.config.DestinationPolicy",
+		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
 	}
 
@@ -363,7 +363,7 @@ var (
 // ResolveHostname uses metadata information to resolve a service reference to
 // a fully qualified hostname. The metadata namespace and domain are used as
 // fallback values to fill up the complete name.
-func ResolveHostname(meta ConfigMeta, svc *proxyconfig.IstioService) string {
+func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -399,7 +399,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 
 // MatchSource checks that a rule applies for source service instances.
 // Empty source match condition applies for all cases.
-func MatchSource(meta ConfigMeta, source *proxyconfig.IstioService, instances []*ServiceInstance) bool {
+func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*ServiceInstance) bool {
 	if source == nil {
 		return true
 	}
@@ -424,8 +424,8 @@ func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
 		// protect against incompatible types
-		irule, _ := rules[i].Spec.(*proxyconfig.RouteRule)
-		jrule, _ := rules[j].Spec.(*proxyconfig.RouteRule)
+		irule, _ := rules[i].Spec.(*routing.RouteRule)
+		jrule, _ := rules[j].Spec.(*routing.RouteRule)
 		return irule == nil || jrule == nil ||
 			irule.Precedence > jrule.Precedence ||
 			(irule.Precedence == jrule.Precedence && rules[i].Key() < rules[j].Key())
@@ -440,7 +440,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*proxyconfig.RouteRule)
+		rule := config.Spec.(*routing.RouteRule)
 
 		// validate that rule match predicate applies to destination service
 		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
@@ -467,7 +467,7 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*proxyconfig.RouteRule)
+		rule := config.Spec.(*routing.RouteRule)
 		destination := ResolveHostname(config.ConfigMeta, rule.Destination)
 		for _, instance := range instances {
 			if destination == instance.Service.Hostname {
@@ -480,14 +480,14 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 	return out
 }
 
-func (store *istioConfigStore) EgressRules() map[string]*proxyconfig.EgressRule {
-	out := make(map[string]*proxyconfig.EgressRule)
+func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
+	out := make(map[string]*routing.EgressRule)
 	rs, err := store.List(EgressRule.Type, "")
 	if err != nil {
 		return nil
 	}
 	for _, r := range rs {
-		if rule, ok := r.Spec.(*proxyconfig.EgressRule); ok {
+		if rule, ok := r.Spec.(*routing.EgressRule); ok {
 			out[r.Key()] = rule
 		}
 	}
@@ -504,7 +504,7 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	var out Config
 	var found bool
 	for _, config := range configs {
-		policy := config.Spec.(*proxyconfig.DestinationPolicy)
+		policy := config.Spec.(*routing.DestinationPolicy)
 		if !MatchSource(config.ConfigMeta, policy.Source, instances) {
 			continue
 		}
@@ -533,11 +533,11 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 }
 
 // `istio.mixer.v1.config.client.IstioService` and
-// `istio.proxy.v1.config.IstioService` are logically
+// `istio.routing.v1alpha1.IstioService` are logically
 // equivalent. Convert from mixer-to-proxy representation so we can
 // use ResolveHostname below.
-func mixerToProxyIstioService(in *mccpb.IstioService) *proxyconfig.IstioService {
-	return &proxyconfig.IstioService{
+func mixerToProxyIstioService(in *mccpb.IstioService) *routing.IstioService {
+	return &routing.IstioService{
 		Name:      in.Name,
 		Namespace: in.Namespace,
 		Domain:    in.Domain,

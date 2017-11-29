@@ -23,12 +23,13 @@ import (
 
 	"github.com/golang/glog"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
 
-func buildIngressListeners(mesh *proxyconfig.MeshConfig,
+func buildIngressListeners(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore,
@@ -53,7 +54,7 @@ func buildIngressListeners(mesh *proxyconfig.MeshConfig,
 	return listeners
 }
 
-func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
@@ -71,11 +72,11 @@ func buildIngressRoutes(mesh *proxyconfig.MeshConfig,
 		}
 
 		host := "*"
-		ingress := rule.Spec.(*proxyconfig.IngressRule)
+		ingress := rule.Spec.(*routing.IngressRule)
 		if ingress.Match != nil && ingress.Match.Request != nil {
 			if authority, ok := ingress.Match.Request.Headers[model.HeaderAuthority]; ok {
 				switch match := authority.GetMatchType().(type) {
-				case *proxyconfig.StringMatch_Exact:
+				case *routing.StringMatch_Exact:
 					host = match.Exact
 				default:
 					glog.Warningf("Unsupported match type for authority condition %T, falling back to %q", match, host)
@@ -136,11 +137,11 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *proxyconfig.MeshConfig,
+func buildIngressRoute(mesh *meshconfig.MeshConfig,
 	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
-	ingress := rule.Spec.(*proxyconfig.IngressRule)
+	ingress := rule.Spec.(*routing.IngressRule)
 	destination := model.ResolveHostname(rule.ConfigMeta, ingress.Destination)
 	service, err := discovery.GetService(destination)
 	if err != nil {
@@ -187,16 +188,16 @@ func buildIngressRoute(mesh *proxyconfig.MeshConfig,
 }
 
 // extractPort extracts the destination service port from the given destination,
-func extractPort(svc *model.Service, ingress *proxyconfig.IngressRule) (*model.Port, error) {
+func extractPort(svc *model.Service, ingress *routing.IngressRule) (*model.Port, error) {
 	switch p := ingress.GetDestinationServicePort().(type) {
-	case *proxyconfig.IngressRule_DestinationPort:
+	case *routing.IngressRule_DestinationPort:
 		num := p.DestinationPort
 		port, exists := svc.Ports.GetByPort(int(num))
 		if !exists {
 			return nil, fmt.Errorf("cannot find port %d in %q", num, svc.Hostname)
 		}
 		return port, nil
-	case *proxyconfig.IngressRule_DestinationPortName:
+	case *routing.IngressRule_DestinationPortName:
 		name := p.DestinationPortName
 		port, exists := svc.Ports.Get(name)
 		if !exists {

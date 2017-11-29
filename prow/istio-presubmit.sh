@@ -108,14 +108,14 @@ ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
 cd $ROOT
 
 # go test execution
-time dep ensure -v
+# time dep ensure -v
 
-echo FIXME remove mixer tools exclusion after tests can be run without bazel
-time go test $(go list ./mixer/... | grep -v /tools/codegen)
-time go test ./pilot/...
-time go test ./security/...
-time go test ./broker/...
-rm -rf vendor/
+# echo FIXME remove mixer tools exclusion after tests can be run without bazel
+# time go test $(go list ./mixer/... | grep -v /tools/codegen)
+# time go test ./pilot/...
+# time go test ./security/...
+# time go test ./broker/...
+# rm -rf vendor/
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio

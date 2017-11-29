@@ -172,7 +172,7 @@ def bazel_to_vendor(WKSPC):
         print "Vendored", linksrc, '-->', target
 
     protolst = protos(WKSPC, genfiles, genfiles_external)
-    protolst.append((genfiles + "/external/io_istio_api/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
+    protolst.append((genfiles + "/external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
 
     # generate manifest of generated files
     manifest = sorted([l[0][len(genfiles)+1:] for l in protolst])
@@ -215,8 +215,10 @@ def should_copy(src, dest):
         # there might be diffs for 'source:' lines and others.
         has_diff = False
         linecount = 0
-        for l in stdout:
+        for l in stdout.split('\n'):
             linecount += 1
+            if not l:
+                continue
             if linecount < 3:
                 # first two lines are headers, skipping
                 continue

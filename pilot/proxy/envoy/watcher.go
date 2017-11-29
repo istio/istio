@@ -29,7 +29,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 )
 
@@ -53,14 +53,14 @@ type CertSource struct {
 type watcher struct {
 	agent    proxy.Agent
 	role     proxy.Node
-	config   proxyconfig.ProxyConfig
+	config   meshconfig.ProxyConfig
 	certs    []CertSource
 	pilotSAN []string
 }
 
 // NewWatcher creates a new watcher instance from a proxy agent and a set of monitored certificate paths
 // (directories with files in them)
-func NewWatcher(config proxyconfig.ProxyConfig, agent proxy.Agent, role proxy.Node,
+func NewWatcher(config meshconfig.ProxyConfig, agent proxy.Agent, role proxy.Node,
 	certs []CertSource, pilotSAN []string) Watcher {
 	return &watcher{
 		agent:    agent,
@@ -197,13 +197,13 @@ func configFile(config string, epoch int) string {
 }
 
 type envoy struct {
-	config    proxyconfig.ProxyConfig
+	config    meshconfig.ProxyConfig
 	node      string
 	extraArgs []string
 }
 
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config proxyconfig.ProxyConfig, node string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
 	if glog.V(4) {

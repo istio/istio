@@ -2,7 +2,7 @@
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -93,9 +93,9 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 

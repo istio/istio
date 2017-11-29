@@ -29,7 +29,7 @@ import (
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
@@ -56,8 +56,8 @@ type infra struct { // nolint: aligncheck
 	// map from app to pods
 	apps map[string][]string
 
-	Auth                   proxyconfig.MeshConfig_AuthPolicy
-	ControlPlaneAuthPolicy proxyconfig.AuthenticationPolicy
+	Auth                   meshconfig.MeshConfig_AuthPolicy
+	ControlPlaneAuthPolicy meshconfig.AuthenticationPolicy
 	MixerCustomConfigFile  string
 	PilotCustomConfigFile  string
 

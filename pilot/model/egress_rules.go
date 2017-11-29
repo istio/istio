@@ -21,14 +21,14 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 )
 
 // RejectConflictingEgressRules rejects conflicting egress rules.
 // The conflicts occur either than two egress rules share the same domain, or when they define
 // different protocols on the same port
-func RejectConflictingEgressRules(rules map[string]*proxyconfig.EgressRule) ( // long line split
-	map[string]*proxyconfig.EgressRule, error) {
+func RejectConflictingEgressRules(rules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
 	rulesWithoutConflictsOnDomain, conflictsOnDomain := rejectConflictingOnDomainEgressRules(rules)
 	rulesWithoutConflicts, conflictsOnPort := rejectConflictingOnPortTCPEgressRules(rulesWithoutConflictsOnDomain)
 	return rulesWithoutConflicts, multierror.Append(conflictsOnDomain, conflictsOnPort).ErrorOrNil()
@@ -41,9 +41,10 @@ func RejectConflictingEgressRules(rules map[string]*proxyconfig.EgressRule) ( //
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func rejectConflictingOnDomainEgressRules(egressRules map[string]*proxyconfig.EgressRule) ( // long line split
-	map[string]*proxyconfig.EgressRule, error) {
-	filteredEgressRules := make(map[string]*proxyconfig.EgressRule)
+func rejectConflictingOnDomainEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
+	filteredEgressRules := make(map[string]*routing.EgressRule)
+
 	var errs error
 
 	var keys []string
@@ -148,9 +149,9 @@ func egressRulesSupportedProtocols() string {
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*proxyconfig.EgressRule) ( // long line split
-	map[string]*proxyconfig.EgressRule, error) {
-	filteredEgressRules := make(map[string]*proxyconfig.EgressRule)
+func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
+	filteredEgressRules := make(map[string]*routing.EgressRule)
 	var errs error
 
 	var keys []string

@@ -23,9 +23,9 @@ import (
 
 	"github.com/golang/glog"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -105,7 +105,7 @@ type FilterMixerConfig struct {
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
+func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
@@ -117,9 +117,9 @@ func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN [
 
 	// apply auth policies
 	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
-	case proxyconfig.AuthenticationPolicy_NONE:
+	case meshconfig.AuthenticationPolicy_NONE:
 		// do nothing
-	case proxyconfig.AuthenticationPolicy_MUTUAL_TLS:
+	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
 		mixerCluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, mixerSAN)
 	}

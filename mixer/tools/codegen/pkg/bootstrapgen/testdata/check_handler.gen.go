@@ -18,6 +18,7 @@ package istio_mixer_template_list
 
 import (
 	"context"
+	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
 )
@@ -49,6 +50,40 @@ type Instance struct {
 	DimensionsFixedInt64ValueDType map[string]int64
 
 	CheckExpression string
+
+	Res1 *Res1
+}
+
+type Res1 struct {
+	Value interface{}
+
+	Dimensions map[string]interface{}
+
+	Int64Primitive int64
+
+	BoolPrimitive bool
+
+	DoublePrimitive float64
+
+	StringPrimitive string
+
+	Int64Map map[string]int64
+
+	TimeStamp time.Time
+
+	Duration time.Duration
+
+	Res2 *Res2
+
+	Res2Map map[string]*Res2
+}
+
+type Res2 struct {
+	Value interface{}
+
+	Dimensions map[string]interface{}
+
+	Int64Primitive int64
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

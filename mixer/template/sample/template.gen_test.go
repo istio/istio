@@ -269,14 +269,13 @@ func TestBuilderSupportsTemplate(t *testing.T) {
 }
 
 type inferTypeTest struct {
-	name               string
-	ctrCnfg            string
-	cstrParam          interface{}
-	typeEvalError      error
-	wantValueType      pb.ValueType
-	wantDimensionsType map[string]pb.ValueType
-	wantErr            string
-	willPanic          bool
+	name          string
+	ctrCnfg       string
+	cstrParam     interface{}
+	typeEvalError error
+	wantErr       string
+	willPanic     bool
+	wantType      interface{}
 }
 
 func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
@@ -308,7 +307,7 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 func TestInferTypeForSampleReport(t *testing.T) {
 	for _, tst := range []inferTypeTest{
 		{
-			name: "SimpleValid",
+			name: "Valid",
 			ctrCnfg: `
 value: source.int64
 int64Primitive: source.int64
@@ -321,15 +320,56 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:          &sample_report.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.INT64,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-			wantErr:            "",
-			willPanic:          false,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "",
+			willPanic:     false,
+			wantType: &sample_report.Type{
+				Value:      pb.INT64,
+				Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+			},
 		},
 		{
-			name: "MissingAFieldFromInstanceParam",
+			name: "ValidWithSubmsg",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+res1:
+  value: source.int64
+  int64Primitive: source.int64
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: source.string
+  timeStamp: source.timestamp
+  duration: source.duration
+  dimensions:
+    source: source.string
+    target: source.string
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "",
+			willPanic:     false,
+			wantType: &sample_report.Type{
+				Value:      pb.INT64,
+				Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+				Res1: &sample_report.Res1Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+					Res2Map:    map[string]*sample_report.Res2Type{},
+				},
+			},
+		},
+		{
+			name: "MissingAField",
 			ctrCnfg: `
 value: source.int64
 # int64Primitive: source.int64 # missing int64Primitive
@@ -344,14 +384,41 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field Int64Primitive cannot be empty",
+			wantErr:       "expression for field 'Int64Primitive' cannot be empty",
 			willPanic:     false,
 		},
 		{
-			name: "InferredTypeNotMatchStaticTypeFromTemplate",
+			name: "MissingAFieldSubMsg",
 			ctrCnfg: `
 value: source.int64
-int64Primitive: source.int64 # missing int64Primitive
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+res1:
+  value: source.int64
+  # int64Primitive: source.int64 # missing int64Primitive
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: source.string
+  timeStamp: source.timestamp
+  duration: source.duration
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field 'Res1.Int64Primitive' cannot be empty",
+			willPanic:     false,
+		},
+		{
+			name: "InferredTypeNotMatchStaticType",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.double # Double does not match string
@@ -363,7 +430,34 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "error type checking for field StringPrimitive: Evaluated expression type DOUBLE want STRING",
+			wantErr:       "error type checking for field 'StringPrimitive': Evaluated expression type DOUBLE want STRING",
+			willPanic:     false,
+		},
+		{
+			name: "InferredTypeNotMatchStaticTypeSubMsg",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+res1:
+  value: source.int64
+  int64Primitive: source.int64
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: source.double # Double does not match string
+  timeStamp: source.timestamp
+  duration: source.duration
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "error type checking for field 'Res1.StringPrimitive': Evaluated expression type DOUBLE want STRING",
 			willPanic:     false,
 		},
 		{
@@ -382,7 +476,38 @@ dimensions:
 `,
 			cstrParam:     &sample_report.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "expression for field StringPrimitive cannot be empty",
+			wantErr:       "expression for field 'StringPrimitive' cannot be empty",
+			willPanic:     false,
+		},
+
+		{
+			name: "EmptyStringSubMsg",
+			ctrCnfg: `
+value: source.int64
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+timeStamp: source.timestamp
+duration: source.duration
+dimensions:
+  source: source.string
+  target: source.string
+res1:
+  value: source.int64
+  int64Primitive: source.int64
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: '""'
+  timeStamp: source.timestamp
+  duration: source.duration
+  dimensions:
+    source: source.string
+    target: source.string
+`,
+			cstrParam:     &sample_report.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "expression for field 'Res1.StringPrimitive' cannot be empty",
 			willPanic:     false,
 		},
 		{
@@ -406,7 +531,10 @@ dimensions:
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			_ = fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.ctrCnfg, cp)
+			if err != nil {
+				t.Fatalf("cannot load yaml %v", err)
+			}
 			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
@@ -421,19 +549,9 @@ dimensions:
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
 				}
-				if tst.wantValueType != cv.(*sample_report.Type).Value {
-					t.Errorf("got inferTypeForSampleReport(\n%s\n).value=%v\nwant %v",
-						tst.ctrCnfg, cv.(*sample_report.Type).Value, tst.wantValueType)
-				}
-				if len(tst.wantDimensionsType) != len(cv.(*sample_report.Type).Dimensions) {
-					t.Errorf("got len ( inferTypeForSampleReport(\n%s\n).dimensions) =%v \n want %v",
-						tst.ctrCnfg, len(cv.(*sample_report.Type).Dimensions), len(tst.wantDimensionsType))
-				}
-				for a, b := range tst.wantDimensionsType {
-					if cv.(*sample_report.Type).Dimensions[a] != b {
-						t.Errorf("got inferTypeForSampleReport(\n%s\n).dimensions[%s] =%v \n want %v",
-							tst.ctrCnfg, a, cv.(*sample_report.Type).Dimensions[a], b)
-					}
+				v := cv.(*sample_report.Type)
+				if !reflect.DeepEqual(v, tst.wantType) {
+					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
 			} else {
 				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
@@ -452,12 +570,41 @@ func TestInferTypeForSampleCheck(t *testing.T) {
 check_expression: source.string
 timeStamp: source.timestamp
 duration: source.duration
+res1:
+  value: source.int64
+  int64Primitive: source.int64
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: source.string
+  timeStamp: source.timestamp
+  duration: source.duration
+  dimensions:
+    source: source.string
+    target: source.string
+  res2_map:
+    source2:
+      value: source.int64
+      dimensions:
+        source: source.string
+        target: source.string
+      int64Primitive: source.int64
 `,
 			cstrParam:     &sample_check.InstanceParam{},
 			typeEvalError: nil,
-			wantValueType: pb.STRING,
 			wantErr:       "",
 			willPanic:     false,
+			wantType: &sample_check.Type{
+				Res1: &sample_check.Res1Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+					Res2Map: map[string]*sample_check.Res2Type{
+						"source2": {
+							Value:      pb.INT64,
+							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+						},
+					},
+				},
+			},
 		},
 		{
 			name:      "NotValidInstanceParam",
@@ -468,7 +615,10 @@ duration: source.duration
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			_ = fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.ctrCnfg, cp)
+			if err != nil {
+				t.Fatalf("cannot load yaml %v", err)
+			}
 			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
@@ -478,13 +628,17 @@ duration: source.duration
 					t.Errorf("got panic %v, expected success.", r)
 				}
 			}()
-			_, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
+			cv, cerr := SupportedTmplInfo[sample_check.TemplateName].InferType(cp.(proto.Message), typeEvalFn)
 			if tst.willPanic {
 				t.Error("Should not reach this statement due to panic.")
 			}
 			if tst.wantErr == "" {
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
+				}
+				v := cv.(*sample_check.Type)
+				if !reflect.DeepEqual(v, tst.wantType) {
+					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
 			} else {
 				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
@@ -506,13 +660,28 @@ dimensions:
   source: source.string
   target: source.string
   env: target.string
+res1:
+  value: source.int64
+  int64Primitive: source.int64
+  boolPrimitive: source.bool
+  doublePrimitive: source.double
+  stringPrimitive: source.string
+  timeStamp: source.timestamp
+  duration: source.duration
+  dimensions:
+    source: source.string
+    target: source.string
+    env: target.string
 `,
-			cstrParam:          &sample_quota.InstanceParam{},
-			typeEvalError:      nil,
-			wantValueType:      pb.STRING,
-			wantDimensionsType: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING, "env": pb.STRING},
-			wantErr:            "",
-			willPanic:          false,
+			cstrParam: &sample_quota.InstanceParam{},
+			wantType: &sample_quota.Type{
+				Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING, "env": pb.STRING},
+				Res1: &sample_quota.Res1Type{
+					Value:      pb.INT64,
+					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING, "env": pb.STRING},
+					Res2Map:    map[string]*sample_quota.Res2Type{},
+				},
+			},
 		},
 		{
 			name:      "NotValidInstanceParam",
@@ -536,7 +705,10 @@ dimensions:
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			_ = fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.ctrCnfg, cp)
+			if err != nil {
+				t.Fatalf("cannot load yaml %v", err)
+			}
 			typeEvalFn := getExprEvalFunc(tst.typeEvalError)
 			defer func() {
 				r := recover()
@@ -551,17 +723,10 @@ dimensions:
 				if cerr != nil {
 					t.Errorf("got err %v\nwant <nil>", cerr)
 				}
-				if len(tst.wantDimensionsType) != len(cv.(*sample_quota.Type).Dimensions) {
-					t.Errorf("got len ( inferTypeForSampleReport(\n%s\n).dimensions) =%v \n want %v",
-						tst.ctrCnfg, len(cv.(*sample_quota.Type).Dimensions), len(tst.wantDimensionsType))
+				v := cv.(*sample_quota.Type)
+				if !reflect.DeepEqual(v, tst.wantType) {
+					t.Errorf("InferType (%s) = \n%v, want \n%v", tst.name, spew.Sdump(v), spew.Sdump(tst.wantType))
 				}
-				for a, b := range tst.wantDimensionsType {
-					if cv.(*sample_quota.Type).Dimensions[a] != b {
-						t.Errorf("got inferTypeForSampleReport(\n%s\n).dimensions[%s] =%v \n want %v",
-							tst.ctrCnfg, a, cv.(*sample_quota.Type).Dimensions[a], b)
-					}
-				}
-
 			} else {
 				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
 					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
@@ -644,7 +809,7 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 		return true, nil
 	}
 	if strings.HasSuffix(expr2, "int64") {
-		return "1234", nil
+		return int64(1234), nil
 	}
 	if strings.HasSuffix(expr2, "duration") {
 		return 10 * time.Second, nil
@@ -706,7 +871,7 @@ func TestProcessReport(t *testing.T) {
 		wantError    string
 	}{
 		{
-			name: "Simple",
+			name: " Valid",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
 					Value:           "1",
@@ -718,6 +883,29 @@ func TestProcessReport(t *testing.T) {
 					Int64Map:        map[string]string{"a": "1"},
 					TimeStamp:       "request.timestamp",
 					Duration:        "request.duration",
+					Res1: &sample_report.Res1InstanceParam{
+						Value:           "1",
+						Dimensions:      map[string]string{"s": "2"},
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						Int64Map:        map[string]string{"a": "1"},
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+						Res2: &sample_report.Res2InstanceParam{
+							Value:          "1",
+							Dimensions:     map[string]string{"s": "2"},
+							Int64Primitive: "54362",
+						},
+						Res2Map: map[string]*sample_report.Res2InstanceParam{
+							"foo": {
+								Value:          "1",
+								Dimensions:     map[string]string{"s": "2"},
+								Int64Primitive: "54362",
+							},
+						},
+					},
 				},
 				"bar": &sample_report.InstanceParam{
 					Value:           "2",
@@ -744,6 +932,29 @@ func TestProcessReport(t *testing.T) {
 					Int64Map:        map[string]int64{"a": int64(1)},
 					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
 					Duration:        10 * time.Second,
+					Res1: &sample_report.Res1{
+						Value:           int64(1),
+						Dimensions:      map[string]interface{}{"s": int64(2)},
+						BoolPrimitive:   true,
+						DoublePrimitive: 1.2,
+						Int64Primitive:  54362,
+						StringPrimitive: "mystring",
+						Int64Map:        map[string]int64{"a": int64(1)},
+						TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+						Duration:        10 * time.Second,
+						Res2: &sample_report.Res2{
+							Value:          int64(1),
+							Dimensions:     map[string]interface{}{"s": int64(2)},
+							Int64Primitive: 54362,
+						},
+						Res2Map: map[string]*sample_report.Res2{
+							"foo": {
+								Value:          int64(1),
+								Dimensions:     map[string]interface{}{"s": int64(2)},
+								Int64Primitive: 54362,
+							},
+						},
+					},
 				},
 				{
 					Name:            "bar",
@@ -778,6 +989,35 @@ func TestProcessReport(t *testing.T) {
 			wantError: "unknown attribute bad.attribute",
 		},
 		{
+			name: "EvalAllErrorSubMessage",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "1"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res1: &sample_report.Res1InstanceParam{
+						Value:           "1",
+						Dimensions:      map[string]string{"s": "bad.attribute"},
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						Int64Map:        map[string]string{"a": "1"},
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+			},
+			hdlr:      &fakeReportHandler{},
+			wantError: "failed to evaluate field 'Res1.Dimensions' for instance 'foo'",
+		},
+		{
 			name: "EvalError",
 			insts: map[string]proto.Message{
 				"foo": &sample_report.InstanceParam{
@@ -794,6 +1034,35 @@ func TestProcessReport(t *testing.T) {
 			},
 			hdlr:      &fakeReportHandler{},
 			wantError: "unknown attribute bad.attribute",
+		},
+		{
+			name: "EvalErrorSubMsg",
+			insts: map[string]proto.Message{
+				"foo": &sample_report.InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res1: &sample_report.Res1InstanceParam{
+						Value:           "bad.attribute",
+						Dimensions:      map[string]string{"s": "2"},
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						Int64Map:        map[string]string{"a": "1"},
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+			},
+			hdlr:      &fakeReportHandler{},
+			wantError: "failed to evaluate field 'Res1.Value' for instance 'foo'",
 		},
 		{
 			name: "AttributeAbsentAtRuntime",
@@ -877,16 +1146,64 @@ func TestProcessCheck(t *testing.T) {
 		wantError       string
 	}{
 		{
-			name:     "Simple",
+			name:     "Valid",
 			instName: "foo",
 			inst: &sample_check.InstanceParam{
 				CheckExpression: `"abcd asd"`,
 				StringMap:       map[string]string{"a": `"aaa"`},
+				Res1: &sample_check.Res1InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res2: &sample_check.Res2InstanceParam{
+						Value:          "1",
+						Dimensions:     map[string]string{"s": "2"},
+						Int64Primitive: "54362",
+					},
+					Res2Map: map[string]*sample_check.Res2InstanceParam{
+						"foo": {
+							Value:          "1",
+							Dimensions:     map[string]string{"s": "2"},
+							Int64Primitive: "54362",
+						},
+					},
+				},
 			},
 			hdlr: &fakeCheckHandler{
 				retResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
 			},
-			wantInstance:    &sample_check.Instance{Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"}},
+			wantInstance: &sample_check.Instance{
+				Name: "foo", CheckExpression: "abcd asd", StringMap: map[string]string{"a": "aaa"},
+				Res1: &sample_check.Res1{
+					Value:           int64(1),
+					Dimensions:      map[string]interface{}{"s": int64(2)},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "mystring",
+					Int64Map:        map[string]int64{"a": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+					Res2: &sample_check.Res2{
+						Value:          int64(1),
+						Dimensions:     map[string]interface{}{"s": int64(2)},
+						Int64Primitive: 54362,
+					},
+					Res2Map: map[string]*sample_check.Res2{
+						"foo": {
+							Value:          int64(1),
+							Dimensions:     map[string]interface{}{"s": int64(2)},
+							Int64Primitive: 54362,
+						},
+					},
+				},
+			},
 			wantCheckResult: adapter.CheckResult{Status: rpc.Status{Message: "msg"}},
 		},
 		{
@@ -913,10 +1230,7 @@ func TestProcessCheck(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
-			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
-			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h)
-
+			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, newFakeExpr(), *h)
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
 					t.Errorf("ProcessCheckSample got error = %s, want %s", err.Error(), tst.wantError)
@@ -946,16 +1260,64 @@ func TestProcessQuota(t *testing.T) {
 		wantError       string
 	}{
 		{
-			name:     "Simple",
+			name:     "Valid",
 			instName: "foo",
 			inst: &sample_quota.InstanceParam{
 				Dimensions: map[string]string{"a": `"str"`},
 				BoolMap:    map[string]string{"a": "true"},
+				Res1: &sample_quota.Res1InstanceParam{
+					Value:           "1",
+					Dimensions:      map[string]string{"s": "2"},
+					BoolPrimitive:   "true",
+					DoublePrimitive: "1.2",
+					Int64Primitive:  "54362",
+					StringPrimitive: `"mystring"`,
+					Int64Map:        map[string]string{"a": "1"},
+					TimeStamp:       "request.timestamp",
+					Duration:        "request.duration",
+					Res2: &sample_quota.Res2InstanceParam{
+						Value:          "1",
+						Dimensions:     map[string]string{"s": "2"},
+						Int64Primitive: "54362",
+					},
+					Res2Map: map[string]*sample_quota.Res2InstanceParam{
+						"foo": {
+							Value:          "1",
+							Dimensions:     map[string]string{"s": "2"},
+							Int64Primitive: "54362",
+						},
+					},
+				},
 			},
 			hdlr: &fakeQuotaHandler{
 				retResult: adapter.QuotaResult{Amount: 1},
 			},
-			wantInstance:    &sample_quota.Instance{Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true}},
+			wantInstance: &sample_quota.Instance{
+				Name: "foo", Dimensions: map[string]interface{}{"a": "str"}, BoolMap: map[string]bool{"a": true},
+				Res1: &sample_quota.Res1{
+					Value:           int64(1),
+					Dimensions:      map[string]interface{}{"s": int64(2)},
+					BoolPrimitive:   true,
+					DoublePrimitive: 1.2,
+					Int64Primitive:  54362,
+					StringPrimitive: "mystring",
+					Int64Map:        map[string]int64{"a": int64(1)},
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+					Res2: &sample_quota.Res2{
+						Value:          int64(1),
+						Dimensions:     map[string]interface{}{"s": int64(2)},
+						Int64Primitive: 54362,
+					},
+					Res2Map: map[string]*sample_quota.Res2{
+						"foo": {
+							Value:          int64(1),
+							Dimensions:     map[string]interface{}{"s": int64(2)},
+							Int64Primitive: 54362,
+						},
+					},
+				},
+			},
 			wantQuotaResult: adapter.QuotaResult{Amount: 1},
 		},
 		{
@@ -964,6 +1326,18 @@ func TestProcessQuota(t *testing.T) {
 			inst: &sample_quota.InstanceParam{
 				Dimensions: map[string]string{"a": "bad.attribute"},
 				BoolMap:    map[string]string{"a": "true"},
+			},
+			wantError: "unknown attribute bad.attribute",
+		},
+		{
+			name:     "EvalErrorSubMsg",
+			instName: "foo",
+			inst: &sample_quota.InstanceParam{
+				Dimensions: map[string]string{"a": "source.string"},
+				BoolMap:    map[string]string{"a": "true"},
+				Res1: &sample_quota.Res1InstanceParam{
+					Value: "bad.attribute",
+				},
 			},
 			wantError: "unknown attribute bad.attribute",
 		},
@@ -984,7 +1358,8 @@ func TestProcessQuota(t *testing.T) {
 			h := &tst.hdlr
 			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
 			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
-			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName, tst.inst, fakeBag{}, ev, *h, adapter.QuotaArgs{})
+			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName,
+				tst.inst, fakeBag{}, newFakeExpr(), *h, adapter.QuotaArgs{})
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
