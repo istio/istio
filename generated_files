@@ -2,7 +2,7 @@
 broker/pkg/model/config/mock_store.go
 broker/pkg/platform/kube/crd/types.go
 broker/pkg/testing/mock/proto/fake_config.pb.go
-external/io_istio_api/fixed_cfg.pb.go
+external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go
 mixer/adapter/denier/config/config.pb.go
 mixer/adapter/inventory.gen.go
 mixer/adapter/kubernetes/config/config.pb.go
