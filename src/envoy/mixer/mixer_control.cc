@@ -56,7 +56,7 @@ void CreateEnvironment(Upstream::ClusterManager& cm,
 
 }  // namespace
 
-HttpMixerControl::HttpMixerControl(const MixerConfig& mixer_config,
+HttpMixerControl::HttpMixerControl(const HttpMixerConfig& mixer_config,
                                    Upstream::ClusterManager& cm,
                                    Event::Dispatcher& dispatcher,
                                    Runtime::RandomGenerator& random)
@@ -67,9 +67,11 @@ HttpMixerControl::HttpMixerControl(const MixerConfig& mixer_config,
   CreateEnvironment(cm, dispatcher, random, &options.env);
 
   controller_ = ::istio::mixer_control::http::Controller::Create(options);
+
+  has_v2_config_ = mixer_config.has_v2_config;
 }
 
-TcpMixerControl::TcpMixerControl(const MixerConfig& mixer_config,
+TcpMixerControl::TcpMixerControl(const TcpMixerConfig& mixer_config,
                                  Upstream::ClusterManager& cm,
                                  Event::Dispatcher& dispatcher,
                                  Runtime::RandomGenerator& random) {

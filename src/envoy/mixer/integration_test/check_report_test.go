@@ -184,7 +184,25 @@ func TestCheckReportAttributes(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet"
+	tag := "OKGetV1"
+	if _, _, err := HTTPGet(url); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkGet)
+	s.VerifyReport(tag, reportAttributesOkGet)
+
+	// Issues a POST request.
+	tag = "OKPostV1"
+	if _, _, err := HTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesOkPost)
+
+	s.v2Conf = true
+	s.ReStartEnvoy()
+
+	tag = "OKGet"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

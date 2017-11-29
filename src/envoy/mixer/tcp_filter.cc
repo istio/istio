@@ -34,7 +34,7 @@ namespace Mixer {
 class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
   Upstream::ClusterManager& cm_;
-  MixerConfig mixer_config_;
+  TcpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
 
  public:

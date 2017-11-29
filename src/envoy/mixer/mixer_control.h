@@ -30,7 +30,7 @@ namespace Mixer {
 class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
  public:
   // The constructor.
-  HttpMixerControl(const MixerConfig& mixer_config,
+  HttpMixerControl(const HttpMixerConfig& mixer_config,
                    Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                    Runtime::RandomGenerator& random);
 
@@ -40,18 +40,22 @@ class HttpMixerControl final : public ThreadLocal::ThreadLocalObject {
     return controller_.get();
   }
 
+  bool has_v2_config() const { return has_v2_config_; }
+
  private:
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The mixer control
   std::unique_ptr<::istio::mixer_control::http::Controller> controller_;
+  // has v2 config;
+  bool has_v2_config_;
 };
 
 class TcpMixerControl final : public ThreadLocal::ThreadLocalObject {
  public:
   // The constructor.
-  TcpMixerControl(const MixerConfig& mixer_config, Upstream::ClusterManager& cm,
-                  Event::Dispatcher& dispatcher,
+  TcpMixerControl(const TcpMixerConfig& mixer_config,
+                  Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher,
                   Runtime::RandomGenerator& random);
 
   ::istio::mixer_control::tcp::Controller* controller() {

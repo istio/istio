@@ -55,6 +55,9 @@ const std::string kJsonNameMixerReport("mixer_report");
 // a sub string map of mixer attributes passed to mixer for the route.
 const std::string kPrefixMixerAttributes("mixer_attributes.");
 
+// Per route attribute "destination.service".
+const std::string kJsonNameDestinationService("destination.service");
+
 // The HTTP header to forward Istio attributes.
 const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
@@ -66,7 +69,7 @@ const LowerCaseString kRefererHeaderKey("referer");
 class Config {
  private:
   Upstream::ClusterManager& cm_;
-  MixerConfig mixer_config_;
+  HttpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
 
  public:
@@ -316,6 +319,22 @@ class Instance : public Http::StreamDecoderFilter,
     return attrs;
   }
 
+  // Read a string attribute from per-route opaque data.
+  bool GetRouteStringAttribute(const std::string& name, std::string* value) {
+    auto route = decoder_callbacks_->route();
+    if (route != nullptr) {
+      auto entry = route->routeEntry();
+      if (entry != nullptr) {
+        auto it = entry->opaqueConfig().find(name);
+        if (it != entry->opaqueConfig().end()) {
+          *value = it->second;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
  public:
   Instance(ConfigPtr config)
       : mixer_control_(config->mixer_control()),
@@ -327,14 +346,19 @@ class Instance : public Http::StreamDecoderFilter,
   FilterHeadersStatus decodeHeaders(HeaderMap& headers, bool) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
 
-    check_mixer_route_flags();
-
-    ServiceConfig legacy_config;
-    MixerConfig::CreateLegacyRouteConfig(
-        mixer_check_disabled_, mixer_report_disabled_,
-        GetRouteStringMap(kPrefixMixerAttributes), &legacy_config);
     ::istio::mixer_control::http::Controller::PerRouteConfig config;
-    config.legacy_config = &legacy_config;
+    ServiceConfig legacy_config;
+    if (mixer_control_.has_v2_config()) {
+      GetRouteStringAttribute(kJsonNameDestinationService,
+                              &config.destination_service);
+    } else {
+      check_mixer_route_flags();
+
+      HttpMixerConfig::CreateLegacyRouteConfig(
+          mixer_check_disabled_, mixer_report_disabled_,
+          GetRouteStringMap(kPrefixMixerAttributes), &legacy_config);
+      config.legacy_config = &legacy_config;
+    }
     handler_ = mixer_control_.controller()->CreateRequestHandler(config);
 
     state_ = Calling;

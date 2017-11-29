@@ -51,42 +51,30 @@ func TestCheckReportDisable(t *testing.T) {
 	s.VerifyCheckCount(tag, 1)
 	s.VerifyReportCount(tag, 1)
 
-	var err error
 	// stop and start a new envoy config
-	s.envoy.Stop()
-	s.envoy, err = NewEnvoy(s.conf, checkOnlyFlags, s.stress, s.faultInject)
-	if err != nil {
-		t.Errorf("unable to re-create Envoy %v", err)
-	} else {
-		s.envoy.Start()
-	}
+	s.flags = checkOnlyFlags
+	s.ReStartEnvoy()
 
-	// wait for 2 second to wait for envoy to come up
-	time.Sleep(2 * time.Second)
 	tag = "Check Only"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
+	// Wait for Report
 	time.Sleep(1 * time.Second)
 	// Only send check, not report.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 1)
 
 	// stop and start a new envoy config
-	s.envoy.Stop()
-	s.envoy, err = NewEnvoy(s.conf, reportOnlyFlags, s.stress, s.faultInject)
-	if err != nil {
-		t.Errorf("unable to re-create Envoy %v", err)
-	} else {
-		s.envoy.Start()
-	}
+	s.flags = reportOnlyFlags
+	s.ReStartEnvoy()
 
 	// wait for 2 second to wait for envoy to come up
-	time.Sleep(2 * time.Second)
 	tag = "Report Only"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
+	// Wait for Report
 	time.Sleep(1 * time.Second)
 	// Only send report, not check.
 	s.VerifyCheckCount(tag, 2)

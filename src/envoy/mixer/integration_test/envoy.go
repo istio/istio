@@ -58,13 +58,13 @@ func Run(name string, args ...string) (s string, err error) {
 	return
 }
 
-func NewEnvoy(conf, flags string, stress, faultInject bool) (*Envoy, error) {
+func NewEnvoy(conf, flags string, stress, faultInject, v2Conf bool) (*Envoy, error) {
 	bin_path := getTestBinRootPath() + "/src/envoy/envoy"
 	log.Printf("Envoy binary: %v\n", bin_path)
 
 	conf_path := "/tmp/envoy.conf"
 	log.Printf("Envoy config: in %v\n%v\n", conf_path, conf)
-	if err := CreateEnvoyConf(conf_path, conf, flags, stress, faultInject); err != nil {
+	if err := CreateEnvoyConf(conf_path, conf, flags, stress, faultInject, v2Conf); err != nil {
 		return nil, err
 	}
 
