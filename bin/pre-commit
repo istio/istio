@@ -34,8 +34,8 @@ BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
 if [ $BRANCH_NAME != '(no branch)' ]; then
     cd $ROOT
 
-    echo "generating pb.go files..."
-    bin/generate-protos.sh
+    echo "updating autogen files..."
+    bin/bazel_to_go.py
 
     echo "formatting..."
     bin/fmt.sh
