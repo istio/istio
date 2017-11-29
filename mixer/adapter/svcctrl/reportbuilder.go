@@ -145,14 +145,6 @@ func generateRequestCount(instance *svcctrlreport.Instance) (*sc.MetricValue, er
 	}, nil
 }
 
-func generateErrorCount(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
-	// Skip if not an error
-	if instance.ResponseCode < 300 {
-		return nil, nil
-	}
-	return generateRequestCount(instance)
-}
-
 func generateRequestSize(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
 	builder, err := newDistValueBuilder(sizeOption)
 	if err != nil {

@@ -44,11 +44,6 @@ func getTestReportBuilder() *reportBuilder {
 				},
 			},
 			{
-				name:           "test_request_error_count",
-				valueGenerator: generateErrorCount,
-				labels:         []string{},
-			},
-			{
 				name:           "test_request_size",
 				valueGenerator: generateRequestSize,
 				labels:         []string{},
