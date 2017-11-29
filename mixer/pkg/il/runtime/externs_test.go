@@ -22,7 +22,7 @@ import (
 )
 
 func TestExternIp(t *testing.T) {
-	b, err := externIp("1.2.3.4")
+	b, err := externIP("1.2.3.4")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -32,21 +32,21 @@ func TestExternIp(t *testing.T) {
 }
 
 func TestExternIp_Error(t *testing.T) {
-	_, err := externIp("A.A.A.A")
+	_, err := externIP("A.A.A.A")
 	if err == nil {
 		t.Fatalf("Expected error not found.")
 	}
 }
 
 func TestExternIpEqual_True(t *testing.T) {
-	b := externIpEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
 	if !b {
 		t.Fatal()
 	}
 }
 
 func TestExternIpEqual_False(t *testing.T) {
-	b := externIpEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
 	if b {
 		t.Fatal()
 	}

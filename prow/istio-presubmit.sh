@@ -14,27 +14,55 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
 
 #######################################
 # Presubmit script triggered by Prow. #
 #######################################
 
-# Exit immediately for non zero status
-set -e
+WD=$(dirname $0)
+WD=$(cd $WD; pwd)
+ROOT=$(dirname $WD)
+
 # Check unset variables
 set -u
 # Print commands
 set -x
 
+# ensure Go version is same as bazel's Go version.
+source "${ROOT}/bin/use_bazel_go.sh"
+go version
+
+# Exit immediately for non zero status
+set -e
+
+die () {
+  echo "$@"
+  exit 1
+}
+
+run_or_die_on_change() {
+  local script=$1
+  $script || die "Could not run ${script}"
+  # "generated_files" can be modified by other presubmit runs, since
+  # build caches are shared among them. For now, it should be excluded for
+  # the observed changes.
+  # TODO(https://github.com/istio/istio/issues/1689): fix this.
+  if [[ -n $(git status --porcelain | grep -v generated_files) ]]; then
+    git status
+    die "Repo has unstaged changes. Re-run ${script}"
+  fi
+}
+
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/istio
   cd ${GOPATH}/src/istio.io/istio
+
+  # ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  # cd ${GOPATH}/src/istio.io/istio
+  go get -u github.com/golang/dep/cmd/dep
 
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
@@ -64,9 +92,46 @@ else
 fi
 cd $ROOT
 
+# ./bin/generate-protos.sh || die "Could not generate *.pb.go"
+# if [[ -n $(git status --porcelain) ]]; then
+#     git status
+#     die "Repo has unstaged changes. Re-run ./bin/generate-protos.sh"
+# fi
+
+mkdir -p ~/envoy
+cd ~/envoy
+ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' $ROOT/WORKSPACE))
+PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+PROXY=debug-$PROXYVERSION
+wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+ln -sf ~/envoy/usr/local/bin/envoy $ROOT/pilot/proxy/envoy/envoy
+cd $ROOT
+
+# go test execution
+# time dep ensure -v
+
+# echo FIXME remove mixer tools exclusion after tests can be run without bazel
+# time go test $(go list ./mixer/... | grep -v /tools/codegen)
+# time go test ./pilot/...
+# time go test ./security/...
+# time go test ./broker/...
+# rm -rf vendor/
+
+if [ "${CI:-}" == 'bootstrap' ]; then
+  # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
+  # but we depend on being at path $GOPATH/src/istio.io/istio for imports
+  mv ${GOPATH}/src/istio.io/istio ${GOPATH}/src/github.com
+  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  ROOT=${GOPATH}/src/istio.io/istio
+  cd ${GOPATH}/src/istio.io/istio
+fi
+
 # Build
 ${ROOT}/bin/init.sh
 
+run_or_die_on_change ./bin/fmt.sh
+
+# bazel test execution
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
 

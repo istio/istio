@@ -40,6 +40,7 @@ type builder struct {
 ////// Builder method from supported template //////
 
 // SetApiKeyTypes sets apiKey template data type.
+// nolint:golint
 func (b *builder) SetApiKeyTypes(types map[string]*apikey.Type) {
 	b.checkDataShape = types
 }
@@ -77,12 +78,12 @@ func (b *builder) Validate() *adapter.ConfigErrors {
 func validateRuntimeConfig(config *config.RuntimeConfig) *multierror.Error {
 	var result *multierror.Error
 	if config == nil {
-		result = multierror.Append(result, errors.New("RuntimeConfig is nil"))
+		result = multierror.Append(result, errors.New("config is nil"))
 		return result
 	}
 
 	if config.CheckResultExpiration == nil {
-		result = multierror.Append(result, errors.New("RuntimeConfig.CheckResultExpiration is nil"))
+		result = multierror.Append(result, errors.New("config.CheckResultExpiration is nil"))
 		return result
 	}
 	exp, err := pbtypes.DurationFromProto(config.CheckResultExpiration)
@@ -99,19 +100,19 @@ func validateRuntimeConfig(config *config.RuntimeConfig) *multierror.Error {
 func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror.Error {
 	var result *multierror.Error
 	if settings == nil || len(settings) == 0 {
-		result = multierror.Append(result, errors.New("ServiceConfigs is nil or empty"))
+		result = multierror.Append(result, errors.New("settings is nil or empty"))
 		return result
 	}
 	for _, setting := range settings {
 		if setting.MeshServiceName == "" || setting.GoogleServiceName == "" {
 			result = multierror.Append(result,
-				errors.New("MeshServiceName and GoogleServiceName must be non-empty"))
+				errors.New("settings.MeshServiceName and settings.GoogleServiceName must be non-empty"))
 		}
 
 		if setting.Quotas != nil {
 			for _, qCfg := range setting.Quotas {
 				if qCfg.Name == "" {
-					result = multierror.Append(result, errors.New("QuotaName is empty"))
+					result = multierror.Append(result, errors.New("encountered an empty QuotaName"))
 				}
 				if qCfg.Expiration == nil {
 					result = multierror.Append(result, errors.New("quota expiration is nil"))
@@ -122,7 +123,7 @@ func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror
 					} else if expiration <= 0 {
 						result = multierror.Append(
 							result, fmt.Errorf(
-								`quota must have postive expiration, but get %v`, expiration))
+								`quota must have positive expiration, but get %v`, expiration))
 					}
 				}
 			}

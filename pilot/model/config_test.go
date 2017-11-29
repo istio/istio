@@ -21,7 +21,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"
@@ -208,49 +208,49 @@ func TestConfigKey(t *testing.T) {
 func TestResolveHostname(t *testing.T) {
 	cases := []struct {
 		meta model.ConfigMeta
-		svc  *proxyconfig.IstioService
+		svc  *routing.IstioService
 		want string
 	}{
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &proxyconfig.IstioService{Name: "hello"},
+			svc:  &routing.IstioService{Name: "hello"},
 			want: "hello.default.svc.cluster.local",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &proxyconfig.IstioService{Name: "hello",
+			svc: &routing.IstioService{Name: "hello",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "hello.default.svc.cluster.local",
 		},
 		{
 			meta: model.ConfigMeta{},
-			svc:  &proxyconfig.IstioService{Name: "hello"},
+			svc:  &routing.IstioService{Name: "hello"},
 			want: "hello",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default"},
-			svc:  &proxyconfig.IstioService{Name: "hello"},
+			svc:  &routing.IstioService{Name: "hello"},
 			want: "hello.default",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &proxyconfig.IstioService{Service: "reviews.service.consul"},
+			svc:  &routing.IstioService{Service: "reviews.service.consul"},
 			want: "reviews.service.consul",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &proxyconfig.IstioService{Name: "hello", Service: "reviews.service.consul",
+			svc: &routing.IstioService{Name: "hello", Service: "reviews.service.consul",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "reviews.service.consul",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &proxyconfig.IstioService{Service: "*cnn.com"},
+			svc:  &routing.IstioService{Service: "*cnn.com"},
 			want: "*cnn.com",
 		},
 		{
 			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &proxyconfig.IstioService{Name: "hello", Service: "*cnn.com",
+			svc: &routing.IstioService{Name: "hello", Service: "*cnn.com",
 				Namespace: "default", Domain: "svc.cluster.local"},
 			want: "*cnn.com",
 		},
@@ -266,7 +266,7 @@ func TestResolveHostname(t *testing.T) {
 func TestMatchSource(t *testing.T) {
 	cases := []struct {
 		meta      model.ConfigMeta
-		svc       *proxyconfig.IstioService
+		svc       *routing.IstioService
 		instances []*model.ServiceInstance
 		want      bool
 	}{
@@ -276,24 +276,24 @@ func TestMatchSource(t *testing.T) {
 		},
 		{
 			meta: model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:  &proxyconfig.IstioService{Name: "hello"},
+			svc:  &routing.IstioService{Name: "hello"},
 			want: false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &proxyconfig.IstioService{Name: "world"},
+			svc:       &routing.IstioService{Name: "world"},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
 			want:      false,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &proxyconfig.IstioService{Name: "hello"},
+			svc:       &routing.IstioService{Name: "hello"},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
 			want:      true,
 		},
 		{
 			meta:      model.ConfigMeta{Name: "test", Namespace: "default", Domain: "cluster.local"},
-			svc:       &proxyconfig.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
+			svc:       &routing.IstioService{Name: "hello", Labels: map[string]string{"version": "v0"}},
 			instances: []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)},
 			want:      true,
 		},
@@ -310,15 +310,15 @@ func TestSortRouteRules(t *testing.T) {
 	rules := []model.Config{
 		{
 			ConfigMeta: model.ConfigMeta{Name: "d"},
-			Spec:       &proxyconfig.RouteRule{Precedence: 2},
+			Spec:       &routing.RouteRule{Precedence: 2},
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "b"},
-			Spec:       &proxyconfig.RouteRule{Precedence: 3},
+			Spec:       &routing.RouteRule{Precedence: 3},
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "c"},
-			Spec:       &proxyconfig.RouteRule{Precedence: 2},
+			Spec:       &routing.RouteRule{Precedence: 2},
 		},
 		{
 			ConfigMeta: model.ConfigMeta{Name: "a"},
@@ -360,14 +360,14 @@ func TestRouteRules(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)
 
-	routerule1 := &proxyconfig.RouteRule{
-		Match: &proxyconfig.MatchCondition{
-			Source: &proxyconfig.IstioService{
+	routerule1 := &routing.RouteRule{
+		Match: &routing.MatchCondition{
+			Source: &routing.IstioService{
 				Name:   "hello",
 				Labels: instance.Labels,
 			},
 		},
-		Destination: &proxyconfig.IstioService{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
 	}
@@ -417,11 +417,11 @@ func TestRouteRules(t *testing.T) {
 
 func TestEgressRules(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	rule := &proxyconfig.EgressRule{
-		Destination: &proxyconfig.IstioService{
+	rule := &routing.EgressRule{
+		Destination: &routing.IstioService{
 			Service: "*.foo.com",
 		},
-		Ports: []*proxyconfig.EgressRule_Port{{
+		Ports: []*routing.EgressRule_Port{{
 			Port:     80,
 			Protocol: "HTTP",
 		}},
@@ -441,7 +441,7 @@ func TestEgressRules(t *testing.T) {
 		t.Error(err)
 	}
 
-	want := map[string]*proxyconfig.EgressRule{
+	want := map[string]*routing.EgressRule{
 		"egress-rule/default/example": rule,
 	}
 	got := store.EgressRules()
@@ -460,12 +460,12 @@ func TestPolicy(t *testing.T) {
 	labels := map[string]string{"version": "v1"}
 	instances := []*model.ServiceInstance{mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0)}
 
-	policy1 := &proxyconfig.DestinationPolicy{
-		Source: &proxyconfig.IstioService{
+	policy1 := &routing.DestinationPolicy{
+		Source: &routing.IstioService{
 			Name:   "hello",
 			Labels: map[string]string{"version": "v0"},
 		},
-		Destination: &proxyconfig.IstioService{
+		Destination: &routing.IstioService{
 			Name:   "world",
 			Labels: labels,
 		},
@@ -501,173 +501,5 @@ func TestPolicy(t *testing.T) {
 	// erroring out list
 	if out := model.MakeIstioStore(errorStore{}).Policy(instances, mock.WorldService.Hostname, labels); out != nil {
 		t.Errorf("Policy() => expected nil but got %v", out)
-	}
-}
-
-func TestRejectConflictingEgressRules(t *testing.T) {
-	cases := []struct {
-		name  string
-		in    map[string]*proxyconfig.EgressRule
-		out   map[string]*proxyconfig.EgressRule
-		valid bool
-	}{
-		{name: "no conflicts",
-			in: map[string]*proxyconfig.EgressRule{"cnn": {
-				Destination: &proxyconfig.IstioService{
-					Service: "*cnn.com",
-				},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"bbc": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*bbc.com",
-					},
-
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			out: map[string]*proxyconfig.EgressRule{"cnn": {
-				Destination: &proxyconfig.IstioService{
-					Service: "*cnn.com",
-				},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"bbc": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*bbc.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			valid: true},
-		{name: "a conflict in a domain",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
-					Service: "*cnn.com",
-				},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			out: map[string]*proxyconfig.EgressRule{
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			valid: false},
-		{name: "a conflict in a domain, different ports",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
-					Service: "*cnn.com",
-				},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 8080, Protocol: "http"},
-						{Port: 8081, Protocol: "https"},
-					},
-				},
-			},
-			out: map[string]*proxyconfig.EgressRule{
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 8080, Protocol: "http"},
-						{Port: 8081, Protocol: "https"},
-					},
-				},
-			},
-			valid: false},
-		{name: "two conflicts, two rules rejected",
-			in: map[string]*proxyconfig.EgressRule{"cnn2": {
-				Destination: &proxyconfig.IstioService{
-					Service: "*cnn.com",
-				},
-				Ports: []*proxyconfig.EgressRule_Port{
-					{Port: 80, Protocol: "http"},
-					{Port: 443, Protocol: "https"},
-				},
-			},
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-				"cnn3": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			out: map[string]*proxyconfig.EgressRule{
-				"cnn1": {
-					Destination: &proxyconfig.IstioService{
-						Service: "*cnn.com",
-					},
-					Ports: []*proxyconfig.EgressRule_Port{
-						{Port: 80, Protocol: "http"},
-						{Port: 443, Protocol: "https"},
-					},
-				},
-			},
-			valid: false},
-	}
-
-	for _, c := range cases {
-		got, errs := model.RejectConflictingEgressRules(c.in)
-		if (errs == nil) != c.valid {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v",
-				c.name, errs == nil, c.valid)
-		}
-		if !reflect.DeepEqual(got, c.out) {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v: %v",
-				c.name, got, c.in)
-		}
 	}
 }

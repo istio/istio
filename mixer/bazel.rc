@@ -1,2 +1,0 @@
-# Always include the version information in the build
-build --workspace_status_command=./bin/build_stamp.sh --action_env=ISTIO_VERSION

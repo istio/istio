@@ -18,13 +18,14 @@ package envoy
 
 import (
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/golang/glog"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -104,7 +105,7 @@ type FilterMixerConfig struct {
 func (*FilterMixerConfig) isNetworkFilterConfig() {}
 
 // buildMixerCluster builds an outbound mixer cluster
-func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
+func buildMixerCluster(mesh *meshconfig.MeshConfig, role proxy.Node, mixerSAN []string) *Cluster {
 	mixerCluster := buildCluster(mesh.MixerAddress, MixerCluster, mesh.ConnectTimeout)
 	mixerCluster.CircuitBreaker = &CircuitBreaker{
 		Default: DefaultCBPriority{
@@ -116,9 +117,9 @@ func buildMixerCluster(mesh *proxyconfig.MeshConfig, role proxy.Node, mixerSAN [
 
 	// apply auth policies
 	switch mesh.DefaultConfig.ControlPlaneAuthPolicy {
-	case proxyconfig.AuthenticationPolicy_NONE:
+	case meshconfig.AuthenticationPolicy_NONE:
 		// do nothing
-	case proxyconfig.AuthenticationPolicy_MUTUAL_TLS:
+	case meshconfig.AuthenticationPolicy_MUTUAL_TLS:
 		// apply SSL context to enable mutual TLS between Envoy proxies between app and mixer
 		mixerCluster.SSLContext = buildClusterSSLContext(proxy.AuthCertsPath, mixerSAN)
 	}
@@ -141,7 +142,9 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig {
+func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance,
+	config model.IstioConfigStore) *FilterMixerConfig {
+
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -168,24 +171,50 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 		},
 		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
 	}
-	if len(services) > 0 {
+	if len(instances) > 0 {
 		// legacy mixerclient behavior is a comma separated list of
-		// services. Can this be removed?
+		// services. When can this be removed?
+		var services []string
+		if instances != nil {
+			serviceSet := make(map[string]bool, len(instances))
+			for _, instance := range instances {
+				serviceSet[instance.Service.Hostname] = true
+			}
+			for service := range serviceSet {
+				services = append(services, service)
+			}
+			sort.Strings(services)
+		}
 		filter.MixerAttributes[AttrDestinationService] = strings.Join(services, ",")
 
-		// arbitrarily make the first service in the list the default
+		// first service in the sorted list is the default
 		v2.DefaultDestinationService = services[0]
 	}
 
-	for _, service := range services {
-		v2.ServiceConfigs[service] = &mccpb.ServiceConfig{
+	for _, instance := range instances {
+		sc := &mccpb.ServiceConfig{
 			MixerAttributes: &mpb.Attributes{
 				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{service}},
+					AttrDestinationService: {
+						Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname},
+					},
 				},
 			},
-			// TODO per-service HttpApiApsec, QuotaSpec
 		}
+
+		apiSpecs := config.HTTPAPISpecByDestination(instance)
+		model.SortHTTPAPISpec(apiSpecs)
+		for _, config := range apiSpecs {
+			sc.HttpApiSpec = append(sc.HttpApiSpec, config.Spec.(*mccpb.HTTPAPISpec))
+		}
+
+		quotaSpecs := config.QuotaSpecByDestination(instance)
+		model.SortQuotaSpec(quotaSpecs)
+		for _, config := range quotaSpecs {
+			sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
+		}
+
+		v2.ServiceConfigs[instance.Service.Hostname] = sc
 	}
 
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
@@ -197,7 +226,7 @@ func mixerHTTPRouteConfig(role proxy.Node, services []string) *FilterMixerConfig
 }
 
 // Mixer TCP filter config for inbound requests.
-func mixerTCPConfig(role proxy.Node, check bool) *FilterMixerConfig {
+func mixerTCPConfig(role proxy.Node, check bool, instance *model.ServiceInstance) *FilterMixerConfig {
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -207,8 +236,9 @@ func mixerTCPConfig(role proxy.Node, check bool) *FilterMixerConfig {
 	v2 := &mccpb.TcpClientConfig{
 		MixerAttributes: &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				AttrDestinationIP:  {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
-				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
+				AttrDestinationIP:      {Value: &mpb.Attributes_AttributeValue_StringValue{role.IPAddress}},
+				AttrDestinationUID:     {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
+				AttrDestinationService: {Value: &mpb.Attributes_AttributeValue_StringValue{instance.Service.Hostname}},
 			},
 		},
 	}

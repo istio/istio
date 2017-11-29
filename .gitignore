@@ -16,4 +16,9 @@ vendor
 cluster.env
 kubedns
 # pilot
-pilot/platform/config
+pilot/platform/kube/config
+pilot/proxy/envoy/envoy
+# lint
+lintconfig.gen.json
+# dep
+Gopkg.lock

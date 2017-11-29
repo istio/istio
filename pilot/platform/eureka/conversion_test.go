@@ -192,13 +192,13 @@ func TestConvertProtocol(t *testing.T) {
 		{in: nil, out: model.ProtocolTCP},
 		{in: makeMetadata(""), out: model.ProtocolTCP},
 		{in: makeMetadata("HTCPCP"), out: model.ProtocolTCP},
-		{in: makeMetadata(metadataUDP), out: model.ProtocolUDP},
-		{in: makeMetadata(metadataHTTP), out: model.ProtocolHTTP},
-		{in: makeMetadata(metadataHTTP2), out: model.ProtocolHTTP2},
-		{in: makeMetadata(metadataHTTPS), out: model.ProtocolHTTPS},
-		{in: makeMetadata(metadataGRPC), out: model.ProtocolGRPC},
-		{in: makeMetadata(metadataMongo), out: model.ProtocolMongo},
-		{in: makeMetadata(metadataRedis), out: model.ProtocolRedis},
+		{in: makeMetadata("udp"), out: model.ProtocolUDP},
+		{in: makeMetadata("http"), out: model.ProtocolHTTP},
+		{in: makeMetadata("http2"), out: model.ProtocolHTTP2},
+		{in: makeMetadata("https"), out: model.ProtocolHTTPS},
+		{in: makeMetadata("grpc"), out: model.ProtocolGRPC},
+		{in: makeMetadata("mongo"), out: model.ProtocolMongo},
+		{in: makeMetadata("redis"), out: model.ProtocolRedis},
 	}
 
 	for _, tt := range protocolTests {
@@ -211,7 +211,7 @@ func TestConvertProtocol(t *testing.T) {
 func TestConvertLabels(t *testing.T) {
 	md := metadata{
 		"@class":         "java.util.Collections$EmptyMap",
-		protocolMetadata: metadataHTTP2,
+		protocolMetadata: "http2",
 		"kit":            "kat",
 		"spam":           "coolaid",
 	}

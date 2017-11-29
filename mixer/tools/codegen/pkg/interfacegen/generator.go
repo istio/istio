@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	ResourceMsgTypeSuffix      = "Type"
-	ResourceMsgInstParamSuffix = "InstanceParam"
+	resourceMsgTypeSuffix      = "Type"
+	resourceMsgInstParamSuffix = "InstanceParam"
 	fullGoNameOfValueTypeEnum  = "istio_mixer_v1_config_descriptor.ValueType"
 	goFileImportFmt            = `"%s"`
 	protoFileImportFmt         = `import "%s";`
@@ -169,7 +169,7 @@ func stringify(protoType modelgen.TypeInfo) string {
 		return toProtoMap(stringify(*protoType.MapKey), stringify(*protoType.MapValue))
 	}
 	if protoType.IsResourceMessage {
-		return protoType.Name + ResourceMsgInstParamSuffix
+		return protoType.Name + resourceMsgInstParamSuffix
 	}
 	return "string"
 }
@@ -182,10 +182,10 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, err
 			"valueTypeOrResMsg": valueTypeOrResMsg,
 			"valueTypeOrResMsgFieldTypeName": func(protoTypeInfo modelgen.TypeInfo) string {
 				if protoTypeInfo.IsResourceMessage {
-					return protoTypeInfo.Name + ResourceMsgTypeSuffix
+					return protoTypeInfo.Name + resourceMsgTypeSuffix
 				}
 				if protoTypeInfo.IsMap && protoTypeInfo.MapValue.IsResourceMessage {
-					return toProtoMap(protoTypeInfo.MapKey.Name, protoTypeInfo.MapValue.Name+ResourceMsgTypeSuffix)
+					return toProtoMap(protoTypeInfo.MapKey.Name, protoTypeInfo.MapValue.Name+resourceMsgTypeSuffix)
 				}
 				return protoTypeInfo.Name
 			},
@@ -203,10 +203,10 @@ func (g *Generator) getAugmentedProtoContent(model *modelgen.Model) ([]byte, err
 				return ""
 			},
 			"getResourcMessageTypeName": func(s string) string {
-				return s + ResourceMsgTypeSuffix
+				return s + resourceMsgTypeSuffix
 			},
 			"getResourcMessageInterfaceParamTypeName": func(s string) string {
-				return s + ResourceMsgInstParamSuffix
+				return s + resourceMsgInstParamSuffix
 			},
 		},
 	).Parse(tmpl.RevisedTemplateTmpl)

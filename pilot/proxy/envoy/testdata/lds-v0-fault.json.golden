@@ -442,6 +442,7 @@
            {
             "prefix": "/",
             "cluster": "in.1081",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
@@ -546,6 +547,9 @@
           "destination.ip": {
            "stringValue": "10.1.1.0"
           },
+          "destination.service": {
+           "stringValue": "hello.default.svc.cluster.local"
+          },
           "destination.uid": {
            "stringValue": "kubernetes://v0.default"
           }
@@ -591,6 +595,9 @@
          "attributes": {
           "destination.ip": {
            "stringValue": "10.1.1.0"
+          },
+          "destination.service": {
+           "stringValue": "hello.default.svc.cluster.local"
           },
           "destination.uid": {
            "stringValue": "kubernetes://v0.default"
@@ -644,6 +651,9 @@
          "attributes": {
           "destination.ip": {
            "stringValue": "10.1.1.0"
+          },
+          "destination.service": {
+           "stringValue": "hello.default.svc.cluster.local"
           },
           "destination.uid": {
            "stringValue": "kubernetes://v0.default"
@@ -716,6 +726,7 @@
            {
             "prefix": "/",
             "cluster": "in.80",
+            "timeout_ms": 0,
             "opaque_config": {
              "destination.service": "hello.default.svc.cluster.local",
              "mixer_check": "on",
