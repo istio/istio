@@ -382,6 +382,9 @@ func (ac *AdmissionController) admit(review *v1alpha1.AdmissionReview) *v1alpha1
 		ev.Value = backEndResource(&obj)
 		ev.Key.Name = ev.Value.Metadata.Name
 	case admission.Delete:
+		if review.Spec.Name == "" {
+			return makeErrorStatus("illformed request: name not found on delete request")
+		}
 		ev.Type = store.Delete
 		ev.Key.Name = review.Spec.Name
 	default:
