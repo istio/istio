@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -24,7 +24,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	at "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/pkg/status"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -23,13 +23,13 @@ import (
 	"google.golang.org/api/googleapi"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	at "istio.io/istio/mixer/pkg/adapter/test"
 )
 
 type reportTest struct {
-	inst      *svcctrlreport.Instance
+	inst      *servicecontrolreport.Instance
 	env       *at.Env
 	client    *mockSvcctrlClient
 	processor *reportImpl
@@ -48,7 +48,7 @@ func setupReportTest(t *testing.T) *reportTest {
 	mockClient := &mockSvcctrlClient{}
 	mockEnv := at.NewEnv(t)
 	test := &reportTest{
-		inst: &svcctrlreport.Instance{
+		inst: &servicecontrolreport.Instance{
 			ApiVersion:      "v1",
 			ApiOperation:    "echo.foo.bar",
 			ApiProtocol:     "gRPC",
@@ -87,7 +87,7 @@ func TestReport(t *testing.T) {
 			HTTPStatusCode: 200,
 		},
 	})
-	test.processor.ProcessReport(context.Background(), []*svcctrlreport.Instance{test.inst})
+	test.processor.ProcessReport(context.Background(), []*servicecontrolreport.Instance{test.inst})
 	<-test.env.GetDoneChan()
 	if test.client.reportRequest == nil {
 		t.Error("report request failed")
