@@ -16,10 +16,9 @@ package proxy
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/integration/component"
 	"istio.io/istio/tests/util"
 )
 
@@ -29,29 +28,27 @@ const (
 
 // LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
-	framework.Component
-	name    string
-	process *os.Process
+	component.CommonProcesssComp
 	logFile string
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
 func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
+
 	return &LocalComponent{
-		name:    n,
+		CommonProcesssComp: component.CommonProcesssComp{
+			CommonComp: component.CommonComp{
+				Name: n,
+			},
+		},
 		logFile: logFile,
 	}
 }
 
-// GetName return component name
-func (proxyComp *LocalComponent) GetName() string {
-	return proxyComp.name
-}
-
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	proxyComp.process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
+	proxyComp.Process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
 		proxyRepo, proxyComp.logFile))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
@@ -59,17 +56,11 @@ func (proxyComp *LocalComponent) Start() (err error) {
 	return
 }
 
-// Stop kill the envory process
-func (proxyComp *LocalComponent) Stop() (err error) {
-	err = util.KillProcess(proxyComp.process)
-	return
-}
-
 // IsAlive check the process of local server is running
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (proxyComp *LocalComponent) IsAlive() (bool, error) {
-	return util.IsProcessRunning(proxyComp.process)
+	return util.IsProcessRunning(proxyComp.Process)
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

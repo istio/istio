@@ -32,10 +32,10 @@ func (cc *CommonComp) GetName() string {
 
 type CommonProcesssComp struct {
 	CommonComp
-	process *os.Process
+	Process *os.Process
 }
 
 func (cpc *CommonProcesssComp) Stop() (err error) {
-	err = util.KillProcess(cpc.process)
+	err = util.KillProcess(cpc.Process)
 	return
 }
