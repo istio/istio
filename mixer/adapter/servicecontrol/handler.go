@@ -64,7 +64,7 @@ type (
 		// A map keyed by mesh service name to service config in adapter config
 		serviceConfigIndex map[string]*config.GcpServiceSetting
 		checkDataShape     map[string]*apikey.Type
-		reportDataShape    map[string]*svcctrlreport.Type
+		reportDataShape    map[string]*servicecontrolreport.Type
 		checkResponseCache cache.ExpiringCache // A LRU cache for check response
 		client             serviceControlClient
 	}
