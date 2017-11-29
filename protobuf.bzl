@@ -19,7 +19,7 @@ def protobuf_repositories(load_repo=True, bind=True):
     if load_repo:
         native.git_repository(
             name = "com_google_protobuf",
-            commit = "593e917c176b5bc5aafa57bf9f6030d749d91cd5",  # v3.2.0
+            commit = "2761122b810fe8861004ae785cc3ab39f384d342",  # v3.5.0
             remote = "https://github.com/google/protobuf.git",
         )
 
