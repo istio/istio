@@ -923,7 +923,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 
 	for _, rule := range egressRules {
 		for _, port := range rule.Ports {
-			protocol := model.Protocol(strings.ToUpper(port.Protocol))
+			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}
