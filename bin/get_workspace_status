@@ -78,4 +78,6 @@ echo host "$(hostname -f)"
 echo gitBranch "${BRANCH}"
 echo gitRevision "${BUILD_GIT_REVISION}"
 echo user "$(whoami)"
-echo version "${VERSION}"
+# this causes buildifier to break during prow pre-submit:
+# main.version: cannot use -X with non-string symbol
+# echo version "${VERSION}"
