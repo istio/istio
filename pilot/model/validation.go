@@ -35,6 +35,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routing2 "istio.io/api/routing/v1alpha2"
 )
 
 const (
@@ -706,7 +707,6 @@ func ValidateRouteRule(msg proto.Message) error {
 	}
 
 	// We don't validate precedence because any int32 is legal
-
 	if value.Match != nil {
 		if err := ValidateMatchCondition(value.Match); err != nil {
 			errs = multierror.Append(errs, err)
@@ -965,7 +965,6 @@ func ValidateEgressRuleDomain(domain string) error {
 
 // ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
 func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
-
 	if err := ValidatePort(int(port.Port)); err != nil {
 		return err
 	}
@@ -1432,4 +1431,16 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+func ValidateRouteRule2(msg proto.Message) error {
+	in, ok := msg.(*routing2.RouteRule)
+	if !ok {
+		return errors.New("cannot cast to v1alpha2 routing rule")
+	}
+
+	var errs error
+	if in.Host == nil {
+		multierror.Append(errs, errors.New("route rule must have a host"))
+	}
 }
