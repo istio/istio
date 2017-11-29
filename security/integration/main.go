@@ -170,7 +170,7 @@ func runSelfSignedCATests() error {
 	glog.Info(`Secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
-	if _, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
+	if _, err = utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
 		secretWaitTime); err != nil {
 		return err
 	}
