@@ -21,32 +21,33 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/integration/component"
 	"istio.io/istio/tests/util"
+)
+
+const(
+	testConfigPath = "mixer/testdata/config"
 )
 
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
-	framework.Component
-	name      string
-	process   *os.Process
-	logFile   string
+	component.CommonProcesssComp
 	configDir string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
-func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
+func NewLocalComponent(n, binaryPath, logDir, configDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &LocalComponent{
-		name:      n,
-		logFile:   logFile,
+		CommonProcesssComp: component.CommonProcesssComp{
+			CommonComp: component.CommonComp{
+				Name:    n,
+				LogFile: logFile,
+			},
+			BinaryPath: binaryPath,
+		},
 		configDir: configDir,
 	}
-}
-
-// GetName return component name
-func (mixerComp *LocalComponent) GetName() string {
-	return mixerComp.name
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -61,7 +62,8 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return err
 	}
-	if _, err = util.Shell("cp mixer/testdata/config/* %s", mixerConfig); err != nil {
+	mixerTestConfig := util.GetResourcePath(testConfigPath)
+	if _, err = util.Shell("cp %s/* %s", mixerTestConfig, mixerConfig); err != nil {
 		log.Printf("Failed to copy config for test: %v", err)
 		return err
 	}
@@ -69,17 +71,12 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		log.Printf("Failed to remove stackdriver.yaml: %v", err)
 	}
 
-	mixerComp.process, err = util.RunBackground(fmt.Sprintf("./bazel-bin/mixer/cmd/server/mixs server"+
-		" --configStore2URL=fs://%s --configStoreURL=fs://%s", mixerConfig, emptyDir))
+	mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
+		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
+			"/Users/yutongz/go/src/istio.io/istio/bazel-bin/mixer/cmd/server/mixs", mixerConfig, emptyDir))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
-	return
-}
-
-// Stop kill the mixer server process
-func (mixerComp *LocalComponent) Stop() (err error) {
-	err = util.KillProcess(mixerComp.process)
 	return
 }
 
@@ -87,7 +84,7 @@ func (mixerComp *LocalComponent) Stop() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (mixerComp *LocalComponent) IsAlive() (bool, error) {
-	return util.IsProcessRunning(mixerComp.process)
+	return util.IsProcessRunning(mixerComp.Process)
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

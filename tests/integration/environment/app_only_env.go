@@ -15,10 +15,11 @@
 package environment
 
 import (
+	"io/ioutil"
 	"log"
 
-	"istio.io/istio/tests/integration/framework"
 	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
+	"istio.io/istio/tests/integration/framework"
 )
 
 // AppOnlyEnv is a test environment with only fortio echo server
@@ -48,8 +49,14 @@ func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
 
 // GetComponents returns a list with a fortio server component
 func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
+	logDir, err := ioutil.TempDir("", appOnlyEnv.GetName())
+	if err != nil {
+		log.Printf("Failed to get a temp dir: %v", err)
+		return nil
+	}
+
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", "/tmp"))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", "/tmp", logDir))
 
 	return comps
 }

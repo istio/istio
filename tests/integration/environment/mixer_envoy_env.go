@@ -15,14 +15,19 @@
 package environment
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"path/filepath"
 
-	"istio.io/istio/tests/integration/framework"
 	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/component/mixer"
 	"istio.io/istio/tests/integration/component/proxy"
+	"istio.io/istio/tests/integration/framework"
+)
+
+var (
+	envoryBinary = flag.String("envoy_binary", "", "Envoy binary path.")
 )
 
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
@@ -56,12 +61,12 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 		log.Printf("Failed to get a temp dir: %v", err)
 		return nil
 	}
-	configDir := filepath.Join(logDir, "config")
+	configDir := filepath.Join(logDir, "mixer_config")
 
 	comps := []framework.Component{}
 	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", logDir))
 	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", logDir, configDir))
-	comps = append(comps, proxy.NewLocalComponent("my_local_envory", logDir))
+	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", *envoryBinary, logDir))
 
 	return comps
 }

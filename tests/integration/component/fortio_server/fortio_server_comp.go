@@ -16,47 +16,38 @@ package fortioServer
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"istio.io/istio/tests/integration/framework"
+	"istio.io/istio/tests/integration/component"
 	"istio.io/istio/tests/util"
 )
 
 // LocalComponent is a local fortio server componment
 type LocalComponent struct {
-	framework.Component
-	name    string
-	process *os.Process
-	logFile string
+	component.CommonProcesssComp
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, logDir string) *LocalComponent {
+func NewLocalComponent(n, binaryPath, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
-	return &LocalComponent{
-		name:    n,
-		logFile: logFile,
-	}
-}
 
-// GetName return component name
-func (FortioServerComp *LocalComponent) GetName() string {
-	return FortioServerComp.name
+	return &LocalComponent{
+		CommonProcesssComp: component.CommonProcesssComp{
+			CommonComp: component.CommonComp{
+				Name:    n,
+				LogFile: logFile,
+			},
+			BinaryPath: binaryPath,
+		},
+	}
 }
 
 // Start brings up a local fortio echo server
 func (FortioServerComp *LocalComponent) Start() (err error) {
-	FortioServerComp.process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
+	FortioServerComp.Process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.LogFile))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(2 * time.Second)
-	return
-}
-
-// Stop kill the fortio server process
-func (FortioServerComp *LocalComponent) Stop() (err error) {
-	err = util.KillProcess(FortioServerComp.process)
 	return
 }
 
@@ -64,7 +55,7 @@ func (FortioServerComp *LocalComponent) Stop() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (FortioServerComp *LocalComponent) IsAlive() (bool, error) {
-	return util.IsProcessRunning(FortioServerComp.process)
+	return util.IsProcessRunning(FortioServerComp.Process)
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

@@ -23,7 +23,8 @@ import (
 
 type CommonComp struct {
 	framework.Component
-	Name string
+	Name    string
+	LogFile string
 }
 
 func (cc *CommonComp) GetName() string {
@@ -33,6 +34,7 @@ func (cc *CommonComp) GetName() string {
 type CommonProcesssComp struct {
 	CommonComp
 	Process *os.Process
+	BinaryPath string
 }
 
 func (cpc *CommonProcesssComp) Stop() (err error) {

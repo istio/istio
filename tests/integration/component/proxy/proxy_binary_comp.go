@@ -22,34 +22,30 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-const (
-	proxyRepo = "../proxy"
-)
-
 // LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
 	component.CommonProcesssComp
-	logFile string
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
-func NewLocalComponent(n, logDir string) *LocalComponent {
+func NewLocalComponent(n, binaryPath, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 
 	return &LocalComponent{
 		CommonProcesssComp: component.CommonProcesssComp{
 			CommonComp: component.CommonComp{
-				Name: n,
+				Name:    n,
+				LogFile: logFile,
 			},
+			BinaryPath: binaryPath,
 		},
-		logFile: logFile,
 	}
 }
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	proxyComp.Process, err = util.RunBackground(fmt.Sprintf("./%s/src/envoy/mixer/start_envoy > %s 2>&1",
-		proxyRepo, proxyComp.logFile))
+	proxyComp.Process, err = util.RunBackground(fmt.Sprintf("%s > %s 2>&1",
+		"/Users/yutongz/go/src/istio.io/istio/integration_tmp/usr/local/bin/envoy", proxyComp.LogFile))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
