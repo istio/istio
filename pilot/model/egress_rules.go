@@ -75,7 +75,8 @@ var supportedHTTPProtocols = map[Protocol]bool{
 }
 
 var supportedTCPProtocols = map[Protocol]bool{
-	ProtocolTCP: true,
+	ProtocolTCP:   true,
+	ProtocolMongo: true,
 }
 
 // IsEgressRulesSupportedHTTPProtocol returns true if the protocol is supported
