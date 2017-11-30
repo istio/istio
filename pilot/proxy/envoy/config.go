@@ -886,10 +886,10 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
 				continue
 			}
-			intPort := int(port.Port)
-			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
-				Port: intPort, Protocol: protocol}
-			httpConfig := httpConfigs.EnsurePort(intPort)
+			portNumber := int(port.GetNumber())
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, portNumber),
+				Port: portNumber, Protocol: protocol}
+			httpConfig := httpConfigs.EnsurePort(portNumber)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
 				buildEgressVirtualHost(rule, mesh, modelPort, instances, config))
 		}
@@ -926,16 +926,16 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}
-			intPort := int(port.Port)
-			tcpRulesByPort[intPort] = append(tcpRulesByPort[intPort], rule)
-			tcpProtocolByPort[intPort] = protocol
+			portNumber := int(port.GetNumber())
+			tcpRulesByPort[portNumber] = append(tcpRulesByPort[portNumber], rule)
+			tcpProtocolByPort[portNumber] = protocol
 		}
 	}
 
-	for intPort, rules := range tcpRulesByPort {
-		protocol := tcpProtocolByPort[intPort]
-		modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
-			Port: intPort, Protocol: protocol}
+	for portNumber, rules := range tcpRulesByPort {
+		protocol := tcpProtocolByPort[portNumber]
+		modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, portNumber),
+			Port: portNumber, Protocol: protocol}
 
 		tcpRoutes := make([]*TCPRoute, 0)
 		for _, rule := range rules {
@@ -945,7 +945,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 		}
 
 		config := &TCPRouteConfig{Routes: tcpRoutes}
-		tcpListener := buildTCPListener(config, WildcardAddress, intPort, protocol)
+		tcpListener := buildTCPListener(config, WildcardAddress, portNumber, protocol)
 		tcpListeners = append(tcpListeners, tcpListener)
 	}
 
