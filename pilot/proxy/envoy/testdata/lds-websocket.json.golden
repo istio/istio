@@ -313,17 +313,23 @@
    },
    {
     "address": "tcp://10.1.0.0:110",
-    "name": "redis_10.1.0.0_110",
+    "name": "tcp_10.1.0.0_110",
     "filters": [
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "out.hello.default.svc.cluster.local|redis",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.hello.default.svc.cluster.local|redis",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],
@@ -584,7 +590,7 @@
    },
    {
     "address": "tcp://10.1.1.0:1110",
-    "name": "redis_10.1.1.0_1110",
+    "name": "tcp_10.1.1.0_1110",
     "filters": [
      {
       "type": "both",
@@ -612,14 +618,20 @@
       }
      },
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "in.1110",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1110",
+          "destination_ip_list": [
+           "10.1.1.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],
@@ -830,17 +842,23 @@
    },
    {
     "address": "tcp://10.2.0.0:110",
-    "name": "redis_10.2.0.0_110",
+    "name": "tcp_10.2.0.0_110",
     "filters": [
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "out.world.default.svc.cluster.local|redis",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.world.default.svc.cluster.local|redis",
+          "destination_ip_list": [
+           "10.2.0.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],
