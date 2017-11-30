@@ -35,7 +35,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
-	routing2 "istio.io/api/routing/v1alpha2"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 )
 
 const (
@@ -1433,15 +1433,15 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 	return errs
 }
 
-func ValidateRouteRule2(msg proto.Message) error {
-	in, ok := msg.(*routing2.RouteRule)
+func ValidateRouteRuleV1Alpha2(msg proto.Message) error {
+	in, ok := msg.(*routing_v1alpha2.RouteRule)
 	if !ok {
 		return errors.New("cannot cast to v1alpha2 routing rule")
 	}
 
 	var errs error
-	if in.Host == nil {
-		multierror.Append(errs, errors.New("route rule must have a host"))
+	if len(in.Hosts) == 0 {
+		multierror.Append(errs, errors.New("at least one host required"))
 	}
 	return errs
 }
