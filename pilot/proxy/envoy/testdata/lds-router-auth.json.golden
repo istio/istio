@@ -30,20 +30,17 @@
    },
    {
     "address": "tcp://0.0.0.0:110",
-    "name": "tcp_0.0.0.0_110",
+    "name": "redis_0.0.0.0_110",
     "filters": [
      {
-      "type": "read",
-      "name": "tcp_proxy",
+      "type": "both",
+      "name": "redis_proxy",
       "config": {
-       "stat_prefix": "tcp",
-       "route_config": {
-        "routes": [
-         {
-          "cluster": "out.hello.default.svc.cluster.local|redis"
-         }
-        ]
-       }
+       "cluster_name": "out.hello.default.svc.cluster.local|redis",
+       "conn_pool": {
+        "op_timeout_ms": 30000
+       },
+       "stat_prefix": "redis"
       }
      }
     ],
