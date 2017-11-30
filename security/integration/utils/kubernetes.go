@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// CreateClientset creates a new Clientset for the given kubeconfig.
 func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -44,6 +45,7 @@ func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	return clientset, nil
 }
 
+// CreateTestNamespace creates a namespace for test. Returns name of the namespace on success, and error if there is any.
 func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string, error) {
 	template := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -60,6 +62,7 @@ func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 	return name, nil
 }
 
+// DeleteTestNamespace deletes a namespace for test.
 func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error {
 	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("failed to delete namespace %q (error: %v)", namespace, err)
@@ -68,6 +71,7 @@ func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 	return nil
 }
 
+// CreateService creates a service object and returns a pointer pointing to this object on success.
 func CreateService(clientset kubernetes.Interface, namespace string, name string, port int32,
 	serviceType v1.ServiceType, pod *v1.Pod) (*v1.Service, error) {
 	uuid := string(uuid.NewUUID())
@@ -103,12 +107,14 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 	return clientset.CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
 }
 
+// DeleteService deletes a service.
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
 }
 
+// CreatePod creates a pod object and returns a pointer pointing to this object on success.
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
-	uuid := string(uuid.NewUUID())
+	podUUID := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
 		{
@@ -135,7 +141,7 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"uuid":      uuid,
+				"podUUID":   podUUID,
 				"pod-group": fmt.Sprintf("%v-pod-group", name),
 			},
 			Name: name,
@@ -143,23 +149,25 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		Spec: spec,
 	}
 
-	pod, err := clientset.CoreV1().Pods(namespace).Create(pod)
+	_, err := clientset.CoreV1().Pods(namespace).Create(pod)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := waitForPodRunning(clientset, namespace, uuid, 60*time.Second); err != nil {
+	if err := waitForPodRunning(clientset, namespace, podUUID, 60*time.Second); err != nil {
 		return nil, err
 	}
 
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
+// DeletePod deletes a pod.
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
 	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 }
 
-func CreateRole(clientset kubernetes.Interface, namespace string) error {
+// CreateIstioCARole creates a role object named "istio-ca-role".
+func CreateIstioCARole(clientset kubernetes.Interface, namespace string) error {
 	role := rbac.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -187,7 +195,8 @@ func CreateRole(clientset kubernetes.Interface, namespace string) error {
 	return nil
 }
 
-func CreateRoleBinding(clientset kubernetes.Interface, namespace string) error {
+// CreateIstioCARoleBinding binds role "istio-ca-role" to default service account.
+func CreateIstioCARoleBinding(clientset kubernetes.Interface, namespace string) error {
 	rolebinding := rbac.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1beta1",
@@ -272,6 +281,8 @@ func waitForPodRunning(clientset kubernetes.Interface, namespace string, uuid st
 	}
 }
 
+// WaitForSecretExist takes name of a secret and watches the secret. Returns the requested secret
+// if it exists, or error on timeouts.
 func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secretName string,
 	timeToWait time.Duration) (*v1.Secret, error) {
 	watch, err := clientset.CoreV1().Secrets(namespace).Watch(metav1.ListOptions{})

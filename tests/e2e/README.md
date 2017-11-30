@@ -29,10 +29,10 @@ Tests could be built and drove manually as a single test or automatically detect
 
 ### Options
 * `--namespace` specify a namespace for test
-* `--mixer_hub` mixer iamge hub
-* `--mixer_tag` mixer iamge tag
-* `--pilot_hub` pilot iamge hub
-* `--pilot_tag` pilot iamge tag
+* `--mixer_hub` mixer image hub
+* `--mixer_tag` mixer image tag
+* `--pilot_hub` pilot image hub
+* `--pilot_tag` pilot image tag
 * `--ca_hub` CA image hub
 * `--ca_tag` CA image tag
 * `--verbose` debug level noise from proxies

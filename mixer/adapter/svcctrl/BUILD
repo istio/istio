@@ -21,6 +21,7 @@ go_library(
         "//mixer/adapter/svcctrl/config:go_default_library",
         "//mixer/adapter/svcctrl/template/svcctrlreport:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/cache:go_default_library",
         "//mixer/pkg/status:go_default_library",
         "//mixer/template/apikey:go_default_library",
         "//mixer/template/quota:go_default_library",

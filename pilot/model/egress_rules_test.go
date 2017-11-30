@@ -175,17 +175,123 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 				},
 			},
 			valid: false},
+		{name: "no conflicts on port",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.Port{
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http2"},
+						{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.Port{
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http2"},
+						{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+					},
+				},
+			},
+			valid: true},
+		{name: "conflicts on port between tcp protocols",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.Port{
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http2"},
+						{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "mongo"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+			},
+			valid: false},
+		{name: "conflicts on port between http protocols",
+			in: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+				"rule2": {
+					Destination: &routing.IstioService{
+						Service: "10.10.10.11",
+					},
+
+					Ports: []*routing.Port{
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "mongo"},
+						{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+					},
+				},
+			},
+			out: map[string]*routing.EgressRule{"rule1": {
+				Destination: &routing.IstioService{
+					Service: "10.10.10.10",
+				},
+				Ports: []*routing.Port{
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 1000}, Protocol: "tcp"},
+				},
+			},
+			},
+			valid: false},
 	}
 
 	for _, c := range cases {
 		got, errs := model.RejectConflictingEgressRules(c.in)
 		if (errs == nil) != c.valid {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v",
-				c.name, errs == nil, c.valid)
+			t.Errorf("RejectConflictingEgressRules failed on %s: got valid=%v but wanted valid=%v, errs=%v",
+				c.name, errs == nil, c.valid, errs)
 		}
 		if !reflect.DeepEqual(got, c.out) {
-			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v: %v",
-				c.name, got, c.in)
+			t.Errorf("RejectConflictingEgressRules failed on %s: got=%v but wanted %v, errs= %v",
+				c.name, got, c.in, errs)
 		}
 	}
 }
