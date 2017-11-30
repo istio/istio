@@ -11,13 +11,13 @@
 #
 import ast
 import glob
-import json
 import os
-import re
 import subprocess
-import shutil
 
 from urlparse import urlparse
+
+import bazel_util
+import regenerate_files
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -122,26 +122,8 @@ def makelink(target, linksrc):
     os.symlink(target, linksrc)
     print "Linked ", linksrc, '-->', target
 
-
-def bazel_info(name):
-    return subprocess.check_output(["bazel", "info", name]).strip()
-
-def bazel_query(q):
-    p = subprocess.Popen(['bazel', 'query', q], stdout=subprocess.PIPE)
-    (stdout, _) = p.communicate()
-    return [l for l in stdout.split('\n') if l]
-
-def bazel_build(targets):
-    p = subprocess.Popen(['xargs', 'bazel', 'build'], stdin=subprocess.PIPE)
-    (_, stderr) = p.communicate('\n'.join(targets))
-    if p.returncode != 0:
-        raise subprocess.CalledProcessError(
-            returncode=p.returncode,
-            cmd=['bazel', 'build'] + targets,
-            output=stderr)
-
 def bazel_to_vendor(WKSPC):
-    WKSPC = bazel_info("workspace")
+    WKSPC = bazel_util.bazel_info("workspace")
     workspace = os.path.join(WKSPC, "WORKSPACE")
 
     if not os.path.isfile(workspace):
@@ -150,8 +132,8 @@ def bazel_to_vendor(WKSPC):
         return -1
 
     vendor = os.path.join(WKSPC, "vendor")
-    root = bazel_info("output_base")
-    genfiles = bazel_info("bazel-genfiles")
+    root = bazel_util.bazel_info("output_base")
+    genfiles = bazel_util.bazel_info("bazel-genfiles")
     genfiles_external = os.path.join(genfiles, "external")
     external = os.path.join(root, "external")
 
@@ -183,32 +165,7 @@ def bazel_to_vendor(WKSPC):
 
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
-
-    generated_files = get_generated_files(WKSPC, genfiles)
-    bazel_build(['@io_istio_api//mixer/v1/config:config_fixed'])
-    generated_files.append((genfiles + "/external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
-
-    # generate manifest of generated files
-    manifest = sorted([src[len(genfiles)+1:] for (src, _) in generated_files])
-    with open(WKSPC+"/generated_files", "wt") as fl:
-      print >>fl, "#List of generated files that are checked in"
-      for mm in manifest:
-        print >>fl, mm
-
-    # generate gometalinter config file which excludes generated files
-    with open(os.path.join(WKSPC, "lintconfig_base.json")) as fin:
-        conf = json.load(fin)
-    conf['exclude'].extend(manifest)
-    with open(os.path.join(WKSPC, "lintconfig.gen.json"), "wt") as fout:
-        json.dump(conf, fout, sort_keys=True, indent=4, separators=(',', ': '))
-
-
-    for (src, dest) in generated_files:
-        try:
-            if should_copy(src, dest):
-                shutil.copyfile(src, dest)
-        except Exception as ex:
-            print src, dest, ex
+    regenerate_files.regenerate(WKSPC, genfiles)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
@@ -219,68 +176,6 @@ def main(args):
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
-
-def should_copy(src, dest):
-    if not os.path.exists(dest):
-        return True
-    p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
-    (stdout, _) = p.communicate()
-    if src.endswith('.pb.go'):
-        # there might be diffs for 'source:' lines and others.
-        has_diff = False
-        linecount = 0
-        for l in stdout.split('\n'):
-            linecount += 1
-            if not l:
-                continue
-            if linecount < 3:
-                # first two lines are headers, skipping
-                continue
-            if l.startswith('@@ '):
-                # header for a diff chunk
-                continue
-            if l.startswith(' '):
-                # part of non-changes
-                continue
-            if re.search(r'genfiles/.*\.proto\b', l):
-                # ignoring the proto file path -- the exact file path can be different,
-                # depending on the platform.
-                continue
-            if re.search(r'// \d+ bytes of a gzipped FileDescriptorProto', l):
-                # header comment for descriptor bytes data. It can be different if the file path
-                # is different.
-                continue
-            if re.match(r'^.\s*(0x[0-9a-f][0-9a-f],\s*)+$', l):
-                # file descriptor bytes data. It can be different if the file path is different.
-                continue
-            # Other changes would be meaningful changes.
-            has_diff = True
-            break
-    else:
-        has_diff = (stdout != '')
-    return has_diff
-
-def get_generated_files(WKSPC, genfiles):
-    lst = []
-    proto_libraries = 'kind("go_proto_library", "//...")'
-    proto_compiles = 'attr("langs", "go", kind("proto_compile", "//..."))'
-    genrules = 'attr("outs", ".go", kind("genrule", "//..."))'
-    bazel_build(bazel_query('+'.join([proto_libraries, proto_compiles, genrules])))
-
-    for proto in bazel_query('filter("\.proto$", labels("srcs", %s))' % proto_libraries):
-        proto = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', proto)
-        pbgo = proto[:len(proto)-len('.proto')] + '.pb.go'
-        lst.append((os.path.join(genfiles, pbgo), os.path.join(WKSPC, pbgo)))
-    for proto in bazel_query('filter("\.proto$", labels("protos", %s))' % proto_compiles):
-        proto = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', proto)
-        pbgo = proto[:len(proto)-len('.proto')] + '.pb.go'
-        src = os.path.join(genfiles, pbgo)
-        lst.append((src, os.path.join(WKSPC, pbgo)))
-    for genout in bazel_query('filter("\.go$", labels("outs", %s))' % genrules):
-        genout = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', genout)
-        lst.append((os.path.join(genfiles, genout), os.path.join(WKSPC, genout)))
-    return lst
-
 
 
 if __name__ == "__main__":
