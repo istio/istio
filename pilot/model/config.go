@@ -23,6 +23,7 @@ import (
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -291,6 +292,14 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
+	// RouteRuleV1Alpha2 describes v1alpha2 route rules
+	RouteRuleV1Alpha2 = ProtoSchema{
+		Type:        "v1alpha2-route-rule",
+		Plural:      "v1alpha2-route-rules",
+		MessageName: "istio.routing.v2alpha1.RouteRule",
+		Validate:    ValidateRouteRuleV1Alpha2,
+	}
+
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
@@ -350,6 +359,7 @@ var (
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
+		RouteRuleV1Alpha2,
 		IngressRule,
 		EgressRule,
 		DestinationPolicy,
@@ -438,19 +448,27 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	if err != nil {
 		return nil
 	}
+	configs2, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	configs = append(configs, configs2...)
 
 	for _, config := range configs {
-		rule := config.Spec.(*routing.RouteRule)
+		switch rule := config.Spec.(type) {
+		case *routing.RouteRule:
+			// validate that rule match predicate applies to destination service
+			hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
+			if hostname != destination {
+				continue
+			}
 
-		// validate that rule match predicate applies to destination service
-		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
-		if hostname != destination {
-			continue
-		}
+			// validate that rule match predicate applies to source service instances
+			if rule.Match != nil && !MatchSource(config.ConfigMeta, rule.Match.Source, instances) {
+				continue
+			}
+		case *routing_v1alpha2.RouteRule:
 
-		// validate that rule match predicate applies to source service instances
-		if rule.Match != nil && !MatchSource(config.ConfigMeta, rule.Match.Source, instances) {
-			continue
 		}
 
 		out = append(out, config)
