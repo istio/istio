@@ -24,16 +24,27 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 )
 
-// RejectConflictingEgressRules rejects rules that have the destination which is equal to
-// the destination of some other rule.
+// RejectConflictingEgressRules rejects conflicting egress rules.
+// The conflicts occur either than two egress rules share the same domain, or when they define
+// different protocols on the same port
+func RejectConflictingEgressRules(rules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
+	rulesWithoutConflictsOnDomain, conflictsOnDomain := rejectConflictingOnDomainEgressRules(rules)
+	rulesWithoutConflicts, conflictsOnPort := rejectConflictingOnPortTCPEgressRules(rulesWithoutConflictsOnDomain)
+	return rulesWithoutConflicts, multierror.Append(conflictsOnDomain, conflictsOnPort).ErrorOrNil()
+}
+
+// rejectConflictingOnDomainEgressRules rejects rules that have the destination which is equal to
+// the destionation of some other rule.
 // According to Envoy's virtual host specification, no virtual hosts can share the same domain.
 // The following code rejects conflicting rules deterministically, by a lexicographical order -
 // a rule with a smaller key lexicographically wins.
 // Here the key of the rule is the key of the Istio configuration objects - see
 // `func (meta *ConfigMeta) Key() string`
-func RejectConflictingEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
+func rejectConflictingOnDomainEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
 	map[string]*routing.EgressRule, error) {
 	filteredEgressRules := make(map[string]*routing.EgressRule)
+
 	var errs error
 
 	var keys []string
@@ -54,7 +65,7 @@ func RejectConflictingEgressRules(egressRules map[string]*routing.EgressRule) ( 
 		keyOfAnEgressRuleWithTheSameDomain, conflictingRule := domains[domain]
 		if conflictingRule {
 			errs = multierror.Append(errs,
-				fmt.Errorf("rule %q conflicts with rule %q on domain "+
+				fmt.Errorf("rule %s conflicts with rule %s on domain "+
 					"%s, is rejected", egressRuleKey,
 					keyOfAnEgressRuleWithTheSameDomain, domain))
 			continue
@@ -75,7 +86,8 @@ var supportedHTTPProtocols = map[Protocol]bool{
 }
 
 var supportedTCPProtocols = map[Protocol]bool{
-	ProtocolTCP: true,
+	ProtocolTCP:   true,
+	ProtocolMongo: true,
 }
 
 // IsEgressRulesSupportedHTTPProtocol returns true if the protocol is supported
@@ -128,4 +140,57 @@ func egressRulesSupportedProtocols() string {
 		separator = ","
 	}
 	return httpSupportedProtocols + separator + tcpSupportedProtocols
+}
+
+// rejectConflictingOnPortTCPEgressRules rejects rules that have conflicting protocols on the same port
+// E.g. Mongo and TCP, or TCP and HTTP. In the current implementation of egress rules support,
+// conflicts between TCP protocols and other TCP or HTTP protocols are not allowed.
+// The following code rejects conflicting rules deterministically, by a lexicographical order -
+// a rule with a smaller key lexicographically wins.
+// Here the key of the rule is the key of the Istio configuration objects - see
+// `func (meta *ConfigMeta) Key() string`
+func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*routing.EgressRule) ( // long line split
+	map[string]*routing.EgressRule, error) {
+	filteredEgressRules := make(map[string]*routing.EgressRule)
+	var errs error
+
+	var keys []string
+
+	// the key here is the key of the Istio configuration objects - see
+	// `func (meta *ConfigMeta) Key() string`
+	for key := range egressRules {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	protocolsPerPort := make(map[int]Protocol)
+	rulesByPort := make(map[int][]string)
+
+	for _, egressRuleKey := range keys {
+		egressRule := egressRules[egressRuleKey]
+		isRuleConflicting := false
+		for _, port := range egressRule.Ports {
+			protocol := ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			if IsEgressRulesSupportedHTTPProtocol(protocol) {
+				// we treat all the http protocols the same here, since there is no collision
+				// between HTTP protocols in the current implementation
+				protocol = ProtocolHTTP
+			}
+			intPort := int(port.Port)
+			if protocolUntilNow, ok := protocolsPerPort[intPort]; ok && protocolUntilNow != protocol {
+				errs = multierror.Append(errs, fmt.Errorf("rule %s is rejected since it conflicts "+
+					"rules %v on port %d, protocol %s vs. protocol %s",
+					egressRuleKey, rulesByPort[intPort], intPort, protocol, protocolUntilNow))
+				isRuleConflicting = true
+				break
+			}
+			protocolsPerPort[intPort] = protocol
+			rulesByPort[intPort] = append(rulesByPort[intPort], egressRuleKey)
+		}
+		if !isRuleConflicting {
+			filteredEgressRules[egressRuleKey] = egressRule
+		}
+	}
+
+	return filteredEgressRules, errs
 }

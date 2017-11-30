@@ -97,6 +97,8 @@ func TestProcessCheck(t *testing.T) {
 	}
 
 	testProcessCheck(test, response, expectedResult, t)
+	// Call again with nil response to test check cache.
+	testProcessCheck(test, nil, expectedResult, t)
 }
 
 func TestProcessCheckFailedHTTPCode(t *testing.T) {
@@ -146,7 +148,6 @@ func TestProcessCheckWithError(t *testing.T) {
 
 func TestResolveConsumerProjectID(t *testing.T) {
 	test := checkProcessorTestSetup(t)
-
 	test.mockClient.setCheckResponse(&sc.CheckResponse{
 		ServerResponse: googleapi.ServerResponse{
 			HTTPStatusCode: 200,
@@ -157,14 +158,27 @@ func TestResolveConsumerProjectID(t *testing.T) {
 			},
 		},
 	})
-
-	id, err := test.checkProc.ResolveConsumerProjectID(apiKeyPrefix+"test_key", "/echo")
-	if err != nil {
-		t.Errorf("ResolveConsumerProjectID(...) failed with error %v", err)
+	{
+		id, err := test.checkProc.ResolveConsumerProjectID(apiKeyPrefix+"test_key", "/echo")
+		if err != nil {
+			t.Fatalf(`ResolveConsumerProjectID(...) failed with error %v`, err)
+		}
+		if id != fmt.Sprintf("project_number:%d", gcpConsumerProjectNumber) {
+			t.Errorf(`unexpected consumer project ID:%v`, id)
+		}
 	}
-
-	if id != fmt.Sprintf("project_number:%d", gcpConsumerProjectNumber) {
-		t.Errorf(`unexpected consumer project ID:%v`, id)
+	{
+		// Repeat the same test but set injected response to nil. Without check cache, the following
+		// test would fail.
+		test.mockClient.checkResponse = nil
+		id, err := test.checkProc.ResolveConsumerProjectID(apiKeyPrefix+"test_key", "/echo")
+		test.mockClient.setCheckResponse(nil)
+		if err != nil {
+			t.Fatalf(`ResolveConsumerProjectID(...) failed with error %v`, err)
+		}
+		if id != fmt.Sprintf("project_number:%d", gcpConsumerProjectNumber) {
+			t.Errorf(`unexpected consumer project ID:%v`, id)
+		}
 	}
 }
 

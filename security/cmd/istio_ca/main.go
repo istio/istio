@@ -168,12 +168,12 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
+		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
-		return ca
+		return istioCA
 	}
 
 	var certChainBytes []byte
@@ -188,11 +188,11 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		RootCertBytes:    readFile(opts.rootCertFile),
 	}
 
-	ca, err := ca.NewIstioCA(caOpts)
+	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
-	return ca
+	return istioCA
 }
 
 func generateConfig() *rest.Config {
