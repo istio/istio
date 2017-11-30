@@ -74,7 +74,7 @@ func init() {
 	flags.StringVar(&opts.containerTag, "tag", "", "Tag for Istio CA image")
 	flags.StringVarP(&opts.kubeconfig, "kube-config", "k", "~/.kube/config", "path to kubeconfig file")
 	flags.StringVar(&opts.orgRootCert, "root-cert", "", "Path to the original root ceritificate")
-	flags.StringVar(&opts.orgCertChain, "cert-chain", "", "Path to the original certificate chain")
+	flags.StringVar(&opts.orgCertChain, "cert-chain", "", "Path to the original workload certificate chain")
 
 	cmd.InitializeFlags(rootCmd)
 }
@@ -133,14 +133,14 @@ func initializeIntegrationTest(cmd *cobra.Command, args []string) error {
 	opts.namespace = namespace
 
 	// Create Role
-	err = utils.CreateRole(opts.clientset, opts.namespace)
+	err = utils.CreateIstioCARole(opts.clientset, opts.namespace)
 	if err != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a role (error: %v)", err)
 	}
 
 	// Create RoleBinding
-	err = utils.CreateRoleBinding(opts.clientset, opts.namespace)
+	err = utils.CreateIstioCARoleBinding(opts.clientset, opts.namespace)
 	if err != nil {
 		utils.DeleteTestNamespace(opts.clientset, opts.namespace)
 		return fmt.Errorf("failed to create a rolebinding (error: %v)", err)

@@ -246,7 +246,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "Istio CA address is empty",
+			expectedErr: "istio CA address is empty",
 		},
 		"IstioCAAddress is incorrect": {
 			config: &Config{
@@ -268,7 +268,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			pc:       mockpc.FakeClient{[]grpc.DialOption{}, "", "service1", "", []byte{}, "", true},
 			res:      defaultServerResponse,
 			cAClient: &cAGrpcClientImpl{},
-			expectedErr: fmt.Sprintf("Failed to dial %s: grpc: no transport security set "+
+			expectedErr: fmt.Sprintf("failed to dial %s: grpc: no transport security set "+
 				"(use grpc.WithInsecure() explicitly or set credentials)", lis.Addr().String()),
 		},
 		"Error from GetDialOptions": {

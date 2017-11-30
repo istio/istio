@@ -20,11 +20,12 @@ import (
 	"fmt"
 
 	pbtypes "github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
 )
@@ -160,10 +161,16 @@ func initializeHandlerContext(env adapter.Env, adapterCfg *config.Params,
 		configIndex[cfg.MeshServiceName] = cfg
 	}
 
+	cacheExp := toDuration(adapterCfg.RuntimeConfig.CheckResultExpiration)
+	// Set eviction interval to half of expiration time. That said the cache would scan and evict expired entries every
+	// half of expiation time period.
+	checkCache := cache.NewLRU(cacheExp, cacheExp/2, int(adapterCfg.RuntimeConfig.CheckCacheSize))
+
 	return &handlerContext{
 		env:                env,
 		config:             adapterCfg,
 		serviceConfigIndex: configIndex,
+		checkResponseCache: checkCache,
 		client:             client,
 	}, nil
 }

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
@@ -62,11 +63,10 @@ type (
 		config *config.Params
 		// A map keyed by mesh service name to service config in adapter config
 		serviceConfigIndex map[string]*config.GcpServiceSetting
-
-		checkDataShape  map[string]*apikey.Type
-		reportDataShape map[string]*svcctrlreport.Type
-
-		client serviceControlClient
+		checkDataShape     map[string]*apikey.Type
+		reportDataShape    map[string]*svcctrlreport.Type
+		checkResponseCache cache.ExpiringCache // A LRU cache for check response
+		client             serviceControlClient
 	}
 
 	handler struct {
