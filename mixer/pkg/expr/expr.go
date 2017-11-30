@@ -300,7 +300,9 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 	case *ast.CallExpr:
 		switch tg := v.Fun.(type) {
 		case *ast.SelectorExpr:
-			anchorExpr, w, err := flattenSelectors(v.Fun.(*ast.SelectorExpr))
+			var anchorExpr ast.Expr
+			var w []string
+			anchorExpr, w, err = flattenSelectors(v.Fun.(*ast.SelectorExpr))
 			if err != nil {
 				return err
 			}
@@ -351,7 +353,9 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			tgt.Var = &Variable{Name: v.Name}
 		}
 	case *ast.SelectorExpr:
-		anchorExpr, w, err := flattenSelectors(v)
+		var anchorExpr ast.Expr
+		var w []string
+		anchorExpr, w, err = flattenSelectors(v)
 		if err != nil {
 			return err
 		}
@@ -379,7 +383,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 }
 
 func flattenSelectors(selector *ast.SelectorExpr) (ast.Expr, []string, error) {
-	var anchor ast.Expr = nil
+	var anchor ast.Expr
 	parts := []string{}
 	ex := selector
 

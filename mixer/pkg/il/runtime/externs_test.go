@@ -133,7 +133,7 @@ func TestExternStartsWith(t *testing.T) {
 		s string
 		p string
 		e bool
-	} {
+	}{
 		{"abc", "a", true},
 		{"abc", "", true},
 		{"abc", "abc", true},
@@ -154,7 +154,7 @@ func TestExternEndsWith(t *testing.T) {
 		s string
 		u string
 		e bool
-	} {
+	}{
 		{"abc", "c", true},
 		{"abc", "", true},
 		{"abc", "abc", true},
