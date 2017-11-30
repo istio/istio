@@ -20,6 +20,7 @@ import (
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 var duration19, _ = time.ParseDuration("19ms")
@@ -1550,12 +1551,73 @@ end
 	},
 
 	{
-		E:  `ip(ar["foo"])`,
-		IL: ``,
+		E: `ip(ar["foo"])`,
+		IL: `
+fn eval() interface
+  resolve_f "ar"
+  anlookup "foo"
+  call ip
+  ret
+end
+`,
 		I: map[string]interface{}{
 			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
 		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E: `reverse(as)`,
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call reverse
+  ret
+end
+`,
+		I: map[string]interface{}{
+			"as": "str1",
+		},
+		R: "1rts",
+		Fns: []expr.FunctionMetadata{
+			{Name: "reverse", Instance: false, ArgumentTypes: []pbv.ValueType{pbv.STRING}, ReturnType: pbv.STRING},
+		},
+		Externs: map[string]interface{}{
+			"reverse": func(s string) string {
+				runes := []rune(s)
+				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+					runes[i], runes[j] = runes[j], runes[i]
+				}
+				return string(runes)
+			},
+		},
+	},
+
+	{
+		E: `as.reverse()`,
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call reverse
+  ret
+end
+`,
+		I: map[string]interface{}{
+			"as": "str1",
+		},
+		R: "1rts",
+		Fns: []expr.FunctionMetadata{
+			{Name: "reverse", Instance: true, TargetType: pbv.STRING, ReturnType: pbv.STRING},
+		},
+		Externs: map[string]interface{}{
+			"reverse": func(s string) string {
+				runes := []rune(s)
+				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+					runes[i], runes[j] = runes[j], runes[i]
+				}
+				return string(runes)
+			},
+		},
 	},
 }
 
@@ -1589,6 +1651,12 @@ type TestInfo struct {
 	// Config field holds the GlobalConfig to use when compiling/evaluating the tests.
 	// If nil, then "Default" config will be used.
 	Conf *pb.GlobalConfig
+
+	// Fns field holds any additional function metadata that needs to be involved in the test.
+	Fns []expr.FunctionMetadata
+
+	// Externs holds any additional externs that should be used during evaluation.
+	Externs map[string]interface{}
 
 	// SkipAst indicates that AST based evaluator should not be used for this test.
 	SkipAst bool
