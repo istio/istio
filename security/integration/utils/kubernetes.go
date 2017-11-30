@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	immediate int64 = 0
+	immediate int64
 )
 
 // CreateClientset creates a new Clientset for the given kubeconfig.
