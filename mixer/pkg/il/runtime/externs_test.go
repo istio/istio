@@ -105,3 +105,25 @@ func TestExternMatch(t *testing.T) {
 		}
 	}
 }
+
+func TestExternMatches(t *testing.T) {
+	var cases = []struct {
+		s string
+		p string
+		e bool
+	}{
+		{"ns1\\.svc\\.local", "ns1.svc.local", true},
+		{"ns1.*", "ns1.svc.local", true},
+		{"ns2.*", "ns1.svc.local", false},
+	}
+
+	for _, c := range cases {
+		m, err := externMatches(c.s, c.p)
+		if err != nil {
+			t.Fatalf("Unexpected error: %+v, %v", c, err)
+			if m != c.e {
+				t.Fatalf("matches failure: %+v", c)
+			}
+		}
+	}
+}

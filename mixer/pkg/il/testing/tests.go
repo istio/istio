@@ -1619,6 +1619,70 @@ end
 			},
 		},
 	},
+
+	{
+		E:          `"aaa".matches(23)`,
+		CompileErr: `"aaa":matches(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `matches("aaa")`,
+		CompileErr: `invoking instance method without an instance: matches`,
+	},
+	{
+		E:          `matches()`,
+		CompileErr: `invoking instance method without an instance: matches`,
+	},
+	{
+		E: `"abc".matches("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call matches
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `".*".matches("abc")`,
+		IL: `
+fn eval() bool
+  apush_s ".*"
+  apush_s "abc"
+  call matches
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"ab.*d".matches("abc")`,
+		R: false,
+	},
+	{
+		E: `as.matches(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call matches
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "st.*",
+			"bs": "str1",
+		},
+		R: true,
+	},
+	{
+		E: `as.matches(bs)`,
+		I: map[string]interface{}{
+			"as": "st.*",
+			"bs": "sqr1",
+		},
+		R: false,
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
