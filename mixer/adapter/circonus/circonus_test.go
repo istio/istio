@@ -159,6 +159,7 @@ func TestCirconusHandleMetrics(t *testing.T) {
 
 func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
 	return &config.Params{
-		SubmissionUrl: "http://fakeurl",
-		Metrics:       metrics}
+		SubmissionUrl:      "http://fakeurl",
+		SubmissionInterval: 10 * time.Second,
+		Metrics:            metrics}
 }

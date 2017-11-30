@@ -17,6 +17,7 @@ syntax = "proto3";
 package adapter.circonus.config;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
 
 option go_package = "config";
 option (gogoproto.goproto_getters_all) = false;
@@ -26,6 +27,7 @@ option (gogoproto.gostring_all) = false;
 message Params {
     // Circonus SubmissionURL to HTTPTrap check
     string submission_url = 1;
+    google.protobuf.Duration submission_interval = 2 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
 
     // Describes how to represent this metric
     message MetricInfo {
@@ -43,5 +45,5 @@ message Params {
         Type type = 2;
     }
 
-   repeated MetricInfo metrics = 2;
+   repeated MetricInfo metrics = 3;
 }

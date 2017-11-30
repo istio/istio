@@ -67,7 +67,8 @@ metadata:
   namespace: istio-system
 spec:
   # HTTPTrap url, replace this with your account submission url
-  submission_url: "https://circonus_http_trap"
+  submission_url: "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+  submission_interval: "10s"
   metrics:
   - name: requestcount.metric.istio-system
     type: COUNTER
