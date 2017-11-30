@@ -109,7 +109,7 @@ func MakeService(hostname, address string) *model.Service {
 }
 
 // MakeInstance creates a mock instance, version enumerates endpoints
-func MakeInstance(service *model.Service, port *model.Port, version int) *model.ServiceInstance {
+func MakeInstance(service *model.Service, port *model.Port, version int, az string) *model.ServiceInstance {
 	if service.External() {
 		return nil
 	}
@@ -126,8 +126,9 @@ func MakeInstance(service *model.Service, port *model.Port, version int) *model.
 			Port:        target,
 			ServicePort: port,
 		},
-		Service: service,
-		Labels:  map[string]string{"version": fmt.Sprintf("v%d", version)},
+		Service:          service,
+		Labels:           map[string]string{"version": fmt.Sprintf("v%d", version)},
+		AvailabilityZone: az,
 	}
 }
 
@@ -147,6 +148,7 @@ func MakeIP(service *model.Service, version int) string {
 type ServiceDiscovery struct {
 	services           map[string]*model.Service
 	versions           int
+	WantHostInstances  []*model.ServiceInstance
 	ServicesError      error
 	GetServiceError    error
 	InstancesError     error
@@ -200,7 +202,7 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 		if port, ok := service.Ports.Get(name); ok {
 			for v := 0; v < sd.versions; v++ {
 				if labels.HasSubsetOf(map[string]string{"version": fmt.Sprintf("v%d", v)}) {
-					out = append(out, MakeInstance(service, port, v))
+					out = append(out, MakeInstance(service, port, v, ""))
 				}
 			}
 		}
@@ -213,13 +215,16 @@ func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.Servi
 	if sd.HostInstancesError != nil {
 		return nil, sd.HostInstancesError
 	}
+	if sd.WantHostInstances != nil {
+		return sd.WantHostInstances, nil
+	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range sd.services {
 		if !service.External() {
 			for v := 0; v < sd.versions; v++ {
 				if addrs[MakeIP(service, v)] {
 					for _, port := range service.Ports {
-						out = append(out, MakeInstance(service, port, v))
+						out = append(out, MakeInstance(service, port, v, ""))
 					}
 				}
 			}
