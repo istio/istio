@@ -47,6 +47,19 @@ func TestGoodParse(t *testing.T) {
 		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
 		{`a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
 			`LOR(LAND(LAND(EQ($a.b, 3.14), EQ($c, "d")), EQ(INDEX($r.h, "abc"), "pqr")), EQ(INDEX($r.h, "abc"), "xyz"))`},
+
+		{`a()`, `a()`},
+		{`a.b()`, `$a:b()`},
+		{`a.b.c(q)`, `$a.b:c($q)`},
+		{`a.b.c(q, z)`, `$a.b:c($q, $z)`},
+		{`a.b(q.z(d()))`, `$a:b($q:z(d()))`},
+		{`a.b(q.z(d())) == 42`, `EQ($a:b($q:z(d())), 42)`},
+		{`a.b().c().d()`, `$a:b():c():d()`},
+		{`a.b.c().d()`, `$a.b:c():d()`},
+		{`a.b.c().d() == 23`, `EQ($a.b:c():d(), 23)`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
+		{`"abc".prefix(23).matches("foo")`, `"abc":prefix(23):matches("foo")`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -182,14 +195,13 @@ func TestBadParse(t *testing.T) {
 		{`*a != b`, "unexpected expression"},
 		{"a = bc", `unable to parse`},
 		{`3 = 10`, "unable to parse"},
-		{`a.b.c() == 20`, "unexpected expression"},
-		{`a.b().c() == 20`, "unexpected expression"},
 		{`(a.c).d == 300`, `unexpected expression`},
 		{`substring(*a, 20) == 12`, `unexpected expression`},
 		{`(*a == 20) && 12`, `unexpected expression`},
 		{`!*a`, `unexpected expression`},
 		{`request.headers[*a] == 200`, `unexpected expression`},
 		{`atr == 'aaa'`, "unable to parse"},
+		{`c().e.d()`, `unexpected expression`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
