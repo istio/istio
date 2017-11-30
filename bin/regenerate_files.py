@@ -96,7 +96,7 @@ def regenerate(WKSPC, genfiles):
             print src, dest, ex
 
 def main(args):
-    WKSPC = os.getcwd()
+    WKSPC = bazel_util.bazel_info('workspace')
     if len(args) > 0:
         WKSPC = args[0]
     regenerate(WKSPC, bazel_util.bazel_info("bazel-genfiles"))

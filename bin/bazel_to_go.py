@@ -171,7 +171,7 @@ def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
 
 def main(args):
-    WKSPC = os.getcwd()
+    WKSPC = bazel_util.bazel_info('workspace')
     if len(args) > 0:
         WKSPC = args[0]
 
