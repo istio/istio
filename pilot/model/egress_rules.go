@@ -176,7 +176,7 @@ func rejectConflictingOnPortTCPEgressRules(egressRules map[string]*routing.Egres
 				// between HTTP protocols in the current implementation
 				protocol = ProtocolHTTP
 			}
-			intPort := int(port.Port)
+			intPort := int(port.GetNumber())
 			if protocolUntilNow, ok := protocolsPerPort[intPort]; ok && protocolUntilNow != protocol {
 				errs = multierror.Append(errs, fmt.Errorf("rule %s is rejected since it conflicts "+
 					"rules %v on port %d, protocol %s vs. protocol %s",

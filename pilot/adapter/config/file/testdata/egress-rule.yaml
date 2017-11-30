@@ -7,9 +7,9 @@ spec:
   destination:
     service: "*.google.com"
   ports:
-  - port: 80
+  - number: 80
     protocol: http
-  - port: 443
+  - number: 443
     protocol: https
-  - port: 8080
+  - number: 8080
     protocol: http2
