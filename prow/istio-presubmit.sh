@@ -129,7 +129,7 @@ fi
 # Build
 ${ROOT}/bin/init.sh
 
-run_or_die_on_change ./bin/fmt.sh
+#run_or_die_on_change ./bin/fmt.sh
 
 # bazel test execution
 echo 'Running Unit Tests'
