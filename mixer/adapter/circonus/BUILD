@@ -10,15 +10,13 @@ go_library(
         "//mixer/adapter/circonus/config:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/template/metric:go_default_library",
-
         "@com_github_circonuslabs_circonus_gometrics//:go_default_library",
         "@com_github_circonuslabs_circonus_gometrics//checkmgr:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
-        "@com_github_tv42_httpunix//:go_default_library",
-
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
+        "@com_github_pkg_errors//:go_default_library",
+        "@com_github_tv42_httpunix//:go_default_library",
     ],
 )
 
@@ -26,10 +24,10 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = ["circonus_test.go"],
-    library = ":go_default_library",
     data = [
         "operatorconfig",
     ],
+    library = ":go_default_library",
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/adapter/test:go_default_library",

@@ -19,6 +19,7 @@ inventory_library(
         "circonus": "istio.io/istio/mixer/adapter/circonus",
     },
     deps = [
+        "//mixer/adapter/circonus:go_default_library",
         "//mixer/adapter/denier:go_default_library",
         "//mixer/adapter/list:go_default_library",
         "//mixer/adapter/memquota:go_default_library",
@@ -28,6 +29,5 @@ inventory_library(
         "//mixer/adapter/statsd:go_default_library",
         "//mixer/adapter/stdio:go_default_library",
         "//mixer/adapter/svcctrl:go_default_library",
-        "//mixer/adapter/circonus:go_default_library",
     ],
 )
