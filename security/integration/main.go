@@ -88,8 +88,8 @@ func main() {
 
 	if err := rootCmd.Execute(); err != nil {
 		if opts.clientset != nil && len(opts.namespace) > 0 {
-			if err := utils.DeleteTestNamespace(opts.clientset, opts.namespace); err != nil {
-				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, err)
+			if errCleanup := utils.DeleteTestNamespace(opts.clientset, opts.namespace); errCleanup != nil {
+				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, errCleanup)
 			}
 		}
 		glog.Fatal(err)
