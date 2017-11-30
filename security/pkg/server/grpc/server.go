@@ -129,7 +129,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 
 	return &Server{
 		authenticators: authenticators,
-		authorizer:     &sameIdAuthorizer{},
+		authorizer:     &sameIDAuthorizer{},
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
