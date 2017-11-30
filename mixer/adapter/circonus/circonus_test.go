@@ -15,10 +15,10 @@ package circonus
 
 import (
 	cgm "github.com/circonus-labs/circonus-gometrics"
+	"github.com/circonus-labs/circonus-gometrics/checkmgr"
 	"golang.org/x/net/context"
 	"testing"
 	"time"
-
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
@@ -67,11 +67,16 @@ func TestCirconusHandleMetrics(t *testing.T) {
 	}
 
 	// create a circonus gometrics instance
-	submissionURL := "http://fake.url"
-	cmc := &cgm.Config{}
-	cmc.CheckManager.Check.SubmissionURL = submissionURL
-	cmc.Debug = true
-	cmc.Interval = "0"
+	submissionURL := "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret"
+	cmc := &cgm.Config{
+		CheckManager: checkmgr.Config{
+			Check: checkmgr.CheckConfig{
+				SubmissionURL: submissionURL,
+			},
+		},
+		Debug:    true, // enable [DEBUG] level logging for env.Logger
+		Interval: "0s", // do not autoflush
+	}
 	cm, err := cgm.NewCirconusMetrics(cmc)
 	if err != nil {
 		t.Errorf("could not create new cgm %v", err)
@@ -109,10 +114,6 @@ func TestCirconusHandleMetrics(t *testing.T) {
 
 			if err = handler.HandleMetric(context.Background(), v.values); err != nil {
 				t.Errorf("HandleMetric() returned error: %v", err)
-			}
-
-			if err := handler.Close(); err != nil {
-				t.Errorf("Close() returned error: %v", err)
 			}
 
 			for _, adapterVal := range v.values {
@@ -159,7 +160,7 @@ func TestCirconusHandleMetrics(t *testing.T) {
 
 func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
 	return &config.Params{
-		SubmissionUrl:      "http://fakeurl",
-		SubmissionInterval: 10 * time.Second,
+		SubmissionUrl:      "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret",
+		SubmissionInterval: 100 * time.Second,
 		Metrics:            metrics}
 }
