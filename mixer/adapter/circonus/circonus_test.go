@@ -17,11 +17,11 @@ import (
 	cgm "github.com/circonus-labs/circonus-gometrics"
 	"github.com/circonus-labs/circonus-gometrics/checkmgr"
 	"golang.org/x/net/context"
-	"testing"
-	"time"
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/metric"
+	"testing"
+	"time"
 )
 
 var (
@@ -40,8 +40,8 @@ var (
 		Type: config.DISTRIBUTION,
 	}
 
-	histoDuration     time.Duration = 1234 * time.Millisecond
-	histogramInstance               = &metric.Instance{
+	histoDuration     = 1234 * time.Millisecond
+	histogramInstance = &metric.Instance{
 		Name:  histogramInfo.Name,
 		Value: histoDuration,
 	}

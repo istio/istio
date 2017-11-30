@@ -19,14 +19,14 @@ import (
 	"context"
 	"fmt"
 	cgm "github.com/circonus-labs/circonus-gometrics"
-	"log"
-	"net/url"
-	"time"
-	"sync"
 	"github.com/circonus-labs/circonus-gometrics/checkmgr"
 	"istio.io/istio/mixer/adapter/circonus/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
+	"log"
+	"net/url"
+	"sync"
+	"time"
 )
 
 type (
