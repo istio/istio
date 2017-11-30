@@ -15,11 +15,16 @@
 package framework
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"time"
 
-	tu "istio.io/istio/tests/util"
+	u "istio.io/istio/tests/util"
+)
+
+var (
+	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
 )
 
 // runnable is used for Testing purposes.
@@ -32,6 +37,7 @@ type IstioTestFramework struct {
 	TestEnv    TestEnv
 	TestID     string
 	Components []Component
+	skipCleanup        bool
 }
 
 // NewIstioTestFramework create a IstioTestFramework with a given environment and ID
@@ -40,6 +46,7 @@ func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
 		TestEnv:    env,
 		Components: env.GetComponents(),
 		TestID:     id,
+		skipCleanup: *skipCleanup,
 	}
 }
 
@@ -66,6 +73,11 @@ func (framework *IstioTestFramework) SetUp() (err error) {
 
 // TearDown stop components and clean up environment
 func (framework *IstioTestFramework) TearDown() {
+	if framework.skipCleanup {
+		log.Println("Dev mode (--skip_cleanup), skipping cleanup")
+		return
+	}
+
 	for _, comp := range framework.Components {
 		if alive, err := comp.IsAlive(); err != nil {
 			log.Printf("Failed to check if componment %s is alive: %s", comp.GetName(), err)
@@ -83,7 +95,7 @@ func (framework *IstioTestFramework) TearDown() {
 
 // IsEnvReady check if the whole environment is ready for running tests
 func (framework *IstioTestFramework) IsEnvReady() (bool, error) {
-	retry := tu.Retrier{
+	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
 		Retries:   5,
@@ -119,3 +131,5 @@ func (framework *IstioTestFramework) RunTest(m runnable) (ret int) {
 	}
 	return ret
 }
+
+// TODO: USE glog instead of log

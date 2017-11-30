@@ -50,8 +50,10 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 
 // Start brings up a local fortio echo server
 func (FortioServerComp *LocalComponent) Start() (err error) {
-	FortioServerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server > %s 2>&1 &",
-		FortioServerComp.BinaryPath, FortioServerComp.LogFile))
+	if FortioServerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server > %s 2>&1",
+		FortioServerComp.BinaryPath, FortioServerComp.LogFile)); err != nil {
+		return
+	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(2 * time.Second)

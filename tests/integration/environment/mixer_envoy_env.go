@@ -25,7 +25,7 @@ import (
 
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
 type MixerEnvoyEnv struct {
-	framework.TestEnv
+	framework.CommonEnv
 	EnvID  string
 	tmpDir string
 }
@@ -33,7 +33,9 @@ type MixerEnvoyEnv struct {
 // NewMixerEnvoyEnv create a MixerEnvoyEnv with a env ID
 func NewMixerEnvoyEnv(id string) *MixerEnvoyEnv {
 	return &MixerEnvoyEnv{
-		EnvID: id,
+		CommonEnv: framework.CommonEnv{
+			EnvID: id,
+		},
 	}
 }
 

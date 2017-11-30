@@ -50,8 +50,10 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	proxyComp.Process, err = util.RunBackground(fmt.Sprintf("%s > %s 2>&1",
-		proxyComp.BinaryPath, proxyComp.LogFile))
+	if proxyComp.Process, err = util.RunBackground(fmt.Sprintf("%s > %s 2>&1",
+		proxyComp.BinaryPath, proxyComp.LogFile)); err != nil {
+		return
+	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)

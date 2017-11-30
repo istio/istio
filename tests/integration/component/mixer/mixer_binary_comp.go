@@ -57,28 +57,36 @@ func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
 
 // Start brings up a local mixs using test config files in local file system
 func (mixerComp *LocalComponent) Start() (err error) {
-	emptyDir := filepath.Join(mixerComp.configDir, "emptydir")
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Printf("Failed to get current directory: %s", err)
+		return
+	}
+	emptyDir := filepath.Join(wd, mixerComp.configDir, "emptydir")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
-		return err
+		return
 	}
-	mixerConfig := filepath.Join(mixerComp.configDir, "mixerconfig")
+	mixerConfig := filepath.Join(wd, mixerComp.configDir, "mixerconfig")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
-		return err
+		return
 	}
 	mixerTestConfig := util.GetResourcePath(testConfigPath)
 	if _, err = util.Shell("cp %s/* %s", mixerTestConfig, mixerConfig); err != nil {
 		log.Printf("Failed to copy config for test: %v", err)
-		return err
+		return
 	}
 	if err = os.Remove(filepath.Join(mixerConfig, "stackdriver.yaml")); err != nil {
 		log.Printf("Failed to remove stackdriver.yaml: %v", err)
+		return
 	}
 
-	mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
+	if mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-		mixerComp.BinaryPath, mixerConfig, emptyDir))
+		mixerComp.BinaryPath, mixerConfig, emptyDir)); err != nil {
+		return
+	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
