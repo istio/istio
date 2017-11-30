@@ -435,6 +435,12 @@ func buildTCPListener(tcpConfig *TCPRouteConfig, ip string, port int, protocol m
 		},
 	}
 
+	// Use Envoy's TCP proxy for TCP and Redis protocols. Currently, Envoy does not support CDS clusters
+	// for Redis proxy. Once Envoy supports CDS clusters, remove the following lines
+	if protocol == model.ProtocolRedis {
+		protocol = model.ProtocolTCP
+	}
+
 	switch protocol {
 	case model.ProtocolMongo:
 		// TODO: add a watcher for /var/lib/istio/mongo/certs
