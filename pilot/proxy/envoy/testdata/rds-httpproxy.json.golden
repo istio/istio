@@ -98,51 +98,6 @@
     ]
    },
    {
-    "name": "httpbin.default.svc.cluster.local|http",
-    "domains": [
-     "httpbin:80",
-     "httpbin",
-     "httpbin.default:80",
-     "httpbin.default",
-     "httpbin.default.svc:80",
-     "httpbin.default.svc",
-     "httpbin.default.svc.cluster:80",
-     "httpbin.default.svc.cluster",
-     "httpbin.default.svc.cluster.local:80",
-     "httpbin.default.svc.cluster.local"
-    ],
-    "routes": [
-     {
-      "prefix": "/",
-      "cluster": "out.httpbin.default.svc.cluster.local|http",
-      "timeout_ms": 0,
-      "decorator": {
-       "operation": "default-route"
-      }
-     }
-    ]
-   },
-   {
-    "name": "httpsbin.default.svc.cluster.local|https",
-    "domains": [
-     "httpsbin:443",
-     "httpsbin.default:443",
-     "httpsbin.default.svc:443",
-     "httpsbin.default.svc.cluster:443",
-     "httpsbin.default.svc.cluster.local:443"
-    ],
-    "routes": [
-     {
-      "prefix": "/",
-      "cluster": "out.httpsbin.default.svc.cluster.local|https",
-      "timeout_ms": 0,
-      "decorator": {
-       "operation": "default-route"
-      }
-     }
-    ]
-   },
-   {
     "name": "world.default.svc.cluster.local|http",
     "domains": [
      "world:80",
