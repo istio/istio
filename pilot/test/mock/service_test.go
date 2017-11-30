@@ -17,7 +17,7 @@ package mock
 import (
 	"testing"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestMockServices(t *testing.T) {
@@ -30,7 +30,7 @@ func TestMockServices(t *testing.T) {
 			t.Errorf("%v.Validate() => Got %v", svc, err)
 		}
 		for _, port := range svc.Ports {
-			if port.AuthenticationPolicy != proxyconfig.AuthenticationPolicy_INHERIT {
+			if port.AuthenticationPolicy != meshconfig.AuthenticationPolicy_INHERIT {
 				t.Errorf("Default port authentication policy must be INHERIT. Got %v", *port)
 			}
 		}

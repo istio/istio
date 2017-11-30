@@ -35,14 +35,20 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
       - run: make setup
-      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs
+      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -67,14 +73,20 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
       - run: make setup
-      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs
+      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -84,7 +96,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -92,7 +104,7 @@ jobs:
                dep ensure
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.lock" }}
+          key: dep-cache-{{ checksum "Gopkg.toml" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -108,7 +120,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -140,7 +158,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -163,7 +187,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -186,7 +216,13 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
       - run:
           command: |
             mkdir ~/.kube

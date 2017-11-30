@@ -22,11 +22,11 @@ import (
 )
 
 var (
-	host        string
-	gitBranch   string
-	gitRevision string
-	user        string
-	version     string
+	buildHost        string
+	buildGitBranch   string
+	buildGitRevision string
+	buildUser        string
+	buildAppVersion  string
 
 	// this is used for testing command output
 	printFunc = fmt.Printf
@@ -40,7 +40,7 @@ GitRevision: %v
 GitBranch: %v
 User: %v@%v
 Golang version: %v
-`, version, gitRevision, gitBranch, user, host, runtime.Version())
+`, buildAppVersion, buildGitRevision, buildGitBranch, buildUser, buildHost, runtime.Version())
 		},
 		Use:   "version",
 		Short: "Display version information",

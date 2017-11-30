@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"net"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -31,7 +31,7 @@ var (
 		Name:                 "http",
 		Port:                 80, // target port 80
 		Protocol:             model.ProtocolHTTP,
-		AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 	}
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
 		"httpbin.org", "")
@@ -95,23 +95,23 @@ func MakeService(hostname, address string) *model.Service {
 				Name:                 "http-status",
 				Port:                 81, // target port 1081
 				Protocol:             model.ProtocolHTTP,
-				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			}, {
 				Name:                 "custom",
 				Port:                 90, // target port 1090
 				Protocol:             model.ProtocolTCP,
-				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			}, {
 				Name:                 "mongo",
 				Port:                 100, // target port 1100
 				Protocol:             model.ProtocolMongo,
-				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			},
 			{
 				Name:                 "redis",
 				Port:                 110, // target port 1110
 				Protocol:             model.ProtocolRedis,
-				AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			}},
 	}
 }
@@ -126,7 +126,7 @@ func MakeExternalHTTPService(hostname, external string, address string) *model.S
 			Name:                 "http",
 			Port:                 80,
 			Protocol:             model.ProtocolHTTP,
-			AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 		}},
 	}
 }
@@ -141,7 +141,7 @@ func MakeExternalHTTPSService(hostname, external string, address string) *model.
 			Name:                 "https",
 			Port:                 443,
 			Protocol:             model.ProtocolHTTPS,
-			AuthenticationPolicy: proxyconfig.AuthenticationPolicy_INHERIT,
+			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 		}},
 	}
 }

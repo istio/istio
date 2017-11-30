@@ -22,11 +22,11 @@ type authorizer interface {
 	authorize(requester *caller, requestedIds []string) error
 }
 
-// sameIdAuthorizer approves a request if the requested identities matches the
+// sameIDAuthorizer approves a request if the requested identities matches the
 // identities of the requester.
-type sameIdAuthorizer struct{}
+type sameIDAuthorizer struct{}
 
-func (authZ *sameIdAuthorizer) authorize(requester *caller, requestedIDs []string) error {
+func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []string) error {
 	if requester.authSource == authSourceIDToken {
 		// TODO: currently the "sub" claim of an ID token returned by GCP
 		// metadata server contains obfuscated ID, so we cannot do
@@ -41,7 +41,7 @@ func (authZ *sameIdAuthorizer) authorize(requester *caller, requestedIDs []strin
 
 	for _, requestedID := range requestedIDs {
 		if _, exists := idMap[requestedID]; !exists {
-			return fmt.Errorf("The requested identity (%q) does not match the caller's identities", requestedID)
+			return fmt.Errorf("the requested identity (%q) does not match the caller's identities", requestedID)
 		}
 	}
 

@@ -55,8 +55,8 @@ var primitiveToValueType = map[string]string{
 	"time.Time":     fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.TIMESTAMP.String(),
 }
 
-func containsValueType(ti modelgen.TypeInfo) bool {
-	return ti.IsValueType || ti.IsMap && ti.MapValue.IsValueType
+func containsValueTypeOrResMsg(ti modelgen.TypeInfo) bool {
+	return ti.IsValueType || ti.IsResourceMessage || ti.IsMap && (ti.MapValue.IsValueType || ti.MapValue.IsResourceMessage)
 }
 
 type bootstrapModel struct {
@@ -65,6 +65,10 @@ type bootstrapModel struct {
 }
 
 const goImportFmt = "\"%s\""
+const resourceMsgTypeSuffix = "Type"
+const resourceMsgInstanceSuffix = "Instance"
+const resourceMsgInstParamSuffix = "InstanceParam"
+const templateName = "Template"
 
 // Generate creates a Go file that will be build inside mixer framework. The generated file contains all the
 // template specific code that mixer needs to add support for different passed in templates.
@@ -75,7 +79,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[goType.Name]
 			},
-			"containsValueType": containsValueType,
+			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
 				if len(ti.Import) > 0 {
 					imprt := fmt.Sprintf(goImportFmt, ti.Import)
@@ -85,6 +89,39 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				}
 				// do nothing, just record the import so that we can add them later (only for the types that got printed)
 				return ""
+			},
+			"getResourcMessageTypeName": func(s string) string {
+				if s == templateName {
+					return resourceMsgTypeSuffix
+				}
+				return s + resourceMsgTypeSuffix
+			},
+			"getResourcMessageInstanceName": func(s string) string {
+				if s == templateName {
+					return resourceMsgInstanceSuffix
+				}
+				return s
+			},
+
+			"getResourcMessageInterfaceParamTypeName": func(s string) string {
+				if s == templateName {
+					return resourceMsgInstParamSuffix
+				}
+				return s + resourceMsgInstParamSuffix
+			},
+			"getAllMsgs": func(model modelgen.Model) []modelgen.MessageInfo {
+				res := make([]modelgen.MessageInfo, 0)
+				res = append(res, model.TemplateMessage)
+				res = append(res, model.ResourceMessages...)
+				return res
+			},
+			"getTypeName": func(goType modelgen.TypeInfo) string {
+				// GoType for a Resource message has a pointer reference. Therefore for a raw type name, we should strip
+				// the "*".
+				return strings.Trim(goType.Name, "*")
+			},
+			"getBuildFnName": func(typeName string) string {
+				return "Build" + typeName
 			},
 		}).Parse(tmplPkg.InterfaceTemplate)
 

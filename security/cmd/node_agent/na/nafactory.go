@@ -32,7 +32,7 @@ type NodeAgent interface {
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
 func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("Nil configuration passed")
+		return nil, fmt.Errorf("nil configuration passed")
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
