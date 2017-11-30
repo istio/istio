@@ -88,7 +88,7 @@ resources:
           gcloud container clusters get-credentials {{ properties['gkeClusterName'] }} --zone {{ properties['zone'] }}
           kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
           git clone https://github.com/istio/istio.git
-	  cd istio
+          cd istio
           git checkout tags/{{ properties['installIstioRelease'] }}
 
           {% if  properties['enableMutualTLS'] %}
