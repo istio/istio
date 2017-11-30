@@ -57,7 +57,7 @@ class Referenced {
     std::string map_key;
 
     // make vector<AttributeRef> sortable
-    bool operator<(const AttributeRef &b) {
+    bool operator<(const AttributeRef &b) const {
       int cmp = name.compare(b.name);
       if (cmp == 0) {
         return map_key.compare(b.map_key) < 0;
