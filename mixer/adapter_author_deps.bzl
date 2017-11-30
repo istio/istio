@@ -4,7 +4,7 @@ def mixer_adapter_repositories():
 
     native.git_repository(
         name = "org_pubref_rules_protobuf",
-        commit = "ff3b7e7963daa7cb3b42f8936bc11eda4b960926",  # Oct 03, 2017 (Updating External Import Paths)
+        commit = "563b674a2ce6650d459732932ea2bc98c9c9a9bf",  # Nov 28, 2017 (bazel 0.8.0 support)
         remote = "https://github.com/pubref/rules_protobuf",
     )
 

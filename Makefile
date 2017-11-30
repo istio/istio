@@ -146,7 +146,7 @@ artifacts: docker
 	@echo 'To be added'
 
 pilot/platform/kube/config:
-	ln -s ~/.kube/config pilot/platform/kube/
+	ln -fs ~/.kube/config pilot/platform/kube/
 
 .PHONY: artifacts build checkvars clean docker test setup push
 

@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/mixer/pkg/il"
 )
 
+// NewFakeBag creates a fakebag and converts map[string]string to StringMap
 func NewFakeBag(attrs map[string]interface{}) attribute.Bag {
 	for k, v := range attrs {
 		if sm, ok := v.(map[string]string); ok {
@@ -52,6 +53,7 @@ func (b *fakeBag) Done() {}
 // DebugString is needed to implement the Bag interface.
 func (b *fakeBag) DebugString() string { return "" }
 
+// NewStringMap creates an il.StringMap given map[string]string
 func NewStringMap(name string, entries map[string]string) il.StringMap {
 	return stringMap{Name: name, Entries: entries}
 }

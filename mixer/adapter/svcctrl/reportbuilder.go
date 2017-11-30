@@ -137,20 +137,27 @@ func generateStatusCode(instance *svcctrlreport.Instance) (string, bool) {
 }
 
 // Helpers to generate metric value.
-func generateRequestCount(inst *svcctrlreport.Instance) (*sc.MetricValue, error) {
+func generateRequestCount(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
 	return &sc.MetricValue{
-		StartTime:  inst.RequestTime.UTC().Format(time.RFC3339Nano),
-		EndTime:    inst.ResponseTime.UTC().Format(time.RFC3339Nano),
+		StartTime:  instance.RequestTime.UTC().Format(time.RFC3339Nano),
+		EndTime:    instance.ResponseTime.UTC().Format(time.RFC3339Nano),
 		Int64Value: getInt64Address(1),
 	}, nil
 }
 
-func generateErrorCount(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
-	// Skip if not an error
-	if instance.ResponseCode < 300 {
-		return nil, nil
+func generateRequestSize(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
+	builder, err := newDistValueBuilder(sizeOption)
+	if err != nil {
+		return nil, err
 	}
-	return generateRequestCount(instance)
+
+	requestSize := float64(instance.RequestBytes)
+	builder.addSample(requestSize)
+	return &sc.MetricValue{
+		StartTime:         instance.RequestTime.UTC().Format(time.RFC3339Nano),
+		EndTime:           instance.ResponseTime.UTC().Format(time.RFC3339Nano),
+		DistributionValue: builder.build(),
+	}, nil
 }
 
 func generateBackendLatencies(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
@@ -212,7 +219,8 @@ func (b *reportBuilder) addMetricValues(op *sc.Operation) {
 		metricSet := new(sc.MetricValueSet)
 		metricSet.MetricName = metric.name
 		metricValue, innerErr := metric.valueGenerator(b.instance)
-		if innerErr != nil {
+		// Skip if error or not need to include this metric.
+		if innerErr != nil || metricValue == nil {
 			continue
 		}
 

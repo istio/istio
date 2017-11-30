@@ -107,7 +107,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	}
 
 	// Do not record StringMap access. Keys in it will be recorded separately.
-	if _, ok := result.(StringMap); !ok {
+	if _, smFound := result.(StringMap); !smFound {
 		pb.trackReference(name, mixerpb.EXACT)
 	}
 

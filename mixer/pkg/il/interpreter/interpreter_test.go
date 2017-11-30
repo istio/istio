@@ -1681,12 +1681,26 @@ func TestInterpreter_Eval(t *testing.T) {
 		`,
 			expected: "c",
 			externs: map[string]Extern{
+				"ext": ExternFromFn("ext", func() map[string]string {
+					return map[string]string{"b": "c"}
+				}),
+			},
+		},
+		"extern/ret/string/instringmaprefcounted": {
+			code: `
+		fn main() string
+			call ext
+			alookup "b"
+			ret
+		end
+		`,
+			expected: "c",
+			externs: map[string]Extern{
 				"ext": ExternFromFn("ext", func() il.StringMap {
 					return ilt.NewStringMap("", map[string]string{"b": "c"})
 				}),
 			},
 		},
-
 		"extern/ret/ipaddress": {
 			code: `
 		fn main() interface

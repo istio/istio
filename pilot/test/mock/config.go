@@ -22,8 +22,11 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	mpb "istio.io/api/mixer/v1"
+	mccpb "istio.io/api/mixer/v1/config/client"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/model/test"
 	"istio.io/istio/pilot/test/util"
@@ -34,42 +37,86 @@ var (
 	Types = model.ConfigDescriptor{model.MockConfig}
 
 	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &proxyconfig.RouteRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleRouteRule = &routing.RouteRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		Route: []*proxyconfig.DestinationWeight{
+		Route: []*routing.DestinationWeight{
 			{Weight: 80, Labels: map[string]string{"version": "v1"}},
 			{Weight: 20, Labels: map[string]string{"version": "v2"}},
 		},
 	}
 
 	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &proxyconfig.IngressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleIngressRule = &routing.IngressRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
 		Port: 80,
-		DestinationServicePort: &proxyconfig.IngressRule_DestinationPort{DestinationPort: 80},
+		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
 	}
 
 	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &proxyconfig.EgressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleEgressRule = &routing.EgressRule{
+		Destination: &routing.IstioService{
 			Service: "*cnn.com",
 		},
-		Ports:          []*proxyconfig.EgressRule_Port{{Port: 80, Protocol: "http"}},
+		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
 		UseEgressProxy: false,
 	}
 
 	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &proxyconfig.DestinationPolicy{
-		Destination: &proxyconfig.IstioService{
+	ExampleDestinationPolicy = &routing.DestinationPolicy{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		LoadBalancing: &proxyconfig.LoadBalancing{
-			LbPolicy: &proxyconfig.LoadBalancing_Name{Name: proxyconfig.LoadBalancing_RANDOM},
+		LoadBalancing: &routing.LoadBalancing{
+			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
+	}
+
+	// ExampleHTTPAPISpec is an example HTTPAPISpec
+	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
+		Attributes: &mpb.Attributes{
+			Attributes: map[string]*mpb.Attributes_AttributeValue{
+				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"petstore"}},
+			},
+		},
+		Patterns: []*mccpb.HTTPAPISpecPattern{{
+			Attributes: &mpb.Attributes{
+				Attributes: map[string]*mpb.Attributes_AttributeValue{
+					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{"getPet"}},
+				},
+			},
+			HttpMethod: "GET",
+			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
+				UriTemplate: "/pets/{id}",
+			},
+		}},
+		ApiKeys: []*mccpb.APIKey{{
+			Key: &mccpb.APIKey_Header{
+				Header: "X-API-KEY",
+			},
+		}},
+	}
+
+	// ExampleQuotaSpec is an example QuotaSpec
+	ExampleQuotaSpec = &mccpb.QuotaSpec{
+		Rules: []*mccpb.QuotaRule{{
+			Match: []*mccpb.AttributeMatch{{
+				Clause: map[string]*mccpb.StringMatch{
+					"api.operation": {
+						MatchType: &mccpb.StringMatch_Exact{
+							Exact: "getPet",
+						},
+					},
+				},
+			}},
+			Quotas: []*mccpb.Quota{{
+				Quota:  "fooQuota",
+				Charge: 2,
+			}},
+		}},
 	}
 )
 
@@ -265,45 +312,31 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 // CheckIstioConfigTypes validates that an empty store can ingest Istio config objects
 func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing.T) {
 	name := "example"
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.RouteRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleRouteRule,
-	}); err != nil {
-		t.Errorf("Post(RouteRule) => got %v", err)
+
+	cases := []struct {
+		name string
+		typ  string
+		spec proto.Message
+	}{
+		{"RouteRule", model.RouteRule.Type, ExampleRouteRule},
+		{"IngressRule", model.IngressRule.Type, ExampleIngressRule},
+		{"EgressRule", model.EgressRule.Type, ExampleEgressRule},
+		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
+		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
+		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
 	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.IngressRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleIngressRule,
-	}); err != nil {
-		t.Errorf("Post(IngressRule) => got %v", err)
-	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.EgressRule.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleEgressRule,
-	}); err != nil {
-		t.Errorf("Post(EgressRule) => got %v", err)
-	}
-	if _, err := store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.DestinationPolicy.Type,
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: ExampleDestinationPolicy,
-	}); err != nil {
-		t.Errorf("Post(DestinationPolicy) => got %v", err)
+
+	for _, c := range cases {
+		if _, err := store.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Type:      c.typ,
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: c.spec,
+		}); err != nil {
+			t.Errorf("Post(%v) => got %v", c.name, err)
+		}
 	}
 }
 
