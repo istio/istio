@@ -107,8 +107,9 @@ func (framework *IstioTestFramework) IsEnvReady() (bool, error) {
 	return ready, err
 }
 
-// RunTest main entry for framework: setup, run tests and clean up
+// RunTest is the main entry for framework: setup, run tests and clean up
 func (framework *IstioTestFramework) RunTest(m runnable) (ret int) {
+	defer framework.TearDown()
 	if err := framework.SetUp(); err != nil {
 		log.Printf("Failed to setup framework: %s", err)
 		ret = 1
@@ -116,6 +117,5 @@ func (framework *IstioTestFramework) RunTest(m runnable) (ret int) {
 		log.Printf("\nStart testing ......")
 		ret = m.Run()
 	}
-	framework.TearDown()
 	return ret
 }

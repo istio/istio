@@ -22,7 +22,7 @@ function process_result() {
         SUMMARY+="\nPASSED: $2 "
     else
         SUMMARY+="\nFAILED: $2 "
-go        ((FAILURE_COUNT++))
+        ((FAILURE_COUNT++))
     fi
 }
 
@@ -35,8 +35,9 @@ go get -u istio.io/fortio
 
 # Download Proxy
 cd ..
-cd proxy || git clone https://github.com/istio/proxy; cd proxy
-git pull
+ls proxy || git clone https://github.com/istio/proxy
+cd proxy
+#git pull
 bazel build //src/envoy/mixer:envoy
 ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
