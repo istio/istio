@@ -206,6 +206,36 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
 	}
 
+	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
+
+	if f.Target != nil {
+		if !fn.Instance {
+			return valueType, fmt.Errorf("invoking regular function on instance method: %s", f.Name)
+		}
+		expectedType := fn.TargetType
+
+		var targetType dpb.ValueType
+		targetType, err = f.Target.EvalType(attrs, fMap)
+		if err != nil {
+			return valueType, err
+		}
+
+		if fn.TargetType == dpb.VALUE_TYPE_UNSPECIFIED {
+			if tmplType == dpb.VALUE_TYPE_UNSPECIFIED {
+				// all future args must be of this type.
+				tmplType = targetType
+			} else {
+				expectedType = tmplType
+			}
+		}
+
+		if targetType != expectedType {
+			return valueType, fmt.Errorf("%s target typeError got %s, expected %s", f, targetType, expectedType)
+		}
+	} else if fn.Instance {
+		return valueType, fmt.Errorf("invoking instance method without an instance: %s", f.Name)
+	}
+
 	var idx int
 	argTypes := fn.ArgumentTypes
 
@@ -214,7 +244,6 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 	}
 
 	var argType dpb.ValueType
-	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
 	// check arg types with fn args
 	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
 		argType, err = f.Args[idx].EvalType(attrs, fMap)
