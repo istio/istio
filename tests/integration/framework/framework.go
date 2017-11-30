@@ -34,18 +34,18 @@ type runnable interface {
 
 // IstioTestFramework is core test framework struct
 type IstioTestFramework struct {
-	TestEnv    TestEnv
-	TestID     string
-	Components []Component
-	skipCleanup        bool
+	TestEnv     TestEnv
+	TestID      string
+	Components  []Component
+	skipCleanup bool
 }
 
 // NewIstioTestFramework create a IstioTestFramework with a given environment and ID
 func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
 	return &IstioTestFramework{
-		TestEnv:    env,
-		Components: env.GetComponents(),
-		TestID:     id,
+		TestEnv:     env,
+		Components:  env.GetComponents(),
+		TestID:      id,
 		skipCleanup: *skipCleanup,
 	}
 }

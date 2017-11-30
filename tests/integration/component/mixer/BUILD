@@ -6,7 +6,7 @@ go_library(
         "mixer_binary_comp.go",
     ],
     data = [
-        "//mixer/testdata/config",
+        "//mixer/testdata",
     ],
     visibility = ["//visibility:public"],
     deps = [
