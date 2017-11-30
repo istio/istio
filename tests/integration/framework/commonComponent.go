@@ -12,32 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package component
+package framework
 
 import (
+	"log"
 	"os"
 
-	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
-	"log"
 )
 
+// CommonComp is a base type for most components
 type CommonComp struct {
-	framework.Component
+	Component
 	Name    string
 	LogFile string
 }
 
+// GetName implement the function in component interface
 func (cc *CommonComp) GetName() string {
 	return cc.Name
 }
 
+// CommonProcessComp is a base type for components ran in local process
 type CommonProcessComp struct {
 	CommonComp
-	Process *os.Process
+	Process    *os.Process
 	BinaryPath string
 }
 
+// Stop implement the function in component interface
+// It stops a local process in the CommonProcessComp
 func (cpc *CommonProcessComp) Stop() (err error) {
 	log.Printf("Stopping component %s", cpc.GetName())
 	err = util.KillProcess(cpc.Process)

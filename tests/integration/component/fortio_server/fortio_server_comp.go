@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/tests/integration/component"
+	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
 	"log"
 )
@@ -30,7 +30,7 @@ var (
 
 // LocalComponent is a local fortio server componment
 type LocalComponent struct {
-	component.CommonProcessComp
+	framework.CommonProcessComp
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
@@ -38,8 +38,8 @@ func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 
 	return &LocalComponent{
-		CommonProcessComp: component.CommonProcessComp{
-			CommonComp: component.CommonComp{
+		CommonProcessComp: framework.CommonProcessComp{
+			CommonComp: framework.CommonComp{
 				Name:    n,
 				LogFile: logFile,
 			},

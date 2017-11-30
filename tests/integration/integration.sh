@@ -22,7 +22,7 @@ function process_result() {
         SUMMARY+="\nPASSED: $2 "
     else
         SUMMARY+="\nFAILED: $2 "
-        ((FAILURE_COUNT++))
+go        ((FAILURE_COUNT++))
     fi
 }
 
@@ -40,8 +40,6 @@ git pull
 bazel build //src/envoy/mixer:envoy
 ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
-
-pwd
 
 # Run Tests
 TESTSPATH='tests/integration/tests'

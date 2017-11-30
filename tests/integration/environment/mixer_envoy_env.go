@@ -15,8 +15,6 @@
 package environment
 
 import (
-	"io/ioutil"
-	"log"
 	"path/filepath"
 
 	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
@@ -28,7 +26,8 @@ import (
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
 type MixerEnvoyEnv struct {
 	framework.TestEnv
-	EnvID string
+	EnvID  string
+	tmpDir string
 }
 
 // NewMixerEnvoyEnv create a MixerEnvoyEnv with a env ID
@@ -38,36 +37,15 @@ func NewMixerEnvoyEnv(id string) *MixerEnvoyEnv {
 	}
 }
 
-// GetName return environment ID
-func (mixerEnvoyEnv *MixerEnvoyEnv) GetName() string {
-	return mixerEnvoyEnv.EnvID
-}
-
-// Bringup doing setup for MixerEnvoyEnv
-func (mixerEnvoyEnv *MixerEnvoyEnv) Bringup() (err error) {
-	log.Printf("Bringing up %s", mixerEnvoyEnv.EnvID)
-	return
-}
-
 // GetComponents returns a list of components, including mixer, proxy and fortio server
 func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
-	logDir, err := ioutil.TempDir("", mixerEnvoyEnv.GetName())
-	if err != nil {
-		log.Printf("Failed to get a temp dir: %v", err)
-		return nil
-	}
-	configDir := filepath.Join(logDir, "mixer_config")
+	configDir := filepath.Join(mixerEnvoyEnv.tmpDir, "mixer_config")
 
+	// Define what components this environment has
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", logDir))
-	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", logDir, configDir))
-	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", logDir))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", mixerEnvoyEnv.tmpDir))
+	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", mixerEnvoyEnv.tmpDir, configDir))
+	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", mixerEnvoyEnv.tmpDir))
 
 	return comps
-}
-
-// Cleanup clean everything created by MixerEnvoyEnv, not component level
-func (mixerEnvoyEnv *MixerEnvoyEnv) Cleanup() (err error) {
-	log.Printf("Cleaning up %s", mixerEnvoyEnv.EnvID)
-	return
 }

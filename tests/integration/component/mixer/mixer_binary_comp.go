@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"istio.io/istio/tests/integration/component"
+	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
 )
 
@@ -36,7 +36,7 @@ var (
 
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
-	component.CommonProcessComp
+	framework.CommonProcessComp
 	configDir string
 }
 
@@ -44,8 +44,8 @@ type LocalComponent struct {
 func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &LocalComponent{
-		CommonProcessComp: component.CommonProcessComp{
-			CommonComp: component.CommonComp{
+		CommonProcessComp: framework.CommonProcessComp{
+			CommonComp: framework.CommonComp{
 				Name:    n,
 				LogFile: logFile,
 			},
@@ -78,7 +78,7 @@ func (mixerComp *LocalComponent) Start() (err error) {
 
 	mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-			mixerComp.BinaryPath, mixerConfig, emptyDir))
+		mixerComp.BinaryPath, mixerConfig, emptyDir))
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)

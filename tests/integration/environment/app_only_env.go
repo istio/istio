@@ -15,54 +15,29 @@
 package environment
 
 import (
-	"io/ioutil"
-	"log"
-
 	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/framework"
 )
 
 // AppOnlyEnv is a test environment with only fortio echo server
 type AppOnlyEnv struct {
-	framework.TestEnv
-	EnvID    string
-	EndPoint string
+	framework.CommonEnv
 }
 
 // NewAppOnlyEnv create an AppOnlyEnv with a env ID
 func NewAppOnlyEnv(id string) *AppOnlyEnv {
 	return &AppOnlyEnv{
-		EnvID: id,
+		CommonEnv: framework.CommonEnv{
+			EnvID: id,
+		},
 	}
-}
-
-// GetName return environment ID
-func (appOnlyEnv *AppOnlyEnv) GetName() string {
-	return appOnlyEnv.EnvID
-}
-
-// Bringup doing setup for AppOnlyEnv
-func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
-	log.Printf("Bringing up %s", appOnlyEnv.EnvID)
-	return
 }
 
 // GetComponents returns a list with a fortio server component
 func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
-	logDir, err := ioutil.TempDir("", appOnlyEnv.GetName())
-	if err != nil {
-		log.Printf("Failed to get a temp dir: %v", err)
-		return nil
-	}
-
+	// Define what components this environment has
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", logDir))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", appOnlyEnv.TmpDir))
 
 	return comps
-}
-
-// Cleanup clean everything created by AppOnlyEnv, not component level
-func (appOnlyEnv *AppOnlyEnv) Cleanup() (err error) {
-	log.Printf("Cleaning up %s", appOnlyEnv.EnvID)
-	return
 }
