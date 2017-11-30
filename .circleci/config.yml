@@ -11,7 +11,7 @@ integrationDefaults: &integrationDefaults
     CHANGE_MINIKUBE_NONE_USER: true
     HUB: docker.io/dnerepo
     TAG: dontpush
-    GOPATH: /go      
+    GOPATH: /go
 
 jobs:
   pilot-integration-auth:
@@ -22,15 +22,15 @@ jobs:
         pwd: /
         command: |
           sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go 
+          sudo chown -R circleci /go
       - checkout
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
             sudo -E minikube start \
             --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
+            --kubernetes-version=v1.8.0 --vm-driver=none
       - run: sudo -E minikube update-context
       - run: bin/install-go.sh
       - restore_cache:
@@ -54,15 +54,15 @@ jobs:
         pwd: /
         command: |
           sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go 
+          sudo chown -R circleci /go
       - checkout
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.0/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
             sudo -E minikube start \
             --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
+            --kubernetes-version=v1.8.0 --vm-driver=none
       - run: sudo -E minikube update-context
       - run: bin/install-go.sh
       - restore_cache:
@@ -98,7 +98,7 @@ jobs:
 
   unittest-pilot:
     <<: *defaults
-    resource_class: xlarge  
+    resource_class: xlarge
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
@@ -153,7 +153,7 @@ jobs:
 
   unittest-security:
     <<: *defaults
-    resource_class: xlarge  
+    resource_class: xlarge
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
@@ -176,7 +176,7 @@ jobs:
 
   unittest-broker:
     <<: *defaults
-    resource_class: xlarge  
+    resource_class: xlarge
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage

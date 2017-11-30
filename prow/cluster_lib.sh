@@ -26,7 +26,7 @@ ZONE=us-central1-f
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
 CLUSTER_NAME=
-CLUSTER_VERSION=$(gcloud container get-server-config --project="${PROJECT_NAME}" --zone="${ZONE}" --format='value(defaultClusterVersion)')
+CLUSTER_VERSION="1.8.3-gke.0"
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
 CLUSTER_CREATED=false
 
