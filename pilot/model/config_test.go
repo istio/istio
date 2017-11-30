@@ -421,8 +421,8 @@ func TestEgressRules(t *testing.T) {
 		Destination: &routing.IstioService{
 			Service: "*.foo.com",
 		},
-		Ports: []*routing.EgressRule_Port{{
-			Port:     80,
+		Ports: []*routing.Port{{
+			Pspec:    &routing.Port_Number{Number: 80},
 			Protocol: "HTTP",
 		}},
 	}
