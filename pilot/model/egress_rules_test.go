@@ -35,8 +35,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 			},
 				"bbc": {
@@ -45,8 +45,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					},
 
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},
@@ -55,8 +55,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 			},
 				"bbc": {
@@ -64,8 +64,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*bbc.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},
@@ -76,8 +76,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 			},
 				"cnn1": {
@@ -85,8 +85,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},
@@ -96,8 +96,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},
@@ -108,8 +108,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 			},
 				"cnn1": {
@@ -117,8 +117,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 8080, Protocol: "http"},
-						{Number: 8081, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 8080}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 8081}, Protocol: "https"},
 					},
 				},
 			},
@@ -128,8 +128,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 8080, Protocol: "http"},
-						{Number: 8081, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 8080}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 8081}, Protocol: "https"},
 					},
 				},
 			},
@@ -140,8 +140,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 			},
 				"cnn1": {
@@ -149,8 +149,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 				"cnn3": {
@@ -158,8 +158,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},
@@ -169,8 +169,8 @@ func TestRejectConflictingEgressRules(t *testing.T) {
 						Service: "*cnn.com",
 					},
 					Ports: []*routing.Port{
-						{Number: 80, Protocol: "http"},
-						{Number: 443, Protocol: "https"},
+						{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+						{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 					},
 				},
 			},

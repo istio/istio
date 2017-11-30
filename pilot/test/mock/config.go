@@ -61,7 +61,7 @@ var (
 		Destination: &routing.IstioService{
 			Service: "*cnn.com",
 		},
-		Ports:          []*routing.Port{{Number: 80, Protocol: "http"}},
+		Ports:          []*routing.Port{{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"}},
 		UseEgressProxy: false,
 	}
 

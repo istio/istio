@@ -1137,19 +1137,19 @@ func TestValidateEgressRuleService(t *testing.T) {
 
 func TestValidateEgressRulePort(t *testing.T) {
 	ports := map[*routing.Port]bool{
-		{Number: 80, Protocol: "http"}:    true,
-		{Number: 80, Protocol: "http2"}:   true,
-		{Number: 80, Protocol: "grpc"}:    true,
-		{Number: 443, Protocol: "https"}:  true,
-		{Number: 80, Protocol: "https"}:   true,
-		{Number: 443, Protocol: "http"}:   true,
-		{Number: 1, Protocol: "http"}:     true,
-		{Number: 2, Protocol: "https"}:    true,
-		{Number: 80, Protocol: "tcp"}:     true,
-		{Number: 80, Protocol: "udp"}:     false,
-		{Number: 0, Protocol: "http"}:     false,
-		{Number: 65536, Protocol: "http"}: false,
-		{Number: 65535, Protocol: "http"}: true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"}:    true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http2"}:   true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "grpc"}:    true,
+		{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"}:  true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "https"}:   true,
+		{Pspec: &routing.Port_Number{Number: 443}, Protocol: "http"}:   true,
+		{Pspec: &routing.Port_Number{Number: 1}, Protocol: "http"}:     true,
+		{Pspec: &routing.Port_Number{Number: 2}, Protocol: "https"}:    true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "tcp"}:     true,
+		{Pspec: &routing.Port_Number{Number: 80}, Protocol: "udp"}:     false,
+		{Pspec: &routing.Port_Number{Number: 0}, Protocol: "http"}:     false,
+		{Pspec: &routing.Port_Number{Number: 65536}, Protocol: "http"}: false,
+		{Pspec: &routing.Port_Number{Number: 65535}, Protocol: "http"}: true,
 	}
 
 	for port, valid := range ports {
@@ -1194,8 +1194,8 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: true},
@@ -1205,8 +1205,8 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "192.168.3.0",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: true},
@@ -1217,8 +1217,8 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "192.168.3.0/24",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "tcp"},
-					{Number: 443, Protocol: "tcp"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "tcp"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "tcp"},
 				},
 				UseEgressProxy: false},
 			valid: true},
@@ -1228,8 +1228,8 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "192.168.3.0/24",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "tcp"},
-					{Number: 443, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "tcp"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "http"},
 				},
 				UseEgressProxy: false},
 			valid: false},
@@ -1239,8 +1239,8 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 8080, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 8080}, Protocol: "http"},
 				},
 				UseEgressProxy: true},
 			valid: false},
@@ -1248,8 +1248,8 @@ func TestValidateEgressRule(t *testing.T) {
 			in: &routing.EgressRule{
 				Destination: &routing.IstioService{},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: false},
@@ -1267,9 +1267,9 @@ func TestValidateEgressRule(t *testing.T) {
 					Service: "*cnn.com",
 				},
 				Ports: []*routing.Port{
-					{Number: 80, Protocol: "http"},
-					{Number: 443, Protocol: "https"},
-					{Number: 80, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "http"},
+					{Pspec: &routing.Port_Number{Number: 443}, Protocol: "https"},
+					{Pspec: &routing.Port_Number{Number: 80}, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: false},

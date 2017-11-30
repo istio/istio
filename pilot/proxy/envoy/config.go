@@ -887,7 +887,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				protocol != model.ProtocolHTTP2 && protocol != model.ProtocolGRPC {
 				continue
 			}
-			portNumber := int(port.Number)
+			portNumber := int(port.GetNumber())
 			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, portNumber),
 				Port: portNumber, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(portNumber)
@@ -927,7 +927,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}
-			portNumber := int(port.Number)
+			portNumber := int(port.GetNumber())
 			tcpRulesByPort[portNumber] = append(tcpRulesByPort[portNumber], rule)
 			tcpProtocolByPort[portNumber] = protocol
 		}
