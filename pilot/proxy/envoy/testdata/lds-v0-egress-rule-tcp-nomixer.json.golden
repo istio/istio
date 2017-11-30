@@ -8,47 +8,6 @@
     "use_original_dst": true
    },
    {
-    "address": "tcp://0.0.0.0:443",
-    "name": "http_0.0.0.0_443",
-    "filters": [
-     {
-      "type": "read",
-      "name": "http_connection_manager",
-      "config": {
-       "codec_type": "auto",
-       "stat_prefix": "http",
-       "generate_request_id": true,
-       "tracing": {
-        "operation_name": "egress"
-       },
-       "rds": {
-        "cluster": "rds",
-        "route_config_name": "443",
-        "refresh_delay_ms": 10
-       },
-       "filters": [
-        {
-         "type": "",
-         "name": "cors",
-         "config": {}
-        },
-        {
-         "type": "decoder",
-         "name": "router",
-         "config": {}
-        }
-       ],
-       "access_log": [
-        {
-         "path": "/dev/stdout"
-        }
-       ]
-      }
-     }
-    ],
-    "bind_to_port": false
-   },
-   {
     "address": "tcp://0.0.0.0:444",
     "name": "tcp_0.0.0.0_444",
     "filters": [

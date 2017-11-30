@@ -33,18 +33,10 @@ var (
 		Protocol:             model.ProtocolHTTP,
 		AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 	}
-	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",
-		"httpbin.org", "")
-	ExtHTTPSService = MakeExternalHTTPSService("httpsbin.default.svc.cluster.local",
-		"httpbin.org", "")
 	Discovery = &ServiceDiscovery{
 		services: map[string]*model.Service{
-			HelloService.Hostname:   HelloService,
-			WorldService.Hostname:   WorldService,
-			ExtHTTPService.Hostname: ExtHTTPService,
-			// TODO external https is not currently supported - this service
-			// should NOT be in any of the .golden json files
-			ExtHTTPSService.Hostname: ExtHTTPSService,
+			HelloService.Hostname: HelloService,
+			WorldService.Hostname: WorldService,
 		},
 		versions: 2,
 	}
@@ -113,36 +105,6 @@ func MakeService(hostname, address string) *model.Service {
 				Protocol:             model.ProtocolRedis,
 				AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
 			}},
-	}
-}
-
-// MakeExternalHTTPService creates mock external service
-func MakeExternalHTTPService(hostname, external string, address string) *model.Service {
-	return &model.Service{
-		Hostname:     hostname,
-		Address:      address,
-		ExternalName: external,
-		Ports: []*model.Port{{
-			Name:                 "http",
-			Port:                 80,
-			Protocol:             model.ProtocolHTTP,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-		}},
-	}
-}
-
-// MakeExternalHTTPSService creates mock external service
-func MakeExternalHTTPSService(hostname, external string, address string) *model.Service {
-	return &model.Service{
-		Hostname:     hostname,
-		Address:      address,
-		ExternalName: external,
-		Ports: []*model.Port{{
-			Name:                 "https",
-			Port:                 443,
-			Protocol:             model.ProtocolHTTPS,
-			AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT,
-		}},
 	}
 }
 
