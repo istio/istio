@@ -1683,6 +1683,134 @@ end`,
 		},
 		R: false,
 	},
+
+	{
+		E:          `"aaa".startsWith(23)`,
+		CompileErr: `"aaa":startsWith(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `startsWith("aaa")`,
+		CompileErr: `invoking instance method without an instance: startsWith`,
+	},
+	{
+		E:          `startsWith()`,
+		CompileErr: `invoking instance method without an instance: startsWith`,
+	},
+	{
+		E: `"abc".startsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call startsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abcd".startsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abcd"
+  apush_s "abc"
+  call startsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abfood".startsWith("abc")`,
+		R: false,
+	},
+	{
+		E: `as.startsWith(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call startsWith
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "abcd",
+			"bs": "ab",
+		},
+		R: true,
+	},
+	{
+		E: `as.startsWith(bs)`,
+		I: map[string]interface{}{
+			"as": "bcda",
+			"bs": "abc",
+		},
+		R: false,
+	},
+
+	{
+		E:          `"aaa".endsWith(23)`,
+		CompileErr: `"aaa":endsWith(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `endsWith("aaa")`,
+		CompileErr: `invoking instance method without an instance: endsWith`,
+	},
+	{
+		E:          `endsWith()`,
+		CompileErr: `invoking instance method without an instance: endsWith`,
+	},
+	{
+		E: `"abc".endsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call endsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abcd".endsWith("bcd")`,
+		IL: `
+fn eval() bool
+  apush_s "abcd"
+  apush_s "bcd"
+  call endsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abfood".endsWith("abc")`,
+		R: false,
+	},
+	{
+		E: `as.endsWith(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call endsWith
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "abcd",
+			"bs": "cd",
+		},
+		R: true,
+	},
+	{
+		E: `as.endsWith(bs)`,
+		I: map[string]interface{}{
+			"as": "bcda",
+			"bs": "abc",
+		},
+		R: false,
+	},
 }
 
 // TestInfo is a structure that contains detailed test information. Depending
