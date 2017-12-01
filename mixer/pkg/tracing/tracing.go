@@ -94,6 +94,11 @@ func newJaegerTracer(opts tracingOpts) (opentracing.Tracer, io.Closer, error) {
 		reporters = append(reporters, rep)
 	}
 	if len(opts.jaegerURL) > 0 {
+		if len(reporters) > 0 {
+			// zipkin and jaeger reporters can't safely exist at the same time.
+			// Proceed with warning message.
+			glog.Warning("Both zipkin and jaeger URLs are specified, but their reporters can cause race condition. See https://github.com/istio/istio/issues/1943")
+		}
 		reporters = append(reporters, newJaegerReporter(opts.jaegerURL))
 	}
 	if opts.logger != nil {
