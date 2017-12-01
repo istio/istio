@@ -29,7 +29,7 @@ message Params {
     string submission_url = 1;
     google.protobuf.Duration submission_interval = 2 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
 
-    // Describes how to represent this metric
+    // Describes how to represent a metric
     message MetricInfo {
 
         // name

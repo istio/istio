@@ -112,7 +112,7 @@ func TestCirconusHandleMetrics(t *testing.T) {
 			}
 
 			handler := metricsHandler.(*handler)
-			handler.cm = *cm
+			handler.cm = cm
 
 			if err = handler.HandleMetric(context.Background(), v.values); err != nil {
 				t.Errorf("HandleMetric() returned error: %v", err)

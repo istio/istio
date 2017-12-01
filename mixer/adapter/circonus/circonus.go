@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"sync"
 	"time"
 
 	cgm "github.com/circonus-labs/circonus-gometrics"
@@ -38,12 +37,9 @@ type (
 	}
 
 	handler struct {
-		cm            cgm.CirconusMetrics
-		env           adapter.Env
-		metrics       map[string]config.Params_MetricInfo_Type
-		lastFlushed   time.Time
-		flushLock     sync.Mutex
-		flushInterval time.Duration
+		cm      *cgm.CirconusMetrics
+		env     adapter.Env
+		metrics map[string]config.Params_MetricInfo_Type
 	}
 )
 
@@ -59,43 +55,31 @@ type logToEnvLogger struct {
 // Build constructs a circonus-gometrics instance and sets up the handler
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 
-	// register cgm.Flush() with env.ScheduleWork() to wrap goroutines
-	var cm *cgm.CirconusMetrics
-	ec := make(chan error, 1)
+	bridge := &logToEnvLogger{env: env}
 
-	env.ScheduleWork(
+	cmc := &cgm.Config{
+		CheckManager: checkmgr.Config{
+			Check: checkmgr.CheckConfig{
+				SubmissionURL: b.adpCfg.SubmissionUrl,
+			},
+		},
+		Log:      log.New(bridge, "", 0),
+		Debug:    true, // enable [DEBUG] level logging for env.Logger
+		Interval: "0s", // flush via ScheduleDaemon based ticker
+	}
+
+	cm, err := cgm.NewCirconusMetrics(cmc)
+	if err != nil {
+		err = env.Logger().Errorf("Could not create NewCirconusMetrics: %v", err)
+		return nil, err
+	}
+
+	env.ScheduleDaemon(
 		func() {
-
-			bridge := &logToEnvLogger{env: env}
-
-			cmc := &cgm.Config{
-				CheckManager: checkmgr.Config{
-					Check: checkmgr.CheckConfig{
-						SubmissionURL: b.adpCfg.SubmissionUrl,
-					},
-				},
-				Log:      log.New(bridge, "", 0),
-				Debug:    true, // enable [DEBUG] level logging for env.Logger
-				Interval: "0s", // do not autoflush
+			for range time.NewTicker(b.adpCfg.SubmissionInterval).C {
+				cm.Flush()
 			}
-
-			var err error
-			cm, err = cgm.NewCirconusMetrics(cmc)
-			ec <- err
 		})
-
-	select {
-	case err := <-ec:
-		if err != nil {
-			env.Logger().Errorf("Error instantiating cgm: %v", err)
-			return nil, err
-		}
-	}
-
-	// wait until cgm background tasks initialized under ScheduleWork have completed
-	for !cm.Ready() {
-		time.Sleep(1 * time.Second)
-	}
 
 	metrics := make(map[string]config.Params_MetricInfo_Type)
 	ac := b.adpCfg
@@ -103,10 +87,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		metrics[adpMetric.Name] = adpMetric.Type
 	}
 
-	lastFlushed := time.Now()
-	flushInterval := b.adpCfg.SubmissionInterval
-
-	return &handler{cm: *cm, env: env, metrics: metrics, lastFlushed: lastFlushed, flushInterval: flushInterval}, nil
+	return &handler{cm: cm, env: env, metrics: metrics}, nil
 }
 
 // SetAdapterConfig assigns operator configuration to the builder
@@ -178,18 +159,10 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 
 	}
 
-	// see if we should flush
-	h.flushLock.Lock()
-	if time.Now().After(h.lastFlushed.Add(h.flushInterval)) {
-		h.env.ScheduleWork(h.cm.Flush)
-		h.lastFlushed = time.Now()
-	}
-	h.flushLock.Unlock()
-
 	return nil
 }
 
-// Close flushes any buffered metricsl
+// Close flushes any buffered metrics
 func (h *handler) Close() error {
 	h.cm.Flush()
 	return nil
@@ -211,11 +184,11 @@ func GetInfo() adapter.Info {
 // logToEnvLogger converts CGM log package writes to env.Logger()
 func (b logToEnvLogger) Write(msg []byte) (int, error) {
 	if bytes.HasPrefix(msg, []byte("[ERROR]")) {
-		b.env.Logger().Infof(string(msg))
+		b.env.Logger().Errorf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[WARN]")) {
 		b.env.Logger().Warningf(string(msg))
 	} else if bytes.HasPrefix(msg, []byte("[DEBUG]")) {
-		b.env.Logger().Errorf(string(msg))
+		b.env.Logger().Infof(string(msg))
 	} else {
 		b.env.Logger().Infof(string(msg))
 	}
