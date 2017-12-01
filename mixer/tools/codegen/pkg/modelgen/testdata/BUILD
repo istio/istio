@@ -46,6 +46,28 @@ proto_compile(
 )
 
 proto_compile(
+    name = "simple_apa_template",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/io_istio_api",
+    ],
+    inputs = [
+        "@io_istio_api//mixer/v1/template:template_protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
+    ],
+    protos = [
+        "SimpleApaTemplate.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
     name = "unsupported_field_type_as_map",
     testonly = True,
     args = [
@@ -85,6 +107,28 @@ proto_compile(
     ],
     protos = [
         "UnsupportedFieldTypePrimitive.proto",
+    ],
+    verbose = 0,
+)
+
+proto_compile(
+    name = "unsupported_valuetype_in_apa",
+    testonly = True,
+    args = [
+        "--include_imports",
+        "--include_source_info",
+    ],
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/io_istio_api",
+    ],
+    inputs = [
+        "@io_istio_api//mixer/v1/template:template_protos",
+        "@com_github_google_protobuf//:well_known_protos",
+        "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
+    ],
+    protos = [
+        "UnsupportedValueTypeInAPA.proto",
     ],
     verbose = 0,
 )
@@ -290,10 +334,12 @@ filegroup(
         "missing_template_variety.descriptor_set",
         "proto2_bad_syntax.descriptor_set",
         "reserved_field_in_template.descriptor_set",
+        "simple_apa_template.descriptor_set",
         "simple_template.descriptor_set",
         "unsupported_field_type_as_map.descriptor_set",
         "unsupported_field_type_enum.descriptor_set",
         "unsupported_field_type_primitive.descriptor_set",
+        "unsupported_valuetype_in_apa.descriptor_set",
         "wrong_pkg_name.descriptor_set",
     ],
 )
