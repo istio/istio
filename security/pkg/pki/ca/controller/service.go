@@ -25,7 +25,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// ServiceController moniters the service definition changes
+// ServiceController monitors the service definition changes in a namespace.
+// Callback functions are called whenever there is a new service, a service deleted,
+// or a service updated.
 type ServiceController struct {
 	core corev1.CoreV1Interface
 

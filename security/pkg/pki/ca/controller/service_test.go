@@ -105,7 +105,6 @@ func TestServiceController(t *testing.T) {
 		}
 		if c.toDelete != nil {
 			controller.serviceDeleted(c.toDelete)
-
 		}
 		if c.toUpdate != nil {
 			controller.serviceUpdated(c.toUpdate.oldSvc, c.toUpdate.newSvc)
