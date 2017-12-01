@@ -212,7 +212,6 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 		if !fn.Instance {
 			return valueType, fmt.Errorf("invoking regular function on instance method: %s", f.Name)
 		}
-		expectedType := fn.TargetType
 
 		var targetType dpb.ValueType
 		targetType, err = f.Target.EvalType(attrs, fMap)
@@ -221,16 +220,10 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 		}
 
 		if fn.TargetType == dpb.VALUE_TYPE_UNSPECIFIED {
-			if tmplType == dpb.VALUE_TYPE_UNSPECIFIED {
-				// all future args must be of this type.
-				tmplType = targetType
-			} else {
-				expectedType = tmplType
-			}
-		}
-
-		if targetType != expectedType {
-			return valueType, fmt.Errorf("%s target typeError got %s, expected %s", f, targetType, expectedType)
+			// all future args must be of this type.
+			tmplType = targetType
+		} else if targetType != fn.TargetType {
+			return valueType, fmt.Errorf("%s target typeError got %s, expected %s", f, targetType, fn.TargetType)
 		}
 	} else if fn.Instance {
 		return valueType, fmt.Errorf("invoking instance method without an instance: %s", f.Name)
@@ -305,7 +298,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			return
 		}
 	case *ast.CallExpr:
-		switch v.Fun.(type) {
+		switch tg := v.Fun.(type) {
 		case *ast.SelectorExpr:
 			anchorExpr, w, err := flattenSelectors(v.Fun.(*ast.SelectorExpr))
 			if err != nil {
@@ -331,11 +324,7 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			return err
 
 		case *ast.Ident:
-			vfunc, found := v.Fun.(*ast.Ident)
-			if !found {
-				return fmt.Errorf("unexpected expression: %#v", v.Fun)
-			}
-			tgt.Fn = &Function{Name: vfunc.Name}
+			tgt.Fn = &Function{Name: tg.Name}
 			err = processFunc(tgt.Fn, v.Args)
 			return
 		}
@@ -366,22 +355,13 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 		if err != nil {
 			return err
 		}
-		if anchorExpr == nil {
-			// This is a simple expression of the form $(ident).$(select)...
-			tgt.Var = &Variable{Name: generateVarName(w)}
-		} else {
-			// This is an expression of the form ...$(call).$(select)...
-			afn := &Expression{}
-			err = process(anchorExpr, afn)
-			if err != nil {
-				return err
-			}
-			if len(w) != 1 {
-				// We don't support functions with composite names.
-				return fmt.Errorf("unexpected expression: %#v", v)
-			}
-			tgt.Fn = &Function{Name: w[0], Target: afn}
+		if anchorExpr != nil {
+			return fmt.Errorf("unexpected expression: %#v", v)
 		}
+
+		// This is a simple expression of the form $(ident).$(select)...
+		tgt.Var = &Variable{Name: generateVarName(w)}
+
 		return nil
 
 	case *ast.IndexExpr:
@@ -414,7 +394,7 @@ func flattenSelectors(selector *ast.SelectorExpr) (ast.Expr, []string, error) {
 			parts = append(parts, v.Name)
 			return anchor, parts, nil
 
-		case *ast.CallExpr, *ast.BasicLit:
+		case *ast.CallExpr, *ast.BasicLit, *ast.ParenExpr:
 			anchor = ex.X
 			return anchor, parts, nil
 

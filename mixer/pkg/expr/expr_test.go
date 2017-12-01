@@ -202,6 +202,11 @@ func TestBadParse(t *testing.T) {
 		{`request.headers[*a] == 200`, `unexpected expression`},
 		{`atr == 'aaa'`, "unable to parse"},
 		{`c().e.d()`, `unexpected expression`},
+		{`foo{}`, `unexpected expression`},
+		{`foo{}.bar`, `unexpected expression`},
+		{`foo{}.bar()`, `unexpected expression`},
+		{`(foo{}).bar()`, `unexpected expression`},
+		{`a().b`, `unexpected expression`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -280,6 +285,9 @@ func TestInternalTypeCheck(t *testing.T) {
 				dpb.BOOL,
 			}},
 		}, "invoking regular function on instance method"},
+		{`a.fn5()`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn5", Instance: true, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{}},
+		}, "unknown attribute"},
 		{`pattern.matches(str)`, dpb.BOOL,
 			[]*ad{
 				{"pattern", dpb.STRING},
@@ -302,6 +310,23 @@ func TestInternalTypeCheck(t *testing.T) {
 				}},
 				{Name: "startswith", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
 					dpb.STRING,
+				}},
+			},
+			success},
+		{`no.matches("a")`, dpb.BOOL,
+			[]*ad{
+				{"no", dpb.INT64},
+			},
+			[]FunctionMetadata{
+				{Name: "matches", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			`$no:matches("a") target typeError got INT64`},
+		{`"abc".genericEquals("cba")`, dpb.BOOL, []*ad{},
+			[]FunctionMetadata{
+				{Name: "genericEquals", Instance: true, TargetType: dpb.VALUE_TYPE_UNSPECIFIED, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.VALUE_TYPE_UNSPECIFIED,
 				}},
 			},
 			success},
