@@ -40,6 +40,7 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             if [ ! -d vendor ]; then
+               go get -u github.com/golang/dep/cmd/dep
                dep ensure
             fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
