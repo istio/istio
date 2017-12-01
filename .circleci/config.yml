@@ -333,3 +333,8 @@ workflows:
       - pilot-integration-auth:
           requires:
             - unittest-pilot
+      - unittest-bazel-pilot
+      - unittest-bazel-mixer
+      - unittest-bazel-security
+      - unittest-bazel-broker
+      
