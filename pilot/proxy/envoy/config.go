@@ -536,9 +536,10 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		rules := config.RouteRules(instances, service.Hostname)
 		// sort for output uniqueness
 		model.SortRouteRules(rules)
+
 		for _, rule := range rules {
-			httpRoute := buildHTTPRoute(rule, service, servicePort)
-			routes = append(routes, httpRoute)
+			httpRoutes := buildHTTPRoute(rule, service, servicePort)
+			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
 			// or specific route. User could also provide a single default route, in
@@ -547,8 +548,14 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			// "catchAll" flag indicating if the route that was built was a catch all route.
 			// When such a route is encountered, we stop building further routes for the
 			// destination and we will not add the default route after the for loop.
-			if httpRoute.CatchAll() {
-				useDefaultRoute = false
+			for _, httpRoute := range httpRoutes {
+				if httpRoute.CatchAll() {
+					useDefaultRoute = false
+					break
+				}
+			}
+
+			if !useDefaultRoute {
 				break
 			}
 		}

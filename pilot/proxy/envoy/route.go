@@ -127,10 +127,10 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
-		return buildHTTPRouteV1Alpha1(config, service, port)
+		return []*HTTPRoute{buildHTTPRouteV1Alpha1(config, service, port)}
 	case *routing_v1alpha2.RouteRule:
 		return buildHTTPRouteV1Alpha2(config, service, port)
 	default:
@@ -257,23 +257,47 @@ func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *m
 	return route
 }
 
-func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
 	rule := config.Spec.(*routing_v1alpha2.RouteRule)
-	route := &HTTPRoute{} // TODO: match logic
+	routes := make([]*HTTPRoute, 0)
 
-	if len(rule.Http) > 0 {
+	defaultDestination := service.Hostname
+	if len(rule.Http) == 1 {
+		for _, http := range rule.Http {
+			route := &HTTPRoute{} // TODO: match logic
+			route.WeightedClusters = &WeightedCluster{}
+			for _, dst := range http.Route {
+				destination := defaultDestination
+				if dst.Destination != nil {
+					// TODO: write v1alpha2 version of model.ResolveHostname
+					//destination = model.ResolveHostname(config.ConfigMeta, dst.Destination)
+				}
+				cluster := buildOutboundCluster(destination, port, dst.Destination.Labels) // TODO: support Destination.Port
+				route.clusters = append(route.clusters, cluster)
+				route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters, &WeightedClusterEntry{
+					Name:   cluster.Name,
+					Weight: int(dst.Weight),
+				})
+			}
 
-	} else {
-		if len(rule.Hosts) == 1 { // TODO: handle multiple hosts
-			destination := rule.Hosts[0]
-			// default route for the destination
-			cluster := buildOutboundCluster(destination, port, nil)
-			route.Cluster = cluster.Name
-			route.clusters = append(route.clusters, cluster)
+			// TODO: rewrite to a single cluster if it's one weighted cluster
+			//if len(http.Route) == 1 {
+			//	route.Cluster = route.WeightedClusters.Clusters[0].Name
+			//	route.WeightedClusters = nil
+			//}
+
+			routes = append(routes, route)
 		}
+	} else { // TODO: how do we setup the default cluster? could be TCP
+		route := &HTTPRoute{} // TODO: match logic
+		// default route for the destination
+		cluster := buildOutboundCluster(defaultDestination, port, nil)
+		route.Cluster = cluster.Name
+		route.clusters = append(route.clusters, cluster)
+		routes = append(routes, route)
 	}
 
-	return nil
+	return routes
 }
 
 func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
