@@ -239,6 +239,7 @@ jobs:
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
+      - run: bin/install-bazel.sh
       - run:
           name: Running Kubernetes API Server standalone
           command: /tmp/apiserver/start-test-server.sh
@@ -265,6 +266,7 @@ jobs:
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
+      - run: bin/install-bazel.sh
       - run:
           name: Running Kubernetes API Server standalone
           command: /tmp/apiserver/start-test-server.sh
@@ -282,6 +284,7 @@ jobs:
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
+      - run: bin/install-bazel.sh
       - run:
           name: Running Kubernetes API Server standalone
           command: /tmp/apiserver/start-test-server.sh
@@ -299,6 +302,7 @@ jobs:
     steps:
       - checkout
       - run: mkdir -p /tmp/coverage
+      - run: bin/install-bazel.sh
       - run:
           name: Running Kubernetes API Server standalone
           command: /tmp/apiserver/start-test-server.sh
