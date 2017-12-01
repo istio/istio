@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	pbtypes "github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/mixer/adapter/svcctrl/config"
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
