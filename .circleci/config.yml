@@ -233,6 +233,83 @@ jobs:
           command: |
             bash <(curl -s https://codecov.io/bash) -F broker
 
+  unittest-bazel-pilot:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run:
+          command: |
+            mkdir ~/envoy
+            cd ~/envoy
+            ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' /go/src/istio.io/istio/WORKSPACE))
+            PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+            PROXY=debug-$PROXYVERSION
+            wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
+            ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
+      - run: cd /go/src/istio.io/istio; bazel test //pilot/...
+
+  unittest-bazel-mixer:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run: cd /go/src/istio.io/istio; bazel test //mixer/...
+
+  unittest-bazel-security:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run: cd /go/src/istio.io/istio; bazel test //security/...
+
+  unittest-bazel-broker:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run: mkdir -p /tmp/coverage
+      - run:
+          name: Running Kubernetes API Server standalone
+          command: /tmp/apiserver/start-test-server.sh
+          background: true
+      - run:
+          command: |
+            mkdir ~/.kube
+            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
+            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
+      - run: cd /go/src/istio.io/istio; bazel test //broker/...
+
 workflows:
   version: 2
   all:
