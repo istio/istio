@@ -23,7 +23,7 @@ import (
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha1"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model/test"
 )
 
