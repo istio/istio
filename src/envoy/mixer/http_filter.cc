@@ -265,14 +265,11 @@ class Instance : public Http::StreamDecoderFilter,
 
   bool initiating_call_;
 
-  bool mixer_check_disabled_;
-  bool mixer_report_disabled_;
-
   // check mixer on/off flags in route opaque data
-  void check_mixer_route_flags() {
+  void check_mixer_route_flags(bool* check_disabled, bool* report_disabled) {
     // Both check and report are disabled by default.
-    mixer_check_disabled_ = true;
-    mixer_report_disabled_ = true;
+    *check_disabled = true;
+    *report_disabled = true;
     auto route = decoder_callbacks_->route();
     if (route != nullptr) {
       auto entry = route->routeEntry();
@@ -280,18 +277,18 @@ class Instance : public Http::StreamDecoderFilter,
         auto control_key = entry->opaqueConfig().find(kJsonNameMixerControl);
         if (control_key != entry->opaqueConfig().end() &&
             control_key->second == "on") {
-          mixer_check_disabled_ = false;
-          mixer_report_disabled_ = false;
+          *check_disabled = false;
+          *report_disabled = false;
         }
         auto check_key = entry->opaqueConfig().find(kJsonNameMixerCheck);
         if (check_key != entry->opaqueConfig().end() &&
             check_key->second == "on") {
-          mixer_check_disabled_ = false;
+          *check_disabled = false;
         }
         auto report_key = entry->opaqueConfig().find(kJsonNameMixerReport);
         if (report_key != entry->opaqueConfig().end() &&
             report_key->second == "on") {
-          mixer_report_disabled_ = false;
+          *report_disabled = false;
         }
       }
     }
@@ -352,10 +349,11 @@ class Instance : public Http::StreamDecoderFilter,
       GetRouteStringAttribute(kJsonNameDestinationService,
                               &config.destination_service);
     } else {
-      check_mixer_route_flags();
+      bool check_disabled, report_disabled;
+      check_mixer_route_flags(&check_disabled, &report_disabled);
 
       HttpMixerConfig::CreateLegacyRouteConfig(
-          mixer_check_disabled_, mixer_report_disabled_,
+          check_disabled, report_disabled,
           GetRouteStringMap(kPrefixMixerAttributes), &legacy_config);
       config.legacy_config = &legacy_config;
     }
@@ -378,10 +376,6 @@ class Instance : public Http::StreamDecoderFilter,
 
   FilterDataStatus decodeData(Buffer::Instance& data,
                               bool end_stream) override {
-    if (mixer_check_disabled_) {
-      return FilterDataStatus::Continue;
-    }
-
     ENVOY_LOG(debug, "Called Mixer::Instance : {} ({}, {})", __func__,
               data.length(), end_stream);
     if (state_ == Calling) {
@@ -391,10 +385,6 @@ class Instance : public Http::StreamDecoderFilter,
   }
 
   FilterTrailersStatus decodeTrailers(HeaderMap&) override {
-    if (mixer_check_disabled_) {
-      return FilterTrailersStatus::Continue;
-    }
-
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     if (state_ == Calling) {
       return FilterTrailersStatus::StopIteration;
