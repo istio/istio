@@ -114,7 +114,13 @@ jobs:
       - run: sudo -E kubectl cluster-info
       - run: make build
       - run: make docker HUB=$HUB TAG=$TAG
-      - run: make e2etest HUB=$HUB TAG=$TAG TESTOPTS="-mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer"
+      - run:
+          command: |
+            bazel run //pilot/test/integration -- \
+            --logtostderr \
+            -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs \
+            -use-initializer \
+            -hub $HUB -tag $TAG
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -142,7 +148,13 @@ jobs:
       - run: sudo -E kubectl cluster-info
       - run: make build
       - run: make docker HUB=$HUB TAG=$TAG
-      - run: make e2etest HUB=$HUB TAG=$TAG TESTOPTS="-mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer"
+      - run:
+          command: |
+            bazel run //pilot/test/integration -- \
+            --logtostderr \
+            -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs \
+            -use-initializer \
+            -hub $HUB -tag $TAG
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -403,4 +415,3 @@ workflows:
       - pilot-bazel-integration-noauth:
           requires:
             - unittest-bazel-pilot
-
