@@ -47,6 +47,9 @@ mixer/template/tracespan/go_default_library_tmpl.pb.go
 mixer/test/spyAdapter/template/report/go_default_library_handler.gen.go
 mixer/test/spyAdapter/template/report/go_default_library_tmpl.pb.go
 mixer/test/spyAdapter/template/template.gen.go
+mixer/test/template/report/go_default_library_handler.gen.go
+mixer/test/template/report/go_default_library_tmpl.pb.go
+mixer/test/template/template.gen.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/check_handler.gen.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/check_tmpl.pb.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/quota_handler.gen.go
@@ -55,6 +58,8 @@ mixer/tools/codegen/pkg/bootstrapgen/testdata/report1_handler.gen.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/report1_tmpl.pb.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/report2_handler.gen.go
 mixer/tools/codegen/pkg/bootstrapgen/testdata/report2_tmpl.pb.go
+mixer/tools/codegen/pkg/interfacegen/testdata/apa_handler.gen.go
+mixer/tools/codegen/pkg/interfacegen/testdata/apa_tmpl.pb.go
 mixer/tools/codegen/pkg/interfacegen/testdata/check_handler.gen.go
 mixer/tools/codegen/pkg/interfacegen/testdata/check_tmpl.pb.go
 mixer/tools/codegen/pkg/interfacegen/testdata/quota_handler.gen.go

@@ -1,0 +1,52 @@
+/*
+Overview of what myapa is etc..
+*/
+syntax = "proto3";
+
+/*
+Additional overview of what myapa is etc..
+*/
+package istio.mixer.adapter.MyApa;
+
+import "mixer/v1/template/extensions.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+
+/* my template
+*/
+message Template {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+
+    map<string, string> dimensions = 5;
+
+    google.protobuf.Timestamp timeStamp = 6;
+
+    google.protobuf.Duration duration = 7;
+}
+
+/* my outputtemplate
+*/
+message OutputTemplate {
+
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+
+    map<string, string> dimensions = 5;
+
+    google.protobuf.Timestamp timeStamp = 6;
+
+    google.protobuf.Duration duration = 7;
+}
