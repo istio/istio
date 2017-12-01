@@ -21,6 +21,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
+	"strings"
+
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
 	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
@@ -396,6 +398,21 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	return out
 }
 
+// support 3 forms
+// reviews => reviews.default.svc.cluster.local
+// reviews.sales => reviews.sales.svc.cluster.local
+// reviews.default.svc.cluster.local => reviews.default.svc.cluster.local (no change)
+func ResolveFQDN(meta ConfigMeta, name string) string {
+	switch strings.Count(name, ".") {
+	case 0:
+		return fmt.Sprintf("%s.%s.%s", name, meta.Namespace, meta.Domain)
+	case 1:
+		return fmt.Sprintf("%s.%s", name, meta.Domain)
+	default:
+		return name
+	}
+}
+
 // istioConfigStore provides a simple adapter for Istio configuration types
 // from the generic config registry
 type istioConfigStore struct {
@@ -443,32 +460,74 @@ func SortRouteRules(rules []Config) {
 }
 
 func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
+	configs := store.routeRulesV1Alpha1(instances, destination)
+	configs = append(configs, store.routeRulesV1Alpha2(instances, destination)...)
+	return configs
+}
+
+func (store *istioConfigStore) routeRulesV1Alpha1(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	configs2, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
+
+	for _, config := range configs {
+		rule := config.Spec.(*routing.RouteRule)
+
+		// validate that rule match predicate applies to destination service
+		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
+		if hostname != destination {
+			continue
+		}
+
+		// validate that rule match predicate applies to source service instances
+		if rule.Match != nil && !MatchSource(config.ConfigMeta, rule.Match.Source, instances) {
+			continue
+		}
+
+		out = append(out, config)
+	}
+
+	return out
+}
+
+func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, destination string) []Config {
+	out := make([]Config, 0)
+	configs, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
-	configs = append(configs, configs2...)
 
 	for _, config := range configs {
-		switch rule := config.Spec.(type) {
-		case *routing.RouteRule:
-			// validate that rule match predicate applies to destination service
-			hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
-			if hostname != destination {
-				continue
-			}
+		rule := config.Spec.(*routing_v1alpha2.RouteRule)
 
-			// validate that rule match predicate applies to source service instances
-			if rule.Match != nil && !MatchSource(config.ConfigMeta, rule.Match.Source, instances) {
-				continue
+		var found bool
+		for _, host := range rule.Hosts {
+			fqdn := ResolveFQDN(config.ConfigMeta, host)
+			if fqdn == destination {
+				found = true
+				break
 			}
-		case *routing_v1alpha2.RouteRule:
+		}
+		if !found {
+			continue
+		}
 
+		var subset bool
+		SourceLoop:
+		for _, source := range rule.Sources {
+			if source != nil {
+				for _, instance := range instances {
+					if Labels(source.Labels).SubsetOf(instance.Labels) {
+						subset = true
+						break SourceLoop
+					}
+				}
+			}
+		}
+		if !subset {
+			continue
 		}
 
 		out = append(out, config)
@@ -478,6 +537,12 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 }
 
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
+	configs := store.routeRulesByDestinationV1Alpha1(instances)
+	configs = append(configs, store.routeRulesByDestinationV1Alpha2(instances)...)
+	return configs
+}
+
+func (store *istioConfigStore) routeRulesByDestinationV1Alpha1(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -497,6 +562,32 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 
 	return out
 }
+
+func (store *istioConfigStore) routeRulesByDestinationV1Alpha2(instances []*ServiceInstance) []Config {
+	out := make([]Config, 0)
+	configs, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routing_v1alpha2.RouteRule)
+		// TODO: optimize lookup
+		HostLoop:
+		for _, host := range rule.Hosts {
+			destination := ResolveFQDN(config.ConfigMeta, host)
+			for _, instance := range instances {
+				if destination == instance.Service.Hostname {
+					out = append(out, config)
+					break HostLoop
+				}
+			}
+		}
+	}
+
+	return out
+}
+
 
 func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
 	out := make(map[string]*routing.EgressRule)
