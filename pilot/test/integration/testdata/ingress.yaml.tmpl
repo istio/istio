@@ -41,15 +41,7 @@ spec:
         backend:
           serviceName: b
           servicePort: 80
-      - path: /javastyle/*
-          backend:
-            serviceName: a
-            servicePort: 80
       - path: /.well_known/foo
-          backend:
-            serviceName: a
-            servicePort: 80
-      - path: /.well_known/foo/prefix/*
           backend:
             serviceName: a
             servicePort: 80

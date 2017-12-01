@@ -156,13 +156,6 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	return
 }
 
-// isRegularExpression determines whether the given string s is a non-trivial regular expression,
-// i.e., it can potentially match other strings different than itself.
-// TODO: warning that Envoy regex language is not 1-1 with golang's regex language!
-func isRegularExpression(s string) bool {
-	return len(s) < len(regexp.QuoteMeta(s))
-}
-
 // shouldProcessIngress determines whether the given ingress resource should be processed
 // by the controller, based on its ingress class annotation.
 // See https://github.com/kubernetes/ingress/blob/master/examples/PREREQUISITES.md#ingress-class
