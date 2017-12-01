@@ -26,9 +26,9 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	routing "istio.io/api/routing/v1alpha1"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 )
 
 const (
@@ -269,15 +269,15 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			for _, dst := range http.Route {
 				destination := defaultDestination
 				if dst.Destination != nil {
-					// TODO: write v1alpha2 version of model.ResolveHostname
-					//destination = model.ResolveHostname(config.ConfigMeta, dst.Destination)
+					destination = model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
 				}
 				cluster := buildOutboundCluster(destination, port, dst.Destination.Labels) // TODO: support Destination.Port
 				route.clusters = append(route.clusters, cluster)
-				route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters, &WeightedClusterEntry{
-					Name:   cluster.Name,
-					Weight: int(dst.Weight),
-				})
+				route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
+					&WeightedClusterEntry{
+						Name:   cluster.Name,
+						Weight: int(dst.Weight),
+					})
 			}
 
 			// TODO: rewrite to a single cluster if it's one weighted cluster
