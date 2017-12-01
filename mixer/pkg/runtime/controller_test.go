@@ -49,7 +49,7 @@ func TestControllerEmpty(t *testing.T) {
 		evaluator:              nil,
 		typeChecker:            nil,
 		configState:            make(map[store.Key]*store.Resource),
-		dispatcher:             d,
+		resolverChangeListener: d,
 		resolver:               &resolver{}, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,
@@ -210,7 +210,7 @@ func TestController_workflow(t *testing.T) {
 		evaluator:              nil,
 		typeChecker:            nil,
 		configState:            configState,
-		dispatcher:             d,
+		resolverChangeListener: d,
 		resolver:               res, // get an empty resolver
 		identityAttribute:      DefaultIdentityAttribute,
 		defaultConfigNamespace: DefaultConfigNamespace,

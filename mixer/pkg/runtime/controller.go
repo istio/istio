@@ -55,8 +55,11 @@ type Controller struct {
 	// table is the handler state currently in use.
 	table map[string]*HandlerEntry
 
-	// dispatcher is notified of changes.
-	dispatcher ResolverChangeListener
+	// vocabularyChangeListener is notified of vocabulary chagnes.
+	vocabularyChangeListener VocabularyChangeListener
+
+	// resolverChangeListener is notified of resolver changes.
+	resolverChangeListener ResolverChangeListener
 
 	// handlerGoRoutinePool is the goroutine pool used by handlers.
 	handlerGoRoutinePool *pool.GoroutinePool
@@ -114,9 +117,8 @@ func (c *Controller) publishSnapShot() {
 	// current view of attributes
 	// attribute manifests are used by type inference during handler creation.
 	attributes := c.processAttributeManifests()
-
-	if cl, ok := c.evaluator.(VocabularyChangeListener); ok {
-		cl.ChangeVocabulary(attributes)
+	if c.vocabularyChangeListener != nil {
+		c.vocabularyChangeListener.ChangeVocabulary(attributes)
 	}
 
 	// current consistent view of handler configuration
@@ -153,7 +155,7 @@ func (c *Controller) publishSnapShot() {
 	// Create new resolver and cleanup the old resolver.
 	c.nextResolverID++
 	resolver := newResolver(c.evaluator, c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
-	c.dispatcher.ChangeResolver(resolver)
+	c.resolverChangeListener.ChangeResolver(resolver)
 
 	// copy old for deletion.
 	oldTable := c.table

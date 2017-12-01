@@ -285,6 +285,14 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
 		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
 
+	// This route retrieves the Availability Zone of the service node requested
+	ws.Route(ws.
+		GET(fmt.Sprintf("/v1/az/{%s}/{%s}", ServiceCluster, ServiceNode)).
+		To(ds.AvailabilityZone).
+		Doc("AZ for service node").
+		Param(ws.PathParameter(ServiceCluster, "client proxy service cluster").DataType("string")).
+		Param(ws.PathParameter(ServiceNode, "client proxy service node").DataType("string")))
+
 	ws.Route(ws.
 		GET("/cache_stats").
 		To(ds.GetCacheStats).
@@ -432,6 +440,26 @@ func (ds *DiscoveryService) parseDiscoveryRequest(request *restful.Request) (pro
 		return role, multierror.Prefix(err, fmt.Sprintf("unexpected %s: ", ServiceNode))
 	}
 	return role, nil
+}
+
+// AvailabilityZone responds to requests for an AZ for the given cluster node
+func (ds *DiscoveryService) AvailabilityZone(request *restful.Request, response *restful.Response) {
+	role, err := ds.parseDiscoveryRequest(request)
+	if err != nil {
+		errorResponse(response, http.StatusNotFound, "AvailabilityZone "+err.Error())
+		return
+	}
+	instances, err := ds.HostInstances(map[string]bool{role.IPAddress: true})
+	if err != nil {
+		errorResponse(response, http.StatusNotFound, "AvailabilityZone "+err.Error())
+		return
+	}
+	if len(instances) <= 0 {
+		errorResponse(response, http.StatusNotFound, "AvailabilityZone couldn't find the given cluster node")
+		return
+	}
+	// All instances are going to have the same IP addr therefore will all be in the same AZ
+	writeResponse(response, []byte(instances[0].AvailabilityZone))
 }
 
 // ListClusters responds to CDS requests for all outbound clusters

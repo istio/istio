@@ -12,6 +12,8 @@ vendor
 *.descriptor_set
 # vi backups
 *.bak
+# python artifacts
+*.pyc
 # Vm setup generated files
 cluster.env
 kubedns
