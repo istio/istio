@@ -25,7 +25,7 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/test"
+	"istio.io/istio/mixer/pkg/mockapi"
 )
 
 type Handler struct {
@@ -56,7 +56,7 @@ func (h *Handler) run(bag attribute.Bag) rpc.Status {
 }
 
 type MixerServer struct {
-	test.AttributesHandler
+	mockapi.AttributesHandler
 
 	lis net.Listener
 	gs  *grpc.Server
@@ -65,7 +65,7 @@ type MixerServer struct {
 	report *Handler
 	quota  *Handler
 
-	qma          test.QuotaArgs
+	qma          mockapi.QuotaArgs
 	quota_amount int64
 	quota_limit  int64
 
@@ -73,10 +73,10 @@ type MixerServer struct {
 	quota_referenced *mixerpb.ReferencedAttributes
 }
 
-func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (test.CheckResponse, rpc.Status) {
-	result := test.CheckResponse{
-		ValidDuration: test.DefaultValidDuration,
-		ValidUseCount: test.DefaultValidUseCount,
+func (ts *MixerServer) Check(bag attribute.Bag, output *attribute.MutableBag) (mockapi.CheckResponse, rpc.Status) {
+	result := mockapi.CheckResponse{
+		ValidDuration: mockapi.DefaultValidDuration,
+		ValidUseCount: mockapi.DefaultValidUseCount,
 		Referenced:    ts.check_referenced,
 	}
 	return result, ts.check.run(bag)
@@ -86,10 +86,10 @@ func (ts *MixerServer) Report(bag attribute.Bag) rpc.Status {
 	return ts.report.run(bag)
 }
 
-func (ts *MixerServer) Quota(bag attribute.Bag, qma test.QuotaArgs) (test.QuotaResponse, rpc.Status) {
+func (ts *MixerServer) Quota(bag attribute.Bag, qma mockapi.QuotaArgs) (mockapi.QuotaResponse, rpc.Status) {
 	ts.qma = qma
 	status := ts.quota.run(bag)
-	qmr := test.QuotaResponse{}
+	qmr := mockapi.QuotaResponse{}
 	if status.Code == 0 {
 		if ts.quota_limit == 0 {
 			qmr.Amount = qma.Amount
@@ -116,7 +116,7 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 		check:  newHandler(stress),
 		report: newHandler(stress),
 		quota:  newHandler(stress),
-		qma:    test.QuotaArgs{},
+		qma:    mockapi.QuotaArgs{},
 	}
 
 	var err error
@@ -126,8 +126,8 @@ func NewMixerServer(port uint16, stress bool) (*MixerServer, error) {
 		return nil, err
 	}
 
-	attrSrv := test.NewAttributesServer(s)
-	s.gs = test.NewMixerServer(attrSrv)
+	attrSrv := mockapi.NewAttributesServer(s)
+	s.gs = mockapi.NewMixerServer(attrSrv)
 	return s, nil
 }
 

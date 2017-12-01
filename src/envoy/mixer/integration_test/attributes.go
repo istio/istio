@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 )
 
-func verifyStringMap(actual map[string]string, expected map[string]interface{}) error {
+func verifyRawStringMap(actual map[string]string, expected map[string]interface{}) error {
 	for k, v := range expected {
 		vstring := v.(string)
 		// "-" make sure the key does not exist.
@@ -32,6 +32,30 @@ func verifyStringMap(actual map[string]string, expected map[string]interface{}) 
 			}
 		} else {
 			if val, ok := actual[k]; ok {
+				// "*" only check key exist
+				if val != vstring && vstring != "*" {
+					return fmt.Errorf("key %+v value doesn't match. Actual %+v, expected %+v",
+						k, val, vstring)
+				}
+			} else {
+				return fmt.Errorf("key %+v is expected", k)
+			}
+		}
+	}
+	return nil
+}
+
+// TODO: remove duplicated code by change StringMap object to expose the whole map
+func verifyObjStringMap(actual attribute.StringMap, expected map[string]interface{}) error {
+	for k, v := range expected {
+		vstring := v.(string)
+		// "-" make sure the key does not exist.
+		if vstring == "-" {
+			if _, ok := actual.Get(k); ok {
+				return fmt.Errorf("key %+v is NOT expected", k)
+			}
+		} else {
+			if val, ok := actual.Get(k); ok {
 				// "*" only check key exist
 				if val != vstring && vstring != "*" {
 					return fmt.Errorf("key %+v value doesn't match. Actual %+v, expected %+v",
@@ -104,7 +128,17 @@ func Verify(b *attribute.MutableBag, json_results string) error {
 			}
 		case map[string]interface{}:
 			if val, ok := b.Get(k); ok {
-				if err := verifyStringMap(val.(map[string]string), v.(map[string]interface{})); err != nil {
+				var err error
+				switch val.(type) {
+				case attribute.StringMap:
+					err = verifyObjStringMap(val.(attribute.StringMap), v.(map[string]interface{}))
+				case map[string]string:
+					err = verifyRawStringMap(val.(map[string]string), v.(map[string]interface{}))
+				default:
+					return fmt.Errorf("StringMap attribute %+v is of a type %+v that I don't know how to handle ",
+						k, reflect.TypeOf(val))
+				}
+				if err != nil {
 					return fmt.Errorf("attribute %+v StringMap doesn't match: %+v", k, err)
 				}
 			} else {

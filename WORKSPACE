@@ -63,7 +63,7 @@ git_repository(
 load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
 mixer_api_for_proxy_dependencies()
 
-ISTIO_SHA = "bd88b62a633cbad0d5a33510c57571fb99cbb7ae"
+ISTIO_SHA = "9386e6c1cc95f2f405383c547b9d8329e557397b"
 
 git_repository(
     name = "io_istio_istio",
@@ -71,5 +71,5 @@ git_repository(
     remote = "https://github.com/istio/istio",
 )
 
-load("@io_istio_istio//mixer/test:repositories.bzl", "mixer_test_repositories")
+load("//src/envoy/mixer/integration_test:repositories.bzl", "mixer_test_repositories")
 mixer_test_repositories()
