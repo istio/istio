@@ -16,7 +16,6 @@ package ingress
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
