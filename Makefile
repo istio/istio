@@ -59,7 +59,7 @@ setup: pilot/platform/kube/config
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend 
+.PHONY: depend
 .PHONY: depend.status depend.ensure depend.graph
 
 depend: depend.ensure
@@ -70,7 +70,7 @@ Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
 depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
 	$(Q) dep status
 
-# @todo only run if there are changes (e.g., create a checksum file?) 
+# @todo only run if there are changes (e.g., create a checksum file?)
 depend.ensure: Gopkg.lock ; $(info $(H) ensuring dependencies are up to date...)
 	$(Q) dep ensure
 
@@ -145,8 +145,14 @@ push: checkvars
 artifacts: docker
 	@echo 'To be added'
 
-pilot/platform/kube/config:
+pilot/platform/kube/config: ${HOME}/.kube/config
 	ln -fs ~/.kube/config pilot/platform/kube/
+
+${HOME}/.kube/config: ${HOME}/.kube
+	touch $@
+
+${HOME}/.kube:
+	mkdir -p $@
 
 .PHONY: artifacts build checkvars clean docker test setup push
 
