@@ -62,6 +62,17 @@ var (
 
 func TestCirconusHandleMetrics(t *testing.T) {
 
+	{
+		builder := GetInfo().NewBuilder().(*builder)
+		builder.SetAdapterConfig(makeBadConfig())
+		if ce := builder.Validate(); ce != nil {
+			multi := ce.Multi
+			if len(multi.Errors) != 3 {
+				t.Errorf("expected 3 bad config errors, found %v", multi.Errors)
+			}
+		}
+	}
+
 	metrics := map[string]*metric.Type{
 		"counter":      {},
 		"distribution": {},
@@ -165,4 +176,12 @@ func makeConfig(metrics ...*config.Params_MetricInfo) *config.Params {
 		SubmissionUrl:      "https://trap.noit.circonus.net/module/httptrap/myuuid/mysecret",
 		SubmissionInterval: 100 * time.Second,
 		Metrics:            metrics}
+}
+
+func makeBadConfig(metrics ...*config.Params_MetricInfo) *config.Params {
+	return &config.Params{
+		SubmissionUrl:      "this is not a url",
+		SubmissionInterval: -100 * time.Second,
+		Metrics:            []*config.Params_MetricInfo{counterInfo},
+	}
 }

@@ -40,6 +40,7 @@ type (
 		cm      *cgm.CirconusMetrics
 		env     adapter.Env
 		metrics map[string]config.Params_MetricInfo_Type
+		cancel  context.CancelFunc
 	}
 )
 
@@ -74,11 +75,25 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		return nil, err
 	}
 
+	// create a context with cancel based on the istio context
+	adapterContext, adapterCancel := context.WithCancel(ctx)
+
 	env.ScheduleDaemon(
 		func() {
-			for range time.NewTicker(b.adpCfg.SubmissionInterval).C {
-				cm.Flush()
+
+			ticker := time.NewTicker(b.adpCfg.SubmissionInterval)
+
+			for {
+				select {
+				case <-ticker.C:
+					cm.Flush()
+				case <-adapterContext.Done():
+					ticker.Stop()
+					cm.Flush()
+					return
+				}
 			}
+
 		})
 
 	metrics := make(map[string]config.Params_MetricInfo_Type)
@@ -87,7 +102,7 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		metrics[adpMetric.Name] = adpMetric.Type
 	}
 
-	return &handler{cm: cm, env: env, metrics: metrics}, nil
+	return &handler{cm: cm, env: env, metrics: metrics, cancel: adapterCancel}, nil
 }
 
 // SetAdapterConfig assigns operator configuration to the builder
@@ -125,7 +140,11 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 		}
 	}
 
-	// because SubmissionInterval is a duration type, validation errors will be caught before this point
+	// ensure SubmissionInterval is greater than 1B nanoseconds
+	if int64(b.adpCfg.SubmissionInterval) < 1e9 {
+		err := fmt.Errorf("submission_interval must be at least 1 second")
+		ce = ce.Append("submission_interval", err)
+	}
 
 	return
 }
@@ -162,9 +181,9 @@ func (h *handler) HandleMetric(ctx context.Context, insts []*metric.Instance) er
 	return nil
 }
 
-// Close flushes any buffered metrics
+// Close calls the adapter cancel function which shuts down the autoflush ticker and flushes the buffer
 func (h *handler) Close() error {
-	h.cm.Flush()
+	h.cancel()
 	return nil
 }
 
