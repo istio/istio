@@ -35,7 +35,7 @@ if [ $BRANCH_NAME != '(no branch)' ]; then
     cd $ROOT
 
     echo "updating autogen files..."
-    bin/bazel_to_go.py
+    bin/regenerate_files.py
 
     echo "formatting..."
     bin/fmt.sh
