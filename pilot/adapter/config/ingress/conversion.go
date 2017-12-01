@@ -94,9 +94,9 @@ func createIngressRule(name, host, path, domainSuffix string,
 
 	if path != "" {
 		if strings.HasSuffix(path, ".*") {
-				rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-					MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
-				}
+			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+				MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
+			}
 		} else if strings.HasSuffix(path, "/*") {
 			// Common pattern used by go, java, etc
 			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
