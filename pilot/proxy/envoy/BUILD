@@ -17,8 +17,6 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pilot/model:go_default_library",
-        "//pilot/proxy:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -29,6 +27,9 @@ go_library(
         "@io_istio_api//mixer/v1:go_default_library",
         "@io_istio_api//mixer/v1/config/client:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",
+        "@io_istio_api//routing/v1alpha2:go_default_library",
+        "//pilot/model:go_default_library",
+        "//pilot/proxy:go_default_library",
     ],
 )
 
@@ -49,16 +50,16 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "//pilot/adapter/config/memory:go_default_library",
-        "//pilot/model:go_default_library",
-        "//pilot/proxy:go_default_library",
-        "//pilot/test/mock:go_default_library",
-        "//pilot/test/util:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_howeyc_fsnotify//:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",
+        "//pilot/adapter/config/memory:go_default_library",
+        "//pilot/model:go_default_library",
+        "//pilot/proxy:go_default_library",
+        "//pilot/test/mock:go_default_library",
+        "//pilot/test/util:go_default_library",
     ],
 )
 
