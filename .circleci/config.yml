@@ -397,4 +397,10 @@ workflows:
       - unittest-bazel-mixer
       - unittest-bazel-security
       - unittest-bazel-broker
-      
+      - pilot-bazel-integration-auth:
+          requires:
+            - unittest-bazel-pilot
+      - pilot-bazel-integration-noauth:
+          requires:
+            - unittest-bazel-pilot
+
