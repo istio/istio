@@ -13,11 +13,13 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	filepath "path"
@@ -31,6 +33,10 @@ const (
 	InitializerImagePrefix = "docker.io/istio/sidecar_initializer"
 )
 
+var (
+	SupportedVersions = [4]string{"0.2.6", "0.2.10", "0.2.12", "0.3.0"}
+)
+
 // Common Installer interface
 type Installer interface {
 	Check() (string, error)
@@ -38,13 +44,15 @@ type Installer interface {
 
 type ReleaseInfo struct {
 	version string
-	yamls   map[string]string
+	yamls   map[string][]byte
 }
 
 type KubeObject struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// Metadata
+	metav1.TypeMeta
+	metav1.ObjectMeta
 	// Underlying K8S object
+	// object runtime.Object
 	object interface{}
 }
 
@@ -80,7 +88,7 @@ func (c IstioComponents) GetDeployments() *[]KubeObject {
 		var o KubeObject
 		o.TypeMeta = d.TypeMeta
 		o.ObjectMeta = d.ObjectMeta
-		o.object = d
+		o.object = d.DeepCopyObject()
 		k = append(k, o)
 	}
 	return &k
@@ -297,7 +305,8 @@ func (i KubeInstaller) GetInstalledComponents() (c *IstioComponents, err error) 
 func (i KubeInstaller) GetReleasedComponents(version string) (c *IstioComponents, err error) {
 	for _, r := range i.releases {
 		if r.version == version {
-			for _, y := range r.yamls {
+			for f, y := range r.yamls {
+				fmt.Println("Decoding " + f)
 				objs, err := decodeYamlFile(y)
 				if err != nil {
 					return nil, err
@@ -322,21 +331,29 @@ func NewKubeInstallerFromLocalPath(localpath string) (i Installer, err error) {
 	return &ki, nil
 }
 
-func decodeYamlFile(inputs string) ([]*KubeObject, error) {
+func decodeYamlFile(inputs []byte) ([]*KubeObject, error) {
+	const buffersize = 512 * 1024
+	var buffer = make([]byte, buffersize)
 	objs := make([]*KubeObject, 0, 100)
-	reader := bytes.NewReader([]byte(inputs))
-	yamlDecoder := yaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+	reader := ioutil.NopCloser(bytes.NewReader(inputs))
+	yamlDecoder := yaml.NewDocumentDecoder(reader)
 	for {
-		obj := new(KubeObject)
-		err := yamlDecoder.Decode(obj)
+		_, err := yamlDecoder.Read(buffer)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
+		obj, gvk, err := scheme.Codecs.UniversalDeserializer().Decode(buffer, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("obj: %#v schema: %#v \n", obj, *gvk)
 		// TODO: Check whether obj is empty.
-		objs = append(objs, obj)
+		kobj := new(KubeObject)
+		objs = append(objs, kobj)
+		break
 	}
 	return objs, nil
 }
@@ -344,6 +361,7 @@ func decodeYamlFile(inputs string) ([]*KubeObject, error) {
 func decodeIstioComponents(objs []*KubeObject) (*IstioComponents, error) {
 	c := new(IstioComponents)
 	for _, obj := range objs {
+		fmt.Printf("obj: %#v\n", obj)
 		switch obj.GetObjectKind().GroupVersionKind().Kind {
 		case "Namespace":
 			n, ok := obj.object.(corev1.Namespace)
@@ -365,13 +383,24 @@ func decodeIstioComponents(objs []*KubeObject) (*IstioComponents, error) {
 	return c, nil
 }
 
-func getIstioImageName(d *extensionsv1beta1.Deployment) string {
+func getIstioImageVersion(d *extensionsv1beta1.Deployment) (string, error) {
+	version := ""
 	for _, container := range d.Spec.Template.Spec.Containers {
 		if strings.Contains(container.Image, "docker.io/istio") {
-			return container.Image
+			s := strings.Split(container.Image, ":")
+			if len(s) == 2 {
+				if version == "" {
+					version = s[1]
+				} else if version != s[1] {
+					return "", errors.New("Inconsistent container version in " + d.Name)
+				}
+			}
 		}
 	}
-	return ""
+	if version == "" {
+		return "", errors.New("Istio image not found")
+	}
+	return version, nil
 }
 
 func createClientConfig(kubeconfig string) (config *rest.Config, err error) {
@@ -403,11 +432,17 @@ func getIstioVersion(c *IstioComponents) (string, error) {
 	if len(c.deployments.Items) == 0 {
 		return "", errors.New("Istio deployments are empty")
 	}
-	version := getIstioImageName(&c.deployments.Items[0])
+	version, err := getIstioImageVersion(&c.deployments.Items[0])
+	if err != nil {
+		return "", err
+	}
 	for _, d := range c.deployments.Items {
-		v := getIstioImageName(&d)
+		v, err := getIstioImageVersion(&d)
+		if err != nil {
+			return "", err
+		}
 		if version != v {
-			return "", errors.New("Inconsistent Istio deployment versions.")
+			return "", errors.New("Inconsistent Istio deployment versions: " + d.Name + ", " + version + " v.s. " + v)
 		}
 	}
 	return version, nil
@@ -436,12 +471,15 @@ func readReleaseInfoLocally(path string) ([]ReleaseInfo, error) {
 	releases := make([]ReleaseInfo, len(l))
 	for i, dir := range l {
 		// Read kubernete yaml files.
-		releases[i].version = dir
-		contents, err := ioutil.ReadFile(filepath.Join(path, dir, filename))
+		releases[i].version = dir[6:]
+		releases[i].yamls = make(map[string][]byte)
+		f := filepath.Join(path, dir, filename)
+		fmt.Println("Reading file " + f)
+		contents, err := ioutil.ReadFile(f)
 		if err != nil {
 			return nil, err
 		}
-		releases[i].yamls[filename] = string(contents)
+		releases[i].yamls[filename] = contents
 	}
 	return releases, nil
 }
