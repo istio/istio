@@ -172,6 +172,24 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 				valueTypeAllowedInFields,
 				&m.OutputTemplateMessage,
 			)
+
+			isPrimitiveValueType := func(typ TypeInfo) bool {
+				if typ.IsValueType || typ.IsResourceMessage || typ.IsRepeated || (typ.IsMap && typ.MapValue.Name != "string") {
+					return false
+				}
+				return true
+			}
+
+			// currently we only support output message to have flat list of fields that are of primitive types or
+			// map<string, string> (Basically all the types supported by ValueType)
+			// We can easily check this by checked if the type is not ValueType or ResourceMessage or a map<string, !string>
+			for _, field := range m.OutputTemplateMessage.Fields {
+				if !isPrimitiveValueType(field.ProtoType) {
+					m.addError(templateProto.GetName(), unknownLine, "message 'OutputTemplate' field '%s' is of type '%s'."+
+						" Only supported types in OutputTemplate message are : [string, int64, double, bool, "+
+						"google.protobuf.Duration, google.protobuf.TimeStamp, map<string, string>]", field.ProtoName, field.ProtoType.Name)
+				}
+			}
 			m.OutputTemplateMessage.Name = "OutputTemplate"
 			m.diags = append(m.diags, diags...)
 		}

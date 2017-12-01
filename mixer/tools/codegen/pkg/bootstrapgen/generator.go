@@ -78,6 +78,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[goType.Name]
+
 			},
 			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {

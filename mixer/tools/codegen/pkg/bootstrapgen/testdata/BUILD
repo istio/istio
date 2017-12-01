@@ -10,6 +10,12 @@ mixer_proto_library(
 )
 
 mixer_proto_library(
+    name = "apa",
+    testonly = True,
+    protos = ["ApaTmpl.proto"],
+)
+
+mixer_proto_library(
     name = "report2",
     testonly = True,
     protos = ["Report2Tmpl.proto"],
@@ -31,6 +37,7 @@ filegroup(
     name = "descriptors",
     testonly = True,
     srcs = [
+        "apa_proto.descriptor_set",
         "check_proto.descriptor_set",
         "quota_proto.descriptor_set",
         "report1_proto.descriptor_set",

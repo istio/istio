@@ -65,13 +65,9 @@ type Output struct {
 
 	StringPrimitive string
 
-	DimensionsFixedInt64ValueDType map[string]int64
-
 	TimeStamp time.Time
 
 	Duration time.Duration
-
-	Res3Map map[string]*Resource3
 }
 
 type Resource1 struct {
