@@ -121,13 +121,16 @@ rm -rf vendor/k8s.io/*/vendor
 git checkout generated_files
 
 pushd pilot
-./bin/upload-istioctl -r -o "${OUTPUT_PATH}"
+mkdir -p "${OUTPUT_DIR}/istioctl"
+./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 if [ "${BUILD_DOCKER}" == "true" ]; then
+  # push-docker already adds docker/ to path
   ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 fi
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+  mkdir -p "${OUTPUT_DIR}/deb"
+  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
 
@@ -142,6 +145,30 @@ if [ "${BUILD_DOCKER}" == "true" ]; then
   ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 fi
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}"
+  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
+
+# remove the -release suffix from the basename in debian images
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  pushd "${OUTPUT_PATH}/deb"
+  for DEB_PATH in ./*-release.deb
+  do
+    DEB_NAME=$(basename "$DEB_PATH")
+    BASE_NAME="${DEB_NAME%-release.*}"
+    
+    # if no deb/ directory or .deb files with -release suffix
+    if [[ "${IMAGE_NAME}" == "*" ]]; then
+      echo "No debian images were found to rename"
+      break
+    fi
+    echo "renaming \"${BASE_NAME}-release.deb\" to \"${BASE_NAME}.deb\" "
+    mv "./${BASE_NAME}-release.deb" "./${BASE_NAME}.deb"
+  done
+  popd
+fi
+
+# XXX: store scripts that are used later in the release process for tagging and publishing
+#mkdir -p "${OUTPUT_DIR}/release"
+#cp ./release/*.json "${OUTPUT_PATH}/release/"
+#cp ./release/*.sh   "${OUTPUT_PATH}/release/"

@@ -15,9 +15,9 @@
 #
 ################################################################################
 
-# This is an example file for how to start an istio build using Cloud Builder.
-# To run it you need a Google Cloud project and the key file for a service
-# account that had been granted access to start a build.
+# This is an example file for how to start an istio release publish
+# using Cloud Builder. To run it you need a Google Cloud project and
+# the key file for a service account that had been granted access to start a build.
 
 set -o errexit
 set -o nounset
@@ -37,10 +37,11 @@ REPO_FILE=default.xml
 REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
-GCR_BUCKET=""
-GCS_BUCKET=""
-GCR_PATH=""
-GCS_PATH="builds"
+GCS_SRC=""
+GCS_GITHUB_SECRET="istio-secrets/github.txt"
+REL_ORG="istio"
+USER_EMAIL=""
+USER_NAME=""
 
 function usage() {
   echo "$0
@@ -51,25 +52,27 @@ function usage() {
     -u <url>  URL to git repo with manifest file                (required)
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
-    -w        specify that script should wait until build done  (optional)
+    -w        specify that script should wait until build done  (optional)  
 
-    -r <name> GCR bucket to store build artifacts               (required)
-    -s <name> GCS bucket to store build artifacts               (required)
-    -b <path> path where to store artifacts in GCR              (optional, defaults to \"$GCR_PATH\" )
-    -c <path> path where to store artifacts in GCS              (optional, defaults to \"$GCS_PATH\" )"
+    -s <name> GCS bucket to read build artifacts                (required)
+    -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
+    -h <name> github org to tag                                 (optional, defaults to $REL_ORG )
+    -e <email> email of submitter for tags                      (required)
+    -n <name>  name of submitter for tags                       (required)"
   exit 1
 }
 
-while getopts a:b:c:k:m:p:r:s:t:u:v:w arg ; do
+while getopts a:e:g:h:k:m:n:p:s:t:u:v:w arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
-    b) GCR_PATH="${OPTARG}";;
-    c) GCS_PATH="${OPTARG}";;
+    e) USER_EMAIL="${OPTARG}";;
+    g) GCS_GITHUB_SECRET="${OPTARG}";;
+    h) REL_ORG="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
     m) REPO_FILE="${OPTARG}";;
+    n) USER_NAME="${OPTARG}";;
     p) PROJECT_ID="${OPTARG}";;
-    r) GCR_BUCKET="${OPTARG}";;
-    s) GCS_BUCKET="${OPTARG}";;
+    s) GCS_SRC="${OPTARG}";;
     t) REPO_FILE_VER="${OPTARG}";;
     u) REPO="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
@@ -85,8 +88,9 @@ done
 [[ -z "${REPO_FILE_VER}" ]] && usage
 [[ -z "${VER_STRING}"    ]] && usage
 
-[[ -z "${GCS_BUCKET}" ]] && usage
-[[ -z "${GCR_BUCKET}" ]] && usage
+[[ -z "${USER_EMAIL}" ]] && usage
+[[ -z "${USER_NAME}"  ]] && usage
+[[ -z "${GCS_SRC}"    ]] && usage
 
 DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -97,16 +101,14 @@ fi
 # generate the substitutions file
 echo "  \"substitutions\": {
     \"_VER_STRING\": \"${VER_STRING}\",
-    \"_MFEST_URL\": \"${REPO}\",
-    \"_MFEST_FILE\": \"${REPO_FILE}\",
-    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
-    \"_GCS_BUCKET\": \"${GCS_BUCKET}\",
-    \"_GCS_SUBDIR\": \"${GCS_PATH}\",
-    \"_GCR_BUCKET\": \"${GCR_BUCKET}\",
-    \"_GCR_SUBDIR\": \"${GCR_PATH}\"
-  }" > "${SUBS_FILE}"
+    \"_GCS_SOURCE\": \"${GCS_SRC}\",
+    \"_GCS_SECRET\": \"${GCS_GITHUB_SECRET}\",
+    \"_ORG\": \"${REL_ORG}\",
+    \"_USER_EMAIL\": \"${USER_EMAIL}\",
+    \"_USER_NAME\": \"${USER_NAME}\",
+  }" >> "${SUBS_FILE}"
 
-run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_build.template.json" \
+run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_tag.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
