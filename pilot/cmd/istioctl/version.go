@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"os/user"
 )
 
 func runVersionCmd(c *cobra.Command, args []string) error {
-	const testLocalPath = "/usr/local/google/home/yusuo"
-	i, err := NewKubeInstallerFromLocalPath(testLocalPath)
+	usr, err := user.Current()
+	if err != nil {
+		return err
+	}
+	i, err := NewKubeInstallerFromLocalPath(usr.HomeDir)
 	if err != nil {
 		return err
 	}

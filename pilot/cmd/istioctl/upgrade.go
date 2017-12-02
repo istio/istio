@@ -490,23 +490,11 @@ func runUpgradeCmd(c *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func runTestCmd(c *cobra.Command, args []string) (err error) {
-	f := "/usr/local/google/home/yusuo/istio-0.2.10/install/kubernetes/istio.yaml"
-	contents, err := ioutil.ReadFile(f)
-	if err != nil {
-		return nil
-	}
-	reader := ioutil.NopCloser(bytes.NewReader(contents))
-	yamlDecoder := yaml.NewDocumentDecoder(reader)
-	yamlDecoder.Close()
-	return nil
-}
-
 func init() {
 	upgradeCmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Istio to a new version",
-		RunE:  runTestCmd,
+		RunE:  runUpgradeCmd,
 	}
 	rootCmd.AddCommand(upgradeCmd)
 }
