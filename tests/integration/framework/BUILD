@@ -8,6 +8,7 @@ go_library(
         "component.go",
         "environment.go",
         "framework.go",
+        "process.go"
     ],
     visibility = ["//visibility:public"],
     deps = [
