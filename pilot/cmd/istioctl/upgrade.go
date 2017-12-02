@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"github.com/pkg/errors"
@@ -12,8 +13,9 @@ import (
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -47,19 +49,16 @@ type ReleaseInfo struct {
 	yamls   map[string][]byte
 }
 
-type KubeObject struct {
-	// Metadata
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	// Underlying K8S object
-	// object runtime.Object
-	object interface{}
-}
+type KubeObject runtime.Object
+
+type KubeObjectMap map[string][]runtime.Object
+
+type KubePatch string
 
 type KubeObjectsPatch struct {
-	deletes map[string]*KubeObject
-	creates map[string]*KubeObject
-	updates map[string]*KubeObject
+	deletes map[string]KubeObject
+	creates map[string]KubeObject
+	updates map[string]KubePatch
 }
 
 type ComponentPatch struct {
@@ -82,16 +81,13 @@ type IstioComponents struct {
 	//istio_config
 }
 
-func (c IstioComponents) GetDeployments() *[]KubeObject {
+func (c IstioComponents) GetDeployments() []KubeObject {
 	k := make([]KubeObject, 0, 10)
 	for _, d := range c.deployments.Items {
-		var o KubeObject
-		o.TypeMeta = d.TypeMeta
-		o.ObjectMeta = d.ObjectMeta
-		o.object = d.DeepCopyObject()
+		o := d.DeepCopyObject()
 		k = append(k, o)
 	}
-	return &k
+	return k
 }
 
 type KubeInstaller struct {
@@ -125,19 +121,32 @@ func (i KubeInstaller) Check() (string, error) {
 }
 
 // Return the patch that can be applied to objs_1
-func diffKubeObjects(objs_1 *[]KubeObject, objs_2 *[]KubeObject, dataStruct interface{}) (*KubeObjectsPatch, error) {
-	var p KubeObjectsPatch
-	var m1, m2 map[string]KubeObject
-	for _, o := range *objs_1 {
-		m1[o.ObjectMeta.Name] = o
+func diffKubeObjects(objs_1 []KubeObject, objs_2 []KubeObject, dataStruct interface{}) (*KubeObjectsPatch, error) {
+	p := KubeObjectsPatch{
+		creates: make(map[string]KubeObject),
+		deletes: make(map[string]KubeObject),
+		updates: make(map[string]KubePatch),
 	}
-	for _, o := range *objs_2 {
-		m2[o.ObjectMeta.Name] = o
+	m1 := make(map[string]KubeObject)
+	m2 := make(map[string]KubeObject)
+	for _, o := range objs_1 {
+		metaobj, ok := o.(metav1.Object)
+		if !ok {
+			return nil, errors.New("Cannot get meta obj")
+		}
+		m1[metaobj.GetName()] = o
+	}
+	for _, o := range objs_2 {
+		metaobj, ok := o.(metav1.Object)
+		if !ok {
+			return nil, errors.New("Cannot get meta obj")
+		}
+		m2[metaobj.GetName()] = o
 	}
 	for k, o1 := range m2 {
 		o2, present := m1[k]
 		if !present {
-			p.creates[k] = &o1
+			p.creates[k] = o1
 		} else {
 			s1, err := json.Marshal(o1)
 			s2, err := json.Marshal(o2)
@@ -145,18 +154,13 @@ func diffKubeObjects(objs_1 *[]KubeObject, objs_2 *[]KubeObject, dataStruct inte
 			if err != nil {
 				return nil, err
 			}
-			ko := KubeObject{}
-			err = json.Unmarshal(patch, &ko)
-			if err != nil {
-				return nil, err
-			}
-			p.updates[k] = &ko
+			p.updates[k] = KubePatch(patch)
 		}
 	}
 	for k, o1 := range m1 {
 		_, present := m2[k]
 		if !present {
-			p.deletes[k] = &o1
+			p.deletes[k] = o1
 		}
 	}
 	return &p, nil
@@ -203,21 +207,17 @@ func (i KubeInstaller) ApplyPatch(p *ComponentPatch) error {
 		}
 	}
 	for _, o := range p.deployments_patch.creates {
-		d, ok := o.object.(extensionsv1beta1.Deployment)
+		d, ok := o.(*extensionsv1beta1.Deployment)
 		if !ok {
 			return errors.New("Cannot convert deployment object")
 		}
-		_, err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Create(&d)
+		_, err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Create(d)
 		if err != nil {
 			return err
 		}
 	}
-	for name, o := range p.deployments_patch.updates {
-		patch, err := json.Marshal(o.object)
-		if err != nil {
-			return err
-		}
-		_, err = i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Patch(name, types.StrategicMergePatchType, patch)
+	for name, patch := range p.deployments_patch.updates {
+		_, err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Patch(name, types.StrategicMergePatchType, []byte(patch))
 		if err != nil {
 			return err
 		}
@@ -331,49 +331,50 @@ func NewKubeInstallerFromLocalPath(localpath string) (i Installer, err error) {
 	return &ki, nil
 }
 
-func decodeYamlFile(inputs []byte) ([]*KubeObject, error) {
-	const buffersize = 512 * 1024
-	var buffer = make([]byte, buffersize)
-	objs := make([]*KubeObject, 0, 100)
-	reader := ioutil.NopCloser(bytes.NewReader(inputs))
-	yamlDecoder := yaml.NewDocumentDecoder(reader)
+func decodeYamlFile(inputs []byte) ([]KubeObject, error) {
+	objs := make([]KubeObject, 0, 100)
+	yamlDecoder := yaml.NewYAMLReader(bufio.NewReader(bytes.NewReader(inputs)))
 	for {
-		_, err := yamlDecoder.Read(buffer)
+		buf, err := yamlDecoder.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		obj, gvk, err := scheme.Codecs.UniversalDeserializer().Decode(buffer, nil, nil)
-		if err != nil {
-			return nil, err
+		if len(buf) > 0 {
+			obj, _, err := scheme.Codecs.UniversalDeserializer().Decode(buf, nil, nil)
+			if err != nil {
+				obj, _, err = apiextensionscheme.Codecs.UniversalDeserializer().Decode(buf, nil, nil)
+			}
+			if err != nil {
+				// TODO: decode istio crd object
+				continue
+			}
+			objs = append(objs, obj)
 		}
-		fmt.Printf("obj: %#v schema: %#v \n", obj, *gvk)
-		// TODO: Check whether obj is empty.
-		kobj := new(KubeObject)
-		objs = append(objs, kobj)
-		break
 	}
 	return objs, nil
 }
 
-func decodeIstioComponents(objs []*KubeObject) (*IstioComponents, error) {
+func decodeIstioComponents(objs []KubeObject) (*IstioComponents, error) {
 	c := new(IstioComponents)
 	for _, obj := range objs {
-		fmt.Printf("obj: %#v\n", obj)
 		switch obj.GetObjectKind().GroupVersionKind().Kind {
 		case "Namespace":
-			n, ok := obj.object.(corev1.Namespace)
+			n, ok := obj.(*corev1.Namespace)
 			if !ok {
 				return nil, errors.New("Cannot convert namespace")
 			}
 			c.istio_namespace = new(corev1.Namespace)
 			n.DeepCopyInto(c.istio_namespace)
 		case "Deployment":
-			d, ok := obj.object.(extensionsv1beta1.Deployment)
+			d, ok := obj.(*extensionsv1beta1.Deployment)
 			if !ok {
 				return nil, errors.New("Cannot convert namespace")
+			}
+			if c.deployments == nil {
+				c.deployments = new(extensionsv1beta1.DeploymentList)
 			}
 			c.deployments.Items = append(c.deployments.Items, extensionsv1beta1.Deployment{})
 			d.DeepCopyInto(&c.deployments.Items[len(c.deployments.Items)-1])
@@ -474,7 +475,6 @@ func readReleaseInfoLocally(path string) ([]ReleaseInfo, error) {
 		releases[i].version = dir[6:]
 		releases[i].yamls = make(map[string][]byte)
 		f := filepath.Join(path, dir, filename)
-		fmt.Println("Reading file " + f)
 		contents, err := ioutil.ReadFile(f)
 		if err != nil {
 			return nil, err
@@ -490,11 +490,23 @@ func runUpgradeCmd(c *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func runTestCmd(c *cobra.Command, args []string) (err error) {
+	f := "/usr/local/google/home/yusuo/istio-0.2.10/install/kubernetes/istio.yaml"
+	contents, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil
+	}
+	reader := ioutil.NopCloser(bytes.NewReader(contents))
+	yamlDecoder := yaml.NewDocumentDecoder(reader)
+	yamlDecoder.Close()
+	return nil
+}
+
 func init() {
 	upgradeCmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Istio to a new version",
-		RunE:  runUpgradeCmd,
+		RunE:  runTestCmd,
 	}
 	rootCmd.AddCommand(upgradeCmd)
 }
