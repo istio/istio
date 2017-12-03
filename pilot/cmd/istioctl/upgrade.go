@@ -143,14 +143,15 @@ func diffKubeObjects(objs_1 []KubeObject, objs_2 []KubeObject, dataStruct interf
 		}
 		m2[metaobj.GetName()] = o
 	}
-	for k, o1 := range m2 {
-		o2, present := m1[k]
+	for k, o2 := range m2 {
+		o1, present := m1[k]
 		if !present {
-			p.creates[k] = o1
+			p.creates[k] = o2
 		} else {
 			s1, err := json.Marshal(o1)
 			s2, err := json.Marshal(o2)
-			patch, err := strategicpatch.CreateTwoWayMergePatch(s1, s2, dataStruct)
+			// Reconcil current config back(s1) into original version(s2)
+			patch, err := strategicpatch.CreateThreeWayMergePatch(s2, s2, s1, dataStruct, true)
 			if err != nil {
 				return nil, err
 			}
@@ -348,7 +349,7 @@ func decodeYamlFile(inputs []byte) ([]KubeObject, error) {
 				obj, _, err = apiextensionscheme.Codecs.UniversalDeserializer().Decode(buf, nil, nil)
 			}
 			if err != nil {
-				// TODO: decode istio crd object
+				// TODO: decode istio objects
 				continue
 			}
 			objs = append(objs, obj)
@@ -371,7 +372,7 @@ func decodeIstioComponents(objs []KubeObject) (*IstioComponents, error) {
 		case "Deployment":
 			d, ok := obj.(*extensionsv1beta1.Deployment)
 			if !ok {
-				return nil, errors.New("Cannot convert namespace")
+				return nil, errors.New("Cannot convert deployment")
 			}
 			if c.deployments == nil {
 				c.deployments = new(extensionsv1beta1.DeploymentList)
