@@ -155,10 +155,10 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   for DEB_PATH in ./*-release.deb
   do
     DEB_NAME=$(basename "$DEB_PATH")
-    BASE_NAME="${DEB_NAME%-release.*}"
+    BASE_NAME="${DEB_NAME%-release.deb}"
     
     # if no deb/ directory or .deb files with -release suffix
-    if [[ "${IMAGE_NAME}" == "*" ]]; then
+    if [[ "${BASE_NAME}" == "*" ]]; then
       echo "No debian images were found to rename"
       break
     fi

@@ -249,10 +249,10 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
   fi
 
   echo "pushing images to docker and/or gcr"
-  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar
+  for TAR_PATH in ${UPLOAD_DIR}/docker/*.tar.gz
   do
     TAR_NAME=$(basename "$TAR_PATH")
-    IMAGE_NAME="${TAR_NAME%.*}"
+    IMAGE_NAME="${TAR_NAME%.tar.gz}"
     
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
