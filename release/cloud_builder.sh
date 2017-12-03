@@ -129,7 +129,7 @@ if [ "${BUILD_DOCKER}" == "true" ]; then
   ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 fi
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  mkdir -p "${OUTPUT_DIR}/deb"
+  mkdir -p "${OUTPUT_PATH}/deb"
   ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
