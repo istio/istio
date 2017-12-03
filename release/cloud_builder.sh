@@ -167,8 +167,3 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   done
   popd
 fi
-
-# XXX: store scripts that are used later in the release process for tagging and publishing
-#mkdir -p "${OUTPUT_DIR}/release"
-#cp ./release/*.json "${OUTPUT_PATH}/release/"
-#cp ./release/*.sh   "${OUTPUT_PATH}/release/"

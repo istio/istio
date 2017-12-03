@@ -16,8 +16,8 @@
 ################################################################################
 
 # This is an example file for how to start an istio build using Cloud Builder.
-# To run it you need a Google Cloud project and the key file for a service
-# account that had been granted access to start a build.
+# To run it you need a Google Cloud project and a service account that has
+# been granted access to start a build.
 
 set -o errexit
 set -o nounset
@@ -46,7 +46,7 @@ function usage() {
   echo "$0
     -p <name> project ID                                        (required)
     -a        service account for login                         (optional, defaults to project's cloudbuild@ )
-    -k <file> path to key file for service account              (required)
+    -k <file> path to key file for service account              (optional)
     -v <ver>  version string                                    (optional, defaults to $VER_STRING )
     -u <url>  URL to git repo with manifest file                (required)
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
@@ -79,7 +79,6 @@ while getopts a:b:c:k:m:p:r:s:t:u:v:w arg ; do
 done
 
 [[ -z "${PROJECT_ID}"    ]] && usage
-[[ -z "${KEY_FILE_PATH}" ]] && usage
 [[ -z "${REPO}"          ]] && usage
 [[ -z "${REPO_FILE}"     ]] && usage
 [[ -z "${REPO_FILE_VER}" ]] && usage

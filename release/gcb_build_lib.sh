@@ -112,7 +112,7 @@ function run_build() {
   local TEMPLATE_FILE="$(mktemp /tmp/build.template.XXXX)"
   local BUILD_FILE="$(mktemp /tmp/build.request.XXXX)"
   local RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
-  
+
   # grab a copy of the manifest
   curl -s -L -o "${BLD_TEMP_DIR}/repo" https://storage.googleapis.com/git-repo-downloads/repo
   chmod u+x "${BLD_TEMP_DIR}/repo"
@@ -134,10 +134,12 @@ function run_build() {
   echo "}" >> "${BUILD_FILE}"
 
   # try to preserve the prior gcloud account that's in use
-  local PRIOR_GCLOUD_ACCOUNT="$(gcloud config get-value account)"
-  gcloud auth activate-service-account "${SERVICE_ACCT}" --key-file="${SERVICE_KEY_FILE}"
-  if [[ -n "${PRIOR_GCLOUD_ACCOUNT}" ]]; then
-    gcloud config set account "${PRIOR_GCLOUD_ACCOUNT}"
+  if [[ -n "${SERVICE_KEY_FILE}" ]]; then
+    local PRIOR_GCLOUD_ACCOUNT="$(gcloud config get-value account)"
+    gcloud auth activate-service-account "${SERVICE_ACCT}" --key-file="${SERVICE_KEY_FILE}"
+    if [[ -n "${PRIOR_GCLOUD_ACCOUNT}" ]]; then
+      gcloud config set account "${PRIOR_GCLOUD_ACCOUNT}"
+    fi
   fi
 
   curl -X POST -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" \
