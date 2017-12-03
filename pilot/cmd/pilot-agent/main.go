@@ -17,6 +17,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -104,6 +106,19 @@ var (
 				} else {
 					role.Domain = ""
 				}
+			}
+
+			// Get AZ for proxy
+			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
+			if err != nil {
+				glog.V(2).Infof("Error retrieving availability zone from pilot: %v", err)
+			} else {
+				body, err := ioutil.ReadAll(azResp.Body)
+				if err != nil {
+					glog.V(2).Infof("Error reading availability zone response from pilot: %v", err)
+				}
+				availabilityZone = string(body)
+				glog.V(2).Infof("Proxy availability zone: %v", availabilityZone)
 			}
 
 			glog.V(2).Infof("Proxy role: %#v", role)
