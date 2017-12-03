@@ -121,7 +121,7 @@ rm -rf vendor/k8s.io/*/vendor
 git checkout generated_files
 
 pushd pilot
-mkdir -p "${OUTPUT_DIR}/istioctl"
+mkdir -p "${OUTPUT_PATH}/istioctl"
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 if [ "${BUILD_DOCKER}" == "true" ]; then
