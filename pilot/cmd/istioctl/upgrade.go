@@ -29,10 +29,7 @@ import (
 )
 
 const (
-	IstioNamespace         = "istio-system"
-	InitializerDeployment  = "istio-initializer"
-	InitializerContainer   = "initializer"
-	InitializerImagePrefix = "docker.io/istio/sidecar_initializer"
+	IstioNamespace = "istio-system"
 )
 
 var (
@@ -53,7 +50,7 @@ type KubeObject runtime.Object
 
 type KubeObjectMap map[string][]runtime.Object
 
-type KubePatch string
+type KubePatch []byte
 
 type KubeObjectsPatch struct {
 	deletes map[string]KubeObject
@@ -67,6 +64,20 @@ type ComponentPatch struct {
 
 func (p KubeObjectsPatch) Empty() bool {
 	return len(p.deletes)+len(p.creates)+len(p.updates) == 0
+}
+
+func (p *KubeObjectsPatch) Merge(s *KubeObjectsPatch) {
+	for k, v := range s.deletes {
+		p[k] = v.DeepCopyObject()
+	}
+	for k, v := range s.creates {
+		p[k] = v.DeepCopyObject()
+	}
+	for k, v := range s.updates {
+		c := make([]byte, len(v))
+		copy(c, v)
+		p[k] = c
+	}
 }
 
 type IstioComponents struct {
@@ -106,18 +117,134 @@ func (i KubeInstaller) Check() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "Fail to get Istio version")
 	}
+	diff, err := CheckIstioComponents(c, version)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to check Istio components")
+	}
+	fmt.Printf("Diff in Istio components: %#v\n", diff)
+	diff, err := CheckIstioSidecar(version)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to check Istio components")
+	}
+	fmt.Printf("Diff in Istio sidcar: %#v\n", diff)
+	return version, nil
+}
+
+func (i KubeInstaller) CheckIstioComponents(c IstioComponents, version string) (*KubeObjectsPatch, error) {
 	d, err := i.GetReleasedComponents(version)
 	if err != nil {
 		return "", errors.Wrap(err, "Fail to get Isio release for "+version)
 	}
-	p, err := diffComponents(c, d)
+	return diffComponents(c, d)
+}
+
+func (i KubeInstaller) CheckIstioSidecar(version string) (*KubeObjectsPatch, error) {
+	dl, err := i.client.ExtensionsV1beta1().Deployments(metav1.NamespaceDefault).List(metav1.ListOptions{})
 	if err != nil {
-		return "", errors.Wrap(err, "Fail to calculate the diff.")
+		return nil, err
 	}
-	if p.Empty() {
-		return version, nil
+	patch := new(KubeObjectsPatch)
+	for i, d := range dl.Items {
+		p, err := fixDeploymentSpec(version, d)
+		if err != nil {
+			return nil, err
+		}
+		if !p.Empty() {
+			patch.Merge(p)
+		}
 	}
-	return "", errors.Errorf("Diff: %+v", *p)
+	return patch, nil
+}
+
+func fixAnnotation(annotation string) (string, error) {
+	var data map[string]interface{}
+	err := json.Unmarshal([]byte(annotation), &data)
+	if err != nil {
+		return "", err
+	}
+	v, err := getIstioImageVersion(data["image"])
+	if err != nil {
+		return "", err
+	}
+	if v != version {
+		data["image"], err = setIstioImageVersion(data["image"], version)
+		if err != nil {
+			return "", err
+		}
+	}
+	s, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return s, nil
+}
+
+func fixDeploymentSpec(version string, d *extensionsv1beta1.Deployment) (*KubeObjectsPatch, error) {
+	const alpha = "pod.alpha.kubernetes.io/init-containers"
+	const beta = "pod.beta.kubernetes.io/init-containers"
+	const stat = "sidecar.istio.io/status"
+
+	o, ok := d.DeepCopyObject().(*extensionsv1beta1.Deployment)
+	if !ok {
+		return nil, errors.New("Cannot convert deployment")
+	}
+	patch := new(KubeObjectsPatch)
+	for k, v := range d.Spec.Template.ObjectMeta.Annotations {
+		var fix string
+		var err error
+		switch k {
+		case alpha:
+			fix, err = fixAnnotation(v)
+		case beta:
+			fix, err = fixAnnotation(v)
+		case stat:
+			fix, err = fixStat(v)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if v != fix {
+			o.Spec.Template.ObjectMeta.Annotations[k] = fix
+		}
+	}
+	const proxy = "docker.io/istio/proxy"
+	for i, c := range d.Spec.Template.Spec.Containers {
+		if strings.Contains(c.Image, proxy) {
+			fix, err := setIstioImageVersion(c.Image, version)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if c.Image != fix {
+			o.Spec.Template.Spec.Containers[i].Image = fix
+		}
+	}
+	const init = "docker.io/istio/proxy_init"
+	for i, c := range d.Spec.Template.Spec.InitContainers {
+		if strings.Contains(c.Image, init) {
+			fix, err := setIstioImageVersion(c.Image, version)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if c.Image != fix {
+			o.Spec.Template.Spec.InitContainers[i].Image = fix
+		}
+	}
+	original, err := d.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	modified, err := o.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	p, err := strategicpatch.CreateTwoWayMergePatch(original, modified, extensionsv1beta1.Deployment{})
+	if err != nil {
+		return nil, err
+	}
+	patch.updates[d.Name] = p
+	return patch, nil
 }
 
 // Return the patch that can be applied to objs_1
@@ -155,7 +282,7 @@ func diffKubeObjects(objs_1 []KubeObject, objs_2 []KubeObject, dataStruct interf
 			if err != nil {
 				return nil, err
 			}
-			p.updates[k] = KubePatch(patch)
+			p.updates[k] = patch
 		}
 	}
 	for k, o1 := range m1 {
@@ -385,17 +512,34 @@ func decodeIstioComponents(objs []KubeObject) (*IstioComponents, error) {
 	return c, nil
 }
 
-func getIstioImageVersion(d *extensionsv1beta1.Deployment) (string, error) {
+func getIstioImageVersion(image string) (string, error) {
+	s := strings.Split(image, ":")
+	if len(s) == 2 {
+		return s[1], nil
+	}
+	return "", erros.New("version tag not found")
+}
+
+func setIstioImageVersion(image string, version string) (string, error) {
+	s := strings.Split(image, ":")
+	if len(s) == 2 {
+		s[1] = version
+		return strings.Join(s, ":"), nil
+	}
+	return "", erros.New("version tag not found")
+}
+func getIstioDeploymentVersion(d *extensionsv1beta1.Deployment) (string, error) {
 	version := ""
 	for _, container := range d.Spec.Template.Spec.Containers {
-		if strings.Contains(container.Image, "docker.io/istio") {
-			s := strings.Split(container.Image, ":")
-			if len(s) == 2 {
-				if version == "" {
-					version = s[1]
-				} else if version != s[1] {
-					return "", errors.New("Inconsistent container version in " + d.Name)
-				}
+		if strings.Contains(containe.image, "docker.io/istio") {
+			v, err := getIstioImageVersion(container.Image)
+			if err != nil {
+				return "", err
+			}
+			if version == "" {
+				version = v
+			} else if version != v {
+				return "", errors.New("Inconsistent container version in " + d.Name)
 			}
 		}
 	}
@@ -434,12 +578,12 @@ func getIstioVersion(c *IstioComponents) (string, error) {
 	if len(c.deployments.Items) == 0 {
 		return "", errors.New("Istio deployments are empty")
 	}
-	version, err := getIstioImageVersion(&c.deployments.Items[0])
+	version, err := getIstioDeploymentVersion(&c.deployments.Items[0])
 	if err != nil {
 		return "", err
 	}
 	for _, d := range c.deployments.Items {
-		v, err := getIstioImageVersion(&d)
+		v, err := getIstioDeploymentVersion(&d)
 		if err != nil {
 			return "", err
 		}
