@@ -38,7 +38,7 @@ REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
 GCS_SRC=""
-GCS_GITHUB_SECRET="istio-secrets/github.txt"
+GCS_GITHUB_SECRET="istio-secrets/github.txt.enc"
 REL_ORG="istio"
 USER_EMAIL=""
 USER_NAME=""
