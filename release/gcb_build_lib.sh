@@ -1,4 +1,4 @@
-#!/bin/bash
+OB#!/bin/bash
 # Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -108,30 +108,13 @@ function run_build() {
   local SERVICE_KEY_FILE=$8
   local WAIT=$9
   
-  local BLD_TEMP_DIR="$(mktemp -d /tmp/build.temprepo.XXXX)"
-  local TEMPLATE_FILE="$(mktemp /tmp/build.template.XXXX)"
-  local BUILD_FILE="$(mktemp /tmp/build.request.XXXX)"
+  local REQUEST_FILE="$(mktemp /tmp/build.request.XXXX)"
   local RESULT_FILE="$(mktemp /tmp/build.response.XXXX)"
 
-  # grab a copy of the manifest
-  curl -s -L -o "${BLD_TEMP_DIR}/repo" https://storage.googleapis.com/git-repo-downloads/repo
-  chmod u+x "${BLD_TEMP_DIR}/repo"
-
-  # grab a copy of the istio repo (though we only care about one file)
-  local ISTIO_REPO_PATH="go/src/istio.io/istio"
-  pushd ${BLD_TEMP_DIR}
-  ./repo init -u "${MFEST_URL}" -m "${MFEST_FILE}" -b "${MFEST_VER}"
-  ./repo sync "${ISTIO_REPO_PATH}"
-  popd
-
-  # grab a copy of the template file
-  cp "${BLD_TEMP_DIR}/${ISTIO_REPO_PATH}/release/${TEMPLATE_NAME}" "${TEMPLATE_FILE}"
-  rm -rf "${BLD_TEMP_DIR}"
-
   # generate the json file, first strip off the closing } in the last line of the template
-  head --lines=-1 "${TEMPLATE_FILE}" > "${BUILD_FILE}"
-  cat "${SUBS_FILE}" >> "${BUILD_FILE}"
-  echo "}" >> "${BUILD_FILE}"
+  head --lines=-1 "${SCRIPTPATH}/${TEMPLATE_NAME}" > "${REQUEST_FILE}"
+  cat "${SUBS_FILE}" >> "${REQUEST_FILE}"
+  echo "}" >> "${REQUEST_FILE}"
 
   # try to preserve the prior gcloud account that's in use
   if [[ -n "${SERVICE_KEY_FILE}" ]]; then
@@ -143,11 +126,10 @@ function run_build() {
   fi
 
   curl -X POST -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" \
-    -T "${BUILD_FILE}" -s -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds
+    -T "${REQUEST_FILE}" -s -o "${RESULT_FILE}" https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds
 
   # cleanup
-  rm -f "${TEMPLATE_FILE}"
-  rm -f "${BUILD_FILE}"
+  rm -f "${REQUEST_FILE}"
 
   # the following tries to find and parse a json line like:
   # "id": "e1487f85-8585-44fe-a7dc-765502e5a8c0",
