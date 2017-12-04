@@ -23,29 +23,30 @@ import (
 	"strings"
 	"testing"
 
-	env "istio.io/istio/tests/integration/environment"
+	appOnlyEnv "istio.io/istio/tests/integration/example/environment/appOnlyEnv"
+	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	appOnlyEnv      = "app_only_env"
-	mixerEnvoyEnv   = "mixer_envoy_env"
-	serverEndpoint  = "http://localhost:8080/"
-	sidecarEndpoint = "http://localhost:9090/echo"
-	testID          = "sample1_test"
+	appOnlyEnvName    = "app_only_env"
+	mixerEnvoyEnvName = "mixer_envoy_env"
+	serverEndpoint    = "http://localhost:8080/"
+	sidecarEndpoint   = "http://localhost:9090/echo"
+	testID            = "sample1_test"
 )
 
 var (
-	testFW *framework.IstioTestFramework
+	testFW *framework.TestEnvManager
 )
 
 func TestSample1(t *testing.T) {
 	log.Printf("Running %s", testFW.TestID)
 
 	var url string
-	if testFW.TestEnv.GetName() == appOnlyEnv {
+	if testFW.TestEnv.GetName() == appOnlyEnvName {
 		url = serverEndpoint
-	} else if testFW.TestEnv.GetName() == mixerEnvoyEnv {
+	} else if testFW.TestEnv.GetName() == mixerEnvoyEnvName {
 		url = sidecarEndpoint
 	}
 
@@ -74,13 +75,13 @@ func TestSample1(t *testing.T) {
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	testFW = framework.NewIstioTestFramework(env.NewAppOnlyEnv(appOnlyEnv), testID)
+	testFW = framework.NewIstioTestFramework(appOnlyEnv.NewAppOnlyEnv(appOnlyEnvName), testID)
 	res1 := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res1, appOnlyEnv)
+	log.Printf("Test result %d in env %s", res1, appOnlyEnvName)
 
-	testFW = framework.NewIstioTestFramework(env.NewMixerEnvoyEnv(mixerEnvoyEnv), testID)
+	testFW = framework.NewIstioTestFramework(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
 	res2 := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnv)
+	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnvName)
 
 	if res1 == 0 && res2 == 0 {
 		os.Exit(0)

@@ -32,17 +32,17 @@ type runnable interface {
 	Run() int
 }
 
-// IstioTestFramework is core test framework struct
-type IstioTestFramework struct {
+// TestEnvManager is core test framework struct
+type TestEnvManager struct {
 	TestEnv     TestEnv
 	TestID      string
 	Components  []Component
 	skipCleanup bool
 }
 
-// NewIstioTestFramework create a IstioTestFramework with a given environment and ID
-func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
-	return &IstioTestFramework{
+// NewIstioTestFramework create a TestEnvManager with a given environment and ID
+func NewIstioTestFramework(env TestEnv, id string) *TestEnvManager {
+	return &TestEnvManager{
 		TestEnv:     env,
 		Components:  env.GetComponents(),
 		TestID:      id,
@@ -51,7 +51,7 @@ func NewIstioTestFramework(env TestEnv, id string) *IstioTestFramework {
 }
 
 // SetUp sets up the whole environment as well brings up components
-func (framework *IstioTestFramework) SetUp() (err error) {
+func (framework *TestEnvManager) SetUp() (err error) {
 	if err = framework.TestEnv.Bringup(); err != nil {
 		log.Printf("Failed to bring up environment")
 		return
@@ -72,7 +72,7 @@ func (framework *IstioTestFramework) SetUp() (err error) {
 }
 
 // TearDown stop components and clean up environment
-func (framework *IstioTestFramework) TearDown() {
+func (framework *TestEnvManager) TearDown() {
 	if framework.skipCleanup {
 		log.Println("Dev mode (--skip_cleanup), skipping cleanup")
 		return
@@ -94,7 +94,7 @@ func (framework *IstioTestFramework) TearDown() {
 }
 
 // IsEnvReady check if the whole environment is ready for running tests
-func (framework *IstioTestFramework) IsEnvReady() (bool, error) {
+func (framework *TestEnvManager) IsEnvReady() (bool, error) {
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
@@ -120,7 +120,7 @@ func (framework *IstioTestFramework) IsEnvReady() (bool, error) {
 }
 
 // RunTest is the main entry for framework: setup, run tests and clean up
-func (framework *IstioTestFramework) RunTest(m runnable) (ret int) {
+func (framework *TestEnvManager) RunTest(m runnable) (ret int) {
 	defer framework.TearDown()
 	if err := framework.SetUp(); err != nil {
 		log.Printf("Failed to setup framework: %s", err)

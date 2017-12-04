@@ -36,7 +36,10 @@ var (
 
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
-	framework.CommonProcessComp
+	framework.Component
+	framework.CompProcess
+	Name      string
+	LogFile   string
 	configDir string
 }
 
@@ -44,15 +47,15 @@ type LocalComponent struct {
 func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &LocalComponent{
-		CommonProcessComp: framework.CommonProcessComp{
-			CommonComp: framework.CommonComp{
-				Name:    n,
-				LogFile: logFile,
-			},
-			BinaryPath: *mixerBinary,
-		},
+		Name:      n,
+		LogFile:   logFile,
 		configDir: configDir,
 	}
+}
+
+// GetName implement the function in component interface
+func (mixerComp *LocalComponent) GetName() string {
+	return mixerComp.Name
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -82,9 +85,9 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		return
 	}
 
-	if mixerComp.Process, err = util.RunBackground(fmt.Sprintf("%s server"+
+	if err = mixerComp.CompProcess.Start(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
-		mixerComp.BinaryPath, mixerConfig, emptyDir)); err != nil {
+		*mixerBinary, mixerConfig, emptyDir)); err != nil {
 		return
 	}
 
@@ -99,7 +102,13 @@ func (mixerComp *LocalComponent) Start() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (mixerComp *LocalComponent) IsAlive() (bool, error) {
-	return util.IsProcessRunning(mixerComp.Process)
+	return mixerComp.CompProcess.IsRunning()
+}
+
+// Stop stop this local component by kill the process
+func (mixerComp *LocalComponent) Stop() (err error) {
+	log.Printf("Stopping component %s", mixerComp.GetName())
+	return mixerComp.CompProcess.Stop()
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

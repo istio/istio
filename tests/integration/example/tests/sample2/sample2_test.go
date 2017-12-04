@@ -21,19 +21,19 @@ import (
 	"os"
 	"testing"
 
-	env "istio.io/istio/tests/integration/environment"
+	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	mixerEnvoyEnv   = "mixer_envoy_env"
-	sidecarEndpoint = "http://localhost:9090/echo"
-	metricsEndpoint = "http://localhost:42422/metrics"
-	testID          = "sample2_test"
+	mixerEnvoyEnvName = "mixer_envoy_env"
+	sidecarEndpoint   = "http://localhost:9090/echo"
+	metricsEndpoint   = "http://localhost:42422/metrics"
+	testID            = "sample2_test"
 )
 
 var (
-	testFW *framework.IstioTestFramework
+	testFW *framework.TestEnvManager
 )
 
 func TestSample2(t *testing.T) {
@@ -62,8 +62,8 @@ func TestSample2(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testFW = framework.NewIstioTestFramework(env.NewMixerEnvoyEnv(mixerEnvoyEnv), testID)
+	testFW = framework.NewIstioTestFramework(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
 	res := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res, mixerEnvoyEnv)
+	log.Printf("Test result %d in env %s", res, mixerEnvoyEnvName)
 	os.Exit(res)
 }

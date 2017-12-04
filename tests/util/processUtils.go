@@ -24,6 +24,9 @@ import (
 
 // IsProcessRunning check if a os.Process is running
 func IsProcessRunning(p *os.Process) (bool, error) {
+	if p == nil {
+		return false, nil
+	}
 	err := p.Signal(syscall.Signal(0))
 	if err == nil {
 		return true, nil

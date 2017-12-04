@@ -18,7 +18,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"strings"
-
 	"github.com/pmezard/go-difflib/difflib"
 )
 

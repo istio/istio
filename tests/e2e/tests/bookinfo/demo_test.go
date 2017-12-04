@@ -26,10 +26,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )

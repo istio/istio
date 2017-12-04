@@ -43,7 +43,7 @@ ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
 # Run Tests
-TESTSPATH='tests/integration/tests'
+TESTSPATH='tests/integration/example/tests'
 TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)")) || error_exit 'Could not find tests targets'
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'

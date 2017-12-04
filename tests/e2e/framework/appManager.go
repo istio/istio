@@ -17,9 +17,7 @@ package framework
 import (
 	"flag"
 	"path/filepath"
-
 	"github.com/golang/glog"
-
 	"istio.io/istio/tests/util"
 )
 

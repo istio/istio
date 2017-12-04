@@ -20,16 +20,25 @@ import (
 	"istio.io/istio/tests/util"
 )
 
-type Process struct {
+// CompProcess is a wrap of os.Process
+// With implemented methods to control local components
+type CompProcess struct {
 	Process *os.Process
 }
 
-func (p *Process) Start(command string) (err error) {
-	p.Process, err = util.RunBackground(command)
+// Start starts a background process with given command
+func (cp *CompProcess) Start(command string) (err error) {
+	cp.Process, err = util.RunBackground(command)
 	return
 }
 
-func (p *Process) Stop() (err error) {
-	err = util.KillProcess(p.Process)
+// Stop kills the process
+func (cp *CompProcess) Stop() (err error) {
+	err = util.KillProcess(cp.Process)
 	return
+}
+
+// IsRunning checks if the process is still running
+func (cp *CompProcess) IsRunning() (running bool, err error) {
+	return util.IsProcessRunning(cp.Process)
 }
