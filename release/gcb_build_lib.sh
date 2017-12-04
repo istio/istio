@@ -1,4 +1,4 @@
-OB#!/bin/bash
+#!/bin/bash
 # Copyright 2017 Istio Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +20,7 @@ set -o nounset
 set -o pipefail
 set -x
 
+SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 source ${SCRIPTPATH}/json_parse_shared.sh
 
 # parse_result_file(): parses the result from a build query.
