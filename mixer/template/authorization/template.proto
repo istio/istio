@@ -21,7 +21,7 @@ import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 
-// A set of subjects contains a list of attributes that identify
+// A subject contains a list of attributes that identify
 // the caller identity.
 message Subject {
   // The user.
@@ -32,10 +32,10 @@ message Subject {
   // the template.
   repeated string groups = 2;
   // Additional attributes about the subject.
-  map<string, istio.mixer.v1.config.descriptor.ValueType> extra = 3;
+  map<string, istio.mixer.v1.config.descriptor.ValueType> properties = 3;
 }
 
-// A set of actions defines "how the resource is accessed".
+// An action defines "how a resource is accessed".
 message Action {
   // Namespace the target action is taking place in.
   string namespace = 1;
@@ -46,14 +46,14 @@ message Action {
   // The resource within the service.
   string path = 4;
   // Additional data about the action for use in policy.
-  map<string, istio.mixer.v1.config.descriptor.ValueType> extra = 5;
+  map<string, istio.mixer.v1.config.descriptor.ValueType> properties = 5;
 }
 
 // The authorization template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
-// In this template, the who is defined in a Subject message. The what is
-// defined in the Action message. During a Mixer Check call, these values
+// In this template, the "who" is defined in a Subject message. The "what" is
+// defined in an Action message. During a Mixer Check call, these values
 // will be populated based on configuration from request attributes and
 // passed to individual authorization adapters to adjudicate.
 //
@@ -79,8 +79,9 @@ message Action {
 //      version: destination.labels[version] | ""
 //  ```
 message Template {
-  // A set of subjects
+  // A subject contains a list of attributes that identify
+  // the caller identity.
   Subject subject = 1;
-  // A set of actions
+  // An action defines "how a resource is accessed".
   Action action = 2;
 }
