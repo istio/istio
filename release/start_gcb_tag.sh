@@ -100,6 +100,9 @@ fi
 # generate the substitutions file
 echo "  \"substitutions\": {
     \"_VER_STRING\": \"${VER_STRING}\",
+    \"_MFEST_URL\": \"${REPO}\",
+    \"_MFEST_FILE\": \"${REPO_FILE}\",
+    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
     \"_GCS_SOURCE\": \"${GCS_SRC}\",
     \"_GCS_SECRET\": \"${GCS_GITHUB_SECRET}\",
     \"_ORG\": \"${REL_ORG}\",
