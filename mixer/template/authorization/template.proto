@@ -43,7 +43,7 @@ message Action {
   string service = 2;
   // What action is being taken.
   string method = 3;
-  // The resource within the service.
+  // HTTP REST path within the service
   string path = 4;
   // Additional data about the action for use in policy.
   map<string, istio.mixer.v1.config.descriptor.ValueType> properties = 5;
