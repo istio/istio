@@ -34,18 +34,27 @@ type Load struct {
 
 	// StableOrder indicates that the requests will be executed in a stable order. If not set to true, then the
 	// requests will be randomized before being sent over the wire.
+	// This is here mostly for debugging.
 	StableOrder bool `json:"stableOrder,omitempty"`
+
+	// RandomSeed is the random seed to use when randomizing load. If omitted, a time-based seed will be used.
+	// This is here mostly for debugging.
+	RandomSeed int64 `json:"randomSeed,omitempty"`
 }
 
-// MarshalJSON marshal the load as JSON.
+type loadSerializationState struct {
+	Iterations  int               `json:"iterations,omitempty"`
+	StableOrder bool              `json:"stableOrder,omitempty"`
+	RandomSeed  int64             `json:"randomSeed,omitempty"`
+	Requests    []json.RawMessage `json:"requests,omitempty"`
+}
+
+// MarshalJSON marshals the load as JSON.
 func (l *Load) MarshalJSON() ([]byte, error) {
-	tmp := struct {
-		Iterations  int               `json:"iterations,omitempty"`
-		StableOrder bool              `json:"stableOrder,omitempty"`
-		Requests    []json.RawMessage `json:"requests,omitempty"`
-	}{
+	tmp := loadSerializationState{
 		Iterations:  l.Multiplier,
 		StableOrder: l.StableOrder,
+		RandomSeed:  l.RandomSeed,
 		Requests:    make([]json.RawMessage, len(l.Requests)),
 	}
 
@@ -64,18 +73,14 @@ func (l *Load) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals the load from JSON.
 func (l *Load) UnmarshalJSON(bytes []byte) error {
-	var tmp struct {
-		Iterations  int               `json:"iterations,omitempty"`
-		StableOrder bool              `json:"stableOrder,omitempty"`
-		Requests    []json.RawMessage `json:"requests,omitempty"`
-	}
-	err := json.Unmarshal(bytes, &tmp)
-	if err != nil {
+	tmp := loadSerializationState{}
+	if err := json.Unmarshal(bytes, &tmp); err != nil {
 		return err
 	}
 
 	l.Multiplier = tmp.Iterations
 	l.StableOrder = tmp.StableOrder
+	l.RandomSeed = tmp.RandomSeed
 
 	l.Requests = make([]Request, len(tmp.Requests))
 	for i, raw := range tmp.Requests {
@@ -90,16 +95,14 @@ func (l *Load) UnmarshalJSON(bytes []byte) error {
 		switch rtmp.Type {
 		case "basicReport":
 			var r BasicReport
-			err = json.Unmarshal(raw, &r)
-			if err != nil {
+			if err = json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
 			l.Requests[i] = &r
 
 		case "basicCheck":
 			var r BasicCheck
-			err = json.Unmarshal(raw, &r)
-			if err != nil {
+			if err = json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
 			l.Requests[i] = &r
@@ -129,7 +132,11 @@ func (l *Load) createRequestProtos(c Config) []interface{} {
 
 	// Shuffle requests if StableOrder is not explicitly requested.
 	if !l.StableOrder {
-		source := rand.NewSource(time.Now().UnixNano())
+		seed := l.RandomSeed
+		if seed == 0 {
+			seed = time.Now().UnixNano()
+		}
+		source := rand.NewSource(seed)
 		random := rand.New(source)
 		for j := len(requests) - 1; j > 0; j-- {
 			k := random.Intn(j + 1)

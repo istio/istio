@@ -102,18 +102,15 @@ func initializeServerDir(setup *Setup) (string, error) {
 
 	dir := path.Join(os.TempDir(), discriminator)
 
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		return "", err
 	}
 
-	err = write(path.Join(dir, "srvc.yaml"), []byte(setup.Config.Service))
-	if err != nil {
+	if err := write(path.Join(dir, "srvc.yaml"), []byte(setup.Config.Service)); err != nil {
 		return "", err
 	}
 
-	err = write(path.Join(dir, "global.yaml"), []byte(setup.Config.Global))
-	if err != nil {
+	if err := write(path.Join(dir, "global.yaml"), []byte(setup.Config.Global)); err != nil {
 		return "", err
 	}
 
@@ -121,13 +118,14 @@ func initializeServerDir(setup *Setup) (string, error) {
 }
 
 func write(file string, bytes []byte) error {
-	f, err := os.Create(file)
-	if err != nil {
+	var f *os.File
+	var err error
+
+	if f, err = os.Create(file); err != nil {
 		return err
 	}
 
-	_, err = f.Write(bytes)
-	if err != nil {
+	if _, err = f.Write(bytes); err != nil {
 		_ = f.Close()
 		return err
 	}

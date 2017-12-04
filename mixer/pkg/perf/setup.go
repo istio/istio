@@ -21,7 +21,7 @@
 // adapter info (i.e. Env struct), along with any other Run-method specific inputs.
 //
 // The top-level struct for test declaration is the Setup struct. This contains two major fields, namely Config and Load.
-// Config field contains the full configuration needed for a Mixer Server, including global and service config Yaml files,
+// The Config field contains the full configuration needed for a Mixer Server, including global and service config Yaml files,
 // as well as the adapters and templates that should be incorporated from the ambient context. The Load section is a
 // customizable declaration of the type of the load that should be applied to Mixer during test.  There is a standard
 // set of configs/setups available in this package as well, to simplify test authoring.
@@ -37,7 +37,7 @@
 // simply start one locally. Once the ClientServer starts, it registers itself with the Controller. Once the registration
 // is done, the controller initializes the client(s) by uploading Setup for the test and giving the address of the Mixer
 // server. Then, controller commands the client(s) to execute the load, multiplied by an iteration factor which is obtained
-// from testing.B. This can happen multiple times. Finally, the controller signals the clients to gracefully shutdown
+// from testing.B. This can happen multiple times. Finally, the controller signals the clients to gracefully close
 // and ends the benchmark.
 package perf
 

@@ -46,21 +46,23 @@ func (c *client) initialize(address string, setup *Setup) error {
 	return nil
 }
 
-// shutdown indicates that the client should perform graceful shutdown and cleanup of resources and get ready
+// close indicates that the client should perform graceful close and cleanup of resources and get ready
 // to exit.
-func (c *client) shutdown() {
+func (c *client) close() (err error) {
 	if c.conn != nil {
-		_ = c.conn.Close()
+		err = c.conn.Close()
 
 		c.conn = nil
 		c.setup = nil
 		c.mixer = nil
 	}
+
+	return err
 }
 
 // run indicates that the client should execute the load against the Mixer rpc server multiple times,
 // as indicated by the iterations parameter.
-func (c *client) run(iterations int) error {
+func (c *client) run(iterations int) (err error) {
 	requests := c.setup.Load.createRequestProtos(c.setup.Config)
 
 	for i := 0; i < iterations; i++ {
@@ -68,10 +70,16 @@ func (c *client) run(iterations int) error {
 		for _, r := range requests {
 			switch r.(type) {
 			case *mixerpb.ReportRequest:
-				c.mixer.Report(context.Background(), r.(*mixerpb.ReportRequest))
+				_, e := c.mixer.Report(context.Background(), r.(*mixerpb.ReportRequest))
+				if e != nil && err == nil {
+					err = e
+				}
 
 			case *mixerpb.CheckRequest:
-				c.mixer.Check(context.Background(), r.(*mixerpb.CheckRequest))
+				_, e := c.mixer.Check(context.Background(), r.(*mixerpb.CheckRequest))
+				if e != nil && err == nil {
+					err = e
+				}
 
 			default:
 				return fmt.Errorf("unknown request type: %v", r)
@@ -79,5 +87,5 @@ func (c *client) run(iterations int) error {
 		}
 	}
 
-	return nil
+	return err
 }

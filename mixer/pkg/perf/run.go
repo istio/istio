@@ -62,7 +62,7 @@ func RunInprocess(b *testing.B, setup *Setup, env *Env) {
 	run(&testingBWrapper{b: b}, setup, env, "", false)
 }
 
-// RunCoprocess executes the benchmark by launching the mixer through another process. The process is located
+// RunCoprocess executes the benchmark by launching the Mixer through another process. The process is located
 // through an iterative search, starting with the current working directory, and using the executablePathSuffix as the
 // search suffix for executable (e.g. "bazel-bin/mixer/test/perf/perfclient/perfclient").
 func RunCoprocess(b *testing.B, setup *Setup, env *Env, executablePathSuffix string) {
@@ -72,8 +72,7 @@ func RunCoprocess(b *testing.B, setup *Setup, env *Env, executablePathSuffix str
 func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, coprocess bool) {
 
 	server := &server{}
-	err := server.initialize(setup, env)
-	if err != nil {
+	if err := server.initialize(setup, env); err != nil {
 		b.fatalf("error: %v\n", err)
 		return
 	}
@@ -99,15 +98,13 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		err = cmd.Start()
-		if err != nil {
+		if err = cmd.Start(); err != nil {
 			b.fatalf("Unable to start the remote mixer process")
 			return
 		}
 		defer func() { _ = cmd.Process.Kill() }()
 	} else {
-		_, err = NewClientServer(controller.location())
-		if err != nil {
+		if _, err = NewClientServer(controller.location()); err != nil {
 			b.fatalf("agent creation failed: '%v'", err)
 			return
 		}
@@ -115,15 +112,13 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 
 	controller.waitForClient()
 
-	err = controller.initializeClients(server.address(), setup)
-	if err != nil {
+	if err = controller.initializeClients(server.address(), setup); err != nil {
 		b.fatalf("agent initialization failed: '%v'", err)
 		return
 	}
 
 	// Do a test run first to see if there are any errors.
-	err = controller.runClients(1)
-	if err != nil {
+	if err = controller.runClients(1); err != nil {
 		b.fatalf("error during test client run: '%v'", err)
 	}
 
@@ -133,6 +128,6 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 	b.logf("completed running test: %s", b.name())
 
 	// Even though we have a deferred close for controller, do it explicitly before leaving control to perform
-	// graceful shutdown of clients during teardown.
+	// graceful close of clients during teardown.
 	controller.close()
 }

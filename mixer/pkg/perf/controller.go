@@ -47,8 +47,7 @@ func newController() (*Controller, error) {
 
 	// Setup a TCP listener at a random port.
 	var err error
-	c.listener, err = net.Listen("tcp", "127.0.0.1:")
-	if err != nil {
+	if c.listener, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
 		return nil, err
 	}
 
@@ -98,19 +97,28 @@ func (c *Controller) runClients(iterations int) error {
 	return err
 }
 
-func (c *Controller) close() {
-	log.Print("Dispatching shutdown to all clients")
+func (c *Controller) close() (err error) {
+	log.Print("Dispatching close to all clients")
 
 	for _, conn := range c.clients {
-		_ = conn.Call("ClientServer.Shutdown", struct{}{}, nil)
+		e := conn.Call("ClientServer.Shutdown", struct{}{}, nil)
+		if e != nil && err == nil {
+			err = e
+		}
 	}
 	c.clients = []*rpc.Client{}
 
-	// finally, shutdown our own rpc server.
+	// finally, close our own rpc server.
 	if c.listener != nil {
-		_ = c.listener.Close()
+		e := c.listener.Close()
+		if e != nil && err == nil {
+			err = e
+		}
+
 		c.listener = nil
 	}
+
+	return err
 }
 
 // waitForClient is a convenience method for blocking until the next available client appears.

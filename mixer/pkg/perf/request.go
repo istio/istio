@@ -54,9 +54,9 @@ func (r BasicReport) createRequestProtos(c Config) []interface{} {
 	}
 }
 
-// MarshalJSON marshal the report as JSON.
+// MarshalJSON marshals the report as JSON.
 func (r BasicReport) MarshalJSON() ([]byte, error) {
-	m := make(map[string]json.RawMessage)
+	m := make(map[string]json.RawMessage, 2)
 
 	var err error
 	m["type"], _ = json.Marshal("basicReport")
@@ -81,21 +81,19 @@ func (c BasicCheck) createRequestProtos(cfg Config) []interface{} {
 	}
 }
 
-// MarshalJSON marshal the report as JSON.
+// MarshalJSON marshals the report as JSON.
 func (c BasicCheck) MarshalJSON() ([]byte, error) {
-	m := make(map[string]json.RawMessage)
+	m := make(map[string]json.RawMessage, 3)
 
 	var err error
 	m["type"], _ = json.Marshal("basicCheck")
 
-	m["attributes"], err = json.Marshal(c.Attributes)
-	if err != nil {
+	if m["attributes"], err = json.Marshal(c.Attributes); err != nil {
 		return nil, err
 	}
 
 	if c.Quotas != nil {
-		m["quotas"], err = json.Marshal(c.Quotas)
-		if err != nil {
+		if m["quotas"], err = json.Marshal(c.Quotas); err != nil {
 			return nil, err
 		}
 	}

@@ -15,13 +15,14 @@
 package perf
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"net/rpc"
+
+	"github.com/golang/glog"
 )
 
-// ClientServer is an RPC rpcServer that the Controller connects to remotely control a Mixer perf test client.
+// ClientServer is an RPC server that the Controller connects to remotely control a Mixer perf test client.
 type ClientServer struct {
 	client *client
 
@@ -47,14 +48,12 @@ func NewClientServer(controllerLoc ServiceLocation) (*ClientServer, error) {
 		shutdown: make(chan struct{}, 1),
 	}
 
-	err := server.initializeRPCServer()
-	if err != nil {
+	if err := server.initializeRPCServer(); err != nil {
 		server.close()
 		return nil, err
 	}
 
-	err = server.registerWithController(controllerLoc)
-	if err != nil {
+	if err := server.registerWithController(controllerLoc); err != nil {
 		server.close()
 		return nil, err
 	}
@@ -63,12 +62,12 @@ func NewClientServer(controllerLoc ServiceLocation) (*ClientServer, error) {
 }
 
 func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) error {
-	log.Printf("ClientServer dialing to controller at: %s", controllerLoc)
+	glog.Infof("ClientServer dialing to controller at: %s", controllerLoc)
 	controller, err := rpc.DialHTTPPath("tcp", controllerLoc.Address, controllerLoc.Path)
 	if err != nil {
 		return err
 	}
-	log.Print("ClientServer connected to controller")
+	glog.Infof("ClientServer connected to controller")
 
 	err = controller.Call("Controller.RegisterClient", s.location(), nil)
 
@@ -79,7 +78,7 @@ func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) err
 		return err
 	}
 
-	log.Print("ClientServer registered with controller")
+	glog.Info("ClientServer registered with controller")
 	return nil
 }
 
@@ -100,7 +99,7 @@ func (s *ClientServer) initializeRPCServer() error {
 
 	go http.Serve(s.listener, nil)
 
-	log.Printf("ClientServer listening on: %s", s.location())
+	glog.Infof("ClientServer listening on: %s", s.location())
 	return nil
 }
 
@@ -119,9 +118,13 @@ func (s *ClientServer) close() {
 	}
 }
 
-// ClientServerInitParams is a collection of parameters that are passed as part of Initialize call.
+// ClientServerInitParams is a collection of parameters that are passed as part of the Initialize call.
 type ClientServerInitParams struct {
-	Setup   []byte
+
+	// Setup is the YAML-serialized setup object.
+	Setup []byte
+
+	// Address of the Mixer Server.
 	Address string
 }
 
@@ -129,11 +132,10 @@ type ClientServerInitParams struct {
 // The Mixer client connects to the server at the given address, and keeps the setup metadata to generate load during
 // upcoming run requests.
 func (s *ClientServer) Initialize(params ClientServerInitParams, _ *struct{}) error {
-	log.Printf("ClientServer initializing with server address: %s", params.Address)
+	glog.Infof("ClientServer initializing with server address: %s", params.Address)
 
 	var setup Setup
-	err := unmarshallSetup(params.Setup, &setup)
-	if err != nil {
+	if err := unmarshallSetup(params.Setup, &setup); err != nil {
 		return err
 	}
 	return s.client.initialize(params.Address, &setup)
@@ -141,8 +143,8 @@ func (s *ClientServer) Initialize(params ClientServerInitParams, _ *struct{}) er
 
 // Shutdown is a remote RPC call that is invoked by the controller after the benchmark execution has completed.
 func (s *ClientServer) Shutdown(struct{}, *struct{}) error {
-	log.Print("ClientServer shutting down")
-	s.client.shutdown()
+	glog.Info("ClientServer shutting down")
+	s.client.close()
 	s.close()
 	return nil
 }
@@ -150,6 +152,6 @@ func (s *ClientServer) Shutdown(struct{}, *struct{}) error {
 // Run is a remote RPC call that is invoked by the controller to request the mixer to run the load for the specified
 // number of iterations.
 func (s *ClientServer) Run(iterations int, _ *struct{}) error {
-	log.Printf("ClientServer running with iterations: %d", iterations)
+	glog.Infof("ClientServer running with iterations: %d", iterations)
 	return s.client.run(iterations)
 }

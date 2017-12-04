@@ -14,7 +14,7 @@
 
 package perf
 
-// Config is the Mixer server configuration tu use during perf tests.
+// Config is the Mixer server configuration to use during perf tests.
 type Config struct {
 	Global                  string `json:"global"`
 	Service                 string `json:"rpcServer"`

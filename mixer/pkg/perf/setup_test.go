@@ -55,6 +55,7 @@ config:
   rpcServer: rpcServer
 load:
   iterations: 2
+  randomSeed: 123
   requests:
   - attributes:
      baz: 42
@@ -82,6 +83,7 @@ load:
 			Load: Load{
 				Multiplier:  2,
 				StableOrder: true,
+				RandomSeed:  123,
 				Requests: []Request{
 					BasicReport{
 						Attributes: map[string]interface{}{

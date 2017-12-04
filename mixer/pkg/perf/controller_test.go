@@ -43,7 +43,10 @@ func TestControllerBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run failed")
 	}
-	c.close()
+	err = c.close()
+	if err != nil {
+		t.Fatalf("Error: %v", err)
+	}
 
 	s.Wait()
 }
