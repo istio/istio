@@ -217,7 +217,7 @@ if [[ -n "${GCS_SOURCE}" ]]; then
   fi
   if [[ "${DO_GCRHUB}" == "true" || "${DO_DOCKERHUB}" == "true" ]]; then
     mkdir -p "${UPLOAD_DIR}/docker/"
-    gsutil -m cp "gs://${GCS_SOURCE}/docker/*.tar"  "${UPLOAD_DIR}/docker/"
+    gsutil -m cp "gs://${GCS_SOURCE}/docker/*.tar.gz"  "${UPLOAD_DIR}/docker/"
   fi
   echo "Finished downloading files from GCS source"
 fi
