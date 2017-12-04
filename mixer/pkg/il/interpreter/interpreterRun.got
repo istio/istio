@@ -220,7 +220,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			LOAD_OP_CODE(t1)
 			STACK_POP2(REGISTER(t1), REGISTER(t1+1))
 
-        case il.ALoadS:
+		case il.ALoadS:
 			LOAD_OP_CODE(t1)
 			NEW_HEAP_VALUE(strings.GetString(t1), t2)
 			REGISTER(t1) = t2
@@ -262,8 +262,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.EqS:
 			STACK_UNDERFLOW_GUARD(2)
 			STACK_POP2(t1, t2)
-            GET_HEAP_VALUE_STRING(t1, tStr)
-            GET_HEAP_VALUE_STRING(t2, tStr2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
 
 			if tStr == tStr2 {
 				STACK_PUSH(1)
@@ -294,7 +294,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			LOAD_OP_CODE(t1)
 			STACK_UNDERFLOW_GUARD(1)
 			STACK_POP(t2)
-            GET_HEAP_VALUE_STRING(t2, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr)
 			if strings.GetString(t1) == tStr {
 				STACK_PUSH(1)
 			} else {
@@ -399,8 +399,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				ERRF("error converting value to string: '%v'", tVal)
 			}
-            NEW_HEAP_VALUE(tStr, t2)
-            STACK_PUSH(t2)
+			NEW_HEAP_VALUE(tStr, t2)
+			STACK_PUSH(t2)
 
 		case il.ResolveB:
 			STACK_OVERFLOW_GUARD(1)
@@ -477,8 +477,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				if !tFound {
 					ERRF("error converting value to string: '%v'", tVal)
 				}
-                NEW_HEAP_VALUE(tStr, t2)
-                STACK_PUSH(t2)
+				NEW_HEAP_VALUE(tStr, t2)
+				STACK_PUSH(t2)
 				STACK_PUSH(1)
 			}
 
@@ -743,8 +743,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			GET_HEAP_VALUE(t2, tVal)
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if tFound {
-                NEW_HEAP_VALUE(tStr, t3)
-                STACK_PUSH2(t3, 1)
+				NEW_HEAP_VALUE(tStr, t3)
+				STACK_PUSH2(t3, 1)
 			} else {
 				STACK_PUSH(0)
 			}
