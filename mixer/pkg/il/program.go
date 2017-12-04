@@ -93,7 +93,7 @@ func NewProgram() *Program {
 // need to be supplied to the interpreter separately.
 func (p *Program) AddExternDef(name string, parameters []Type, returnType Type) {
 	f := Function{
-		ID:         p.strings.GetID(name),
+		ID:         p.strings.Add(name),
 		Length:     0,
 		Address:    0,
 		Parameters: parameters,
@@ -132,7 +132,7 @@ func (p *Program) AddFunction(name string, parameters []Type, returnType Type, b
 	}
 
 	f := &Function{
-		ID:         p.strings.GetID(name),
+		ID:         p.strings.Add(name),
 		Length:     l,
 		Address:    start,
 		Parameters: parameters,

@@ -14,10 +14,6 @@
 
 package il
 
-import (
-	"sync"
-)
-
 const (
 	// allocSize is the allocation size when extending the string table.
 	allocSize  = 512
@@ -29,7 +25,6 @@ type StringTable struct {
 	stringToID map[string]uint32
 	idToString []string
 	nextID     uint32
-	lock       sync.RWMutex
 }
 
 // newStringTable creates a new StringTable.
@@ -41,27 +36,14 @@ func newStringTable() *StringTable {
 		nextID:     0,
 	}
 
-	t.GetID(nullString)
+	t.Add(nullString)
 
 	return t
 }
 
-// GetID returns the id of the given string. The string is added to the table if it doesn't exist.
-func (t *StringTable) GetID(s string) uint32 {
-
-	// Assume we can resolve this within reader lock most of the time.
-	t.lock.RLock()
+// Add adds the given string to the table, if it doesn't exit, and returns its id.
+func (t *StringTable) Add(s string) uint32 {
 	id, exists := t.stringToID[s]
-	t.lock.RUnlock()
-	if exists {
-		return id
-	}
-
-	// If not found, go into read-write lock.
-	t.lock.Lock()
-	defer t.lock.Unlock()
-
-	id, exists = t.stringToID[s]
 	if !exists {
 		id = t.nextID
 		t.nextID++
@@ -81,9 +63,7 @@ func (t *StringTable) GetID(s string) uint32 {
 
 // TryGetID returns the id of the given string if it exists, or returns 0.
 func (t *StringTable) TryGetID(s string) uint32 {
-	t.lock.RLock()
 	id, exists := t.stringToID[s]
-	t.lock.RUnlock()
 	if !exists {
 		return 0
 	}
@@ -92,14 +72,10 @@ func (t *StringTable) TryGetID(s string) uint32 {
 
 // GetString returns the string with the given id, or empty string.
 func (t *StringTable) GetString(id uint32) string {
-	t.lock.RLock()
-	defer t.lock.RUnlock()
 	return t.idToString[id]
 }
 
 // Size returns the number of entries in the table.
 func (t *StringTable) Size() int {
-	t.lock.RLock()
-	defer t.lock.RUnlock()
 	return int(t.nextID)
 }

@@ -675,7 +675,7 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 	// and pushes the result back into stack. The operation follows Go's integer addition
 	// semantics.
 	AAddI: {name: "AAddI", keyword: "aadd_i", args: []OpcodeArg{
-		// Value to add
+		// Value to Add
 		OpcodeArgInt,
 	}},
 
@@ -683,7 +683,7 @@ var opCodeInfos = map[Opcode]opcodeInfo{
 	// and pushes the result back into stack. The operation follows Go's double addition
 	// semantics.
 	AAddD: {name: "AAddD", keyword: "aadd_d", args: []OpcodeArg{
-		// Value to add
+		// Value to Add
 		OpcodeArgDouble,
 	}},
 
