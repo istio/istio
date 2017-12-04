@@ -1,3 +1,19 @@
+#!/bin/bash
+# Copyright 2017 Istio Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#                                                                                                                                                                      ################################################################################
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -53,24 +69,6 @@ function parse_json_for_string() {
   echo $RESULT
   return 0
 }
-
-
-#function parse_json_for_url() {
-#  local FILENAME=$1
-#  local URL_KEY=$2
-#  local URL_SUBSTR=$3
-#  local RESULT=""
-#  
-#  local LINE_COUNT=$(grep -c -Eo " *\"${URL_KEY}\":.*?[^\\\\]\",?" ${FILENAME})
-#  if [ "$LINE_COUNT" == "0" ]; then
-#      return 0
-#  fi
-#
-#  RESULT=$(grep -Eo " *\"${URL_KEY}\":.*${URL_SUBSTR}.*,?" ${FILENAME} | head -1 | \
-#           sed "s/ *\"${URL_KEY}\": *\"\(.*\)\",*/\1/")
-#  echo $RESULT
-#  return 0
-#}
 
 # parses file #1 for URL in key #2 that ends in ...#3/(#4)*
 function parse_json_for_url_suffix() {
