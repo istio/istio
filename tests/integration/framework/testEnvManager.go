@@ -40,8 +40,8 @@ type TestEnvManager struct {
 	skipCleanup bool
 }
 
-// NewIstioTestFramework create a TestEnvManager with a given environment and ID
-func NewIstioTestFramework(env TestEnv, id string) *TestEnvManager {
+// NewTestEnvManager create a TestEnvManager with a given environment and ID
+func NewTestEnvManager(env TestEnv, id string) *TestEnvManager {
 	return &TestEnvManager{
 		TestEnv:     env,
 		Components:  env.GetComponents(),
@@ -51,19 +51,19 @@ func NewIstioTestFramework(env TestEnv, id string) *TestEnvManager {
 }
 
 // SetUp sets up the whole environment as well brings up components
-func (framework *TestEnvManager) SetUp() (err error) {
-	if err = framework.TestEnv.Bringup(); err != nil {
+func (envManager *TestEnvManager) SetUp() (err error) {
+	if err = envManager.TestEnv.Bringup(); err != nil {
 		log.Printf("Failed to bring up environment")
 		return
 	}
-	for _, comp := range framework.Components {
+	for _, comp := range envManager.Components {
 		if err := comp.Start(); err != nil {
 			log.Printf("Failed to setup component: %s", comp.GetName())
 			return err
 		}
 	}
 
-	if ready, err := framework.IsEnvReady(); err != nil || !ready {
+	if ready, err := envManager.IsEnvReady(); err != nil || !ready {
 		err = fmt.Errorf("failed to get env ready: %s", err)
 		return err
 	}
@@ -72,13 +72,13 @@ func (framework *TestEnvManager) SetUp() (err error) {
 }
 
 // TearDown stop components and clean up environment
-func (framework *TestEnvManager) TearDown() {
-	if framework.skipCleanup {
+func (envManager *TestEnvManager) TearDown() {
+	if envManager.skipCleanup {
 		log.Println("Dev mode (--skip_cleanup), skipping cleanup")
 		return
 	}
 
-	for _, comp := range framework.Components {
+	for _, comp := range envManager.Components {
 		if alive, err := comp.IsAlive(); err != nil {
 			log.Printf("Failed to check if componment %s is alive: %s", comp.GetName(), err)
 		} else if alive {
@@ -90,11 +90,11 @@ func (framework *TestEnvManager) TearDown() {
 			log.Printf("Failed to cleanup %s: %s", comp.GetName(), err)
 		}
 	}
-	framework.TestEnv.Cleanup()
+	envManager.TestEnv.Cleanup()
 }
 
 // IsEnvReady check if the whole environment is ready for running tests
-func (framework *TestEnvManager) IsEnvReady() (bool, error) {
+func (envManager *TestEnvManager) IsEnvReady() (bool, error) {
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
@@ -103,7 +103,7 @@ func (framework *TestEnvManager) IsEnvReady() (bool, error) {
 
 	ready := false
 	retryFn := func(i int) error {
-		for _, comp := range framework.Components {
+		for _, comp := range envManager.Components {
 			if alive, err := comp.IsAlive(); err != nil {
 				return fmt.Errorf("unable to comfirm compoment %s is alive %v", comp.GetName(), err)
 			} else if !alive {
@@ -120,9 +120,9 @@ func (framework *TestEnvManager) IsEnvReady() (bool, error) {
 }
 
 // RunTest is the main entry for framework: setup, run tests and clean up
-func (framework *TestEnvManager) RunTest(m runnable) (ret int) {
-	defer framework.TearDown()
-	if err := framework.SetUp(); err != nil {
+func (envManager *TestEnvManager) RunTest(m runnable) (ret int) {
+	defer envManager.TearDown()
+	if err := envManager.SetUp(); err != nil {
 		log.Printf("Failed to setup framework: %s", err)
 		ret = 1
 	} else {

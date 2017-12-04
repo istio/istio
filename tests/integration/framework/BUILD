@@ -5,7 +5,7 @@ go_library(
     srcs = [
         "component.go",
         "environment.go",
-        "framework.go",
+        "testEnvManager.go",
         "process.go"
     ],
     visibility = ["//visibility:public"],

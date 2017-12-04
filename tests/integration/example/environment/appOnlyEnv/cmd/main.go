@@ -25,14 +25,14 @@ import (
 func main() {
 	flag.Parse()
 
-	testFW := framework.NewIstioTestFramework(env.NewAppOnlyEnv(""), "")
-	if err := testFW.SetUp(); err != nil {
+	testEM := framework.NewTestEnvManager(env.NewAppOnlyEnv(""), "")
+	if err := testEM.SetUp(); err != nil {
 		fmt.Printf("Failed to start the environment: %s\n", err)
 	} else {
 		fmt.Println("Environment is running")
 		for {
 			var input string
-			fmt.Println("Entry 'exit' to stop the environment, don't use 'crtl+C'")
+			fmt.Println("Entry 'exit' to stop the environment, don't use 'ctrl+C'")
 			fmt.Scanln(&input)
 			if input == "exit" {
 				break
@@ -40,5 +40,5 @@ func main() {
 		}
 	}
 
-	testFW.TearDown()
+	testEM.TearDown()
 }

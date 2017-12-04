@@ -37,16 +37,16 @@ const (
 )
 
 var (
-	testFW *framework.TestEnvManager
+	testEM *framework.TestEnvManager
 )
 
 func TestSample1(t *testing.T) {
-	log.Printf("Running %s", testFW.TestID)
+	log.Printf("Running %s", testEM.TestID)
 
 	var url string
-	if testFW.TestEnv.GetName() == appOnlyEnvName {
+	if testEM.TestEnv.GetName() == appOnlyEnvName {
 		url = serverEndpoint
-	} else if testFW.TestEnv.GetName() == mixerEnvoyEnvName {
+	} else if testEM.TestEnv.GetName() == mixerEnvoyEnvName {
 		url = sidecarEndpoint
 	}
 
@@ -68,19 +68,19 @@ func TestSample1(t *testing.T) {
 	if bodyReceived != testID {
 		t.Fatalf("Echo server, [%s] sent, [%s] received", testID, bodyReceived)
 	} else {
-		log.Printf("%s succeeded!", testFW.TestID)
+		log.Printf("%s succeeded!", testEM.TestID)
 	}
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	testFW = framework.NewIstioTestFramework(appOnlyEnv.NewAppOnlyEnv(appOnlyEnvName), testID)
-	res1 := testFW.RunTest(m)
+	testEM = framework.NewTestEnvManager(appOnlyEnv.NewAppOnlyEnv(appOnlyEnvName), testID)
+	res1 := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res1, appOnlyEnvName)
 
-	testFW = framework.NewIstioTestFramework(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
-	res2 := testFW.RunTest(m)
+	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	res2 := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnvName)
 
 	if res1 == 0 && res2 == 0 {

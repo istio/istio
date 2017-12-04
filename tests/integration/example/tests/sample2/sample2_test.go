@@ -33,11 +33,11 @@ const (
 )
 
 var (
-	testFW *framework.TestEnvManager
+	testEM *framework.TestEnvManager
 )
 
 func TestSample2(t *testing.T) {
-	log.Printf("Running %s", testFW.TestID)
+	log.Printf("Running %s", testEM.TestID)
 	client := &http.Client{}
 	req, _ := http.NewRequest(http.MethodGet, sidecarEndpoint, nil)
 	resp, err := client.Do(req)
@@ -57,13 +57,13 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	log.Printf("%s succeeded!", testFW.TestID)
+	log.Printf("%s succeeded!", testEM.TestID)
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testFW = framework.NewIstioTestFramework(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
-	res := testFW.RunTest(m)
+	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	res := testEM.RunTest(m)
 	log.Printf("Test result %d in env %s", res, mixerEnvoyEnvName)
 	os.Exit(res)
 }
