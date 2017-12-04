@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["secret.go"],
+    srcs = [
+        "secret.go",
+        "service.go",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//security/pkg/pki:go_default_library",
@@ -22,7 +25,10 @@ go_library(
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = ["secret_test.go"],
+    srcs = [
+        "secret_test.go",
+        "service_test.go",
+    ],
     library = ":go_default_library",
     deps = [
         "//security/pkg/pki/ca:go_default_library",

@@ -6,7 +6,7 @@ syntax = "proto3";
 /*
 Additional overview of what metric is etc..
 */
-package istio.mixer.adapter.metric;
+package istio.mixer.adapter.metricEntry;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
@@ -41,12 +41,12 @@ message Template {
     google.protobuf.Duration duration = 10;
 
     repeated Resource3 res3_list = 11;
-    map<string, Resource3> res3_map = 12;
+    map<string, istio.mixer.adapter.metricEntry.Resource3> res3_map = 12;
 }
 
 message Resource1 {
     string str = 1;
-    istio.mixer.adapter.metric.Resource1 self_ref_res1 = 3;
+    istio.mixer.adapter.metricEntry.Resource1 self_ref_res1 = 3;
     Resource2 resRef2 = 2;
 }
 

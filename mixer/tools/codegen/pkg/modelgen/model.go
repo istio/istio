@@ -68,6 +68,8 @@ type (
 		PackageName     string
 		TemplateMessage MessageInfo
 
+		OutputTemplateMessage MessageInfo
+
 		ResourceMessages []MessageInfo
 
 		// Warnings/Errors in the Template proto file.
@@ -142,6 +144,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 	m.PackageImportPath = parser.PackageImportPath
 
 	m.addTopLevelFields(templateProto)
+	valueTypeAllowedInFields := m.VarietyName != tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String()
 	// ensure Template is present
 	if tmplDesc, ok := getMsg(templateProto, "Template"); !ok {
 		m.addError(templateProto.GetName(), unknownLine, "message 'Template' not defined")
@@ -150,20 +153,39 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 			templateProto,
 			tmplDesc,
 			map[string]bool{"name": true},
+			valueTypeAllowedInFields,
 			&m.TemplateMessage,
 		)
 		m.TemplateMessage.Name = "Template"
 		m.diags = append(m.diags, diags...)
 	}
 
+	// ensure OutputTemplate is present for APA
+	if m.VarietyName == tmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR.String() {
+		if outTmplDesc, ok := getMsg(templateProto, "OutputTemplate"); !ok {
+			m.addError(templateProto.GetName(), unknownLine, "message 'OutputTemplate' not defined")
+		} else {
+			diags := addMessageFields(parser,
+				templateProto,
+				outTmplDesc,
+				map[string]bool{"name": true},
+				valueTypeAllowedInFields,
+				&m.OutputTemplateMessage,
+			)
+			m.OutputTemplateMessage.Name = "OutputTemplate"
+			m.diags = append(m.diags, diags...)
+		}
+	}
+
 	for _, resourceProto := range resourceProtos {
 		for _, desc := range resourceProto.desc {
-			if desc.GetName() != "Template" && !desc.GetOptions().GetMapEntry() {
+			if desc.GetName() != "Template" && desc.GetName() != "OutputTemplate" && !desc.GetOptions().GetMapEntry() {
 				rescMsg := MessageInfo{Name: desc.GetName()}
 				diags := addMessageFields(parser,
 					resourceProto,
 					desc,
 					map[string]bool{"name": true},
+					valueTypeAllowedInFields,
 					&rescMsg,
 				)
 				m.ResourceMessages = append(m.ResourceMessages, rescMsg)
@@ -174,7 +196,7 @@ func (m *Model) fillModel(templateProto *FileDescriptor, resourceProtos []*FileD
 }
 
 func addMessageFields(parser *FileDescriptorSetParser, fileDesc *FileDescriptor, msgDesc *Descriptor,
-	reservedNames map[string]bool, outMessage *MessageInfo) []diag {
+	reservedNames map[string]bool, valueTypeAllowed bool, outMessage *MessageInfo) []diag {
 	diags := make([]diag, 0)
 	outMessage.Comment = fileDesc.getComment(msgDesc.path)
 	outMessage.Fields = make([]FieldInfo, 0)
@@ -192,7 +214,7 @@ func addMessageFields(parser *FileDescriptorSetParser, fileDesc *FileDescriptor,
 			continue
 		}
 
-		protoTypeInfo, goTypeInfo, err := getTypeName(parser, fieldDesc)
+		protoTypeInfo, goTypeInfo, err := getTypeName(parser, fieldDesc, valueTypeAllowed)
 		if err != nil {
 			err := createError(msgDesc.file.GetName(), fileDesc.getLineNumber(getPathForField(msgDesc, i)), err.Error())
 			diags = append(diags, err)
@@ -309,8 +331,15 @@ func getMsg(fdp *FileDescriptor, msgName string) (*Descriptor, bool) {
 	return cstrDesc, cstrDesc != nil
 }
 
-func createInvalidTypeError(field string, extraErr error) error {
-	errStr := fmt.Sprintf("unsupported type for field '%s'. Supported types are '%s'", field, getAllSupportedTypes(simpleTypes))
+func createInvalidTypeError(field string, valueTypeAllowed bool, extraErr error) error {
+	var supTypes []string
+	if valueTypeAllowed {
+		supTypes = append([]string{fullProtoNameOfValueTypeEnum}, simpleTypes...)
+	} else {
+		supTypes = simpleTypes
+	}
+
+	errStr := fmt.Sprintf("unsupported type for field '%s'. Supported types are '%s'", field, getAllSupportedTypes(supTypes...))
 	if extraErr == nil {
 		return fmt.Errorf(errStr)
 	}
@@ -322,16 +351,15 @@ var simpleTypes = []string{
 	"int64",
 	"double",
 	"bool",
-	fullProtoNameOfValueTypeEnum,
 	"other messages defined within the same package",
 }
 
-func getAllSupportedTypes(simpleTypes []string) string {
+func getAllSupportedTypes(simpleTypes ...string) string {
 	return strings.Join(simpleTypes, ", ") + ", map<string, any of the listed supported types>"
 }
 
-func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto) (protoType TypeInfo, goType TypeInfo, err error) {
-	proto, golang, err := getTypeNameRec(g, field)
+func getTypeName(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (protoType TypeInfo, goType TypeInfo, err error) {
+	proto, golang, err := getTypeNameRec(g, field, valueTypeAllowed)
 	// `repeated` is not part of the type descriptor, instead it is on the field. So we have to separately set it on
 	// the TypeInfo object.
 	if err == nil && !proto.IsMap && field.IsRepeated() {
@@ -349,7 +377,8 @@ func getProtoArray(typeName string) string {
 	return "repeated " + typeName
 }
 
-func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto) (protoType TypeInfo, goType TypeInfo, err error) {
+func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescriptorProto, valueTypeAllowed bool) (
+	protoType TypeInfo, goType TypeInfo, err error) {
 	switch *field.Type {
 	case descriptor.FieldDescriptorProto_TYPE_STRING:
 		return TypeInfo{Name: "string"}, TypeInfo{Name: sSTRING}, nil
@@ -360,7 +389,7 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 	case descriptor.FieldDescriptorProto_TYPE_BOOL:
 		return TypeInfo{Name: "bool"}, TypeInfo{Name: sBOOL}, nil
 	case descriptor.FieldDescriptorProto_TYPE_ENUM:
-		if field.GetTypeName()[1:] == fullProtoNameOfValueTypeEnum {
+		if valueTypeAllowed && field.GetTypeName()[1:] == fullProtoNameOfValueTypeEnum {
 			desc := g.ObjectNamed(field.GetTypeName())
 			return TypeInfo{Name: field.GetTypeName()[1:], IsValueType: true}, TypeInfo{Name: g.TypeName(desc), IsValueType: true}, nil
 		}
@@ -374,13 +403,13 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 		if d, ok := desc.(*Descriptor); ok && d.GetOptions().GetMapEntry() {
 			keyField, valField := d.Field[0], d.Field[1]
 
-			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField)
+			protoKeyType, goKeyType, err := getTypeNameRec(g, keyField, valueTypeAllowed)
 			if err != nil {
-				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), err)
+				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
-			protoValType, goValType, err := getTypeNameRec(g, valField)
+			protoValType, goValType, err := getTypeNameRec(g, valField, valueTypeAllowed)
 			if err != nil {
-				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), err)
+				return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, err)
 			}
 
 			if protoKeyType.Name == "string" {
@@ -404,7 +433,7 @@ func getTypeNameRec(g *FileDescriptorSetParser, field *descriptor.FieldDescripto
 			return TypeInfo{Name: field.GetTypeName()[1:], IsResourceMessage: true}, TypeInfo{Name: "*" + g.TypeName(desc), IsResourceMessage: true}, nil
 		}
 	default:
-		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), nil)
+		return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 	}
-	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), nil)
+	return TypeInfo{}, TypeInfo{}, createInvalidTypeError(field.GetName(), valueTypeAllowed, nil)
 }

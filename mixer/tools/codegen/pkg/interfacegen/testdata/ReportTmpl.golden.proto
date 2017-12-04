@@ -16,12 +16,13 @@
 
 syntax = "proto3";
 
-package istio.mixer.adapter.metric;
+package istio.mixer.adapter.metricentry;
 
 import "mixer/v1/template/extensions.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
+
 
 // 
 // Overview of what metric is etc..
@@ -38,9 +39,9 @@ message Type {
   
   istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
   
-  repeated istio.mixer.adapter.metric.Resource3Type res3_list = 11;
+  repeated Resource3Type res3_list = 11;
   
-  map<string, istio.mixer.adapter.metric.Resource3Type> res3_map = 12;
+  map<string, Resource3Type> res3_map = 12;
 }
 
 
@@ -48,20 +49,20 @@ message Type {
 message Resource1Type {
   
   
-  istio.mixer.adapter.metric.Resource1Type self_ref_res1 = 3;
+  Resource1Type self_ref_res1 = 3;
   
-  istio.mixer.adapter.metric.Resource2Type resRef2 = 2;
+  Resource2Type resRef2 = 2;
 }
 
 
 message Resource2Type {
   
   
-  istio.mixer.adapter.metric.Resource3Type res3 = 2;
+  Resource3Type res3 = 2;
   
-  repeated istio.mixer.adapter.metric.Resource3Type res3_list = 4;
+  repeated Resource3Type res3_list = 4;
   
-  map<string, istio.mixer.adapter.metric.Resource3Type> res3_map = 5;
+  map<string, Resource3Type> res3_map = 5;
 }
 
 // resource3 comment
@@ -74,6 +75,7 @@ message Resource3Type {
   
   istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
 }
+
 
 
 message InstanceParam {
@@ -98,9 +100,10 @@ message InstanceParam {
   
   string duration = 10;
   
-  repeated istio.mixer.adapter.metric.Resource3InstanceParam res3_list = 11;
+  repeated Resource3InstanceParam res3_list = 11;
   
-  map<string, istio.mixer.adapter.metric.Resource3InstanceParam> res3_map = 12;
+  map<string, Resource3InstanceParam> res3_map = 12;
+  
   
 }
 
@@ -109,9 +112,9 @@ message Resource1InstanceParam {
   
   string str = 1;
   
-  istio.mixer.adapter.metric.Resource1InstanceParam self_ref_res1 = 3;
+  Resource1InstanceParam self_ref_res1 = 3;
   
-  istio.mixer.adapter.metric.Resource2InstanceParam resRef2 = 2;
+  Resource2InstanceParam resRef2 = 2;
   
 }
 
@@ -119,11 +122,11 @@ message Resource2InstanceParam {
   
   string str = 1;
   
-  istio.mixer.adapter.metric.Resource3InstanceParam res3 = 2;
+  Resource3InstanceParam res3 = 2;
   
-  repeated istio.mixer.adapter.metric.Resource3InstanceParam res3_list = 4;
+  repeated Resource3InstanceParam res3_list = 4;
   
-  map<string, istio.mixer.adapter.metric.Resource3InstanceParam> res3_map = 5;
+  map<string, Resource3InstanceParam> res3_map = 5;
   
 }
 

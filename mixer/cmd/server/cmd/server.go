@@ -255,7 +255,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	// Old and new runtime maintain their own evaluators with
 	// configs and attribute vocabularies.
 	var ilEvalForLegacy *evaluator.IL
-	var eval expr.Evaluator
+	var eval *evaluator.IL
 	var evalForLegacy expr.Evaluator
 	eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
 	if err != nil {
@@ -280,7 +280,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	if err != nil {
 		fatalf("Failed to connect to the configuration server. %v", err)
 	}
-	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), gp, adapterGP,
+	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), eval, gp, adapterGP,
 		sa.configIdentityAttribute, sa.configDefaultNamespace,
 		store2, adapterMap, info,
 	)

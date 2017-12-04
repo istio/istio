@@ -1146,6 +1146,7 @@ func TestValidateEgressRulePort(t *testing.T) {
 		{Port: 1, Protocol: "http"}:     true,
 		{Port: 2, Protocol: "https"}:    true,
 		{Port: 80, Protocol: "tcp"}:     true,
+		{Port: 1000, Protocol: "mongo"}: true,
 		{Port: 80, Protocol: "udp"}:     false,
 		{Port: 0, Protocol: "http"}:     false,
 		{Port: 65536, Protocol: "http"}: false,

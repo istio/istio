@@ -11,13 +11,13 @@
 #
 import ast
 import glob
-import json
 import os
-import re
 import subprocess
-import shutil
 
 from urlparse import urlparse
+
+import bazel_util
+import regenerate_files
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -122,13 +122,8 @@ def makelink(target, linksrc):
     os.symlink(target, linksrc)
     print "Linked ", linksrc, '-->', target
 
-
-def bazel_info(name):
-    return subprocess.check_output(["bazel", "info", name]).strip()
-
-
 def bazel_to_vendor(WKSPC):
-    WKSPC = bazel_info("workspace")
+    WKSPC = bazel_util.bazel_info("workspace")
     workspace = os.path.join(WKSPC, "WORKSPACE")
 
     if not os.path.isfile(workspace):
@@ -137,8 +132,8 @@ def bazel_to_vendor(WKSPC):
         return -1
 
     vendor = os.path.join(WKSPC, "vendor")
-    root = bazel_info("output_base")
-    genfiles = bazel_info("bazel-genfiles")
+    root = bazel_util.bazel_info("output_base")
+    genfiles = bazel_util.bazel_info("bazel-genfiles")
     genfiles_external = os.path.join(genfiles, "external")
     external = os.path.join(root, "external")
 
@@ -170,94 +165,17 @@ def bazel_to_vendor(WKSPC):
 
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
-
-    protolst = protos(WKSPC, genfiles, genfiles_external)
-    protolst.append((genfiles + "/external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
-
-    # generate manifest of generated files
-    manifest = sorted([l[0][len(genfiles)+1:] for l in protolst])
-    with open(WKSPC+"/generated_files", "wt") as fl:
-      print >>fl, "#List of generated files that are checked in"
-      for mm in manifest:
-        print >>fl, mm
-
-    # generate gometalinter config file which excludes generated files
-    with open(os.path.join(WKSPC, "lintconfig_base.json")) as fin:
-        conf = json.load(fin)
-    conf['exclude'].extend(manifest)
-    with open(os.path.join(WKSPC, "lintconfig.gen.json"), "wt") as fout:
-        json.dump(conf, fout, sort_keys=True, indent=4, separators=(',', ': '))
-
-
-    for (src, dest) in protolst:
-        try:
-            if should_copy(src, dest):
-                shutil.copyfile(src, dest)
-        except Exception as ex:
-            print src, dest, ex
+    regenerate_files.regenerate(WKSPC, genfiles)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
 
 def main(args):
-    WKSPC = os.getcwd()
+    WKSPC = bazel_util.bazel_info('workspace')
     if len(args) > 0:
         WKSPC = args[0]
 
     bazel_to_vendor(WKSPC)
-
-def should_copy(src, dest):
-    if not os.path.exists(dest):
-        return True
-    p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
-    (stdout, _) = p.communicate()
-    if src.endswith('.pb.go'):
-        # there might be diffs for 'source:' lines and others.
-        has_diff = False
-        linecount = 0
-        for l in stdout.split('\n'):
-            linecount += 1
-            if not l:
-                continue
-            if linecount < 3:
-                # first two lines are headers, skipping
-                continue
-            if l.startswith('@@ '):
-                # header for a diff chunk
-                continue
-            if l.startswith(' '):
-                # part of non-changes
-                continue
-            if re.search(r'genfiles/.*\.proto\b', l):
-                # ignoring the proto file path -- the exact file path can be different,
-                # depending on the platform.
-                continue
-            if re.search(r'// \d+ bytes of a gzipped FileDescriptorProto', l):
-                # header comment for descriptor bytes data. It can be different if the file path
-                # is different.
-                continue
-            if re.match(r'^.\s*(0x[0-9a-f][0-9a-f],\s*)+$', l):
-                # file descriptor bytes data. It can be different if the file path is different.
-                continue
-            # Other changes would be meaningful changes.
-            has_diff = True
-            break
-    else:
-        has_diff = (stdout != '')
-    return has_diff
-
-def protos(WKSPC, genfiles, genfiles_external):
-    lst = []
-    for directory, dirnames, filenames in os.walk(genfiles):
-        if directory.startswith(genfiles_external):
-            continue
-        for file in filenames:
-            if file.endswith(".go"):
-                src = os.path.join(directory, file)
-                dest = os.path.join(WKSPC, os.path.relpath(src, genfiles))
-                lst.append((src, dest))
-    return lst
-
 
 
 if __name__ == "__main__":

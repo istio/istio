@@ -168,43 +168,25 @@ func (infra *infra) setup() error {
 		},
 	}
 
-	// NOTE: InitializerConfiguration is cluster-scoped and may be
-	// created and used by other tests in the same test cluster.
 	if infra.UseInitializer {
 		if err := deploy("initializer-config.yaml.tmpl", infra.IstioNamespace); err != nil {
 			return err
 		}
-	}
-
-	// TODO - Initializer configs can block initializers from being
-	// deployed. The workaround is to explicitly set the initializer
-	// field of the deployment to an empty list, thus bypassing the
-	// initializers. This works when the deployment is first created,
-	// but Subsequent modifications with 'apply' fail with the
-	// message:
-	//
-	// 		The Deployment "istio-sidecar-initializer" is invalid:
-	// 		metadata.initializers: Invalid value: "null": field is
-	// 		immutable once initialization has completed.
-	//
-	// Delete any existing initializer deployment from previous test
-	// runs first before trying to (re)create it.
-	//
-	// See github.com/kubernetes/kubernetes/issues/49048 for k8s
-	// tracking issue.
-	if yaml, err := fill("initializer.yaml.tmpl", infra); err != nil {
-		return err
-	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
-		glog.Infof("Sidecar initializer could not be deleted: %v", err)
-	}
-
-	if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
-		return err
-	} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
-		return err
-	}
-	if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
-		return err
+		if yaml, err := fill("initializer-configmap.yaml.tmpl", &infra.InjectConfig); err != nil {
+			return err
+		} else if err = infra.kubeApply(yaml, infra.IstioNamespace); err != nil {
+			return err
+		}
+		if err := deploy("initializer.yaml.tmpl", infra.IstioNamespace); err != nil {
+			return err
+		}
+		// InitializerConfiguration will block *all* deployments and
+		// could possibly lead to timeouts when trying to create other
+		// Istio runtime components. Wait until it's pod is ready
+		// before proceeding with the test setup.
+		if _, err = util.GetAppPods(client, kubeconfig, []string{infra.IstioNamespace}); err != nil {
+			return fmt.Errorf("initialized failed to start: %v", err)
+		}
 	}
 
 	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
@@ -346,6 +328,16 @@ func (infra *infra) teardown() {
 	if infra.istioNamespaceCreated {
 		util.DeleteNamespace(client, infra.IstioNamespace)
 		infra.IstioNamespace = ""
+	}
+
+	// InitializerConfiguration is not namespaced.
+	if infra.UseInitializer {
+		if yaml, err := fill("initializer-config.yaml.tmpl", infra); err == nil {
+			glog.Infof("Sidecar initializer configuration could not be processed, "+
+				"please delete stale InitializerConfiguration : %v", err)
+		} else if err := infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
+			glog.Infof("Sidecar initializer configuration could not be deleted: %v", err)
+		}
 	}
 }
 

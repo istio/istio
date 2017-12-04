@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -141,6 +142,12 @@ func runCA() {
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
 
+	serviceController := controller.NewServiceController(cs.CoreV1(), opts.namespace,
+		func(*v1.Service) {},
+		func(*v1.Service) {},
+		func(*v1.Service, *v1.Service) {})
+	serviceController.Run(stopCh)
+
 	if opts.grpcPort > 0 {
 		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
@@ -149,9 +156,7 @@ func runCA() {
 	}
 
 	glog.Info("Istio CA has started")
-
-	<-stopCh
-	glog.Warning("Istio CA has stopped")
+	select {} // wait forever
 }
 
 func createClientset() *kubernetes.Clientset {
@@ -168,12 +173,12 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
+		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
-		return ca
+		return istioCA
 	}
 
 	var certChainBytes []byte
@@ -188,11 +193,11 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		RootCertBytes:    readFile(opts.rootCertFile),
 	}
 
-	ca, err := ca.NewIstioCA(caOpts)
+	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
-	return ca
+	return istioCA
 }
 
 func generateConfig() *rest.Config {

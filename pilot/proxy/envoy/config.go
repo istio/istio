@@ -435,6 +435,12 @@ func buildTCPListener(tcpConfig *TCPRouteConfig, ip string, port int, protocol m
 		},
 	}
 
+	// Use Envoy's TCP proxy for TCP and Redis protocols. Currently, Envoy does not support CDS clusters
+	// for Redis proxy. Once Envoy supports CDS clusters, remove the following lines
+	if protocol == model.ProtocolRedis {
+		protocol = model.ProtocolTCP
+	}
+
 	switch protocol {
 	case model.ProtocolMongo:
 		// TODO: add a watcher for /var/lib/istio/mongo/certs
@@ -890,8 +896,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	for _, rule := range egressRules {
 		for _, port := range rule.Ports {
 			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
-			if protocol != model.ProtocolHTTP && protocol != model.ProtocolHTTPS &&
-				protocol != model.ProtocolHTTP2 && protocol != model.ProtocolGRPC {
+			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
 				continue
 			}
 			intPort := int(port.Port)
@@ -930,7 +935,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 
 	for _, rule := range egressRules {
 		for _, port := range rule.Ports {
-			protocol := model.Protocol(strings.ToUpper(port.Protocol))
+			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
 			if !model.IsEgressRulesSupportedTCPProtocol(protocol) {
 				continue
 			}

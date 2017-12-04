@@ -113,7 +113,7 @@ func NewSecretController(ca ca.CertificateAuthority, core corev1.CoreV1Interface
 	return c
 }
 
-// Run starts the SecretController until stopCh is closed.
+// Run starts the SecretController until a value is sent to stopCh.
 func (sc *SecretController) Run(stopCh chan struct{}) {
 	go sc.scrtController.Run(stopCh)
 	go sc.saController.Run(stopCh)
