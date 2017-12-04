@@ -208,7 +208,7 @@ if [[ -n "${GCS_SOURCE}" ]]; then
     mkdir -p "${UPLOAD_DIR}/istioctl/"
     gsutil -m cp "gs://${GCS_SOURCE}/istioctl/istioctl-*"  "${UPLOAD_DIR}/istioctl/"
   fi
-  if [[ "${DO_GITHUB_TAG}" == "true" ]]; then
+  if [[ "${DO_GITHUB_TAG}" == "true" || "${DO_GITHUB_REL}" == "true" ]]; then
     gsutil -m cp "gs://${GCS_SOURCE}/manifest.xml" "${UPLOAD_DIR}/"
   fi
   if [[ "${DO_GITHUB_REL}" == "true" ]]; then
