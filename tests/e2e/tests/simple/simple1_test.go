@@ -32,6 +32,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/golang/glog"
 	"istio.io/fortio/fhttp"
 	"istio.io/istio/tests/e2e/framework"

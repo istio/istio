@@ -28,6 +28,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/api"
 	"github.com/prometheus/client_golang/api/prometheus/v1"

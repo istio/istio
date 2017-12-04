@@ -22,6 +22,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+
 	"github.com/golang/glog"
 	"istio.io/istio/tests/util"
 )
