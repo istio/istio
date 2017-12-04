@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	routing "istio.io/api/routing/v1alpha1"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route
@@ -39,10 +40,10 @@ func buildFaultFilters(routeConfig *HTTPRouteConfig) []HTTPFilter {
 	return faults
 }
 
-// buildFaultFilter builds a single fault filter for envoy cluster
-func buildHTTPFaultFilter(cluster string, faultRule *routing.HTTPFaultInjection, headers Headers) *HTTPFilter {
-	abort := buildAbortConfig(faultRule.Abort)
-	delay := buildDelayConfig(faultRule.Delay)
+// buildFaultFilterV1Alpha1 builds a single fault filter for envoy cluster
+func buildHTTPFaultFilterV1Alpha1(cluster string, faultRule *routing.HTTPFaultInjection, headers Headers) *HTTPFilter {
+	abort := buildAbortConfigV1Alpha1(faultRule.Abort)
+	delay := buildDelayConfigV1Alpha1(faultRule.Delay)
 	if abort == nil && delay == nil {
 		return nil
 	}
@@ -59,8 +60,28 @@ func buildHTTPFaultFilter(cluster string, faultRule *routing.HTTPFaultInjection,
 	}
 }
 
-// buildAbortConfig builds the envoy config related to abort spec in a fault filter
-func buildAbortConfig(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter {
+// buildFaultFilterV1Alpha2 builds a single fault filter for envoy cluster
+func buildHTTPFaultFilterV1Alpha2(cluster string, faultRule *routing_v1alpha2.HTTPFaultInjection, headers Headers) *HTTPFilter {
+	abort := buildAbortConfigV1Alpha2(faultRule.Abort)
+	delay := buildDelayConfigV1Alpha2(faultRule.Delay)
+	if abort == nil && delay == nil {
+		return nil
+	}
+
+	return &HTTPFilter{
+		Type: decoder,
+		Name: "fault",
+		Config: FilterFaultConfig{
+			UpstreamCluster: cluster,
+			Headers:         headers,
+			Abort:           abort,
+			Delay:           delay,
+		},
+	}
+}
+
+// buildAbortConfigV1Alpha1 builds the envoy config related to abort spec in a fault filter
+func buildAbortConfigV1Alpha1(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
 		return nil
 	}
@@ -71,8 +92,34 @@ func buildAbortConfig(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter 
 	}
 }
 
-// buildDelayConfig builds the envoy config related to delay spec in a fault filter
-func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter {
+// buildDelayConfigV1Alpha1 builds the envoy config related to delay spec in a fault filter
+func buildDelayConfigV1Alpha1(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter {
+	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
+	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
+		return nil
+	}
+
+	return &DelayFilter{
+		Type:     "fixed",
+		Percent:  int(delayRule.Percent),
+		Duration: protoDurationToMS(delayRule.GetFixedDelay()),
+	}
+}
+
+// buildAbortConfigV1Alpha2 builds the envoy config related to abort spec in a fault filter
+func buildAbortConfigV1Alpha2(abortRule *routing_v1alpha2.HTTPFaultInjection_Abort) *AbortFilter {
+	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
+		return nil
+	}
+
+	return &AbortFilter{
+		Percent:    int(abortRule.Percent),
+		HTTPStatus: int(abortRule.GetHttpStatus()),
+	}
+}
+
+// buildDelayConfigV1Alpha2 builds the envoy config related to delay spec in a fault filter
+func buildDelayConfigV1Alpha2(delayRule *routing_v1alpha2.HTTPFaultInjection_Delay) *DelayFilter {
 	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
 	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
 		return nil

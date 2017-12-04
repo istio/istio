@@ -207,7 +207,7 @@ func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *m
 	if rule.HttpFault != nil {
 		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
 		for _, c := range route.clusters {
-			if fault := buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers); fault != nil {
+			if fault := buildHTTPFaultFilterV1Alpha1(c.Name, rule.HttpFault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
 		}
@@ -285,6 +285,86 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			//	route.Cluster = route.WeightedClusters.Clusters[0].Name
 			//	route.WeightedClusters = nil
 			//}
+
+			// setup timeouts for the route
+			if http.Timeout != nil &&
+				protoDurationToMS(http.Timeout) > 0 {
+				route.TimeoutMS = protoDurationToMS(http.Timeout)
+			}
+
+			// setup retries
+			if http.Retries != nil &&
+				http.Retries.Attempts > 0 {
+				route.RetryPolicy = &RetryPolicy{
+					NumRetries: int(http.Retries.GetAttempts()),
+					Policy:     "5xx,connect-failure,refused-stream",
+				}
+				if protoDurationToMS(http.Retries.PerTryTimeout) > 0 {
+					route.RetryPolicy.PerTryTimeoutMS = protoDurationToMS(http.Retries.PerTryTimeout)
+				}
+			}
+
+			if http.Redirect != nil {
+				route.HostRedirect = http.Redirect.Authority
+				route.PathRedirect = http.Redirect.Uri
+				route.Cluster = ""
+			}
+
+			if http.Rewrite != nil {
+				route.HostRewrite = http.Rewrite.Authority
+				route.PrefixRewrite = http.Rewrite.Uri
+			}
+
+			// Add the fault filters, one per cluster defined in weighted cluster or cluster
+			if http.Fault != nil {
+				route.faults = make([]*HTTPFilter, 0, len(route.clusters))
+				for _, c := range route.clusters {
+					if fault := buildHTTPFaultFilterV1Alpha2(c.Name, http.Fault, route.Headers); fault != nil {
+						route.faults = append(route.faults, fault)
+					}
+				}
+			}
+
+			if http.Mirror != nil {
+				route.ShadowCluster = &ShadowCluster{
+					Cluster: model.ResolveFQDN(config.ConfigMeta, http.Mirror.Name),
+				}
+			}
+
+			for name, val := range http.AppendHeaders {
+				route.HeadersToAdd = append(route.HeadersToAdd, AppendedHeader{
+					Key:   name,
+					Value: val,
+				})
+			}
+
+			if http.CorsPolicy != nil {
+				route.CORSPolicy = &CORSPolicy{
+					AllowOrigin: http.CorsPolicy.AllowOrigin,
+					Enabled:     true,
+				}
+				if http.CorsPolicy.AllowCredentials != nil {
+					route.CORSPolicy.AllowCredentials = http.CorsPolicy.AllowCredentials.Value
+				}
+				if len(http.CorsPolicy.AllowHeaders) > 0 {
+					route.CORSPolicy.AllowHeaders = strings.Join(http.CorsPolicy.AllowHeaders, ",")
+				}
+				if len(http.CorsPolicy.AllowMethods) > 0 {
+					route.CORSPolicy.AllowMethods = strings.Join(http.CorsPolicy.AllowMethods, ",")
+				}
+				if len(http.CorsPolicy.ExposeHeaders) > 0 {
+					route.CORSPolicy.ExposeHeaders = strings.Join(http.CorsPolicy.ExposeHeaders, ",")
+				}
+				if http.CorsPolicy.MaxAge != nil {
+					route.CORSPolicy.MaxAge = http.CorsPolicy.MaxAge.String()
+				}
+			}
+
+			if http.WebsocketUpgrade {
+				route.WebsocketUpgrade = true
+			}
+
+			route.Decorator = buildDecorator(config)
 
 			routes = append(routes, route)
 		}
