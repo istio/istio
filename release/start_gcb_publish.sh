@@ -44,7 +44,7 @@ REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
 GCS_SRC=""
-GCS_GITHUB_SECRET="istio-secrets/github.txt"
+GCS_GITHUB_SECRET="istio-secrets/github.txt.enc"
 REL_ORG="istio"
 GCR_DST=""
 GCS_DST=""
@@ -112,8 +112,6 @@ DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 if [[ -z "${SVC_ACCT}"  ]]; then
   SVC_ACCT="${DEFAULT_SVC_ACCT}"
 fi
-
-#  cloud_publish.template.json
 
 echo "  \"substitutions\": {
     \"_VER_STRING\": \"${VER_STRING}\",
