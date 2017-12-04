@@ -67,10 +67,6 @@
  name = "github.com/apache/thrift"
  version = ">=0.9.3, <0.11.0"
 
-[[override]]
- name = "github.com/circonus-labs/circonus-gometrics"
- revision = "b25d14eeef390159289ad3e8521eff3162c59685"
-
 ### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
 ### as we cache dep ensure.
 [[constraint]]
