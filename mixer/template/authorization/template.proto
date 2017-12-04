@@ -24,7 +24,7 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
 // A subject contains a list of attributes that identify
 // the caller identity.
 message Subject {
-  // The user.
+  // The user name/ID that the subject represents.
   string user = 1;
   // Groups the subject belongs to depending on the authentication mechanism,
   // "groups" are normally populated from JWT claim or client certificate.
