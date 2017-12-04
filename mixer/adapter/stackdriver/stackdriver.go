@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/stackdriver/config/config.proto -i mixer/adapter/stackdriver/config
+
+// Package stackdriver provides an adapter that implements the logEntry and metrics
+// templates to serialize generated values to Stackdriver.
 package stackdriver
 
 import (

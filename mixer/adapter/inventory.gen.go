@@ -19,7 +19,7 @@ package adapter
 import (
 	circonus "istio.io/istio/mixer/adapter/circonus"
 	denier "istio.io/istio/mixer/adapter/denier"
-	kubernetes "istio.io/istio/mixer/adapter/kubernetesenv"
+	kubernetesenv "istio.io/istio/mixer/adapter/kubernetesenv"
 	list "istio.io/istio/mixer/adapter/list"
 	memquota "istio.io/istio/mixer/adapter/memquota"
 	noop "istio.io/istio/mixer/adapter/noop"
@@ -37,7 +37,7 @@ func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 		circonus.GetInfo,
 		denier.GetInfo,
-		kubernetes.GetInfo,
+		kubernetesenv.GetInfo,
 		list.GetInfo,
 		memquota.GetInfo,
 		noop.GetInfo,

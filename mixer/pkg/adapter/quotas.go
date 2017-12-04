@@ -17,7 +17,7 @@ package adapter
 import (
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 type (
@@ -25,7 +25,7 @@ type (
 	// QuotaArgs supplies the arguments for quota operations.
 	QuotaArgs struct {
 		// DeduplicationID is used for deduplicating quota allocation/free calls in the case of
-		// failed RPCs and retries. This should be a UUID per call, where the same
+		// failed mixpbs and retries. This should be a UUID per call, where the same
 		// UUID is used for retries of the same quota allocation or release call.
 		DeduplicationID string
 
