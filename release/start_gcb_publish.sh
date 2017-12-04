@@ -48,7 +48,7 @@ GCS_GITHUB_SECRET="istio-secrets/github.txt"
 REL_ORG="istio"
 GCR_DST=""
 GCS_DST=""
-DOCKER_DST="docker.io/istio"
+DOCKER_DST="istio" # docker.io/istio
 REL_REPO="istio"
 
 function usage() {

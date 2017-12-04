@@ -179,13 +179,13 @@ fi
 if [[ "${DO_GCRHUB}" == "true" ]]; then
   [[ -z "${GCR_DEST}" ]] && usage
   [[ -z "${VERSION}" ]] && usage
-  GCR_DEST=${GCR_DEST%/}
+  GCR_DEST=gcr.io/${GCR_DEST%/}
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" ]]; then
   [[ -z "${DOCKER_DEST}" ]] && usage
   [[ -z "${VERSION}" ]] && usage
-  DOCKER_DEST=${DOCKER_DEST%/}
+  DOCKER_DEST=docker.io/${DOCKER_DEST%/}
 fi
 
 # if GCS source dir provided then copy files to local location
