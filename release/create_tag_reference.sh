@@ -125,7 +125,7 @@ function create_tag_reference() {
     exit 1
   fi
 
-  echo "Created annotated tag ${VERSION} for SHA ${1}, result is ${TAG_SHA}"
+  echo "Created annotated tag ${VERSION} for SHA ${3} on ${1}/${2}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
   echo "{\
