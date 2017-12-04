@@ -50,7 +50,7 @@ type KubeObject runtime.Object
 
 type KubeObjectMap map[string][]runtime.Object
 
-type KubePatch []byte
+type KubePatch string
 
 type KubeObjectsPatch struct {
 	deletes map[string]KubeObject
@@ -59,7 +59,7 @@ type KubeObjectsPatch struct {
 }
 
 type ComponentPatch struct {
-	deployments_patch KubeObjectsPatch
+	deployments_patch *KubeObjectsPatch
 }
 
 func (p KubeObjectsPatch) Empty() bool {
@@ -68,15 +68,13 @@ func (p KubeObjectsPatch) Empty() bool {
 
 func (p *KubeObjectsPatch) Merge(s *KubeObjectsPatch) {
 	for k, v := range s.deletes {
-		p[k] = v.DeepCopyObject()
+		p.deletes[k] = v.DeepCopyObject()
 	}
 	for k, v := range s.creates {
-		p[k] = v.DeepCopyObject()
+		p.creates[k] = v.DeepCopyObject()
 	}
 	for k, v := range s.updates {
-		c := make([]byte, len(v))
-		copy(c, v)
-		p[k] = c
+		p.updates[k] = v
 	}
 }
 
@@ -93,7 +91,7 @@ type IstioComponents struct {
 }
 
 func (c IstioComponents) GetDeployments() []KubeObject {
-	k := make([]KubeObject, 0, 10)
+	k := make([]KubeObject, 0, len(c.deployments.Items))
 	for _, d := range c.deployments.Items {
 		o := d.DeepCopyObject()
 		k = append(k, o)
@@ -117,12 +115,12 @@ func (i KubeInstaller) Check() (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "Fail to get Istio version")
 	}
-	diff, err := CheckIstioComponents(c, version)
+	diff, err := i.CheckIstioComponents(c, version)
 	if err != nil {
 		return "", errors.Wrap(err, "Fail to check Istio components")
 	}
 	fmt.Printf("Diff in Istio components: %#v\n", diff)
-	diff, err := CheckIstioSidecar(version)
+	diff, err = i.CheckIstioSidecar(version)
 	if err != nil {
 		return "", errors.Wrap(err, "Fail to check Istio components")
 	}
@@ -130,12 +128,12 @@ func (i KubeInstaller) Check() (string, error) {
 	return version, nil
 }
 
-func (i KubeInstaller) CheckIstioComponents(c IstioComponents, version string) (*KubeObjectsPatch, error) {
+func (i KubeInstaller) CheckIstioComponents(c *IstioComponents, version string) (*KubeObjectsPatch, error) {
 	d, err := i.GetReleasedComponents(version)
 	if err != nil {
-		return "", errors.Wrap(err, "Fail to get Isio release for "+version)
+		return nil, errors.Wrap(err, "Fail to get Isio release for "+version)
 	}
-	return diffComponents(c, d)
+	return diffComponents(d, c)
 }
 
 func (i KubeInstaller) CheckIstioSidecar(version string) (*KubeObjectsPatch, error) {
@@ -144,8 +142,8 @@ func (i KubeInstaller) CheckIstioSidecar(version string) (*KubeObjectsPatch, err
 		return nil, err
 	}
 	patch := new(KubeObjectsPatch)
-	for i, d := range dl.Items {
-		p, err := fixDeploymentSpec(version, d)
+	for _, d := range dl.Items {
+		p, err := checkDeploymentSpec(&d, version)
 		if err != nil {
 			return nil, err
 		}
@@ -156,30 +154,38 @@ func (i KubeInstaller) CheckIstioSidecar(version string) (*KubeObjectsPatch, err
 	return patch, nil
 }
 
-func fixAnnotation(annotation string) (string, error) {
+func fixAnnotation(annotation, version string) (string, error) {
 	var data map[string]interface{}
 	err := json.Unmarshal([]byte(annotation), &data)
 	if err != nil {
 		return "", err
 	}
-	v, err := getIstioImageVersion(data["image"])
+	s, ok := data["image"]
+	if !ok {
+		return "", errors.New("image field not found")
+	}
+	image, ok := s.(string)
+	if !ok {
+		return "", errors.New("image field is not string")
+	}
+	v, err := getIstioImageVersion(image)
 	if err != nil {
 		return "", err
 	}
 	if v != version {
-		data["image"], err = setIstioImageVersion(data["image"], version)
+		data["image"], err = setIstioImageVersion(image, version)
 		if err != nil {
 			return "", err
 		}
 	}
-	s, err := json.Marshal(data)
+	b, err := json.Marshal(data)
 	if err != nil {
 		return "", err
 	}
-	return s, nil
+	return string(b), nil
 }
 
-func fixDeploymentSpec(version string, d *extensionsv1beta1.Deployment) (*KubeObjectsPatch, error) {
+func checkDeploymentSpec(d *extensionsv1beta1.Deployment, version string) (*KubeObjectsPatch, error) {
 	const alpha = "pod.alpha.kubernetes.io/init-containers"
 	const beta = "pod.beta.kubernetes.io/init-containers"
 	const stat = "sidecar.istio.io/status"
@@ -194,11 +200,11 @@ func fixDeploymentSpec(version string, d *extensionsv1beta1.Deployment) (*KubeOb
 		var err error
 		switch k {
 		case alpha:
-			fix, err = fixAnnotation(v)
+			fix, err = fixAnnotation(v, version)
 		case beta:
-			fix, err = fixAnnotation(v)
+			fix, err = fixAnnotation(v, version)
 		case stat:
-			fix, err = fixStat(v)
+			// fix, err = fixStat(v, version)
 		}
 		if err != nil {
 			return nil, err
@@ -211,24 +217,24 @@ func fixDeploymentSpec(version string, d *extensionsv1beta1.Deployment) (*KubeOb
 	for i, c := range d.Spec.Template.Spec.Containers {
 		if strings.Contains(c.Image, proxy) {
 			fix, err := setIstioImageVersion(c.Image, version)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if c.Image != fix {
-			o.Spec.Template.Spec.Containers[i].Image = fix
+			if err != nil {
+				return nil, err
+			}
+			if c.Image != fix {
+				o.Spec.Template.Spec.Containers[i].Image = fix
+			}
 		}
 	}
 	const init = "docker.io/istio/proxy_init"
 	for i, c := range d.Spec.Template.Spec.InitContainers {
 		if strings.Contains(c.Image, init) {
 			fix, err := setIstioImageVersion(c.Image, version)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if c.Image != fix {
-			o.Spec.Template.Spec.InitContainers[i].Image = fix
+			if err != nil {
+				return nil, err
+			}
+			if c.Image != fix {
+				o.Spec.Template.Spec.InitContainers[i].Image = fix
+			}
 		}
 	}
 	original, err := d.Marshal()
@@ -243,59 +249,124 @@ func fixDeploymentSpec(version string, d *extensionsv1beta1.Deployment) (*KubeOb
 	if err != nil {
 		return nil, err
 	}
-	patch.updates[d.Name] = p
+	patch.updates[d.Name] = KubePatch(p)
 	return patch, nil
 }
 
 // Return the patch that can be applied to objs_1
-func diffKubeObjects(objs_1 []KubeObject, objs_2 []KubeObject, dataStruct interface{}) (*KubeObjectsPatch, error) {
+func diffKubeObjects(original []KubeObject, modified []KubeObject, dataStruct interface{}) (*KubeObjectsPatch, error) {
 	p := KubeObjectsPatch{
-		creates: make(map[string]KubeObject),
-		deletes: make(map[string]KubeObject),
-		updates: make(map[string]KubePatch),
+		creates: map[string]KubeObject{},
+		deletes: map[string]KubeObject{},
+		updates: map[string]KubePatch{}}
+	m1, err := genObjectMap(original)
+	if err != nil {
+		return nil, err
 	}
-	m1 := make(map[string]KubeObject)
-	m2 := make(map[string]KubeObject)
-	for _, o := range objs_1 {
-		metaobj, ok := o.(metav1.Object)
-		if !ok {
-			return nil, errors.New("Cannot get meta obj")
-		}
-		m1[metaobj.GetName()] = o
+	m2, err := genObjectMap(modified)
+	if err != nil {
+		return nil, err
 	}
-	for _, o := range objs_2 {
-		metaobj, ok := o.(metav1.Object)
-		if !ok {
-			return nil, errors.New("Cannot get meta obj")
-		}
-		m2[metaobj.GetName()] = o
-	}
-	for k, o2 := range m2 {
-		o1, present := m1[k]
+	for k, o := range m2 {
+		_, present := m1[k]
 		if !present {
-			p.creates[k] = o2
-		} else {
-			s1, err := json.Marshal(o1)
-			s2, err := json.Marshal(o2)
-			// Reconcil current config back(s1) into original version(s2)
-			patch, err := strategicpatch.CreateThreeWayMergePatch(s2, s2, s1, dataStruct, true)
-			if err != nil {
-				return nil, err
-			}
-			p.updates[k] = patch
+			p.deletes[k] = o
 		}
 	}
 	for k, o1 := range m1 {
-		_, present := m2[k]
+		o2, present := m2[k]
 		if !present {
-			p.deletes[k] = o1
+			p.creates[k] = o1
+		} else {
+			s1, err := json.Marshal(o1)
+			if err != nil {
+				return nil, err
+			}
+			s2, err := json.Marshal(o2)
+			if err != nil {
+				return nil, err
+			}
+			patch, err := strategicpatch.CreateThreeWayMergePatch(s1, s1, s2, dataStruct, true)
+			if err != nil {
+				return nil, err
+			}
+			p.updates[k] = KubePatch(patch)
 		}
 	}
 	return &p, nil
 }
 
-func diffComponents(c1 *IstioComponents, c2 *IstioComponents) (*KubeObjectsPatch, error) {
-	patch, err := diffKubeObjects(c1.GetDeployments(), c2.GetDeployments(), extensionsv1beta1.Deployment{})
+func genObjectMap(objs []KubeObject) (map[string]KubeObject, error) {
+	m := map[string]KubeObject{}
+	for _, o := range objs {
+		metaobj, ok := o.(metav1.Object)
+		if !ok {
+			return nil, errors.New("Cannot get meta obj")
+		}
+		m[metaobj.GetName()] = o
+	}
+	return m, nil
+}
+
+// Return the patch that can be applied to modfied objects and reconcil with current objects.
+func patchKubeObjects(original, modified, current []KubeObject, dataStruct interface{}) (*KubeObjectsPatch, error) {
+	p := KubeObjectsPatch{
+		creates: map[string]KubeObject{},
+		deletes: map[string]KubeObject{},
+		updates: map[string]KubePatch{}}
+	m1, err := genObjectMap(original)
+	if err != nil {
+		return nil, err
+	}
+	m2, err := genObjectMap(modified)
+	if err != nil {
+		return nil, err
+	}
+	m3, err := genObjectMap(current)
+	if err != nil {
+		return nil, err
+	}
+	for k, o1 := range m1 {
+		_, present := m3[k]
+		if !present {
+			p.deletes[k] = o1
+		}
+	}
+	for k, o3 := range m3 {
+		o2, present := m2[k]
+		if !present {
+			p.creates[k] = o2
+		} else {
+			o1, present := m1[k]
+			if !present {
+				// Use current object to override modified.
+				o1 = o3.DeepCopyObject()
+			}
+			s1, err := json.Marshal(o1)
+			if err != nil {
+				return nil, err
+			}
+			s2, err := json.Marshal(o2)
+			if err != nil {
+				return nil, err
+			}
+			s3, err := json.Marshal(o3)
+			if err != nil {
+				return nil, err
+			}
+			patch, err := strategicpatch.CreateThreeWayMergePatch(s1, s2, s3, dataStruct, true)
+			if err != nil {
+				return nil, err
+			}
+			p.updates[k] = KubePatch(patch)
+		}
+	}
+	return &p, nil
+}
+
+func diffComponents(original *IstioComponents, modified *IstioComponents) (*KubeObjectsPatch, error) {
+	// Currently only compare deployment objects.
+	patch, err := diffKubeObjects(original.GetDeployments(), modified.GetDeployments(), extensionsv1beta1.Deployment{})
 	if err != nil {
 		return nil, err
 	}
@@ -311,19 +382,12 @@ func (i KubeInstaller) CreatePatch(version string, target string, c *IstioCompon
 	if err != nil {
 		return nil, err
 	}
-	// Creating three-way patch
-	diff1, err := diffKubeObjects(c1.GetDeployments(), c2.GetDeployments(), extensionsv1beta1.Deployment{})
-	if err != nil {
-		return nil, err
-	}
-	diff2, err := diffKubeObjects(c.GetDeployments(), c2.GetDeployments(), extensionsv1beta1.Deployment{})
-	if err != nil {
-		return nil, err
-	}
+	// Currently only patch deployment objects
 	p := new(ComponentPatch)
-	p.deployments_patch.deletes = diff1.deletes
-	p.deployments_patch.creates = diff2.creates
-	p.deployments_patch.updates = diff2.updates
+	p.deployments_patch, err = patchKubeObjects(c1.GetDeployments(), c.GetDeployments(), c2.GetDeployments(), extensionsv1beta1.Deployment{})
+	if err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -517,7 +581,7 @@ func getIstioImageVersion(image string) (string, error) {
 	if len(s) == 2 {
 		return s[1], nil
 	}
-	return "", erros.New("version tag not found")
+	return "", errors.New("version tag not found")
 }
 
 func setIstioImageVersion(image string, version string) (string, error) {
@@ -526,12 +590,12 @@ func setIstioImageVersion(image string, version string) (string, error) {
 		s[1] = version
 		return strings.Join(s, ":"), nil
 	}
-	return "", erros.New("version tag not found")
+	return "", errors.New("version tag not found")
 }
 func getIstioDeploymentVersion(d *extensionsv1beta1.Deployment) (string, error) {
 	version := ""
 	for _, container := range d.Spec.Template.Spec.Containers {
-		if strings.Contains(containe.image, "docker.io/istio") {
+		if strings.Contains(container.Image, "docker.io/istio") {
 			v, err := getIstioImageVersion(container.Image)
 			if err != nil {
 				return "", err
