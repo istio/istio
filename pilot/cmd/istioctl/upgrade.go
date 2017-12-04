@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pilot/platform/kube/inject"
 	corev1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
@@ -29,7 +30,17 @@ import (
 )
 
 const (
-	IstioNamespace = "istio-system"
+	IstioNamespace       = "istio-system"
+	IstioCoreYaml        = "install/kubernetes/istio.yaml"
+	IstioInitializerYaml = "install/kubernetes/istio-initializer.yaml"
+
+	// init container annotations
+	AlphaAnnotation = "pod.alpha.kubernetes.io/init-containers"
+	BetaAnnotation  = "pod.beta.kubernetes.io/init-containers"
+	StatAnnotation  = "sidecar.istio.io/status"
+	// proxy image name
+	ProxyImage         = "docker.io/istio/proxy"
+	InitContainerImage = "docker.io/istio/proxy_init"
 )
 
 var (
@@ -42,8 +53,10 @@ type Installer interface {
 }
 
 type ReleaseInfo struct {
-	version string
-	yamls   map[string][]byte
+	version                string
+	yamls                  map[string][]byte
+	core_components        *IstioComponents
+	initializer_components *IstioComponents
 }
 
 type KubeObject runtime.Object
@@ -185,37 +198,98 @@ func fixAnnotation(annotation, version string) (string, error) {
 	return string(b), nil
 }
 
-func checkDeploymentSpec(d *extensionsv1beta1.Deployment, version string) (*KubeObjectsPatch, error) {
-	const alpha = "pod.alpha.kubernetes.io/init-containers"
-	const beta = "pod.beta.kubernetes.io/init-containers"
-	const stat = "sidecar.istio.io/status"
+// Use istio inject logic to modify the deployment
+func addSidecarToDeploymentSpec(d *extensionsv1beta1.DeploymentSpec, version string) (*KubeObjectsPatch, error) {
+	o, ok := d.DeepCopyObject().(*extensionsv1beta1.DeploymentSpec)
+	if !ok {
+		return nil, errors.New("Cannot convert deployment")
+	}
+	p := new(inject.Params{})
+	inject.InjectIntoSpec(p, o.Template.Spec, o.Template.ObjectMeta)
+	patch := new(KubeObjectsPatch)
+	original, err := d.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	modified, err := o.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	p, err := strategicpatch.CreateTwoWayMergePatch(original, modified, extensionsv1beta1.DeploymentSpec{})
+	if err != nil {
+		return nil, err
+	}
+	patch.updates[d.Name] = KubePatch(p)
+	return patch, nil
+}
 
-	o, ok := d.DeepCopyObject().(*extensionsv1beta1.Deployment)
+func removeSidecarFromDeploymentSpec(d *extensionsv1beta1.DeploymentSpec) (*KubeObjectsPatch, error) {
+	o, ok := d.DeepCopyObject().(*extensionsv1beta1.DeploymentSpec)
 	if !ok {
 		return nil, errors.New("Cannot convert deployment")
 	}
 	patch := new(KubeObjectsPatch)
-	for k, v := range d.Spec.Template.ObjectMeta.Annotations {
-		var fix string
+	for k, v := range d.Template.ObjectMeta.Annotations {
+		if k == AlphaAnnotation || k == BetaAnnotation || k == StatAnnotation {
+			delete(o.Template.ObjectMeta.Annotations, k)
+		}
+	}
+	for i, c := range d.Template.Spec.Containers {
+		if strings.Contains(c.Image, ProxyImage) {
+			cs := o.Template.Spec.Containers
+			o.Template.Spec.Containers = append(cs[:i], cs[i:]...)
+			break
+		}
+	}
+	for i, c := range d.Template.Spec.InitContainers {
+		if strings.Contains(c.Image, init) {
+			cs := o.Template.Spec.InitContainers[i]
+			o.Template.Spec.InitContainers = append(cs[:i], cs[i:]...)
+			break
+		}
+	}
+	original, err := d.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	modified, err := o.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	p, err := strategicpatch.CreateTwoWayMergePatch(original, modified, extensionsv1beta1.DeploymentSpec{})
+	if err != nil {
+		return nil, err
+	}
+	patch.updates[d.Name] = KubePatch(p)
+	return patch, nil
+}
+
+func checkDeploymentSpec(d *extensionsv1beta1.DeploymentSpec, version string) (*KubeObjectsPatch, error) {
+	o, ok := d.DeepCopyObject().(*extensionsv1beta1.DeploymentSpec)
+	if !ok {
+		return nil, errors.New("Cannot convert deployment")
+	}
+	patch := new(KubeObjectsPatch)
+	for k, v := range d.Template.ObjectMeta.Annotations {
 		var err error
+		fix := v
 		switch k {
-		case alpha:
+		case AlphaAnnotation:
 			fix, err = fixAnnotation(v, version)
-		case beta:
+		case BetaAnnotation:
 			fix, err = fixAnnotation(v, version)
-		case stat:
+		case StatAnnotation:
 			// fix, err = fixStat(v, version)
 		}
 		if err != nil {
 			return nil, err
 		}
 		if v != fix {
-			o.Spec.Template.ObjectMeta.Annotations[k] = fix
+			o.Template.ObjectMeta.Annotations[k] = fix
 		}
 	}
-	const proxy = "docker.io/istio/proxy"
-	for i, c := range d.Spec.Template.Spec.Containers {
-		if strings.Contains(c.Image, proxy) {
+	for i, c := range d.Template.Spec.Containers {
+		if strings.Contains(c.Image, ProxyImage) {
 			fix, err := setIstioImageVersion(c.Image, version)
 			if err != nil {
 				return nil, err
@@ -225,9 +299,8 @@ func checkDeploymentSpec(d *extensionsv1beta1.Deployment, version string) (*Kube
 			}
 		}
 	}
-	const init = "docker.io/istio/proxy_init"
-	for i, c := range d.Spec.Template.Spec.InitContainers {
-		if strings.Contains(c.Image, init) {
+	for i, c := range d.Template.Spec.InitContainers {
+		if strings.Contains(c.Image, InitContainerImage) {
 			fix, err := setIstioImageVersion(c.Image, version)
 			if err != nil {
 				return nil, err
@@ -245,7 +318,7 @@ func checkDeploymentSpec(d *extensionsv1beta1.Deployment, version string) (*Kube
 	if err != nil {
 		return nil, err
 	}
-	p, err := strategicpatch.CreateTwoWayMergePatch(original, modified, extensionsv1beta1.Deployment{})
+	p, err := strategicpatch.CreateTwoWayMergePatch(original, modified, extensionsv1beta1.DeploymentSpec{})
 	if err != nil {
 		return nil, err
 	}
@@ -443,16 +516,131 @@ func (i KubeInstaller) Upgrade(target string) error {
 
 // Install the target version of Istio system onto an existing cluster
 func (i KubeInstaller) Install(target string) (string, error) {
-	return "", errors.New("Unimplemented")
+	c, err := i.GetInstalledComponents()
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to get istio components")
+	}
+	if len(c.GetDeployments()) != 0 {
+		return "", errors.New("Istio already installed.")
+	}
+	r, err := i.GetLatestRelease()
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to find latest release.")
+	}
+	err = IntallIstioComponents(r)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to install core components")
+	}
+	err = IntallSidecar(r)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to install side car")
+	}
+	return r.version, nil
+}
+
+func (i KubeInstaller) InstallIstioComponents(r *ReleaseInfo) error {
+	for _, d := range r.core_components.deployments {
+		d, err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Create(d)
+		if err != nil {
+			return err
+		}
+	}
+	for _, d := range r.initializer_components.deployments {
+		d, err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Create(d)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (i KubeInstaller) InstallSidecar(r *ReleaseInfo) error {
+	dl, err := i.client.ExtensionsV1beta1().Deployments(metav1.NamespaceDefault).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range dl.Items {
+		p, err := addSidecarToDeploymentSpec(&d)
+		if err != nil {
+			return nil, err
+		}
+		if !p.Empty() {
+			d, err := i.client.ExtensionsV1beta1().Deployments(metav1.NamespaceDefault).Patch(d.Name, v1meta1.StrategicMergePatchType, p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Uninstall Istio system from an existing cluster
 func (i KubeInstaller) Uninstall() (string, error) {
-	return "", errors.New("Unimplemented")
+	c, err := i.GetInstalledComponents()
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to get istio components")
+	}
+	version, err := getIstioVersion(c)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to get Istio version")
+	}
+	r, err := i.GetReleaseInfo(version)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to get Isio release for "+version)
+	}
+	err = i.RemoveInitializer(r)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to remove initializer")
+	}
+	err = i.RemoveSidecar()
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to remove sidecar")
+	}
+	err = i.RemoveIstioComponents(r)
+	if err != nil {
+		return "", errors.Wrap(err, "Fail to remove sidecar")
+	}
+	return version, nil
 }
 
-func (i KubeInstaller) Fix() (string, error) {
-	return "", errors.New("Unimplemented")
+func (i KubeInstaller) RemoveInitializer(r *ReleaseInfo) error {
+	for _, d := range r.initializer_components.deployments {
+		err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Delete(d.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (i KubeInstaller) RemoveIstioComponents(r *ReleaseInfo) error {
+	for _, d := range r.core_components.deployments {
+		err := i.client.ExtensionsV1beta1().Deployments(IstioNamespace).Delete(d.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (i KubeInstaller) RemoveSidecar() error {
+	dl, err := i.client.ExtensionsV1beta1().Deployments(metav1.NamespaceDefault).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range dl.Items {
+		p, err := removeSidecarFromDeploymentSpec(&d, version)
+		if err != nil {
+			return nil, err
+		}
+		if !p.Empty() {
+			d, err := i.client.ExtensionsV1beta1().Deployments(metav1.NamespaceDefault).Patch(d.Name, v1meta1.StrategicMergePatchType, p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (i KubeInstaller) GetInstalledComponents() (c *IstioComponents, err error) {
@@ -494,20 +682,41 @@ func (i KubeInstaller) GetInstalledComponents() (c *IstioComponents, err error) 
 	return c, nil
 }
 
+func (i KubeInstaller) GetReleaseInfo(version string) (r *ReleaseInfo, err error) {
+	r, ok := i.releases[version]
+	if !ok {
+		return errors.New("Release info not found.")
+	}
+	return r, nil
+}
+
 func (i KubeInstaller) GetReleasedComponents(version string) (c *IstioComponents, err error) {
-	for _, r := range i.releases {
-		if r.version == version {
-			for f, y := range r.yamls {
-				fmt.Println("Decoding " + f)
-				objs, err := decodeYamlFile(y)
-				if err != nil {
-					return nil, err
-				}
-				return decodeIstioComponents(objs)
-			}
+	r, err := i.GetReleaseInfo(version)
+	if err != nil {
+		return nil, err
+	}
+	return r.core_components, nil
+}
+
+func (r ReleaseInfo) DecodeYamlFiles() error {
+	for f, y := range r.yamls {
+		objs, err := decodeYamlFile(y)
+		if err != nil {
+			return err
+		}
+		switch f {
+		case IstioCoreYaml:
+			i.core_components, err = decodeIstioComponents(objs)
+		case IstioInitializerYaml:
+			i.initializer_components, err = decodeIstioComponents(objs)
+		default:
+			err = errors.New("Unknown yaml file")
+		}
+		if err != nil {
+			return err
 		}
 	}
-	return nil, errors.New("release data not found")
+	return nil
 }
 
 func NewKubeInstallerFromLocalPath(localpath string) (i Installer, err error) {
@@ -660,7 +869,10 @@ func getIstioVersion(c *IstioComponents) (string, error) {
 
 func readReleaseInfoLocally(path string) ([]ReleaseInfo, error) {
 	const pattern = "istio\\-*.*.*"
-	const filename = "install/kubernetes/istio.yaml"
+	var filenames = []string{
+		IstioCoreYaml,
+		IstioInitializerYaml,
+	}
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -683,12 +895,18 @@ func readReleaseInfoLocally(path string) ([]ReleaseInfo, error) {
 		// Read kubernete yaml files.
 		releases[i].version = dir[6:]
 		releases[i].yamls = make(map[string][]byte)
-		f := filepath.Join(path, dir, filename)
-		contents, err := ioutil.ReadFile(f)
+		for _, f := range filenames {
+			fp := filepath.Join(path, dir, f)
+			contents, err := ioutil.ReadFile(fp)
+			if err != nil {
+				return nil, err
+			}
+			releases[i].yamls[f] = contents
+		}
+		err = releases[i].DecodeYamlFiles()
 		if err != nil {
 			return nil, err
 		}
-		releases[i].yamls[filename] = contents
 	}
 	return releases, nil
 }
