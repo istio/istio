@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
+	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -141,6 +142,12 @@ func runCA() {
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
 
+	serviceController := controller.NewServiceController(cs.CoreV1(), opts.namespace,
+		func(*v1.Service) {},
+		func(*v1.Service) {},
+		func(*v1.Service, *v1.Service) {})
+	serviceController.Run(stopCh)
+
 	if opts.grpcPort > 0 {
 		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
@@ -149,9 +156,7 @@ func runCA() {
 	}
 
 	glog.Info("Istio CA has started")
-
-	<-stopCh
-	glog.Warning("Istio CA has stopped")
+	select {} // wait forever
 }
 
 func createClientset() *kubernetes.Clientset {
