@@ -70,6 +70,10 @@ import (
 // When the pointer to lruWrapper is finalized, this tells us to go ahead and stop the
 // evicter goroutine, which allows the lruCache instance to be collected and everything
 // ends well.
+//
+// A potential idea for the future would be to defer LRU ordering changes from being
+// done inline in Get and instead being deferred to a background goroutine. This could
+// allow Get to be read-only which would allow more concurrency.
 
 // See use of SetFinalizer below for an explanation of this weird composition
 type lruWrapper struct {

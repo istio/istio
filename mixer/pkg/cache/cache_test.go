@@ -164,6 +164,7 @@ func testCacheConcurrent(c Cache, t *testing.T) {
 
 }
 
+// WARNING: This test expects the cache to have been created with a long expiration time.
 func testCacheExpiration(c ExpiringCache, evictExpired func(time.Time), t *testing.T) {
 	now := time.Now()
 

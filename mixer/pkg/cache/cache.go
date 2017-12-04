@@ -52,7 +52,9 @@ type Stats struct {
 //
 // Using a cache is very simple:
 //
-//   c := NewLRU(5*time.Second, 5*time.Second, 500)
+//   c := NewLRU(5*time.Second,     // default per-entry ttl
+//               5*time.Second,     // eviction interval
+//               500)               // max # of entries tracked
 //   c.Set("foo", "bar")			// add an entry
 //   value, ok := c.Get("foo")		// try to retrieve the entry
 //   if ok {
