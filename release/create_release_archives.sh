@@ -24,7 +24,8 @@ set -x
 # based on those artifacts, and then stores the tar files
 # back to the directory.
 
-BASE_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
+TEMP_DIR="$(mktemp -d /tmp/istio.version.XXXX)"
+BASE_DIR="$TEMP_DIR"
 OUTPUT_PATH=""
 VER_STRING=""
 
@@ -117,3 +118,5 @@ create_linux_archive
 create_osx_archive
 create_windows_archive
 popd
+
+rm -rf $TEMP_DIR

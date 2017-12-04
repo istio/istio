@@ -30,12 +30,6 @@ set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
-KEYFILE=""
-KEYFILE_GCS=""
-KEYFILE_DECRYPT="false"
-LOCAL_DIR="$(mktemp -d /tmp/tag.XXXX)"
-KEYFILE_ENC=$LOCAL_DIR/keyfile.enc
-KEYFILE_TEMP=$LOCAL_DIR/keyfile.txt
 TOKEN=""
 
 VERSION=""
