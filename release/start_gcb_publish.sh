@@ -18,6 +18,12 @@
 # This is an example file for how to start an istio release publish
 # using Cloud Builder. To run it you need a Google Cloud project and
 # a service account that has been granted access to start a build.
+#
+# NOTE: the settings for the repo tool manifest controls which
+# script version is used to perform the tag.  This is normally
+# the same as was used to make the build, though bug fixes
+# (or a non-branching model for build automation) might involve
+# the use of something newer.
 
 set -o errexit
 set -o nounset

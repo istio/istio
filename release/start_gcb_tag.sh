@@ -18,6 +18,13 @@
 # This is an example file for how to start an istio release tag
 # using Cloud Builder. To run it you need a Google Cloud project and
 # a service account that has been granted access to start a build.
+#
+# NOTE: the settings for the repo tool manifest controls which
+# script version is used to perform the tag.  The shas used
+# in the actual tagging is controlled by the manifest.xml stored
+# in GCS (-s).  Normally the same manifest is used for both,
+# though bug fixes (or a non-branching model for build automation)
+# might involve the use of something newer.
 
 set -o errexit
 set -o nounset
