@@ -126,7 +126,7 @@ echo "  \"substitutions\": {
     \"_REPO\": \"${REL_REPO}\",
   }" >> "${SUBS_FILE}"
 
-run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_tag.template.json" \
+run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_publish.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
