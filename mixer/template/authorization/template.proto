@@ -68,14 +68,14 @@ message Action {
 //  subject:
 //    user: source.user | request.auth.token[user] | ""
 //    groups: request.auth.token[groups]
-//    extra:
+//    properties:
 //     iss: request.auth.token["iss"]
 //  action:
 //    namespace: target.namespace | "default"
 //    service: target.service | ""
 //    path: request.path | "/"
 //    method: request.method | "post"
-//    extra:
+//    properties:
 //      version: destination.labels[version] | ""
 //  ```
 message Template {
