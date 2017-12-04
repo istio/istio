@@ -341,32 +341,8 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 				})
 			}
 
-			if http.CorsPolicy != nil {
-				route.CORSPolicy = &CORSPolicy{
-					AllowOrigin: http.CorsPolicy.AllowOrigin,
-					Enabled:     true,
-				}
-				if http.CorsPolicy.AllowCredentials != nil {
-					route.CORSPolicy.AllowCredentials = http.CorsPolicy.AllowCredentials.Value
-				}
-				if len(http.CorsPolicy.AllowHeaders) > 0 {
-					route.CORSPolicy.AllowHeaders = strings.Join(http.CorsPolicy.AllowHeaders, ",")
-				}
-				if len(http.CorsPolicy.AllowMethods) > 0 {
-					route.CORSPolicy.AllowMethods = strings.Join(http.CorsPolicy.AllowMethods, ",")
-				}
-				if len(http.CorsPolicy.ExposeHeaders) > 0 {
-					route.CORSPolicy.ExposeHeaders = strings.Join(http.CorsPolicy.ExposeHeaders, ",")
-				}
-				if http.CorsPolicy.MaxAge != nil {
-					route.CORSPolicy.MaxAge = http.CorsPolicy.MaxAge.String()
-				}
-			}
-
-			if http.WebsocketUpgrade {
-				route.WebsocketUpgrade = true
-			}
-
+			route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
+			route.WebsocketUpgrade = http.WebsocketUpgrade
 			route.Decorator = buildDecorator(config)
 		}
 
@@ -382,6 +358,33 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 	}
 
 	return routes
+}
+
+func buildCORSPolicy(policy *routing_v1alpha2.CorsPolicy) *CORSPolicy {
+	if policy == nil {
+		return nil
+	}
+
+	out := &CORSPolicy{
+		AllowOrigin: policy.AllowOrigin,
+		Enabled:     true,
+	}
+	if policy.AllowCredentials != nil {
+		out.AllowCredentials = policy.AllowCredentials.Value
+	}
+	if len(policy.AllowHeaders) > 0 {
+		out.AllowHeaders = strings.Join(policy.AllowHeaders, ",")
+	}
+	if len(policy.AllowMethods) > 0 {
+		out.AllowMethods = strings.Join(policy.AllowMethods, ",")
+	}
+	if len(policy.ExposeHeaders) > 0 {
+		out.ExposeHeaders = strings.Join(policy.ExposeHeaders, ",")
+	}
+	if policy.MaxAge != nil {
+		out.MaxAge = policy.MaxAge.String()
+	}
+	return out
 }
 
 func buildCluster(address, name string, timeout *duration.Duration) *Cluster {
