@@ -35,7 +35,7 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -73,7 +73,7 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -96,7 +96,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -104,7 +104,7 @@ jobs:
                dep ensure
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.toml" }}
+          key: dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -120,7 +120,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -158,7 +158,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -187,7 +187,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -216,7 +216,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
