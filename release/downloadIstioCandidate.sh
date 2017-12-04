@@ -22,12 +22,16 @@ else
 fi
 
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
-  ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases/latest | \
-                  grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
+  TEMP_FILE="$(mktemp /tmp/istio.latest.XXXX)"
+  curl -L -s -o "$TEMP_FILE" https://api.github.com/repos/istio/istio/releases/latest
+  NAME=istio-$(grep tag_name "$TEMP_FILE" | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
+  URL=$(grep browser_download_url "$TEMP_FILE" | grep $OSEXT | sed "s/ *\"browser_download_url\": *\"\(.*\)\",*/\1/")
+  rm "$TEMP_FILE"
+else
+  NAME="istio-$ISTIO_VERSION"
+  URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 fi
 
-NAME="istio-$ISTIO_VERSION"
-URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 echo "Downloading $NAME from $URL ..."
 curl -L "$URL" | tar xz
 # TODO: change this so the version is in the tgz/directory name (users trying multiple versions)
