@@ -298,7 +298,7 @@ var (
 	RouteRuleV1Alpha2 = ProtoSchema{
 		Type:        "v1alpha2-route-rule",
 		Plural:      "v1alpha2-route-rules",
-		MessageName: "istio.routing.v2alpha1.RouteRule",
+		MessageName: "istio.routing.v1alpha2.RouteRule",
 		Validate:    ValidateRouteRuleV1Alpha2,
 	}
 
