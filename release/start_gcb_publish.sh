@@ -117,6 +117,9 @@ fi
 
 echo "  \"substitutions\": {
     \"_VER_STRING\": \"${VER_STRING}\",
+    \"_MFEST_URL\": \"${REPO}\",
+    \"_MFEST_FILE\": \"${REPO_FILE}\",
+    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
     \"_GCS_SOURCE\": \"${GCS_SRC}\",
     \"_GCR_DST\": \"${GCR_DST}\",
     \"_GCS_DST\": \"${GCS_DST}\",
