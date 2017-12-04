@@ -268,7 +268,9 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			// TODO: logic in this block is not dependent on the route match, so we may be able to avoid
 			// rerunning it N times
 
-			route.WeightedClusters = &WeightedCluster{}
+			route.WeightedClusters = &WeightedCluster{
+				Clusters: make([]*WeightedClusterEntry, 0, len(http.Route)),
+			}
 			for _, dst := range http.Route {
 				destination := defaultDestination
 				if dst.Destination != nil {
@@ -283,19 +285,17 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 					})
 			}
 
-			// TODO: rewrite to a single cluster if it's one weighted cluster
-			//if len(http.Route) == 1 {
-			//	route.Cluster = route.WeightedClusters.Clusters[0].Name
-			//	route.WeightedClusters = nil
-			//}
+			// rewrite to a single cluster if it's one weighted cluster
+			if len(http.Route) == 1 {
+				route.Cluster = route.WeightedClusters.Clusters[0].Name
+				route.WeightedClusters = nil
+			}
 
-			// setup timeouts for the route
 			if http.Timeout != nil &&
 				protoDurationToMS(http.Timeout) > 0 {
 				route.TimeoutMS = protoDurationToMS(http.Timeout)
 			}
 
-			// setup retries
 			if http.Retries != nil &&
 				http.Retries.Attempts > 0 {
 				route.RetryPolicy = &RetryPolicy{
