@@ -516,10 +516,10 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 
 		var subset bool
 		SourceLoop:
-		for _, source := range rule.Sources {
-			if source != nil {
+		for _, endpoint := range rule.Source {
+			if endpoint != nil {
 				for _, instance := range instances {
-					if Labels(source.Labels).SubsetOf(instance.Labels) {
+					if Labels(endpoint.Labels).SubsetOf(instance.Labels) {
 						subset = true
 						break SourceLoop
 					}

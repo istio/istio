@@ -368,7 +368,7 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 		routes = append(routes, route)
 	}
 	if len(rule.Http) == 0 { // TODO: how do we setup the default cluster? could be TCP
-		route := &HTTPRoute{} // TODO: match logic
+		route := &HTTPRoute{}
 		// default route for the destination
 		cluster := buildOutboundCluster(defaultDestination, port, nil)
 		route.Cluster = cluster.Name

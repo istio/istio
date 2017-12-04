@@ -619,6 +619,7 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 func newClient() (*crd.Client, error) {
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
+		model.RouteRuleV1Alpha2,
 		model.EgressRule,
 		model.DestinationPolicy,
 		model.HTTPAPISpec,
