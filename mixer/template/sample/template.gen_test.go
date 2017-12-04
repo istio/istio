@@ -843,7 +843,7 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	if strings.HasSuffix(expr2, "timestamp") {
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
-	ev, _ := evaluator.NewILEvaluator(1024, 1024)
+	ev, _ := evaluator.NewILEvaluator(1024)
 	ev.ChangeVocabulary(createAttributeDescriptorFinder(e.extraAttrManifest))
 	return ev.Eval(expr2, attrs)
 }
