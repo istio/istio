@@ -1,7 +1,7 @@
 metadataVersion: v1test
 
 description:
-  title: Istio on GKE with Deployment Manager
+  title: Istio on GKE
   version: 0.0.1
   url: 'https://istio.io/'
   tagline: Running Istio on GKE
