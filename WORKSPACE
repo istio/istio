@@ -1,4 +1,4 @@
-# dummy line 5 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+# dummy line 6 - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
@@ -91,6 +91,42 @@ go_repository(
     build_file_proto_mode = "legacy",
     commit = "1b32af207119a14b1b231d451df3ed04a72efebf",  # Sep 29, 2016 (no releases)
     importpath = "github.com/opentracing/basictracer-go",
+)
+
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
 )
 
 load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
@@ -1040,7 +1076,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "76ed00adea006e25878f20daa58c456848243999"
+ISTIO_PROXY_BUCKET = "8507d94dbc2a7de6b381a3e048348c0ce41fef48"
 
 http_file(
     name = "envoy_binary",

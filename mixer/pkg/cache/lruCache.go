@@ -61,6 +61,19 @@ import (
 // Due to the use of the time.Time.UnixNano function in this code, expiration
 // will fail after the year 2262. Sorry, you'll need to upgrade to a newer version
 // of Istio at that time :-)
+//
+// This code does some trickery with finalizers in order to avoid the need for a Close
+// method. Given the nature of this code, forgetting to call Close on one of these objects
+// can lead to a substantial permanent memory leak in a process by causing the cache to
+// remain alive forever, along with all the entries the cache points to. The use of the
+// lruWrapper type makes it so we control the exposure of the underlying lruCache pointer.
+// When the pointer to lruWrapper is finalized, this tells us to go ahead and stop the
+// evicter goroutine, which allows the lruCache instance to be collected and everything
+// ends well.
+//
+// A potential idea for the future would be to defer LRU ordering changes from being
+// done inline in Get and instead being deferred to a background goroutine. This could
+// allow Get to be read-only which would allow more concurrency.
 
 // See use of SetFinalizer below for an explanation of this weird composition
 type lruWrapper struct {
@@ -69,19 +82,20 @@ type lruWrapper struct {
 
 type lruCache struct {
 	sync.Mutex
-	entries           []lruEntry
-	sentinel          *lruEntry           // direct pointer to entries[0] to avoid bounds checking
-	lookup            map[interface{}]int // keys => entry index
+	entries           []lruEntry            // allocate once, not resizable
+	sentinel          *lruEntry             // direct pointer to entries[0] to avoid bounds checking
+	lookup            map[interface{}]int32 // keys => entry index
 	stats             Stats
 	defaultExpiration time.Duration
 	stopEvicter       chan bool
 	baseTimeNanos     int64
+	evicterTerminated bool // used by unit tests to verify the finalizer ran
 }
 
 // lruEntry is used to hold a value in the ordered lru list represented by the entry slice
 type lruEntry struct {
-	next       int         // index of next entry
-	prev       int         // index of previous entry
+	next       int32       // index of next entry
+	prev       int32       // index of previous entry
 	key        interface{} // cache key associated with this entry
 	value      interface{} // cache value associated with this entry
 	expiration int64       // nanoseconds
@@ -89,9 +103,6 @@ type lruEntry struct {
 
 // entry 0 in the slice is the sentinel node
 const sentinelIndex = 0
-
-// global variable for use by unit tests that need to verify the finalizer has run
-var lruEvictionLoopTerminated = false
 
 // NewLRU creates a new cache with an LRU and time-based eviction model.
 //
@@ -109,15 +120,15 @@ var lruEvictionLoopTerminated = false
 //
 // evictionInterval specifies the frequency at which eviction activities take
 // place. This should likely be >= 1 second.
-func NewLRU(defaultExpiration time.Duration, evictionInterval time.Duration, maxEntries int) ExpiringCache {
+func NewLRU(defaultExpiration time.Duration, evictionInterval time.Duration, maxEntries int32) ExpiringCache {
 	c := &lruCache{
 		entries:           make([]lruEntry, maxEntries+1),
-		lookup:            make(map[interface{}]int, maxEntries),
+		lookup:            make(map[interface{}]int32, maxEntries),
 		defaultExpiration: defaultExpiration,
 	}
 
 	// create the linked list of entries
-	for i := 0; i < maxEntries+1; i++ {
+	for i := int32(0); i < maxEntries+1; i++ {
 		c.entries[i].next = i + 1
 		c.entries[i].prev = i - 1
 		c.entries[i].expiration = math.MaxInt64
@@ -154,7 +165,7 @@ func (c *lruCache) evicter(evictionInterval time.Duration) {
 			c.evictExpired(now)
 		case <-c.stopEvicter:
 			ticker.Stop()
-			lruEvictionLoopTerminated = true // record this global state for the sake of unit tests
+			c.evicterTerminated = true // record this global state for the sake of unit tests
 			return
 		}
 	}
@@ -168,14 +179,15 @@ func (c *lruCache) evictExpired(t time.Time) {
 	n := t.UTC().UnixNano()
 	atomic.StoreInt64(&c.baseTimeNanos, n)
 
-	for i := 1; i < len(c.entries); i++ {
+	for i := int32(1); i < int32(len(c.entries)); i++ {
 		ent := &c.entries[i]
 
 		if ent.expiration <= n {
 			c.Lock()
 
 			if ent.expiration <= n {
-				c.remove(ent.key)
+				c.remove(i)
+				c.stats.Evictions++
 			}
 
 			c.Unlock()
@@ -183,14 +195,18 @@ func (c *lruCache) evictExpired(t time.Time) {
 	}
 }
 
-func (c *lruCache) unlinkEntry(index int) {
+func (c *lruCache) EvictExpired() {
+	c.evictExpired(time.Now())
+}
+
+func (c *lruCache) unlinkEntry(index int32) {
 	ent := &c.entries[index]
 
 	c.entries[ent.prev].next = ent.next
 	c.entries[ent.next].prev = ent.prev
 }
 
-func (c *lruCache) linkEntryAtHead(index int) {
+func (c *lruCache) linkEntryAtHead(index int32) {
 	ent := &c.entries[index]
 
 	ent.next = c.sentinel.next
@@ -199,7 +215,7 @@ func (c *lruCache) linkEntryAtHead(index int) {
 	c.sentinel.next = index
 }
 
-func (c *lruCache) linkEntryAtTail(index int) {
+func (c *lruCache) linkEntryAtTail(index int32) {
 	ent := &c.entries[index]
 
 	ent.next = sentinelIndex
@@ -219,6 +235,7 @@ func (c *lruCache) SetWithExpiration(key interface{}, value interface{}, expirat
 
 	index, ok := c.lookup[key]
 	if !ok {
+		// reclaim the tail entry
 		index = c.sentinel.prev
 		delete(c.lookup, c.entries[index].key)
 		c.lookup[key] = index
@@ -231,8 +248,9 @@ func (c *lruCache) SetWithExpiration(key interface{}, value interface{}, expirat
 	ent.value = value
 	ent.expiration = exp
 
-	c.stats.Writes++
 	c.Unlock()
+
+	atomic.AddUint64(&c.stats.Writes, 1)
 }
 
 func (c *lruCache) Get(key interface{}) (interface{}, bool) {
@@ -256,21 +274,37 @@ func (c *lruCache) Get(key interface{}) (interface{}, bool) {
 
 func (c *lruCache) Remove(key interface{}) {
 	c.Lock()
-	c.remove(key)
+
+	if index, ok := c.lookup[key]; ok {
+		c.remove(index)
+		c.stats.Removals++
+	}
+
 	c.Unlock()
 }
 
-func (c *lruCache) remove(key interface{}) {
-	if index, ok := c.lookup[key]; ok {
-		delete(c.lookup, key)
-		c.unlinkEntry(index)
-		c.linkEntryAtTail(index)
-		c.entries[index].key = nil
-		c.entries[index].value = nil
-		c.entries[index].expiration = math.MaxInt64
-	}
+func (c *lruCache) RemoveAll() {
+	for i := 1; i < len(c.entries); i++ {
+		ent := &c.entries[i]
 
-	c.stats.Writes++
+		c.Lock()
+		if ent.key != nil {
+			c.remove(int32(i))
+			c.stats.Removals++
+		}
+		c.Unlock()
+	}
+}
+
+func (c *lruCache) remove(index int32) {
+	ent := &c.entries[index]
+
+	delete(c.lookup, ent.key)
+	c.unlinkEntry(index)
+	c.linkEntryAtTail(index)
+	ent.key = nil
+	ent.value = nil
+	ent.expiration = math.MaxInt64
 }
 
 func (c *lruCache) Stats() Stats {
