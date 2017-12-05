@@ -47,7 +47,7 @@ var knownTypes = map[string]struct {
 }{
 EOF
 
-CRDS="MockConfig RouteRule RouteRuleV1Alpha2 IngressRule EgressRule DestinationPolicy HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding"
+CRDS="MockConfig RouteRule V1alpha2RouteRule IngressRule EgressRule DestinationPolicy HTTPAPISpec HTTPAPISpecBinding QuotaSpec QuotaSpecBinding"
 
 for crd in $CRDS; do
 cat << EOF

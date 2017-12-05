@@ -260,7 +260,7 @@ const (
 	IstioAPIGroup = "config.istio.io"
 
 	// IstioAPIVersion defines API group version
-	IstioAPIVersion = "v1alpha2"
+	IstioAPIVersion = "v1alpha1"
 
 	// HeaderURI is URI HTTP header
 	HeaderURI = "uri"
@@ -295,7 +295,7 @@ var (
 	}
 
 	// RouteRuleV1Alpha2 describes v1alpha2 route rules
-	RouteRuleV1Alpha2 = ProtoSchema{
+	V1alpha2RouteRule = ProtoSchema{
 		Type:        "v1alpha2-route-rule",
 		Plural:      "v1alpha2-route-rules",
 		MessageName: "istio.routing.v1alpha2.RouteRule",
@@ -361,7 +361,7 @@ var (
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
-		RouteRuleV1Alpha2,
+		V1alpha2RouteRule,
 		IngressRule,
 		EgressRule,
 		DestinationPolicy,
@@ -494,7 +494,7 @@ func (store *istioConfigStore) routeRulesV1Alpha1(instances []*ServiceInstance, 
 
 func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
-	configs, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
+	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
@@ -565,7 +565,7 @@ func (store *istioConfigStore) routeRulesByDestinationV1Alpha1(instances []*Serv
 
 func (store *istioConfigStore) routeRulesByDestinationV1Alpha2(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
-	configs, err := store.List(RouteRuleV1Alpha2.Type, NamespaceAll)
+	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}

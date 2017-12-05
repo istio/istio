@@ -107,7 +107,7 @@ var (
 
 			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
 				model.RouteRule,
-				model.RouteRuleV1Alpha2,
+				model.V1alpha2RouteRule,
 				model.EgressRule,
 				model.DestinationPolicy,
 				model.HTTPAPISpec,
