@@ -26,6 +26,10 @@ message Template {
     google.protobuf.Duration duration = 7;
 
     map<string, Resource3> res3_map = 8;
+
+    repeated bytes optionalIP = 9;
+
+    string optionalString = 10;
 }
 
 message OutputTemplate {

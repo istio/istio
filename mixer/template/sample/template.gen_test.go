@@ -29,6 +29,8 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	"net"
+
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adpTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -924,7 +926,8 @@ func (e *fakeExpr) EvalType(s string, af expr.AttributeDescriptorFinder) (pb.Val
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
 	}
-	return pb.VALUE_TYPE_UNSPECIFIED, nil
+	tc := evaluator.NewTypeChecker()
+	return tc.EvalType(s, af)
 }
 
 func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, pb.ValueType) error {
@@ -1455,6 +1458,8 @@ int64Primitive: source.int64
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.string
+optionalIP: 'ip("0.0.0.0")'
+optionalString: '"unknown"'
 dimensionsFixedInt64ValueDType:
  d1: source.int64
  d1: source.int64
@@ -1476,7 +1481,7 @@ attribute_bindings:
 		{
 			name: "InferredTypeNotMatchStaticType",
 			instYamlCfg: `
-int64Primitive: source.timeStamp
+int64Primitive: source.timestamp
 boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.string
@@ -1490,7 +1495,7 @@ attribute_bindings:
 `,
 			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
 			typeEvalError: nil,
-			wantErr:       "type checking for field 'Int64Primitive': Evaluated expression type VALUE_TYPE_UNSPECIFIED want INT64",
+			wantErr:       "type checking for field 'Int64Primitive': Evaluated expression type TIMESTAMP want INT64",
 			willPanic:     false,
 		},
 		{
@@ -1531,9 +1536,8 @@ attribute_bindings:
 `,
 			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
 			typeEvalError: nil,
-			wantErr: "type 'VALUE_TYPE_UNSPECIFIED' for attribute 'source.notfound' does not match type 'TIMESTAMP' " +
-				"for expression 'istio_mixer_adapter_sample_myapa.output.timeStamp'",
-			willPanic: false,
+			wantErr:       "error evaluating AttributeBinding expression for attribute key 'source.notfound': unknown attribute source.notfound",
+			willPanic:     false,
 		},
 		{
 			name: "InferredTypeAttrNotFoundInAttrBindingOutExpr",
@@ -1552,8 +1556,8 @@ attribute_bindings:
 `,
 			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
 			typeEvalError: nil,
-			wantErr: "type 'INT64' for attribute 'source.int64' does not match type 'VALUE_TYPE_UNSPECIFIED' for " +
-				"expression 'istio_mixer_adapter_sample_myapa.output.notfound'",
+			wantErr: "error evaluating AttributeBinding expression 'istio_mixer_adapter_sample_myapa.output.notfound' " +
+				"for attribute 'source.int64': unknown attribute istio_mixer_adapter_sample_myapa.output.notfound",
 			willPanic: false,
 		},
 	} {
@@ -1612,6 +1616,8 @@ func TestProcessApa(t *testing.T) {
 				StringPrimitive:                `"mystring"`,
 				TimeStamp:                      "request.timestamp",
 				Duration:                       "request.duration",
+				OptionalIP:                     `ip("0.0.0.0")`,
+				OptionalString:                 `""`,
 				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
 					"source2": {
@@ -1659,6 +1665,8 @@ func TestProcessApa(t *testing.T) {
 				TimeStamp:                      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
 				Duration:                       10 * time.Second,
 				DimensionsFixedInt64ValueDType: map[string]int64{"a": int64(1)},
+				OptionalIP:                     net.ParseIP("0.0.0.0"),
+				OptionalString:                 "",
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3{
 					"source2": {
 						BoolPrimitive:                  true,
@@ -1691,6 +1699,8 @@ func TestProcessApa(t *testing.T) {
 				TimeStamp:                      "request.timestamp",
 				Duration:                       "request.duration",
 				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
+				OptionalIP:                     `ip("0.0.0.0")`,
+				OptionalString:                 `""`,
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
 					"source2": {
 						BoolPrimitive:   "true",
@@ -1730,6 +1740,9 @@ func TestProcessApa(t *testing.T) {
 					t.Errorf("TestProcessApa got error = %s, want %s", err.Error(), tst.wantError)
 				}
 			} else {
+				if err != nil {
+					t.Fatalf("got error; want success: error %v", err)
+				}
 				v := (*h).(*fakeMyApaHandler).procCallInput
 				if !reflect.DeepEqual(v, tst.wantInstance) {
 					t.Errorf("Apa handler "+
