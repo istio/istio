@@ -16,9 +16,16 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -189,6 +196,12 @@ func (infra *infra) setup() error {
 		}
 	}
 
+	if infra.UseAdmissionWebhook {
+		if err := infra.createAdmissionWebhookSecret(); err != nil {
+			return err
+		}
+	}
+
 	if err := deploy("pilot.yaml.tmpl", infra.IstioNamespace); err != nil {
 		return err
 	}
@@ -313,12 +326,17 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 }
 
 func (infra *infra) teardown() {
-
 	if yaml, err := fill("rbac-beta.yaml.tmpl", infra); err != nil {
 		glog.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
 			err)
 	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
 		glog.Infof("RBAC config could could not be deleted: %v", err)
+	}
+
+	if infra.UseAdmissionWebhook {
+		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
+			glog.Infof("Could not delete admission webhook secret: %v", err)
+		}
 	}
 
 	if infra.namespaceCreated {
@@ -332,7 +350,7 @@ func (infra *infra) teardown() {
 
 	// InitializerConfiguration is not namespaced.
 	if infra.UseInitializer {
-		if yaml, err := fill("initializer-config.yaml.tmpl", infra); err == nil {
+		if yaml, err := fill("initializer-config.yaml.tmpl", infra); err != nil {
 			glog.Infof("Sidecar initializer configuration could not be processed, "+
 				"please delete stale InitializerConfiguration : %v", err)
 		} else if err := infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
@@ -457,4 +475,90 @@ func (infra *infra) deleteAllConfigs() error {
 		}
 	}
 	return nil
+}
+
+func createWebhookCerts(service, namespace string) (caCertPEM, serverCertPEM, serverKeyPEM []byte, err error) { // nolint: lll
+	var (
+		webhookCertValidFor = 365 * 24 * time.Hour
+		rsaBits             = 2048
+		maxSerialNumber     = new(big.Int).Lsh(big.NewInt(1), 128)
+
+		notBefore = time.Now()
+		notAfter  = notBefore.Add(webhookCertValidFor)
+	)
+
+	// Generate self-signed CA cert
+	caKey, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	caSerialNumber, err := rand.Int(rand.Reader, maxSerialNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	caTemplate := x509.Certificate{
+		SerialNumber:          caSerialNumber,
+		Subject:               pkix.Name{CommonName: fmt.Sprintf("%s_a", service)},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA: true,
+	}
+	caCert, err := x509.CreateCertificate(rand.Reader, &caTemplate, &caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Generate server certificate signed by self-signed CA
+	serverKey, err := rsa.GenerateKey(rand.Reader, rsaBits)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	serverSerialNumber, err := rand.Int(rand.Reader, maxSerialNumber)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	serverTemplate := x509.Certificate{
+		SerialNumber: serverSerialNumber,
+		Subject:      pkix.Name{CommonName: fmt.Sprintf("%s.%s.svc", service, namespace)},
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+	}
+	serverCert, err := x509.CreateCertificate(rand.Reader, &serverTemplate, &caTemplate, &serverKey.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// PEM encoding
+	caCertPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCert})
+	serverCertPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCert})
+	serverKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
+
+	return caCertPEM, serverCertPEM, serverKeyPEM, nil
+}
+
+func (infra *infra) createAdmissionWebhookSecret() error {
+	caCert, serverCert, serverKey, err := createWebhookCerts(infra.AdmissionServiceName, infra.IstioNamespace)
+	if err != nil {
+		return err
+	}
+	data := map[string]string{
+		"webhookName": "pilot-webhook",
+		"caCert":      base64.StdEncoding.EncodeToString(caCert),
+		"serverCert":  base64.StdEncoding.EncodeToString(serverCert),
+		"serverKey":   base64.StdEncoding.EncodeToString(serverKey),
+	}
+	yaml, err := fill("pilot-webhook-secret.yaml.tmpl", data)
+	if err != nil {
+		return err
+	}
+	return infra.kubeApply(yaml, infra.IstioNamespace)
+}
+
+func (infra *infra) deleteAdmissionWebhookSecret() error {
+	return util.Run(fmt.Sprintf("kubectl delete --kubeconfig %s -n %s secret pilot-webhook",
+		kubeconfig, infra.IstioNamespace))
 }
