@@ -26,7 +26,7 @@ import (
 
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Printf("Args: <config_path>, <server_address>\n")
+		fmt.Printf("Args: <controller_address>, <controller_rpc_path>\n")
 		return
 	}
 

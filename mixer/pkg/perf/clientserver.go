@@ -107,7 +107,11 @@ func (s *ClientServer) location() ServiceLocation {
 	return ServiceLocation{Address: s.listener.Addr().String(), Path: s.rpcPath}
 }
 
-func (s *ClientServer) close() {
+func (s *ClientServer) close() (err error) {
+	if s.client != nil {
+		err = s.client.close()
+		s.client = nil
+	}
 	if s.shutdown != nil {
 		s.shutdown <- struct{}{}
 		close(s.shutdown)
@@ -116,9 +120,10 @@ func (s *ClientServer) close() {
 		_ = s.listener.Close()
 		s.listener = nil
 	}
+	return err
 }
 
-// ClientServerInitParams is a collection of parameters that are passed as part of the Initialize call.
+// ClientServerInitParams is a collection of parameters that are passed as part of the InitializeClient call.
 type ClientServerInitParams struct {
 
 	// Setup is the YAML-serialized setup object.
@@ -128,10 +133,10 @@ type ClientServerInitParams struct {
 	Address string
 }
 
-// Initialize is a remote RPC call that is invoked by the controller to initiate setup of the client environment.
+// InitializeClient is a remote RPC call that is invoked by the controller to initiate setup of the client environment.
 // The Mixer client connects to the server at the given address, and keeps the setup metadata to generate load during
 // upcoming run requests.
-func (s *ClientServer) Initialize(params ClientServerInitParams, _ *struct{}) error {
+func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct{}) error {
 	glog.Infof("ClientServer initializing with server address: %s", params.Address)
 
 	var setup Setup

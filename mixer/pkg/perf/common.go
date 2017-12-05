@@ -62,14 +62,14 @@ func generateDebugPath(component string, a net.Addr) string {
 
 // locatePerfClientProcess will walk the directory tree and try to find the process that should be executed
 // to run perf tests in co-process mode.
-func locatePerfClientProcess(executablePathSuffix string) (string, error) {
+func locatePerfClientProcess(clientExecRelativePath string) (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 
 	for dir := wd; dir != "."; dir = path.Dir(dir) {
-		candidate := path.Join(dir, executablePathSuffix)
+		candidate := path.Join(dir, clientExecRelativePath)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}

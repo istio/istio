@@ -60,8 +60,6 @@ func (c *client) close() (err error) {
 	return err
 }
 
-// run indicates that the client should execute the load against the Mixer rpc server multiple times,
-// as indicated by the iterations parameter.
 func (c *client) run(iterations int) (err error) {
 	requests := c.setup.Load.createRequestProtos(c.setup.Config)
 

@@ -21,8 +21,8 @@ import (
 )
 
 // NewClient returns a Mixer Grpc client.
-func NewClient(address string) (mixerpb.MixerClient, *grpc.ClientConn, error) {
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+func NewClient(mixerAddr string) (mixerpb.MixerClient, *grpc.ClientConn, error) {
+	conn, err := grpc.Dial(mixerAddr, grpc.WithInsecure())
 	if err != nil {
 		return nil, nil, err
 	}

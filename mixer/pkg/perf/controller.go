@@ -21,7 +21,8 @@ import (
 	"net/rpc"
 )
 
-// Controller is the top-level perf benchmark controller. It drives the test by making calls to client(s) as necessary.
+// Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
+// load against a Mixer instance.
 type Controller struct {
 	// rpcServer is the RPC listener for the main Controller rpcServer.
 	rpcServer *rpc.Server
@@ -73,7 +74,7 @@ func (c *Controller) initializeClients(address string, setup *Setup) error {
 	params := ClientServerInitParams{Address: address, Setup: bytes}
 
 	for _, conn := range c.clients {
-		e := conn.Call("ClientServer.Initialize", params, nil)
+		e := conn.Call("ClientServer.InitializeClient", params, nil)
 		if e != nil && err == nil {
 			// Capture the first error
 			err = e
@@ -102,6 +103,10 @@ func (c *Controller) close() (err error) {
 
 	for _, conn := range c.clients {
 		e := conn.Call("ClientServer.Shutdown", struct{}{}, nil)
+		if e != nil && err == nil {
+			err = e
+		}
+		e = conn.Close()
 		if e != nil && err == nil {
 			err = e
 		}
