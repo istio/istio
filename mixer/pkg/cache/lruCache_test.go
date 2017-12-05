@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package cache
 
 import (
@@ -38,10 +39,16 @@ func TestLRUEvicter(t *testing.T) {
 	testCacheEvicter(lru, t)
 }
 
+func TestLRUEvictExpired(t *testing.T) {
+	lru := NewLRU(5*time.Second, 0, 500)
+	testCacheEvictExpired(lru, t)
+}
+
 func TestLRUFinalizer(t *testing.T) {
-	lruEvictionLoopTerminated = false
-	_ = NewLRU(5*time.Second, 1*time.Millisecond, 500)
-	testCacheFinalizer(&lruEvictionLoopTerminated, t)
+	c := NewLRU(5*time.Second, 1*time.Millisecond, 500).(*lruWrapper)
+	gate := &c.evicterTerminated
+
+	testCacheFinalizer(gate, t)
 }
 
 func TestLRUBehavior(t *testing.T) {
@@ -95,6 +102,11 @@ func BenchmarkLRUSet(b *testing.B) {
 func BenchmarkLRUSetConcurrent(b *testing.B) {
 	c := NewLRU(5*time.Minute, 1*time.Minute, 500)
 	benchmarkCacheSetConcurrent(c, b)
+}
+
+func BenchmarkLRUGetSetConcurrent(b *testing.B) {
+	c := NewLRU(5*time.Minute, 1*time.Minute, 500)
+	benchmarkCacheGetSetConcurrent(c, b)
 }
 
 func BenchmarkLRUSetRemove(b *testing.B) {
