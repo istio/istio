@@ -62,6 +62,8 @@ func buildHTTPRouteMatches(matches []*routing_v1alpha2.HTTPMatchRequest) []*HTTP
 
 	routes := make([]*HTTPRoute, 0, len(matches))
 	for _, match := range matches {
+		// TODO: stable ordering of headers
+
 		route := &HTTPRoute{}
 		for name, stringMatch := range match.Headers {
 			// TODO: skip URI, scheme, method, authority headers?
@@ -81,19 +83,16 @@ func buildHTTPRouteMatches(matches []*routing_v1alpha2.HTTPMatchRequest) []*HTTP
 			route.Prefix = "/" // default
 		}
 
-		specialHeaders := []struct {
-			Name string
-			Match *routing_v1alpha2.StringMatch
-		} {
-			{":method", match.Method},
-			{":authority", match.Authority},
-			{":scheme", match.Scheme}, // FIXME: ensure header name is valid for HTTP 1.1
+		if match.Method != nil {
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(":method", match.Method)) // TODO: add const
 		}
-		for _, specialHeader := range specialHeaders {
-			if specialHeader.Match != nil {
-				route.Headers = append(route.Headers,
-					buildHeaderV1Alpha2(specialHeader.Name, specialHeader.Match))
-			}
+
+		if match.Authority != nil {
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(":authority", match.Authority)) // TODO: add const
+		}
+
+		if match.Scheme != nil {
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(":scheme", match.Scheme)) // FIXME: ensure header name is valid for HTTP 1.1
 		}
 
 		// TODO: match.DestinationPorts
