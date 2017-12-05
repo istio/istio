@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
-function usage() {
+usage() {
     cat <<EOF
 Generate certificate suitable for use with an Istio webhook service.
 
