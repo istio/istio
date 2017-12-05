@@ -1,12 +1,6 @@
-/*
-Overview of what myapa is etc..
-*/
 syntax = "proto3";
 
-/*
-Additional overview of what myapa is etc..
-*/
-package istio.mixer.adapter.MyApa;
+package istio.mixer.adapter.sample.myApa;
 
 import "mixer/v1/template/extensions.proto";
 import "google/protobuf/duration.proto";
@@ -32,6 +26,10 @@ message Template {
     google.protobuf.Duration duration = 7;
 
     map<string, Resource3> res3_map = 8;
+
+    repeated bytes optionalIP = 9;
+
+    string optionalString = 10;
 }
 
 message OutputTemplate {
@@ -52,7 +50,7 @@ message OutputTemplate {
 
 message Resource1 {
     string str = 1;
-    istio.mixer.adapter.MyApa.Resource1 self_ref_res1 = 3;
+    Resource1 self_ref_res1 = 3;
     Resource2 resRef2 = 2;
 }
 

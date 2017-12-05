@@ -29,14 +29,16 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
+	"net"
+
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adpTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config/descriptor"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/evaluator"
+	istio_mixer_adapter_sample_myapa "istio.io/istio/mixer/template/sample/apa"
 	sample_check "istio.io/istio/mixer/template/sample/check"
 	sample_quota "istio.io/istio/mixer/template/sample/quota"
 	sample_report "istio.io/istio/mixer/template/sample/report"
@@ -72,6 +74,29 @@ func (h *fakeReportHandler) SetReportTypes(t map[string]*sample_report.Type) {
 }
 func (h *fakeReportHandler) Validate() *adapter.ConfigErrors     { return nil }
 func (h *fakeReportHandler) SetAdapterConfig(cfg adapter.Config) {}
+
+type fakeMyApaHandler struct {
+	adapter.Handler
+	retOutput     *istio_mixer_adapter_sample_myapa.Output
+	retError      error
+	cnfgCallInput interface{}
+	procCallInput interface{}
+}
+
+var _ istio_mixer_adapter_sample_myapa.Handler = &fakeMyApaHandler{}
+
+func (h *fakeMyApaHandler) Close() error { return nil }
+func (h *fakeMyApaHandler) GenerateMyApaAttributes(ctx context.Context, instance *istio_mixer_adapter_sample_myapa.Instance) (
+	*istio_mixer_adapter_sample_myapa.Output, error) {
+	h.procCallInput = instance
+	return h.retOutput, h.retError
+}
+
+func (h *fakeMyApaHandler) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+	return nil, nil
+}
+func (h *fakeMyApaHandler) Validate() *adapter.ConfigErrors     { return nil }
+func (h *fakeMyApaHandler) SetAdapterConfig(cfg adapter.Config) {}
 
 type fakeCheckHandler struct {
 	adapter.Handler
@@ -270,7 +295,7 @@ func TestBuilderSupportsTemplate(t *testing.T) {
 
 type inferTypeTest struct {
 	name          string
-	ctrCnfg       string
+	instYamlCfg   string
 	cstrParam     interface{}
 	typeEvalError error
 	wantErr       string
@@ -308,7 +333,7 @@ func TestInferTypeForSampleReport(t *testing.T) {
 	for _, tst := range []inferTypeTest{
 		{
 			name: "Valid",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -331,7 +356,7 @@ dimensions:
 		},
 		{
 			name: "ValidWithSubmsg",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -370,7 +395,7 @@ res1:
 		},
 		{
 			name: "MissingAField",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 # int64Primitive: source.int64 # missing int64Primitive
 boolPrimitive: source.bool
@@ -389,7 +414,7 @@ dimensions:
 		},
 		{
 			name: "MissingAFieldSubMsg",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -416,7 +441,7 @@ res1:
 		},
 		{
 			name: "InferredTypeNotMatchStaticType",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -435,7 +460,7 @@ dimensions:
 		},
 		{
 			name: "InferredTypeNotMatchStaticTypeSubMsg",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -462,7 +487,7 @@ res1:
 		},
 		{
 			name: "EmptyString",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -482,7 +507,7 @@ dimensions:
 
 		{
 			name: "EmptyStringSubMsg",
-			ctrCnfg: `
+			instYamlCfg: `
 value: source.int64
 int64Primitive: source.int64
 boolPrimitive: source.bool
@@ -511,15 +536,15 @@ res1:
 			willPanic:     false,
 		},
 		{
-			name:      "NotValidInstanceParam",
-			ctrCnfg:   ``,
-			cstrParam: &empty.Empty{}, // cnstr type mismatch
-			wantErr:   "is not of type",
-			willPanic: true,
+			name:        "NotValidInstanceParam",
+			instYamlCfg: ``,
+			cstrParam:   &empty.Empty{}, // cnstr type mismatch
+			wantErr:     "is not of type",
+			willPanic:   true,
 		},
 		{
 			name: "ErrorFromTypeEvaluator",
-			ctrCnfg: `
+			instYamlCfg: `
 value: response.int64
 dimensions:
   source: source.string
@@ -531,7 +556,7 @@ dimensions:
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			err := fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.instYamlCfg, cp)
 			if err != nil {
 				t.Fatalf("cannot load yaml %v", err)
 			}
@@ -566,7 +591,7 @@ func TestInferTypeForSampleCheck(t *testing.T) {
 	for _, tst := range []inferTypeTest{
 		{
 			name: "SimpleValid",
-			ctrCnfg: `
+			instYamlCfg: `
 check_expression: source.string
 timeStamp: source.timestamp
 duration: source.duration
@@ -607,15 +632,15 @@ res1:
 			},
 		},
 		{
-			name:      "NotValidInstanceParam",
-			ctrCnfg:   ``,
-			cstrParam: &empty.Empty{}, // cnstr type mismatch
-			willPanic: true,
+			name:        "NotValidInstanceParam",
+			instYamlCfg: ``,
+			cstrParam:   &empty.Empty{}, // cnstr type mismatch
+			willPanic:   true,
 		},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			err := fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.instYamlCfg, cp)
 			if err != nil {
 				t.Fatalf("cannot load yaml %v", err)
 			}
@@ -653,7 +678,7 @@ func TestInferTypeForSampleQuota(t *testing.T) {
 	for _, tst := range []inferTypeTest{
 		{
 			name: "SimpleValid",
-			ctrCnfg: `
+			instYamlCfg: `
 timeStamp: source.timestamp
 duration: source.duration
 dimensions:
@@ -684,15 +709,15 @@ res1:
 			},
 		},
 		{
-			name:      "NotValidInstanceParam",
-			ctrCnfg:   ``,
-			cstrParam: &empty.Empty{}, // cnstr type mismatch
-			wantErr:   "is not of type",
-			willPanic: true,
+			name:        "NotValidInstanceParam",
+			instYamlCfg: ``,
+			cstrParam:   &empty.Empty{}, // cnstr type mismatch
+			wantErr:     "is not of type",
+			willPanic:   true,
 		},
 		{
 			name: "ErrorFromTypeEvaluator",
-			ctrCnfg: `
+			instYamlCfg: `
 timeStamp: source.timestamp
 duration: source.duration
 dimensions:
@@ -705,7 +730,7 @@ dimensions:
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			cp := tst.cstrParam
-			err := fillProto(tst.ctrCnfg, cp)
+			err := fillProto(tst.instYamlCfg, cp)
 			if err != nil {
 				t.Fatalf("cannot load yaml %v", err)
 			}
@@ -788,16 +813,17 @@ func TestSetType(t *testing.T) {
 }
 
 type fakeExpr struct {
+	extraAttrManifest []*istio_mixer_v1_config.AttributeManifest
 }
 
 // newFakeExpr returns the basic
-func newFakeExpr() *fakeExpr {
-	return &fakeExpr{}
+func newFakeExpr(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) *fakeExpr {
+	return &fakeExpr{extraAttrManifest: extraAttrManifest}
 }
 
 // Eval evaluates given expression using the attribute bag
 func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{}, error) {
-	expr2 := strings.ToLower(mapExpression)
+	expr2 := mapExpression
 
 	if strings.HasSuffix(expr2, "string") {
 		return "", nil
@@ -818,7 +844,7 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
 	ev, _ := evaluator.NewILEvaluator(1024, 1024)
-	ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
+	ev.ChangeVocabulary(createAttributeDescriptorFinder(e.extraAttrManifest))
 	return ev.Eval(expr2, attrs)
 }
 
@@ -838,16 +864,56 @@ var baseConfig = istio_mixer_v1_config.GlobalConfig{
 				"int64.absent": {
 					ValueType: pb.INT64,
 				},
+				"source.int64": {
+					ValueType: pb.INT64,
+				},
+				"source.bool": {
+					ValueType: pb.BOOL,
+				},
+				"source.double": {
+					ValueType: pb.DOUBLE,
+				},
+				"source.string": {
+					ValueType: pb.STRING,
+				},
+				"source.timestamp": {
+					ValueType: pb.TIMESTAMP,
+				},
+				"source.duration": {
+					ValueType: pb.DURATION,
+				},
+				"source.ip": {
+					ValueType: pb.IP_ADDRESS,
+				},
 			},
 		},
 	},
 }
 
-// EvalString evaluates given expression using the attribute bag to a string
-func (e *fakeExpr) EvalString(ex string, attrs attribute.Bag) (string, error) {
-	ev, _ := evaluator.NewILEvaluator(1024, 1024)
-	ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
-	return ev.EvalString(ex, attrs)
+// attributeFinder exposes expr.AttributeDescriptorFinder
+type attributeFinder struct {
+	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
+}
+
+// GetAttribute finds an attribute by name.
+// This function is only called when a new handler is instantiated.
+func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.AttributeManifest_AttributeInfo {
+	return a.attrs[name]
+}
+
+func createAttributeDescriptorFinder(extraAttrManifest []*istio_mixer_v1_config.AttributeManifest) expr.AttributeDescriptorFinder {
+	attrs := make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo)
+	for _, m := range baseConfig.Manifests {
+		for an, at := range m.Attributes {
+			attrs[an] = at
+		}
+	}
+	for _, m := range extraAttrManifest {
+		for an, at := range m.Attributes {
+			attrs[an] = at
+		}
+	}
+	return &attributeFinder{attrs: attrs}
 }
 
 // EvalPredicate evaluates given predicate using the attribute bag
@@ -855,9 +921,15 @@ func (e *fakeExpr) EvalPredicate(mapExpression string, attrs attribute.Bag) (boo
 	return true, nil
 }
 
-func (e *fakeExpr) EvalType(string, expr.AttributeDescriptorFinder) (pb.ValueType, error) {
-	return pb.VALUE_TYPE_UNSPECIFIED, nil
+func (e *fakeExpr) EvalType(s string, af expr.AttributeDescriptorFinder) (pb.ValueType, error) {
+	//return pb.VALUE_TYPE_UNSPECIFIED, nil
+	if i := af.GetAttribute(s); i != nil {
+		return i.ValueType, nil
+	}
+	tc := evaluator.NewTypeChecker()
+	return tc.EvalType(s, af)
 }
+
 func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, pb.ValueType) error {
 	return nil
 }
@@ -1116,7 +1188,7 @@ func TestProcessReport(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			err := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(context.TODO(), tst.insts, fakeBag{}, newFakeExpr(), *h)
+			err := SupportedTmplInfo[sample_report.TemplateName].ProcessReport(context.TODO(), tst.insts, fakeBag{}, newFakeExpr(nil), *h)
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
@@ -1230,7 +1302,7 @@ func TestProcessCheck(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, newFakeExpr(), *h)
+			res, err := SupportedTmplInfo[sample_check.TemplateName].ProcessCheck(context.TODO(), tst.instName, tst.inst, fakeBag{}, newFakeExpr(nil), *h)
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
 					t.Errorf("ProcessCheckSample got error = %s, want %s", err.Error(), tst.wantError)
@@ -1356,10 +1428,8 @@ func TestProcessQuota(t *testing.T) {
 	} {
 		t.Run(tst.name, func(t *testing.T) {
 			h := &tst.hdlr
-			ev, _ := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
-			ev.ChangeVocabulary(descriptor.NewFinder(&baseConfig))
 			res, err := SupportedTmplInfo[sample_quota.TemplateName].ProcessQuota(context.TODO(), tst.instName,
-				tst.inst, fakeBag{}, newFakeExpr(), *h, adapter.QuotaArgs{})
+				tst.inst, fakeBag{}, newFakeExpr(nil), *h, adapter.QuotaArgs{})
 
 			if tst.wantError != "" {
 				if !strings.Contains(err.Error(), tst.wantError) {
@@ -1373,6 +1443,321 @@ func TestProcessQuota(t *testing.T) {
 				}
 				if !reflect.DeepEqual(tst.wantQuotaResult, res) {
 					t.Errorf("ProcessQuotaSample result = %v want %v", res, spew.Sdump(tst.wantQuotaResult))
+				}
+			}
+		})
+	}
+}
+
+func TestInferTypeForApa(t *testing.T) {
+	for _, tst := range []inferTypeTest{
+		{
+			name: "Valid",
+			instYamlCfg: `
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+optionalIP: 'ip("0.0.0.0")'
+optionalString: '"unknown"'
+dimensionsFixedInt64ValueDType:
+ d1: source.int64
+ d1: source.int64
+timeStamp: source.timestamp
+duration: source.duration
+attribute_bindings:
+  source.int64: $out.int64Primitive
+  source.bool: $out.boolPrimitive
+  source.double: $out.doublePrimitive
+  source.string: $out.stringPrimitive
+  source.timestamp: $out.timeStamp
+  source.duration: $out.duration
+`,
+			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "",
+			willPanic:     false,
+		},
+		{
+			name: "InferredTypeNotMatchStaticType",
+			instYamlCfg: `
+int64Primitive: source.timestamp
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+dimensionsFixedInt64ValueDType:
+ d1: source.int64
+ d1: source.int64
+timeStamp: source.timestamp
+duration: source.duration
+attribute_bindings:
+  source.int64: $out.int64Primitive
+`,
+			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "type checking for field 'Int64Primitive': Evaluated expression type TIMESTAMP want INT64",
+			willPanic:     false,
+		},
+		{
+			name: "InferredTypeNotMatchInAttrBinding",
+			instYamlCfg: `
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+dimensionsFixedInt64ValueDType:
+ d1: source.int64
+ d1: source.int64
+timeStamp: source.timestamp
+duration: source.duration
+attribute_bindings:
+  source.int64: $out.timeStamp
+`,
+			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
+			typeEvalError: nil,
+			wantErr: "type 'INT64' for attribute 'source.int64' does not match type 'TIMESTAMP' for expression " +
+				"'istio_mixer_adapter_sample_myapa.output.timeStamp'",
+			willPanic: false,
+		},
+		{
+			name: "InferredTypeAttrNotFoundInAttrBinding",
+			instYamlCfg: `
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+dimensionsFixedInt64ValueDType:
+ d1: source.int64
+ d1: source.int64
+timeStamp: source.timestamp
+duration: source.duration
+attribute_bindings:
+  source.notfound: $out.timeStamp
+`,
+			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
+			typeEvalError: nil,
+			wantErr:       "error evaluating AttributeBinding expression for attribute key 'source.notfound': unknown attribute source.notfound",
+			willPanic:     false,
+		},
+		{
+			name: "InferredTypeAttrNotFoundInAttrBindingOutExpr",
+			instYamlCfg: `
+int64Primitive: source.int64
+boolPrimitive: source.bool
+doublePrimitive: source.double
+stringPrimitive: source.string
+dimensionsFixedInt64ValueDType:
+ d1: source.int64
+ d1: source.int64
+timeStamp: source.timestamp
+duration: source.duration
+attribute_bindings:
+  source.int64: $out.notfound
+`,
+			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
+			typeEvalError: nil,
+			wantErr: "error evaluating AttributeBinding expression 'istio_mixer_adapter_sample_myapa.output.notfound' " +
+				"for attribute 'source.int64': unknown attribute istio_mixer_adapter_sample_myapa.output.notfound",
+			willPanic: false,
+		},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			cp := tst.cstrParam
+			err := fillProto(tst.instYamlCfg, cp)
+			if err != nil {
+				t.Fatalf("cannot load yaml %v", err)
+			}
+			_ = getExprEvalFunc(tst.typeEvalError)
+			defer func() {
+				r := recover()
+				if tst.willPanic && r == nil {
+					t.Errorf("Expected to recover from panic for %s, but recover was nil.", tst.name)
+				} else if !tst.willPanic && r != nil {
+					t.Errorf("got panic %v, expected success.", r)
+				}
+			}()
+			ex := newFakeExpr(SupportedTmplInfo[istio_mixer_adapter_sample_myapa.TemplateName].AttributeManifests)
+			cv, cerr := SupportedTmplInfo[istio_mixer_adapter_sample_myapa.TemplateName].InferType(cp.(proto.Message), func(s string) (pb.ValueType, error) {
+				return ex.EvalType(s, createAttributeDescriptorFinder(SupportedTmplInfo[istio_mixer_adapter_sample_myapa.TemplateName].AttributeManifests))
+			})
+			if tst.wantErr == "" {
+				if cerr != nil {
+					t.Errorf("got err %v\nwant <nil>", cerr)
+				}
+				if cv != nil {
+					t.Errorf("cv should be nil, there should be no type for apa instances")
+				}
+			} else {
+				if cerr == nil || !strings.Contains(cerr.Error(), tst.wantErr) {
+					t.Errorf("got error %v\nwant %v", cerr, tst.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestProcessApa(t *testing.T) {
+	for _, tst := range []struct {
+		name         string
+		instName     string
+		instParam    proto.Message
+		wantInstance interface{}
+		hdlr         adapter.Handler
+		wantOutAttrs map[string]interface{}
+		wantError    string
+	}{
+		{
+			name:     "Valid",
+			instName: "foo",
+			instParam: &istio_mixer_adapter_sample_myapa.InstanceParam{
+				BoolPrimitive:                  "true",
+				DoublePrimitive:                "1.2",
+				Int64Primitive:                 "54362",
+				StringPrimitive:                `"mystring"`,
+				TimeStamp:                      "request.timestamp",
+				Duration:                       "request.duration",
+				OptionalIP:                     `ip("0.0.0.0")`,
+				OptionalString:                 `""`,
+				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
+				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
+					"source2": {
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+				AttributeBindings: map[string]string{
+					"source.myint64Primitive":  "$out.int64Primitive",
+					"source.myboolPrimitive":   "$out.boolPrimitive",
+					"source.mydoublePrimitive": "$out.doublePrimitive",
+					"source.mystring":          "$out.stringPrimitive",
+					"source.mytimeStamp":       "$out.timeStamp",
+					"source.myduration":        "$out.duration",
+				},
+			},
+			hdlr: &fakeMyApaHandler{
+				retOutput: &istio_mixer_adapter_sample_myapa.Output{
+					BoolPrimitive:   true,
+					DoublePrimitive: 1237,
+					StringPrimitive: "1237",
+					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					Duration:        10 * time.Second,
+					Int64Primitive:  1237,
+				},
+			},
+			wantOutAttrs: map[string]interface{}{
+				"source.mystring":          "1237",
+				"source.mytimeStamp":       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+				"source.myduration":        10 * time.Second,
+				"source.myint64Primitive":  int64(1237),
+				"source.myboolPrimitive":   true,
+				"source.mydoublePrimitive": float64(1237),
+			},
+			wantInstance: &istio_mixer_adapter_sample_myapa.Instance{
+				Name:                           "foo",
+				BoolPrimitive:                  true,
+				DoublePrimitive:                1.2,
+				Int64Primitive:                 54362,
+				StringPrimitive:                "mystring",
+				TimeStamp:                      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+				Duration:                       10 * time.Second,
+				DimensionsFixedInt64ValueDType: map[string]int64{"a": int64(1)},
+				OptionalIP:                     net.ParseIP("0.0.0.0"),
+				OptionalString:                 "",
+				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3{
+					"source2": {
+						BoolPrimitive:                  true,
+						DoublePrimitive:                1.2,
+						Int64Primitive:                 54362,
+						StringPrimitive:                "mystring",
+						TimeStamp:                      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+						Duration:                       10 * time.Second,
+						DimensionsFixedInt64ValueDType: map[string]int64{},
+					},
+				},
+			},
+		},
+		{
+			name:     "EvalError",
+			instName: "foo",
+			instParam: &istio_mixer_adapter_sample_myapa.InstanceParam{
+				Int64Primitive: "bad.attribute",
+			},
+			wantError: "unknown attribute bad.attribute",
+		},
+		{
+			name:     "ProcessError",
+			instName: "foo",
+			instParam: &istio_mixer_adapter_sample_myapa.InstanceParam{
+				BoolPrimitive:                  "true",
+				DoublePrimitive:                "1.2",
+				Int64Primitive:                 "54362",
+				StringPrimitive:                `"mystring"`,
+				TimeStamp:                      "request.timestamp",
+				Duration:                       "request.duration",
+				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
+				OptionalIP:                     `ip("0.0.0.0")`,
+				OptionalString:                 `""`,
+				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
+					"source2": {
+						BoolPrimitive:   "true",
+						DoublePrimitive: "1.2",
+						Int64Primitive:  "54362",
+						StringPrimitive: `"mystring"`,
+						TimeStamp:       "request.timestamp",
+						Duration:        "request.duration",
+					},
+				},
+				AttributeBindings: map[string]string{
+					"source.myint64Primitive":  "$out.int64Primitive",
+					"source.myboolPrimitive":   "$out.boolPrimitive",
+					"source.mydoublePrimitive": "$out.doublePrimitive",
+					"source.mystring":          "$out.stringPrimitive",
+					"source.mytimeStamp":       "$out.timeStamp",
+					"source.myduration":        "$out.duration",
+				},
+			},
+			hdlr: &fakeMyApaHandler{
+				retError: fmt.Errorf("some error"),
+			},
+			wantError: "some error",
+		},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			h := &tst.hdlr
+			returnAttr, err := SupportedTmplInfo[istio_mixer_adapter_sample_myapa.TemplateName].ProcessGenAttrs(
+				context.TODO(),
+				tst.instName,
+				tst.instParam,
+				fakeBag{},
+				newFakeExpr(SupportedTmplInfo[istio_mixer_adapter_sample_myapa.TemplateName].AttributeManifests),
+				*h)
+			if tst.wantError != "" {
+				if !strings.Contains(err.Error(), tst.wantError) {
+					t.Errorf("TestProcessApa got error = %s, want %s", err.Error(), tst.wantError)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("got error; want success: error %v", err)
+				}
+				v := (*h).(*fakeMyApaHandler).procCallInput
+				if !reflect.DeepEqual(v, tst.wantInstance) {
+					t.Errorf("Apa handler "+
+						"invoked value = %v want %v", spew.Sdump(v), spew.Sdump(tst.wantInstance))
+				}
+
+				if len(returnAttr.Names()) != len(tst.wantOutAttrs) {
+					t.Fatalf("Apa handler "+
+						"return attrs = %v want %v", spew.Sdump(returnAttr), spew.Sdump(tst.wantOutAttrs))
+				}
+				for k, v := range tst.wantOutAttrs {
+					if x, _ := returnAttr.Get(k); x != v {
+						t.Errorf("Apa handler "+
+							"return attattrs = %v want %v", spew.Sdump(returnAttr), spew.Sdump(tst.wantOutAttrs))
+					}
 				}
 			}
 		})
