@@ -448,6 +448,7 @@ func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*Ser
 	return false
 }
 
+// TODO: handle v1alpha2 rules
 // SortRouteRules sorts a slice of rules by precedence in a stable manner
 func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)

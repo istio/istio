@@ -395,7 +395,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 
 func TestRouteDiscoveryFault(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, faultRouteRule, t)
+	addConfig(registry, faultRouteRuleV1Alpha2, t)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -436,7 +436,7 @@ func TestRouteDiscoveryCORSPolicy(t *testing.T) {
 
 func TestRouteDiscoveryRedirect(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, redirectRouteRule, t)
+	addConfig(registry, redirectRouteRuleV1Alpha2, t)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -555,7 +555,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "fault",
-			file: faultRouteRule,
+			file: faultRouteRuleV1Alpha2,
 		},
 		{
 			name: "egress-rule",

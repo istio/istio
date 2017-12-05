@@ -1,0 +1,27 @@
+hosts:
+  - world
+source:
+  - labels: # FIXME: source name 'hello'
+      version: v0
+http:
+  - match:
+      - headers:
+          scooby:
+            exact: doo
+          animal:
+            prefix: dog.cat
+          name:
+            regex: "sco+do+"
+    route:
+      - destination:
+          name: world
+          labels:
+            version: v1
+        weight: 100
+    fault:
+      delay:
+        percent: 100
+        fixed_delay: 5s
+      abort:
+        percent: 100
+        http_status: 503

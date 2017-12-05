@@ -1,14 +1,14 @@
 hosts:
-  - world.default.svc.cluster.local
+  - world
 http:
   - route:
     - destination:
-        name: world.default.svc.cluster.local
+        name: world
         labels:
           version: v0
       weight: 75
     - destination:
-        name: world.default.svc.cluster.local
+        name: world
         labels:
           version: v1
       weight: 25
