@@ -23,8 +23,7 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 )
 
-// Registry is the standard interface for identity registry
-// implementation
+// Registry is the standard interface for identity registry implementation
 type Registry interface {
 	Check(string, string) bool
 	AddMapping(string, string)
@@ -32,7 +31,13 @@ type Registry interface {
 }
 
 // IdentityRegistry is a naive registry that maintains a mapping between
-// identities (as strings)
+// identities (as strings): id1 -> id2, id3 -> id4, etc. The method call
+// Check(id1, id2) will succeed only if there is a mapping id1 -> id2 stored
+// in this registry.
+//
+// CA can make authorization decisions based on this registry. By creating a
+// mapping id1 -> id2, CA will approve CSRs sent only by services running
+// as id1 for identity id2.
 type IdentityRegistry struct {
 	sync.RWMutex
 	Map map[string]string
@@ -43,10 +48,11 @@ func (reg *IdentityRegistry) Check(id1, id2 string) bool {
 	reg.RLock()
 	mapped, ok := reg.Map[id1]
 	reg.RUnlock()
-	if !ok {
+	if !ok || id2 != mapped {
+		glog.Warningf("Identity %q does not exist or is not mapped to %q", id1, id2)
 		return false
 	}
-	return id2 == mapped
+	return true
 }
 
 // AddMapping adds a mapping id1 -> id2
@@ -69,7 +75,7 @@ func (reg *IdentityRegistry) DeleteMapping(id1, id2 string) {
 	oldID, ok := reg.Map[id1]
 	reg.RUnlock()
 	if !ok || oldID != id2 {
-		glog.Warningf("Attempting to delete nonexistent mapping: %q -> %q", id1, id2)
+		glog.Warningf("Could not delete nonexistent mapping: %q -> %q", id1, id2)
 		return
 	}
 	reg.Lock()
@@ -92,7 +98,8 @@ func GetIdentityRegistry() Registry {
 	return reg
 }
 
-// K8SServiceAdded ...
+// K8SServiceAdded is a handler used by k8s service controller to monitor
+// new services and to add their service accounts to registry, if exist
 func K8SServiceAdded(svc *v1.Service) {
 	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
 	if ok {
@@ -100,7 +107,8 @@ func K8SServiceAdded(svc *v1.Service) {
 	}
 }
 
-// K8SServiceDeleted ...
+// K8SServiceDeleted is a handler used by k8s service controller to monitor
+// deleted services and to remove their service accounts from registry
 func K8SServiceDeleted(svc *v1.Service) {
 	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
 	if ok {
@@ -108,7 +116,8 @@ func K8SServiceDeleted(svc *v1.Service) {
 	}
 }
 
-// K8SServiceUpdated ...
+// K8SServiceUpdated is a handler used by k8s service controller to monitor
+// service updates and update the registry
 func K8SServiceUpdated(oldSvc, newSvc *v1.Service) {
 	K8SServiceDeleted(oldSvc)
 	K8SServiceAdded(newSvc)

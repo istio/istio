@@ -51,6 +51,7 @@ func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []strin
 }
 
 // registryAuthorizor uses an underlying identity registry to make authorization decisions
+// nolint
 type registryAuthorizor struct {
 	reg registry.Registry
 }
