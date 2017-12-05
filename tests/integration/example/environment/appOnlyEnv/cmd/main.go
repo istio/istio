@@ -26,7 +26,7 @@ func main() {
 	flag.Parse()
 
 	testEM := framework.NewTestEnvManager(env.NewAppOnlyEnv(""), "")
-	if err := testEM.SetUp(); err != nil {
+	if err := testEM.StartUp(); err != nil {
 		fmt.Printf("Failed to start the environment: %s\n", err)
 	} else {
 		fmt.Println("Environment is running")

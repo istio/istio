@@ -50,8 +50,8 @@ func NewTestEnvManager(env TestEnv, id string) *TestEnvManager {
 	}
 }
 
-// SetUp sets up the whole environment as well brings up components
-func (envManager *TestEnvManager) SetUp() (err error) {
+// StartUp sets up the whole environment as well brings up components
+func (envManager *TestEnvManager) StartUp() (err error) {
 	if err = envManager.TestEnv.Bringup(); err != nil {
 		log.Printf("Failed to bring up environment")
 		return
@@ -63,7 +63,7 @@ func (envManager *TestEnvManager) SetUp() (err error) {
 		}
 	}
 
-	if ready, err := envManager.IsEnvReady(); err != nil || !ready {
+	if ready, err := envManager.WaitUntilReady(); err != nil || !ready {
 		err = fmt.Errorf("failed to get env ready: %s", err)
 		return err
 	}
@@ -93,8 +93,9 @@ func (envManager *TestEnvManager) TearDown() {
 	envManager.TestEnv.Cleanup()
 }
 
-// IsEnvReady check if the whole environment is ready for running tests
-func (envManager *TestEnvManager) IsEnvReady() (bool, error) {
+// WaitUntilReady checks and waits until the whole environment is ready
+// It retries several time before aborting and throwing error
+func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 	retry := u.Retrier{
 		BaseDelay: 1 * time.Second,
 		MaxDelay:  10 * time.Second,
@@ -122,7 +123,7 @@ func (envManager *TestEnvManager) IsEnvReady() (bool, error) {
 // RunTest is the main entry for framework: setup, run tests and clean up
 func (envManager *TestEnvManager) RunTest(m runnable) (ret int) {
 	defer envManager.TearDown()
-	if err := envManager.SetUp(); err != nil {
+	if err := envManager.StartUp(); err != nil {
 		log.Printf("Failed to setup framework: %s", err)
 		ret = 1
 	} else {

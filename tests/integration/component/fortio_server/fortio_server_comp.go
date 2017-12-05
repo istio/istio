@@ -30,9 +30,9 @@ var (
 // LocalComponent is a local fortio server componment
 type LocalComponent struct {
 	framework.Component
-	framework.CompProcess
-	Name    string
-	LogFile string
+	testProcess framework.TestProcess
+	Name        string
+	LogFile     string
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
@@ -51,7 +51,7 @@ func (fortioServerComp *LocalComponent) GetName() string {
 
 // Start brings up a local fortio echo server
 func (fortioServerComp *LocalComponent) Start() (err error) {
-	if err = fortioServerComp.CompProcess.Start(fmt.Sprintf("%s server > %s 2>&1",
+	if err = fortioServerComp.testProcess.Start(fmt.Sprintf("%s server > %s 2>&1",
 		*fortioBinary, fortioServerComp.LogFile)); err != nil {
 		return
 	}
@@ -66,13 +66,13 @@ func (fortioServerComp *LocalComponent) Start() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (fortioServerComp *LocalComponent) IsAlive() (bool, error) {
-	return fortioServerComp.CompProcess.IsRunning()
+	return fortioServerComp.testProcess.IsRunning()
 }
 
 // Stop stop this local component by kill the process
 func (fortioServerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", fortioServerComp.GetName())
-	return fortioServerComp.CompProcess.Stop()
+	return fortioServerComp.testProcess.Stop()
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

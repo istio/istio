@@ -37,10 +37,10 @@ var (
 // LocalComponent is a component of local mixs binary in process
 type LocalComponent struct {
 	framework.Component
-	framework.CompProcess
-	Name      string
-	LogFile   string
-	configDir string
+	testProcess framework.TestProcess
+	Name        string
+	LogFile     string
+	configDir   string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
@@ -85,7 +85,7 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		return
 	}
 
-	if err = mixerComp.CompProcess.Start(fmt.Sprintf("%s server"+
+	if err = mixerComp.testProcess.Start(fmt.Sprintf("%s server"+
 		" --configStore2URL=fs://%s --configStoreURL=fs://%s",
 		*mixerBinary, mixerConfig, emptyDir)); err != nil {
 		return
@@ -102,13 +102,13 @@ func (mixerComp *LocalComponent) Start() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (mixerComp *LocalComponent) IsAlive() (bool, error) {
-	return mixerComp.CompProcess.IsRunning()
+	return mixerComp.testProcess.IsRunning()
 }
 
 // Stop stop this local component by kill the process
 func (mixerComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", mixerComp.GetName())
-	return mixerComp.CompProcess.Stop()
+	return mixerComp.testProcess.Stop()
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent

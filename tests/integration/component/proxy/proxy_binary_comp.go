@@ -30,9 +30,9 @@ var (
 // LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
 	framework.Component
-	framework.CompProcess
-	Name    string
-	LogFile string
+	testProcess framework.TestProcess
+	Name        string
+	LogFile     string
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
@@ -52,7 +52,7 @@ func (proxyComp *LocalComponent) GetName() string {
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	if err = proxyComp.CompProcess.Start(fmt.Sprintf("%s > %s 2>&1",
+	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s > %s 2>&1",
 		*envoyBinary, proxyComp.LogFile)); err != nil {
 		return
 	}
@@ -68,13 +68,13 @@ func (proxyComp *LocalComponent) Start() (err error) {
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
 func (proxyComp *LocalComponent) IsAlive() (bool, error) {
-	return proxyComp.CompProcess.IsRunning()
+	return proxyComp.testProcess.IsRunning()
 }
 
 // Stop stop this local component by kill the process
 func (proxyComp *LocalComponent) Stop() (err error) {
 	log.Printf("Stopping component %s", proxyComp.GetName())
-	return proxyComp.CompProcess.Stop()
+	return proxyComp.testProcess.Stop()
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent
