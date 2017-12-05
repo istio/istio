@@ -26,7 +26,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
 )
 
@@ -444,7 +443,7 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 }
 
 func makeProxyConfig() meshconfig.ProxyConfig {
-	proxyConfig := proxy.DefaultProxyConfig()
+	proxyConfig := model.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
 	proxyConfig.DiscoveryAddress = "istio-pilot.istio-system:15003"
@@ -463,7 +462,7 @@ func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 }
 
 func makeMeshConfig() meshconfig.MeshConfig {
-	mesh := proxy.DefaultMeshConfig()
+	mesh := model.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
 	return mesh

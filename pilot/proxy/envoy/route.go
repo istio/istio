@@ -28,7 +28,6 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
 )
 
@@ -43,9 +42,9 @@ const (
 // buildListenerSSLContext returns an SSLContext struct.
 func buildListenerSSLContext(certsDir string) *SSLContext {
 	return &SSLContext{
-		CertChainFile:            path.Join(certsDir, proxy.CertChainFilename),
-		PrivateKeyFile:           path.Join(certsDir, proxy.KeyFilename),
-		CaCertFile:               path.Join(certsDir, proxy.RootCertFilename),
+		CertChainFile:            path.Join(certsDir, model.CertChainFilename),
+		PrivateKeyFile:           path.Join(certsDir, model.KeyFilename),
+		CaCertFile:               path.Join(certsDir, model.RootCertFilename),
 		RequireClientCertificate: true,
 	}
 }
@@ -54,9 +53,9 @@ func buildListenerSSLContext(certsDir string) *SSLContext {
 // The list of service accounts may be empty but not nil.
 func buildClusterSSLContext(certsDir string, serviceAccounts []string) *SSLContextWithSAN {
 	return &SSLContextWithSAN{
-		CertChainFile:        path.Join(certsDir, proxy.CertChainFilename),
-		PrivateKeyFile:       path.Join(certsDir, proxy.KeyFilename),
-		CaCertFile:           path.Join(certsDir, proxy.RootCertFilename),
+		CertChainFile:        path.Join(certsDir, model.CertChainFilename),
+		PrivateKeyFile:       path.Join(certsDir, model.KeyFilename),
+		CaCertFile:           path.Join(certsDir, model.RootCertFilename),
 		VerifySubjectAltName: serviceAccounts,
 	}
 }

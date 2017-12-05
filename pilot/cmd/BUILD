@@ -5,7 +5,7 @@ go_library(
     srcs = ["cmd.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "//pilot/proxy:go_default_library",
+        "//pilot/model:go_default_library",
         "//pilot/tools/version:go_default_library",
         "//pkg/log:go_default_library",
 
