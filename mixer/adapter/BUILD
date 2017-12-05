@@ -16,8 +16,10 @@ inventory_library(
         "stdio": "istio.io/istio/mixer/adapter/stdio",
         "svcctrl": "istio.io/istio/mixer/adapter/svcctrl",
         "memquota": "istio.io/istio/mixer/adapter/memquota",
+        "circonus": "istio.io/istio/mixer/adapter/circonus",
     },
     deps = [
+        "//mixer/adapter/circonus:go_default_library",
         "//mixer/adapter/denier:go_default_library",
         "//mixer/adapter/list:go_default_library",
         "//mixer/adapter/memquota:go_default_library",

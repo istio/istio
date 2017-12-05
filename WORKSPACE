@@ -93,6 +93,42 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
 load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
 load("//:googleapis.bzl", "go_googleapis_repositories")
 load("//:istio_api.bzl", "go_istio_api_repositories")
