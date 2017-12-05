@@ -36,21 +36,16 @@ func TestCompile(t *testing.T) {
 			continue
 		}
 
-		name := fmt.Sprintf("%d '%s'", i, test.E)
+		name := fmt.Sprintf("%d '%s'", i, test.TestName())
 		t.Run(name, func(tt *testing.T) {
 
-			conf := test.Conf
-			if conf == nil {
-				conf = ilt.TestConfigs["Default"]
-			}
-			finder := descriptor.NewFinder(conf)
+			finder := descriptor.NewFinder(test.Conf())
 
 			fns := runtime.ExternFunctionMetadata
 			if test.Fns != nil {
 				fns = append(fns, test.Fns...)
 			}
 			result, err := Compile(test.E, finder, expr.FuncMap(fns))
-
 			if err != nil {
 				if err.Error() != test.CompileErr {
 					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)

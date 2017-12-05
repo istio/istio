@@ -28,6 +28,7 @@ go_test(
     size = "medium",
     srcs = [
         "checker_test.go",
+        "evaluatorBenchmark_test.go",
         "evaluator_test.go",
     ],
     library = ":go_default_library",
