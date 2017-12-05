@@ -22,7 +22,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
-	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/registry"
 	"istio.io/istio/security/pkg/server/grpc"
 )
 
@@ -143,9 +143,7 @@ func runCA() {
 	sc.Run(stopCh)
 
 	serviceController := controller.NewServiceController(cs.CoreV1(), opts.namespace,
-		func(*v1.Service) {},
-		func(*v1.Service) {},
-		func(*v1.Service, *v1.Service) {})
+		registry.K8SServiceAdded, registry.K8SServiceDeleted, registry.K8SServiceUpdated)
 	serviceController.Run(stopCh)
 
 	if opts.grpcPort > 0 {
