@@ -147,16 +147,32 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 		t.Run(v.name, func(t *testing.T) {
 			b := newBuilder(v.testFn)
 			b.SetAdapterConfig(v.conf)
-			h, err := b.Build(context.Background(), test.NewEnv(t))
-			if err == nil && v.wantErr {
-				t.Fatal("Expected error building adapter")
+			{
+				h, err := b.Build(context.Background(), test.NewEnv(t))
+				if err == nil && v.wantErr {
+					t.Fatal("Expected error building adapter")
+				}
+				if err != nil && !v.wantErr {
+					t.Fatalf("Got error, wanted none: %v", err)
+				}
+				got := h.(*handler).pods.(*fakeCache).path
+				if got != wantPath {
+					t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
+				}
 			}
-			if err != nil && !v.wantErr {
-				t.Fatalf("Got error, wanted none: %v", err)
-			}
-			got := h.(*handler).pods.(*fakeCache).path
-			if got != wantPath {
-				t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
+			// try this another time. create a new handler from the same builder
+			{
+				h, err := b.Build(context.Background(), test.NewEnv(t))
+				if err == nil && v.wantErr {
+					t.Fatal("Expected error building adapter")
+				}
+				if err != nil && !v.wantErr {
+					t.Fatalf("Got error, wanted none: %v", err)
+				}
+				got := h.(*handler).pods.(*fakeCache).path
+				if got != wantPath {
+					t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
+				}
 			}
 		})
 	}

@@ -73,7 +73,6 @@ type (
 	builder struct {
 		adapterConfig        *config.Params
 		newCacheControllerFn controllerFactoryFn
-		needsCacheInit       bool
 	}
 
 	handler struct {
@@ -138,31 +137,28 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	paramsProto := b.adapterConfig
 	stopChan := make(chan struct{})
 	var pods cacheController
-	if b.needsCacheInit {
-		refresh := paramsProto.CacheRefreshDuration
-		path, exists := os.LookupEnv("KUBECONFIG")
-		if !exists {
-			path = paramsProto.KubeconfigPath
-		}
-		controller, err := b.newCacheControllerFn(path, refresh, env)
-		if err != nil {
-			return nil, err
-		}
-		pods = controller
-		env.ScheduleDaemon(func() { pods.Run(stopChan) })
-		// ensure that any request is only handled after
-		// a sync has occurred
-		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-			env.Logger().Infof("Waiting for kubernetes cache sync...")
-		}
-		if success := cache.WaitForCacheSync(stopChan, pods.HasSynced); !success {
-			stopChan <- struct{}{}
-			return nil, errors.New("cache sync failure")
-		}
-		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-			env.Logger().Infof("Cache sync successful.")
-		}
-		b.needsCacheInit = false
+	refresh := paramsProto.CacheRefreshDuration
+	path, exists := os.LookupEnv("KUBECONFIG")
+	if !exists {
+		path = paramsProto.KubeconfigPath
+	}
+	controller, err := b.newCacheControllerFn(path, refresh, env)
+	if err != nil {
+		return nil, err
+	}
+	pods = controller
+	env.ScheduleDaemon(func() { pods.Run(stopChan) })
+	// ensure that any request is only handled after
+	// a sync has occurred
+	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		env.Logger().Infof("Waiting for kubernetes cache sync...")
+	}
+	if success := cache.WaitForCacheSync(stopChan, pods.HasSynced); !success {
+		stopChan <- struct{}{}
+		return nil, errors.New("cache sync failure")
+	}
+	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+		env.Logger().Infof("Cache sync successful.")
 	}
 	kg := &handler{
 		log:    env.Logger(),
@@ -175,7 +171,6 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 func newBuilder(cacheFactory controllerFactoryFn) *builder {
 	return &builder{
 		newCacheControllerFn: cacheFactory,
-		needsCacheInit:       true,
 		adapterConfig:        conf,
 	}
 }
