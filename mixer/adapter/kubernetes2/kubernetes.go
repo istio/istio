@@ -90,6 +90,99 @@ type (
 var _ kubernetes_apa_tmpl.Handler = &handler{}
 var _ kubernetes_apa_tmpl.HandlerBuilder = &builder{}
 
+/////////////////////////////// Config-time methods //////////////////////////////
+//
+//
+
+// GetInfo returns the Info associated with this adapter implementation.
+func GetInfo() adapter.Info {
+	return adapter.Info{
+		Name:        "KubernetesAttributeGenerator",
+		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
+		Description: "Provides platform specific functionality for the kubernetes environment",
+		SupportedTemplates: []string{
+			kubernetes_apa_tmpl.TemplateName,
+		},
+		DefaultConfig: conf,
+
+		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newCacheFromConfig) },
+	}
+}
+
+func (b *builder) SetAdapterConfig(c adapter.Config) {
+	b.adapterConfig = c.(*config.Params)
+}
+
+// Validate is responsible for ensuring that all the configuration state given to the builder is
+// correct.
+func (b *builder) Validate() (ce *adapter.ConfigErrors) {
+	params := b.adapterConfig
+	if len(params.PodLabelForService) == 0 {
+		ce = ce.Appendf("podLabelForService", "field must be populated")
+	}
+	if len(params.PodLabelForIstioComponentService) == 0 {
+		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
+	}
+	if len(params.FullyQualifiedIstioIngressServiceName) == 0 {
+		ce = ce.Appendf("fullyQualifiedIstioIngressServiceName", "field must be populated")
+	}
+	if len(params.ClusterDomainName) == 0 {
+		ce = ce.Appendf("clusterDomainName", "field must be populated")
+	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
+		ce = ce.Appendf("clusterDomainName", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
+	}
+	return
+}
+
+func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
+	paramsProto := b.adapterConfig
+	stopChan := make(chan struct{})
+	var pods cacheController
+	if b.needsCacheInit {
+		refresh := paramsProto.CacheRefreshDuration
+		path, exists := os.LookupEnv("KUBECONFIG")
+		if !exists {
+			path = paramsProto.KubeconfigPath
+		}
+		controller, err := b.newCacheControllerFn(path, refresh, env)
+		if err != nil {
+			return nil, err
+		}
+		pods = controller
+		env.ScheduleDaemon(func() { pods.Run(stopChan) })
+		// ensure that any request is only handled after
+		// a sync has occurred
+		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+			env.Logger().Infof("Waiting for kubernetes cache sync...")
+		}
+		if success := cache.WaitForCacheSync(stopChan, pods.HasSynced); !success {
+			stopChan <- struct{}{}
+			return nil, errors.New("cache sync failure")
+		}
+		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
+			env.Logger().Infof("Cache sync successful.")
+		}
+		b.needsCacheInit = false
+	}
+	kg := &handler{
+		log:    env.Logger(),
+		pods:   pods,
+		params: paramsProto,
+	}
+	return kg, nil
+}
+
+func newBuilder(cacheFactory controllerFactoryFn) *builder {
+	return &builder{
+		newCacheControllerFn: cacheFactory,
+		needsCacheInit:       true,
+		adapterConfig:        conf,
+	}
+}
+
+/////////////////////////////// Request-time methods //////////////////////////////
+//
+//
 func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *kubernetes_apa_tmpl.Instance) (*kubernetes_apa_tmpl.Output, error) {
 	out := &kubernetes_apa_tmpl.Output{}
 	if inst.DestinationUid != "" {
@@ -156,76 +249,6 @@ func (h *handler) Close() error {
 	return nil
 }
 
-// SetAdapterConfig gives the builder the adapter-level configuration state.
-func (b *builder) SetAdapterConfig(c adapter.Config) {
-	b.adapterConfig = c.(*config.Params)
-}
-
-// Validate is responsible for ensuring that all the configuration state given to the builder is
-// correct. The Build method is only invoked when Validate has returned success.
-func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-	params := b.adapterConfig
-	if len(params.PodLabelForService) == 0 {
-		ce = ce.Appendf("podLabelForService", "field must be populated")
-	}
-	if len(params.PodLabelForIstioComponentService) == 0 {
-		ce = ce.Appendf("podLabelForIstioComponentService", "field must be populated")
-	}
-	if len(params.FullyQualifiedIstioIngressServiceName) == 0 {
-		ce = ce.Appendf("fullyQualifiedIstioIngressServiceName", "field must be populated")
-	}
-	if len(params.ClusterDomainName) == 0 {
-		ce = ce.Appendf("clusterDomainName", "field must be populated")
-	} else if len(strings.Split(params.ClusterDomainName, ".")) != 3 {
-		ce = ce.Appendf("clusterDomainName", "must have three segments, separated by '.' ('svc.cluster.local', for example)")
-	}
-	return
-}
-
-// Build must return a handler that implements all the template-specific runtime request serving
-// interfaces that the Builder was configured for.
-// This means the Handler returned by the Build method must implement all the runtime interfaces for all the
-// template the Adapter supports.
-// If the returned Handler fails to implement the required interface that builder was registered for, Mixer will
-// report an error and stop serving runtime traffic to the particular Handler.
-func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	paramsProto := b.adapterConfig
-	stopChan := make(chan struct{})
-	var pods cacheController
-	if b.needsCacheInit {
-		refresh := paramsProto.CacheRefreshDuration
-		path, exists := os.LookupEnv("KUBECONFIG")
-		if !exists {
-			path = paramsProto.KubeconfigPath
-		}
-		controller, err := b.newCacheControllerFn(path, refresh, env)
-		if err != nil {
-			return nil, err
-		}
-		pods = controller
-		env.ScheduleDaemon(func() { pods.Run(stopChan) })
-		// ensure that any request is only handled after
-		// a sync has occurred
-		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-			env.Logger().Infof("Waiting for kubernetes cache sync...")
-		}
-		if success := cache.WaitForCacheSync(stopChan, pods.HasSynced); !success {
-			stopChan <- struct{}{}
-			return nil, errors.New("cache sync failure")
-		}
-		if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-			env.Logger().Infof("Cache sync successful.")
-		}
-		b.needsCacheInit = false
-	}
-	kg := &handler{
-		log:    env.Logger(),
-		pods:   pods,
-		params: paramsProto,
-	}
-	return kg, nil
-}
-
 func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	pod, found := h.pods.GetPod(podKey)
@@ -237,29 +260,6 @@ func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 
 func (h *handler) skipIngressLookups(out *kubernetes_apa_tmpl.Output) bool {
 	return !h.params.LookupIngressSourceAndOriginValues && out.DestinationService == h.params.FullyQualifiedIstioIngressServiceName
-}
-
-func newBuilder(cacheFactory controllerFactoryFn) *builder {
-	return &builder{
-		newCacheControllerFn: cacheFactory,
-		needsCacheInit:       true,
-		adapterConfig:        conf,
-	}
-}
-
-// GetInfo returns the Info associated with this adapter implementation.
-func GetInfo() adapter.Info {
-	return adapter.Info{
-		Name:        "KubernetesAttributeGenerator",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
-		Description: "Provides platform specific functionality for the kubernetes environment",
-		SupportedTemplates: []string{
-			kubernetes_apa_tmpl.TemplateName,
-		},
-		DefaultConfig: conf,
-
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newCacheFromConfig) },
-	}
 }
 
 // name format examples that can be currently canonicalized:
