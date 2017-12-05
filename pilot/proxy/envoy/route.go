@@ -285,8 +285,11 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 					})
 			}
 
-			// rewrite to a single cluster if it's one weighted cluster
-			if len(http.Route) == 1 {
+			if len(http.Route) == 0 { // build default cluster
+				cluster := buildOutboundCluster(defaultDestination, port, nil)
+				route.Cluster = cluster.Name
+				route.clusters = append(route.clusters, cluster)
+			} else if len(http.Route) == 1 { // rewrite to a single cluster if it's one weighted cluster
 				route.Cluster = route.WeightedClusters.Clusters[0].Name
 				route.WeightedClusters = nil
 			}
