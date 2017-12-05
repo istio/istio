@@ -84,7 +84,8 @@ type fakeMyApaHandler struct {
 var _ istio_mixer_adapter_sample_myapa.Handler = &fakeMyApaHandler{}
 
 func (h *fakeMyApaHandler) Close() error { return nil }
-func (h *fakeMyApaHandler) GenerateMyApaAttributes(ctx context.Context, instance *istio_mixer_adapter_sample_myapa.Instance) (*istio_mixer_adapter_sample_myapa.Output, error) {
+func (h *fakeMyApaHandler) GenerateMyApaAttributes(ctx context.Context, instance *istio_mixer_adapter_sample_myapa.Instance) (
+	*istio_mixer_adapter_sample_myapa.Output, error) {
 	h.procCallInput = instance
 	return h.retOutput, h.retError
 }
@@ -922,10 +923,10 @@ func (e *fakeExpr) EvalType(s string, af expr.AttributeDescriptorFinder) (pb.Val
 	//return pb.VALUE_TYPE_UNSPECIFIED, nil
 	if i := af.GetAttribute(s); i != nil {
 		return i.ValueType, nil
-	} else {
-		return pb.VALUE_TYPE_UNSPECIFIED, nil
 	}
+	return pb.VALUE_TYPE_UNSPECIFIED, nil
 }
+
 func (e *fakeExpr) AssertType(string, expr.AttributeDescriptorFinder, pb.ValueType) error {
 	return nil
 }
