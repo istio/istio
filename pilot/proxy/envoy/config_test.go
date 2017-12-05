@@ -243,6 +243,11 @@ var (
 		file: "testdata/weighted-route.yaml.golden",
 	}
 
+	weightedRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "weighted"},
+		file: "testdata/weighted-route-v1alpha2.yaml.golden",
+	}
+
 	faultRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
 		file: "testdata/fault-route.yaml.golden",

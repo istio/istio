@@ -261,7 +261,7 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 	rule := config.Spec.(*routing_v1alpha2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
-	defaultDestination := service.Hostname
+	defaultDestination := service.Hostname // TODO: defaults are no longer supported, remove me
 	for _, http := range rule.Http {
 		matchRoutes := buildHTTPRouteMatches(http.Match)
 		for _, route := range matchRoutes {

@@ -56,6 +56,10 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 }
 
 func buildHTTPRouteMatches(matches []*routing_v1alpha2.HTTPMatchRequest) []*HTTPRoute {
+	if len(matches) == 0 {
+		return []*HTTPRoute{{Prefix: "/"}}
+	}
+
 	routes := make([]*HTTPRoute, 0, len(matches))
 	for _, match := range matches {
 		route := &HTTPRoute{}
@@ -96,6 +100,7 @@ func buildHTTPRouteMatches(matches []*routing_v1alpha2.HTTPMatchRequest) []*HTTP
 
 		routes = append(routes, route)
 	}
+
 	return routes
 }
 

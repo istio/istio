@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	// add weighted rule to split into two clusters
-	addConfig(registry, weightedRouteRule, t)
+	addConfig(registry, weightedRouteRuleV1Alpha2, t)
 	addConfig(registry, cbPolicy, t)
 	// add egress rule and a circuit breaker for external service (*.google.com)
 	addConfig(registry, egressRule, t)
@@ -387,7 +387,7 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 
 func TestRouteDiscoveryWeighted(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, weightedRouteRule, t)
+	addConfig(registry, weightedRouteRuleV1Alpha2, t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
 	compareResponse(response, "testdata/rds-weighted.json", t)
@@ -494,7 +494,7 @@ func TestRouteDiscoveryIngress(t *testing.T) {
 func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addIngressRoutes(registry, t)
-	addConfig(registry, weightedRouteRule, t)
+	addConfig(registry, weightedRouteRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -514,7 +514,7 @@ func TestRouteDiscoveryRouterError(t *testing.T) {
 
 func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, weightedRouteRule, t)
+	addConfig(registry, weightedRouteRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -551,7 +551,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		*/
 		{
 			name: "weighted",
-			file: weightedRouteRule,
+			file: weightedRouteRuleV1Alpha2,
 		},
 		{
 			name: "fault",

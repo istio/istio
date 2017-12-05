@@ -398,6 +398,8 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	return out
 }
 
+// TODO: support IP addresses (?)
+// TODO: support non-FQDN names in Consul/Eureka
 // support 3 forms
 // reviews => reviews.default.svc.cluster.local
 // reviews.sales => reviews.sales.svc.cluster.local
@@ -405,9 +407,9 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 func ResolveFQDN(meta ConfigMeta, name string) string {
 	switch strings.Count(name, ".") {
 	case 0:
-		return fmt.Sprintf("%s.%s.%s", name, meta.Namespace, meta.Domain)
+		return fmt.Sprintf("%s.%s.svc.%s", name, meta.Namespace, meta.Domain)
 	case 1:
-		return fmt.Sprintf("%s.%s", name, meta.Domain)
+		return fmt.Sprintf("%s.svc.%s", name, meta.Domain)
 	default:
 		return name
 	}
@@ -526,7 +528,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 				}
 			}
 		}
-		if !subset {
+		if len(rule.Source) > 0 && !subset {
 			continue
 		}
 
