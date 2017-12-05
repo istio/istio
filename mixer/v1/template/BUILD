@@ -11,7 +11,7 @@ gogoslick_proto_library(
     inputs = [
         "@com_github_google_protobuf//:well_known_protos",
     ],
-    protos = ["extensions.proto"],
+    protos = ["extensions.proto", "standard_types.proto"],
     verbose = 0,
     with_grpc = False,
     deps = [
@@ -25,6 +25,6 @@ gogoslick_proto_library(
 
 filegroup(
     name = "template_protos",
-    srcs = ["extensions.proto"],
+    srcs = ["extensions.proto", "standard_types.proto"],
     visibility = ["//visibility:public"],
 )

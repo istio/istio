@@ -7,8 +7,15 @@ Package istio_mixer_v1_template is a generated protocol buffer package.
 
 It is generated from these files:
 	mixer/v1/template/extensions.proto
+	mixer/v1/template/standard_types.proto
 
 It has these top-level messages:
+	IPAddress
+	DNSName
+	EmailAddress
+	Uri
+	Duration
+	TimeStamp
 */
 package istio_mixer_v1_template
 
