@@ -209,6 +209,9 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
 	default:
+		if f.Target != nil {
+			g.generate(f.Target, depth, nmNone, "")
+		}
 		for _, arg := range f.Args {
 			g.generate(arg, depth, nmNone, "")
 		}
