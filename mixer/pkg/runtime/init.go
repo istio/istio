@@ -34,13 +34,13 @@ import (
 // New creates a new runtime Dispatcher
 // Create a new controller and a dispatcher.
 // Returns a ready to use dispatcher.
-func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeListener, gp *pool.GoroutinePool,
+func New(typeChecker expr.TypeChecker, v VocabularyChangeListener, gp *pool.GoroutinePool,
 	handlerPool *pool.GoroutinePool, identityAttribute string, defaultConfigNamespace string, s store.Store2,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]template.Info) (Dispatcher, error) {
 
 	// controller will set Resolver before the dispatcher is used.
-	d := newDispatcher(eval, nil, gp, identityAttribute)
-	err := startController(s, adapterInfo, templateInfo, eval, typeChecker, v, d,
+	d := newDispatcher(nil, gp, identityAttribute)
+	err := startController(s, adapterInfo, templateInfo, typeChecker, v, d,
 		identityAttribute, defaultConfigNamespace, handlerPool)
 
 	return d, err
@@ -86,7 +86,7 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 
 // startController creates a controller from the given params.
 func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
-	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
+	templateInfo map[string]template.Info, checker expr.TypeChecker,
 	vocabularyChangeListener VocabularyChangeListener, resolverChangeListener ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
 
@@ -98,7 +98,6 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	c := &Controller{
 		adapterInfo:              adapterInfo,
 		templateInfo:             templateInfo,
-		evaluator:                eval,
 		typeChecker:              checker,
 		configState:              data,
 		resolverChangeListener:   resolverChangeListener,

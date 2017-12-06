@@ -22,6 +22,7 @@ import (
 
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il/compiled"
 )
 
 type testcase struct {
@@ -143,10 +144,9 @@ func TestResolver_Resolve(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			rules := newRules(tc.variety, tc.rules)
+			rules := newRules(tc.variety, tc.rules, tc.selectReject, tc.selectError)
 			bag := attribute.GetFakeMutableBagForTesting(tc.bag)
-			eval := fakePred(tc.selectReject, tc.selectError)
-			var rv Resolver = newResolver(eval, ia, ns, rules, 1)
+			var rv Resolver = newResolver(ia, ns, rules, 1)
 
 			act, err := rv.Resolve(bag, tc.callVariety)
 
@@ -171,25 +171,26 @@ func TestResolver_Resolve(t *testing.T) {
 }
 
 // fakes and support functions
-
-type fakePredEval struct {
+type fakeCompiledExpression struct {
 	reject bool
 	err    error
 }
 
-func fakePred(reject bool, err string) *fakePredEval {
-	f := &fakePredEval{reject: reject}
+var _ compiled.Expression = fakeCompiledExpression{}
+
+func fakeCompiledExpr(reject bool, err string) *fakeCompiledExpression {
+	f := &fakeCompiledExpression{reject: reject}
 	if err != "" {
 		f.err = errors.New(err)
 	}
 	return f
 }
 
-func (f *fakePredEval) Eval(expr string, bag attribute.Bag) (interface{}, error) {
-	return f.EvalPredicate(expr, bag)
+func (f fakeCompiledExpression) Evaluate(bag attribute.Bag) (interface{}, error) {
+	return f.EvaluateBoolean(bag)
 }
 
-func (f *fakePredEval) EvalPredicate(expr string, _ attribute.Bag) (bool, error) {
+func (f fakeCompiledExpression) EvaluateBoolean(_ attribute.Bag) (bool, error) {
 	return !f.reject, f.err
 }
 
@@ -211,9 +212,10 @@ func assertResolverError(t *testing.T, got error, want string) {
 	}
 }
 
-func newFakeRule(vr adptTmpl.TemplateVariety, length int) *Rule {
+func newFakeRule(vr adptTmpl.TemplateVariety, length int, selectReject bool, selectError string) *Rule {
 	return &Rule{
-		match: "request.size=2000",
+		originalMatchString: "request.size=2000",
+		expression:          fakeCompiledExpr(selectReject, selectError),
 		actions: map[adptTmpl.TemplateVariety][]*Action{
 			vr: make([]*Action, length),
 		},
@@ -225,10 +227,10 @@ type fakeRuleCfg struct {
 	ruleLength int
 }
 
-func newRules(vr adptTmpl.TemplateVariety, frule []fakeRuleCfg) map[string][]*Rule {
+func newRules(vr adptTmpl.TemplateVariety, frule []fakeRuleCfg, selectReject bool, selectError string) map[string][]*Rule {
 	rules := map[string][]*Rule{}
 	for _, fr := range frule {
-		rules[fr.ns] = append(rules[fr.ns], newFakeRule(vr, fr.ruleLength))
+		rules[fr.ns] = append(rules[fr.ns], newFakeRule(vr, fr.ruleLength, selectReject, selectError))
 	}
 	return rules
 }

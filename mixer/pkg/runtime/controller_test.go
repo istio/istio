@@ -46,7 +46,6 @@ func TestControllerEmpty(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            make(map[string]*adapter.Info),
 		templateInfo:           make(map[string]template.Info),
-		evaluator:              nil,
 		typeChecker:            nil,
 		configState:            make(map[store.Key]*store.Resource),
 		resolverChangeListener: d,
@@ -151,12 +150,12 @@ func TestController_buildrule(t *testing.T) {
 			rt := defaultResourcetype()
 			rt.protocol = tc.want
 			want := &Rule{
-				name:  key.String(),
-				match: rinput.Match,
-				rtype: rt,
+				name:                key.String(),
+				originalMatchString: rinput.Match,
+				rtype:               rt,
 			}
 
-			r, err := buildRule(key, rinput, defaultResourcetype())
+			r, err := buildRule(key, rinput, defaultResourcetype(), nil)
 
 			checkError(t, tc.err, err)
 
@@ -207,7 +206,6 @@ func TestController_workflow(t *testing.T) {
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
-		evaluator:              nil,
 		typeChecker:            nil,
 		configState:            configState,
 		resolverChangeListener: d,
@@ -470,8 +468,8 @@ func TestController_Resolve2(t *testing.T) {
 		return rulesMapByNamespace{
 			"ns1": rulesByName{
 				"r1": &Rule{
-					match: "true",
-					name:  "r1",
+					originalMatchString: "true",
+					name:                "r1",
 					actions: map[adptTmpl.TemplateVariety][]*Action{
 						adptTmpl.TEMPLATE_VARIETY_CHECK: {
 							&Action{

@@ -23,23 +23,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"istio.io/istio/mixer/pkg/template"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
-	cpb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
-	"istio.io/istio/mixer/pkg/template"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -92,16 +89,17 @@ type Action struct {
 	// handler to call.
 	// instanceConfigs to dispatch to the handler.
 	// instanceConfigs must belong to the same template.
-	instanceConfig []*cpb.Instance
+
+	instanceBuilders []template.InstanceBuilderFn
+	outputMapper     template.OutputMapperFn
 }
 
 // genDispatchFn creates dispatchFn closures based on the given action.
 type genDispatchFn func(call *Action) []dispatchFn
 
 // newDispatcher creates a new dispatcher.
-func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool, identityAttribute string) *dispatcher {
+func newDispatcher(rt Resolver, gp *pool.GoroutinePool, identityAttribute string) *dispatcher {
 	m := &dispatcher{
-		mapper:            mapper,
 		gp:                gp,
 		identityAttribute: identityAttribute,
 	}
@@ -112,10 +110,6 @@ func newDispatcher(mapper expr.Evaluator, rt Resolver, gp *pool.GoroutinePool, i
 // dispatcher is responsible for dispatching incoming API calls
 // to the configured adapters. It implements the Dispatcher interface.
 type dispatcher struct {
-	// mapper is the match and expression evaluator.
-	// It is not directly used by dispatcher.
-	mapper expr.Evaluator
-
 	// gp is used to dispatch multiple adapters concurrently.
 	gp *pool.GoroutinePool
 
@@ -188,12 +182,17 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 func (m *dispatcher) Report(ctx context.Context, requestBag attribute.Bag) error {
 	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_REPORT,
 		func(call *Action) []dispatchFn {
-			instCfg := make(map[string]proto.Message)
-			for _, inst := range call.instanceConfig {
-				instCfg[inst.Name] = inst.Params.(proto.Message)
-			}
 			return []dispatchFn{func(ctx context.Context) *result {
-				err := call.processor.ProcessReport(ctx, instCfg, requestBag, m.mapper, call.handler)
+				instances := []interface{}{}
+				for _, ib := range call.instanceBuilders {
+					instance, err := ib(requestBag)
+					if err != nil {
+						// TODO:!!!! appropriate error handling before checking in PR
+						continue
+					}
+					instances = append(instances, instance)
+				}
+				err := call.processor.ProcessReport(ctx, instances, requestBag, call.handler)
 				return &result{err: err, callinfo: call}
 			}}
 		},
@@ -210,14 +209,19 @@ func (m *dispatcher) Report(ctx context.Context, requestBag attribute.Bag) error
 func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 	cres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_CHECK,
 		func(call *Action) []dispatchFn {
-			ra := make([]dispatchFn, 0, len(call.instanceConfig))
-			for _, inst := range call.instanceConfig {
+			ra := make([]dispatchFn, 0, len(call.instanceBuilders))
+			for _, ib := range call.instanceBuilders {
 				ra = append(ra,
 					func(ctx context.Context) *result {
-						resp, err := call.processor.ProcessCheck(ctx, inst.Name,
-							inst.Params.(proto.Message),
-							requestBag, m.mapper,
-							call.handler)
+						i, err := ib(requestBag)
+						if err != nil {
+							// TODO: !!!appropriate error response before PR
+							return &result{err, nil, call}
+						}
+						resp, err := call.processor.ProcessCheck(ctx,
+							"", // !!!TODO:Name
+							i,
+							requestBag, call.handler)
 						return &result{err, &resp, call}
 					})
 			}
@@ -240,7 +244,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 	dispatched := false
 	qres, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_QUOTA,
 		func(call *Action) []dispatchFn {
-			for _, inst := range call.instanceConfig {
+			for _, inst := range call.instanceBuilders {
 				// if inst.Name != qma.Quota {
 				//	continue
 				// }
@@ -251,19 +255,25 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 				// Until then Proxy always calls with exactly 1 quota request named
 				// "RequestCount" which is intended for rate limit.
 				if dispatched { // ensures only one call is dispatched.
-					glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
+					// TODO !!! glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
 					return nil
 				}
 				dispatched = true
 				return []dispatchFn{ // nolint: megacheck
 					func(ctx context.Context) *result {
-						resp, err := call.processor.ProcessQuota(ctx, inst.Name,
-							inst.Params.(proto.Message), requestBag, m.mapper, call.handler,
+						i, e := inst(requestBag)
+						if e != nil {
+							// TODO: !!! appropriate error handling before checking in.
+							return &result{e, nil, call}
+						}
+						resp, err := call.processor.ProcessQuota(ctx, "", // TODO: !!! Name
+							i, requestBag, call.handler,
 							adapter.QuotaArgs{
 								DeduplicationID: qma.DeduplicationID,
 								QuotaAmount:     qma.Amount,
 								BestEffort:      qma.BestEffort,
 							})
+
 						return &result{err, &resp, call}
 					},
 				}

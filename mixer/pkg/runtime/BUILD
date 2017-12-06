@@ -23,6 +23,7 @@ go_library(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/config/store:go_default_library",
         "//mixer/pkg/expr:go_default_library",
+        "//mixer/pkg/il/compiled:go_default_library",
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/status:go_default_library",
         "//mixer/pkg/template:go_default_library",

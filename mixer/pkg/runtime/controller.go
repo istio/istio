@@ -27,6 +27,7 @@ import (
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
 )
@@ -40,7 +41,6 @@ type Controller struct {
 	// Static information
 	adapterInfo            map[string]*adapter.Info // maps adapter shortName to Info.
 	templateInfo           map[string]template.Info // maps template name to Info.
-	evaluator              expr.Evaluator           // used by resolver
 	typeChecker            expr.TypeChecker         // used to infer types
 	identityAttribute      string                   // used by resolver
 	defaultConfigNamespace string                   // used by resolver
@@ -140,9 +140,12 @@ func (c *Controller) publishSnapShot() {
 		},
 	)
 
+	// builder for new set of compiled expressions
+	expb := compiled.NewBuilder(attributes)
+
 	// current consistent view of the rules keyed by Namespace and then Name.
 	// ht (handlerTable) keeps track of handler-instance association.
-	ruleConfig := c.processRules(handlerConfig, instanceConfig, ht)
+	ruleConfig := c.processRules(handlerConfig, instanceConfig, ht, expb)
 
 	// Initialize handlers that are used in the configuration.
 	// Some handlers may not initialize due to errors.
@@ -154,7 +157,7 @@ func (c *Controller) publishSnapShot() {
 
 	// Create new resolver and cleanup the old resolver.
 	c.nextResolverID++
-	resolver := newResolver(c.evaluator, c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
+	resolver := newResolver(c.identityAttribute, c.defaultConfigNamespace, resolvedRules, c.nextResolverID)
 	c.resolverChangeListener.ChangeResolver(resolver)
 
 	// copy old for deletion.
@@ -348,12 +351,22 @@ const (
 	istioProtocol = "istio-protocol"
 )
 
-// buildRule builds runtime representation of rule based on match condition.
-func buildRule(k store.Key, r *cpb.Rule, rt ResourceType) (*Rule, error) {
+// buildRule builds runtime representation of rule based on originalMatchString condition.
+func buildRule(k store.Key, r *cpb.Rule, rt ResourceType, expb *compiled.ExpressionBuilder) (*Rule, error) {
+	var err error
+	var expression compiled.Expression
+	if len(r.Match) == 0 {
+		expression, err = expb.Compile(r.Match)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	rule := &Rule{
-		match: r.Match,
-		name:  k.String(),
-		rtype: rt,
+		originalMatchString: r.Match,
+		expression:          expression,
+		name:                k.String(),
+		rtype:               rt,
 	}
 
 	if len(r.Match) == 0 {
@@ -383,7 +396,7 @@ func resourceType(labels map[string]string) ResourceType {
 // processRules builds the current consistent view of the rules keyed by Namespace and then Name.
 // ht (handlerTable) keeps track of handler-instance association.
 func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable) rulesMapByNamespace {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, expb *compiled.ExpressionBuilder) rulesMapByNamespace {
 	// current consistent view of the rules
 	// keyed by Namespace and then Name.
 	ruleConfig := make(rulesMapByNamespace)
@@ -398,7 +411,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		cfg := obj.Spec
 		rulec := cfg.(*cpb.Rule)
 
-		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace)
+		acts := c.processActions(rulec.Actions, handlerConfig, instanceConfig, ht, k.Namespace, expb)
 
 		ruleActions := make(map[adptTmpl.TemplateVariety][]*Action)
 		for vr, amap := range acts {
@@ -408,7 +421,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		}
 		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
 		rt := resourceType(obj.Metadata.Labels)
-		rule, err := buildRule(k, rulec, rt)
+		rule, err := buildRule(k, rulec, rt, expb)
 		if err != nil {
 			glog.Warningf("Unable to process match condition: %v", err)
 			continue
@@ -457,7 +470,7 @@ func canonicalizeInstanceNames(instances []string, namespace string) []string {
 // processActions prunes actions that lack referential integrity and associate instances with
 // handlers that are later used to create new handlers.
 func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string]*cpb.Handler,
-	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string) map[adptTmpl.TemplateVariety]map[string]*Action {
+	instanceConfig map[string]*cpb.Instance, ht *handlerTable, namespace string, expb *compiled.ExpressionBuilder) map[adptTmpl.TemplateVariety]map[string]*Action {
 
 	actions := make(map[adptTmpl.TemplateVariety]map[string]*Action)
 
@@ -495,13 +508,18 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 			act := vAction[templateHandlerKey]
 			if act == nil {
 				act = &Action{
-					processor:   &ti,
-					handlerName: ic.Handler,
-					adapterName: hc.Adapter,
+					processor:        &ti,
+					handlerName:      ic.Handler,
+					adapterName:      hc.Adapter,
+					instanceBuilders: []template.InstanceBuilderFn{},
 				}
 				vAction[templateHandlerKey] = act
 			}
-			act.instanceConfig = append(act.instanceConfig, inst)
+
+			// TODO: We can detect any static analysis problems here and reject the config. Not doing so, to preserve
+			// the current semantics for the time being.
+			ib := ti.CreateInstanceBuilder(instName, inst, expb)
+			act.instanceBuilders = append(act.instanceBuilders, ib)
 		}
 	}
 	return actions

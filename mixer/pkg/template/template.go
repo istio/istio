@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	multierror "github.com/hashicorp/go-multierror"
 	"istio.io/istio/mixer/pkg/il/compiled"
 
