@@ -26,7 +26,7 @@ ZONE=us-central1-f
 MACHINE_TYPE=n1-standard-4
 NUM_NODES=1
 CLUSTER_NAME=
-IFS=';' VERSIONS=($(gcloud container get-server-config --project=istio-testing --zone=us-central1-f --format='value(validMasterVersions)'))
+IFS=';' VERSIONS=($(gcloud container get-server-config --project=${PROJECT_NAME} --zone=${ZONE} --format='value(validMasterVersions)'))
 CLUSTER_VERSION="${VERSIONS[1]}"
 KUBE_USER="istio-prow-test-job@istio-testing.iam.gserviceaccount.com"
 CLUSTER_CREATED=false
