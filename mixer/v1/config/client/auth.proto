@@ -114,6 +114,10 @@ message JWT {
     }
   }
   repeated Location locations = 6;
+
+  // This field is specific for Envoy proxy implementation.
+  // It is the cluster name in the Envoy config for the jwks_uri.
+  string jwks_uri_envoy_cluster = 7;
 }
 
 // Determines how to apply auth policies for individual requests.
