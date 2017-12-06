@@ -44,13 +44,9 @@ message OutputTemplate {
 
     string stringPrimitive = 4;
 
-    map<string, int64> dimensionsFixedInt64ValueDType = 5;
-
     google.protobuf.Timestamp timeStamp = 6;
 
     google.protobuf.Duration duration = 7;
-
-    map<string, Resource3> res3_map = 9;
 }
 
 

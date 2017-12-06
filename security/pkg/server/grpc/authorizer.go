@@ -16,6 +16,8 @@ package grpc
 
 import (
 	"fmt"
+
+	"istio.io/istio/security/pkg/registry"
 )
 
 type authorizer interface {
@@ -45,5 +47,29 @@ func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []strin
 		}
 	}
 
+	return nil
+}
+
+// registryAuthorizor uses an underlying identity registry to make authorization decisions
+// nolint
+type registryAuthorizor struct {
+	reg registry.Registry
+}
+
+// authorize checks for each requested ID, if there is an identity from caller
+// that supports it in registry.
+func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []string) error {
+	for _, requestedID := range requestedIDs {
+		valid := false
+		for _, identity := range requestor.identities {
+			if authZ.reg.Check(identity, requestedID) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("the requested identity %q is not authorized", requestedID)
+		}
+	}
 	return nil
 }

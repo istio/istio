@@ -80,16 +80,15 @@ resources:
       items:
       - key: startup-script
         value: |
-          #!/bin/bash
+          #!/bin/bash -x
           apt-get update && apt-get install -y git curl kubectl
           export HOME=/root
           gcloud components update -q
           gcloud components install beta -q
           gcloud container clusters get-credentials {{ properties['gkeClusterName'] }} --zone {{ properties['zone'] }}
           kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value core/account)
-          git clone https://github.com/istio/istio.git
-	  cd istio
-          git checkout tags/{{ properties['installIstioRelease'] }}
+          curl -L https://raw.githubusercontent.com/istio/istio/master/release/downloadIstioCandidate.sh | ISTIO_VERSION={{ properties['installIstioRelease'] }} sh -
+          cd istio-{{ properties['installIstioRelease'] }}
 
           {% if  properties['enableMutualTLS'] %}
             kubectl apply -f install/kubernetes/istio-auth.yaml

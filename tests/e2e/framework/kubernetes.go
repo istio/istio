@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-
 	"istio.io/istio/tests/util"
 )
 

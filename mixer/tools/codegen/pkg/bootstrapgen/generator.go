@@ -47,10 +47,14 @@ const (
 
 // TODO share the code between this generator and the interfacegen code generator.
 var primitiveToValueType = map[string]string{
-	"string":        fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
-	"bool":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
-	"int64":         fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
-	"float64":       fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
+	"string":  fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
+	"bool":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
+	"int64":   fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
+	"float64": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
+	// TODO: currently IP_ADDRESS is byte[], but reverse might not be true. This code assumes []byte is
+	// IP_ADDRESS, which is a temporary hack since there is currently no way to express IP_ADDRESS inside templates
+	// yet.
+	"[]byte":        fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
 	"time.Duration": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DURATION.String(),
 	"time.Time":     fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.TIMESTAMP.String(),
 }
@@ -78,6 +82,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
 				return primitiveToValueType[goType.Name]
+
 			},
 			"containsValueTypeOrResMsg": containsValueTypeOrResMsg,
 			"reportTypeUsed": func(ti modelgen.TypeInfo) string {
