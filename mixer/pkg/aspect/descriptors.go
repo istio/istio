@@ -35,15 +35,15 @@ func valueTypeToLabelType(pbt dpb.ValueType) (adapter.LabelType, error) {
 	case dpb.TIMESTAMP:
 		return adapter.Time, nil
 	case dpb.DNS_NAME:
-		return adapter.DNSName, nil
+		return adapter.DNSNameLegacy, nil
 	case dpb.DURATION:
-		return adapter.Duration, nil
+		return adapter.DurationLegacy, nil
 	case dpb.EMAIL_ADDRESS:
-		return adapter.EmailAddress, nil
+		return adapter.EmailAddressLegacy, nil
 	case dpb.IP_ADDRESS:
-		return adapter.IPAddress, nil
+		return adapter.IPAddressLegacy, nil
 	case dpb.URI:
-		return adapter.URI, nil
+		return adapter.URILegacy, nil
 	case dpb.STRING_MAP:
 		return adapter.StringMap, nil
 	default:

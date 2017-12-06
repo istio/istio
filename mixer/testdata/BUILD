@@ -20,6 +20,6 @@ filegroup(
     srcs = glob(["**/*.yml"]) + glob(["**/*.yaml"]),
     visibility = [
         "//mixer/pkg/mock:__subpackages__",
-        "//tests/integration/component/mixer:__subpackages__"
+        "//tests/integration/component/mixer:__subpackages__",
     ],
 )

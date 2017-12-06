@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package traceSpan;
 
-import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
 
@@ -88,12 +88,12 @@ message Template {
     // The start time of the span.
     //
     // Required.
-    google.protobuf.Timestamp start_time = 5;
+    istio.mixer.v1.template.TimeStamp start_time = 5;
 
     // The end time of the span.
     //
     // Required.
-    google.protobuf.Timestamp end_time = 6;
+    istio.mixer.v1.template.TimeStamp end_time = 6;
 
     // Span tags are a set of <key, value> pairs that provide metadata for the
     // entire span. The values can be specified in the form of expressions.
