@@ -15,3 +15,8 @@ go_binary(
     name = "app_only_env",
     library = ":go_default_library",
 )
+
+go_binary(
+    name = "cmd",
+    library = ":go_default_library",
+)

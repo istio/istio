@@ -15,3 +15,8 @@ go_binary(
     name = "mixer_envoy_env",
     library = ":go_default_library",
 )
+
+go_binary(
+    name = "cmd",
+    library = ":go_default_library",
+)

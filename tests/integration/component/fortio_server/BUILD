@@ -6,8 +6,5 @@ go_library(
         "fortio_server_comp.go",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//tests/integration/framework:go_default_library",
-        "//tests/util:go_default_library",
-    ],
+    deps = ["//tests/integration/framework:go_default_library"],
 )
