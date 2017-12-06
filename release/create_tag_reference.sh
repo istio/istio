@@ -91,17 +91,20 @@ function create_tag_reference() {
   local RESPONSE_FILE="$(mktemp /tmp/github.response.XXXX)"
 
   # STEP 1: create an annotated tag.
-  echo "{\
-    \"tag\": \"${VERSION}\", \
-    \"message\": \"${PRODUCT} Release ${VERSION}\", \
-    \"object\": \"${3}\", \
-    \"type\": \"commit\", \
-    \"tagger\": { \
-    \"name\": \"${USER_NAME}\", \
-    \"email\": \"${USER_EMAIL}\", \
-    \"date\": \"${DATE_STRING}\" }
-  }" > ${REQUEST_FILE}
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" \
+cat << EOF > ${REQUEST_FILE}
+{
+  "tag": "${VERSION}",
+  "message": "${PRODUCT} Release ${VERSION}",
+  "object": "${3}",
+  "type": "commit",
+  "tagger": {
+    "name": "${USER_NAME}",
+    "email": "${USER_EMAIL}",
+    "date": "${DATE_STRING}"
+  }
+}
+EOF
+  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/tags"
 
@@ -126,7 +129,7 @@ function create_tag_reference() {
     \"ref\": \"refs/tags/${VERSION}\", \
     \"sha\": \"${TAG_SHA}\" \
   }" > ${REQUEST_FILE}
-  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" \
+  curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/refs"
 

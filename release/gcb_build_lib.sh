@@ -145,14 +145,11 @@ function run_build() {
   if [[ "${WAIT}" == "true" ]]; then
     echo "waiting for build to complete"
     
-    curl -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" -s \
-         -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds/{$BUILD_ID}"
-
     while parse_result_file "${RESULT_FILE}"
     do
       sleep 60
       
-      curl -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" -s \
+      curl -H "Authorization: Bearer $(gcloud auth --account ${SERVICE_ACCT} print-access-token)" -s --retry 3 \
         -o "${RESULT_FILE}" "https://cloudbuild.googleapis.com/v1/projects/${PROJ_ID}/builds/{$BUILD_ID}"
     done
   fi

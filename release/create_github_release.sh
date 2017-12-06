@@ -76,15 +76,17 @@ done
 [[ -z "${SHA}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
 
-echo "{\
-\"tag_name\": \"${VERSION}\", \
-\"target_commitsh\": \"${SHA}\", \
-\"body\": \"[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n* [istio-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-agent.deb)\\n* [istio-auth-node-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-auth-node-agent.deb)\\n* [istio-proxy](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-proxy.deb)\\n\\n[RELEASE NOTES](http://github.com/istio/istio/wiki/v${VERSION})\", \
-\"draft\": true, \
-\"prerelease\": true \
-}" > ${REQUEST_FILE}
+cat << EOF > ${REQUEST_FILE}
+{
+  "tag_name": "${VERSION}",
+  "target_commitsh": "${SHA}",
+  "body": "[ARTIFACTS](http://gcsweb.istio.io/gcs/istio-release/releases/${VERSION}/)\\n* [istio-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-agent.deb)\\n* [istio-auth-node-agent](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-auth-node-agent.deb)\\n* [istio-proxy](https://storage.googleapis.com/istio-release/releases/${VERSION}/deb/istio-proxy.deb)\\n\\n[RELEASE NOTES](http://github.com/istio/istio/wiki/v${VERSION})",
+  "draft": true,
+  "prerelease": true
+}
+EOF
 curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" -H "Content-Type: application/json" \
-     -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" "https://api.github.com/repos/${ORG}/${REPO}/releases"
+     --retry 3 -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" "https://api.github.com/repos/${ORG}/${REPO}/releases"
 
 # parse ID from "url": "https://api.github.com/repos/:user/:repo/releases/8576148",
 RELEASE_ID=$(parse_json_for_url_int_suffix ${RESPONSE_FILE} "url" "/releases")
@@ -105,7 +107,7 @@ function upload_file {
   local UPLOAD_BASE=$(basename $3)
   echo "Uploading: $3"
   curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" \
-       -H "Content-Type: ${2}" -T $3 -H "Authorization: token ${TOKEN}" \
+       --retry 3 -H "Content-Type: ${2}" -T $3 -H "Authorization: token ${TOKEN}" \
        "${1}?name=$UPLOAD_BASE"
 
     # "url":"https://api.github.com/repos/istio/istio/releases/assets/5389350",
