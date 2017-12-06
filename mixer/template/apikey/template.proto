@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package apiKey;
 
-import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_CHECK;
@@ -52,5 +52,5 @@ message Template {
     string api_key = 4;
 
     // Timestamp of API call.
-    google.protobuf.Timestamp timestamp = 5;
+    istio.mixer.v1.template.TimeStamp timestamp = 5;
 }
