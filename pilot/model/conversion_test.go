@@ -44,7 +44,7 @@ func TestGogoProtoSchemaConversions(t *testing.T) {
 			},
 		},
 		Patterns: []*mccpb.HTTPAPISpecPattern{
-			&mccpb.HTTPAPISpecPattern{
+			{
 				Attributes: &mpb.Attributes{
 					Attributes: map[string]*mpb.Attributes_AttributeValue{
 						"api.operation": {
@@ -61,7 +61,7 @@ func TestGogoProtoSchemaConversions(t *testing.T) {
 			},
 		},
 		ApiKeys: []*mccpb.APIKey{
-			&mccpb.APIKey{
+			{
 				Key: &mccpb.APIKey_Query{
 					"api_key",
 				},
