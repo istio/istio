@@ -260,7 +260,7 @@ const (
 	IstioAPIGroup = "config.istio.io"
 
 	// IstioAPIVersion defines API group version
-	IstioAPIVersion = "v1alpha1"
+	IstioAPIVersion = "v1alpha2"
 
 	// HeaderURI is URI HTTP header
 	HeaderURI = "uri"
