@@ -253,9 +253,19 @@ var (
 		file: "testdata/fault-route.yaml.golden",
 	}
 
+	faultRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "fault"},
+		file: "testdata/fault-route-v1alpha2.yaml.golden",
+	}
+
 	redirectRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect"},
 		file: "testdata/redirect-route.yaml.golden",
+	}
+
+	redirectRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
+		file: "testdata/redirect-route-v1alpha2.yaml.golden",
 	}
 
 	rewriteRouteRule = fileConfig{
