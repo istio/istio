@@ -68,7 +68,7 @@ type Instance struct {
 
 	EmailAddr adapter.EmailAddress
 
-	Uri adapter.Uri
+	Uri adapter.URI
 
 	Res3List []*Resource3
 

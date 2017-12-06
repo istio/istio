@@ -1065,7 +1065,7 @@ func TestProcessReport(t *testing.T) {
 							EmailAddr:      adapter.EmailAddress("myEMAIL"),
 							IpAddr:         net.ParseIP("0.0.0.0"),
 							TimeStamp:      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
-							Uri:            adapter.Uri("myURI"),
+							Uri:            adapter.URI("myURI"),
 						},
 						Res2Map: map[string]*sample_report.Res2{
 							"foo": {
@@ -1077,7 +1077,7 @@ func TestProcessReport(t *testing.T) {
 								EmailAddr:      adapter.EmailAddress("myEMAIL"),
 								IpAddr:         net.ParseIP("0.0.0.0"),
 								TimeStamp:      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
-								Uri:            adapter.Uri("myURI"),
+								Uri:            adapter.URI("myURI"),
 							},
 						},
 					},

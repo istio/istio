@@ -16,12 +16,12 @@ package adapter
 
 // Strong Go types for template-specific instance fields that are sent to the adapters.
 type (
-	// Associated with template field type istio.mixer.v1.template.DNSName
+	// DNSName is associated with template field type istio.mixer.v1.template.DNSName
 	DNSName string
-	// Associated with template field type istio.mixer.v1.template.EmailAddress
+	// EmailAddress is associated with template field type istio.mixer.v1.template.EmailAddress
 	EmailAddress string
-	// Associated with template field type istio.mixer.v1.template.Uri
-	Uri string
+	// URI is associated with template field type istio.mixer.v1.template.Uri
+	URI string
 
 	// For other types in "istio.mixer.v1.template", we use well known Go types. For example:
 	// istio.mixer.v1.template.Duration -> time.Duration

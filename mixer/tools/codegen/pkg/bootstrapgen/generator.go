@@ -52,7 +52,7 @@ var primitiveToValueType = map[string]string{
 	"int64":                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
 	"float64":              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
 	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
-	"adapter.Uri":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
+	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
 	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DNS_NAME.String(),
 	"adapter.EmailAddress": fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.EMAIL_ADDRESS.String(),
 
@@ -63,7 +63,7 @@ var primitiveToValueType = map[string]string{
 var aliasTypes = map[string]string{
 	"adapter.DNSName":      "string",
 	"adapter.EmailAddress": "string",
-	"adapter.Uri":          "string",
+	"adapter.URI":          "string",
 	"net.IP":               "[]uint8",
 }
 

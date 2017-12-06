@@ -54,7 +54,7 @@ var customMessageTypeMetadata = map[string]typeMetadata{
 		goName: "adapter.EmailAddress",
 	},
 	".istio.mixer.v1.template.Uri": {
-		goName: "adapter.Uri",
+		goName: "adapter.URI",
 	},
 }
 

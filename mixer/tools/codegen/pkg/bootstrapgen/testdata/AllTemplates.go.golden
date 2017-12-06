@@ -630,7 +630,7 @@ var (
 
 						EmailAddr: adapter.EmailAddress(EmailAddr.(string)),
 
-						Uri: adapter.Uri(Uri.(string)),
+						Uri: adapter.URI(Uri.(string)),
 					}, nil
 				}
 
@@ -1670,7 +1670,7 @@ var (
 
 						EmailAddr: adapter.EmailAddress(EmailAddr.(string)),
 
-						Uri: adapter.Uri(Uri.(string)),
+						Uri: adapter.URI(Uri.(string)),
 					}, nil
 				}
 
