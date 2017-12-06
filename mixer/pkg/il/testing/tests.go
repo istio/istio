@@ -20,6 +20,7 @@ import (
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 var duration19, _ = time.ParseDuration("19ms")
@@ -1550,12 +1551,265 @@ end
 	},
 
 	{
-		E:  `ip(ar["foo"])`,
-		IL: ``,
+		E: `ip(ar["foo"])`,
+		IL: `
+fn eval() interface
+  resolve_f "ar"
+  anlookup "foo"
+  call ip
+  ret
+end
+`,
 		I: map[string]interface{}{
 			"ar": map[string]string{"foo": "1.2.3.4"},
 		},
 		R: []uint8(net.ParseIP("1.2.3.4")),
+	},
+
+	{
+		E: `reverse(as)`,
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call reverse
+  ret
+end
+`,
+		I: map[string]interface{}{
+			"as": "str1",
+		},
+		R: "1rts",
+		Fns: []expr.FunctionMetadata{
+			{Name: "reverse", Instance: false, ArgumentTypes: []pbv.ValueType{pbv.STRING}, ReturnType: pbv.STRING},
+		},
+		Externs: map[string]interface{}{
+			"reverse": func(s string) string {
+				runes := []rune(s)
+				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+					runes[i], runes[j] = runes[j], runes[i]
+				}
+				return string(runes)
+			},
+		},
+	},
+
+	{
+		E: `as.reverse()`,
+		IL: `
+fn eval() string
+  resolve_s "as"
+  call reverse
+  ret
+end
+`,
+		I: map[string]interface{}{
+			"as": "str1",
+		},
+		R: "1rts",
+		Fns: []expr.FunctionMetadata{
+			{Name: "reverse", Instance: true, TargetType: pbv.STRING, ReturnType: pbv.STRING},
+		},
+		Externs: map[string]interface{}{
+			"reverse": func(s string) string {
+				runes := []rune(s)
+				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+					runes[i], runes[j] = runes[j], runes[i]
+				}
+				return string(runes)
+			},
+		},
+	},
+
+	{
+		E:          `"aaa".matches(23)`,
+		CompileErr: `"aaa":matches(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `matches("aaa")`,
+		CompileErr: `invoking instance method without an instance: matches`,
+	},
+	{
+		E:          `matches()`,
+		CompileErr: `invoking instance method without an instance: matches`,
+	},
+	{
+		E: `"abc".matches("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call matches
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `".*".matches("abc")`,
+		IL: `
+fn eval() bool
+  apush_s ".*"
+  apush_s "abc"
+  call matches
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"ab.*d".matches("abc")`,
+		R: false,
+	},
+	{
+		E: `as.matches(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call matches
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "st.*",
+			"bs": "str1",
+		},
+		R: true,
+	},
+	{
+		E: `as.matches(bs)`,
+		I: map[string]interface{}{
+			"as": "st.*",
+			"bs": "sqr1",
+		},
+		R: false,
+	},
+
+	{
+		E:          `"aaa".startsWith(23)`,
+		CompileErr: `"aaa":startsWith(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `startsWith("aaa")`,
+		CompileErr: `invoking instance method without an instance: startsWith`,
+	},
+	{
+		E:          `startsWith()`,
+		CompileErr: `invoking instance method without an instance: startsWith`,
+	},
+	{
+		E: `"abc".startsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call startsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abcd".startsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abcd"
+  apush_s "abc"
+  call startsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abfood".startsWith("abc")`,
+		R: false,
+	},
+	{
+		E: `as.startsWith(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call startsWith
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "abcd",
+			"bs": "ab",
+		},
+		R: true,
+	},
+	{
+		E: `as.startsWith(bs)`,
+		I: map[string]interface{}{
+			"as": "bcda",
+			"bs": "abc",
+		},
+		R: false,
+	},
+
+	{
+		E:          `"aaa".endsWith(23)`,
+		CompileErr: `"aaa":endsWith(23) arg 1 (23) typeError got INT64, expected STRING`,
+	},
+	{
+		E:          `endsWith("aaa")`,
+		CompileErr: `invoking instance method without an instance: endsWith`,
+	},
+	{
+		E:          `endsWith()`,
+		CompileErr: `invoking instance method without an instance: endsWith`,
+	},
+	{
+		E: `"abc".endsWith("abc")`,
+		IL: `
+fn eval() bool
+  apush_s "abc"
+  apush_s "abc"
+  call endsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abcd".endsWith("bcd")`,
+		IL: `
+fn eval() bool
+  apush_s "abcd"
+  apush_s "bcd"
+  call endsWith
+  ret
+end
+`,
+		R: true,
+	},
+	{
+		E: `"abfood".endsWith("abc")`,
+		R: false,
+	},
+	{
+		E: `as.endsWith(bs)`,
+		IL: `
+fn eval() bool
+  resolve_s "as"
+  resolve_s "bs"
+  call endsWith
+  ret
+end`,
+		I: map[string]interface{}{
+			"as": "abcd",
+			"bs": "cd",
+		},
+		R: true,
+	},
+	{
+		E: `as.endsWith(bs)`,
+		I: map[string]interface{}{
+			"as": "bcda",
+			"bs": "abc",
+		},
+		R: false,
 	},
 }
 
@@ -1589,6 +1843,12 @@ type TestInfo struct {
 	// Config field holds the GlobalConfig to use when compiling/evaluating the tests.
 	// If nil, then "Default" config will be used.
 	Conf *pb.GlobalConfig
+
+	// Fns field holds any additional function metadata that needs to be involved in the test.
+	Fns []expr.FunctionMetadata
+
+	// Externs holds any additional externs that should be used during evaluation.
+	Externs map[string]interface{}
 
 	// SkipAst indicates that AST based evaluator should not be used for this test.
 	SkipAst bool

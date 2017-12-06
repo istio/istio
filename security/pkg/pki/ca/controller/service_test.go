@@ -16,7 +16,6 @@ package controller
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -25,7 +24,6 @@ import (
 )
 
 type reg struct {
-	sync.Mutex
 	m map[string]bool
 }
 
@@ -36,22 +34,16 @@ var (
 )
 
 func (r *reg) simpleAdd(svc *v1.Service) {
-	r.Lock()
 	r.m[svc.ObjectMeta.Name] = true
-	r.Unlock()
 }
 
 func (r *reg) simpleDelete(svc *v1.Service) {
-	r.Lock()
 	delete(r.m, svc.ObjectMeta.Name)
-	r.Unlock()
 }
 
 func (r *reg) simpleUpdate(oldSvc, newSvc *v1.Service) {
-	r.Lock()
 	delete(r.m, oldSvc.ObjectMeta.Name)
 	r.m[newSvc.ObjectMeta.Name] = true
-	r.Unlock()
 }
 
 func createService(name, namespace string) *v1.Service {

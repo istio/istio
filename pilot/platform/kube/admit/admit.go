@@ -179,7 +179,7 @@ func NewController(client kubernetes.Interface, options ControllerOptions) (*Adm
 	}, nil
 }
 
-func setup(client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
+func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*tls.Config, []byte, error) {
 	apiServerCACert, err := getAPIServerExtensionCACert(client)
 	if err != nil {
 		return nil, nil, err
@@ -198,17 +198,9 @@ func setup(client kubernetes.Interface, options *ControllerOptions) (*tls.Config
 
 // Run implements the admission controller run loop.
 func (ac *AdmissionController) Run(stop <-chan struct{}) {
-	// TODO(github.com/kubernetes/kubernetes/issues/49987) -
-	// Temporarily defer cert generation and registration to the run
-	// loop where it won't block other controllers. Ideally this
-	// should be performed synchronously as part of NewController()
-	// but cert generation (GetKeyCertsFromSecret) and webhooks in
-	// general may be optional (default off) until
-	// https://github.com/kubernetes/kubernetes/issues/49987 is fixed
-	// in GKE 1.8.
-	tlsConfig, caCert, err := setup(ac.client, &ac.options)
+	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
 	if err != nil {
-		glog.Errorf(err.Error())
+		glog.Errorf("Could not configure admission webhook certs: %v", err)
 		return
 	}
 
@@ -218,8 +210,10 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		TLSConfig: tlsConfig,
 	}
 
-	glog.Info("Found certificates for validation admission webhook. Delaying registration for %v",
-		ac.options.RegistrationDelay)
+	glog.Info("Found certificates for validation admission webhook")
+	if ac.options.RegistrationDelay != 0 {
+		glog.Info("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
+	}
 
 	select {
 	case <-time.After(ac.options.RegistrationDelay):
@@ -328,7 +322,8 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Status: *status,
 	}
 
-	glog.V(2).Info("AdmissionReview for %v: status=%v", review.Spec.Name, status)
+	glog.V(2).Infof("AdmissionReview for %s: %v/%v status=%v",
+		review.Spec.Kind, review.Spec.Namespace, review.Spec.Name, status)
 
 	resp, err := json.Marshal(ar)
 	if err != nil {

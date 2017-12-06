@@ -39,6 +39,11 @@ func TestExpressions(t *testing.T) {
 			continue
 		}
 
+		if test.Fns != nil {
+			// Skip tests that have extern functions defined. We cannot inject extern functions into the evaluator.
+			// Compiler tests actually also do evaluation.
+			continue
+		}
 		name := "IL/" + test.E
 		t.Run(name, func(tt *testing.T) {
 			testWithILEvaluator(test, tt)

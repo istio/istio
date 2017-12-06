@@ -287,6 +287,20 @@ func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder 
 			attrs[an] = at
 		}
 	}
+
+	// append all the well known attribute vocabulary from the templates.
+	//
+	// ATTRIBUTE_GENERATOR variety templates allows operators to write attributes
+	// using the $out.<field name> convention, where $out refers to the output object from the attribute generating adapter.
+	// The list of valid names for a given template is available in the template.Info.AttributeManifests object.
+	for _, info := range c.templateInfo {
+		for _, v := range info.AttributeManifests {
+			for an, at := range v.Attributes {
+				attrs[an] = at
+			}
+		}
+	}
+
 	if glog.V(2) {
 		glog.Infof("%d known attributes", len(attrs))
 	}
