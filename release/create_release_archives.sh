@@ -105,7 +105,7 @@ function create_windows_archive() {
 
 pushd "${OUTPUT_PATH}"
 ${CP} istio.VERSION LICENSE README.md "${COMMON_FILES_DIR}"/
-find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
+find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" -o -name "kubeconfig" \) \
   -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 find install/tools -type f -exec ${CP} --parents {} "${COMMON_FILES_DIR}" \;
 popd
