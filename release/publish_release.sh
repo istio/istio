@@ -183,9 +183,13 @@ if [[ "${DO_GCRHUB}" == "true" ]]; then
 fi
 
 if [[ "${DO_DOCKERHUB}" == "true" ]]; then
-  [[ -z "${DOCKER_DEST}" ]] && usage
-  [[ -z "${VERSION}" ]] && usage
-  DOCKER_DEST=docker.io/${DOCKER_DEST%/}
+  if [[ -z "${DOCKER_DEST}" ]]; then
+    echo "NOTE: An empty string was used for docker hub setting so docker push has been disabled"
+    DO_DOCKERHUB="false"
+  else
+    [[ -z "${VERSION}" ]] && usage
+    DOCKER_DEST=docker.io/${DOCKER_DEST%/}
+  fi
 fi
 
 # if GCS source dir provided then copy files to local location

@@ -99,7 +99,7 @@ done
 [[ -z "${REPO_FILE_VER}" ]] && usage
 [[ -z "${VER_STRING}"    ]] && usage
 
-[[ -z "${DOCKER_DST}"        ]] && usage
+# [[ -z "${DOCKER_DST}"        ]] && usage
 [[ -z "${GCR_DST}"           ]] && usage
 [[ -z "${GCS_DST}"           ]] && usage
 [[ -z "${GCS_SRC}"           ]] && usage
