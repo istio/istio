@@ -14,22 +14,14 @@
 
 package framework
 
-// Component is a interface of a test component
-type Component interface {
-	// GetName return component name
-	GetName() string
+// Config is interface to extend the ability of the framework.
+// Any item (component, environment or even framework itself can has a Config)
+// Actual implement can take this interface with its configuration.
+// Implement is recommended to also take sync.Mutex to lock data while read/write
+type Config interface {
+	// GetConfig return the Config.
+	GetConfig() *Config
 
-	// Bringup doing setup for this component
-	// Start() is being called in framework.StartUp()
-	Start() error
-
-	// Stop stop this component
-	// Stop() is being called in framework.TearDown()
-	Stop() error
-
-	// IsAlive check if component is alive/running
-	IsAlive() (bool, error)
-
-	// Cleanup clean up tmp files and other resource created by this component
-	Cleanup() error
+	// SetConfig set a Config interface to an item.
+	SetConfig(config *Config)
 }

@@ -21,23 +21,23 @@ import (
 	"os"
 	"testing"
 
-	env "istio.io/istio/tests/integration/environment"
+	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	mixerEnvoyEnv   = "mixer_envoy_env"
-	sidecarEndpoint = "http://localhost:9090/echo"
-	metricsEndpoint = "http://localhost:42422/metrics"
-	testID          = "sample2_test"
+	mixerEnvoyEnvName = "mixer_envoy_env"
+	sidecarEndpoint   = "http://localhost:9090/echo"
+	metricsEndpoint   = "http://localhost:42422/metrics"
+	testID            = "sample2_test"
 )
 
 var (
-	testFW *framework.IstioTestFramework
+	testEM *framework.TestEnvManager
 )
 
 func TestSample2(t *testing.T) {
-	log.Printf("Running %s", testFW.TestID)
+	log.Printf("Running %s", testEM.TestID)
 	client := &http.Client{}
 	req, _ := http.NewRequest(http.MethodGet, sidecarEndpoint, nil)
 	resp, err := client.Do(req)
@@ -57,13 +57,13 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	log.Printf("%s succeeded!", testFW.TestID)
+	log.Printf("%s succeeded!", testEM.TestID)
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	testFW = framework.NewIstioTestFramework(env.NewMixerEnvoyEnv(mixerEnvoyEnv), testID)
-	res := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res, mixerEnvoyEnv)
+	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	res := testEM.RunTest(m)
+	log.Printf("Test result %d in env %s", res, mixerEnvoyEnvName)
 	os.Exit(res)
 }
