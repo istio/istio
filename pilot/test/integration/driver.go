@@ -98,13 +98,7 @@ func init() {
 	flag.BoolVar(&params.UseAdmissionWebhook, "use-admission-webhook", false,
 		"Use k8s external admission webhook for config validation")
 
-	// TODO(github.com/kubernetes/kubernetes/issues/49987) - use
-	// `istio-pilot-external` for the registered service name and
-	// provide `istio-pilot` as --service-name argument to
-	// platform/kube/admit/webhook-workaround.sh. Once this bug is
-	// fixed (and for non-GKE k8s) the admission-service-name should
-	// be `istio-pilot`.
-	flag.StringVar(&params.AdmissionServiceName, "admission-service-name", "istio-pilot-external",
+	flag.StringVar(&params.AdmissionServiceName, "admission-service-name", "istio-pilot",
 		"Name of admission webhook service name")
 
 	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
