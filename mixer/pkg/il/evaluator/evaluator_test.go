@@ -30,8 +30,6 @@ import (
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
-const maxStringTableSizeForPurge int = 1024
-
 func TestExpressions(t *testing.T) {
 	for _, test := range ilt.TestData {
 		if test.E == "" {
@@ -260,29 +258,6 @@ func TestConfigChange(t *testing.T) {
 	}
 }
 
-func Test_StringTableSizeBasedEviction(t *testing.T) {
-	src := rand.NewSource(time.Now().UnixNano())
-	rnd := rand.New(src)
-	e := initEvaluator(t, configString)
-
-	expr := `attr == "boo"`
-
-	for i := 0; i < maxStringTableSizeForPurge*10; i++ {
-		bag := initBag(generateRandomStr(rnd))
-		_, err := e.Eval(expr, bag)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr, e.functions)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
-			t.Fatalf("%d > %d", entry.interpreter.StringTableSize(), maxStringTableSizeForPurge)
-		}
-	}
-}
-
 func Test_Stress(t *testing.T) {
 	src := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(src)
@@ -316,7 +291,7 @@ func Test_Stress(t *testing.T) {
 }
 
 func Test_TypeChecker_Uninitialized(t *testing.T) {
-	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -358,7 +333,7 @@ func initBag(attrValue interface{}) attribute.Bag {
 }
 
 func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
-	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
