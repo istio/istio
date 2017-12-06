@@ -209,7 +209,7 @@ Loop:
 					p.failUnexpectedInput()
 					goto FAILED
 				}
-				id := p.program.Strings().GetID(i)
+				id := p.program.Strings().Add(i)
 				body = append(body, id)
 
 			case il.OpcodeArgFunction:
@@ -218,7 +218,7 @@ Loop:
 					p.failUnexpectedInput()
 					goto FAILED
 				}
-				id := p.program.Strings().GetID(i)
+				id := p.program.Strings().Add(i)
 				body = append(body, id)
 
 			case il.OpcodeArgInt:
