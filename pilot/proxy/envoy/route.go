@@ -71,7 +71,7 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	}
 }
 
-func buildInboundRouteV1Alpha1(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
+func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
 	route := buildHTTPRouteMatch(rule.Match)
 	route.Cluster = cluster.Name
 	route.clusters = []*Cluster{cluster}
@@ -92,7 +92,6 @@ func buildInboundRouteV1Alpha1(config model.Config, rule *routing.RouteRule, clu
 
 func buildInboundRouteV1Alpha2(config model.Config, rule *routing_v1alpha2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
-
 	for _, http := range rule.Http {
 		matchRoutes := buildHTTPRouteMatches(http.Match)
 		for _, route := range matchRoutes {
@@ -286,27 +285,22 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 	rule := config.Spec.(*routing_v1alpha2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
-	defaultDestination := service.Hostname // TODO: defaults are no longer supported, remove me
+	defaultDestination := service.Hostname
 	for _, http := range rule.Http {
 		matchRoutes := buildHTTPRouteMatches(http.Match)
 		for _, route := range matchRoutes {
 			// TODO: logic in this block is not dependent on the route match, so we may be able to avoid
 			// rerunning it N times
 
-			if len(http.Route) == 0 { // build default cluster
+			if len(http.Route) == 0 {
 				cluster := buildOutboundCluster(defaultDestination, port, nil)
 				route.Cluster = cluster.Name
 				route.clusters = append(route.clusters, cluster)
 			} else {
-				route.WeightedClusters = &WeightedCluster{
-					Clusters: make([]*WeightedClusterEntry, 0, len(http.Route)),
-				}
+				route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 				for _, dst := range http.Route {
-					destination := defaultDestination
-					if dst.Destination != nil {
-						destination = model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
-					}
-					cluster := buildOutboundCluster(destination, port, dst.Destination.Labels) // TODO: support Destination.Port
+					hostname := model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
+					cluster := buildOutboundCluster(hostname, port, dst.Destination.Labels) // TODO: support Destination.Port
 					route.clusters = append(route.clusters, cluster)
 					route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 						&WeightedClusterEntry{
@@ -315,7 +309,8 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 						})
 				}
 
-				if len(http.Route) == 1 { // rewrite to a single cluster if it's one weighted cluster
+				// rewrite to a single cluster if there is only weighted cluster
+				if len(route.WeightedClusters.Clusters) == 1 {
 					route.Cluster = route.WeightedClusters.Clusters[0].Name
 					route.WeightedClusters = nil
 				}
@@ -326,27 +321,10 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 				route.TimeoutMS = protoDurationToMS(http.Timeout)
 			}
 
-			if http.Retries != nil &&
-				http.Retries.Attempts > 0 {
-				route.RetryPolicy = &RetryPolicy{
-					NumRetries: int(http.Retries.GetAttempts()),
-					Policy:     "5xx,connect-failure,refused-stream",
-				}
-				if protoDurationToMS(http.Retries.PerTryTimeout) > 0 {
-					route.RetryPolicy.PerTryTimeoutMS = protoDurationToMS(http.Retries.PerTryTimeout)
-				}
-			}
+			route.RetryPolicy = buildRetryPolicy(http.Retries)
 
-			if http.Redirect != nil {
-				route.HostRedirect = http.Redirect.Authority
-				route.PathRedirect = http.Redirect.Uri
-				route.Cluster = ""
-			}
-
-			if http.Rewrite != nil {
-				route.HostRewrite = http.Rewrite.Authority
-				route.PrefixRewrite = http.Rewrite.Uri
-			}
+			applyRedirect(route, http.Redirect)
+			applyRewrite(route, http.Rewrite)
 
 			// Add the fault filters, one per cluster defined in weighted cluster or cluster
 			if http.Fault != nil {
@@ -358,19 +336,8 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 				}
 			}
 
-			if http.Mirror != nil {
-				route.ShadowCluster = &ShadowCluster{
-					Cluster: model.ResolveFQDN(config.ConfigMeta, http.Mirror.Name),
-				}
-			}
-
-			for name, val := range http.AppendHeaders {
-				route.HeadersToAdd = append(route.HeadersToAdd, AppendedHeader{
-					Key:   name,
-					Value: val,
-				})
-			}
-
+			route.ShadowCluster = buildShadowCluster(config.ConfigMeta, http.Mirror)
+			route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 			route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 			route.WebsocketUpgrade = http.WebsocketUpgrade
 			route.Decorator = buildDecorator(config)
@@ -390,6 +357,52 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 	}
 
 	return routes
+}
+
+func applyRedirect(route *HTTPRoute, redirect *routing_v1alpha2.HTTPRedirect) {
+	if redirect != nil {
+		route.HostRedirect = redirect.Authority
+		route.PathRedirect = redirect.Uri
+		route.Cluster = ""
+	}
+}
+
+func buildRetryPolicy(retries *routing_v1alpha2.HTTPRetry) (policy *RetryPolicy) {
+	if retries != nil && retries.Attempts > 0 {
+		policy = &RetryPolicy{
+			NumRetries: int(retries.GetAttempts()),
+			Policy:     "5xx,connect-failure,refused-stream",
+		}
+		if protoDurationToMS(retries.PerTryTimeout) > 0 {
+			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
+		}
+	}
+	return
+}
+
+func applyRewrite(route *HTTPRoute, rewrite *routing_v1alpha2.HTTPRewrite) {
+	if rewrite != nil {
+		route.HostRewrite = rewrite.Authority
+		route.PrefixRewrite = rewrite.Uri
+	}
+}
+
+func buildShadowCluster(meta model.ConfigMeta, mirror *routing_v1alpha2.Destination) *ShadowCluster {
+	if mirror != nil {
+		return &ShadowCluster{Cluster: model.ResolveFQDN(meta, mirror.Name)}
+	}
+	return nil
+}
+
+func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
+	out := make([]AppendedHeader, 0, len(headers))
+	for name, val := range headers {
+		out = append(out, AppendedHeader{
+			Key:   name,
+			Value: val,
+		})
+	}
+	return out
 }
 
 func buildCORSPolicy(policy *routing_v1alpha2.CorsPolicy) *CORSPolicy {

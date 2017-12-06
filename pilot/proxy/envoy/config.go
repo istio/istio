@@ -757,7 +757,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 					switch config.Spec.(type) {
 					case *routing.RouteRule:
 						rule := config.Spec.(*routing.RouteRule)
-						if route := buildInboundRouteV1Alpha1(config, rule, cluster); route != nil {
+						if route := buildInboundRoute(config, rule, cluster); route != nil {
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be
 							// resolved in future.
