@@ -221,6 +221,7 @@ var (
 			flags.admissionArgs.DomainSuffix = flags.controllerOptions.DomainSuffix
 			flags.admissionArgs.ValidateNamespaces = []string{
 				flags.controllerOptions.WatchedNamespace,
+				flags.namespace,
 			}
 			admissionController, err := admit.NewController(client, flags.admissionArgs)
 			if err != nil {
@@ -273,14 +274,14 @@ func init() {
 	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ExternalAdmissionWebhookName,
 		"admission-webhook-name", "pilot-webhook.istio.io", "Webhook name for Pilot admission controller")
 	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ServiceName,
-		"admission-service", "istio-pilot-external",
+		"admission-service", "istio-pilot",
 		"Service name the admission controller uses during registration")
 	discoveryCmd.PersistentFlags().IntVar(&flags.admissionArgs.Port, "admission-service-port", 443,
 		"HTTPS port of the admission service. Must be 443 if service has more than one port ")
 	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.SecretName, "admission-secret", "pilot-webhook",
 		"Name of k8s secret for pilot webhook certs")
 	discoveryCmd.PersistentFlags().DurationVar(&flags.admissionArgs.RegistrationDelay,
-		"admission-registration-delay", 5*time.Second,
+		"admission-registration-delay", 0*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 
 	cmd.AddFlags(rootCmd)
