@@ -221,7 +221,7 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	// add weighted rule to split into two clusters
 	addConfig(registry, weightedRouteRuleV1Alpha2, t)
-	addConfig(registry, cbPolicy, t)
+	addConfig(registry, cbPolicyV1Alpha2, t)
 	// add egress rule and a circuit breaker for external service (*.google.com)
 	addConfig(registry, egressRule, t)
 	addConfig(registry, egressRuleCBPolicy, t)
@@ -378,7 +378,7 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, egressRule, t)
 
-	addConfig(registry, timeoutRouteRule, t)
+	addConfig(registry, timeoutRouteRuleV1Alpha2, t)
 	addConfig(registry, egressRuleTimeoutRule, t)
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -409,7 +409,7 @@ func TestRouteDiscoveryFault(t *testing.T) {
 
 func TestRouteDiscoveryMirror(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, mirrorRule, t)
+	addConfig(registry, mirrorRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -418,7 +418,7 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 
 func TestRouteDiscoveryAppendHeaders(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, addHeaderRule, t)
+	addConfig(registry, addHeaderRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -427,7 +427,7 @@ func TestRouteDiscoveryAppendHeaders(t *testing.T) {
 
 func TestRouteDiscoveryCORSPolicy(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, corsPolicyRule, t)
+	addConfig(registry, corsPolicyRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
@@ -446,7 +446,7 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, rewriteRouteRule, t)
+	addConfig(registry, rewriteRouteRuleV1Alpha2, t)
 
 	// fault rule is source based: we check that the rule only affect v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())

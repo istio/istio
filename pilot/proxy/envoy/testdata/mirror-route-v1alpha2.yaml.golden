@@ -1,0 +1,5 @@
+hosts:
+  - world
+http:
+  - mirror:
+      name: hello

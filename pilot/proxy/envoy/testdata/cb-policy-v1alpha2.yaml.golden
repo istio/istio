@@ -1,0 +1,18 @@
+hosts:
+  - world
+source:
+  - labels: # TODO: name: hello
+      version: v0
+upstreamSettings:
+  lbPolicy: RANDOM
+  connectionPool:
+    tcp:
+      maxConnections: 100
+    http:
+      maxPendingRequests: 100
+      maxRequests: 100
+      sleepWindow: 15.5s
+      httpConsecutiveErrors: 10
+      detectionInterval: 30s
+      maxRequestsPerConnection: 100
+      maxEjectionPercent: 100

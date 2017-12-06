@@ -233,9 +233,19 @@ var (
 		file: "testdata/cb-policy.yaml.golden",
 	}
 
+	cbPolicyV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
+		file: "testdata/cb-policy-v1alpha2.yaml.golden",
+	}
+
 	timeoutRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "timeout"},
 		file: "testdata/timeout-route-rule.yaml.golden",
+	}
+
+	timeoutRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "timeout"},
+		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
 	}
 
 	weightedRouteRule = fileConfig{
@@ -271,6 +281,11 @@ var (
 	rewriteRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "rewrite"},
 		file: "testdata/rewrite-route.yaml.golden",
+	}
+
+	rewriteRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "rewrite"},
+		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
 	}
 
 	websocketRouteRule = fileConfig{
@@ -313,14 +328,29 @@ var (
 		file: "testdata/addheaders-route.yaml.golden",
 	}
 
+	addHeaderRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "append-headers"},
+		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
+	}
+
 	corsPolicyRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "cors-policy"},
 		file: "testdata/corspolicy-route.yaml.golden",
 	}
 
+	corsPolicyRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "cors-policy"},
+		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
+	}
+
 	mirrorRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route.yaml.golden",
+	}
+
+	mirrorRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
+		file: "testdata/mirror-route-v1alpha2.yaml.golden",
 	}
 )
 

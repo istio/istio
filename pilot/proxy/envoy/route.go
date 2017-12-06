@@ -268,30 +268,32 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			// TODO: logic in this block is not dependent on the route match, so we may be able to avoid
 			// rerunning it N times
 
-			route.WeightedClusters = &WeightedCluster{
-				Clusters: make([]*WeightedClusterEntry, 0, len(http.Route)),
-			}
-			for _, dst := range http.Route {
-				destination := defaultDestination
-				if dst.Destination != nil {
-					destination = model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
-				}
-				cluster := buildOutboundCluster(destination, port, dst.Destination.Labels) // TODO: support Destination.Port
-				route.clusters = append(route.clusters, cluster)
-				route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
-					&WeightedClusterEntry{
-						Name:   cluster.Name,
-						Weight: int(dst.Weight),
-					})
-			}
-
 			if len(http.Route) == 0 { // build default cluster
 				cluster := buildOutboundCluster(defaultDestination, port, nil)
 				route.Cluster = cluster.Name
 				route.clusters = append(route.clusters, cluster)
-			} else if len(http.Route) == 1 { // rewrite to a single cluster if it's one weighted cluster
-				route.Cluster = route.WeightedClusters.Clusters[0].Name
-				route.WeightedClusters = nil
+			} else {
+				route.WeightedClusters = &WeightedCluster{
+					Clusters: make([]*WeightedClusterEntry, 0, len(http.Route)),
+				}
+				for _, dst := range http.Route {
+					destination := defaultDestination
+					if dst.Destination != nil {
+						destination = model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
+					}
+					cluster := buildOutboundCluster(destination, port, dst.Destination.Labels) // TODO: support Destination.Port
+					route.clusters = append(route.clusters, cluster)
+					route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
+						&WeightedClusterEntry{
+							Name:   cluster.Name,
+							Weight: int(dst.Weight),
+						})
+				}
+
+				if len(http.Route) == 1 { // rewrite to a single cluster if it's one weighted cluster
+					route.Cluster = route.WeightedClusters.Clusters[0].Name
+					route.WeightedClusters = nil
+				}
 			}
 
 			if http.Timeout != nil &&
