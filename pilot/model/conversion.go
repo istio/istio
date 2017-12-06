@@ -21,10 +21,8 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
-	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	yaml2 "gopkg.in/yaml.v2"
@@ -51,10 +49,6 @@ func (ps *ProtoSchema) Make() (proto.Message, error) {
 	return reflect.New(pbt.Elem()).Interface().(proto.Message), nil
 }
 
-func isGogoProto(in proto.Message) bool {
-	return gogoproto.MessageName(in) != ""
-}
-
 // ToJSON marshals a proto to canonical JSON
 func ToJSON(msg proto.Message) (string, error) {
 	if msg == nil {
@@ -62,15 +56,8 @@ func ToJSON(msg proto.Message) (string, error) {
 	}
 
 	// Marshal from proto to json bytes
-	var out string
-	var err error
-	if isGogoProto(msg) {
-		m := gogojsonpb.Marshaler{}
-		out, err = m.MarshalToString(msg)
-	} else {
-		m := jsonpb.Marshaler{}
-		out, err = m.MarshalToString(msg)
-	}
+	m := jsonpb.Marshaler{}
+	out, err := m.MarshalToString(msg)
 	if err != nil {
 		return "", err
 	}
@@ -119,9 +106,6 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message
 func ApplyJSON(js string, pb proto.Message) error {
-	if isGogoProto(pb) {
-		return gogojsonpb.UnmarshalString(js, pb)
-	}
 	return jsonpb.UnmarshalString(js, pb)
 }
 
