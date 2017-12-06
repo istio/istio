@@ -4,10 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "component.go",
-        "configuration.go",
         "environment.go",
         "testEnvManager.go",
-        "testProcess.go",
+        "testProcess.go"
     ],
     visibility = ["//visibility:public"],
     deps = [
