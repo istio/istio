@@ -325,6 +325,11 @@ func getExprEvalFunc(err error) func(string) (pb.ValueType, error) {
 		if strings.HasSuffix(expr, "timestamp") {
 			retType = pb.TIMESTAMP
 		}
+
+		if retType == pb.VALUE_TYPE_UNSPECIFIED {
+			tc := evaluator.NewTypeChecker()
+			retType, _ = tc.EvalType(expr, createAttributeDescriptorFinder(nil))
+		}
 		return retType, err
 	}
 }
@@ -375,6 +380,15 @@ res1:
   stringPrimitive: source.string
   timeStamp: source.timestamp
   duration: source.duration
+  Res2:
+    value: source.int64
+    int64Primitive: source.int64
+    dns_name: source.dns
+    duration: source.duration
+    email_addr: source.email
+    ip_addr: 'ip("0.0.0.0")'
+    timeStamp: source.timestamp
+    uri: source.uri
   dimensions:
     source: source.string
     target: source.string
@@ -389,7 +403,11 @@ res1:
 				Res1: &sample_report.Res1Type{
 					Value:      pb.INT64,
 					Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
-					Res2Map:    map[string]*sample_report.Res2Type{},
+					Res2: &sample_report.Res2Type{
+						Value:      pb.INT64,
+						Dimensions: map[string]pb.ValueType{},
+					},
+					Res2Map: map[string]*sample_report.Res2Type{},
 				},
 			},
 		},
@@ -840,6 +858,9 @@ func (e *fakeExpr) Eval(mapExpression string, attrs attribute.Bag) (interface{},
 	if strings.HasSuffix(expr2, "duration") {
 		return 10 * time.Second, nil
 	}
+	if strings.HasSuffix(expr2, "source.email") {
+		return "foo@bar.com", nil
+	}
 	if strings.HasSuffix(expr2, "timestamp") {
 		return time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC), nil
 	}
@@ -884,6 +905,15 @@ var baseConfig = istio_mixer_v1_config.GlobalConfig{
 				},
 				"source.ip": {
 					ValueType: pb.IP_ADDRESS,
+				},
+				"source.email": {
+					ValueType: pb.EMAIL_ADDRESS,
+				},
+				"source.uri": {
+					ValueType: pb.URI,
+				},
+				"source.dns": {
+					ValueType: pb.DNS_NAME,
 				},
 			},
 		},
@@ -969,12 +999,24 @@ func TestProcessReport(t *testing.T) {
 							Value:          "1",
 							Dimensions:     map[string]string{"s": "2"},
 							Int64Primitive: "54362",
+							DnsName:        `"myDNS"`,
+							Duration:       "request.duration",
+							EmailAddr:      `"myEMAIL"`,
+							IpAddr:         `ip("0.0.0.0")`,
+							TimeStamp:      "request.timestamp",
+							Uri:            `"myURI"`,
 						},
 						Res2Map: map[string]*sample_report.Res2InstanceParam{
 							"foo": {
 								Value:          "1",
 								Dimensions:     map[string]string{"s": "2"},
 								Int64Primitive: "54362",
+								DnsName:        `"myDNS"`,
+								Duration:       "request.duration",
+								EmailAddr:      `"myEMAIL"`,
+								IpAddr:         `ip("0.0.0.0")`,
+								TimeStamp:      "request.timestamp",
+								Uri:            `"myURI"`,
 							},
 						},
 					},
@@ -1018,12 +1060,24 @@ func TestProcessReport(t *testing.T) {
 							Value:          int64(1),
 							Dimensions:     map[string]interface{}{"s": int64(2)},
 							Int64Primitive: 54362,
+							DnsName:        adapter.DNSName("myDNS"),
+							Duration:       10 * time.Second,
+							EmailAddr:      adapter.EmailAddress("myEMAIL"),
+							IpAddr:         net.ParseIP("0.0.0.0"),
+							TimeStamp:      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+							Uri:            adapter.URI("myURI"),
 						},
 						Res2Map: map[string]*sample_report.Res2{
 							"foo": {
 								Value:          int64(1),
 								Dimensions:     map[string]interface{}{"s": int64(2)},
 								Int64Primitive: 54362,
+								DnsName:        adapter.DNSName("myDNS"),
+								Duration:       10 * time.Second,
+								EmailAddr:      adapter.EmailAddress("myEMAIL"),
+								IpAddr:         net.ParseIP("0.0.0.0"),
+								TimeStamp:      time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+								Uri:            adapter.URI("myURI"),
 							},
 						},
 					},
@@ -1459,7 +1513,7 @@ boolPrimitive: source.bool
 doublePrimitive: source.double
 stringPrimitive: source.string
 optionalIP: 'ip("0.0.0.0")'
-optionalString: '"unknown"'
+email: source.email
 dimensionsFixedInt64ValueDType:
  d1: source.int64
  d1: source.int64
@@ -1610,14 +1664,14 @@ func TestProcessApa(t *testing.T) {
 			name:     "Valid",
 			instName: "foo",
 			instParam: &istio_mixer_adapter_sample_myapa.InstanceParam{
-				BoolPrimitive:                  "true",
-				DoublePrimitive:                "1.2",
-				Int64Primitive:                 "54362",
-				StringPrimitive:                `"mystring"`,
-				TimeStamp:                      "request.timestamp",
-				Duration:                       "request.duration",
-				OptionalIP:                     `ip("0.0.0.0")`,
-				OptionalString:                 `""`,
+				BoolPrimitive:   "true",
+				DoublePrimitive: "1.2",
+				Int64Primitive:  "54362",
+				StringPrimitive: `"mystring"`,
+				TimeStamp:       "request.timestamp",
+				Duration:        "request.duration",
+				OptionalIP:      `ip("0.0.0.0")`,
+				Email:           "source.email",
 				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
 					"source2": {
@@ -1636,6 +1690,8 @@ func TestProcessApa(t *testing.T) {
 					"source.mystring":          "$out.stringPrimitive",
 					"source.mytimeStamp":       "$out.timeStamp",
 					"source.myduration":        "$out.duration",
+					"source.email":             "$out.email",
+					"source.ip":                "$out.out_ip",
 				},
 			},
 			hdlr: &fakeMyApaHandler{
@@ -1643,18 +1699,22 @@ func TestProcessApa(t *testing.T) {
 					BoolPrimitive:   true,
 					DoublePrimitive: 1237,
 					StringPrimitive: "1237",
-					TimeStamp:       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+					TimeStamp:       time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC),
 					Duration:        10 * time.Second,
 					Int64Primitive:  1237,
+					Email:           adapter.EmailAddress("updatedfoo@bar.com"),
+					OutIp:           net.ParseIP("1.2.3.4"),
 				},
 			},
 			wantOutAttrs: map[string]interface{}{
 				"source.mystring":          "1237",
-				"source.mytimeStamp":       time.Date(2017, time.January, 01, 0, 0, 0, 0, time.UTC),
+				"source.mytimeStamp":       time.Date(2019, time.January, 01, 0, 0, 0, 0, time.UTC),
 				"source.myduration":        10 * time.Second,
 				"source.myint64Primitive":  int64(1237),
 				"source.myboolPrimitive":   true,
 				"source.mydoublePrimitive": float64(1237),
+				"source.email":             "updatedfoo@bar.com",
+				"source.ip":                []uint8(net.ParseIP("1.2.3.4")),
 			},
 			wantInstance: &istio_mixer_adapter_sample_myapa.Instance{
 				Name:                           "foo",
@@ -1666,7 +1726,7 @@ func TestProcessApa(t *testing.T) {
 				Duration:                       10 * time.Second,
 				DimensionsFixedInt64ValueDType: map[string]int64{"a": int64(1)},
 				OptionalIP:                     net.ParseIP("0.0.0.0"),
-				OptionalString:                 "",
+				Email:                          "foo@bar.com",
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3{
 					"source2": {
 						BoolPrimitive:                  true,
@@ -1700,7 +1760,7 @@ func TestProcessApa(t *testing.T) {
 				Duration:                       "request.duration",
 				DimensionsFixedInt64ValueDType: map[string]string{"a": "1"},
 				OptionalIP:                     `ip("0.0.0.0")`,
-				OptionalString:                 `""`,
+				Email:                          "source.email",
 				Res3Map: map[string]*istio_mixer_adapter_sample_myapa.Resource3InstanceParam{
 					"source2": {
 						BoolPrimitive:   "true",
@@ -1754,7 +1814,7 @@ func TestProcessApa(t *testing.T) {
 						"return attrs = %v want %v", spew.Sdump(returnAttr), spew.Sdump(tst.wantOutAttrs))
 				}
 				for k, v := range tst.wantOutAttrs {
-					if x, _ := returnAttr.Get(k); x != v {
+					if x, _ := returnAttr.Get(k); !reflect.DeepEqual(x, v) {
 						t.Errorf("Apa handler "+
 							"return attattrs = %v want %v", spew.Sdump(returnAttr), spew.Sdump(tst.wantOutAttrs))
 					}

@@ -356,12 +356,20 @@ var (
 								{{.GoName}}: func(m map[string]interface{}) map[string]{{.GoType.MapValue.Name}} {
 									res := make(map[string]{{.GoType.MapValue.Name}}, len(m))
 									for k, v := range m {
+										{{if isAliasType .GoType.MapValue.Name}}
+										res[k] = {{.GoType.MapValue.Name}}(v.({{getAliasType .GoType.MapValue.Name}}))
+										{{else}}
 										res[k] = v.({{.GoType.MapValue.Name}})
+										{{end}}
 									}
 									return res
 								}({{.GoName}}),
 							{{else}}
+								{{if isAliasType .GoType.Name}}
+								{{.GoName}}: {{.GoType.Name}}({{.GoName}}.({{getAliasType .GoType.Name}})),{{reportTypeUsed .GoType}}
+								{{else}}
 								{{.GoName}}: {{.GoName}}.({{.GoType.Name}}),{{reportTypeUsed .GoType}}
+								{{end}}
 							{{end}}
 						{{end}}
 					{{end}}
@@ -409,7 +417,11 @@ var (
 								switch field {
 									{{range .OutputTemplateMessage.Fields}}
 									case "{{.ProtoName}}":
+										{{if isAliasType .GoType.Name}}
+										return {{getAliasType .GoType.Name}}(out.{{.GoName}}), true
+										{{else}}
 										return out.{{.GoName}}, true
+										{{end}}
 									{{end}}
 									default:
 									return nil, false

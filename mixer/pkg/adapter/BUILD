@@ -22,6 +22,7 @@ go_library(
         "registrar.go",
         "requestData.go",
         "result.go",
+        "standardTypes.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
