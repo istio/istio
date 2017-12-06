@@ -17,6 +17,7 @@ syntax = "proto3";
 package adapter.template.kubernetes;
 
 import "mixer/v1/template/extensions.proto";
+import "mixer/v1/template/standard_types.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
 
@@ -52,49 +53,37 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_G
 // ```
 message Template {
     string source_uid = 1;
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes source_ip = 2;
+    istio.mixer.v1.template.IPAddress source_ip = 2;
 
     string destination_uid = 3;
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes destination_ip = 4;
+    istio.mixer.v1.template.IPAddress destination_ip = 4;
 
     string origin_uid = 5;
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes origin_ip = 6;
+    istio.mixer.v1.template.IPAddress origin_ip = 6;
 }
 
 message OutputTemplate {
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes source_pod_ip = 1;
+    istio.mixer.v1.template.IPAddress source_pod_ip = 1;
     string source_pod_name = 2;
     map<string, string> source_labels = 3;
     string source_namespace = 4;
     string source_service = 5;
     string source_service_account_name = 6;
-    repeated bytes source_host_ip = 7;
+    istio.mixer.v1.template.IPAddress source_host_ip = 7;
 
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes destination_pod_ip = 8;
+    istio.mixer.v1.template.IPAddress destination_pod_ip = 8;
     string destination_pod_name = 9;
     map<string, string> destination_labels = 10;
     string destination_namespace = 11;
     string destination_service = 12;
     string destination_service_account_name = 13;
-    repeated bytes destination_host_ip = 14;
+    istio.mixer.v1.template.IPAddress destination_host_ip = 14;
 
-    // This is temporary, DO NOT USE repeated bytes for IP_ADDRESS.
-    // Before we release APA adapters, we need to introduce special types for representing IP_ADDPRESS
-    repeated bytes origin_pod_ip = 15;
+    istio.mixer.v1.template.IPAddress origin_pod_ip = 15;
     string origin_pod_name = 16;
     map<string, string> origin_labels = 17;
     string origin_namespace = 18;
     string origin_service = 19;
     string origin_service_account_name = 20;
-    repeated bytes origin_host_ip = 21;
+    istio.mixer.v1.template.IPAddress origin_host_ip = 21;
 }

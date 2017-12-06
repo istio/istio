@@ -295,7 +295,7 @@ func TestKubegen_Generate(t *testing.T) {
 		DestinationPodName:   "bad-svc-pod",
 	}
 
-	ipDestinationSvcIn := &kubernetes_apa_tmpl.Instance{DestinationIp: []uint8(net.ParseIP("192.168.234.3"))}
+	ipDestinationSvcIn := &kubernetes_apa_tmpl.Instance{DestinationIp: net.ParseIP("192.168.234.3")}
 
 	ipDestinationOut := &kubernetes_apa_tmpl.Output{
 		DestinationLabels: map[string]string{

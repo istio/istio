@@ -184,17 +184,9 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *kubern
 		if p, found := h.findPod(inst.DestinationUid); found {
 			fillDestinationAttrs(p, out, h.params)
 		}
-	} else if inst.DestinationIp != nil {
-		// TODO: update when support for golang net.IP is added to attribute.Bag
-		var iface interface{} = inst.DestinationIp
-		rawIP := iface.([]uint8)
-		if len(rawIP) == net.IPv4len || len(rawIP) == net.IPv6len {
-			ip := net.IP(rawIP)
-			if !ip.IsUnspecified() {
-				if p, found := h.findPod(ip.String()); found {
-					fillDestinationAttrs(p, out, h.params)
-				}
-			}
+	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
+		if p, found := h.findPod(inst.DestinationIp.String()); found {
+			fillDestinationAttrs(p, out, h.params)
 		}
 	}
 
@@ -206,17 +198,9 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *kubern
 		if p, found := h.findPod(inst.SourceUid); found {
 			fillSourceAttrs(p, out, h.params)
 		}
-	} else if inst.SourceIp != nil {
-		// TODO: update when support for golang net.IP is added to attribute.Bag
-		var iface interface{} = inst.SourceIp
-		rawIP := iface.([]uint8)
-		if len(rawIP) == net.IPv4len || len(rawIP) == net.IPv6len {
-			ip := net.IP(rawIP)
-			if !ip.IsUnspecified() {
-				if p, found := h.findPod(ip.String()); found {
-					fillSourceAttrs(p, out, h.params)
-				}
-			}
+	} else if inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
+		if p, found := h.findPod(inst.SourceIp.String()); found {
+			fillSourceAttrs(p, out, h.params)
 		}
 	}
 
@@ -224,17 +208,9 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *kubern
 		if p, found := h.findPod(inst.OriginUid); found {
 			fillOriginAttrs(p, out, h.params)
 		}
-	} else if inst.OriginIp != nil {
-		// TODO: update when support for golang net.IP is added to attribute.Bag
-		var iface interface{} = inst.OriginIp
-		rawIP := iface.([]uint8)
-		if len(rawIP) == net.IPv4len || len(rawIP) == net.IPv6len {
-			ip := net.IP(rawIP)
-			if !ip.IsUnspecified() {
-				if p, found := h.findPod(ip.String()); found {
-					fillOriginAttrs(p, out, h.params)
-				}
-			}
+	} else if inst.OriginIp != nil && !inst.OriginIp.IsUnspecified() {
+		if p, found := h.findPod(inst.OriginIp.String()); found {
+			fillOriginAttrs(p, out, h.params)
 		}
 	}
 	return out, nil
