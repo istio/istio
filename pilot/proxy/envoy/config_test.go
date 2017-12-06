@@ -293,6 +293,11 @@ var (
 		file: "testdata/websocket-route.yaml.golden",
 	}
 
+	websocketRouteRuleV1Alpha2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
+		file: "testdata/websocket-route-v1alpha2.yaml.golden",
+	}
+
 	egressRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google"},
 		file: "testdata/egress-rule.yaml.golden",
