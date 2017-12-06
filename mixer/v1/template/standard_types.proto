@@ -21,17 +21,19 @@ package istio.mixer.v1.template;
 // IPAddress is used inside templates for fields that are of ValueType "IP_ADDRESS"
 message IPAddress {}
 
-// DNSName is used inside templates for fields that are of ValueType "DNS_NAME"
-message DNSName {}
-
-// EmailAddress is used inside templates for fields that are of ValueType "EMAIL_ADDRESS"
-message EmailAddress {}
-
-// Uri is used inside templates for fields that are of ValueType "URI"
-message Uri {}
-
 // Duration is used inside templates for fields that are of ValueType "DURATION"
 message Duration {}
 
 // TimeStamp is used inside templates for fields that are of ValueType "TIMESTAMP"
 message TimeStamp {}
+
+// DNSName is used inside templates for fields that are of ValueType "DNS_NAME"
+message DNSName {}
+
+// EmailAddress is used inside templates for fields that are of ValueType "EMAIL_ADDRESS"
+// DO NOT USE !! Under Development
+message EmailAddress {}
+
+// Uri is used inside templates for fields that are of ValueType "URI"
+// DO NOT USE ! Under Development
+message Uri {}

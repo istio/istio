@@ -11,11 +11,11 @@ It is generated from these files:
 
 It has these top-level messages:
 	IPAddress
+	Duration
+	TimeStamp
 	DNSName
 	EmailAddress
 	Uri
-	Duration
-	TimeStamp
 */
 package istio_mixer_v1_template
 
