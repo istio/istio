@@ -43,6 +43,8 @@ func crdCmd(tmplInfos map[string]template.Info, adapters []adapter.InfoFn, print
 		Use:   "all",
 		Short: "List all CRDs",
 		Run: func(cmd *cobra.Command, args []string) {
+			printCrd(printf, fatalf, mixerRuntime.ServiceRoleKind, "rbac", "rbac")
+			printCrd(printf, fatalf, mixerRuntime.ServiceRoleBindingKind, "rbac", "rbac")
 			printCrd(printf, fatalf, mixerRuntime.RulesKind, "istio.io.mixer", "core")
 			printCrd(printf, fatalf, mixerRuntime.AttributeManifestKind, "istio.io.mixer", "core")
 			listCrdsAdapters(printf, fatalf, adapters)

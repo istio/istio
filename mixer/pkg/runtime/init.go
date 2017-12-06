@@ -37,11 +37,10 @@ import (
 func New(eval expr.Evaluator, typeChecker expr.TypeChecker, v VocabularyChangeListener, gp *pool.GoroutinePool,
 	handlerPool *pool.GoroutinePool, identityAttribute string, defaultConfigNamespace string, s store.Store2,
 	adapterInfo map[string]*adapter.Info, templateInfo map[string]template.Info) (Dispatcher, error) {
-
 	// controller will set Resolver before the dispatcher is used.
 	d := newDispatcher(eval, nil, gp, identityAttribute)
 	err := startController(s, adapterInfo, templateInfo, eval, typeChecker, v, d,
-		identityAttribute, defaultConfigNamespace, handlerPool)
+		identityAttribute, defaultConfigNamespace, handlerPool, &RbacInstance)
 
 	return d, err
 }
@@ -80,6 +79,11 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 	log.Infof("template Kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
 	log.Infof("template Kind: %s", AttributeManifestKind)
+	// servicerole and servicerolebinding for RBAC.
+	kindMap[ServiceRoleKind] = &cpb.ServiceRole{}
+	log.Infof("Watch Kind: %s", ServiceRoleKind)
+	kindMap[ServiceRoleBindingKind] = &cpb.ServiceRoleBinding{}
+	log.Infof("Watch Kind: %s", ServiceRoleBindingKind)
 
 	return kindMap
 }
@@ -88,8 +92,8 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
 	vocabularyChangeListener VocabularyChangeListener, resolverChangeListener ResolverChangeListener,
-	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool) error {
-
+	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool,
+        rbac *RbacStore) error {
 	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
 	if err != nil {
 		return err
@@ -109,6 +113,7 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 		handlerGoRoutinePool:     handlerPool,
 		table:                    make(map[string]*HandlerEntry),
 		createHandlerFactory:     newHandlerFactory,
+		rbacStore:		  rbac,
 	}
 
 	c.publishSnapShot()

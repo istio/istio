@@ -14,6 +14,7 @@ go_library(
         "monitor.go",
         "resolver.go",
         "resourceType.go",
+        "rbacStore.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -27,6 +28,7 @@ go_library(
         "//mixer/pkg/status:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//pkg/log:go_default_library",
+        "//mixer/template/authorization:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_hashicorp_go_multierror//:go_default_library",

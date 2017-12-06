@@ -1,0 +1,72 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package istio_mixer_v1_config;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+
+// ServiceRole defines a role for access to services in Istio mesh.
+message ServiceRole {
+  // Required. The set of access rules (permissions) that the role has.
+  repeated AccessRule rules = 1;
+}
+
+// AccessRule defines "how to access a set of services".
+message AccessRule {
+  // Required. A list of service names.
+  // If set to ["*"], it refers all services in the namespace.
+  repeated string services = 1;
+
+  // Optional. A list of paths.
+  repeated string paths = 2;
+
+  // Required. A list of HTTP methods or gRPC methods.
+  // If set to ["*"], it applies to any method.
+  repeated string methods = 3;
+
+  message Constraint {
+    string name = 1;
+    repeated string value = 2;
+  }
+
+  // Optional. Extra constraints (e.g., version)
+  repeated Constraint constraints = 4;
+}
+
+// ServiceRoleBinding assigns a set of subjects to a given role.
+message ServiceRoleBinding {
+  // Required. List of subjects that are assigned the role.
+  repeated Subject subjects = 1;
+
+  // Required. Reference to the role.
+  RoleRef roleRef = 2;
+}
+
+// Subject defines an identity or a group identities.
+message Subject {
+  // Required. The set of properties that identify the subject.
+  map<string, string> properties = 1;
+}
+
+
+// RoleRef refers to a role.
+message RoleRef {
+  // Required. The type of the role being referenced.
+  string kind = 1;
+
+  // Required. The name of the role being referenced.
+  string name = 2;
+}

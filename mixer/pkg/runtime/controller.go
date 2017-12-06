@@ -83,6 +83,10 @@ type Controller struct {
 
 	// number of rules in the resolver.
 	nrules int
+
+	rbacStore *RbacStore
+
+	roles rolesMapByNamespace // A pointer to roles in RBAC store
 }
 
 // RulesKind defines the config kind name of mixer rules.
@@ -113,6 +117,9 @@ type applyEventsFn func(events []*store.Event)
 // The previous handler table enables handler cleanup and reuse.
 // This code is single threaded, it only runs on a config change control loop.
 func (c *Controller) publishSnapShot() {
+	// Process RBAC roles and bindings.
+	c.processRbacRoles()
+
 	// current view of attributes
 	// attribute manifests are used by type inference during handler creation.
 	attributes := c.processAttributeManifests()
@@ -254,6 +261,7 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 	handlerConfig := make(map[string]*cpb.Handler)
 	for k, cfg := range c.configState {
+		glog.Infof("validHandlerConfigs: name %s, kind: %s, params: %v", k.String(), k.Kind, cfg.Spec)
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
@@ -566,4 +574,59 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 		}
 		return nil
 	}
+}
+
+func (c *Controller) processRbacRoles() {
+	glog.Infof("ProcessRbacRoles")
+	if !c.changedKinds[ServiceRoleKind] && !c.changedKinds[ServiceRoleBindingKind] && c.roles != nil {
+		glog.Infof("No change to servicerole and servicerolebinding")
+		return
+	}
+
+	c.roles = c.rbacStore.getRoles()
+	if c.roles == nil {
+		c.roles = make(rolesMapByNamespace)
+	}
+
+	for k, obj := range c.configState {
+		if k.Kind == ServiceRoleKind {
+			cfg := obj.Spec
+			roleSpec := cfg.(*cpb.ServiceRole)
+			rn := c.roles[k.Namespace]
+			if rn == nil {
+				rn = make(rolesByName)
+				c.roles[k.Namespace] = rn
+			}
+			rn[k.Name] = newRoleInfo(roleSpec)
+			glog.Infof("Role namespace: %s, name: %s, spec: %v", k.Namespace, k.Name, roleSpec)
+		}
+	}
+
+	for k, obj := range c.configState {
+		if k.Kind == ServiceRoleBindingKind {
+			cfg := obj.Spec
+			bindingSpec := cfg.(*cpb.ServiceRoleBinding)
+			roleKind := bindingSpec.GetRoleRef().GetKind()
+			roleName := bindingSpec.GetRoleRef().GetName()
+
+			if roleKind != "ServiceRole" {
+				glog.Warningf("Error: RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
+			}
+			if roleName == "" {
+				glog.Warningf("Error: RoleBinding %s does not refer to a valid role name", k.Name)
+				continue
+			}
+
+			rn := c.roles[k.Namespace]
+			if rn == nil {
+				glog.Warningf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Namespace)
+				continue
+			}
+			role := rn[roleName]
+			role.setBinding(k.Name, bindingSpec)
+			glog.Infof("RoleBinding: %s for role %s, Spec: %v", k.Name, roleName, bindingSpec)
+		}
+	}
+
+	c.rbacStore.changeRoles(c.roles)
 }
