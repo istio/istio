@@ -15,9 +15,15 @@
 #
 ################################################################################
 
-# This is an example file for how to start an istio build using Cloud Builder.
-# To run it you need a Google Cloud project and a service account that has
-# been granted access to start a build.
+# This is an example file for how to start an istio release publish
+# using Cloud Builder. To run it you need a Google Cloud project and
+# a service account that has been granted access to start a build.
+#
+# NOTE: the settings for the repo tool manifest controls which
+# script version is used to perform the tag.  This is normally
+# the same as was used to make the build, though bug fixes
+# (or a non-branching model for build automation) might involve
+# the use of something newer.
 
 set -o errexit
 set -o nounset
@@ -37,8 +43,13 @@ REPO_FILE=default.xml
 REPO_FILE_VER=master
 WAIT_FOR_RESULT="false"
 
-GCR_PATH=""
-GCS_PATH=""
+GCS_SRC=""
+GCS_GITHUB_SECRET="istio-secrets/github.txt.enc"
+REL_ORG="istio"
+GCR_DST=""
+GCS_DST=""
+DOCKER_DST="istio" # docker.io/istio
+REL_REPO="istio"
 
 function usage() {
   echo "$0
@@ -50,20 +61,30 @@ function usage() {
     -m <file> name of manifest file in repo specified by -u     (optional, defaults to $REPO_FILE )
     -t <tag>  commit tag or branch for manifest repo in -u      (optional, defaults to $REPO_FILE_VER )
     -w        specify that script should wait until build done  (optional)
-
-    -r <name> GCR bucket/path to store build artifacts          (required)
-    -s <name> GCS bucket/path to store build artifacts          (required)"
+  
+    -d <hub>  docker hub                                        (optional, defaults to $DOCKER_DST )
+    -r <name> GCR bucket to store build artifacts               (required)
+    -s <name> GCS bucket to read build artifacts                (required)
+    -b <name> GCS bucket to publish to                          (required)
+    -g <path> GCS bucket&path to file with github secret        (optional, detaults to $GCS_GITHUB_SECRET )
+    -h <name> github org to make a release on                   (optional, defaults to $REL_ORG )
+    -i <name> github repo to make a release on                  (optional, defaults to $REL_REPO )"
   exit 1
 }
 
-while getopts a:k:m:p:r:s:t:u:v:w arg ; do
+while getopts a:b:d:g:h:i:k:m:p:r:s:t:u:v:w arg ; do
   case "${arg}" in
     a) SVC_ACCT="${OPTARG}";;
+    b) GCS_DST="${OPTARG}";;
+    d) DOCKER_DST="${OPTARG}";;
+    g) GCS_GITHUB_SECRET="${OPTARG}";;
+    h) REL_ORG="${OPTARG}";;
+    i) REL_REPO="${OPTARG}";;
     k) KEY_FILE_PATH="${OPTARG}";;
     m) REPO_FILE="${OPTARG}";;
     p) PROJECT_ID="${OPTARG}";;
-    r) GCR_PATH="${OPTARG}";;
-    s) GCS_PATH="${OPTARG}";;
+    r) GCR_DST="${OPTARG}";;
+    s) GCS_SRC="${OPTARG}";;
     t) REPO_FILE_VER="${OPTARG}";;
     u) REPO="${OPTARG}";;
     v) VER_STRING="${OPTARG}";;
@@ -78,8 +99,13 @@ done
 [[ -z "${REPO_FILE_VER}" ]] && usage
 [[ -z "${VER_STRING}"    ]] && usage
 
-[[ -z "${GCS_PATH}" ]] && usage
-[[ -z "${GCR_PATH}" ]] && usage
+# [[ -z "${DOCKER_DST}"        ]] && usage
+[[ -z "${GCR_DST}"           ]] && usage
+[[ -z "${GCS_DST}"           ]] && usage
+[[ -z "${GCS_SRC}"           ]] && usage
+[[ -z "${REL_REPO}"          ]] && usage
+[[ -z "${REL_ORG}"           ]] && usage
+[[ -z "${GCS_GITHUB_SECRET}" ]] && usage
 
 DEFAULT_SVC_ACCT="cloudbuild@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -87,17 +113,21 @@ if [[ -z "${SVC_ACCT}"  ]]; then
   SVC_ACCT="${DEFAULT_SVC_ACCT}"
 fi
 
-# generate the substitutions file
 echo "  \"substitutions\": {
     \"_VER_STRING\": \"${VER_STRING}\",
     \"_MFEST_URL\": \"${REPO}\",
     \"_MFEST_FILE\": \"${REPO_FILE}\",
     \"_MFEST_VER\": \"${REPO_FILE_VER}\",
-    \"_GCS_PATH\": \"${GCS_PATH}\",
-    \"_GCR_PATH\": \"${GCR_PATH}\"
-  }" > "${SUBS_FILE}"
+    \"_GCS_SOURCE\": \"${GCS_SRC}\",
+    \"_GCR_DST\": \"${GCR_DST}\",
+    \"_GCS_DST\": \"${GCS_DST}\",
+    \"_DOCKER_DST\": \"${DOCKER_DST}\",
+    \"_GCS_SECRET\": \"${GCS_GITHUB_SECRET}\",
+    \"_ORG\": \"${REL_ORG}\",
+    \"_REPO\": \"${REL_REPO}\",
+  }" >> "${SUBS_FILE}"
 
-run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_build.template.json" \
+run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_publish.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
 
 # cleanup
