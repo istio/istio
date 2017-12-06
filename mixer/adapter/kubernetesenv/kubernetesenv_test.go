@@ -21,10 +21,12 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
@@ -32,32 +34,19 @@ import (
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
 
-type fakeCache struct {
-	cacheController
-
-	pods map[string]*v1.Pod
-	path string
+type fakeK8sBuilder struct {
+	calledPath string
+	calledEnv  adapter.Env
 }
 
-func (fakeCache) HasSynced() bool {
-	return true
+func (b *fakeK8sBuilder) build(path string, env adapter.Env) (kubernetes.Interface, error) {
+	b.calledPath = path
+	b.calledEnv = env
+	return fake.NewSimpleClientset(), nil
 }
 
-func (fakeCache) Run(<-chan struct{}) {
-	// do nothing
-}
-
-func (f fakeCache) GetPod(pod string) (*v1.Pod, bool) {
-	p, ok := f.pods[pod]
-	return p, ok
-}
-
-func errorStartingPodCache(ignored string, empty time.Duration, e adapter.Env) (cacheController, error) {
-	return nil, errors.New("cache build error")
-}
-
-func fakePodCache(path string, empty time.Duration, e adapter.Env) (cacheController, error) {
-	return &fakeCache{path: path}, nil
+func errorClientBuilder(path string, env adapter.Env) (kubernetes.Interface, error) {
+	return nil, errors.New("can't build k8s client")
 }
 
 // note: not using TestAdapterInvariants here because of kubernetes dependency.
@@ -65,7 +54,7 @@ func fakePodCache(path string, empty time.Duration, e adapter.Env) (cacheControl
 // test / e2e test must be written to validate the builder in relation to a
 // real kubernetes cluster.
 func TestBuilder(t *testing.T) {
-	b := newBuilder(fakePodCache)
+	b := newBuilder((&fakeK8sBuilder{}).build)
 
 	if err := b.Validate(); err != nil {
 		t.Errorf("ValidateConfig() => builder can't validate its default configuration: %v", err)
@@ -82,7 +71,7 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 		{"bad cluster domain name", &config.Params{ClusterDomainName: "something.silly", PodLabelForService: "app"}, 3},
 	}
 
-	b := newBuilder(fakePodCache)
+	b := newBuilder((&fakeK8sBuilder{}).build)
 
 	for _, v := range tests {
 		b.SetAdapterConfig(v.conf)
@@ -100,12 +89,12 @@ func TestBuilder_ValidateConfigErrors(t *testing.T) {
 func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 	tests := []struct {
 		name    string
-		testFn  controllerFactoryFn
+		testFn  clientFactoryFn
 		conf    adapter.Config
 		wantErr bool
 	}{
-		{"success", fakePodCache, conf, false},
-		{"builder error", errorStartingPodCache, conf, true},
+		{"success", (&fakeK8sBuilder{}).build, conf, false},
+		{"builder error", errorClientBuilder, conf, true},
 	}
 
 	for _, v := range tests {
@@ -124,17 +113,16 @@ func TestBuilder_BuildAttributesGenerator(t *testing.T) {
 }
 
 func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
-
-	testConf := conf
+	testConf := *conf
 	testConf.KubeconfigPath = "please/override"
 
 	tests := []struct {
-		name    string
-		testFn  controllerFactoryFn
-		conf    adapter.Config
-		wantErr bool
+		name          string
+		clientFactory *fakeK8sBuilder
+		conf          adapter.Config
+		wantOK        bool
 	}{
-		{"success", fakePodCache, testConf, false},
+		{"success", &fakeK8sBuilder{}, &testConf, true},
 	}
 
 	wantPath := "/want/kubeconfig"
@@ -144,33 +132,31 @@ func TestBuilder_BuildAttributesGeneratorWithEnvVar(t *testing.T) {
 
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
-			b := newBuilder(v.testFn)
+			b := newBuilder(v.clientFactory.build)
 			b.SetAdapterConfig(v.conf)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			{
-				h, err := b.Build(context.Background(), test.NewEnv(t))
-				if err == nil && v.wantErr {
-					t.Fatal("Expected error building adapter")
+				_, err := b.Build(ctx, test.NewEnv(t))
+				gotOK := err == nil
+				if gotOK != v.wantOK {
+					t.Fatalf("Got %v, Want %v", err, v.wantOK)
 				}
-				if err != nil && !v.wantErr {
-					t.Fatalf("Got error, wanted none: %v", err)
-				}
-				got := h.(*handler).pods.(*fakeCache).path
-				if got != wantPath {
-					t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
+				if v.clientFactory.calledPath != wantPath {
+					t.Errorf("Bad kubeconfig path; got %s, want %s", v.clientFactory.calledPath, wantPath)
 				}
 			}
+			v.clientFactory.calledPath = ""
+
 			// try this another time. create a new handler from the same builder
 			{
-				h, err := b.Build(context.Background(), test.NewEnv(t))
-				if err == nil && v.wantErr {
-					t.Fatal("Expected error building adapter")
+				_, err := b.Build(ctx, test.NewEnv(t))
+				gotOK := err == nil
+				if gotOK != v.wantOK {
+					t.Fatalf("Got %v, Want %v", err, v.wantOK)
 				}
-				if err != nil && !v.wantErr {
-					t.Fatalf("Got error, wanted none: %v", err)
-				}
-				got := h.(*handler).pods.(*fakeCache).path
-				if got != wantPath {
-					t.Errorf("Bad kubeconfig path; got %s, want %s", got, wantPath)
+				if v.clientFactory.calledPath != wantPath {
+					t.Errorf("Bad kubeconfig path; got %s, want %s", v.clientFactory.calledPath, wantPath)
 				}
 			}
 		})
@@ -212,10 +198,13 @@ func TestKubegen_Generate(t *testing.T) {
 				},
 			},
 		},
-		"testns/empty":         {ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: "testns", Labels: map[string]string{"app": ""}}},
-		"testns/alt-pod":       {ObjectMeta: metav1.ObjectMeta{Name: "alt-pod", Namespace: "testns", Labels: map[string]string{"app": "alt-svc.testns"}}},
-		"testns/bad-svc-pod":   {ObjectMeta: metav1.ObjectMeta{Name: "bad-svc-pod", Namespace: "testns", Labels: map[string]string{"app": ":"}}},
-		"192.168.234.3":        {ObjectMeta: metav1.ObjectMeta{Name: "ip-svc-pod", Namespace: "testns", Labels: map[string]string{"app": "ipAddr"}}},
+		"testns/empty":       {ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: "testns", Labels: map[string]string{"app": ""}}},
+		"testns/alt-pod":     {ObjectMeta: metav1.ObjectMeta{Name: "alt-pod", Namespace: "testns", Labels: map[string]string{"app": "alt-svc.testns"}}},
+		"testns/bad-svc-pod": {ObjectMeta: metav1.ObjectMeta{Name: "bad-svc-pod", Namespace: "testns", Labels: map[string]string{"app": ":"}}},
+		"192.168.234.3": {
+			ObjectMeta: metav1.ObjectMeta{Name: "ip-svc-pod", Namespace: "testns", Labels: map[string]string{"app": "ipAddr"}},
+			Status:     v1.PodStatus{PodIP: "192.168.234.3"},
+		},
 		"istio-system/ingress": {ObjectMeta: metav1.ObjectMeta{Name: "ingress", Namespace: "istio-system", Labels: map[string]string{"istio": "ingress"}}},
 		"testns/ipApp":         {ObjectMeta: metav1.ObjectMeta{Name: "ipApp", Namespace: "testns", Labels: map[string]string{"app": "10.1.10.1"}}},
 	}
@@ -303,6 +292,7 @@ func TestKubegen_Generate(t *testing.T) {
 		DestinationNamespace: "testns",
 		DestinationPodName:   "ip-svc-pod",
 		DestinationService:   "ipAddr.testns.svc.cluster.local",
+		DestinationPodIp:     net.ParseIP("192.168.234.3"),
 	}
 
 	istioDestinationSvcIn := &kubernetes_apa_tmpl.Instance{
@@ -366,19 +356,32 @@ func TestKubegen_Generate(t *testing.T) {
 		{"ip app", ipAppSvcIn, ipAppDestinationOut, conf},
 	}
 
+	objs := make([]runtime.Object, 0, len(pods))
+	for _, pod := range pods {
+		objs = append(objs, pod)
+	}
+
+	builder := newBuilder(func(string, adapter.Env) (kubernetes.Interface, error) {
+		return fake.NewSimpleClientset(objs...), nil
+	})
+
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			builder.SetAdapterConfig(v.params)
 
-			kg := &handler{env: test.NewEnv(t), params: v.params, pods: fakeCache{pods: pods}}
-
-			got, err := kg.GenerateKubernetesAttributes(context.Background(), v.inputs)
+			kg, err := builder.Build(ctx, test.NewEnv(t))
 			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
+				t.Fatal(err)
+			}
+
+			got, err := kg.(*handler).GenerateKubernetesAttributes(ctx, v.inputs)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
 			}
 			if !reflect.DeepEqual(got, v.want) {
 				t.Errorf("Generate(): got %#v; want %#v", got, v.want)
-				return
 			}
 		})
 	}

@@ -31,7 +31,6 @@ import (
 	"k8s.io/api/core/v1"
 	k8s "k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // needed for auth
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -70,8 +69,8 @@ var (
 
 type (
 	builder struct {
-		adapterConfig        *config.Params
-		newCacheControllerFn controllerFactoryFn
+		adapterConfig *config.Params
+		newClientFn   clientFactoryFn
 	}
 
 	handler struct {
@@ -81,7 +80,7 @@ type (
 	}
 
 	// used strictly for testing purposes
-	controllerFactoryFn func(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error)
+	clientFactoryFn func(kubeconfigPath string, env adapter.Env) (k8s.Interface, error)
 )
 
 // compile-time validation
@@ -99,7 +98,7 @@ func GetInfo() adapter.Info {
 		},
 		DefaultConfig: conf,
 
-		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newCacheFromConfig) },
+		NewBuilder: func() adapter.HandlerBuilder { return newBuilder(newKubernetesClient) },
 	}
 }
 
@@ -136,10 +135,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if !exists {
 		path = paramsProto.KubeconfigPath
 	}
-	controller, err := b.newCacheControllerFn(path, refresh, env)
+	clientset, err := b.newClientFn(path, env)
 	if err != nil {
 		return nil, err
 	}
+	controller := newCacheController(clientset, refresh)
 	env.ScheduleDaemon(func() { controller.Run(stopChan) })
 	// ensure that any request is only handled after
 	// a sync has occurred
@@ -156,10 +156,10 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	}, nil
 }
 
-func newBuilder(cacheFactory controllerFactoryFn) *builder {
+func newBuilder(clientFactory clientFactoryFn) *builder {
 	return &builder{
-		newCacheControllerFn: cacheFactory,
-		adapterConfig:        conf,
+		newClientFn:   clientFactory,
+		adapterConfig: conf,
 	}
 }
 
@@ -384,20 +384,12 @@ func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Par
 	}
 }
 
-func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error) {
+func newKubernetesClient(kubeconfigPath string, env adapter.Env) (k8s.Interface, error) {
 	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
-	config, err := getRESTConfig(kubeconfigPath)
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
 	env.Logger().Infof("getting k8s client from config")
-	clientset, err := k8s.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)
-	}
-	return newCacheController(clientset, refreshDuration, env), nil
-}
-
-func getRESTConfig(kubeconfigPath string) (*rest.Config, error) {
-	return clientcmd.BuildConfigFromFlags("", kubeconfigPath)
+	return k8s.NewForConfig(config)
 }
