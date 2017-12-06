@@ -7,6 +7,8 @@ go_library(
     srcs = [
         "checker.go",
         "evaluator.go",
+        "expression.go",
+        "expressionbuilder.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -14,6 +16,7 @@ go_library(
         "//mixer/pkg/config:go_default_library",
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/expr:go_default_library",
+        "//mixer/pkg/il:go_default_library",
         "//mixer/pkg/il/compiler:go_default_library",
         "//mixer/pkg/il/interpreter:go_default_library",
         "//mixer/pkg/il/runtime:go_default_library",
@@ -30,6 +33,8 @@ go_test(
         "checker_test.go",
         "evaluatorBenchmark_test.go",
         "evaluator_test.go",
+        "expressionbuilder_test.go",
+        "expressionBenchmark_test.go",
     ],
     library = ":go_default_library",
     deps = [

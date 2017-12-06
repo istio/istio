@@ -34,7 +34,7 @@ import (
 //BenchmarkInterpreter/ASTBenchmark/[a=20,_host="abcd]"-8        	10000000	       165 ns/op	       0 B/op	       0 allocs/op
 //PASS
 
-func BenchmarkIL(b *testing.B) {
+func BenchmarkInterpreter(b *testing.B) {
 	for _, test := range ilt.TestData {
 		if !test.Bench {
 			continue
@@ -52,12 +52,6 @@ func BenchmarkIL(b *testing.B) {
 		bg := ilt.NewFakeBag(test.I)
 
 		in := New(p, map[string]Extern{})
-
-		r, e := in.EvalFnID(id, bg)
-		if err = test.CheckEvaluationResult(r.AsInterface(), e); err != nil {
-			b.Fatalf(err.Error())
-			return
-		}
 
 		b.Run(test.TestName(), func(bb *testing.B) {
 			for i := 0; i < bb.N; i++ {

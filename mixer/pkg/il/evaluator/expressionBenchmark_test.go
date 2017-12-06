@@ -22,13 +22,11 @@ import (
 )
 
 // 12/6/2017
-//pkg: istio.io/istio/mixer/pkg/il/evaluator
-//BenchmarkEvaluator/0-ExprBench/ok_1st-8         	 3000000	       441 ns/op	       0 B/op	       0 allocs/op
-//BenchmarkEvaluator/1-ExprBench/ok_2nd-8         	 3000000	       563 ns/op	      16 B/op	       1 allocs/op
-//BenchmarkEvaluator/2-ExprBench/not_found-8      	 3000000	       570 ns/op	      16 B/op	       1 allocs/op
-//PASS
+//BenchmarkCompiled/ExprBench/ok_1st-8          	10000000	       164 ns/op	       0 B/op	       0 allocs/op
+//BenchmarkCompiled/ExprBench/ok_2nd-8          	 5000000	       274 ns/op	      16 B/op	       1 allocs/op
+//BenchmarkCompiled/ExprBench/not_found-8       	 5000000	       278 ns/op	      16 B/op	       1 allocs/op
 
-func BenchmarkEvaluator(b *testing.B) {
+func BenchmarkCompiled(b *testing.B) {
 	for _, test := range ilt.TestData {
 		if !test.Bench {
 			continue
@@ -36,18 +34,18 @@ func BenchmarkEvaluator(b *testing.B) {
 
 		finder := descriptor.NewFinder(test.Conf())
 
-		evaluator, err := NewILEvaluator(DefaultCacheSize)
+		builder := NewBuilder(finder)
+		expression, err := builder.Compile(test.E)
 		if err != nil {
 			b.Fatalf("compilation of benchmark expression failed: '%v'", err)
 			return
 		}
-		evaluator.ChangeVocabulary(finder)
 
 		bag := ilt.NewFakeBag(test.I)
 
 		b.Run(test.TestName(), func(bb *testing.B) {
 			for i := 0; i <= bb.N; i++ {
-				_, _ = evaluator.Eval(test.E, bag)
+				_, _ = expression.Evaluate(bag)
 			}
 		})
 	}

@@ -71,23 +71,19 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 
 	// Depending on the type, try testing specialized methods as well.
 
-	if estr, ok := test.R.(string); ok {
+	switch test.R.(type) {
+	case string:
 		astr, err := evaluator.EvalString(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+		if e := test.CheckEvaluationResult(astr, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
-		if astr != estr {
-			t.Errorf("EvalString failed: '%s' != '%s'", astr, estr)
-		}
-	}
 
-	if ebool, ok := test.R.(bool); ok {
+	case bool:
 		abool, err := evaluator.EvalPredicate(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if abool != ebool {
-			t.Errorf("EvalPredicate failed: '%v' != '%v'", abool, ebool)
+		if e := test.CheckEvaluationResult(abool, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
 	}
 }

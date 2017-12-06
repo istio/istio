@@ -150,7 +150,5 @@ func (p *Program) Strings() *StringTable {
 
 // ByteCode returns a copy of the byte-code of this program.
 func (p *Program) ByteCode() []uint32 {
-	result := make([]uint32, len(p.code))
-	copy(result, p.code)
-	return result
+	return p.code
 }

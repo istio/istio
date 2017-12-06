@@ -785,6 +785,11 @@ fn eval() bool
 end`,
 	},
 	{
+		E:   `ab`,
+		Err: "lookup failed: 'ab'",
+		R:   true, // Keep the return type, so that the special-purpose methods can be tested.
+	},
+	{
 		E: `as`,
 		I: map[string]interface{}{
 			"as": "AAA",
@@ -1956,7 +1961,7 @@ func (t *TestInfo) Conf() *pb.GlobalConfig {
 	return TestConfigs["Default"]
 }
 
-// CheckEvaluationResult compares the given evaluation result and error agains the one that is declared in test.
+// CheckEvaluationResult compares the given evaluation result and error against the one that is declared in test.
 // Returns an error if there is a mismatch.
 func (t *TestInfo) CheckEvaluationResult(r interface{}, err error) error {
 	if t.Err != "" {
