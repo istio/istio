@@ -31,6 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -753,17 +754,37 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 				// sort for the output uniqueness
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					rule := config.Spec.(*routing.RouteRule)
-					if route := buildInboundRoute(config, rule, cluster); route != nil {
-						// set server-side mixer filter config for inbound HTTP routes
-						// Note: websocket routes do not call the filter chain. Will be
-						// resolved in future.
-						if mesh.MixerAddress != "" {
-							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-								instance.Service.Hostname)
-						}
+					switch config.Spec.(type) {
+					case *routing.RouteRule:
+						rule := config.Spec.(*routing.RouteRule)
+						if route := buildInboundRouteV1Alpha1(config, rule, cluster); route != nil {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerAddress != "" {
+								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
 
-						host.Routes = append(host.Routes, route)
+							host.Routes = append(host.Routes, route)
+						}
+					case *routing_v1alpha2.RouteRule:
+						rule := config.Spec.(*routing_v1alpha2.RouteRule)
+						if routes := buildInboundRouteV1Alpha2(config, rule, cluster); len(routes) != 0 {
+							for _, route := range routes {
+								// set server-side mixer filter config for inbound HTTP routes
+								// Note: websocket routes do not call the filter chain. Will be
+								// resolved in future.
+								if mesh.MixerAddress != "" {
+									route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+										instance.Service.Hostname)
+								}
+							}
+
+							host.Routes = append(host.Routes, routes...)
+						}
+					default:
+						panic("unsupported rule")
 					}
 				}
 			}

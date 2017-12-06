@@ -71,7 +71,7 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	}
 }
 
-func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
+func buildInboundRouteV1Alpha1(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
 	route := buildHTTPRouteMatch(rule.Match)
 	route.Cluster = cluster.Name
 	route.clusters = []*Cluster{cluster}
@@ -88,6 +88,31 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	}
 
 	return route
+}
+
+func buildInboundRouteV1Alpha2(config model.Config, rule *routing_v1alpha2.RouteRule, cluster *Cluster) []*HTTPRoute {
+	routes := make([]*HTTPRoute, 0)
+
+	for _, http := range rule.Http {
+		matchRoutes := buildHTTPRouteMatches(http.Match)
+		for _, route := range matchRoutes {
+			route.Cluster = cluster.Name
+			route.clusters = []*Cluster{cluster}
+			route.WebsocketUpgrade = http.WebsocketUpgrade
+			if http.Rewrite != nil && http.Rewrite.Uri != "" {
+				// overwrite the computed prefix with the rewritten prefix,
+				// for this is what we expect from remote envoys
+				route.Prefix = http.Rewrite.Uri
+				route.Path = ""
+			}
+
+			if !http.WebsocketUpgrade {
+				route.Decorator = buildDecorator(config)
+			}
+			routes = append(routes, route)
+		}
+	}
+	return routes
 }
 
 func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {

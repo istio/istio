@@ -456,7 +456,7 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
 	_, registry, ds := commonSetup(t)
-	addConfig(registry, websocketRouteRule, t)
+	addConfig(registry, websocketRouteRuleV1Alpha2, t)
 
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 	response := makeDiscoveryRequest(ds, "GET", url, t)
