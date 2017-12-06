@@ -491,24 +491,3 @@ func TestTruncateClusterName(t *testing.T) {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
 	}
 }
-
-/*
-var (
-	ingressCertFile = "testdata/tls.crt"
-	ingressKeyFile  = "testdata/tls.key"
-)
-
-func compareFile(filename string, golden []byte, t *testing.T) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		t.Fatalf("Error loading %s: %s", filename, err.Error())
-	}
-	if string(content) != string(golden) {
-		t.Errorf("Failed validating file %s, got %s", filename, string(content))
-	}
-	err = os.Remove(filename)
-	if err != nil {
-		t.Errorf("Failed cleaning up temporary file %s", filename)
-	}
-}
-*/
