@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package environment
+package appOnlyEnv
 
 import (
+	"io/ioutil"
 	"log"
+	"os"
 
+	fortioServer "istio.io/istio/tests/integration/component/fortio_server"
 	"istio.io/istio/tests/integration/framework"
-	fortioServer "istio.io/istio/tests/integration/framework/component/fortio_server"
 )
 
 // AppOnlyEnv is a test environment with only fortio echo server
 type AppOnlyEnv struct {
 	framework.TestEnv
-	EnvID    string
-	EndPoint string
+	EnvID  string
+	TmpDir string
 }
 
 // NewAppOnlyEnv create an AppOnlyEnv with a env ID
@@ -35,27 +37,32 @@ func NewAppOnlyEnv(id string) *AppOnlyEnv {
 	}
 }
 
-// GetName return environment ID
+// GetName implement the function in TestEnv return environment ID
 func (appOnlyEnv *AppOnlyEnv) GetName() string {
 	return appOnlyEnv.EnvID
 }
 
-// Bringup doing setup for AppOnlyEnv
+// Bringup implement the function in TestEnv
+// Create local temp dir. Can be manually overrided if necessary.
 func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
 	log.Printf("Bringing up %s", appOnlyEnv.EnvID)
+	appOnlyEnv.TmpDir, err = ioutil.TempDir("", appOnlyEnv.GetName())
 	return
 }
 
 // GetComponents returns a list with a fortio server component
 func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
+	// Define what components this environment has
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", "/tmp"))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", appOnlyEnv.TmpDir))
 
 	return comps
 }
 
-// Cleanup clean everything created by AppOnlyEnv, not component level
+// Cleanup implement the function in TestEnv
+// Remove the local temp dir. Can be manually overrided if necessary.
 func (appOnlyEnv *AppOnlyEnv) Cleanup() (err error) {
 	log.Printf("Cleaning up %s", appOnlyEnv.EnvID)
+	os.RemoveAll(appOnlyEnv.TmpDir)
 	return
 }

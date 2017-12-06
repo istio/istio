@@ -5,6 +5,9 @@ go_library(
     srcs = [
         "mixer_binary_comp.go",
     ],
+    data = [
+        "//mixer/testdata",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//tests/integration/framework:go_default_library",

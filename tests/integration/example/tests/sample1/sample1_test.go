@@ -23,29 +23,30 @@ import (
 	"strings"
 	"testing"
 
-	env "istio.io/istio/tests/integration/environment"
+	appOnlyEnv "istio.io/istio/tests/integration/example/environment/appOnlyEnv"
+	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
 
 const (
-	appOnlyEnv      = "app_only_env"
-	mixerEnvoyEnv   = "mixer_envoy_env"
-	serverEndpoint  = "http://localhost:8080/"
-	sidecarEndpoint = "http://localhost:9090/echo"
-	testID          = "sample1_test"
+	appOnlyEnvName    = "app_only_env"
+	mixerEnvoyEnvName = "mixer_envoy_env"
+	serverEndpoint    = "http://localhost:8080/"
+	sidecarEndpoint   = "http://localhost:9090/echo"
+	testID            = "sample1_test"
 )
 
 var (
-	testFW *framework.IstioTestFramework
+	testEM *framework.TestEnvManager
 )
 
 func TestSample1(t *testing.T) {
-	log.Printf("Running %s", testFW.TestID)
+	log.Printf("Running %s", testEM.TestID)
 
 	var url string
-	if testFW.TestEnv.GetName() == appOnlyEnv {
+	if testEM.TestEnv.GetName() == appOnlyEnvName {
 		url = serverEndpoint
-	} else if testFW.TestEnv.GetName() == mixerEnvoyEnv {
+	} else if testEM.TestEnv.GetName() == mixerEnvoyEnvName {
 		url = sidecarEndpoint
 	}
 
@@ -67,20 +68,20 @@ func TestSample1(t *testing.T) {
 	if bodyReceived != testID {
 		t.Fatalf("Echo server, [%s] sent, [%s] received", testID, bodyReceived)
 	} else {
-		log.Printf("%s succeeded!", testFW.TestID)
+		log.Printf("%s succeeded!", testEM.TestID)
 	}
 }
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	testFW = framework.NewIstioTestFramework(env.NewAppOnlyEnv(appOnlyEnv), testID)
-	res1 := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res1, appOnlyEnv)
+	testEM = framework.NewTestEnvManager(appOnlyEnv.NewAppOnlyEnv(appOnlyEnvName), testID)
+	res1 := testEM.RunTest(m)
+	log.Printf("Test result %d in env %s", res1, appOnlyEnvName)
 
-	testFW = framework.NewIstioTestFramework(env.NewMixerEnvoyEnv(mixerEnvoyEnv), testID)
-	res2 := testFW.RunTest(m)
-	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnv)
+	testEM = framework.NewTestEnvManager(mixerEnvoyEnv.NewMixerEnvoyEnv(mixerEnvoyEnvName), testID)
+	res2 := testEM.RunTest(m)
+	log.Printf("Test result %d in env %s", res2, mixerEnvoyEnvName)
 
 	if res1 == 0 && res2 == 0 {
 		os.Exit(0)

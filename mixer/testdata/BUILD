@@ -18,5 +18,8 @@ pkg_tar(
 filegroup(
     name = "testdata",
     srcs = glob(["**/*.yml"]) + glob(["**/*.yaml"]),
-    visibility = ["//mixer/pkg/mock:__subpackages__"],
+    visibility = [
+        "//mixer/pkg/mock:__subpackages__",
+        "//tests/integration/component/mixer:__subpackages__"
+    ],
 )

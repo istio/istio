@@ -12,62 +12,72 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fortioServer
+package proxy
 
 import (
+	"flag"
 	"fmt"
-	"os"
+	"log"
 	"time"
 
 	"istio.io/istio/tests/integration/framework"
-	"istio.io/istio/tests/util"
 )
 
-// LocalComponent is a local fortio server componment
+var (
+	envoyBinary = flag.String("envoy_binary", "", "Envoy binary path.")
+)
+
+// LocalComponent is a component of local proxy binary in process
 type LocalComponent struct {
 	framework.Component
-	name    string
-	process *os.Process
-	logFile string
+	testProcess framework.TestProcess
+	Name        string
+	LogFile     string
 }
 
 // NewLocalComponent create a LocalComponent with name and log dir
 func NewLocalComponent(n, logDir string) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
+
 	return &LocalComponent{
-		name:    n,
-		logFile: logFile,
+		Name:    n,
+		LogFile: logFile,
 	}
 }
 
-// GetName return component name
-func (FortioServerComp *LocalComponent) GetName() string {
-	return FortioServerComp.name
+// GetName implement the function in component interface
+func (proxyComp *LocalComponent) GetName() string {
+	return proxyComp.Name
 }
 
-// Start brings up a local fortio echo server
-func (FortioServerComp *LocalComponent) Start() (err error) {
-	FortioServerComp.process, err = util.RunBackground(fmt.Sprintf("fortio server > %s 2>&1 &", FortioServerComp.logFile))
+// Start brings up a local envoy using start_envory script from istio/proxy
+func (proxyComp *LocalComponent) Start() (err error) {
+	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s > %s 2>&1",
+		*envoyBinary, proxyComp.LogFile)); err != nil {
+		return
+	}
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
-	time.Sleep(2 * time.Second)
-	return
-}
+	time.Sleep(3 * time.Second)
 
-// Stop kill the fortio server process
-func (FortioServerComp *LocalComponent) Stop() (err error) {
-	err = util.KillProcess(FortioServerComp.process)
+	log.Printf("Started component %s", proxyComp.GetName())
 	return
 }
 
 // IsAlive check the process of local server is running
 // TODO: Process running doesn't guarantee server is ready
 // TODO: Need a better way to check if component is alive/running
-func (FortioServerComp *LocalComponent) IsAlive() (bool, error) {
-	return util.IsProcessRunning(FortioServerComp.process)
+func (proxyComp *LocalComponent) IsAlive() (bool, error) {
+	return proxyComp.testProcess.IsRunning()
+}
+
+// Stop stop this local component by kill the process
+func (proxyComp *LocalComponent) Stop() (err error) {
+	log.Printf("Stopping component %s", proxyComp.GetName())
+	return proxyComp.testProcess.Stop()
 }
 
 // Cleanup clean up tmp files and other resource created by LocalComponent
-func (FortioServerComp *LocalComponent) Cleanup() error {
+func (proxyComp *LocalComponent) Cleanup() error {
 	return nil
 }
