@@ -1,8 +1,8 @@
-# dummy line 5 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+# dummy line 6 - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -93,9 +93,45 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 
@@ -445,18 +481,9 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_openzipkin_zipkin_go_opentracing",
-    build_file_proto_mode = "legacy",
-    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
-    importpath = "github.com/openzipkin/zipkin-go-opentracing",
-    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
-    vcs = "git",
-)
-
-go_repository(
     name = "com_github_apache_thrift",
     build_file_name = "BUILD.bazel",
-    commit = "d4df91709b724174aaf8a957f3edac3573be354e",  # Oct 26, 2017 (HEAD) required by openzipkin dependency.
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Pinned to 0.10.0 Release until jaeger libraries can update
     importpath = "github.com/apache/thrift",
 )
 
@@ -1049,7 +1076,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
+ISTIO_PROXY_BUCKET = "6a9fe308431755e19358b76da38738c5af250b04"
 
 http_file(
     name = "envoy_binary",
@@ -1140,4 +1167,22 @@ go_repository(
     name = "com_github_gorilla_context",
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_client_go",
+    commit = "ffe98ab2252526eee5389b09328d6433024625f6",
+    importpath = "github.com/uber/jaeger-client-go",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_lib",
+    commit = "bc381f836083a0f7d5778d4216022388c4aeaf46",
+    importpath = "github.com/uber/jaeger-lib",
+)
+
+go_repository(
+    name = "com_github_codahale_hdrhistogram",
+    commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
+    importpath = "github.com/codahale/hdrhistogram",
 )

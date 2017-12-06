@@ -45,7 +45,11 @@ func TestCompile(t *testing.T) {
 			}
 			finder := descriptor.NewFinder(conf)
 
-			result, err := Compile(test.E, finder, expr.FuncMap(runtime.ExternFunctionMetadata))
+			fns := runtime.ExternFunctionMetadata
+			if test.Fns != nil {
+				fns = append(fns, test.Fns...)
+			}
+			result, err := Compile(test.E, finder, expr.FuncMap(fns))
 
 			if err != nil {
 				if err.Error() != test.CompileErr {
@@ -78,7 +82,17 @@ func TestCompile(t *testing.T) {
 			}
 			b := ilt.NewFakeBag(input)
 
-			i := interpreter.New(result.Program, runtime.Externs)
+			externs := make(map[string]interpreter.Extern)
+			for k, v := range runtime.Externs {
+				externs[k] = v
+			}
+			if test.Externs != nil {
+				for k, v := range test.Externs {
+					externs[k] = interpreter.ExternFromFn(k, v)
+				}
+			}
+
+			i := interpreter.New(result.Program, externs)
 			v, err := i.Eval("eval", b)
 			if err != nil {
 				if test.Err != err.Error() {

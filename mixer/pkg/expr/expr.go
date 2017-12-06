@@ -175,12 +175,17 @@ func (v *Variable) String() string {
 // Function models a function with multiple parameters
 // 1st arg can be thought of as the receiver.
 type Function struct {
-	Name string
-	Args []*Expression
+	Name   string
+	Target *Expression
+	Args   []*Expression
 }
 
 func (f *Function) String() string {
 	w := pool.GetBuffer()
+	if f.Target != nil {
+		w.WriteString(f.Target.String())
+		w.WriteString(":")
+	}
 	w.WriteString(f.Name + "(")
 	for idx, arg := range f.Args {
 		if idx != 0 {
@@ -201,6 +206,29 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 		return valueType, fmt.Errorf("unknown function: %s", f.Name)
 	}
 
+	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
+
+	if f.Target != nil {
+		if !fn.Instance {
+			return valueType, fmt.Errorf("invoking regular function on instance method: %s", f.Name)
+		}
+
+		var targetType dpb.ValueType
+		targetType, err = f.Target.EvalType(attrs, fMap)
+		if err != nil {
+			return valueType, err
+		}
+
+		if fn.TargetType == dpb.VALUE_TYPE_UNSPECIFIED {
+			// all future args must be of this type.
+			tmplType = targetType
+		} else if targetType != fn.TargetType {
+			return valueType, fmt.Errorf("%s target typeError got %s, expected %s", f, targetType, fn.TargetType)
+		}
+	} else if fn.Instance {
+		return valueType, fmt.Errorf("invoking instance method without an instance: %s", f.Name)
+	}
+
 	var idx int
 	argTypes := fn.ArgumentTypes
 
@@ -209,7 +237,6 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 	}
 
 	var argType dpb.ValueType
-	tmplType := dpb.VALUE_TYPE_UNSPECIFIED
 	// check arg types with fn args
 	for idx = 0; idx < len(f.Args) && idx < len(argTypes); idx++ {
 		argType, err = f.Args[idx].EvalType(attrs, fMap)
@@ -241,6 +268,23 @@ func (f *Function) EvalType(attrs AttributeDescriptorFinder, fMap map[string]Fun
 	return retType, nil
 }
 
+func generateVarName(selectors []string) string {
+	// a.b.c.d is a selector expression
+	// normally one walks down a chain of objects
+	// we have chosen an internally flat namespace, therefore
+	// a.b.c.d if an identifer. converts
+	// a.b.c.d --> $a.b.c.d
+	// for selectorExpr length is guaranteed to be at least 2.
+	ww := pool.GetBuffer()
+	ww.WriteString(selectors[len(selectors)-1])
+	for idx := len(selectors) - 2; idx >= 0; idx-- {
+		ww.WriteString("." + selectors[idx])
+	}
+	s := ww.String()
+	pool.PutBuffer(ww)
+	return s
+}
+
 func process(ex ast.Expr, tgt *Expression) (err error) {
 	switch v := ex.(type) {
 	case *ast.UnaryExpr:
@@ -254,12 +298,36 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			return
 		}
 	case *ast.CallExpr:
-		vfunc, found := v.Fun.(*ast.Ident)
-		if !found {
-			return fmt.Errorf("unexpected expression: %#v", v.Fun)
-		}
-		tgt.Fn = &Function{Name: vfunc.Name}
-		if err = processFunc(tgt.Fn, v.Args); err != nil {
+		switch tg := v.Fun.(type) {
+		case *ast.SelectorExpr:
+			var anchorExpr ast.Expr
+			var w []string
+			anchorExpr, w, err = flattenSelectors(v.Fun.(*ast.SelectorExpr))
+			if err != nil {
+				return err
+			}
+
+			if anchorExpr == nil {
+				// This is a simple expression of the form $(ident).$(select)...fn(...)
+				instance := &Expression{Var: &Variable{Name: generateVarName(w[1:])}}
+				tgt.Fn = &Function{Name: w[0], Target: instance}
+			} else {
+				afn := &Expression{}
+				err = process(anchorExpr, afn)
+				if err != nil {
+					return err
+				}
+				if len(w) != 1 {
+					return fmt.Errorf("unexpected expression: %#v", v.Fun)
+				}
+				tgt.Fn = &Function{Name: w[0], Target: afn}
+			}
+			err = processFunc(tgt.Fn, v.Args)
+			return err
+
+		case *ast.Ident:
+			tgt.Fn = &Function{Name: tg.Name}
+			err = processFunc(tgt.Fn, v.Args)
 			return
 		}
 	case *ast.ParenExpr:
@@ -285,23 +353,21 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 			tgt.Var = &Variable{Name: v.Name}
 		}
 	case *ast.SelectorExpr:
-		// a.b.c.d is a selector expression
-		// normally one walks down a chain of objects
-		// we have chosen an internally flat namespace, therefore
-		// a.b.c.d if an identifer. converts
-		// a.b.c.d --> $a.b.c.d
-		// for selectorExpr length is guaranteed to be at least 2.
+		var anchorExpr ast.Expr
 		var w []string
-		if err = processSelectorExpr(v, &w); err != nil {
-			return
+		anchorExpr, w, err = flattenSelectors(v)
+		if err != nil {
+			return err
 		}
-		ww := pool.GetBuffer()
-		ww.WriteString(w[len(w)-1])
-		for idx := len(w) - 2; idx >= 0; idx-- {
-			ww.WriteString("." + w[idx])
+		if anchorExpr != nil {
+			return fmt.Errorf("unexpected expression: %#v", v)
 		}
-		tgt.Var = &Variable{Name: ww.String()}
-		pool.PutBuffer(ww)
+
+		// This is a simple expression of the form $(ident).$(select)...
+		tgt.Var = &Variable{Name: generateVarName(w)}
+
+		return nil
+
 	case *ast.IndexExpr:
 		// accessing a map
 		// request.header["abc"]
@@ -316,18 +382,28 @@ func process(ex ast.Expr, tgt *Expression) (err error) {
 	return nil
 }
 
-func processSelectorExpr(exin *ast.SelectorExpr, w *[]string) (err error) {
-	ex := exin
+func flattenSelectors(selector *ast.SelectorExpr) (ast.Expr, []string, error) {
+	var anchor ast.Expr
+	parts := []string{}
+	ex := selector
+
 	for {
-		*w = append(*w, ex.Sel.Name)
+		parts = append(parts, ex.Sel.Name)
+
 		switch v := ex.X.(type) {
 		case *ast.SelectorExpr:
 			ex = v
+
 		case *ast.Ident:
-			*w = append(*w, v.Name)
-			return nil
+			parts = append(parts, v.Name)
+			return anchor, parts, nil
+
+		case *ast.CallExpr, *ast.BasicLit, *ast.ParenExpr:
+			anchor = ex.X
+			return anchor, parts, nil
+
 		default:
-			return fmt.Errorf("unexpected expression: %#v", v)
+			return nil, nil, fmt.Errorf("unexpected expression: %#v", v)
 		}
 	}
 }

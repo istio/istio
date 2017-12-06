@@ -42,6 +42,9 @@ func TestInitializeHandlerContext(t *testing.T) {
 		t.Errorf("expect serviceConfigIndex :%v, but get %v",
 			expectedIdx, ctx.serviceConfigIndex)
 	}
+	if ctx.checkResponseCache == nil {
+		t.Errorf("fail to initialize check cache")
+	}
 }
 
 func TestConfigValidation(t *testing.T) {

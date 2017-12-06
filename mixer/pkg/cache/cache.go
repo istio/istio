@@ -24,11 +24,11 @@ import (
 // Stats returns usage statistics about an individual cache, useful to assess the
 // efficiency of a cache.
 //
-// The values returned in this struct are eventually consistent approximations of
-// the current state of the cache.
+// The values returned in this struct are approximations of the current state of the cache.
+// For the sake of efficiency, certain edge cases in the implementation can lead to
+// inaccuracies.
 type Stats struct {
-	// Writes captures the number of times state in the cache was mutated. This
-	// includes setting and removing entries.
+	// Writes captures the number of times state in the cache was added or updated.
 	Writes uint64
 
 	// Hits captures the number of times a Get operation succeeded to find an entry in the cache.
@@ -36,20 +36,39 @@ type Stats struct {
 
 	// Misses captures the number of times a Get operation failed to find an entry in the cache.
 	Misses uint64
+
+	// Evictions captures the number of entries that have been evicted from the cache
+	Evictions uint64
+
+	// Removals captures the number of entries that have been explicitly removed from the
+	// cache
+	Removals uint64
 }
 
-// Cache defines the standard behavior of in-memory caches.
+// Cache defines the standard behavior of in-memory thread-safe caches.
 //
 // Different caches can have different eviction policies which determine
 // when and how entries are automatically removed from the cache.
 //
-// Ideas for the future:
-//   - Return the number of entries in the cache in stats.
-//   - Provide an eviction callback to know when entries are evicted.
-//   - Have Set and Remove return the previous value for the key, if any.
-//   - Have Get return the expiration time for entries.
-//   - Add a Clear method to empty a cache.
+// Using a cache is very simple:
+//
+//   c := NewLRU(5*time.Second,     // default per-entry ttl
+//               5*time.Second,     // eviction interval
+//               500)               // max # of entries tracked
+//   c.Set("foo", "bar")			// add an entry
+//   value, ok := c.Get("foo")		// try to retrieve the entry
+//   if ok {
+//		fmt.Printf("Got value %v\n", value)
+//   } else {
+//      fmt.Printf("Value was not found, must have been evicted")
+//   }
 type Cache interface {
+	// Ideas for the future:
+	//   - Return the number of entries in the cache in stats.
+	//   - Provide an eviction callback to know when entries are evicted.
+	//   - Have Set and Remove return the previous value for the key, if any.
+	//   - Have Get return the expiration time for entries.
+
 	// Set inserts an entry in the cache. This will replace any entry with
 	// the same key that is already in the cache. The entry may be automatically
 	// expunged from the cache at some point, depending on the eviction policies
@@ -64,14 +83,14 @@ type Cache interface {
 	// currently in the cache.
 	Remove(key interface{})
 
+	// RemoveAll synchronously deletes all entries from the cache.
+	RemoveAll()
+
 	// Stats returns information about the efficiency of the cache.
 	Stats() Stats
 }
 
-// ExpiringCache is a cache with items that are evicted over time
-//
-// Ideas for the future:
-//   - Add an Evict method to force immediate eviction of stale items
+// ExpiringCache is a cache with entries that are evicted over time
 type ExpiringCache interface {
 	Cache
 
@@ -80,4 +99,7 @@ type ExpiringCache interface {
 	// The entry will be automatically expunged from the cache at or slightly after the
 	// requested expiration time.
 	SetWithExpiration(key interface{}, value interface{}, expiration time.Duration)
+
+	// EvictExpired() synchronously evicts all expired entries from the cache
+	EvictExpired()
 }

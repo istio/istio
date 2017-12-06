@@ -16,17 +16,19 @@ package grpc
 
 import (
 	"fmt"
+
+	"istio.io/istio/security/pkg/registry"
 )
 
 type authorizer interface {
 	authorize(requester *caller, requestedIds []string) error
 }
 
-// sameIdAuthorizer approves a request if the requested identities matches the
+// sameIDAuthorizer approves a request if the requested identities matches the
 // identities of the requester.
-type sameIdAuthorizer struct{}
+type sameIDAuthorizer struct{}
 
-func (authZ *sameIdAuthorizer) authorize(requester *caller, requestedIDs []string) error {
+func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []string) error {
 	if requester.authSource == authSourceIDToken {
 		// TODO: currently the "sub" claim of an ID token returned by GCP
 		// metadata server contains obfuscated ID, so we cannot do
@@ -41,9 +43,33 @@ func (authZ *sameIdAuthorizer) authorize(requester *caller, requestedIDs []strin
 
 	for _, requestedID := range requestedIDs {
 		if _, exists := idMap[requestedID]; !exists {
-			return fmt.Errorf("The requested identity (%q) does not match the caller's identities", requestedID)
+			return fmt.Errorf("the requested identity (%q) does not match the caller's identities", requestedID)
 		}
 	}
 
+	return nil
+}
+
+// registryAuthorizor uses an underlying identity registry to make authorization decisions
+// nolint
+type registryAuthorizor struct {
+	reg registry.Registry
+}
+
+// authorize checks for each requested ID, if there is an identity from caller
+// that supports it in registry.
+func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []string) error {
+	for _, requestedID := range requestedIDs {
+		valid := false
+		for _, identity := range requestor.identities {
+			if authZ.reg.Check(identity, requestedID) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("the requested identity %q is not authorized", requestedID)
+		}
+	}
 	return nil
 }

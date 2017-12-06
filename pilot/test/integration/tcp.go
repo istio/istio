@@ -17,7 +17,7 @@ package main
 import (
 	"fmt"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform"
 )
 
@@ -45,7 +45,7 @@ func (t *tcp) run() error {
 	// from non-envoy client ("t") should fail all the time.
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b", "d"}
-	if t.Auth == proxyconfig.MeshConfig_NONE {
+	if t.Auth == meshconfig.MeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
 	}
@@ -64,7 +64,7 @@ func (t *tcp) run() error {
 						return func() status {
 							resp := t.clientRequest(src, url, 1, "")
 							if src == "t" &&
-								(t.Auth == proxyconfig.MeshConfig_MUTUAL_TLS ||
+								(t.Auth == meshconfig.MeshConfig_MUTUAL_TLS ||
 									(dst == "d" && port == ":9090")) {
 								// t cannot talk to envoy (a or b) when mTLS enabled,
 								// nor with d:9090 (which always has mTLS enabled).

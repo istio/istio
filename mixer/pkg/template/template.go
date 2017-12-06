@@ -25,6 +25,7 @@ import (
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
@@ -53,6 +54,10 @@ type (
 	ProcessReportFn func(ctx context.Context, instCfg map[string]proto.Message, attrs attribute.Bag,
 		mapper expr.Evaluator, handler adapter.Handler) error
 
+	// ProcessGenerateAttributesFn instantiates the instance object and dispatches them to the attribute generating handler.
+	ProcessGenerateAttributesFn func(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
+		mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error)
+
 	// BuilderSupportsTemplateFn check if the handlerBuilder supports template.
 	BuilderSupportsTemplateFn func(hndlrBuilder adapter.HandlerBuilder) bool
 
@@ -75,6 +80,9 @@ type (
 		ProcessReport           ProcessReportFn
 		ProcessCheck            ProcessCheckFn
 		ProcessQuota            ProcessQuotaFn
+		ProcessGenAttrs         ProcessGenerateAttributesFn
+
+		AttributeManifests []*istio_mixer_v1_config.AttributeManifest
 	}
 
 	// templateRepo implements Repository

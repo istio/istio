@@ -29,13 +29,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 )
 
 type controller struct {
-	mesh         *proxyconfig.MeshConfig
+	mesh         *meshconfig.MeshConfig
 	domainSuffix string
 
 	client   kubernetes.Interface
@@ -49,7 +49,7 @@ var (
 )
 
 // NewController creates a new Kubernetes controller
-func NewController(client kubernetes.Interface, mesh *proxyconfig.MeshConfig,
+func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	options kube.ControllerOptions) model.ConfigStoreCache {
 	handler := &kube.ChainHandler{}
 

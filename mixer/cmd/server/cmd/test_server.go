@@ -31,7 +31,6 @@ var defaultSeverArgs = serverArgs{
 	monitoringPort:                0,
 	singleThreaded:                false,
 	compressedPayload:             false,
-	traceOutput:                   "",
 	serverCertFile:                "",
 	serverKeyFile:                 "",
 	clientCertFiles:               "",

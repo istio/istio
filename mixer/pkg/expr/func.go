@@ -23,6 +23,12 @@ type FunctionMetadata struct {
 	// Name is the name of the function.
 	Name string
 
+	// Instance indicates that this is an instance method.
+	Instance bool
+
+	// TargetType is the type of the instance method target, if this function is an instance method.
+	TargetType config.ValueType
+
 	// ReturnType is the return type of the function.
 	ReturnType config.ValueType
 

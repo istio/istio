@@ -293,5 +293,5 @@ func (f *Builder) op2(op Opcode, p1 uint32, p2 uint32) {
 }
 
 func (f *Builder) id(s string) uint32 {
-	return f.strings.GetID(s)
+	return f.strings.Add(s)
 }

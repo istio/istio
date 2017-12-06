@@ -1,0 +1,11 @@
+# This is so we understand failures better
+build --verbose_failures
+test --test_output=errors
+test --test_size_filters=-large,-enormous
+
+# gogo output_filter is required by Mixer (why?)
+build --workspace_status_command=./bin/get_workspace_status --action_env=ISTIO_VERSION --output_filter=^gogo
+build --sandbox_tmpfs_path=/dev/shm
+
+# disable race detection until //pilot/adapter/config/... is fixed
+# test --features=race

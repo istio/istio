@@ -16,9 +16,11 @@ package grpc
 
 import (
 	"testing"
+
+	"istio.io/istio/security/pkg/registry"
 )
 
-func TestAuthroizer(t *testing.T) {
+func TestSameIDAuthroizer(t *testing.T) {
 	testCases := map[string]struct {
 		expectedErr  string
 		requestedIDs []string
@@ -30,13 +32,13 @@ func TestAuthroizer(t *testing.T) {
 			callerIDs:    []string{"id1", "id2"},
 		},
 		"Unauthorized": {
-			expectedErr:  "The requested identity (\"id3\") does not match the caller's identities",
+			expectedErr:  "the requested identity (\"id3\") does not match the caller's identities",
 			requestedIDs: []string{"id3"},
 			callerIDs:    []string{"id1", "id2"},
 		},
 	}
 
-	authz := &sameIdAuthorizer{}
+	authz := &sameIDAuthorizer{}
 	for id, tc := range testCases {
 		err := authz.authorize(&caller{authSourceClientCertificate, tc.callerIDs}, tc.requestedIDs)
 		if len(tc.expectedErr) > 0 {
@@ -47,6 +49,75 @@ func TestAuthroizer(t *testing.T) {
 			}
 		} else if err != nil {
 			t.Errorf("%s: unexpected Error: %v", id, err)
+		}
+	}
+}
+
+func TestRegistryAuthorizer(t *testing.T) {
+	testCases := map[string]struct {
+		callerIDs    []string
+		requestedIDs []string
+		registry     registry.IdentityRegistry
+		expectedErr  string
+	}{
+		"Authorized with one mapping": {
+			callerIDs:    []string{"id1"},
+			requestedIDs: []string{"id1"},
+			registry: registry.IdentityRegistry{
+				Map: map[string]string{"id1": "id1"},
+			},
+		},
+		"Unauthorized with empty mapping": {
+			callerIDs:    []string{"id1"},
+			requestedIDs: []string{"id1"},
+			registry: registry.IdentityRegistry{
+				Map: map[string]string{},
+			},
+			expectedErr: "the requested identity \"id1\" is not authorized",
+		},
+		"Unauthorized with one mapping": {
+			callerIDs:    []string{"id1"},
+			requestedIDs: []string{"id1"},
+			registry: registry.IdentityRegistry{
+				Map: map[string]string{"id2": "id2"},
+			},
+			expectedErr: "the requested identity \"id1\" is not authorized",
+		},
+		"Authorized with two mappings": {
+			callerIDs:    []string{"id1", "id2"},
+			requestedIDs: []string{"id3", "id4"},
+			registry: registry.IdentityRegistry{
+				Map: map[string]string{
+					"id1": "id3",
+					"id2": "id4",
+				},
+			},
+		},
+		"Unauthorized with three mappings": {
+			callerIDs:    []string{"id1", "id2", "id3"},
+			requestedIDs: []string{"id4", "id5", "id6"},
+			registry: registry.IdentityRegistry{
+				Map: map[string]string{
+					"id1": "id4",
+					"id2": "id5",
+					"id3": "id5",
+				},
+			},
+			expectedErr: "the requested identity \"id6\" is not authorized",
+		},
+	}
+
+	for id, c := range testCases {
+		authz := &registryAuthorizor{&c.registry}
+		err := authz.authorize(&caller{authSourceClientCertificate, c.callerIDs}, c.requestedIDs)
+		if c.expectedErr != "" {
+			if err == nil {
+				t.Errorf("%s: succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: expected %s, actual %s", id, c.expectedErr, err.Error())
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
 		}
 	}
 }

@@ -28,7 +28,7 @@ import (
 	"sort"
 	"strings"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -83,7 +83,7 @@ type Port struct {
 	// In combine with the mesh's AuthPolicy, controls authentication for
 	// Envoy-to-Envoy communication.
 	// This value is extracted from service annotation.
-	AuthenticationPolicy proxyconfig.AuthenticationPolicy `json:"authentication_policy"`
+	AuthenticationPolicy meshconfig.AuthenticationPolicy `json:"authentication_policy"`
 }
 
 // PortList is a set of ports

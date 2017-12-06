@@ -38,7 +38,7 @@ func TestNewStringTable(t *testing.T) {
 func TestGetID(t *testing.T) {
 	s := newStringTable()
 
-	i := s.GetID("foo")
+	i := s.Add("foo")
 	if s.nextID != i+1 {
 		t.Fatal()
 	}
@@ -51,7 +51,7 @@ func TestGetID(t *testing.T) {
 		t.Fatal()
 	}
 
-	i2 := s.GetID("foo")
+	i2 := s.Add("foo")
 	if i != i2 {
 		t.Fatal()
 	}
@@ -70,7 +70,7 @@ func TestTryGetID(t *testing.T) {
 		t.Fatal()
 	}
 
-	i = s.GetID("foo")
+	i = s.Add("foo")
 	if i != s.TryGetID("foo") {
 		t.Fatal()
 	}
@@ -87,7 +87,7 @@ func TestGetString(t *testing.T) {
 		t.Fatal()
 	}
 
-	i := s.GetID("foo")
+	i := s.Add("foo")
 	if s.GetString(i) != "foo" {
 		t.Fatal()
 	}
@@ -100,7 +100,7 @@ func TestExpansion(t *testing.T) {
 
 	for i := 1; i < allocSize*10+1; i++ {
 		str := fmt.Sprintf("str-%d", i)
-		id := s.GetID(str)
+		id := s.Add(str)
 		strMap[id] = str
 	}
 
@@ -111,7 +111,7 @@ func TestExpansion(t *testing.T) {
 			t.Fatal()
 		}
 
-		actualID := s.GetID(str)
+		actualID := s.Add(str)
 		if actualID != id {
 			t.Fatal()
 		}
@@ -121,7 +121,7 @@ func TestExpansion(t *testing.T) {
 func TestSize(t *testing.T) {
 	s := newStringTable()
 
-	_ = s.GetID("AAA")
+	_ = s.Add("AAA")
 
 	if s.Size() != int(s.nextID) {
 		t.Fatalf("Size mismatch")

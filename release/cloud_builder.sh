@@ -119,7 +119,6 @@ rm -rf vendor/k8s.io/*/vendor
 # it's easier to ask git to restore files than add
 # an option to bazel_to_go to not touch them
 git checkout generated_files
-git checkout lintconfig.json
 
 pushd pilot
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}"

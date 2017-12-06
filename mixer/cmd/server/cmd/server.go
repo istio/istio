@@ -20,11 +20,11 @@ import (
 	"crypto/x509"
 	_ "expvar" // For /debug/vars registration. Note: temporary, NOT for general use
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	_ "net/http/pprof" // For profiling / performance investigations
-	"os"
 	"strings"
 	"time"
 
@@ -32,7 +32,6 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
-	zt "github.com/openzipkin/zipkin-go-opentracing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -51,7 +50,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
-	"istio.io/istio/mixer/pkg/tracing/zipkin"
+	"istio.io/istio/mixer/pkg/tracing"
 	"istio.io/istio/mixer/pkg/version"
 )
 
@@ -71,7 +70,9 @@ type serverArgs struct {
 	monitoringPort                uint16
 	singleThreaded                bool
 	compressedPayload             bool
-	traceOutput                   string
+	zipkinURL                     string
+	jaegerURL                     string
+	logTraceSpans                 bool
 	serverCertFile                string
 	serverKeyFile                 string
 	clientCertFiles               string
@@ -81,7 +82,6 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
-	stringTablePurgeLimit         int
 
 	// @deprecated
 	serviceConfigFile string
@@ -102,7 +102,9 @@ func (sa *serverArgs) String() string {
 	b.WriteString(fmt.Sprint("monitoringPort: ", s.monitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("singleThreaded: ", s.singleThreaded, "\n"))
 	b.WriteString(fmt.Sprint("compressedPayload: ", s.compressedPayload, "\n"))
-	b.WriteString(fmt.Sprint("traceOutput: ", s.traceOutput, "\n"))
+	b.WriteString(fmt.Sprint("zipkinURL: ", s.zipkinURL, "\n"))
+	b.WriteString(fmt.Sprint("jaegerURL: ", s.jaegerURL, "\n"))
+	b.WriteString(fmt.Sprint("logTraceSpans: ", s.logTraceSpans, "\n"))
 	b.WriteString(fmt.Sprint("serverCertFile: ", s.serverCertFile, "\n"))
 	b.WriteString(fmt.Sprint("serverKeyFile: ", s.serverKeyFile, "\n"))
 	b.WriteString(fmt.Sprint("clientCertFiles: ", s.clientCertFiles, "\n"))
@@ -112,7 +114,6 @@ func (sa *serverArgs) String() string {
 	b.WriteString(fmt.Sprint("configFetchIntervalSec: ", s.configFetchIntervalSec, "\n"))
 	b.WriteString(fmt.Sprint("configIdentityAttribute: ", s.configIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("configIdentityAttributeDomain: ", s.configIdentityAttributeDomain, "\n"))
-	b.WriteString(fmt.Sprint("stringTablePurgeLimit: ", s.stringTablePurgeLimit, "\n"))
 	return b.String()
 }
 
@@ -121,6 +122,7 @@ type ServerContext struct {
 	GP        *pool.GoroutinePool
 	AdapterGP *pool.GoroutinePool
 	Server    *grpc.Server
+	Closers   []io.Closer
 }
 
 func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
@@ -168,11 +170,16 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 
 	serverCmd.PersistentFlags().StringVarP(&sa.clientCertFiles, "clientCertFiles", "", "", "A set of comma-separated client X509 cert files")
 
-	// TODO: implement a better option to specify how traces are reported
-	serverCmd.PersistentFlags().StringVarP(&sa.traceOutput, "traceOutput", "t", "",
-		"If the literal string 'STDOUT' or 'STDERR', traces will be produced and written to stdout or stderr respectively. "+
-			"Otherwise the address is assumed to be a URL and HTTP zipkin traces are sent to that address. "+
-			"Note that when providing a URL it must be the full path to the span collection endpoint, e.g. 'http://zipkin:9411/api/v1/spans'.")
+	// DEPRECATED FLAG (traceOutput). TO BE REMOVED IN SUBSEQUENT RELEASES.
+	serverCmd.PersistentFlags().StringVarP(&sa.zipkinURL, "traceOutput", "", "", "DEPRECATED. URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'")
+	serverCmd.PersistentFlags().MarkDeprecated("traceOutput", "please use one (or more) of the following flags: --zipkinURL, --jaegerURL, or --logTraceSpans")
+
+	serverCmd.PersistentFlags().StringVarP(&sa.zipkinURL, "zipkinURL", "", "",
+		"URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.")
+	serverCmd.PersistentFlags().StringVarP(&sa.jaegerURL, "jaegerURL", "", "",
+		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.")
+	serverCmd.PersistentFlags().BoolVarP(&sa.logTraceSpans, "logTraceSpans", "", false,
+		"Whether or not to log Mixer trace spans. This enables tracing for Mixer itself.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.configStoreURL, "configStoreURL", "", "",
 		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
@@ -197,7 +204,6 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 		fatalf("unable to hide: %v", err)
 	}
 
-	serverCmd.PersistentFlags().IntVar(&sa.stringTablePurgeLimit, "stringTablePurgeLimit", 1024, "Upper limit for String table size to purge at.")
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
@@ -241,16 +247,18 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	adapterGP := pool.NewGoroutinePool(adapterPoolSize, sa.singleThreaded)
 	adapterGP.AddWorkers(adapterPoolSize)
 
+	closers := []io.Closer{gp, adapterGP}
+
 	// Old and new runtime maintain their own evaluators with
 	// configs and attribute vocabularies.
 	var ilEvalForLegacy *evaluator.IL
-	var eval expr.Evaluator
+	var eval *evaluator.IL
 	var evalForLegacy expr.Evaluator
-	eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
+	eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
 	if err != nil {
 		fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 	}
-	ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
+	ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
 	if err != nil {
 		fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 	}
@@ -269,7 +277,7 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	if err != nil {
 		fatalf("Failed to connect to the configuration server. %v", err)
 	}
-	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), gp, adapterGP,
+	dispatcher, err = mixerRuntime.New(eval, evaluator.NewTypeChecker(), eval, gp, adapterGP,
 		sa.configIdentityAttribute, sa.configDefaultNamespace,
 		store2, adapterMap, info,
 	)
@@ -341,34 +349,22 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	if sa.traceOutput != "" {
-		var recorder zt.SpanRecorder
-		switch strings.ToUpper(sa.traceOutput) {
-		case "STDOUT":
-			recorder = zipkin.IORecorder(os.Stdout)
-			printf("Zipkin traces being dumped to stdout")
-		case "STDERR":
-			recorder = zipkin.IORecorder(os.Stderr)
-			printf("Zipkin traces being dumped to stderr")
-		default:
-			col, err := zt.NewHTTPCollector(sa.traceOutput, zt.HTTPLogger(zt.LoggerFunc(func(vals ...interface{}) error {
-				out := ""
-				for _, val := range vals {
-					out += fmt.Sprintf("%v ", val)
-				}
-				printf("Zipkin: %s\n", out)
-				return nil
-			})))
-			if err != nil {
-				fatalf("Unable to create zipkin http collector with address '%s': %v", sa.traceOutput, err)
-			}
-			recorder = zt.NewRecorder(col, false /* debug */, fmt.Sprintf("0.0.0.0:%d", sa.port), "istio-mixer")
+	if len(sa.zipkinURL) > 0 || len(sa.jaegerURL) > 0 || sa.logTraceSpans {
+		opts := make([]tracing.Option, 0, 3)
+		if len(sa.zipkinURL) > 0 {
+			opts = append(opts, tracing.WithZipkinCollector(sa.zipkinURL))
 		}
-		tracer, err := zt.NewTracer(recorder, zt.ClientServerSameSpan(false))
+		if len(sa.jaegerURL) > 0 {
+			opts = append(opts, tracing.WithJaegerHTTPCollector(sa.jaegerURL))
+		}
+		if sa.logTraceSpans {
+			opts = append(opts, tracing.WithLogger())
+		}
+		tracer, closer, err := tracing.NewTracer("istio-mixer", opts...)
 		if err != nil {
-			fatalf("Failed to construct zipkin tracer: %v", err)
+			fatalf("Could not create tracer: %v", err)
 		}
-		printf("Zipkin traces being sent to %s", sa.traceOutput)
+		closers = append(closers, closer)
 		ot.InitGlobalTracer(tracer)
 		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(tracer))
 	}
@@ -415,14 +411,15 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 
 	s := api.NewGRPCServer(adapterMgr, dispatcher, gp)
 	mixerpb.RegisterMixerServer(gs, s)
-	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs}
+	return &ServerContext{GP: gp, AdapterGP: adapterGP, Server: gs, Closers: closers}
 }
 
 func runServer(sa *serverArgs, info map[string]template.Info, adapters []adptr.InfoFn, legacyAdapters []adptr.RegisterFn, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with\n%s", sa)
 	context := setupServer(sa, info, adapters, legacyAdapters, printf, fatalf)
-	defer context.GP.Close()
-	defer context.AdapterGP.Close()
+	for _, c := range context.Closers {
+		defer c.Close()
+	}
 
 	printf("Istio Mixer: %s", version.Info)
 	printf("Starting gRPC server on port %v", sa.port)

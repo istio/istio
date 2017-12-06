@@ -39,7 +39,7 @@ func TestNames(t *testing.T) {
 	}
 
 	f.add(&Function{
-		ID:         s.GetID("foo"),
+		ID:         s.Add("foo"),
 		ReturnType: Void,
 	})
 
@@ -62,7 +62,7 @@ func TestGet(t *testing.T) {
 	}
 
 	foo := &Function{
-		ID:         s.GetID("foo"),
+		ID:         s.Add("foo"),
 		ReturnType: Void,
 	}
 	f.add(foo)
@@ -87,7 +87,7 @@ func TestGetByID(t *testing.T) {
 	}
 
 	foo := &Function{
-		ID:         s.GetID("foo"),
+		ID:         s.Add("foo"),
 		ReturnType: Void,
 	}
 	f.add(foo)
@@ -110,7 +110,7 @@ func TestIDOf(t *testing.T) {
 	}
 
 	foo := &Function{
-		ID:         s.GetID("foo"),
+		ID:         s.Add("foo"),
 		ReturnType: Void,
 	}
 	f.add(foo)
