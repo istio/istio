@@ -32,7 +32,7 @@ func TestDisableCheckCache(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet"
+	tag := "OKGet v1"
 	for i := 0; i < 10; i++ {
 		if _, _, err := HTTPGet(url); err != nil {
 			t.Errorf("Failed in request %s: %v", tag, err)
@@ -40,4 +40,22 @@ func TestDisableCheckCache(t *testing.T) {
 	}
 	// Check is called 10 time.
 	s.VerifyCheckCount(tag, 10)
+
+	//
+	// Use V2 config
+	//
+
+	s.v2 = GetDefaultV2Conf()
+	// Disable check cache.
+	DisableClientCache(s.v2.HttpServerConf, true, false, false)
+	s.ReStartEnvoy()
+
+	tag = "OKGet"
+	for i := 0; i < 10; i++ {
+		if _, _, err := HTTPGet(url); err != nil {
+			t.Errorf("Failed in request %s: %v", tag, err)
+		}
+	}
+	// Check is called 10 time.
+	s.VerifyCheckCount(tag, 20)
 }

@@ -113,3 +113,18 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_bod
 	log.Println(resp_body)
 	return code, resp_body, nil
 }
+
+func WaitForHttpServer(url string) {
+	const maxAttempts = 30
+	for i := 0; i < maxAttempts; i++ {
+		time.Sleep(time.Second)
+		log.Println("Pinging HTTP server...")
+		code, _, err := HTTPGet(url)
+		if err == nil && code == http.StatusOK {
+			log.Println("Server is up and running...")
+			return
+		}
+		log.Println("Will wait a second and try again.")
+	}
+	log.Println("Give up the wait, continue the test...")
+}

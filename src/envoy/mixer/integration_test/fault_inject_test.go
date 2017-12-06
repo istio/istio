@@ -98,7 +98,7 @@ const reportAttributes = `
 func TestFaultInject(t *testing.T) {
 	s := &TestSetup{
 		t:           t,
-		conf:        basicConfig,
+		v2:          GetDefaultV2Conf(),
 		faultInject: true,
 	}
 	if err := s.SetUp(); err != nil {

@@ -20,8 +20,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"strings"
-	"time"
 )
 
 const (
@@ -77,25 +75,8 @@ func (s *HttpServer) Start() {
 		http.Serve(s.lis, nil)
 	}()
 
-	addr := fmt.Sprintf("http://localhost:%v", s.port)
-
-	const maxAttempts = 30
-	for i := 0; i < maxAttempts; i++ {
-		time.Sleep(time.Second)
-		client := http.Client{}
-		log.Println("Pinging the server...")
-		rsp, err := client.Post(
-			addr+"/echo", "text/plain", strings.NewReader("PING"))
-		if err == nil && rsp.StatusCode == http.StatusOK {
-			log.Println("Got a response...")
-			png, err := ioutil.ReadAll(rsp.Body)
-			if err == nil && string(png) == "PING" {
-				log.Println("Server is up and running...")
-				return
-			}
-		}
-		log.Println("Will wait a second and try again.")
-	}
+	url := fmt.Sprintf("http://localhost:%v/echo", s.port)
+	WaitForHttpServer(url)
 }
 
 func (s *HttpServer) Stop() {

@@ -66,7 +66,23 @@ func TestDisableTcpCheckCalls(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", TcpProxyPort)
 
 	// Issues a POST request.
-	tag := "OKPost"
+	tag := "OKPost v1"
+	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheckCount(tag, 0)
+	s.VerifyReport(tag, reportAttributesOkPost)
+
+	//
+	// Use V2 config
+	//
+
+	s.v2 = GetDefaultV2Conf()
+	// Disable Check
+	DisableTcpCheckReport(s.v2.TcpServerConf, true, false)
+	s.ReStartEnvoy()
+
+	tag = "OKPost"
 	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}

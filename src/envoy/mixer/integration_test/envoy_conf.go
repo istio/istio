@@ -22,8 +22,6 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 )
 
 const (
@@ -46,16 +44,11 @@ type ConfParam struct {
 	Backend         string
 	ClientConfig    string
 	ServerConfig    string
+	TcpServerConfig string
 	AccessLog       string
 	MixerRouteFlags string
 	FaultFilter     string
 }
-
-var (
-	MeshIp1 = []byte{1, 1, 1, 1}
-	MeshIp2 = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 204, 152, 189, 116}
-	MeshIp3 = []byte{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8}
-)
 
 // A basic config
 const basicConfig = `
@@ -248,7 +241,7 @@ const envoyConfTempl = `
           "type": "both",
           "name": "mixer",
           "config": {
-{{.ServerConfig}}
+{{.TcpServerConfig}}
           }
         },
         {
@@ -346,9 +339,10 @@ func getConf() ConfParam {
 	}
 }
 
-func CreateEnvoyConf(path, conf, flags string, stress, faultInject, v2Conf bool) error {
+func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf) error {
 	c := getConf()
 	c.ServerConfig = conf
+	c.TcpServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags
 	if flags != "" {
 		c.MixerRouteFlags = flags
@@ -360,51 +354,12 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject, v2Conf bool)
 		c.FaultFilter = allAbortFaultFilter
 	}
 
-	if v2Conf {
-		c.ServerConfig = getV2Config(createHttpV2ServerConf())
-		c.ClientConfig = getV2Config(createHttpV2ClientConf())
+	if v2 != nil {
+		c.ServerConfig = getV2Config(v2.HttpServerConf)
+		c.ClientConfig = getV2Config(v2.HttpClientConf)
+		c.TcpServerConfig = getV2Config(v2.TcpServerConf)
 	}
 	return c.write(path)
-}
-
-func createHttpV2ServerConf() *mccpb.HttpClientConfig {
-	v2 := &mccpb.HttpClientConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh1.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp1}},
-				"target.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD222"}},
-				"target.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ222"}},
-			},
-		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
-	}
-	service := ":default"
-	v2.DefaultDestinationService = service
-	v2.ServiceConfigs[service] = &mccpb.ServiceConfig{
-		MixerAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh2.ip":    {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp2}},
-				"target.user": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-user"}},
-				"target.name": {Value: &mpb.Attributes_AttributeValue_StringValue{"target-name"}},
-			},
-		},
-		// TODO per-service HttpApiApsec, QuotaSpec
-	}
-	return v2
-}
-
-func createHttpV2ClientConf() *mccpb.HttpClientConfig {
-	v2 := &mccpb.HttpClientConfig{
-		ForwardAttributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"mesh3.ip":         {Value: &mpb.Attributes_AttributeValue_BytesValue{MeshIp3}},
-				"source.uid":       {Value: &mpb.Attributes_AttributeValue_StringValue{"POD11"}},
-				"source.namespace": {Value: &mpb.Attributes_AttributeValue_StringValue{"XYZ11"}},
-			},
-		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
-	}
-	return v2
 }
 
 func getV2Config(v2 proto.Message) string {

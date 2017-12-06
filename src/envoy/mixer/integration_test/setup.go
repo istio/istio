@@ -17,7 +17,6 @@ package test
 import (
 	"log"
 	"testing"
-	"time"
 )
 
 type TestSetup struct {
@@ -27,7 +26,7 @@ type TestSetup struct {
 	stress      bool
 	faultInject bool
 	noMixer     bool
-	v2Conf      bool
+	v2          *V2Conf
 
 	envoy   *Envoy
 	mixer   *MixerServer
@@ -36,7 +35,7 @@ type TestSetup struct {
 
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2Conf)
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -72,16 +71,12 @@ func (s *TestSetup) TearDown() {
 func (s *TestSetup) ReStartEnvoy() {
 	s.envoy.Stop()
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2Conf)
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
 	if err != nil {
 		s.t.Errorf("unable to re-start Envoy %v", err)
 	} else {
 		s.envoy.Start()
 	}
-
-	// TODO: not to use Sleep, ping Envoy admin port to detect Envoy health.
-	// wait for 2 second to wait for envoy to come up
-	time.Sleep(2 * time.Second)
 }
 
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {

@@ -31,7 +31,7 @@ const reportOnlyFlags = `
 func TestCheckReportDisable(t *testing.T) {
 	s := &TestSetup{
 		t:    t,
-		conf: basicConfig + "," + disableReportBatch,
+		conf: basicConfig + "," + disableCheckCache + "," + disableReportBatch,
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
@@ -40,7 +40,7 @@ func TestCheckReportDisable(t *testing.T) {
 
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
-	tag := "Both Check and Report"
+	tag := "Both Check and Report v1"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -55,7 +55,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.flags = checkOnlyFlags
 	s.ReStartEnvoy()
 
-	tag = "Check Only"
+	tag = "Check Only v1"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -70,7 +70,7 @@ func TestCheckReportDisable(t *testing.T) {
 	s.ReStartEnvoy()
 
 	// wait for 2 second to wait for envoy to come up
-	tag = "Report Only"
+	tag = "Report Only v1"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -79,4 +79,53 @@ func TestCheckReportDisable(t *testing.T) {
 	// Only send report, not check.
 	s.VerifyCheckCount(tag, 2)
 	s.VerifyReportCount(tag, 2)
+
+	//
+	// Use V2 config
+	//
+
+	s.v2 = GetDefaultV2Conf()
+	// Disable all cache.
+	DisableClientCache(s.v2.HttpServerConf, true, true, true)
+	s.ReStartEnvoy()
+
+	tag = "Both Check and Report"
+	if _, _, err := HTTPGet(url); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	// Even report batch is disabled, but it is better to wait
+	// since sending batch is after request is completed.
+	time.Sleep(1 * time.Second)
+	// Send both check and report
+	s.VerifyCheckCount(tag, 3)
+	s.VerifyReportCount(tag, 3)
+
+	// stop and start a new envoy config
+	// Check enabled, Report disabled
+	DisableHttpCheckReport(s.v2.HttpServerConf, false, true)
+	s.ReStartEnvoy()
+
+	tag = "Check Only"
+	if _, _, err := HTTPGet(url); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	// Wait for Report
+	time.Sleep(1 * time.Second)
+	// Only send check, not report.
+	s.VerifyCheckCount(tag, 4)
+	s.VerifyReportCount(tag, 3)
+
+	// Check disabled, Report enabled
+	DisableHttpCheckReport(s.v2.HttpServerConf, true, false)
+	s.ReStartEnvoy()
+
+	tag = "Report Only"
+	if _, _, err := HTTPGet(url); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	// Wait for Report
+	time.Sleep(1 * time.Second)
+	// Only send report, not check.
+	s.VerifyCheckCount(tag, 4)
+	s.VerifyReportCount(tag, 4)
 }

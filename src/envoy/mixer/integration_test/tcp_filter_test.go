@@ -87,7 +87,34 @@ func TestTcpMixerFilter(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", TcpProxyPort)
 
 	// Issues a POST request.
-	tag := "OKPost"
+	tag := "OKPost v1"
+	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesOkPost)
+
+	tag = "MixerFail v1"
+	s.mixer.check.r_status = rpc.Status{
+		Code: int32(rpc.UNAUTHENTICATED),
+	}
+	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
+		t.Errorf("Expect request to fail %s: %v", tag)
+	}
+	// Reset to a positive one
+	s.mixer.check.r_status = rpc.Status{}
+	s.VerifyCheck(tag, checkAttributesOkPost)
+	s.VerifyReport(tag, reportAttributesFailPost)
+
+	//
+	// Use V2 config
+	//
+
+	s.v2 = GetDefaultV2Conf()
+	s.ReStartEnvoy()
+
+	// Issues a POST request.
+	tag = "OKPost"
 	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
@@ -101,6 +128,8 @@ func TestTcpMixerFilter(t *testing.T) {
 	if _, _, err := ShortLiveHTTPPost(url, "text/plain", "Hello World!"); err == nil {
 		t.Errorf("Expect request to fail %s: %v", tag)
 	}
+	// Reset to a positive one
+	s.mixer.check.r_status = rpc.Status{}
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesFailPost)
 }

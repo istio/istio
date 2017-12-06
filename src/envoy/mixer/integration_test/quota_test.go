@@ -38,14 +38,14 @@ func TestQuotaCall(t *testing.T) {
 	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
 
 	// Issues a GET echo request with 0 size body
-	tag := "OKGet"
+	tag := "OKGet v1"
 	if _, _, err := HTTPGet(url); err != nil {
 		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 
 	// Issues a failed POST request caused by Mixer Quota
-	tag = "QuotaFail"
+	tag = "QuotaFail v1"
 	s.mixer.quota.r_status = rpc.Status{
 		Code:    int32(rpc.RESOURCE_EXHAUSTED),
 		Message: mixerQuotaFailMessage,
@@ -61,6 +61,22 @@ func TestQuotaCall(t *testing.T) {
 	}
 	if resp_body != "RESOURCE_EXHAUSTED:"+mixerQuotaFailMessage {
 		t.Errorf("Error response body is not expected.")
+	}
+	s.VerifyQuota(tag, "RequestCount", 5)
+
+	//
+	// Use V2 config
+	//
+
+	s.v2 = GetDefaultV2Conf()
+	// Add v2 quota config for all requests.
+	AddHttpQuota(s.v2.HttpServerConf, "RequestCount", 5)
+	s.ReStartEnvoy()
+
+	// Issues a GET echo request with 0 size body
+	tag = "OKGet"
+	if _, _, err := HTTPGet(url); err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
 	}
 	s.VerifyQuota(tag, "RequestCount", 5)
 }

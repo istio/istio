@@ -22,8 +22,8 @@ import (
 
 func TestCheckCache(t *testing.T) {
 	s := &TestSetup{
-		t:      t,
-		v2Conf: true,
+		t:  t,
+		v2: GetDefaultV2Conf(),
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

@@ -153,8 +153,8 @@ const reportAttributesOkPost2 = `
 
 func TestReportBatch(t *testing.T) {
 	s := &TestSetup{
-		t:    t,
-		conf: basicConfig,
+		t:  t,
+		v2: GetDefaultV2Conf(),
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

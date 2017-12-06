@@ -19,7 +19,8 @@ import (
 	"testing"
 )
 
-func TestFailOpen(t *testing.T) {
+// Mixer server not running.
+func TestNetworkFailure(t *testing.T) {
 	s := &TestSetup{
 		t:       t,
 		conf:    basicConfig,
@@ -30,9 +31,9 @@ func TestFailOpen(t *testing.T) {
 	}
 	defer s.TearDown()
 
-	url := fmt.Sprintf("http://localhost:%d/echo", ClientProxyPort)
+	url := fmt.Sprintf("http://localhost:%d/echo", ServerProxyPort)
 
-	tag := "Fail-Open"
+	tag := "Fail-Open-V1"
 	// Default is fail open policy.
 	code, _, err := HTTPGet(url)
 	if err != nil {
@@ -40,5 +41,45 @@ func TestFailOpen(t *testing.T) {
 	}
 	if code != 200 {
 		t.Errorf("Status code 200 is expected, got %d.", code)
+	}
+
+	s.conf = basicConfig + "," + networkFailClose
+	s.ReStartEnvoy()
+
+	tag = "Fail-Close-V1"
+	// Use fail close policy.
+	code, _, err = HTTPGet(url)
+	if err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	if code != 503 {
+		t.Errorf("Status code 503 is expected, got %d.", code)
+	}
+
+	s.v2 = GetDefaultV2Conf()
+	s.ReStartEnvoy()
+
+	tag = "Fail-Open"
+	// Default is fail open policy.
+	code, _, err = HTTPGet(url)
+	if err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	if code != 200 {
+		t.Errorf("Status code 200 is expected, got %d.", code)
+	}
+
+	// Set to fail_close
+	SetNetworPolicy(s.v2.HttpServerConf, false)
+	s.ReStartEnvoy()
+
+	tag = "Fail-Close"
+	// Use fail close policy.
+	code, _, err = HTTPGet(url)
+	if err != nil {
+		t.Errorf("Failed in request %s: %v", tag, err)
+	}
+	if code != 503 {
+		t.Errorf("Status code 503 is expected, got %d.", code)
 	}
 }

@@ -199,7 +199,7 @@ func TestCheckReportAttributes(t *testing.T) {
 	s.VerifyCheck(tag, checkAttributesOkPost)
 	s.VerifyReport(tag, reportAttributesOkPost)
 
-	s.v2Conf = true
+	s.v2 = GetDefaultV2Conf()
 	s.ReStartEnvoy()
 
 	tag = "OKGet"
