@@ -43,6 +43,7 @@ func TestGenerator_Generate(t *testing.T) {
 			"testdata/check_proto.descriptor_set":   "istio.io/istio/mixer/template/list",
 			"testdata/report2_proto.descriptor_set": "istio.io/istio/mixer/template/metric",
 			"testdata/quota_proto.descriptor_set":   "istio.io/istio/mixer/template/quota",
+			"testdata/apa_proto.descriptor_set":     "istio.io/istio/mixer/template/apa",
 			"testdata/report1_proto.descriptor_set": "istio.io/istio/mixer/template/log"},
 			"testdata/AllTemplates.go.golden"},
 	}
@@ -58,6 +59,7 @@ func TestGenerator_Generate(t *testing.T) {
 				if !t.Failed() {
 					if removeErr := os.RemoveAll(testTmpDir); removeErr != nil {
 						t.Logf("Could not remove temporary folder %s: %v", testTmpDir, removeErr)
+
 					}
 				} else {
 					t.Logf("Generated data is located at '%s'", testTmpDir)

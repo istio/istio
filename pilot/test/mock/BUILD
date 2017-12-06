@@ -26,5 +26,5 @@ go_test(
     size = "small",
     srcs = ["service_test.go"],
     library = ":go_default_library",
-    deps = ["@io_istio_api//routing/v1alpha1:go_default_library"],
+    deps = ["@io_istio_api//mesh/v1alpha1:go_default_library"],
 )

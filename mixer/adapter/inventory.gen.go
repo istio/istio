@@ -17,6 +17,7 @@
 package adapter
 
 import (
+	circonus "istio.io/istio/mixer/adapter/circonus"
 	denier "istio.io/istio/mixer/adapter/denier"
 	list "istio.io/istio/mixer/adapter/list"
 	memquota "istio.io/istio/mixer/adapter/memquota"
@@ -32,6 +33,7 @@ import (
 // Inventory returns the inventory of all available adapters.
 func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
+		circonus.GetInfo,
 		denier.GetInfo,
 		list.GetInfo,
 		memquota.GetInfo,
