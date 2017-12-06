@@ -582,7 +582,15 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		*/
 		{
 			name: "weighted",
+			file: weightedRouteRule,
+		},
+		{
+			name: "weighted",
 			file: weightedRouteRuleV1Alpha2,
+		},
+		{
+			name: "fault",
+			file: faultRouteRule,
 		},
 		{
 			name: "fault",
