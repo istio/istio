@@ -36,9 +36,6 @@ option (gogoproto.gostring_all) = false;
 // For all valid UIDs supplied, this adapter generates output
 // values containing information about the related pods.
 message Params {
-    reserved 17;
-    // next field id: 26
-
     // File path to discover kubeconfig. For in-cluster configuration,
     // this should be left unset. For local configuration, this should
     // be set to the path of a kubeconfig file that can be used to

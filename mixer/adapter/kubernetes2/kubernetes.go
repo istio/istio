@@ -96,7 +96,7 @@ var _ kubernetes_apa_tmpl.HandlerBuilder = &builder{}
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
 	return adapter.Info{
-		Name:        "KubernetesAttributeGenerator",
+		Name:        "kubernetesenv",
 		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
 		Description: "Provides platform specific functionality for the kubernetes environment",
 		SupportedTemplates: []string{
@@ -136,7 +136,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	paramsProto := b.adapterConfig
 	stopChan := make(chan struct{})
-	var pods cacheController
 	refresh := paramsProto.CacheRefreshDuration
 	path, exists := os.LookupEnv("KUBECONFIG")
 	if !exists {
@@ -146,26 +145,24 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	if err != nil {
 		return nil, err
 	}
-	pods = controller
-	env.ScheduleDaemon(func() { pods.Run(stopChan) })
+	env.ScheduleDaemon(func() { controller.Run(stopChan) })
 	// ensure that any request is only handled after
 	// a sync has occurred
 	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
 		env.Logger().Infof("Waiting for kubernetes cache sync...")
 	}
-	if success := cache.WaitForCacheSync(stopChan, pods.HasSynced); !success {
+	if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
 		stopChan <- struct{}{}
 		return nil, errors.New("cache sync failure")
 	}
 	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
 		env.Logger().Infof("Cache sync successful.")
 	}
-	kg := &handler{
+	return &handler{
 		log:    env.Logger(),
-		pods:   pods,
+		pods:   controller,
 		params: paramsProto,
-	}
-	return kg, nil
+	}, nil
 }
 
 func newBuilder(cacheFactory controllerFactoryFn) *builder {
