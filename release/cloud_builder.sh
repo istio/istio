@@ -148,22 +148,3 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
-
-# remove the -release suffix from the basename in debian images
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  pushd "${OUTPUT_PATH}/deb"
-  for DEB_PATH in ./*-release.deb
-  do
-    DEB_NAME=$(basename "$DEB_PATH")
-    BASE_NAME="${DEB_NAME%-release.deb}"
-    
-    # if no deb/ directory or .deb files with -release suffix
-    if [[ "${BASE_NAME}" == "*" ]]; then
-      echo "No debian images were found to rename"
-      break
-    fi
-    echo "renaming \"${BASE_NAME}-release.deb\" to \"${BASE_NAME}.deb\" "
-    mv "./${BASE_NAME}-release.deb" "./${BASE_NAME}.deb"
-  done
-  popd
-fi
