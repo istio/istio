@@ -240,7 +240,7 @@ var (
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
 
-			if flags.configStore == kubernetesConfigStore && registered[platform.KubernetesRegistry] {
+			if flags.configStore == kubernetesConfigStore {
 
 				// Set up configuration validation admission
 				// controller. Fill in remaining admission controller
