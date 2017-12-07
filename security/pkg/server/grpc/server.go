@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/registry"
 	pb "istio.io/istio/security/proto"
 )
 
@@ -129,7 +130,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 
 	return &Server{
 		authenticators: authenticators,
-		authorizer:     &sameIDAuthorizer{},
+		authorizer:     &registryAuthorizor{registry.GetIdentityRegistry()},
 		ca:             ca,
 		hostname:       hostname,
 		port:           port,
