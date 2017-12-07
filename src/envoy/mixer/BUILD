@@ -40,6 +40,7 @@ envoy_cc_library(
     deps = [
         "//external:mixer_http_control_lib",
         "//external:mixer_tcp_control_lib",
+	"//src/envoy/auth:http_filter_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

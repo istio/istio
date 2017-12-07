@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 
+#include "src/envoy/auth/http_filter.h"
 #include "common/common/base64.h"
 #include "common/common/logger.h"
 #include "common/http/headers.h"
@@ -22,6 +23,7 @@
 #include "envoy/ssl/connection.h"
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
+#include "src/envoy/auth/config.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/mixer_control.h"
@@ -34,6 +36,7 @@
 using ::google::protobuf::util::Status;
 using HttpCheckData = ::istio::mixer_control::http::CheckData;
 using HttpReportData = ::istio::mixer_control::http::ReportData;
+using ::istio::mixer::v1::config::client::JWT;
 using ::istio::mixer::v1::config::client::ServiceConfig;
 
 namespace Envoy {
@@ -64,6 +67,28 @@ const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 // Referer header
 const LowerCaseString kRefererHeaderKey("referer");
 
+std::shared_ptr<Auth::IssuerInfo> CreateIssuer(const JWT& jwt) {
+  std::vector<std::string> audiences;
+  for (const auto& audience : jwt.audiences()) {
+    audiences.push_back(audience);
+  }
+  return std::make_shared<Auth::IssuerInfo>(
+      jwt.issuer(), jwt.jwks_uri(), jwt.jwks_uri_envoy_cluster(),
+      Auth::Pubkeys::JWKS, std::move(audiences));
+}
+
+void CreateAuthIssuers(
+    const HttpMixerConfig& config,
+    std::vector<std::shared_ptr<Auth::IssuerInfo>>* issuers) {
+  for (const auto& it : config.http_config.service_configs()) {
+    if (it.second.has_end_user_authn_spec()) {
+      for (const auto& jwt : it.second.end_user_authn_spec().jwts()) {
+        issuers->push_back(CreateIssuer(jwt));
+      }
+    }
+  }
+}
+
 }  // namespace
 
 class Config {
@@ -71,6 +96,7 @@ class Config {
   Upstream::ClusterManager& cm_;
   HttpMixerConfig mixer_config_;
   ThreadLocal::SlotPtr tls_;
+  std::shared_ptr<Auth::JwtAuthConfig> auth_config_;
 
  public:
   Config(const Json::Object& config,
@@ -85,11 +111,20 @@ class Config {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
                   new HttpMixerControl(mixer_config_, cm_, dispatcher, random));
             });
+
+    std::vector<std::shared_ptr<Auth::IssuerInfo>> issuers;
+    CreateAuthIssuers(mixer_config_, &issuers);
+    if (issuers.size() > 0) {
+      auth_config_ =
+          std::make_shared<Auth::JwtAuthConfig>(std::move(issuers), context);
+    }
   }
 
   HttpMixerControl& mixer_control() {
     return tls_->getTyped<HttpMixerControl>();
   }
+
+  std::shared_ptr<Auth::JwtAuthConfig> auth_config() { return auth_config_; }
 };
 
 typedef std::shared_ptr<Config> ConfigPtr;
@@ -457,6 +492,10 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
         new Http::Mixer::Config(config, context));
     return
         [mixer_config](Http::FilterChainFactoryCallbacks& callbacks) -> void {
+          if (mixer_config->auth_config()) {
+            callbacks.addStreamDecoderFilter(Http::StreamDecoderFilterSharedPtr{
+                new Http::JwtVerificationFilter(mixer_config->auth_config())});
+          }
           std::shared_ptr<Http::Mixer::Instance> instance =
               std::make_shared<Http::Mixer::Instance>(mixer_config);
           callbacks.addStreamDecoderFilter(

@@ -63,6 +63,15 @@ struct IssuerInfo : public Logger::Loggable<Logger::Id::http> {
   // it just keeps URI and cluster name, and public key will be fetched later,
   // namely in decodeHeaders() of the filter class.
   IssuerInfo(Json::Object *json);
+  // Allow default construct.
+  IssuerInfo(const std::string &name, const std::string &uri,
+             const std::string &cluster, Pubkeys::Type pkey_type,
+             std::vector<std::string> &&audiences)
+      : uri_(uri),
+        cluster_(cluster),
+        name_(name),
+        pkey_type_(pkey_type),
+        audiences_(std::move(audiences)) {}
 
   // True if the config loading in the constructor or fetching public key failed
   bool failed_ = false;
@@ -88,6 +97,9 @@ struct JwtAuthConfig : public Logger::Loggable<Logger::Id::http> {
   // Load the config from envoy config.
   // It will abort when "issuers" is missing or bad-formatted.
   JwtAuthConfig(const Json::Object &config,
+                Server::Configuration::FactoryContext &context);
+  // Constructed by IssuerInfo directly.
+  JwtAuthConfig(std::vector<std::shared_ptr<IssuerInfo> > &&issuers,
                 Server::Configuration::FactoryContext &context);
 
   // It specify which information will be included in the HTTP header of an

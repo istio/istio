@@ -166,6 +166,15 @@ bool IssuerInfo::IsAudienceAllowed(const std::string &aud) {
                                           aud) != audiences_.end());
 }
 
+JwtAuthConfig::JwtAuthConfig(
+    std::vector<std::shared_ptr<IssuerInfo> > &&issuers,
+    Server::Configuration::FactoryContext &context)
+    : issuers_(std::move(issuers)), cm_(context.clusterManager()) {
+  // TODO: public key expiration should be per issuer.
+  pubkey_cache_expiration_sec_ = 600;
+  user_info_type_ = UserInfoType::kPayloadBase64Url;
+}
+
 /*
  * TODO: add test for config loading
  */
