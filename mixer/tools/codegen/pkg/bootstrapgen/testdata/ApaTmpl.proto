@@ -56,6 +56,8 @@ message OutputTemplate {
     istio.mixer.v1.template.EmailAddress email_addr = 13;
 
     istio.mixer.v1.template.Uri uri = 14;
+
+    map<string, string> out_str_map = 15;
 }
 
 

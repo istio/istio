@@ -48,6 +48,8 @@ message OutputTemplate {
     istio.mixer.v1.template.EmailAddress email = 10;
 
     istio.mixer.v1.template.IPAddress out_ip = 11;
+
+    map<string, string> out_str_map = 12;
 }
 
 

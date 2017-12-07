@@ -51,6 +51,7 @@ var primitiveToValueType = map[string]string{
 	"bool":                 fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
 	"int64":                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
 	"float64":              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
+	"map[string]string":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING_MAP.String(),
 	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
 	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
 	"adapter.DNSName":      fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DNS_NAME.String(),
@@ -89,7 +90,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 	tmpl, err := template.New("MixerBootstrap").Funcs(
 		template.FuncMap{
 			"getValueType": func(goType modelgen.TypeInfo) string {
-				return primitiveToValueType[goType.Name]
+				return primitiveToValueType[strings.Replace(goType.Name, " ", "", -1)]
 
 			},
 			"isAliasType": func(goType string) bool {

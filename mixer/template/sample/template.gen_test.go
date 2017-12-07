@@ -912,6 +912,9 @@ var baseConfig = istio_mixer_v1_config.GlobalConfig{
 				"source.uri": {
 					ValueType: pb.URI,
 				},
+				"source.labels": {
+					ValueType: pb.STRING_MAP,
+				},
 				"source.dns": {
 					ValueType: pb.DNS_NAME,
 				},
@@ -1526,6 +1529,7 @@ attribute_bindings:
   source.string: $out.stringPrimitive
   source.timestamp: $out.timeStamp
   source.duration: $out.duration
+  source.labels: $out.out_str_map
 `,
 			cstrParam:     &istio_mixer_adapter_sample_myapa.InstanceParam{},
 			typeEvalError: nil,
@@ -1692,6 +1696,7 @@ func TestProcessApa(t *testing.T) {
 					"source.myduration":        "$out.duration",
 					"source.email":             "$out.email",
 					"source.ip":                "$out.out_ip",
+					"source.labels":            "$out.out_str_map",
 				},
 			},
 			hdlr: &fakeMyApaHandler{
@@ -1704,6 +1709,7 @@ func TestProcessApa(t *testing.T) {
 					Int64Primitive:  1237,
 					Email:           adapter.EmailAddress("updatedfoo@bar.com"),
 					OutIp:           net.ParseIP("1.2.3.4"),
+					OutStrMap:       map[string]string{"a": "b"},
 				},
 			},
 			wantOutAttrs: map[string]interface{}{
@@ -1715,6 +1721,7 @@ func TestProcessApa(t *testing.T) {
 				"source.mydoublePrimitive": float64(1237),
 				"source.email":             "updatedfoo@bar.com",
 				"source.ip":                []uint8(net.ParseIP("1.2.3.4")),
+				"source.labels":            map[string]string{"a": "b"},
 			},
 			wantInstance: &istio_mixer_adapter_sample_myapa.Instance{
 				Name:                           "foo",
