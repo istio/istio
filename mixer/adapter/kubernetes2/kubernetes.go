@@ -20,6 +20,7 @@
 package kubernetes
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -34,10 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"context"
-
 	"istio.io/istio/mixer/adapter/kubernetes2/config"
-	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetes2/template"
+	ktmpl "istio.io/istio/mixer/adapter/kubernetes2/template"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -86,12 +85,8 @@ type (
 )
 
 // compile-time validation
-var _ kubernetes_apa_tmpl.Handler = &handler{}
-var _ kubernetes_apa_tmpl.HandlerBuilder = &builder{}
-
-/////////////////////////////// Config-time methods //////////////////////////////
-//
-//
+var _ ktmpl.Handler = &handler{}
+var _ ktmpl.HandlerBuilder = &builder{}
 
 // GetInfo returns the Info associated with this adapter implementation.
 func GetInfo() adapter.Info {
@@ -100,7 +95,7 @@ func GetInfo() adapter.Info {
 		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
 		Description: "Provides platform specific functionality for the kubernetes environment",
 		SupportedTemplates: []string{
-			kubernetes_apa_tmpl.TemplateName,
+			ktmpl.TemplateName,
 		},
 		DefaultConfig: conf,
 
@@ -172,11 +167,8 @@ func newBuilder(cacheFactory controllerFactoryFn) *builder {
 	}
 }
 
-/////////////////////////////// Request-time methods //////////////////////////////
-//
-//
-func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *kubernetes_apa_tmpl.Instance) (*kubernetes_apa_tmpl.Output, error) {
-	out := &kubernetes_apa_tmpl.Output{}
+func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
+	out := &ktmpl.Output{}
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
 			fillDestinationAttrs(p, out, h.params)
@@ -226,7 +218,7 @@ func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	return pod, found
 }
 
-func (h *handler) skipIngressLookups(out *kubernetes_apa_tmpl.Output) bool {
+func (h *handler) skipIngressLookups(out *ktmpl.Output) bool {
 	return !h.params.LookupIngressSourceAndOriginValues && out.DestinationService == h.params.FullyQualifiedIstioIngressServiceName
 }
 
@@ -290,7 +282,7 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func fillOriginAttrs(p *v1.Pod, o *kubernetes_apa_tmpl.Output, params *config.Params) {
+func fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.OriginLabels = p.Labels
 	}
@@ -322,7 +314,7 @@ func fillOriginAttrs(p *v1.Pod, o *kubernetes_apa_tmpl.Output, params *config.Pa
 	}
 }
 
-func fillDestinationAttrs(p *v1.Pod, o *kubernetes_apa_tmpl.Output, params *config.Params) {
+func fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.DestinationLabels = p.Labels
 	}
@@ -354,7 +346,7 @@ func fillDestinationAttrs(p *v1.Pod, o *kubernetes_apa_tmpl.Output, params *conf
 	}
 }
 
-func fillSourceAttrs(p *v1.Pod, o *kubernetes_apa_tmpl.Output, params *config.Params) {
+func fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.SourceLabels = p.Labels
 	}

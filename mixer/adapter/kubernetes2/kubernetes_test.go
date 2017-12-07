@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"context"
 	"errors"
 	"net"
 	"os"
@@ -24,8 +25,6 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"context"
 
 	"istio.io/istio/mixer/adapter/kubernetes2/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetes2/template"
