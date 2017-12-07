@@ -220,12 +220,12 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy},
-		{weightedRouteRuleV1Alpha2, cbPolicyV1Alpha2},
+		{cbRouteRuleV1Alpha2},
 	}
 
 	for _, configs := range tests {
 		_, registry, ds := commonSetup(t)
-		// add weighted rule to split into two clusters and circuit breaker policy
+		// add weighted rule to split into two clusters and set circuit breaker policy
 		for _, config := range configs {
 			addConfig(registry, config, t)
 		}

@@ -233,9 +233,9 @@ var (
 		file: "testdata/cb-policy.yaml.golden",
 	}
 
-	cbPolicyV1Alpha2 = fileConfig{
+	cbRouteRuleV1Alpha2 = fileConfig{
 		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
-		file: "testdata/cb-policy-v1alpha2.yaml.golden",
+		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
 	}
 
 	timeoutRouteRule = fileConfig{

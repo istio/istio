@@ -292,7 +292,7 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			// TODO: logic in this block is not dependent on the route match, so we may be able to avoid
 			// rerunning it N times
 
-			if len(http.Route) == 0 {
+			if len(http.Route) == 0 { // build default cluster
 				cluster := buildOutboundCluster(defaultDestination, port, nil)
 				route.Cluster = cluster.Name
 				route.clusters = append(route.clusters, cluster)

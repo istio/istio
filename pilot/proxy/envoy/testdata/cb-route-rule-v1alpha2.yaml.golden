@@ -3,6 +3,18 @@ hosts:
 source:
   - labels: # TODO: name: hello
       version: v0
+http:
+  - route:
+    - destination:
+        name: world
+        labels:
+          version: v0
+      weight: 75
+    - destination:
+        name: world
+        labels:
+          version: v1
+      weight: 25
 upstreamSettings:
   lbPolicy: RANDOM
   connectionPool:
