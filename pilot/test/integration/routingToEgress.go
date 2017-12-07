@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Routing tests
+// Tests of routing rules to outbound traffic defined by egress rules
 
 package main
 
