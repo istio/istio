@@ -16,12 +16,12 @@ package perf
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/mock"
 	"istio.io/istio/mixer/pkg/template"
 )
@@ -83,9 +83,9 @@ func (s *server) initialize(setup *Setup, env *Env) error {
 
 func (s *server) shutdown() {
 	if s != nil {
-		err := s.s.Close()
-		if err != nil {
-			log.Fatal(err)
+		if err := s.s.Close(); err != nil {
+			log.Error(err.Error())
+			log.Sync()
 		}
 		s = nil
 	}

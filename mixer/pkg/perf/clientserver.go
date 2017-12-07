@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"github.com/golang/glog"
+	"istio.io/istio/mixer/pkg/log"
 )
 
 // ClientServer is an RPC server that the Controller connects to remotely control a Mixer perf test client.
@@ -62,12 +62,13 @@ func NewClientServer(controllerLoc ServiceLocation) (*ClientServer, error) {
 }
 
 func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) error {
-	glog.Infof("ClientServer dialing to controller at: %s", controllerLoc)
+	log.Infof("ClientServer dialing to controller at: %s", controllerLoc)
+	defer log.Sync()
 	controller, err := rpc.DialHTTPPath("tcp", controllerLoc.Address, controllerLoc.Path)
 	if err != nil {
 		return err
 	}
-	glog.Infof("ClientServer connected to controller")
+	log.Info("ClientServer connected to controller")
 
 	err = controller.Call("Controller.RegisterClient", s.location(), nil)
 
@@ -78,7 +79,7 @@ func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) err
 		return err
 	}
 
-	glog.Info("ClientServer registered with controller")
+	log.Info("ClientServer registered with controller")
 	return nil
 }
 
@@ -99,7 +100,8 @@ func (s *ClientServer) initializeRPCServer() error {
 
 	go http.Serve(s.listener, nil)
 
-	glog.Infof("ClientServer listening on: %s", s.location())
+	log.Infof("ClientServer listening on: %s", s.location())
+	log.Sync()
 	return nil
 }
 
@@ -137,7 +139,8 @@ type ClientServerInitParams struct {
 // The Mixer client connects to the server at the given address, and keeps the setup metadata to generate load during
 // upcoming run requests.
 func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct{}) error {
-	glog.Infof("ClientServer initializing with server address: %s", params.Address)
+	log.Infof("ClientServer initializing with server address: %s", params.Address)
+	log.Sync()
 
 	var setup Setup
 	if err := unmarshallSetup(params.Setup, &setup); err != nil {
@@ -148,7 +151,8 @@ func (s *ClientServer) InitializeClient(params ClientServerInitParams, _ *struct
 
 // Shutdown is a remote RPC call that is invoked by the controller after the benchmark execution has completed.
 func (s *ClientServer) Shutdown(struct{}, *struct{}) error {
-	glog.Info("ClientServer shutting down")
+	log.Info("ClientServer shutting down")
+	log.Sync()
 	s.client.close()
 	s.close()
 	return nil
@@ -157,6 +161,7 @@ func (s *ClientServer) Shutdown(struct{}, *struct{}) error {
 // Run is a remote RPC call that is invoked by the controller to request the mixer to run the load for the specified
 // number of iterations.
 func (s *ClientServer) Run(iterations int, _ *struct{}) error {
-	glog.Infof("ClientServer running with iterations: %d", iterations)
+	log.Infof("ClientServer running with iterations: %d", iterations)
+	// Deliberately not syncing the log here to avoid polluting the benchmark timings.
 	return s.client.run(iterations)
 }

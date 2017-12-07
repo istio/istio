@@ -15,10 +15,11 @@
 package perf
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"net/rpc"
+
+	"istio.io/istio/mixer/pkg/log"
 )
 
 // Controller is the top-level perf benchmark controller. It drives the test by managing the client(s) that generate
@@ -62,7 +63,8 @@ func newController() (*Controller, error) {
 
 	go http.Serve(c.listener, nil)
 
-	log.Printf("controller is accepting connections on: %s%s", c.listener.Addr().String(), c.rpcPath)
+	log.Infof("controller is accepting connections on: %s%s", c.listener.Addr().String(), c.rpcPath)
+	log.Sync()
 	return c, nil
 }
 
@@ -99,7 +101,8 @@ func (c *Controller) runClients(iterations int) error {
 }
 
 func (c *Controller) close() (err error) {
-	log.Print("Dispatching close to all clients")
+	log.Infof("Dispatching close to all clients")
+	log.Sync()
 
 	for _, conn := range c.clients {
 		e := conn.Call("ClientServer.Shutdown", struct{}{}, nil)
@@ -138,7 +141,8 @@ func (c *Controller) location() ServiceLocation {
 
 // RegisterClient is an RPC method called by the clients to registers with this controller.
 func (c *Controller) RegisterClient(loc ServiceLocation, _ *struct{}) error {
-	log.Printf("Incoming client: %s", loc)
+	log.Infof("Incoming client: %s", loc)
+	log.Sync()
 
 	// Connect back to the client's own service.
 	conn, err := rpc.DialHTTPPath("tcp", loc.Address, loc.Path)
@@ -146,7 +150,8 @@ func (c *Controller) RegisterClient(loc ServiceLocation, _ *struct{}) error {
 		return err
 	}
 
-	log.Printf("Connected to client: %s", loc)
+	log.Infof("Connected to client: %s", loc)
+	log.Sync()
 
 	c.clients = append(c.clients, conn)
 	c.incoming <- struct{}{}

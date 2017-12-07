@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"istio.io/istio/mixer/pkg/log"
 )
 
 // Load is the load to apply on the Mixer during the perf test.
@@ -37,7 +39,8 @@ type Load struct {
 	// This is here mostly for debugging.
 	StableOrder bool `json:"stableOrder,omitempty"`
 
-	// RandomSeed is the random seed to use when randomizing load. If omitted, a time-based seed will be used.
+	// RandomSeed is the random seed to use when randomizing load. If omitted (i.e. when set to 0), a time-based seed
+	// will be used.
 	// This is here mostly for debugging.
 	RandomSeed int64 `json:"randomSeed,omitempty"`
 }
@@ -136,6 +139,8 @@ func (l *Load) createRequestProtos(c Config) []interface{} {
 		if seed == 0 {
 			seed = time.Now().UnixNano()
 		}
+		log.Infof("Random seed for load randomization: '%v'", seed)
+		// Do not sync the log here to avoid polluting perf timings.
 		source := rand.NewSource(seed)
 		random := rand.New(source)
 		for j := len(requests) - 1; j > 0; j-- {
