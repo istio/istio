@@ -28,4 +28,16 @@ RUN     go get -u github.com/golang/dep/cmd/dep
 
 ADD     start-test-server.sh /tmp/apiserver/start-test-server.sh
 
+RUN     echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" >extras.list && \
+        sudo mv extras.list /etc/apt/sources.list.d/extras.list && \
+        curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add - && \
+        sudo apt-get update && \
+        sudo apt-get install -y bazel socat
+
+RUN     sudo apt-get install -y wget software-properties-common make cmake python python-pip \
+        bc libtool automake zip time g++-6 gcc-6 \
+        rsync
+
+RUN     sudo apt-get clean
+
 ENTRYPOINT ["/tmp/apiserver/start-test-server.sh"]

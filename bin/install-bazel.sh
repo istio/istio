@@ -9,4 +9,4 @@ sudo mv extras.list /etc/apt/sources.list.d/extras.list
 curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 
 sudo apt-get update
-sudo apt-get install -y bazel socat
+sudo apt-get install -y bazel=0.7.0 socat
