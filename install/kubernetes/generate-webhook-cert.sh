@@ -117,7 +117,7 @@ kubectl get csr ${csrName} -o jsonpath='{.status.certificate}' | base64 -d > ${t
 
 # fetch the CA certificate that signed our certificate
 secretToken=$(kubectl -n ${namespace} get serviceaccount default -o jsonpath='{.secrets[0].name}')
-kubectl get secret ${secretToken} -o jsonpath='{.data.ca\.crt}' | base64 -d > ${tmpdir}/ca-cert.pem
+kubectl get secret -n ${namespace} ${secretToken} -o jsonpath='{.data.ca\.crt}' | base64 -d > ${tmpdir}/ca-cert.pem
 
 # create the secret with CA cert and server cert/key
 kubectl create secret generic ${secret} \
