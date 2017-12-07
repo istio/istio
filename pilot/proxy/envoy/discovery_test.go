@@ -862,3 +862,22 @@ func TestDiscoveryService_AvailabilityZone(t *testing.T) {
 		})
 	}
 }
+
+func TestMixerclientServiceConfig(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+
+	addConfig(registry, mixerclientAPISpec, t)
+	addConfig(registry, mixerclientAPISpecBinding, t)
+	addConfig(registry, mixerclientQuotaSpec, t)
+	addConfig(registry, mixerclientQuotaSpecBinding, t)
+	addConfig(registry, mixerclientAuthSpec, t)
+	addConfig(registry, mixerclientAuthSpecBinding, t)
+
+	url := fmt.Sprintf("/v1/listeners/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/lds-mixerclient-filter.json", t)
+
+	url = fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/cds-mixerclient-filter.json", t)
+}

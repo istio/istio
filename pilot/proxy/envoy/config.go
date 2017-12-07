@@ -190,6 +190,7 @@ func buildClusters(env proxy.Environment, node proxy.Node) (Clusters, error) {
 	// append Mixer service definition if necessary
 	if env.Mesh.MixerAddress != "" {
 		clusters = append(clusters, buildMixerCluster(env.Mesh, node, env.MixerSAN))
+		clusters = append(clusters, buildMixerAuthFilterClusters(env.IstioConfigStore, env.Mesh, instances)...)
 	}
 
 	return clusters, nil

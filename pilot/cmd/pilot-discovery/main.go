@@ -113,6 +113,8 @@ var (
 				model.HTTPAPISpecBinding,
 				model.QuotaSpec,
 				model.QuotaSpecBinding,
+				model.EndUserAuthenticationPolicySpec,
+				model.EndUserAuthenticationPolicySpecBinding,
 			}, flags.controllerOptions.DomainSuffix)
 			if err != nil {
 				return multierror.Prefix(err, "failed to open a config client.")

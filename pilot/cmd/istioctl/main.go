@@ -626,6 +626,8 @@ func newClient() (*crd.Client, error) {
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
+		model.EndUserAuthenticationPolicySpec,
+		model.EndUserAuthenticationPolicySpecBinding,
 	}, "")
 }
 

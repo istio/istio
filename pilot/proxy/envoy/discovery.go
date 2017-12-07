@@ -233,6 +233,8 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 		configCache.RegisterEventHandler(model.HTTPAPISpecBinding.Type, configHandler)
 		configCache.RegisterEventHandler(model.QuotaSpec.Type, configHandler)
 		configCache.RegisterEventHandler(model.QuotaSpecBinding.Type, configHandler)
+		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpec.Type, configHandler)
+		configCache.RegisterEventHandler(model.EndUserAuthenticationPolicySpecBinding.Type, configHandler)
 	}
 
 	return out, nil
