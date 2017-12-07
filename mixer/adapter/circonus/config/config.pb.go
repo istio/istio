@@ -79,7 +79,7 @@ func (m *Params) Reset()                    { *m = Params{} }
 func (*Params) ProtoMessage()               {}
 func (*Params) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
 
-// Describes how to represent this metric
+// Describes how to represent a metric
 type Params_MetricInfo struct {
 	// name
 	Name string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
