@@ -60,6 +60,7 @@ type expression struct {
 	interpreter *interpreter.Interpreter
 	fnID        uint32
 }
+
 var _ Expression = expression{}
 
 func (e expression) Evaluate(attributes attribute.Bag) (interface{}, error) {
