@@ -17,6 +17,8 @@ if [[ -z $SKIP_INIT ]];then
   bin/init.sh
 fi
 
+bin/regenerate_files.py --lintconfig_only
+
 echo 'Running linters .... in advisory mode'
 docker run\
   -v $(bazel info output_base):$(bazel info output_base)\

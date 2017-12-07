@@ -165,7 +165,6 @@ def bazel_to_vendor(WKSPC):
 
         makelink(target, linksrc)
         print "Vendored", linksrc, '-->', target
-    regenerate_files.regenerate(WKSPC, genfiles)
 
 def get_external_links(external):
     return [file for file in os.listdir(external) if os.path.isdir(os.path.join(external, file))]
