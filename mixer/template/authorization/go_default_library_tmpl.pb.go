@@ -43,8 +43,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 // The authorization template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
-// In this template, the who is defined in a Subject message. The what is
-// defined in the Action message. During a Mixer Check call, these values
+// In this template, the "who" is defined in a Subject message. The "what" is
+// defined in an Action message. During a Mixer Check call, these values
 // will be populated based on configuration from request attributes and
 // passed to individual authorization adapters to adjudicate.
 //
@@ -59,20 +59,21 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 //  subject:
 //    user: source.user | request.auth.token[user] | ""
 //    groups: request.auth.token[groups]
-//    extra:
+//    properties:
 //     iss: request.auth.token["iss"]
 //  action:
 //    namespace: target.namespace | "default"
 //    service: target.service | ""
 //    path: request.path | "/"
 //    method: request.method | "post"
-//    extra:
+//    properties:
 //      version: destination.labels[version] | ""
 //  ```
 type Type struct {
-	// A set of subjects
+	// A subject contains a list of attributes that identify
+	// the caller identity.
 	Subject *SubjectType `protobuf:"bytes,1,opt,name=subject" json:"subject,omitempty"`
-	// A set of actions
+	// An action defines "how a resource is accessed".
 	Action *ActionType `protobuf:"bytes,2,opt,name=action" json:"action,omitempty"`
 }
 
@@ -94,37 +95,37 @@ func (m *Type) GetAction() *ActionType {
 	return nil
 }
 
-// A set of subjects contains a list of attributes that identify
+// A subject contains a list of attributes that identify
 // the caller identity.
 type SubjectType struct {
 	// Additional attributes about the subject.
-	Extra map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,3,rep,name=extra" json:"extra,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
+	Properties map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,3,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
 }
 
 func (m *SubjectType) Reset()                    { *m = SubjectType{} }
 func (*SubjectType) ProtoMessage()               {}
 func (*SubjectType) Descriptor() ([]byte, []int) { return fileDescriptorGoDefaultLibraryTmpl, []int{1} }
 
-func (m *SubjectType) GetExtra() map[string]istio_mixer_v1_config_descriptor.ValueType {
+func (m *SubjectType) GetProperties() map[string]istio_mixer_v1_config_descriptor.ValueType {
 	if m != nil {
-		return m.Extra
+		return m.Properties
 	}
 	return nil
 }
 
-// A set of actions defines "how the resource is accessed".
+// An action defines "how a resource is accessed".
 type ActionType struct {
 	// Additional data about the action for use in policy.
-	Extra map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,5,rep,name=extra" json:"extra,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
+	Properties map[string]istio_mixer_v1_config_descriptor.ValueType `protobuf:"bytes,5,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=istio.mixer.v1.config.descriptor.ValueType"`
 }
 
 func (m *ActionType) Reset()                    { *m = ActionType{} }
 func (*ActionType) ProtoMessage()               {}
 func (*ActionType) Descriptor() ([]byte, []int) { return fileDescriptorGoDefaultLibraryTmpl, []int{2} }
 
-func (m *ActionType) GetExtra() map[string]istio_mixer_v1_config_descriptor.ValueType {
+func (m *ActionType) GetProperties() map[string]istio_mixer_v1_config_descriptor.ValueType {
 	if m != nil {
-		return m.Extra
+		return m.Properties
 	}
 	return nil
 }
@@ -155,9 +156,9 @@ func (m *InstanceParam) GetAction() *ActionInstanceParam {
 }
 
 type SubjectInstanceParam struct {
-	User   string            `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
-	Groups string            `protobuf:"bytes,2,opt,name=groups,proto3" json:"groups,omitempty"`
-	Extra  map[string]string `protobuf:"bytes,3,rep,name=extra" json:"extra,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	User       string            `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Groups     string            `protobuf:"bytes,2,opt,name=groups,proto3" json:"groups,omitempty"`
+	Properties map[string]string `protobuf:"bytes,3,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *SubjectInstanceParam) Reset()      { *m = SubjectInstanceParam{} }
@@ -180,19 +181,19 @@ func (m *SubjectInstanceParam) GetGroups() string {
 	return ""
 }
 
-func (m *SubjectInstanceParam) GetExtra() map[string]string {
+func (m *SubjectInstanceParam) GetProperties() map[string]string {
 	if m != nil {
-		return m.Extra
+		return m.Properties
 	}
 	return nil
 }
 
 type ActionInstanceParam struct {
-	Namespace string            `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Service   string            `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
-	Method    string            `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
-	Path      string            `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
-	Extra     map[string]string `protobuf:"bytes,5,rep,name=extra" json:"extra,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Namespace  string            `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Service    string            `protobuf:"bytes,2,opt,name=service,proto3" json:"service,omitempty"`
+	Method     string            `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
+	Path       string            `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	Properties map[string]string `protobuf:"bytes,5,rep,name=properties" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *ActionInstanceParam) Reset()      { *m = ActionInstanceParam{} }
@@ -229,9 +230,9 @@ func (m *ActionInstanceParam) GetPath() string {
 	return ""
 }
 
-func (m *ActionInstanceParam) GetExtra() map[string]string {
+func (m *ActionInstanceParam) GetProperties() map[string]string {
 	if m != nil {
-		return m.Extra
+		return m.Properties
 	}
 	return nil
 }
@@ -302,11 +303,11 @@ func (this *SubjectType) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if len(this.Extra) != len(that1.Extra) {
+	if len(this.Properties) != len(that1.Properties) {
 		return false
 	}
-	for i := range this.Extra {
-		if this.Extra[i] != that1.Extra[i] {
+	for i := range this.Properties {
+		if this.Properties[i] != that1.Properties[i] {
 			return false
 		}
 	}
@@ -337,11 +338,11 @@ func (this *ActionType) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if len(this.Extra) != len(that1.Extra) {
+	if len(this.Properties) != len(that1.Properties) {
 		return false
 	}
-	for i := range this.Extra {
-		if this.Extra[i] != that1.Extra[i] {
+	for i := range this.Properties {
+		if this.Properties[i] != that1.Properties[i] {
 			return false
 		}
 	}
@@ -411,11 +412,11 @@ func (this *SubjectInstanceParam) Equal(that interface{}) bool {
 	if this.Groups != that1.Groups {
 		return false
 	}
-	if len(this.Extra) != len(that1.Extra) {
+	if len(this.Properties) != len(that1.Properties) {
 		return false
 	}
-	for i := range this.Extra {
-		if this.Extra[i] != that1.Extra[i] {
+	for i := range this.Properties {
+		if this.Properties[i] != that1.Properties[i] {
 			return false
 		}
 	}
@@ -458,11 +459,11 @@ func (this *ActionInstanceParam) Equal(that interface{}) bool {
 	if this.Path != that1.Path {
 		return false
 	}
-	if len(this.Extra) != len(that1.Extra) {
+	if len(this.Properties) != len(that1.Properties) {
 		return false
 	}
-	for i := range this.Extra {
-		if this.Extra[i] != that1.Extra[i] {
+	for i := range this.Properties {
+		if this.Properties[i] != that1.Properties[i] {
 			return false
 		}
 	}
@@ -489,18 +490,18 @@ func (this *SubjectType) GoString() string {
 	}
 	s := make([]string, 0, 5)
 	s = append(s, "&authorization.SubjectType{")
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%#v: %#v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%#v: %#v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
-	if this.Extra != nil {
-		s = append(s, "Extra: "+mapStringForExtra+",\n")
+	mapStringForProperties += "}"
+	if this.Properties != nil {
+		s = append(s, "Properties: "+mapStringForProperties+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -511,18 +512,18 @@ func (this *ActionType) GoString() string {
 	}
 	s := make([]string, 0, 5)
 	s = append(s, "&authorization.ActionType{")
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%#v: %#v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%#v: %#v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
-	if this.Extra != nil {
-		s = append(s, "Extra: "+mapStringForExtra+",\n")
+	mapStringForProperties += "}"
+	if this.Properties != nil {
+		s = append(s, "Properties: "+mapStringForProperties+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -550,18 +551,18 @@ func (this *SubjectInstanceParam) GoString() string {
 	s = append(s, "&authorization.SubjectInstanceParam{")
 	s = append(s, "User: "+fmt.Sprintf("%#v", this.User)+",\n")
 	s = append(s, "Groups: "+fmt.Sprintf("%#v", this.Groups)+",\n")
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]string{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%#v: %#v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]string{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%#v: %#v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
-	if this.Extra != nil {
-		s = append(s, "Extra: "+mapStringForExtra+",\n")
+	mapStringForProperties += "}"
+	if this.Properties != nil {
+		s = append(s, "Properties: "+mapStringForProperties+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -576,18 +577,18 @@ func (this *ActionInstanceParam) GoString() string {
 	s = append(s, "Service: "+fmt.Sprintf("%#v", this.Service)+",\n")
 	s = append(s, "Method: "+fmt.Sprintf("%#v", this.Method)+",\n")
 	s = append(s, "Path: "+fmt.Sprintf("%#v", this.Path)+",\n")
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]string{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%#v: %#v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]string{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%#v: %#v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
-	if this.Extra != nil {
-		s = append(s, "Extra: "+mapStringForExtra+",\n")
+	mapStringForProperties += "}"
+	if this.Properties != nil {
+		s = append(s, "Properties: "+mapStringForProperties+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -653,11 +654,11 @@ func (m *SubjectType) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Extra) > 0 {
-		for k, _ := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, _ := range m.Properties {
 			dAtA[i] = 0x1a
 			i++
-			v := m.Extra[k]
+			v := m.Properties[k]
 			mapSize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + sovGoDefaultLibraryTmpl(uint64(v))
 			i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xa
@@ -687,11 +688,11 @@ func (m *ActionType) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Extra) > 0 {
-		for k, _ := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, _ := range m.Properties {
 			dAtA[i] = 0x2a
 			i++
-			v := m.Extra[k]
+			v := m.Properties[k]
 			mapSize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + sovGoDefaultLibraryTmpl(uint64(v))
 			i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xa
@@ -771,11 +772,11 @@ func (m *SubjectInstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(len(m.Groups)))
 		i += copy(dAtA[i:], m.Groups)
 	}
-	if len(m.Extra) > 0 {
-		for k, _ := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, _ := range m.Properties {
 			dAtA[i] = 0x1a
 			i++
-			v := m.Extra[k]
+			v := m.Properties[k]
 			mapSize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + len(v) + sovGoDefaultLibraryTmpl(uint64(len(v)))
 			i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xa
@@ -830,11 +831,11 @@ func (m *ActionInstanceParam) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(len(m.Path)))
 		i += copy(dAtA[i:], m.Path)
 	}
-	if len(m.Extra) > 0 {
-		for k, _ := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, _ := range m.Properties {
 			dAtA[i] = 0x2a
 			i++
-			v := m.Extra[k]
+			v := m.Properties[k]
 			mapSize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + len(v) + sovGoDefaultLibraryTmpl(uint64(len(v)))
 			i = encodeVarintGoDefaultLibraryTmpl(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xa
@@ -876,8 +877,8 @@ func (m *Type) Size() (n int) {
 func (m *SubjectType) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.Extra) > 0 {
-		for k, v := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, v := range m.Properties {
 			_ = k
 			_ = v
 			mapEntrySize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + sovGoDefaultLibraryTmpl(uint64(v))
@@ -890,8 +891,8 @@ func (m *SubjectType) Size() (n int) {
 func (m *ActionType) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.Extra) > 0 {
-		for k, v := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, v := range m.Properties {
 			_ = k
 			_ = v
 			mapEntrySize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + sovGoDefaultLibraryTmpl(uint64(v))
@@ -926,8 +927,8 @@ func (m *SubjectInstanceParam) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGoDefaultLibraryTmpl(uint64(l))
 	}
-	if len(m.Extra) > 0 {
-		for k, v := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, v := range m.Properties {
 			_ = k
 			_ = v
 			mapEntrySize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + len(v) + sovGoDefaultLibraryTmpl(uint64(len(v)))
@@ -956,8 +957,8 @@ func (m *ActionInstanceParam) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGoDefaultLibraryTmpl(uint64(l))
 	}
-	if len(m.Extra) > 0 {
-		for k, v := range m.Extra {
+	if len(m.Properties) > 0 {
+		for k, v := range m.Properties {
 			_ = k
 			_ = v
 			mapEntrySize := 1 + len(k) + sovGoDefaultLibraryTmpl(uint64(len(k))) + 1 + len(v) + sovGoDefaultLibraryTmpl(uint64(len(v)))
@@ -995,18 +996,18 @@ func (this *SubjectType) String() string {
 	if this == nil {
 		return "nil"
 	}
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%v: %v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%v: %v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
+	mapStringForProperties += "}"
 	s := strings.Join([]string{`&SubjectType{`,
-		`Extra:` + mapStringForExtra + `,`,
+		`Properties:` + mapStringForProperties + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1015,18 +1016,18 @@ func (this *ActionType) String() string {
 	if this == nil {
 		return "nil"
 	}
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%v: %v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]istio_mixer_v1_config_descriptor.ValueType{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%v: %v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
+	mapStringForProperties += "}"
 	s := strings.Join([]string{`&ActionType{`,
-		`Extra:` + mapStringForExtra + `,`,
+		`Properties:` + mapStringForProperties + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1046,20 +1047,20 @@ func (this *SubjectInstanceParam) String() string {
 	if this == nil {
 		return "nil"
 	}
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]string{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%v: %v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]string{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%v: %v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
+	mapStringForProperties += "}"
 	s := strings.Join([]string{`&SubjectInstanceParam{`,
 		`User:` + fmt.Sprintf("%v", this.User) + `,`,
 		`Groups:` + fmt.Sprintf("%v", this.Groups) + `,`,
-		`Extra:` + mapStringForExtra + `,`,
+		`Properties:` + mapStringForProperties + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1068,22 +1069,22 @@ func (this *ActionInstanceParam) String() string {
 	if this == nil {
 		return "nil"
 	}
-	keysForExtra := make([]string, 0, len(this.Extra))
-	for k, _ := range this.Extra {
-		keysForExtra = append(keysForExtra, k)
+	keysForProperties := make([]string, 0, len(this.Properties))
+	for k, _ := range this.Properties {
+		keysForProperties = append(keysForProperties, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForExtra)
-	mapStringForExtra := "map[string]string{"
-	for _, k := range keysForExtra {
-		mapStringForExtra += fmt.Sprintf("%v: %v,", k, this.Extra[k])
+	github_com_gogo_protobuf_sortkeys.Strings(keysForProperties)
+	mapStringForProperties := "map[string]string{"
+	for _, k := range keysForProperties {
+		mapStringForProperties += fmt.Sprintf("%v: %v,", k, this.Properties[k])
 	}
-	mapStringForExtra += "}"
+	mapStringForProperties += "}"
 	s := strings.Join([]string{`&ActionInstanceParam{`,
 		`Namespace:` + fmt.Sprintf("%v", this.Namespace) + `,`,
 		`Service:` + fmt.Sprintf("%v", this.Service) + `,`,
 		`Method:` + fmt.Sprintf("%v", this.Method) + `,`,
 		`Path:` + fmt.Sprintf("%v", this.Path) + `,`,
-		`Extra:` + mapStringForExtra + `,`,
+		`Properties:` + mapStringForProperties + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1243,7 +1244,7 @@ func (m *SubjectType) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Extra", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Properties", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1267,8 +1268,8 @@ func (m *SubjectType) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Extra == nil {
-				m.Extra = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+			if m.Properties == nil {
+				m.Properties = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
 			}
 			var mapkey string
 			var mapvalue istio_mixer_v1_config_descriptor.ValueType
@@ -1346,7 +1347,7 @@ func (m *SubjectType) Unmarshal(dAtA []byte) error {
 					iNdEx += skippy
 				}
 			}
-			m.Extra[mapkey] = mapvalue
+			m.Properties[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1400,7 +1401,7 @@ func (m *ActionType) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Extra", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Properties", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1424,8 +1425,8 @@ func (m *ActionType) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Extra == nil {
-				m.Extra = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
+			if m.Properties == nil {
+				m.Properties = make(map[string]istio_mixer_v1_config_descriptor.ValueType)
 			}
 			var mapkey string
 			var mapvalue istio_mixer_v1_config_descriptor.ValueType
@@ -1503,7 +1504,7 @@ func (m *ActionType) Unmarshal(dAtA []byte) error {
 					iNdEx += skippy
 				}
 			}
-			m.Extra[mapkey] = mapvalue
+			m.Properties[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1731,7 +1732,7 @@ func (m *SubjectInstanceParam) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Extra", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Properties", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1755,8 +1756,8 @@ func (m *SubjectInstanceParam) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Extra == nil {
-				m.Extra = make(map[string]string)
+			if m.Properties == nil {
+				m.Properties = make(map[string]string)
 			}
 			var mapkey string
 			var mapvalue string
@@ -1845,7 +1846,7 @@ func (m *SubjectInstanceParam) Unmarshal(dAtA []byte) error {
 					iNdEx += skippy
 				}
 			}
-			m.Extra[mapkey] = mapvalue
+			m.Properties[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2015,7 +2016,7 @@ func (m *ActionInstanceParam) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Extra", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Properties", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -2039,8 +2040,8 @@ func (m *ActionInstanceParam) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Extra == nil {
-				m.Extra = make(map[string]string)
+			if m.Properties == nil {
+				m.Properties = make(map[string]string)
 			}
 			var mapkey string
 			var mapvalue string
@@ -2129,7 +2130,7 @@ func (m *ActionInstanceParam) Unmarshal(dAtA []byte) error {
 					iNdEx += skippy
 				}
 			}
-			m.Extra[mapkey] = mapvalue
+			m.Properties[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2262,41 +2263,41 @@ func init() {
 }
 
 var fileDescriptorGoDefaultLibraryTmpl = []byte{
-	// 563 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x54, 0x3f, 0x8b, 0x13, 0x41,
-	0x1c, 0xcd, 0x5c, 0xfe, 0x1c, 0x99, 0x70, 0x22, 0xe3, 0x21, 0x6b, 0x90, 0xe5, 0x88, 0x0a, 0x07,
-	0x47, 0x66, 0x49, 0xb4, 0x38, 0x22, 0x16, 0xa7, 0x5e, 0x61, 0x27, 0x51, 0xec, 0x24, 0x4c, 0x36,
-	0xbf, 0x24, 0xa3, 0xbb, 0x3b, 0xcb, 0xcc, 0x6c, 0x48, 0xae, 0xb2, 0xb6, 0x12, 0xfc, 0x12, 0x76,
-	0xe2, 0x57, 0xb0, 0xb2, 0x3c, 0xac, 0x2c, 0xcd, 0x6a, 0x61, 0x79, 0xe5, 0x95, 0xb2, 0xb3, 0x89,
-	0x9b, 0x0d, 0x39, 0xce, 0x42, 0xb0, 0x9b, 0xd9, 0x79, 0xef, 0xcd, 0x7b, 0xef, 0x37, 0x2c, 0x7e,
-	0xd9, 0x67, 0x27, 0xe0, 0x35, 0x45, 0xa4, 0x1d, 0x4f, 0xb8, 0xcc, 0x6b, 0x0e, 0x99, 0xd2, 0xfd,
-	0x88, 0x7b, 0x03, 0x67, 0x04, 0xc1, 0x90, 0x7b, 0xa0, 0x1c, 0x9f, 0x4f, 0x41, 0x3a, 0x1a, 0xfc,
-	0xd0, 0x63, 0x1a, 0x1c, 0x16, 0xe9, 0xb1, 0x90, 0xfc, 0x84, 0x69, 0x2e, 0x02, 0x67, 0x24, 0x7a,
-	0x03, 0x18, 0xb2, 0xc8, 0xd3, 0x3d, 0x8f, 0xf7, 0x25, 0x93, 0xb3, 0x9e, 0xf6, 0x43, 0x8f, 0x86,
-	0x52, 0x68, 0x41, 0x76, 0x72, 0xe0, 0x7a, 0x23, 0x95, 0x9a, 0xb4, 0x32, 0x35, 0x98, 0x6a, 0x08,
-	0x14, 0x17, 0x81, 0x4a, 0x29, 0xf5, 0x83, 0x3f, 0x18, 0x57, 0x04, 0x43, 0x3e, 0x72, 0x06, 0xa0,
-	0x5c, 0xc9, 0x43, 0x2d, 0xa4, 0x33, 0x61, 0x5e, 0x04, 0x3d, 0x3d, 0x0b, 0x21, 0x05, 0x37, 0x04,
-	0x2e, 0x3d, 0x9f, 0x85, 0x40, 0xee, 0xe1, 0x6d, 0x15, 0xf5, 0x5f, 0x81, 0xab, 0x2d, 0xb4, 0x87,
-	0xf6, 0x6b, 0xed, 0x3a, 0xcd, 0xdd, 0x4c, 0x9f, 0xa5, 0xa7, 0x09, 0xb8, 0xbb, 0x84, 0x92, 0x16,
-	0xae, 0x30, 0x37, 0x39, 0xb6, 0xb6, 0x0c, 0xe9, 0xc6, 0x1a, 0xe9, 0xc8, 0x1c, 0x1a, 0xce, 0x02,
-	0xd8, 0xf8, 0x84, 0x70, 0x6d, 0x45, 0x8b, 0xdc, 0xc7, 0x65, 0x98, 0x6a, 0xc9, 0xac, 0xe2, 0x5e,
-	0x71, 0xbf, 0xd6, 0xbe, 0x73, 0xf1, 0xb5, 0xf4, 0x38, 0xc1, 0x1d, 0x07, 0x5a, 0xce, 0xba, 0x29,
-	0xa7, 0x0e, 0x18, 0x67, 0x1f, 0xc9, 0x55, 0x5c, 0x7c, 0x0d, 0x33, 0xe3, 0xbf, 0xda, 0x4d, 0x96,
-	0xe4, 0x08, 0x97, 0x4d, 0x62, 0x63, 0xef, 0x4a, 0xfb, 0x80, 0x72, 0xa5, 0xb9, 0xa0, 0xa6, 0x20,
-	0x3a, 0x69, 0xd1, 0xb4, 0x20, 0x9a, 0x15, 0x44, 0x5f, 0x24, 0x70, 0x63, 0x38, 0x65, 0x76, 0xb6,
-	0x0e, 0x51, 0xe3, 0x23, 0xc2, 0x38, 0x8b, 0x42, 0x3a, 0x4b, 0xcb, 0x65, 0x63, 0xf9, 0xf6, 0x85,
-	0xa1, 0xff, 0x9f, 0xe3, 0xb7, 0x08, 0xef, 0x3c, 0x09, 0x94, 0x66, 0x81, 0x0b, 0x4f, 0x99, 0x64,
-	0x3e, 0x79, 0xb0, 0x3e, 0xe0, 0x5b, 0x9b, 0x9b, 0xce, 0xb1, 0xb2, 0x49, 0x77, 0xd6, 0x26, 0xdd,
-	0xd8, 0x18, 0x3a, 0x4f, 0x5e, 0x8e, 0xfc, 0x33, 0xc2, 0xbb, 0x9b, 0xd4, 0x09, 0xc1, 0xa5, 0x48,
-	0x81, 0x5c, 0xe4, 0x37, 0x6b, 0x72, 0x1d, 0x57, 0x46, 0x52, 0x44, 0xa1, 0x32, 0x17, 0x55, 0xbb,
-	0x8b, 0x1d, 0x79, 0x9c, 0x7f, 0x27, 0xf4, 0x2f, 0xdc, 0x6f, 0xa8, 0xff, 0xf0, 0x92, 0xfa, 0x77,
-	0x57, 0xeb, 0xaf, 0xae, 0x36, 0x7a, 0x8e, 0xf0, 0xb5, 0x0d, 0x21, 0xc9, 0x4d, 0x5c, 0x0d, 0x98,
-	0x0f, 0x2a, 0x64, 0x2e, 0x2c, 0x94, 0xb2, 0x0f, 0xc4, 0xc2, 0xdb, 0x0a, 0xe4, 0x84, 0xbb, 0x4b,
-	0xc5, 0xe5, 0x36, 0xc9, 0xe9, 0x83, 0x1e, 0x8b, 0x81, 0x55, 0x4c, 0x73, 0xa6, 0xbb, 0xa4, 0x93,
-	0x90, 0xe9, 0xb1, 0x55, 0x4a, 0x3b, 0x49, 0xd6, 0xe4, 0x51, 0xfe, 0xc1, 0x35, 0x2f, 0xef, 0xfe,
-	0x5f, 0x46, 0x7f, 0xd8, 0x3e, 0x9d, 0xdb, 0x85, 0x6f, 0x73, 0xbb, 0x70, 0x36, 0xb7, 0xd1, 0x9b,
-	0xd8, 0x46, 0x1f, 0x62, 0x1b, 0x7d, 0x89, 0x6d, 0x74, 0x1a, 0xdb, 0xe8, 0x7b, 0x6c, 0xa3, 0x5f,
-	0xb1, 0x5d, 0x38, 0x8b, 0x6d, 0xf4, 0xee, 0x87, 0x5d, 0x38, 0xff, 0xfa, 0xf3, 0xfd, 0x56, 0xa1,
-	0x5f, 0x31, 0xbf, 0x97, 0xbb, 0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0xf1, 0x74, 0x5f, 0x3f, 0x1f,
-	0x05, 0x00, 0x00,
+	// 571 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x54, 0xcf, 0x6b, 0x13, 0x4f,
+	0x1c, 0xcd, 0x24, 0x6d, 0x4a, 0x26, 0xf4, 0xfb, 0x95, 0xb1, 0xc8, 0x1a, 0x64, 0x28, 0xf1, 0x52,
+	0x2d, 0xdd, 0x25, 0xa9, 0x07, 0x29, 0xf4, 0x50, 0xc1, 0x43, 0x3d, 0x95, 0x54, 0xbc, 0x49, 0x98,
+	0x6c, 0x3e, 0x49, 0xa6, 0xee, 0xee, 0x0c, 0x33, 0xb3, 0xa1, 0xe9, 0xc9, 0xb3, 0x78, 0x10, 0xfc,
+	0x27, 0xfc, 0x3f, 0x44, 0xf0, 0x58, 0x3c, 0x88, 0x47, 0xb3, 0x7a, 0xf0, 0xd8, 0xa3, 0x47, 0xd9,
+	0xd9, 0xa4, 0xf9, 0xc1, 0x56, 0x7b, 0x11, 0xbc, 0xcd, 0xe4, 0xf3, 0xde, 0x9b, 0xbc, 0xf7, 0x79,
+	0x2c, 0x7e, 0xde, 0x61, 0x67, 0x10, 0xec, 0x88, 0xd8, 0x78, 0x81, 0xf0, 0x59, 0xb0, 0xd3, 0x63,
+	0xda, 0x74, 0x62, 0x1e, 0x74, 0xbd, 0x3e, 0x44, 0x3d, 0x1e, 0x80, 0xf6, 0x42, 0x7e, 0x0a, 0xca,
+	0x33, 0x10, 0xca, 0x80, 0x19, 0xf0, 0x58, 0x6c, 0x06, 0x42, 0xf1, 0x33, 0x66, 0xb8, 0x88, 0xbc,
+	0xbe, 0x68, 0x77, 0xa1, 0xc7, 0xe2, 0xc0, 0xb4, 0x03, 0xde, 0x51, 0x4c, 0x8d, 0xda, 0x26, 0x94,
+	0x81, 0x2b, 0x95, 0x30, 0x82, 0xac, 0x2f, 0x80, 0x6b, 0xf5, 0x4c, 0x6a, 0xd8, 0x98, 0xa9, 0xc1,
+	0xa9, 0x81, 0x48, 0x73, 0x11, 0xe9, 0x8c, 0x52, 0xdb, 0xbe, 0xc4, 0xf8, 0x22, 0xea, 0xf1, 0xbe,
+	0xd7, 0x05, 0xed, 0x2b, 0x2e, 0x8d, 0x50, 0xde, 0x90, 0x05, 0x31, 0xb4, 0xcd, 0x48, 0x42, 0x06,
+	0xae, 0x0b, 0xbc, 0xf2, 0x74, 0x24, 0x81, 0x3c, 0xc0, 0x6b, 0x3a, 0xee, 0x9c, 0x80, 0x6f, 0x1c,
+	0xb4, 0x89, 0xb6, 0xaa, 0xcd, 0x9a, 0xbb, 0xf0, 0xb2, 0x7b, 0x9c, 0x4d, 0x53, 0x70, 0x6b, 0x0a,
+	0x25, 0x0d, 0x5c, 0x66, 0x7e, 0x3a, 0x76, 0x8a, 0x96, 0x74, 0x7b, 0x89, 0x74, 0x60, 0x87, 0x96,
+	0x33, 0x01, 0xd6, 0x3f, 0x20, 0x5c, 0x9d, 0xd3, 0x22, 0x4f, 0x30, 0x96, 0x4a, 0x48, 0x50, 0x86,
+	0x83, 0x76, 0x4a, 0x9b, 0xa5, 0xad, 0x6a, 0xf3, 0xfe, 0xd5, 0x6f, 0xbb, 0x47, 0x97, 0xe0, 0xc7,
+	0x91, 0x51, 0xa3, 0xd6, 0x1c, 0xbb, 0x76, 0x82, 0xff, 0x5f, 0x1a, 0x93, 0x1b, 0xb8, 0xf4, 0x02,
+	0x46, 0xd6, 0x53, 0xa5, 0x95, 0x1e, 0xc9, 0x01, 0x5e, 0xb5, 0x29, 0xd8, 0xbf, 0xfc, 0x5f, 0x73,
+	0xdb, 0xe5, 0xda, 0x70, 0xe1, 0xda, 0xd0, 0xdc, 0x61, 0xc3, 0xcd, 0x42, 0x73, 0x67, 0xa1, 0xb9,
+	0xcf, 0x52, 0xb8, 0x35, 0x91, 0x31, 0xf7, 0x8a, 0x0f, 0x51, 0xfd, 0x3d, 0xc2, 0x78, 0x66, 0x8f,
+	0x1c, 0x2e, 0xd8, 0x58, 0xb5, 0x36, 0xee, 0x5d, 0x99, 0xc6, 0x3f, 0xe3, 0xe2, 0x15, 0xc2, 0xeb,
+	0x87, 0x91, 0x36, 0x2c, 0xf2, 0xe1, 0x88, 0x29, 0x16, 0x92, 0xfd, 0xe5, 0x22, 0xdc, 0xcd, 0x5f,
+	0xc6, 0x02, 0x6b, 0xd6, 0x88, 0xbd, 0xa5, 0x46, 0xd4, 0x73, 0x33, 0x58, 0x24, 0x4f, 0xab, 0xf1,
+	0x19, 0xe1, 0x8d, 0x3c, 0x75, 0x42, 0xf0, 0x4a, 0xac, 0x41, 0x4d, 0xfc, 0xdb, 0x33, 0xb9, 0x85,
+	0xcb, 0x7d, 0x25, 0x62, 0xa9, 0xed, 0x43, 0x95, 0xd6, 0xe4, 0x46, 0x8e, 0x73, 0xfa, 0xb4, 0x7b,
+	0x0d, 0x0b, 0xbf, 0x5d, 0xc9, 0xfe, 0x75, 0x56, 0xb2, 0x31, 0xbf, 0x92, 0xca, 0x7c, 0xca, 0xaf,
+	0x8b, 0xf8, 0x66, 0x8e, 0x71, 0x72, 0x07, 0x57, 0x22, 0x16, 0x82, 0x96, 0xcc, 0x87, 0x89, 0xd2,
+	0xec, 0x07, 0xe2, 0xe0, 0x35, 0x0d, 0x6a, 0xc8, 0xfd, 0xa9, 0xe2, 0xf4, 0x9a, 0x7a, 0x0f, 0xc1,
+	0x0c, 0x44, 0xd7, 0x29, 0x65, 0xde, 0xb3, 0x5b, 0x9a, 0x93, 0x64, 0x66, 0xe0, 0xac, 0x64, 0x39,
+	0xa5, 0x67, 0xd2, 0xca, 0x29, 0x66, 0xf3, 0xcf, 0x4b, 0xf9, 0x8b, 0x71, 0x3c, 0x6a, 0x9e, 0x8f,
+	0x69, 0xe1, 0xcb, 0x98, 0x16, 0x2e, 0xc6, 0x14, 0xbd, 0x4c, 0x28, 0x7a, 0x97, 0x50, 0xf4, 0x31,
+	0xa1, 0xe8, 0x3c, 0xa1, 0xe8, 0x6b, 0x42, 0xd1, 0x8f, 0x84, 0x16, 0x2e, 0x12, 0x8a, 0xde, 0x7c,
+	0xa3, 0x85, 0x9f, 0x9f, 0xbe, 0xbf, 0x2d, 0x16, 0x3a, 0x65, 0xfb, 0xb9, 0xda, 0xfd, 0x15, 0x00,
+	0x00, 0xff, 0xff, 0x4b, 0x5c, 0xec, 0x5e, 0x6f, 0x05, 0x00, 0x00,
 }
