@@ -39,9 +39,9 @@ message Type {
   
   istio.mixer.v1.config.descriptor.ValueType anotherValueType = 7;
   
-  repeated Resource3Type res3_list = 11;
+  repeated Resource3Type res3_list = 15;
   
-  map<string, Resource3Type> res3_map = 12;
+  map<string, Resource3Type> res3_map = 16;
 }
 
 
@@ -100,9 +100,17 @@ message InstanceParam {
   
   string duration = 10;
   
-  repeated Resource3InstanceParam res3_list = 11;
+  string ip_addr = 11;
   
-  map<string, Resource3InstanceParam> res3_map = 12;
+  string dns_name = 12;
+  
+  string email_addr = 13;
+  
+  string uri = 14;
+  
+  repeated Resource3InstanceParam res3_list = 15;
+  
+  map<string, Resource3InstanceParam> res3_map = 16;
   
   
 }

@@ -105,7 +105,7 @@ end
 
 func TestWriteStringArg(t *testing.T) {
 	p := il.NewProgram()
-	id := p.Strings().GetID("foo")
+	id := p.Strings().Add("foo")
 	err := p.AddFunction("main", []il.Type{}, il.Bool, []uint32{
 		uint32(il.ResolveS),
 		uint32(id),
@@ -170,7 +170,7 @@ func TestWriteFunctionArg(t *testing.T) {
 	}
 	err = p.AddFunction("caller", []il.Type{}, il.Bool, []uint32{
 		uint32(il.Call),
-		p.Strings().GetID("callee"),
+		p.Strings().Add("callee"),
 		uint32(il.Ret),
 	})
 	if err != nil {

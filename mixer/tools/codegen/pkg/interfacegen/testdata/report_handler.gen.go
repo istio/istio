@@ -18,6 +18,7 @@ package istio_mixer_adapter_metricentry
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -60,6 +61,14 @@ type Instance struct {
 	TimeStamp time.Time
 
 	Duration time.Duration
+
+	IpAddr net.IP
+
+	DnsName adapter.DNSName
+
+	EmailAddr adapter.EmailAddress
+
+	Uri adapter.URI
 
 	Res3List []*Resource3
 

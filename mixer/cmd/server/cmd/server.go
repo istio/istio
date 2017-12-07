@@ -82,7 +82,6 @@ type serverArgs struct {
 	configFetchIntervalSec        uint
 	configIdentityAttribute       string
 	configIdentityAttributeDomain string
-	stringTablePurgeLimit         int
 
 	// @deprecated
 	serviceConfigFile string
@@ -115,7 +114,6 @@ func (sa *serverArgs) String() string {
 	b.WriteString(fmt.Sprint("configFetchIntervalSec: ", s.configFetchIntervalSec, "\n"))
 	b.WriteString(fmt.Sprint("configIdentityAttribute: ", s.configIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("configIdentityAttributeDomain: ", s.configIdentityAttributeDomain, "\n"))
-	b.WriteString(fmt.Sprint("stringTablePurgeLimit: ", s.stringTablePurgeLimit, "\n"))
 	return b.String()
 }
 
@@ -206,7 +204,6 @@ func serverCmd(info map[string]template.Info, adapters []adptr.InfoFn, legacyAda
 		fatalf("unable to hide: %v", err)
 	}
 
-	serverCmd.PersistentFlags().IntVar(&sa.stringTablePurgeLimit, "stringTablePurgeLimit", 1024, "Upper limit for String table size to purge at.")
 	// serviceConfig and gobalConfig are for compatibility only
 	serverCmd.PersistentFlags().StringVarP(&sa.serviceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
 	serverCmd.PersistentFlags().StringVarP(&sa.globalConfigFile, "globalConfigFile", "", "", "Global Config")
@@ -257,11 +254,11 @@ func setupServer(sa *serverArgs, info map[string]template.Info, adapters []adptr
 	var ilEvalForLegacy *evaluator.IL
 	var eval *evaluator.IL
 	var evalForLegacy expr.Evaluator
-	eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
+	eval, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
 	if err != nil {
 		fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 	}
-	ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize, sa.stringTablePurgeLimit)
+	ilEvalForLegacy, err = evaluator.NewILEvaluator(expressionEvalCacheSize)
 	if err != nil {
 		fatalf("Failed to create IL expression evaluator with cache size %d: %v", expressionEvalCacheSize, err)
 	}

@@ -35,11 +35,10 @@ import (
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
 // Specifically, it can listen to config change events.
 type IL struct {
-	cacheSize                  int
-	maxStringTableSizeForPurge int
-	context                    *attrContext
-	contextLock                sync.RWMutex
-	functions                  map[string]expr.FunctionMetadata
+	cacheSize   int
+	context     *attrContext
+	contextLock sync.RWMutex
+	functions   map[string]expr.FunctionMetadata
 }
 
 // attrContext captures the set of fields that needs to be kept & evicted together based on
@@ -148,14 +147,13 @@ func (e *IL) getAttrContext() *attrContext {
 
 func (e *IL) evalResult(expr string, attrs attribute.Bag) (interpreter.Result, error) {
 	ctx := e.getAttrContext()
-	return ctx.evalResult(expr, attrs, e.functions, e.maxStringTableSizeForPurge)
+	return ctx.evalResult(expr, attrs, e.functions)
 }
 
 func (ctx *attrContext) evalResult(
 	expr string,
 	attrs attribute.Bag,
-	functions map[string]expr.FunctionMetadata,
-	maxStringTableSizeForPurge int) (interpreter.Result, error) {
+	functions map[string]expr.FunctionMetadata) (interpreter.Result, error) {
 
 	var entry cacheEntry
 	var err error
@@ -165,9 +163,6 @@ func (ctx *attrContext) evalResult(
 	}
 
 	r, err := entry.interpreter.Eval("eval", attrs)
-	if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
-		ctx.cache.Remove(expr)
-	}
 	return r, err
 }
 
@@ -206,11 +201,8 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]
 // DefaultCacheSize is the default size for the expression cache.
 const DefaultCacheSize = 1024
 
-// DefaultMaxStringTableSizeForPurge is the default value for
-const DefaultMaxStringTableSizeForPurge = 1024
-
 // NewILEvaluator returns a new instance of IL.
-func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) {
+func NewILEvaluator(cacheSize int) (*IL, error) {
 	// check the cacheSize here, to ensure that we can ignore errors in lru.New calls.
 	// cacheSize restriction is the only reason lru.New returns an error.
 	if cacheSize <= 0 {
@@ -218,8 +210,7 @@ func NewILEvaluator(cacheSize int, maxStringTableSizeForPurge int) (*IL, error) 
 	}
 
 	return &IL{
-		cacheSize:                  cacheSize,
-		maxStringTableSizeForPurge: maxStringTableSizeForPurge,
-		functions:                  expr.FuncMap(runtime.ExternFunctionMetadata),
+		cacheSize: cacheSize,
+		functions: expr.FuncMap(runtime.ExternFunctionMetadata),
 	}, nil
 }

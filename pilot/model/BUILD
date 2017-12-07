@@ -13,6 +13,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_ghodss_yaml//:go_default_library",
+        "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",
@@ -62,6 +63,8 @@ go_test(
     ],
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_api//mixer/v1/config/client:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",
         ":go_default_library",
         "//pilot/adapter/config/memory:go_default_library",

@@ -30,8 +30,8 @@ const TemplateName = "authorization"
 // The authorization template defines parameters for performing policy
 // enforcement within Istio. It is primarily concerned with enabling Mixer
 // adapters to make decisions about who is allowed to do what.
-// In this template, the who is defined in a Subject message. The what is
-// defined in the Action message. During a Mixer Check call, these values
+// In this template, the "who" is defined in a Subject message. The "what" is
+// defined in an Action message. During a Mixer Check call, these values
 // will be populated based on configuration from request attributes and
 // passed to individual authorization adapters to adjudicate.
 //
@@ -46,32 +46,33 @@ const TemplateName = "authorization"
 //  subject:
 //    user: source.user | request.auth.token[user] | ""
 //    groups: request.auth.token[groups]
-//    extra:
+//    properties:
 //     iss: request.auth.token["iss"]
 //  action:
 //    namespace: target.namespace | "default"
 //    service: target.service | ""
 //    path: request.path | "/"
 //    method: request.method | "post"
-//    extra:
+//    properties:
 //      version: destination.labels[version] | ""
 //  ```
 type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
 
-	// A set of subjects
+	// A subject contains a list of attributes that identify
+	// the caller identity.
 	Subject *Subject
 
-	// A set of actions
+	// An action defines "how a resource is accessed".
 	Action *Action
 }
 
-// A set of subjects contains a list of attributes that identify
+// A subject contains a list of attributes that identify
 // the caller identity.
 type Subject struct {
 
-	// The user.
+	// The user name/ID that the subject represents.
 	User string
 
 	// Groups the subject belongs to depending on the authentication mechanism,
@@ -81,10 +82,10 @@ type Subject struct {
 	Groups []string
 
 	// Additional attributes about the subject.
-	Extra map[string]interface{}
+	Properties map[string]interface{}
 }
 
-// A set of actions defines "how the resource is accessed".
+// An action defines "how a resource is accessed".
 type Action struct {
 
 	// Namespace the target action is taking place in.
@@ -93,14 +94,14 @@ type Action struct {
 	// The Service the action is being taken on.
 	Service string
 
-	// The what action is being taken.
+	// What action is being taken.
 	Method string
 
-	// The resource within the service.
+	// HTTP REST path within the service
 	Path string
 
 	// Additional data about the action for use in policy.
-	Extra map[string]interface{}
+	Properties map[string]interface{}
 }
 
 // HandlerBuilder must be implemented by adapters if they want to
