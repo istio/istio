@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/il"
 )
 
-// Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple indepent
+// Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
 // compilation of expressions.
 type Compiler struct {
 	program   *il.Program

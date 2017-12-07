@@ -50,7 +50,7 @@ func (e *ExpressionBuilder) Compile(text string) (Expression, error) {
 		return nil, err
 	}
 
-	return &expression{
+	return expression{
 		interpreter: e.interpreter,
 		fnID:        fnID,
 	}, nil
@@ -60,10 +60,9 @@ type expression struct {
 	interpreter *interpreter.Interpreter
 	fnID        uint32
 }
+var _ Expression = expression{}
 
-var _ Expression = &expression{}
-
-func (e *expression) Evaluate(attributes attribute.Bag) (interface{}, error) {
+func (e expression) Evaluate(attributes attribute.Bag) (interface{}, error) {
 	r, err := e.interpreter.EvalFnID(e.fnID, attributes)
 	if err != nil {
 		return nil, err
@@ -72,7 +71,7 @@ func (e *expression) Evaluate(attributes attribute.Bag) (interface{}, error) {
 	return r.AsInterface(), nil
 }
 
-func (e *expression) EvaluateBoolean(attributes attribute.Bag) (bool, error) {
+func (e expression) EvaluateBoolean(attributes attribute.Bag) (bool, error) {
 	r, err := e.interpreter.EvalFnID(e.fnID, attributes)
 	if err != nil {
 		return false, err

@@ -150,14 +150,14 @@ func (ctx *attrContext) evalResult(
 	attrs attribute.Bag,
 	functions map[string]expr.FunctionMetadata) (interpreter.Result, error) {
 
-	var i *interpreter.Interpreter
+	var intr *interpreter.Interpreter
 	var err error
-	if i, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
+	if intr, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
 		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
 
-	r, err := i.Eval("eval", attrs)
+	r, err := intr.Eval("eval", attrs)
 	return r, err
 }
 

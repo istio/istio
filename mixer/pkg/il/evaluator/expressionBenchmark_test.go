@@ -22,9 +22,9 @@ import (
 )
 
 // 12/6/2017
-//BenchmarkCompiled/ExprBench/ok_1st-8          	10000000	       164 ns/op	       0 B/op	       0 allocs/op
-//BenchmarkCompiled/ExprBench/ok_2nd-8          	 5000000	       274 ns/op	      16 B/op	       1 allocs/op
-//BenchmarkCompiled/ExprBench/not_found-8       	 5000000	       278 ns/op	      16 B/op	       1 allocs/op
+//BenchmarkCompiled/ExprBench/ok_1st-8          	10000000	       154 ns/op	       0 B/op	       0 allocs/op
+//BenchmarkCompiled/ExprBench/ok_2nd-8          	 5000000	       259 ns/op	      16 B/op	       1 allocs/op
+//BenchmarkCompiled/ExprBench/not_found-8       	 5000000	       258 ns/op	      16 B/op	       1 allocs/op
 
 func BenchmarkCompiled(b *testing.B) {
 	for _, test := range ilt.TestData {
