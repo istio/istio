@@ -16,8 +16,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"reflect"
 	"testing"
 
@@ -26,23 +24,6 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
-
-// GetCfgs takes the operator configuration as strings and creates directory with config files from it.
-func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
-	tmpDir := path.Join(os.TempDir(), "e2eStoreDir")
-	_ = os.MkdirAll(tmpDir, os.ModePerm)
-
-	srvcCnfgFile, _ := os.Create(path.Join(tmpDir, "srvc.yaml"))
-	globalCnfgFile, _ := os.Create(path.Join(tmpDir, "global.yaml"))
-
-	_, _ = globalCnfgFile.Write([]byte(attrCnfg))
-	_, _ = srvcCnfgFile.Write([]byte(srvcCnfg))
-
-	_ = globalCnfgFile.Close()
-	_ = srvcCnfgFile.Close()
-
-	return tmpDir
-}
 
 // ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.

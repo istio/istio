@@ -291,7 +291,7 @@ func dumpReferencedAttributes(printf, fatalf shared.FormatFn, attrs *mixerpb.Ref
 	fmt.Fprint(tw, "  Referenced Attributes\n")
 
 	for _, v := range vals {
-		fmt.Fprintf(tw, "  %s\n", v)
+		fmt.Fprintf(tw, "    %s\n", v)
 	}
 
 	_ = tw.Flush()
