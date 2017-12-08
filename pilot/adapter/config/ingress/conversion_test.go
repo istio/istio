@@ -70,25 +70,6 @@ func TestEncoding(t *testing.T) {
 	}
 }
 
-func TestIsRegularExpression(t *testing.T) {
-	cases := []struct {
-		s       string
-		isRegex bool
-	}{
-		{"/api/v1/", false},
-		{"/api/v1/.*", true},
-		{"/api/.*/resource", true},
-		{"/api/v[1-9]/resource", true},
-		{"/api/.*/.*", true},
-	}
-
-	for _, c := range cases {
-		if isRegularExpression(c.s) != c.isRegex {
-			t.Errorf("isRegularExpression(%q) => %v, want %v", c.s, !c.isRegex, c.isRegex)
-		}
-	}
-}
-
 func TestIngressClass(t *testing.T) {
 	istio := proxy.DefaultMeshConfig().IngressClass
 	cases := []struct {
