@@ -9,7 +9,7 @@ go_library(
     name = "go_default_library",
     srcs = ["main.go"],
     deps = [
-        "//mixer/cmd/collateral/cmd:go_default_library",
+        "//mixer/cmd/mixcol/cmd:go_default_library",
         "//mixer/cmd/shared:go_default_library",
     ],
 )

@@ -7,8 +7,8 @@ go_library(
     srcs = ["root.go"],
     visibility = ["//mixer/cmd:__subpackages__"],
     deps = [
-        "//mixer/cmd/client/cmd:go_default_library",
-        "//mixer/cmd/server/cmd:go_default_library",
+        "//mixer/cmd/mixc/cmd:go_default_library",
+        "//mixer/cmd/mixs/cmd:go_default_library",
         "//mixer/cmd/shared:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@com_github_spf13_cobra//doc:go_default_library",
