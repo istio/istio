@@ -5,7 +5,7 @@ This directory contains Istio end-to-end tests and associated test framework.
 # Running E2E tests on your own kubernets cluster
 
 NOTE: the e2e tests might not run on a Mac because istioctl-osx, needed for test execution, is only built for release
-builds and not for normal presubmits jobs.
+builds and not for normal presubmits jobs, see [examples](#examples) for solutions.
 
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
@@ -83,20 +83,28 @@ export GIT_SHA="<sha copied from the logs of istio-presubmit.sh>"
 ```
 
 ## Step 5: Run
-```
-./tests/e2e.sh --mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}"  --pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}"  \
---ca_tag "${GIT_SHA}"  --ca_hub "${HUB}"  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"   \
+
+From the repo checkout root directory
+
+```bash
+./tests/e2e.sh \
+--mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}" \
+--pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}" \
+--ca_tag "${GIT_SHA}"  --ca_hub "${HUB}" \
+--istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
 --skip_cleanup
 ```
+
 Tests are driven by the [e2e.sh](../e2e.sh) script. Each test has its own directory and can be run independently as a
 go_test target. The script has a number of options:
 
 * `--skip_cleanup` - to skip cleanup steps
 * `--namespace <namespace>` : If you don't specify `namespace`, a random namespace is generated for each test.
 * `--verbose <debug level noise from proxies>`
-* `--istioctl_url <location of istioctl>`
+* `--istioctl <local istioctl path>`: Use local istioctl binary. 
+* `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location. 
 * `--use_local_cluster`
-* `--parallel` - to run tests in parallel
+* `--parallel` - to run tests in parallel (alpha feature)
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
 * `--use_initializer` - if you want to do transparent sidecar injection
@@ -109,28 +117,55 @@ go_test target. The script has a number of options:
 
 ## Examples
 
-From the repo checkout root directory
+* Running on Mac:
 
-* Running single category of test (bookinfo, mixer, simple) and also skip cleanup. Add "-s" flag.
-```
-./tests/e2e.sh --mixer_tag "${GIT_SHA}"  -s bookinfo --mixer_hub "${HUB}"  --pilot_tag "${GIT_SHA}"  \
---pilot_hub "${HUB}"  --ca_tag "${GIT_SHA}"  --ca_hub "${HUB}"  \
---istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"   --skip_cleanup
-```
-* TODO: THIS IS OUTDATED. If you want to run one specific test, you can do:
+  Although istioctl-osx currently is not built during presubmit/postsubmit, only in release process. You can build your own istioctl from source or download a release version from [release page](https://github.com/istio/istio/releases) (although it's not the latest one), and then use `--istioctl` instead of `--istioctl_url` to specify the local path.
 
   ```bash
-  source istio.VERSION
-  # Each time pilot SHA changes, get the matching istioctl binary
-  # for instance on a mac:
-  curl $ISTIOCTL_URL/istioctl-osx > ~/istioctl-osx ; chmod 755 ~/istioctl-osx
-  # Each time the test code changes, rebuild the test, for instance:
+  ./tests/e2e.sh \
+  --mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}" \
+  --pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}" \
+  --ca_tag "${GIT_SHA}"  --ca_hub "${HUB}" \
+  --istioctl <path to local istioctl> \
+  --skip_cleanup
+  ```
+
+* Running single test file (bookinfo, mixer, simple) and also skip cleanup. Add `-s` flag (parsed by e2e.sh).
+  ```bash
+  ./tests/e2e.sh -s bookinfo \
+  --mixer_tag "${GIT_SHA}" --mixer_hub "${HUB}" \
+  --pilot_tag "${GIT_SHA}" --pilot_hub "${HUB}" \
+  --ca_tag "${GIT_SHA}" --ca_hub "${HUB}" \
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
+  --skip_cleanup
+  ```
+
+* Running one specific test case (TestSimpleIngress, TestGlobalCheckAndReport) in a test file:
+
+  First build that go test target:
+  ```bash
   bazel build //tests/e2e/tests/simple:go_default_test
+  ```
+
+  Then you can run the go_test binary and specific a test case use flag `--test.run`:
+  ```bash
+  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2 \
+  --test.run TestSimpleIngress \
+  --mixer_tag "${GIT_SHA}" --mixer_hub "${HUB}" \
+  --pilot_tag "${GIT_SHA}" --pilot_hub "${HUB}" \
+  --ca_tag "${GIT_SHA}"  --ca_hub "${HUB}"  \
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
+  --auth_enable --skip_cleanup 
+  ```
+
+* For **simple test** specific, you can run test multiple time against the same environement setup by `skip_setup`:
+  ```bash
   # First time you want to run: deploy in namespace e2e and leave it running:
   ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable
   # Subsequent runs if only the TestSimpleIngress (for instance) changes:
   ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress
   ```
+  
 
 # demo_test.go
 
