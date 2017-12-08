@@ -7,9 +7,7 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//pilot/platform/kube:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@io_k8s_api//core/v1:go_default_library",
     ],
 )
 
@@ -21,6 +19,5 @@ go_test(
     ],
     library = ":go_default_library",
     deps = [
-        "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
     ],
 )
