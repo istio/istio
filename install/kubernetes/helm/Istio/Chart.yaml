@@ -1,0 +1,13 @@
+name: Istio
+version: 0.3.0
+description: Helm chart for complete Istio deployment
+keywords:
+  - Istio
+  - auth
+  - initializer
+  - mixer
+  - pilot
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png
