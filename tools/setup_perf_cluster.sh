@@ -1,7 +1,10 @@
 #! /bin/bash
+#
 # Sets up a cluster for perf testing - GCP/GKE
 # PROJECT=istio-perf tools/setup_perf_cluster.sh
-set -e
+#
+# This can be used as a script or sourced and functions called interactively
+#
 
 ZONE=${ZONE:-us-east4-b}
 CLUSTER_NAME=${CLUSTER_NAME:-istio-perf}
@@ -11,7 +14,6 @@ VM_NAME=${VM_NAME:-fortio-vm}
 ISTIOCTL=${ISTIOCTL:-istioctl} # to override istioctl from outside of the path
 FORTIO_NAMESPACE=${FORTIO_NAMESPACE:-fortio} # Namespace for non istio app
 ISTIO_NAMESPACE=${ISTIO_NAMESPACE:-istio} # Namespace for istio injected app
-TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
 # Should not be set to true for perf measurement but to troubleshoot the setup
 DEBUG=false
 
@@ -21,11 +23,25 @@ function usage() {
     exit 1
 }
 
-if [[ -z "${PROJECT}" ]]; then
-  usage
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
+  echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
+  echo "You must set PROJECT before using one of the function interactively:"
+  echo "e.g. setup_all, run_tests..."
+  SOURCED=1
+else
+  TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
+  echo "$0 is executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
+  set -e
+  SOURCED=0
+  if [[ -z "${PROJECT}" ]]; then
+    usage
+  fi
 fi
 
-GCP_OPTS="--project $PROJECT --zone $ZONE"
+function update_gcp_opts() {
+  export GCP_OPTS="--project $PROJECT --zone $ZONE"
+}
 
 function execute() {
   echo "### Running:" "$@"
@@ -167,9 +183,8 @@ function run_fortio_test3() {
   execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
 }
 
-echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
-
 function setup_vm_all() {
+  update_gcp_opts
   create_vm
   #TODO: 'wait for vm to be ready'
   setup_vm
@@ -179,12 +194,14 @@ function setup_vm_all() {
 }
 
 function setup_istio_all() {
+  update_gcp_opts
   install_istio
   install_istio_svc
   install_istio_ingress_rules
 }
 
 function setup_cluster_all() {
+  echo "Setting up CLUSTER_NAME=$CLUSTER_NAME for PROJECT=$PROJECT in ZONE=$ZONE, NUM_NODES=$NUM_NODES * MACHINE_TYPE=$MACHINE_TYPE"
   create_cluster
   kubectl_setup
   install_non_istio_svc
@@ -205,14 +222,19 @@ function get_ips() {
 }
 
 function run_tests() {
+  update_gcp_opts
   setup_vm_firewall
   get_ips
   run_fortio_test1
   run_fortio_test2
   run_fortio_test3
 }
-# Normal mode: all at once:
-setup_all
+
+
+if [[ $SOURCED == 0 ]]; then
+  # Normal mode: all at once:
+  update_gcp_opts
+  setup_all
 
 #update_fortio_on_vm
 #run_fortio_on_vm
@@ -230,8 +252,8 @@ setup_all
 #install_istio
 #setup_vm_firewall
 #get_ips
-
-run_tests
+  run_tests
 #setup_vm_firewall
 #get_ips
 #install_istio_svc
+fi
