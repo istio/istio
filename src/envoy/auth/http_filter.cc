@@ -51,6 +51,11 @@ void JwtVerificationFilter::onDestroy() {
 FilterHeadersStatus JwtVerificationFilter::decodeHeaders(HeaderMap& headers,
                                                          bool) {
   ENVOY_LOG(debug, "Called JwtVerificationFilter : {}", __func__);
+  const HeaderEntry* entry = headers.get(kAuthorizationHeaderKey);
+  if (!entry) {
+    return FilterHeadersStatus::Continue;
+  }
+
   state_ = Calling;
   stopped_ = false;
 
@@ -176,7 +181,6 @@ std::string JwtVerificationFilter::Verify(HeaderMap& headers) {
     if (!iss->IsAudienceAllowed(jwt.Aud())) {
       continue;
     }
-    iss_aud_matched = true;
 
     iss_aud_matched = true;
     if (v.Verify(jwt, *iss->pkey_)) {
