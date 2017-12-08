@@ -32,16 +32,16 @@ class CheckData {
   // Find "x-istio-attributes" HTTP header.
   // If found, base64 decode its value,  pass it out
   // and remove the HTTP header from the request.
-  virtual bool ExtractIstioAttributes(std::string* data) = 0;
+  virtual bool ExtractIstioAttributes(std::string *data) = 0;
 
   // Base64 encode data, and add it as "x-istio-attributes" HTTP header.
-  virtual void AddIstioAttributes(const std::string& data) = 0;
+  virtual void AddIstioAttributes(const std::string &data) = 0;
 
   // Get downstream tcp connection ip and port.
-  virtual bool GetSourceIpPort(std::string* ip, int* port) const = 0;
+  virtual bool GetSourceIpPort(std::string *ip, int *port) const = 0;
 
   // If SSL is used, get origin user name.
-  virtual bool GetSourceUser(std::string* user) const = 0;
+  virtual bool GetSourceUser(std::string *user) const = 0;
 
   // Get request HTTP headers
   virtual std::map<std::string, std::string> GetRequestHeaders() const = 0;
@@ -60,21 +60,26 @@ class CheckData {
     HEADER_REFERER,
   };
   virtual bool FindHeaderByType(HeaderType header_type,
-                                std::string* value) const = 0;
+                                std::string *value) const = 0;
 
   // A generic way to find any HTTP header.
   // This is for custom HTTP headers, such as x-api-key
   // Envoy platform requires "name" to be lower_case.
-  virtual bool FindHeaderByName(const std::string& name,
-                                std::string* value) const = 0;
+  virtual bool FindHeaderByName(const std::string &name,
+                                std::string *value) const = 0;
 
   // Find query parameter by name.
-  virtual bool FindQueryParameter(const std::string& name,
-                                  std::string* value) const = 0;
+  virtual bool FindQueryParameter(const std::string &name,
+                                  std::string *value) const = 0;
 
   // Find Cookie header.
-  virtual bool FindCookie(const std::string& name,
-                          std::string* value) const = 0;
+  virtual bool FindCookie(const std::string &name,
+                          std::string *value) const = 0;
+
+  // If the request has a JWT token and it is verified, get its payload as
+  // string map, and return true. Otherwise return false.
+  virtual bool GetJWTPayload(
+      std::map<std::string, std::string> *payload) const = 0;
 };
 
 }  // namespace http

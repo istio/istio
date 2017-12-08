@@ -26,20 +26,22 @@ namespace http {
 // The mock object for CheckData interface.
 class MockCheckData : public CheckData {
  public:
-  MOCK_METHOD1(ExtractIstioAttributes, bool(std::string* data));
-  MOCK_METHOD1(AddIstioAttributes, void(const std::string& data));
+  MOCK_METHOD1(ExtractIstioAttributes, bool(std::string *data));
+  MOCK_METHOD1(AddIstioAttributes, void(const std::string &data));
 
-  MOCK_CONST_METHOD2(GetSourceIpPort, bool(std::string* ip, int* port));
-  MOCK_CONST_METHOD1(GetSourceUser, bool(std::string* user));
+  MOCK_CONST_METHOD2(GetSourceIpPort, bool(std::string *ip, int *port));
+  MOCK_CONST_METHOD1(GetSourceUser, bool(std::string *user));
   MOCK_CONST_METHOD0(GetRequestHeaders, std::map<std::string, std::string>());
   MOCK_CONST_METHOD2(FindHeaderByType,
-                     bool(HeaderType header_type, std::string* value));
+                     bool(HeaderType header_type, std::string *value));
   MOCK_CONST_METHOD2(FindHeaderByName,
-                     bool(const std::string& name, std::string* value));
+                     bool(const std::string &name, std::string *value));
   MOCK_CONST_METHOD2(FindQueryParameter,
-                     bool(const std::string& name, std::string* value));
+                     bool(const std::string &name, std::string *value));
   MOCK_CONST_METHOD2(FindCookie,
-                     bool(const std::string& name, std::string* value));
+                     bool(const std::string &name, std::string *value));
+  MOCK_CONST_METHOD1(GetJWTPayload,
+                     bool(std::map<std::string, std::string> *payload));
 };
 
 }  // namespace http

@@ -61,5 +61,11 @@ const char AttributeName::kContextTime[] = "context.time";
 // Check status code.
 const char AttributeName::kCheckStatusCode[] = "check.status";
 
+// Authentication attributes
+const char AttributeName::kRequestAuthPrincipal[] = "request.auth.principal";
+const char AttributeName::kRequestAuthAudiences[] = "request.auth.audiences";
+const char AttributeName::kRequestAuthPresenter[] = "request.auth.presenter";
+const char AttributeName::kRequestAuthClaims[] = "request.auth.claims";
+
 }  // namespace mixer_control
 }  // namespace istio

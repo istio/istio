@@ -101,6 +101,59 @@ attributes {
     string_value: "test_user"
   }
 }
+attributes {
+  key: "request.auth.audiences"
+  value {
+    string_value: "thisisaud"
+  }
+}
+attributes {
+  key: "request.auth.claims"
+  value {
+    string_map_value {
+      entries {
+        key: "aud"
+        value: "thisisaud"
+      }
+      entries {
+        key: "azp"
+        value: "thisisazp"
+      }
+      entries {
+        key: "email"
+        value: "thisisemail@email.com"
+      }
+      entries {
+        key: "exp"
+        value: "5112754205"
+      }
+      entries {
+        key: "iat"
+        value: "1512754205"
+      }
+      entries {
+        key: "iss"
+        value: "thisisiss"
+      }
+      entries {
+        key: "sub"
+        value: "thisissub"
+      }
+    }
+  }
+}
+attributes {
+  key: "request.auth.presenter"
+  value {
+    string_value: "thisisazp"
+  }
+}
+attributes {
+  key: "request.auth.principal"
+  value {
+    string_value: "thisisiss/thisissub"
+  }
+}
 )";
 
 const char kReportAttributes[] = R"(
@@ -154,7 +207,7 @@ attributes {
 }
 )";
 
-void ClearContextTime(const std::string& name, RequestContext* request) {
+void ClearContextTime(const std::string &name, RequestContext *request) {
   // Override timestamp with -
   ::istio::mixer_client::AttributesBuilder builder(&request->attributes);
   std::chrono::time_point<std::chrono::system_clock> time0;
@@ -164,7 +217,7 @@ void ClearContextTime(const std::string& name, RequestContext* request) {
 TEST(AttributesBuilderTest, TestExtractV1ForwardedAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, ExtractIstioAttributes(_))
-      .WillOnce(Invoke([](std::string* data) -> bool {
+      .WillOnce(Invoke([](std::string *data) -> bool {
         // v1 format
         Attributes_StringMap attr_map;
         (*attr_map.mutable_entries())["test_key"] = "test_value";
@@ -187,7 +240,7 @@ TEST(AttributesBuilderTest, TestExtractV2ForwardedAttributes) {
 
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, ExtractIstioAttributes(_))
-      .WillOnce(Invoke([&attr](std::string* data) -> bool {
+      .WillOnce(Invoke([&attr](std::string *data) -> bool {
         attr.SerializeToString(data);
         return true;
       }));
@@ -202,7 +255,7 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
   Attributes forwarded_attr;
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, AddIstioAttributes(_))
-      .WillOnce(Invoke([&forwarded_attr](const std::string& data) {
+      .WillOnce(Invoke([&forwarded_attr](const std::string &data) {
         EXPECT_TRUE(forwarded_attr.ParseFromString(data));
       }));
 
@@ -217,13 +270,13 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
 TEST(AttributesBuilderTest, TestCheckAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _))
-      .WillOnce(Invoke([](std::string* ip, int* port) -> bool {
+      .WillOnce(Invoke([](std::string *ip, int *port) -> bool {
         *ip = "1.2.3.4";
         *port = 8080;
         return true;
       }));
   EXPECT_CALL(mock_data, GetSourceUser(_))
-      .WillOnce(Invoke([](std::string* user) -> bool {
+      .WillOnce(Invoke([](std::string *user) -> bool {
         *user = "test_user";
         return true;
       }));
@@ -236,7 +289,7 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
       }));
   EXPECT_CALL(mock_data, FindHeaderByType(_, _))
       .WillRepeatedly(Invoke(
-          [](CheckData::HeaderType header_type, std::string* value) -> bool {
+          [](CheckData::HeaderType header_type, std::string *value) -> bool {
             if (header_type == CheckData::HEADER_PATH) {
               *value = "/books";
               return true;
@@ -246,6 +299,17 @@ TEST(AttributesBuilderTest, TestCheckAttributes) {
             }
             return false;
           }));
+  EXPECT_CALL(mock_data, GetJWTPayload(_))
+      .WillOnce(Invoke([](std::map<std::string, std::string> *payload) -> bool {
+        (*payload)["iss"] = "thisisiss";
+        (*payload)["sub"] = "thisissub";
+        (*payload)["aud"] = "thisisaud";
+        (*payload)["azp"] = "thisisazp";
+        (*payload)["email"] = "thisisemail@email.com";
+        (*payload)["iat"] = "1512754205";
+        (*payload)["exp"] = "5112754205";
+        return true;
+      }));
 
   RequestContext request;
   AttributesBuilder builder(&request);
@@ -274,7 +338,7 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
         return map;
       }));
   EXPECT_CALL(mock_data, GetReportInfo(_))
-      .WillOnce(Invoke([](ReportData::ReportInfo* info) {
+      .WillOnce(Invoke([](ReportData::ReportInfo *info) {
         info->received_bytes = 100;
         info->send_bytes = 200;
         info->duration = std::chrono::nanoseconds(1);

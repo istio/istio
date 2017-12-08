@@ -62,6 +62,12 @@ struct AttributeName {
 
   // Check status code.
   static const char kCheckStatusCode[];
+
+  // Authentication attributes
+  static const char kRequestAuthPrincipal[];
+  static const char kRequestAuthAudiences[];
+  static const char kRequestAuthPresenter[];
+  static const char kRequestAuthClaims[];
 };
 
 }  // namespace mixer_control

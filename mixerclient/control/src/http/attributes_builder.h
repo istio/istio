@@ -43,6 +43,9 @@ class AttributesBuilder {
  private:
   // Extract HTTP header attributes
   void ExtractRequestHeaderAttributes(CheckData* check_data);
+  // Extract authentication attributes for Check call.
+  void ExtractRequestAuthAttributes(CheckData* check_data);
+
   // The request context object.
   RequestContext* request_;
 };
