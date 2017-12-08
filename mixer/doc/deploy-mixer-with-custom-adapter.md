@@ -76,7 +76,7 @@ These instructions assume that:
    The Mixer binary has a utility for generating the Custom Resource Definitions for adapters. Invoke this utility as follows:
    
    ```bash
-   bazel run mixer/cmd/server:mixs -- crd adapter
+   bazel run mixer/cmd/mixs:mixs -- crd adapter
    ``` 
 
    Find the stanza for your custom adapter and save it to a file, named something like `custom-crd.yaml`.

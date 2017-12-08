@@ -25,8 +25,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	mixc "istio.io/istio/mixer/cmd/client/cmd"
-	mixs "istio.io/istio/mixer/cmd/server/cmd"
+	mixc "istio.io/istio/mixer/cmd/mixc/cmd"
+	mixs "istio.io/istio/mixer/cmd/mixs/cmd"
 	"istio.io/istio/mixer/cmd/shared"
 )
 
