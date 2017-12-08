@@ -9,7 +9,7 @@ This directory contains Istio end-to-end tests and associated test framework.
 * [Step 3: Create Clusterrolebinding](#step-3-create-clusterrolebinding)
 * [Step 4: Export test script variables](#step-4-export-test-script-variables)
 * [Step 5: Run](#step-5-run)
-* [Examples](#example)
+* [Examples](#examples)
 
 ## Step 1: Create and setup a kubernetes cluster
 E2E tests require a Kubernetes cluster. You can create one using the Google Container Engine using
