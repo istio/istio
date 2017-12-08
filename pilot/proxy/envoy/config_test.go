@@ -501,7 +501,7 @@ func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		gotName, gotAddress, gotError := buildJwksUriClusterNameAndAddress(c.in)
+		gotName, gotAddress, gotError := buildJWKSURIClusterNameAndAddress(c.in)
 		if c.wantError != (gotError != nil) {
 			t.Errorf("%s returned unexpected error: want %v got %v: %v",
 				c.in, c.wantError, gotError != nil, gotError)

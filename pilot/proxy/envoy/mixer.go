@@ -220,9 +220,9 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 
 			// Update jwks_uri_envoy_cluster This cluster should be
 			// created elsewhere using the same host-to-cluster naming
-			// scheme, i.e. buildJwksUriClusterNameAndAddress.
+			// scheme, i.e. buildJWKSURIClusterNameAndAddress.
 			for _, jwt := range spec.Jwts {
-				if name, _, err := buildJwksUriClusterNameAndAddress(jwt.JwksUri); err != nil {
+				if name, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
 					glog.Warningf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
@@ -281,12 +281,12 @@ const (
 	OutboundJWTURIClusterPrefix = "jwt."
 )
 
-// buildJwksUriClusterNameAndAddress builds the internal envoy cluster
+// buildJWKSURIClusterNameAndAddress builds the internal envoy cluster
 // name and DNS address from the jwks_uri. The cluster name is used by
 // the JWT auth filter to fetch public keys. The cluster name and
 // address are used to build an envoy cluster that corresponds to the
 // jwks_uri server.
-func buildJwksUriClusterNameAndAddress(raw string) (string, string, error) {
+func buildJWKSURIClusterNameAndAddress(raw string) (string, string, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "", "", err
@@ -315,7 +315,7 @@ func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfi
 	for _, instance := range instances {
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
-				if name, address, err := buildJwksUriClusterNameAndAddress(jwt.JwksUri); err != nil {
+				if name, address, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
 					glog.Warningf("Could not build envoy cluster and address from jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
