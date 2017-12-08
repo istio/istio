@@ -106,7 +106,7 @@ fi
 
 # generate the substitutions file
 cat << EOF > ${SUBS_FILE}
-  substitutions": {
+  "substitutions": {
     "_VER_STRING": "${VER_STRING}",
     "_MFEST_URL": "${REPO}",
     "_MFEST_FILE": "${REPO_FILE}",
