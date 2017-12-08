@@ -217,8 +217,6 @@ func (*builder) ValidateConfig(c adapter.Config) (ce *adapter.ConfigErrors) {
 func (b *builder) BuildAttributesGenerator(env adapter.Env, c adapter.Config) (adapter.AttributesGenerator, error) {
 	env.Logger().Warningf("guptasu2 ** trying local changes...")
 
-
-
 	paramsProto := c.(*config.Params)
 	b.Lock()
 	defer b.Unlock()
