@@ -148,7 +148,7 @@ func runCA() {
 		reg := registry.GetIdentityRegistry()
 		ch := make(chan struct{})
 
-		// monitor service objects for `istioctl register` command
+		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
 		serviceController := kube.NewServiceController(cs.CoreV1(), opts.namespace, reg)
 		serviceController.Run(ch)
 

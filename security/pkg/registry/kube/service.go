@@ -33,6 +33,7 @@ import (
 // new service is added with "alpha.istio.io/kubernetes-serviceaccounts" annotation
 // enabled, the corresponding service account will be added to the identity registry
 // for whitelisting.
+// TODO: change it to monitor "alpha.istio.io/canonical-serviceaccounts" annotation
 type ServiceController struct {
 	core corev1.CoreV1Interface
 
