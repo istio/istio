@@ -399,6 +399,7 @@ and destination policies.
 					err = otherClient.Delete().
 						Namespace(config.Namespace).
 						Resource(resource.Name).
+						Name(config.Name).
 						Do().
 						Error()
 					if err != nil {
