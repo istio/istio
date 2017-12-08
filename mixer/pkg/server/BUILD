@@ -5,16 +5,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "crd.go",
-        "inventory.go",
-        "root.go",
+        "args.go",
+        "monitoring.go",
         "server.go",
-        "validator.go",
+        "tracing.go",
     ],
-    visibility = [
-        "//mixer/cmd:__subpackages__",
-        "//mixer/pkg/mock:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         "//mixer/cmd/shared:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
@@ -28,12 +24,12 @@ go_library(
         "//mixer/pkg/il/evaluator:go_default_library",
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/runtime:go_default_library",
-        "//mixer/pkg/server:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//mixer/pkg/tracing:go_default_library",
         "//mixer/pkg/version:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_prometheus//:go_default_library",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",
@@ -51,13 +47,11 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    size = "small",
-    srcs = ["crd_test.go"],
+    srcs = [
+        "args_test.go",
+        "server_test.go",
+    ],
     library = ":go_default_library",
     deps = [
-        "//mixer/adapter:go_default_library",
-        "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/template:go_default_library",
-        "//mixer/template:go_default_library",
     ],
 )
