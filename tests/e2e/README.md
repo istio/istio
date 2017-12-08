@@ -4,6 +4,9 @@ This directory contains Istio end-to-end tests and associated test framework.
 
 # Running E2E tests on your own kubernets cluster
 
+NOTE: the e2e tests might not run on a Mac because istioctl-osx, needed for test execution, is only built for release
+builds and not for normal presubmits jobs.
+
 * [Step 1: Create a kubernetes cluster](#step-1-create-and-setup-a-kubernetes-cluster)
 * [Step 2: Get cluster credentials](#step-2-get-cluster-credentials)
 * [Step 3: Create Clusterrolebinding](#step-3-create-clusterrolebinding)
@@ -51,7 +54,7 @@ gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --proje
 
 ## Step 3: Create Clusterrolebinding
 ```
-kubectl create clusterrolebinding prow-cluster-admin-binding    --clusterrole=cluster-admin    --user="your cluster user name(for example youralias@google.com)"
+kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="myname@example.org"
 ```
 
 ## Step 4: Export test script variables
