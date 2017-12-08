@@ -63,6 +63,7 @@ func GetDefaultHttpServerConf() *mccpb.HttpClientConfig {
 		},
 		// TODO per-service HttpApiApsec, QuotaSpec
 	}
+
 	return v2
 }
 
@@ -141,4 +142,13 @@ func AddHttpQuota(v2 *mccpb.HttpClientConfig, quota string, charge int64) {
 func DisableTcpCheckReport(v2 *mccpb.TcpClientConfig, disable_check, disable_report bool) {
 	v2.DisableCheckCalls = disable_check
 	v2.DisableReportCalls = disable_report
+}
+
+func AddJwtAuth(v2 *mccpb.HttpClientConfig, jwt *mccpb.JWT) {
+	for _, s := range v2.ServiceConfigs {
+		if s.EndUserAuthnSpec == nil {
+			s.EndUserAuthnSpec = &mccpb.EndUserAuthenticationPolicySpec{}
+		}
+		s.EndUserAuthnSpec.Jwts = append(s.EndUserAuthnSpec.Jwts, jwt)
+	}
 }

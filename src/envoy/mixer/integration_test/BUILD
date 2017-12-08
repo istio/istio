@@ -60,6 +60,7 @@ go_test_suite(
         "local",
     ],
     tests = [
+        "auth_test.go",
         "check_cache_test.go",
         "check_report_test.go",
         "check_report_disable_test.go",
