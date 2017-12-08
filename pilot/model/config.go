@@ -354,8 +354,8 @@ var (
 
 	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
 	EndUserAuthenticationPolicySpec = ProtoSchema{
-		Type:        "enduserauthenticationpolicyspec",
-		Plural:      "enduserauthenticationpolicyspecs",
+		Type:        "end-user-authentication-policy-spec",
+		Plural:      "end-user-authentication-policy-specs",
 		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
 		Validate:    ValidateEndUserAuthenticationPolicySpec,
 	}
