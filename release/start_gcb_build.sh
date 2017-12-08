@@ -92,10 +92,10 @@ cat << EOF > ${SUBS_FILE}
   "substitutions": {
     "_VER_STRING": "${VER_STRING}",
     "_MFEST_URL": "${REPO}",
-    "_MFEST_FILE\": "${REPO_FILE}",
-    "_MFEST_VER\": "${REPO_FILE_VER}",
-    "_GCS_PATH\": "${GCS_PATH}",
-    "_GCR_PATH\": "${GCR_PATH}"
+    "_MFEST_FILE": "${REPO_FILE}",
+    "_MFEST_VER": "${REPO_FILE_VER}",
+    "_GCS_PATH": "${GCS_PATH}",
+    "_GCR_PATH": "${GCR_PATH}"
   }
 EOF
 
