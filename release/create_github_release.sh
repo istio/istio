@@ -36,6 +36,7 @@ set -x
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ORG="istio"
 REPO="istio"
+KEYFILE=""
 TOKEN=""
 SHA=""
 VERSION=""
@@ -59,7 +60,7 @@ function usage() {
 
 while getopts k:o:r:s:t:u:v: arg ; do
   case "${arg}" in
-    k) TOKEN=$(< ${OPTARG});;
+    k) KEYFILE="${OPTARG}";;
     o) ORG="${OPTARG}";;
     r) REPO="${OPTARG}";;
     s) SHA="${OPTARG}";;
@@ -72,9 +73,16 @@ done
 
 [[ -z "${ORG}" ]] && usage
 [[ -z "${REPO}" ]] && usage
-[[ -z "${TOKEN}" ]] && usage
+[[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
 [[ -z "${SHA}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
+
+if [[ -n "${KEYFILE}" ]]; then
+  if [ ! -f "${KEYFILE}" ]; then
+    echo "specified key file ${KEYFILE} does not exist"
+    usage
+  fi
+fi
 
 cat << EOF > ${REQUEST_FILE}
 {
@@ -85,8 +93,13 @@ cat << EOF > ${REQUEST_FILE}
   "prerelease": true
 }
 EOF
+
+# disabling command tracing during curl call so token isn't logged
+set +o xtrace
+TOKEN=$(< $KEYFILE)
 curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" -H "Content-Type: application/json" \
      --retry 3 -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" "https://api.github.com/repos/${ORG}/${REPO}/releases"
+set -o xtrace
 
 # parse ID from "url": "https://api.github.com/repos/:user/:repo/releases/8576148",
 RELEASE_ID=$(parse_json_for_url_int_suffix ${RESPONSE_FILE} "url" "/releases")
@@ -106,9 +119,13 @@ function upload_file {
   # $3 is file name
   local UPLOAD_BASE=$(basename $3)
   echo "Uploading: $3"
+
+  # disabling command tracing during curl call so token isn't logged
+  set +o xtrace
   curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" \
        --retry 3 -H "Content-Type: ${2}" -T $3 -H "Authorization: token ${TOKEN}" \
        "${1}?name=$UPLOAD_BASE"
+  set -o xtrace
 
     # "url":"https://api.github.com/repos/istio/istio/releases/assets/5389350",
     # "id":5389350,
