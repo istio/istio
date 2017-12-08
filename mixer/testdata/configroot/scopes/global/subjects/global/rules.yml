@@ -14,13 +14,4 @@ rules:
         destinationUID: destination.uid | ""
         destinationIP: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
       attribute_bindings:
-        source.ip: sourcePodIP
-        source.labels: sourceLabels
-        source.namespace: sourceNamespace
-        source.service: sourceService
-        source.serviceAccount: sourceServiceAccountName
-        destination.ip: destinationPodIP
-        destination.labels: destinationLabels
-        destination.namespace: destinationNamespace
-        destination.service: destinationService
-        destination.serviceAccount: destinationServiceAccountName
+        source.ip: ip("0.0.0.0")
