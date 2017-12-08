@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package kube
 
 import (
+	"reflect"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -23,32 +24,31 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/security/pkg/registry"
 )
 
-// ServiceController monitors the service definition changes in a namespace.
-// Callback functions are called whenever there is a new service, a service deleted,
-// or a service updated.
+// ServiceController monitors the service definition changes in a namespace. If a
+// new service is added with "alpha.istio.io/kubernetes-serviceaccounts" annotation
+// enabled, the corresponding service account will be added to the identity registry
+// for whitelisting.
+// TODO: change it to monitor "alpha.istio.io/canonical-serviceaccounts" annotation
 type ServiceController struct {
 	core corev1.CoreV1Interface
 
+	// identity registry object
+	reg registry.Registry
+
 	// controller for service objects
 	controller cache.Controller
-
-	// handlers for service events
-	addFunc    func(*v1.Service)
-	deleteFunc func(*v1.Service)
-	updateFunc func(*v1.Service, *v1.Service)
 }
 
 // NewServiceController returns a new ServiceController
-func NewServiceController(core corev1.CoreV1Interface, namespace string,
-	addFunc, deleteFunc func(*v1.Service),
-	updateFunc func(*v1.Service, *v1.Service)) *ServiceController {
+func NewServiceController(core corev1.CoreV1Interface, namespace string, reg registry.Registry) *ServiceController {
 	c := &ServiceController{
-		core:       core,
-		addFunc:    addFunc,
-		deleteFunc: deleteFunc,
-		updateFunc: updateFunc,
+		core: core,
+		reg:  reg,
 	}
 
 	LW := &cache.ListWatch{
@@ -76,13 +76,26 @@ func (c *ServiceController) Run(stopCh chan struct{}) {
 }
 
 func (c *ServiceController) serviceAdded(obj interface{}) {
-	c.addFunc(obj.(*v1.Service))
+	svc := obj.(*v1.Service)
+	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
+	if ok {
+		c.reg.AddMapping(svcAcct, svcAcct)
+	}
 }
 
 func (c *ServiceController) serviceDeleted(obj interface{}) {
-	c.deleteFunc(obj.(*v1.Service))
+	svc := obj.(*v1.Service)
+	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
+	if ok {
+		c.reg.DeleteMapping(svcAcct, svcAcct)
+	}
 }
 
 func (c *ServiceController) serviceUpdated(oldObj, newObj interface{}) {
-	c.updateFunc(oldObj.(*v1.Service), newObj.(*v1.Service))
+	if oldObj == newObj || reflect.DeepEqual(oldObj, newObj) {
+		// Nothing is changed. The method is invoked by periodical re-sync with the apiserver.
+		return
+	}
+	c.serviceDeleted(oldObj)
+	c.serviceAdded(newObj)
 }

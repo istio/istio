@@ -18,9 +18,6 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
-
-	"istio.io/istio/pilot/platform/kube"
 )
 
 // Registry is the standard interface for identity registry implementation
@@ -96,29 +93,4 @@ func GetIdentityRegistry() Registry {
 		}
 	}
 	return reg
-}
-
-// K8SServiceAdded is a handler used by k8s service controller to monitor
-// new services and to add their service accounts to registry, if exist
-func K8SServiceAdded(svc *v1.Service) {
-	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
-	if ok {
-		GetIdentityRegistry().AddMapping(svcAcct, svcAcct)
-	}
-}
-
-// K8SServiceDeleted is a handler used by k8s service controller to monitor
-// deleted services and to remove their service accounts from registry
-func K8SServiceDeleted(svc *v1.Service) {
-	svcAcct, ok := svc.ObjectMeta.Annotations[kube.KubeServiceAccountsOnVMAnnotation]
-	if ok {
-		GetIdentityRegistry().DeleteMapping(svcAcct, svcAcct)
-	}
-}
-
-// K8SServiceUpdated is a handler used by k8s service controller to monitor
-// service updates and update the registry
-func K8SServiceUpdated(oldSvc, newSvc *v1.Service) {
-	K8SServiceDeleted(oldSvc)
-	K8SServiceAdded(newSvc)
 }
