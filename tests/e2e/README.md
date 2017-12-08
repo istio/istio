@@ -64,8 +64,8 @@ export GIT_SHA="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
 ```
 
 **Option 2:** Testing local changes
- If you want to test on uncommitted changes to master istio:
 
+If you want to test on uncommitted changes to master istio:
 * Create a PR with your change.
 * This will trigger istio-presubmit.sh. At the end of this script, it creates docker images for mixer, pilot, ca, with
 your changes and upload them to container registry. See the logs of this istio-presubmit.sh and at the end there must
@@ -73,7 +73,7 @@ be a SHA which you need to copy and set it as a GIT_SHA. Example from a log: the
 
 	I1207 04:42:40.881] **0077bb73e0b9d2841f8c299f15305193e42dae0d**: digest: sha256:6f72528d475be56e8392bc3b833b94a815a1fbab8a70cd058b92982e61364021 size: 528
 
-Then set the export variables again
+* Then set the export variables again
 ```
 export HUB="gcr.io/istio-testing"
 export GIT_SHA="<sha copied from the logs of istio-presubmit.sh>"
