@@ -80,6 +80,8 @@ type Output struct {
 	EmailAddr adapter.EmailAddress
 
 	Uri adapter.URI
+
+	OutStrMap map[string]string
 }
 
 type Resource1 struct {
