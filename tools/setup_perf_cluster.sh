@@ -17,61 +17,66 @@ ISTIO_NAMESPACE=${ISTIO_NAMESPACE:-istio} # Namespace for istio injected app
 # Should not be set to true for perf measurement but to troubleshoot the setup
 DEBUG=false
 
-function usage() {
+function Usage() {
     echo "usage: PROJECT=project ZONE=zone $0"
     echo "also settable are NUM_NODES, MACHINE_TYPE, CLUSTER_NAME, VM_NAME, VM_IMAGE"
     exit 1
+}
+
+function List_functions() {
+  egrep "^function [a-z]" ${BASH_SOURCE[0]} | sed -e 's/function \([a-z_0-9]*\).*/\1/'
 }
 
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   TOOLS_DIR=${TOOLS_DIR:-$(dirname ${BASH_SOURCE[0]})}
   echo "Script ${BASH_SOURCE[0]} is being sourced (Tools in $TOOLS_DIR)..."
   echo "You must set PROJECT before using one of the function interactively:"
-  echo "e.g. setup_all, run_tests..."
+  List_functions
   SOURCED=1
 else
   TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
-  echo "$0 is executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
+  echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
   set -e
   SOURCED=0
   if [[ -z "${PROJECT}" ]]; then
-    usage
+    Usage
   fi
 fi
+
 
 function update_gcp_opts() {
   export GCP_OPTS="--project $PROJECT --zone $ZONE"
 }
 
-function execute() {
+function Execute() {
   echo "### Running:" "$@"
   "$@"
 }
 
 function create_cluster() {
-  execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
+  Execute gcloud container clusters create $CLUSTER_NAME $GCP_OPTS --machine-type=$MACHINE_TYPE --num-nodes=$NUM_NODES --no-enable-legacy-authorization
 }
 
 function create_vm() {
   echo "Obtaining latest ubuntu xenial image name... (takes a few seconds)..."
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
   echo "Creating VM_NAME=$VM_NAME using VM_IMAGE=$VM_IMAGE"
-  execute gcloud compute instances create $VM_NAME $GCP_OPTS --machine-type $MACHINE_TYPE --image $VM_IMAGE
+  Execute gcloud compute instances create $VM_NAME $GCP_OPTS --machine-type $MACHINE_TYPE --image $VM_IMAGE
 }
 
 function run_on_vm() {
   echo "*** Remote run: \"$1\""
-  execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
+  Execute gcloud compute ssh $VM_NAME $GCP_OPTS --command "$1"
 }
 
 function setup_vm() {
-  execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
+  Execute gcloud compute instances add-tags $VM_NAME $GCP_OPTS --tags http-server,allow-8080
   run_on_vm '(sudo add-apt-repository ppa:gophers/archive > /dev/null && sudo apt-get update > /dev/null && sudo apt-get upgrade --no-install-recommends -y && sudo apt-get install --no-install-recommends -y golang-1.8-go && mv .bashrc .bashrc.orig && (echo "export PATH=/usr/lib/go-1.8/bin:\$PATH:~/go/bin"; cat .bashrc.orig) > ~/.bashrc ) < /dev/null'
 }
 
 function setup_vm_firewall() {
-  execute gcloud compute --project=$PROJECT firewall-rules create default-allow-http --network=default --action=ALLOW --rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server || true
-  execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
+  Execute gcloud compute --project=$PROJECT firewall-rules create default-allow-http --network=default --action=ALLOW --rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server || true
+  Execute gcloud compute --project $PROJECT firewall-rules create allow-8080 --direction=INGRESS --action=ALLOW --rules=tcp:8080 --target-tags=port8080 || true
 }
 
 function update_fortio_on_vm() {
@@ -90,31 +95,31 @@ function get_vm_ip() {
 # assumes run from istio/ (or release) directory
 function install_istio() {
   # Use the non debug ingress and remove the -v "2"
-  execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+  Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
 }
 
 function kubectl_setup() {
-  execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
+  Execute gcloud container clusters get-credentials $CLUSTER_NAME $GCP_OPTS
 }
 
 function install_non_istio_svc() {
- execute kubectl create namespace $FORTIO_NAMESPACE
- execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
- execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
- execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
- execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
+ Execute kubectl create namespace $FORTIO_NAMESPACE
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio1 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio1 --target-port=8080 --type=LoadBalancer
+ Execute kubectl -n $FORTIO_NAMESPACE run fortio2 --image=istio/fortio --port=8080
+ Execute kubectl -n $FORTIO_NAMESPACE expose deployment fortio2 --target-port=8080
 }
 
 function install_istio_svc() {
- #execute kubectl create namespace $ISTIO_NAMESPACE
+ #Execute kubectl create namespace $ISTIO_NAMESPACE
  FNAME=$TOOLS_DIR/perf_k8svcs
- execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
- execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
+ Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
+ Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
 }
 
 function install_istio_ingress_rules() {
   FNAME=$TOOLS_DIR/perf_istio_rules.yaml
-  execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
+  Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
 
@@ -172,15 +177,15 @@ function get_istio_ingress_ip() {
 
 function run_fortio_test1() {
   echo "Using default loadbalancer, no istio:"
-  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$FORTIO_K8S_IP:8080/echo"
 }
 function run_fortio_test2() {
   echo "Using default ingress, no istio:"
-  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$K8S_INGRESS_IP/echo"
 }
 function run_fortio_test3() {
   echo "Using istio ingress:"
-  execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
+  Execute curl "http://$VM_IP/fortio/?json=on&qps=-1&t=30s&c=48&load=Start&url=http://$ISTIO_INGRESS_IP/fortio1/echo"
 }
 
 function setup_vm_all() {
