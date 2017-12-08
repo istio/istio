@@ -19,7 +19,7 @@ package main
 import (
 	"fmt"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 type http struct {
@@ -53,7 +53,7 @@ func (r *http) makeRequests() error {
 	// while to d:8080 should always success.
 	srcPods := []string{"a", "b", "t"}
 	dstPods := []string{"a", "b", "d"}
-	if r.Auth == proxyconfig.MeshConfig_NONE {
+	if r.Auth == meshconfig.MeshConfig_NONE {
 		// t is not behind proxy, so it cannot talk in Istio auth.
 		dstPods = append(dstPods, "t")
 		// mTLS is not supported for headless services
@@ -76,7 +76,7 @@ func (r *http) makeRequests() error {
 							// Auth is enabled for d:80 and disable for d:8080 using per-service
 							// policy.
 							if src == "t" &&
-								((r.Auth == proxyconfig.MeshConfig_MUTUAL_TLS && !(dst == "d" && port == ":8080")) ||
+								((r.Auth == meshconfig.MeshConfig_MUTUAL_TLS && !(dst == "d" && port == ":8080")) ||
 									dst == "d" && (port == ":80" || port == "")) {
 								if len(resp.id) == 0 {
 									// Expected no match for:

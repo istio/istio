@@ -166,7 +166,9 @@ func TestAwsGetServiceIdentity(t *testing.T) {
 		}
 
 		serviceIdentity, err := awsc.GetServiceIdentity()
-		if serviceIdentity != c.expectedServiceIdentity {
+		if err != nil {
+			t.Fatalf("%s: Unexpected Error: %v", id, err)
+		} else if serviceIdentity != c.expectedServiceIdentity {
 			t.Errorf("%s: Wrong Service Identity. Expected %v, Actual %v", id,
 				string(c.expectedServiceIdentity), string(serviceIdentity))
 		}

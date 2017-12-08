@@ -1,8 +1,8 @@
-# dummy line 5 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+# dummy line 6 - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -93,9 +93,45 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 
@@ -1040,7 +1076,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
+ISTIO_PROXY_BUCKET = "e4a0005725b1f117b28c120d3a526ee4ca8cfbef"
 
 http_file(
     name = "envoy_binary",

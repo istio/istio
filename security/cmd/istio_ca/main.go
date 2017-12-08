@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
+	"istio.io/istio/security/pkg/registry"
+	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
 )
 
@@ -142,16 +144,29 @@ func runCA() {
 	sc.Run(stopCh)
 
 	if opts.grpcPort > 0 {
+		// start registry if gRPC server is to be started
+		reg := registry.GetIdentityRegistry()
+		ch := make(chan struct{})
+
+		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
+		serviceController := kube.NewServiceController(cs.CoreV1(), opts.namespace, reg)
+		serviceController.Run(ch)
+
+		// monitor service account objects for istio mesh expansion
+		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.namespace, reg)
+		serviceAccountController.Run(ch)
+
 		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
+			// stop the registry-related controllers
+			ch <- struct{}{}
+
 			glog.Warningf("Failed to start GRPC server with error: %v", err)
 		}
 	}
 
 	glog.Info("Istio CA has started")
-
-	<-stopCh
-	glog.Warning("Istio CA has stopped")
+	select {} // wait forever
 }
 
 func createClientset() *kubernetes.Clientset {
@@ -168,12 +183,12 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		glog.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
-		ca, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
+		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
 			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
-		return ca
+		return istioCA
 	}
 
 	var certChainBytes []byte
@@ -188,11 +203,11 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 		RootCertBytes:    readFile(opts.rootCertFile),
 	}
 
-	ca, err := ca.NewIstioCA(caOpts)
+	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		glog.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
-	return ca
+	return istioCA
 }
 
 func generateConfig() *rest.Config {

@@ -17,6 +17,7 @@ package runtime
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 	"time"
 
@@ -32,6 +33,9 @@ var Externs = map[string]interpreter.Extern{
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
+	"matches":         interpreter.ExternFromFn("matches", externMatches),
+	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
+	"endsWith":        interpreter.ExternFromFn("endsWith", externEndsWith),
 }
 
 // ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
@@ -50,6 +54,27 @@ var ExternFunctionMetadata = []expr.FunctionMetadata{
 		Name:          "match",
 		ReturnType:    config.BOOL,
 		ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
+	},
+	{
+		Name:          "matches",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "startsWith",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "endsWith",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
 	},
 }
 
@@ -88,4 +113,16 @@ func externMatch(str string, pattern string) bool {
 		return strings.HasSuffix(str, pattern[1:])
 	}
 	return str == pattern
+}
+
+func externMatches(pattern string, str string) (bool, error) {
+	return regexp.MatchString(pattern, str)
+}
+
+func externStartsWith(str string, prefix string) bool {
+	return strings.HasPrefix(str, prefix)
+}
+
+func externEndsWith(str string, suffix string) bool {
+	return strings.HasSuffix(str, suffix)
 }

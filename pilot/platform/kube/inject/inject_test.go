@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/tools/version"
@@ -189,7 +189,7 @@ func TestIntoResourceFile(t *testing.T) {
 	for _, c := range cases {
 		mesh := proxy.DefaultMeshConfig()
 		if c.enableAuth {
-			mesh.AuthPolicy = proxyconfig.MeshConfig_MUTUAL_TLS
+			mesh.AuthPolicy = meshconfig.MeshConfig_MUTUAL_TLS
 		}
 
 		config := &Config{

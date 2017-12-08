@@ -87,6 +87,10 @@ import (
   HEAP_ACCESS_GUARD(index) \
   target = heap[index];
 
+#define GET_HEAP_VALUE_STRING(index, target) \
+  HEAP_ACCESS_GUARD(index) \
+  target = heap[index].(string);
+
 #define NEW_HEAP_VALUE(value, target) \
   HEAP_OVERFLOW_GUARD \
   target = hp; \
@@ -127,6 +131,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var tf64 float64
 	var tVal interface{}
 	var tStr string
+	var tStr2 string
 	var tDur time.Duration
 	var tBool bool
 	var tFound bool
@@ -215,7 +220,12 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			LOAD_OP_CODE(t1)
 			STACK_POP2(REGISTER(t1), REGISTER(t1+1))
 
-		case il.ALoadS, il.ALoadB:
+		case il.ALoadS:
+			LOAD_OP_CODE(t1)
+			NEW_HEAP_VALUE(strings.GetString(t1), t2)
+			REGISTER(t1) = t2
+
+		case il.ALoadB:
 			LOAD_OP_CODE(t1)
 			LOAD_OP_CODE(REGISTER(t1))
 
@@ -233,7 +243,13 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			STACK_OVERFLOW_GUARD(1)
 			STACK_PUSH2(REGISTER(t1+1), REGISTER(t1))
 
-		case il.APushS, il.APushB:
+		case il.APushS:
+			LOAD_OP_CODE(t1)
+			STACK_OVERFLOW_GUARD(1)
+			NEW_HEAP_VALUE(strings.GetString(t1), t2)
+			STACK_PUSH(t2)
+
+		case il.APushB:
 			LOAD_OP_CODE(t1)
 			STACK_OVERFLOW_GUARD(1)
 			STACK_PUSH(t1)
@@ -243,7 +259,19 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			STACK_OVERFLOW_GUARD(2)
 			STACK_PUSH2(t2, t1)
 
-		case il.EqS, il.EqB:
+		case il.EqS:
+			STACK_UNDERFLOW_GUARD(2)
+			STACK_POP2(t1, t2)
+			GET_HEAP_VALUE_STRING(t1, tStr)
+			GET_HEAP_VALUE_STRING(t2, tStr2)
+
+			if tStr == tStr2 {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.EqB:
 			STACK_UNDERFLOW_GUARD(2)
 			STACK_POP2(t1, t2)
 			if t1 == t2 {
@@ -262,7 +290,18 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				STACK_PUSH(0)
 			}
 
-		case il.AEqS, il.AEqB:
+		case il.AEqS:
+			LOAD_OP_CODE(t1)
+			STACK_UNDERFLOW_GUARD(1)
+			STACK_POP(t2)
+			GET_HEAP_VALUE_STRING(t2, tStr)
+			if strings.GetString(t1) == tStr {
+				STACK_PUSH(1)
+			} else {
+				STACK_PUSH(0)
+			}
+
+		case il.AEqB:
 			LOAD_OP_CODE(t1)
 			STACK_UNDERFLOW_GUARD(1)
 			STACK_POP(t2)
@@ -360,7 +399,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				ERRF("error converting value to string: '%v'", tVal)
 			}
-			STACK_PUSH(strings.GetID(tStr))
+			NEW_HEAP_VALUE(tStr, t2)
+			STACK_PUSH(t2)
 
 		case il.ResolveB:
 			STACK_OVERFLOW_GUARD(1)
@@ -437,7 +477,8 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				if !tFound {
 					ERRF("error converting value to string: '%v'", tVal)
 				}
-				STACK_PUSH(strings.GetID(tStr))
+				NEW_HEAP_VALUE(tStr, t2)
+				STACK_PUSH(t2)
 				STACK_PUSH(1)
 			}
 
@@ -660,7 +701,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 				case il.String:
 					STACK_UNDERFLOW_GUARD(1)
 					STACK_PEEK(r.v1)
-					r.vs = strings.GetString(r.v1)
+					GET_HEAP_VALUE_STRING(r.v1, r.vs)
 
 				case il.Interface:
 					STACK_UNDERFLOW_GUARD(1)
@@ -698,11 +739,11 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.TLookup:
 			STACK_UNDERFLOW_GUARD(2)
 			STACK_POP2(t1, t2)
-			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if tFound {
-				t3 = strings.GetID(tStr)
+				NEW_HEAP_VALUE(tStr, t3)
 				STACK_PUSH2(t3, 1)
 			} else {
 				STACK_PUSH(0)
@@ -711,25 +752,26 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 		case il.Lookup:
 			STACK_UNDERFLOW_GUARD(2)
 			STACK_POP2(t1, t2)
-			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
-				ERRF("member lookup failed: '%v'", strings.GetString(t1))
+    			GET_HEAP_VALUE_STRING(t1, tStr)
+				ERRF("member lookup failed: '%v'", tStr)
 			}
-			t3 = strings.GetID(tStr)
+			NEW_HEAP_VALUE(tStr, t3)
 			STACK_PUSH(t3)
 
 		case il.NLookup:
 			STACK_UNDERFLOW_GUARD(2)
 			STACK_POP2(t1, t2)
-			tStr = strings.GetString(t1)
+			GET_HEAP_VALUE_STRING(t1, tStr)
 			GET_HEAP_VALUE(t2, tVal)
 			tStr, tFound = il.MapGet(tVal, tStr)
 			if !tFound {
 				tStr = ""
 			}
-			t3 = strings.GetID(tStr)
+			NEW_HEAP_VALUE(tStr, t3)
 			STACK_PUSH(t3)
 
 		case il.ALookup:
@@ -742,7 +784,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				ERRF("member lookup failed: '%v'", strings.GetString(t1))
 			}
-			t3 = strings.GetID(tStr)
+			NEW_HEAP_VALUE(tStr, t3)
 			STACK_PUSH(t3)
 
 		case il.ANLookup:
@@ -755,7 +797,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 			if !tFound {
 				tStr = ""
 			}
-			t3 = strings.GetID(tStr)
+			NEW_HEAP_VALUE(tStr, t3)
 			STACK_PUSH(t3)
 
 		default:

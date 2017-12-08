@@ -16,8 +16,7 @@ syntax = "proto3";
 
 package svcctrlReport;
 
-import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
 import "mixer/v1/config/descriptor/value_type.proto";
 
@@ -56,13 +55,13 @@ message Template {
     string api_service = 4;
     string api_key = 5;
 
-    google.protobuf.Timestamp request_time = 6;
+    istio.mixer.v1.template.TimeStamp request_time = 6;
     string request_method = 7;
     string request_path = 8;
     int64 request_bytes = 9;
 
-    google.protobuf.Timestamp response_time = 10;
+    istio.mixer.v1.template.TimeStamp response_time = 10;
     int64 response_code = 11;
     int64 response_bytes = 12;
-    google.protobuf.Duration response_latency = 13;
+    istio.mixer.v1.template.Duration response_latency = 13;
 }

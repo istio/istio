@@ -1,7 +1,7 @@
 # Istio installation
 
-This directory contains the default Istio installation configuration and
-the script for updating it.
+This directory contains the default Istio installation configuration in several
+different flavors. Also contained is the script for updating it.
  
 ## updateVersion.sh
 

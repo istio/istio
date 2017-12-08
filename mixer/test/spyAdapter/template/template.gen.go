@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
@@ -28,13 +30,65 @@ import (
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
+// Add void usages for some imports so that go linter does not complain in case the imports does not get used in the
+// below codegen.
+var (
+	_ net.IP
+	_ istio_mixer_v1_config.AttributeManifest
+	_ = strings.Reader{}
+)
+
 const emptyQuotes = "\"\""
+
+type (
+	getFn         func(name string) (value interface{}, found bool)
+	namesFn       func() []string
+	doneFn        func()
+	debugStringFn func() string
+	wrapperAttr   struct {
+		get         getFn
+		names       namesFn
+		done        doneFn
+		debugString debugStringFn
+	}
+)
+
+func newWrapperAttrBag(get getFn, names namesFn, done doneFn, debugString debugStringFn) attribute.Bag {
+	return &wrapperAttr{
+		debugString: debugString,
+		done:        done,
+		get:         get,
+		names:       names,
+	}
+}
+
+// Get returns an attribute value.
+func (w *wrapperAttr) Get(name string) (value interface{}, found bool) {
+	return w.get(name)
+}
+
+// Names returns the names of all the attributes known to this bag.
+func (w *wrapperAttr) Names() []string {
+	return w.names()
+}
+
+// Done indicates the bag can be reclaimed.
+func (w *wrapperAttr) Done() {
+	w.done()
+}
+
+// DebugString provides a dump of an attribute Bag that avoids affecting the
+// calculation of referenced attributes.
+func (w *wrapperAttr) DebugString() string {
+	return w.debugString()
+}
 
 var (
 	SupportedTmplInfo = map[string]template.Info{
@@ -55,27 +109,49 @@ var (
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
-				var err error = nil
-				cpb := cp.(*samplereport.InstanceParam)
-				infrdType := &samplereport.Type{}
 
-				if cpb.Value == "" || cpb.Value == emptyQuotes {
-					return nil, errors.New("expression for field Value cannot be empty")
-				}
-				if infrdType.Value, err = tEvalFn(cpb.Value); err != nil {
-					return nil, err
-				}
+				var BuildTemplate func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error)
 
-				infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(cpb.Dimensions))
-				for k, v := range cpb.Dimensions {
-					if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
-						return nil, err
+				_ = BuildTemplate
+
+				BuildTemplate = func(param *samplereport.InstanceParam,
+					path string) (*samplereport.Type, error) {
+
+					if param == nil {
+						return nil, nil
 					}
+
+					infrdType := &samplereport.Type{}
+
+					var err error = nil
+
+					if param.Value == "" || param.Value == emptyQuotes {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
+					}
+					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
+						return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Value", err)
+					}
+
+					infrdType.Dimensions = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(param.Dimensions))
+
+					for k, v := range param.Dimensions {
+
+						if infrdType.Dimensions[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Dimensions", err)
+						}
+					}
+
+					return infrdType, err
+
 				}
 
-				_ = cpb
-				return infrdType, err
+				instParam := cp.(*samplereport.InstanceParam)
+
+				return BuildTemplate(instParam, "")
 			},
+
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
 				castedBuilder := builder.(samplereport.HandlerBuilder)
@@ -89,34 +165,55 @@ var (
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
-				var instances []*samplereport.Instance
-				for name, inst := range insts {
-					md := inst.(*samplereport.InstanceParam)
 
-					Value, err := mapper.Eval(md.Value, attrs)
+				var BuildTemplate func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Value, err := mapper.Eval(param.Value, attrs)
 
 					if err != nil {
-						msg := fmt.Sprintf("failed to eval Value for instance '%s': %v", name, err)
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
 						glog.Error(msg)
-						return errors.New(msg)
+						return nil, errors.New(msg)
 					}
 
-					Dimensions, err := template.EvalAll(md.Dimensions, attrs, mapper)
+					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
 
 					if err != nil {
-						msg := fmt.Sprintf("failed to eval Dimensions for instance '%s': %v", name, err)
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
 						glog.Error(msg)
-						return errors.New(msg)
+						return nil, errors.New(msg)
 					}
 
-					instances = append(instances, &samplereport.Instance{
-						Name: name,
+					_ = param
+					return &samplereport.Instance{
+
+						Name: instName,
 
 						Value: Value,
 
 						Dimensions: Dimensions,
-					})
-					_ = md
+					}, nil
+				}
+
+				var instances []*samplereport.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*samplereport.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
 				}
 
 				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {

@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/duration"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -70,7 +70,7 @@ func buildDefaultRoute(cluster *Cluster) *HTTPRoute {
 	}
 }
 
-func buildInboundRoute(config model.Config, rule *proxyconfig.RouteRule, cluster *Cluster) *HTTPRoute {
+func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cluster) *HTTPRoute {
 	route := buildHTTPRouteMatch(rule.Match)
 	route.Cluster = cluster.Name
 	route.clusters = []*Cluster{cluster}
@@ -127,7 +127,7 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 
 // buildHTTPRoute translates a route rule to an Envoy route
 func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
-	rule := config.Spec.(*proxyconfig.RouteRule)
+	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
 	// setup timeouts for the route

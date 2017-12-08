@@ -114,6 +114,12 @@ func (g *generator) toIlType(t dpb.ValueType) il.Type {
 		return il.Interface
 	case dpb.IP_ADDRESS:
 		return il.Interface
+	case dpb.EMAIL_ADDRESS:
+		return il.Interface
+	case dpb.DNS_NAME:
+		return il.Interface
+	case dpb.URI:
+		return il.Interface
 	case dpb.TIMESTAMP:
 		return il.Interface
 	default:
@@ -209,6 +215,9 @@ func (g *generator) generateFunction(f *expr.Function, depth int, mode nilMode, 
 	case "OR":
 		g.generateOr(f, depth, mode, valueJmpLabel)
 	default:
+		if f.Target != nil {
+			g.generate(f.Target, depth, nmNone, "")
+		}
 		for _, arg := range f.Args {
 			g.generate(arg, depth, nmNone, "")
 		}
