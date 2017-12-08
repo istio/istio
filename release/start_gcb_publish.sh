@@ -113,19 +113,22 @@ if [[ -z "${SVC_ACCT}"  ]]; then
   SVC_ACCT="${DEFAULT_SVC_ACCT}"
 fi
 
-echo "  \"substitutions\": {
-    \"_VER_STRING\": \"${VER_STRING}\",
-    \"_MFEST_URL\": \"${REPO}\",
-    \"_MFEST_FILE\": \"${REPO_FILE}\",
-    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
-    \"_GCS_SOURCE\": \"${GCS_SRC}\",
-    \"_GCR_DST\": \"${GCR_DST}\",
-    \"_GCS_DST\": \"${GCS_DST}\",
-    \"_DOCKER_DST\": \"${DOCKER_DST}\",
-    \"_GCS_SECRET\": \"${GCS_GITHUB_SECRET}\",
-    \"_ORG\": \"${REL_ORG}\",
-    \"_REPO\": \"${REL_REPO}\",
-  }" >> "${SUBS_FILE}"
+# generate the substitutions file
+cat << EOF > ${SUBS_FILE}
+  "substitutions": {
+    "_VER_STRING": "${VER_STRING}",
+    "_MFEST_URL": "${REPO}",
+    "_MFEST_FILE": "${REPO_FILE}",
+    "_MFEST_VER": "${REPO_FILE_VER}",
+    "_GCS_SOURCE": "${GCS_SRC}",
+    "_GCR_DST": "${GCR_DST}",
+    "_GCS_DST": "${GCS_DST}",
+    "_DOCKER_DST": "${DOCKER_DST}",
+    "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
+    "_ORG": "${REL_ORG}",
+    "_REPO": "${REL_REPO}"
+  }
+EOF
 
 run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_publish.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"

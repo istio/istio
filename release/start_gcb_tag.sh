@@ -105,17 +105,19 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 # generate the substitutions file
-echo "  \"substitutions\": {
-    \"_VER_STRING\": \"${VER_STRING}\",
-    \"_MFEST_URL\": \"${REPO}\",
-    \"_MFEST_FILE\": \"${REPO_FILE}\",
-    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
-    \"_GCS_SOURCE\": \"${GCS_SRC}\",
-    \"_GCS_SECRET\": \"${GCS_GITHUB_SECRET}\",
-    \"_ORG\": \"${REL_ORG}\",
-    \"_USER_EMAIL\": \"${USER_EMAIL}\",
-    \"_USER_NAME\": \"${USER_NAME}\",
-  }" >> "${SUBS_FILE}"
+cat << EOF > ${SUBS_FILE}
+  "substitutions": {
+    "_VER_STRING": "${VER_STRING}",
+    "_MFEST_URL": "${REPO}",
+    "_MFEST_FILE": "${REPO_FILE}",
+    "_MFEST_VER": "${REPO_FILE_VER}",
+    "_GCS_SOURCE": "${GCS_SRC}",
+    "_GCS_SECRET": "${GCS_GITHUB_SECRET}",
+    "_ORG": "${REL_ORG}",
+    "_USER_EMAIL": "${USER_EMAIL}",
+    "_USER_NAME": "${USER_NAME}"
+  }
+EOF
 
 run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_tag.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"
