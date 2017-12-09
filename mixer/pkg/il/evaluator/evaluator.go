@@ -22,6 +22,7 @@ import (
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/il/runtime"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -205,3 +206,7 @@ func NewILEvaluator(cacheSize int) (*IL, error) {
 		functions: allFunctions,
 	}, nil
 }
+
+// TODO: This should be replaced with a common, shared context, instead of a singleton global.
+var allFunctions = expr.FuncMap(runtime.ExternFunctionMetadata)
+var allExterns = runtime.Externs
