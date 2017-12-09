@@ -46,7 +46,7 @@ class JwtVerificationFilter : public StreamDecoderFilter,
   const LowerCaseString kAuthorizationHeaderKey =
       LowerCaseString("Authorization");
   const std::string kAuthorizationHeaderTokenPrefix = "Bearer ";
-  const LowerCaseString& AuthorizedHeaderKey();
+  static const LowerCaseString& AuthorizedHeaderKey();
 
  private:
   StreamDecoderFilterCallbacks* decoder_callbacks_;

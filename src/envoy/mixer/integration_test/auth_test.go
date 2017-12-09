@@ -65,6 +65,13 @@ const checkAttributes = `
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
+  },
+  "request.auth.audiences": "bookstore-esp-echo.cloudendpointsapis.com",
+  "request.auth.principal": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+  "request.auth.claims": {
+     "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+     "aud": "bookstore-esp-echo.cloudendpointsapis.com",
+     "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
   }
 }
 `
@@ -97,6 +104,13 @@ const reportAttributes = `
      "x-forwarded-proto": "http",
      "x-istio-attributes": "-",
      "x-request-id": "*"
+  },
+  "request.auth.audiences": "bookstore-esp-echo.cloudendpointsapis.com",
+  "request.auth.principal": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com/628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+  "request.auth.claims": {
+     "iss": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com",
+     "aud": "bookstore-esp-echo.cloudendpointsapis.com",
+     "sub": "628645741881-noabiu23f5a8m8ovd8ucv698lj78vv0l@developer.gserviceaccount.com"
   },
   "request.size": 0,
   "response.time": "*",

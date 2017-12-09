@@ -24,6 +24,7 @@
 #include "envoy/thread_local/thread_local.h"
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/auth/config.h"
+#include "src/envoy/auth/jwt.h"
 #include "src/envoy/mixer/config.h"
 #include "src/envoy/mixer/grpc_transport.h"
 #include "src/envoy/mixer/mixer_control.h"
@@ -256,6 +257,28 @@ class CheckData : public HttpCheckData,
       return true;
     }
     return false;
+  }
+
+  bool GetJWTPayload(
+      std::map<std::string, std::string>* payload) const override {
+    const HeaderEntry* entry =
+        headers_.get(Http::JwtVerificationFilter::AuthorizedHeaderKey());
+    if (!entry) {
+      return false;
+    }
+    std::string payload_str = Auth::Base64UrlDecode(
+        std::string(entry->value().c_str(), entry->value().size()));
+    auto json_obj = Json::Factory::loadFromString(payload_str);
+    json_obj->iterate(
+        [payload](const std::string& key, const Json::Object& obj) -> bool {
+          // will throw execption if value type is not string.
+          try {
+            (*payload)[key] = obj.asString();
+          } catch (...) {
+          }
+          return true;
+        });
+    return true;
   }
 };
 

@@ -84,6 +84,8 @@ bool IsNotBase64UrlChar(int8_t c) {
   return kReverseLookupTableBase64Url[static_cast<int32_t>(c)] & 64;
 }
 
+}  // namespace
+
 std::string Base64UrlDecode(std::string input) {
   // allow at most 2 padding letters at the end of the input, only if input
   // length is divisible by 4
@@ -124,6 +126,8 @@ std::string Base64UrlDecode(std::string input) {
   }
   return Base64::decode(input);
 }
+
+namespace {
 
 const uint8_t *CastToUChar(const std::string &str) {
   return reinterpret_cast<const uint8_t *>(str.c_str());
@@ -427,6 +431,6 @@ std::unique_ptr<Pubkeys> Pubkeys::CreateFrom(const std::string &pkey,
   return keys;
 }
 
-}  // Auth
-}  // Http
-}  // Envoy
+}  // namespace Auth
+}  // namespace Http
+}  // namespace Envoy
