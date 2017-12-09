@@ -299,7 +299,7 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		out := status.OK
 		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
 			out = status.WithError(err)
-			break;
+			break
 		}
 
 		mutableBag := attribute.GetMutableBag(requestBag)

@@ -23,11 +23,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/test/spyAdapter"
-	"istio.io/istio/mixer/pkg/template"
 	"io"
 	"log"
+
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/mixer/test/spyAdapter"
 )
 
 // GetCfgs takes the operator configuration as strings and creates directory with config files from it.

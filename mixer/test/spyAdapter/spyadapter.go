@@ -22,8 +22,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 type (
@@ -50,9 +50,9 @@ type (
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
 
-		GenerateSampleApaErr error
+		GenerateSampleApaErr    error
 		GenerateSampleApaOutput *apaTmpl.Output
-		GenerateSampleApaPanic bool
+		GenerateSampleApaPanic  bool
 
 		CloseErr   error
 		ClosePanic bool
@@ -90,8 +90,7 @@ type (
 		HandleSampleReportCount     int
 
 		GenerateSampleApaInstance *apaTmpl.Instance
-		GenerateSampleApaCount int
-
+		GenerateSampleApaCount    int
 
 		CloseCount int
 	}
@@ -118,7 +117,6 @@ var _ apaTmpl.HandlerBuilder = builder{}
 
 var _ reportTmpl.Handler = handler{}
 var _ apaTmpl.Handler = handler{}
-
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	b.data.BuildCount++

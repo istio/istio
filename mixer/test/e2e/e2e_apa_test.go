@@ -27,8 +27,9 @@ import (
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -153,8 +154,8 @@ func TestApa(t *testing.T) {
 							Int64Primitive:  int64(1000),
 							DoublePrimitive: float64(1000.1000),
 							BoolPrimitive:   true,
-							StringMap: map[string]string {
-							"k1":"v1",
+							StringMap: map[string]string{
+								"k1": "v1",
 							},
 						},
 					},
@@ -187,10 +188,10 @@ func TestApa(t *testing.T) {
 							Name:  "reportInstance.samplereport.istio-system",
 							Value: int64(2),
 							Dimensions: map[string]interface{}{
-								"genStr":    "gen-str",
-								"genBool":   true,
-								"genDouble": float64(1000.1),
-								"genInt64":  int64(1000),
+								"genStr":         "gen-str",
+								"genBool":        true,
+								"genDouble":      float64(1000.1),
+								"genInt64":       int64(1000),
 								"genStrMapEntry": "v1",
 							},
 						},
