@@ -135,7 +135,7 @@ var (
 				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
 				Locations: []*mccpb.JWT_Location{{
 					Scheme: &mccpb.JWT_Location_Header{
-						Header: "Bearer",
+						Header: "x-goog-iap-jwt-assertion",
 					},
 				}},
 			},
