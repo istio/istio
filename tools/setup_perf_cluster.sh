@@ -36,6 +36,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
 else
   TOOLS_DIR=${TOOLS_DIR:-$(dirname $0)}
   echo "$0 is Executed, (Tools in $TOOLS_DIR) (can also be sourced interactively)..."
+  echo "In case of errors, retry at the failed step (readyness checks missing)"
   set -e
   SOURCED=0
   if [[ -z "${PROJECT}" ]]; then
@@ -111,7 +112,7 @@ function install_non_istio_svc() {
 }
 
 function install_istio_svc() {
- #Execute kubectl create namespace $ISTIO_NAMESPACE
+ Execute kubectl create namespace $ISTIO_NAMESPACE || echo "Error assumed to be $ISTIO_NAMESPACE already created"
  FNAME=$TOOLS_DIR/perf_k8svcs
  Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
  Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
@@ -192,6 +193,7 @@ function setup_vm_all() {
   update_gcp_opts
   create_vm
   #TODO: 'wait for vm to be ready'
+  sleep 10
   setup_vm
   setup_vm_firewall
   update_fortio_on_vm
@@ -220,6 +222,7 @@ function setup_all() {
 }
 
 function get_ips() {
+  #TODO: wait for ingresses/svcs to be ready
   get_vm_ip
   get_fortio_k8s_ip
   get_non_istio_ingress_ip
