@@ -97,8 +97,7 @@ func new(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", a.ExpressionEvalCacheSize, err)
 	}
 
-	ilEvalForLegacy, err = p.newILEvaluator(a.ExpressionEvalCacheSize)
-	if err != nil {
+	if ilEvalForLegacy, err = p.newILEvaluator(a.ExpressionEvalCacheSize); err != nil {
 		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", a.ExpressionEvalCacheSize, err)
 	}
 
@@ -126,8 +125,7 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var interceptor grpc.UnaryServerInterceptor
 
-	s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans)
-	if err != nil {
+	if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
 	}
@@ -140,8 +138,7 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	grpc_prometheus.EnableHandlingTimeHistogram()
 	grpcOptions = append(grpcOptions, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 
-	s.monitor, err = p.startMonitor(a.MonitoringPort)
-	if err != nil {
+	if s.monitor, err = p.startMonitor(a.MonitoringPort); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to setup monitoring: %v", err)
 	}
@@ -159,8 +156,7 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	if a.ServiceConfig != "" || a.GlobalConfig != "" {
-		s.configDir, err = serializeConfigs(a.GlobalConfig, a.ServiceConfig)
-		if err != nil {
+		if s.configDir, err = serializeConfigs(a.GlobalConfig, a.ServiceConfig); err != nil {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
 		}
@@ -176,9 +172,8 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
-	dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates)
-	if err != nil {
+	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
+		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
 	}
