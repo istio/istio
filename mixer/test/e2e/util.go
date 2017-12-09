@@ -25,6 +25,9 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/test/spyAdapter"
+	"istio.io/istio/mixer/pkg/template"
+	"io"
+	"log"
 )
 
 // GetCfgs takes the operator configuration as strings and creates directory with config files from it.
@@ -122,4 +125,20 @@ func interfaceMap(m interface{}) map[interface{}]interface{} {
 	}
 
 	return ret
+}
+
+type testData struct {
+	name      string
+	cfg       string
+	behaviors []spyAdapter.AdapterBehavior
+	templates map[string]template.Info
+	attrs     map[string]interface{}
+	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
+}
+
+func closeHelper(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

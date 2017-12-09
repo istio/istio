@@ -166,7 +166,9 @@ func (h *handlerFactory) build(bldr adapter.HandlerBuilder, infrdTypesByTmpl map
 		typs = infrdTypesByTmpl[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = h.tmplRepo.GetTemplateInfo(tmplName)
-		ti.SetType(typs, bldr)
+		if ti.SetType != nil { // for case like APA template that does not have SetType
+			ti.SetType(typs, bldr)
+		}
 	}
 	bldr.SetAdapterConfig(adapterCnfg.(proto.Message))
 	// validate and only construct if the validation passes.

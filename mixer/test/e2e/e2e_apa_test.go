@@ -20,15 +20,19 @@ import (
 	"testing"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
-	pb "istio.io/api/mixer/v1/config/descriptor"
 	testEnv "istio.io/istio/mixer/pkg/mock"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
+	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
+
+	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 const (
-	reportGlobalCfg = `
+	apaGlobalCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -50,9 +54,19 @@ spec:
         value_type: DOUBLE
       attr.int64:
         value_type: INT64
+      generated.string:
+        value_type: STRING
+      generated.int64:
+        value_type: INT64
+      generated.bool:
+        value_type: BOOL
+      generated.double:
+        value_type: DOUBLE
+      generated.strmap:
+        value_type: STRING_MAP
 ---
 `
-	reportSvcCfg = `
+	apaSvcCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -60,7 +74,39 @@ metadata:
   namespace: istio-system
 
 ---
+# YAML for apa
+apiVersion: "config.istio.io/v1alpha2"
+kind: sampleapa
+metadata:
+  name: apaInstance
+  namespace: istio-system
+spec:
+  int64Primitive: "2"
+  boolPrimitive: "true"
+  doublePrimitive: "2.2"
+  stringPrimitive: "\"mysrc\""
+  attribute_bindings:
+    generated.string: $out.stringPrimitive
+    generated.bool: $out.boolPrimitive
+    generated.double: $out.doublePrimitive
+    generated.int64: $out.int64Primitive
+    generated.strmap: $out.stringMap
+---
 
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: rule2
+  namespace: istio-system
+spec:
+  selector: match(target.name, "*")
+  actions:
+  - handler: fakeHandlerConfig.fakeHandler
+    instances:
+    - apaInstance.sampleapa
+
+---
+# YAML for report that depend on APA output
 apiVersion: "config.istio.io/v1alpha2"
 kind: samplereport
 metadata:
@@ -69,8 +115,11 @@ metadata:
 spec:
   value: "2"
   dimensions:
-    source: source.name | "mysrc"
-    target_ip: target.name | "mytarget"
+    genStr: generated.string
+    genBool: generated.bool
+    genDouble: generated.double
+    genInt64: generated.int64
+    genStrMapEntry: generated.strmap["k1"]
 
 ---
 
@@ -90,33 +139,60 @@ spec:
 `
 )
 
-func TestReport(t *testing.T) {
+func TestApa(t *testing.T) {
 	tests := []testData{
 		{
-			name:      "Report",
-			cfg:       reportSvcCfg,
-			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
+			name: "Apa",
+			cfg:  apaSvcCfg,
+			behaviors: []spyAdapter.AdapterBehavior{
+				{
+					Name: "fakeHandler",
+					Handler: spyAdapter.HandlerBehavior{
+						GenerateSampleApaOutput: &apaTmpl.Output{
+							StringPrimitive: "gen-str",
+							Int64Primitive:  int64(1000),
+							DoublePrimitive: float64(1000.1000),
+							BoolPrimitive:   true,
+							StringMap: map[string]string {
+							"k1":"v1",
+							},
+						},
+					},
+				},
+			},
 			templates: e2eTmpl.SupportedTmplInfo,
 			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
 			validate: func(t *testing.T, err error, spyAdpts []*spyAdapter.Adapter) {
 
 				adptr := spyAdpts[0]
 
-				CmpMapAndErr(t, "SetSampleReportTypes input", adptr.BuilderData.SetSampleReportTypesTypes,
-					map[string]interface{}{
-						"reportInstance.samplereport.istio-system": &reportTmpl.Type{
-							Value:      pb.INT64,
-							Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target_ip": pb.STRING},
-						},
-					},
-				)
+				// check if apa was called with right values
+				want := &apaTmpl.Instance{
+					Name:            "apaInstance.sampleapa.istio-system",
+					BoolPrimitive:   true,
+					DoublePrimitive: float64(2.2),
+					Int64Primitive:  int64(2),
+					StringPrimitive: "mysrc",
+				}
+				if !reflect.DeepEqual(adptr.HandlerData.GenerateSampleApaInstance, want) {
+					t.Errorf(fmt.Sprintf("Not equal -> %s.\nActual :\n%s\n\nExpected :\n%s",
+						"GenerateSampleApaAttributes",
+						spew.Sdump(adptr.HandlerData.GenerateSampleApaInstance), spew.Sdump(want)))
+					return
+				}
 
 				CmpSliceAndErr(t, "HandleSampleReport input", adptr.HandlerData.HandleSampleReportInstances,
 					[]*reportTmpl.Instance{
 						{
-							Name:       "reportInstance.samplereport.istio-system",
-							Value:      int64(2),
-							Dimensions: map[string]interface{}{"source": "mysrc", "target_ip": "somesrvcname"},
+							Name:  "reportInstance.samplereport.istio-system",
+							Value: int64(2),
+							Dimensions: map[string]interface{}{
+								"genStr":    "gen-str",
+								"genBool":   true,
+								"genDouble": float64(1000.1),
+								"genInt64":  int64(1000),
+								"genStrMapEntry": "v1",
+							},
 						},
 					},
 				)
@@ -124,7 +200,7 @@ func TestReport(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		configDir := GetCfgs(tt.cfg, reportGlobalCfg)
+		configDir := GetCfgs(tt.cfg, apaGlobalCfg)
 		defer func() {
 			if !t.Failed() {
 				_ = os.RemoveAll(configDir)
@@ -164,7 +240,10 @@ func TestReport(t *testing.T) {
 					args.ConfigIdentityAttributeDomain)},
 		}
 		_, err = client.Report(context.Background(), &req)
-
-		tt.validate(t, err, spyAdapters)
+		if err == nil {
+			tt.validate(t, err, spyAdapters)
+		} else {
+			t.Errorf("Got error '%v', want success", err)
+		}
 	}
 }
