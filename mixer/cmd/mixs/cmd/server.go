@@ -28,12 +28,15 @@ import (
 
 func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := server.NewArgs()
+	sa.Templates = info
+	sa.Adapters = adapters
+	sa.LegacyAdapters = legacyAdapters
 
 	serverCmd := cobra.Command{
 		Use:   "server",
 		Short: "Starts Mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
-			runServer(sa, info, adapters, legacyAdapters, printf, fatalf)
+			runServer(sa, printf, fatalf)
 		},
 	}
 
@@ -95,7 +98,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, legacyA
 	return &serverCmd
 }
 
-func runServer(sa *server.Args, info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) {
+func runServer(sa *server.Args, printf, fatalf shared.FormatFn) {
 	printf("Mixer started with\n%s", sa)
 
 	s, err := server.New(sa)
