@@ -135,12 +135,17 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	preprocResponseBag := attribute.GetMutableBag(nil)
 
 	glog.V(1).Info("Dispatching Preprocess Check")
-	out := s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag)
+
+	out := status.OK
+	if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
+		out = status.WithError(err)
+	}
 
 	mutableBag := attribute.GetMutableBag(requestBag)
 	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
 		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 	}
+
 	compatRespBag := &compatBag{mutableBag}
 
 	if !status.IsOK(out) {
@@ -299,7 +304,6 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		out := status.OK
 		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
 			out = status.WithError(err)
-			break
 		}
 
 		mutableBag := attribute.GetMutableBag(requestBag)
