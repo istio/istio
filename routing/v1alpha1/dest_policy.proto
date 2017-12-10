@@ -135,7 +135,7 @@ message CircuitBreaker {
   // A simple circuit breaker can be set based on a number of criteria such as
   // connection and request limits. For example, the following destination
   // policy sets a limit of 100 connections to "reviews" service version
-  // "v1" backends. 
+  // "v1" backends.
   //
   //     metadata:
   //       name: reviews-cb-policy
@@ -171,7 +171,7 @@ message CircuitBreaker {
   //           httpConsecutiveErrors: 7
   //           sleepWindow: 15m
   //           httpDetectionInterval: 5m
-  //           
+  //
   message SimpleCircuitBreakerPolicy {
     // Maximum number of connections to a backend.
     int32 max_connections = 1;
@@ -201,6 +201,10 @@ message CircuitBreaker {
     // service that can be ejected by the circuit breaker. Defaults to
     // 10%.
     int32 http_max_ejection_percent = 8;
+
+    // Maximum number of retries that can be outstanding to all hosts in a
+    // cluster at a given time. Defaults to 3.
+    int32 http_max_retries = 9;
   }
   oneof cb_policy {
     SimpleCircuitBreakerPolicy simple_cb = 1;
