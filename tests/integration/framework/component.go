@@ -20,7 +20,7 @@ type Component interface {
 	GetName() string
 
 	// Bringup doing setup for this component
-	// Start() is being called in framework.SetUp()
+	// Start() is being called in framework.StartUp()
 	Start() error
 
 	// Stop stop this component

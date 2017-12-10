@@ -17,4 +17,4 @@ resources:
     enableZipkin: true
     enableServiceGraph: true
     enableBookInfoSample: true
-    installIstioRelease: 0.3.0
+    installIstioRelease: 0.2.12

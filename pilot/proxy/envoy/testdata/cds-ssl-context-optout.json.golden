@@ -160,32 +160,6 @@
     }
    },
    {
-    "name": "out.httpbin.default.svc.cluster.local|http",
-    "service_name": "httpbin.default.svc.cluster.local|http",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin",
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "verify_subject_alt_name": []
-    }
-   },
-   {
-    "name": "out.httpsbin.default.svc.cluster.local|https",
-    "service_name": "httpsbin.default.svc.cluster.local|https",
-    "connect_timeout_ms": 1000,
-    "type": "sds",
-    "lb_type": "round_robin",
-    "ssl_context": {
-     "cert_chain_file": "/etc/certs/cert-chain.pem",
-     "private_key_file": "/etc/certs/key.pem",
-     "ca_cert_file": "/etc/certs/root-cert.pem",
-     "verify_subject_alt_name": []
-    }
-   },
-   {
     "name": "out.world.default.svc.cluster.local|custom",
     "service_name": "world.default.svc.cluster.local|custom",
     "connect_timeout_ms": 1000,

@@ -27,7 +27,7 @@ function buildImages() {
 
     for image in app init proxy; do
         bazel run //pilot/docker:${image}_debug
-        docker tag istio/docker:${image}_debug $HUB/$image:$TAG
+        docker tag istio/pilot/docker:${image}_debug $HUB/$image:$TAG
         docker push $HUB/$image:$TAG
     done
 }

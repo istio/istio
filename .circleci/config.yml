@@ -35,7 +35,7 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -47,7 +47,7 @@ jobs:
       - run: go build -i ./pilot/test/integration
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
-      - run: make setup
+      - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
@@ -73,7 +73,7 @@ jobs:
       - run: bin/install-go.sh
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -85,7 +85,7 @@ jobs:
       - run: go build -i ./pilot/test/integration
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
-      - run: make setup
+      - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
@@ -164,7 +164,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -172,7 +172,7 @@ jobs:
                dep ensure
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.toml" }}
+          key: dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -188,7 +188,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -226,7 +226,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -255,7 +255,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -284,7 +284,7 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
             cd /go/src/istio.io/istio

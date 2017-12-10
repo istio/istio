@@ -21,10 +21,17 @@ mixer_proto_library(
     protos = ["QuotaTmpl.proto"],
 )
 
+mixer_proto_library(
+    name = "apa",
+    testonly = True,
+    protos = ["ApaTmpl.proto"],
+)
+
 filegroup(
     name = "descriptors",
     testonly = True,
     srcs = [
+        "apa_proto.descriptor_set",
         "check_proto.descriptor_set",
         "quota_proto.descriptor_set",
         "report_proto.descriptor_set",
@@ -35,6 +42,8 @@ filegroup(
     name = "generated_files",
     testonly = True,
     srcs = [
+        "apa_handler.gen.go",
+        "apa_tmpl.proto",
         "check_handler.gen.go",
         "check_tmpl.proto",
         "quota_handler.gen.go",
@@ -48,6 +57,8 @@ filegroup(
     name = "golden_files",
     testonly = True,
     srcs = [
+        "ApaTmpl.go.golden",
+        "ApaTmpl.golden.proto",
         "CheckTmpl.go.golden",
         "CheckTmpl.golden.proto",
         "QuotaTmpl.go.golden",

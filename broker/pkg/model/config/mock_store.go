@@ -5,6 +5,7 @@ package config
 
 import (
 	gomock "github.com/golang/mock/gomock"
+
 	config "istio.io/api/broker/v1/config"
 )
 

@@ -13,6 +13,7 @@ go_library(
         "infra.go",
         "ingress.go",
         "routing.go",
+        "routingToEgress.go",
         "tcp.go",
         "zipkin.go",
     ],

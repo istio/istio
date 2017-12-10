@@ -31,7 +31,7 @@
       ],
       "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/update_and_create_archives.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output" ]
+      "args": [ "./release/update_and_create_archives.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     },
     {
       "volumes": [
@@ -42,7 +42,7 @@
       ],
       "name": "gcr.io/istio-io/istio-builder:0.4.4",
       "dir": "go/src/istio.io/istio",
-      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_BUCKET/$_GCS_SUBDIR", "-q", "$_GCR_BUCKET/$_GCR_SUBDIR", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
+      "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
     }
   ],
   "options": {

@@ -112,9 +112,17 @@ func (ja *idTokenAuthenticator) authenticate(ctx context.Context) (*caller, erro
 		return nil, fmt.Errorf("failed to verify the ID token (error %v)", err)
 	}
 
+	// for GCP-issued JWT, the service account is in the "email" field
+	var sa struct {
+		Email string `json:"email"`
+	}
+	if err := idToken.Claims(&sa); err != nil {
+		return nil, fmt.Errorf("failed to extract email field from ID token: %v", err)
+	}
+
 	return &caller{
 		authSource: authSourceIDToken,
-		identities: []string{idToken.Subject},
+		identities: []string{sa.Email},
 	}, nil
 }
 

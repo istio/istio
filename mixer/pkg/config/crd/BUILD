@@ -44,15 +44,20 @@ go_test(
     deps = [
         "//mixer/pkg/config/store:go_default_library",
         "//pilot/platform/kube/admit/testcerts:go_default_library",  # for testing cert data
+        "@io_k8s_api//admission/v1alpha1:go_default_library",
+        "@io_k8s_api//admissionregistration/v1alpha1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
         "@io_k8s_apimachinery//pkg/watch:go_default_library",
+        "@io_k8s_apiserver//pkg/admission:go_default_library",
         "@io_k8s_client_go//discovery:go_default_library",
         "@io_k8s_client_go//discovery/fake:go_default_library",
+        "@io_k8s_client_go//kubernetes:go_default_library",
         "@io_k8s_client_go//kubernetes/fake:go_default_library",
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//testing:go_default_library",
         "@io_k8s_client_go//tools/cache:go_default_library",
+        "@io_k8s_client_go//tools/clientcmd:go_default_library",
     ],
 )

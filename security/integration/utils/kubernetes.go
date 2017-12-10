@@ -29,6 +29,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var (
+	immediate int64
+)
+
 // CreateClientset creates a new Clientset for the given kubeconfig.
 func CreateClientset(kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -64,7 +68,7 @@ func CreateTestNamespace(clientset kubernetes.Interface, prefix string) (string,
 
 // DeleteTestNamespace deletes a namespace for test.
 func DeleteTestNamespace(clientset kubernetes.Interface, namespace string) error {
-	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{}); err != nil {
+	if err := clientset.CoreV1().Namespaces().Delete(namespace, &metav1.DeleteOptions{GracePeriodSeconds: &immediate}); err != nil {
 		return fmt.Errorf("failed to delete namespace %q (error: %v)", namespace, err)
 	}
 	glog.Infof("Namespace %v is deleted", namespace)
@@ -109,11 +113,16 @@ func CreateService(clientset kubernetes.Interface, namespace string, name string
 
 // DeleteService deletes a service.
 func DeleteService(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
+	return clientset.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 // CreatePod creates a pod object and returns a pointer pointing to this object on success.
 func CreatePod(clientset kubernetes.Interface, namespace string, image string, name string) (*v1.Pod, error) {
+	return CreatePodWithCommand(clientset, namespace, image, name, []string{}, []string{})
+}
+
+// CreatePodWithCommand creates a pod object with specific command and arguments and returns a pointer pointing to this object on success.
+func CreatePodWithCommand(clientset kubernetes.Interface, namespace string, image string, name string, command []string, args []string) (*v1.Pod, error) {
 	podUUID := string(uuid.NewUUID())
 
 	env := []v1.EnvVar{
@@ -138,10 +147,17 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 		},
 	}
 
+	if len(command) > 0 {
+		spec.Containers[0].Command = command
+		if len(args) > 0 {
+			spec.Containers[0].Args = args
+		}
+	}
+
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"podUUID":   podUUID,
+				"uuid":      podUUID,
 				"pod-group": fmt.Sprintf("%v-pod-group", name),
 			},
 			Name: name,
@@ -161,9 +177,14 @@ func CreatePod(clientset kubernetes.Interface, namespace string, image string, n
 	return clientset.CoreV1().Pods(namespace).Get(name, metav1.GetOptions{})
 }
 
+// DeleteSecret deletes a secret.
+func DeleteSecret(clientset kubernetes.Interface, namespace string, name string) error {
+	return clientset.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
 // DeletePod deletes a pod.
 func DeletePod(clientset kubernetes.Interface, namespace string, name string) error {
-	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
+	return clientset.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
 }
 
 // CreateIstioCARole creates a role object named "istio-ca-role".
