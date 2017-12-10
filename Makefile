@@ -12,6 +12,8 @@
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
 
+TOP := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
 SHELL := /bin/bash
 LOCAL_ARTIFACTS_DIR ?= $(abspath artifacts)
 ARTIFACTS_DIR ?= $(LOCAL_ARTIFACTS_DIR)
@@ -24,11 +26,18 @@ TAG ?=
 build:
 	@bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
 
+# Build only envoy - fast
+build_envoy:
+	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //src/envoy/mixer:envoy
+
 clean:
 	@bazel clean
 
 test:
 	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+
+test_envoy:
+	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //src/envoy/mixer/...
 
 check:
 	@script/check-license-headers
@@ -36,5 +45,9 @@ check:
 
 artifacts: build
 	@script/push-debian.sh -c opt -p $(ARTIFACTS_DIR)
+
+deb:
+	bazel build tools/deb:istio-proxy  ${BAZEL_BUILD_ARGS}
+
 
 .PHONY: build clean test check artifacts

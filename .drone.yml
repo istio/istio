@@ -1,0 +1,20 @@
+clone:
+  git: 
+    image: plugins/git
+pipeline:
+  build:
+    image: costinm/proxy-builder:0.4.4
+    commands:
+      - id
+      - env
+      - sudo chown -R circleci /drone/src
+      - HOME=/drone/src make build_envoy
+  test:
+    image: costinm/proxy-builder:0.4.4
+    commands:
+      - id
+      - env
+      - sudo chown -R circleci /drone/src
+      - HOME=/drone/src make test_envoy
+
+

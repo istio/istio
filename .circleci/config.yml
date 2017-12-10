@@ -1,0 +1,43 @@
+version: 2
+
+jobs:
+  build:
+    environment:
+    docker:
+      - image: istio/ci:go1.9-bazel0.7
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - bazel-cache-{{ checksum "WORKSPACE" }}
+      - restore_cache:
+          keys:
+            - repo-cache-{{ checksum "WORKSPACE" }}
+      # To build docker containers or run tests in a docker
+      - setup_remote_docker
+      - run: make deb BAZEL_BUILD_ARGS="-j 4"
+      - run: make test_envoy
+      - save_cache:
+          key: repo-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.repo
+      - save_cache:
+          key: bazel-cache-{{ checksum "WORKSPACE" }}
+          paths:
+            - /home/circleci/.cache/bazel
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/tools/deb/istio-proxy.deb
+          destination: /proxy/deb
+      - store_artifacts:
+          path: /home/circleci/project/bazel-bin/src/envoy/mixer/envoy
+          destination: /proxy/bin
+
+
+
+
+workflows:
+  version: 2
+  all:
+    jobs:
+      - build
