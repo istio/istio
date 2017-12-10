@@ -36,6 +36,9 @@ spec:
           - --signing-key=/etc/cacerts/ca-key.pem
           - --root-cert=/etc/cacerts/root-cert.pem
           - --cert-chain=/etc/cacerts/cert-chain.pem
+          - --logtostderr
+          - --stderrthreshold
+          - INFO
         volumeMounts:
         - name: cacerts
           mountPath: /etc/cacerts
