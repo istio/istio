@@ -452,9 +452,16 @@ func TestRouteRulesV1Alpha2(t *testing.T) {
 
 	routerule1 := &routing_v1alpha2.RouteRule{
 		Hosts: []string{"world"},
-		Source: []*routing_v1alpha2.Endpoint{
+		Http: []*routing_v1alpha2.HTTPRoute{
 			{
-				Labels: model.Labels(instance.Labels),
+				Match: []*routing_v1alpha2.HTTPMatchRequest{
+					{
+						Source: &routing_v1alpha2.Source{
+							Name: "hello",
+							Labels: instance.Labels,
+						},
+					},
+				},
 			},
 		},
 	}

@@ -1,8 +1,5 @@
 hosts:
   - world
-source:
-  - labels: # FIXME: source name 'hello'
-      version: v0
 http:
   - match:
       - headers:
@@ -12,6 +9,10 @@ http:
             prefix: dog.cat
           name:
             regex: "sco+do+"
+        source:
+          name: hello
+          labels:
+            version: v0
     route:
       - destination:
           name: world

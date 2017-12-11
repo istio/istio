@@ -517,19 +517,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 			continue
 		}
 
-		var subset bool
-		SourceLoop:
-		for _, endpoint := range rule.Source {
-			if endpoint != nil {
-				for _, instance := range instances {
-					if Labels(endpoint.Labels).SubsetOf(instance.Labels) {
-						subset = true
-						break SourceLoop
-					}
-				}
-			}
-		}
-		if len(rule.Source) > 0 && !subset {
+		if !matchSource(config, instances) {
 			continue
 		}
 
@@ -537,6 +525,33 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 	}
 
 	return out
+}
+
+// TODO: can the instance matching be optimized?
+func matchSource(config Config, instances []*ServiceInstance) bool {
+	rule := config.Spec.(*routing_v1alpha2.RouteRule)
+	for _, http := range rule.Http {
+		// Short-circuit if there are any nil sources (avoid unnecessary computation)
+		for _, match := range http.Match {
+			if match.Source == nil {
+				return true
+			}
+		}
+		for _, match := range http.Match {
+			for _, instance := range instances {
+				fqdn := ResolveFQDN(config.ConfigMeta, match.Source.Name)
+				if fqdn == instance.Service.Hostname &&
+					Labels(match.Source.Labels).SubsetOf(instance.Labels) {
+					return true
+				}
+			}
+		}
+		if len(http.Match) == 0 {
+			return true
+		}
+	}
+	// FIXME: if len(rule.Http) == 0?
+	return false
 }
 
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {

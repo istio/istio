@@ -71,7 +71,7 @@
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "834c773b616e5fee4743123b1a3381a5557e7a52"
+  revision = "05c73f7506468c8d28df3ab1859ee6b12a5a4668"
 
 [[constraint]]
   name = "istio.io/fortio"
