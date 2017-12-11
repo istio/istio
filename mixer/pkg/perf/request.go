@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 
 	"istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/mock"
+	"istio.io/istio/mixer/pkg/attribute"
 )
 
 // Request interface is the common interface for all different types of requests.
@@ -44,12 +44,18 @@ var _ Request = &BasicCheck{}
 
 // CreateRequest creates a request proto.
 func (r BasicReport) createRequestProtos(c Config) []interface{} {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(c.IdentityAttribute, c.IdentityAttributeDomain)
+	for k, v := range r.Attributes {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+
 	return []interface{}{
 		&istio_mixer_v1.ReportRequest{
-			Attributes: []istio_mixer_v1.CompressedAttributes{
-				mock.GetAttrBag(r.Attributes,
-					c.IdentityAttribute,
-					c.IdentityAttributeDomain)},
+			Attributes: []istio_mixer_v1.CompressedAttributes{attrProto},
 		},
 	}
 }
@@ -71,12 +77,19 @@ func (r BasicReport) MarshalJSON() ([]byte, error) {
 
 // CreateRequest creates a request proto.
 func (c BasicCheck) createRequestProtos(cfg Config) []interface{} {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(cfg.IdentityAttribute, cfg.IdentityAttributeDomain)
+	for k, v := range c.Attributes {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+
 	return []interface{}{
 		&istio_mixer_v1.CheckRequest{
-			Attributes: mock.GetAttrBag(c.Attributes,
-				cfg.IdentityAttribute,
-				cfg.IdentityAttributeDomain),
-			Quotas: c.Quotas,
+			Attributes: attrProto,
+			Quotas:     c.Quotas,
 		},
 	}
 }

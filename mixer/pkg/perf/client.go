@@ -20,13 +20,12 @@ import (
 
 	"google.golang.org/grpc"
 
-	mixerpb "istio.io/api/mixer/v1"
-	"istio.io/istio/mixer/pkg/mock"
+	"istio.io/api/mixer/v1"
 )
 
 // client encapsulates a Mixer client, for the purposes of perf testing.
 type client struct {
-	mixer mixerpb.MixerClient
+	mixer istio_mixer_v1.MixerClient
 	conn  *grpc.ClientConn
 	setup *Setup
 }
@@ -34,12 +33,12 @@ type client struct {
 // initialize is the first method to be called. The client is expected to perform initialization by setting up
 // any local state using setup, and connecting to the Mixer rpc server at the given address.
 func (c *client) initialize(address string, setup *Setup) error {
-	mixer, conn, err := mock.NewClient(address)
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		return err
 	}
 
-	c.mixer = mixer
+	c.mixer = istio_mixer_v1.NewMixerClient(conn)
 	c.conn = conn
 	c.setup = setup
 
@@ -67,14 +66,14 @@ func (c *client) run(iterations int) (err error) {
 
 		for _, r := range requests {
 			switch r.(type) {
-			case *mixerpb.ReportRequest:
-				_, e := c.mixer.Report(context.Background(), r.(*mixerpb.ReportRequest))
+			case *istio_mixer_v1.ReportRequest:
+				_, e := c.mixer.Report(context.Background(), r.(*istio_mixer_v1.ReportRequest))
 				if e != nil && err == nil {
 					err = e
 				}
 
-			case *mixerpb.CheckRequest:
-				_, e := c.mixer.Check(context.Background(), r.(*mixerpb.CheckRequest))
+			case *istio_mixer_v1.CheckRequest:
+				_, e := c.mixer.Check(context.Background(), r.(*istio_mixer_v1.CheckRequest))
 				if e != nil && err == nil {
 					err = e
 				}

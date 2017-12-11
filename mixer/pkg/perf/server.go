@@ -22,28 +22,18 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/log"
-	"istio.io/istio/mixer/pkg/mock"
+	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 type server struct {
-	s *mock.Server
+	s *testEnv.Server
 }
 
 func (s *server) initialize(setup *Setup, env *Env) error {
 	serverDir, err := initializeServerDir(setup)
 	if err != nil {
 		return err
-	}
-
-	var args = mock.Args{
-		// Start Mixer server on a free port on loop back interface
-		MixerServerAddr:               `127.0.0.1:0`,
-		ConfigStoreURL:                `fs://` + serverDir,
-		ConfigStore2URL:               `fs://` + serverDir,
-		ConfigDefaultNamespace:        "istio-system",
-		ConfigIdentityAttribute:       setup.Config.IdentityAttribute,
-		ConfigIdentityAttributeDomain: setup.Config.IdentityAttributeDomain,
 	}
 
 	templates := env.templates
@@ -71,12 +61,26 @@ func (s *server) initialize(setup *Setup, env *Env) error {
 		}
 	}
 
-	server, err := mock.NewServer(&args, templates, adapters)
+	var args = testEnv.NewArgs()
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.ConfigAPIPort = 0
+	args.Templates = templates
+	args.Adapters = adapters
+	args.ConfigStoreURL = `fs://` + serverDir
+	args.ConfigStore2URL = `fs://` + serverDir
+	args.ConfigDefaultNamespace = "istio-system"
+	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
+	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
+
+	server, err := testEnv.New(args)
 	if err != nil {
 		return err
 	}
 
 	s.s = server
+
+	s.s.Run()
 
 	return nil
 }
@@ -92,7 +96,7 @@ func (s *server) shutdown() {
 }
 
 func (s *server) address() string {
-	return s.s.Address()
+	return s.s.Addr().String()
 }
 
 func initializeServerDir(setup *Setup) (string, error) {

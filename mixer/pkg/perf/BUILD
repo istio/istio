@@ -20,8 +20,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/log:go_default_library",
-        "//mixer/pkg/mock:go_default_library",
+        "//mixer/pkg/server:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
