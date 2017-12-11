@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	apaTmpl "istio.io/istio/mixer/test/spyAdapter/template/apa"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
@@ -48,6 +49,10 @@ type (
 	HandlerBehavior struct {
 		HandleSampleReportErr   error
 		HandleSampleReportPanic bool
+
+		GenerateSampleApaErr    error
+		GenerateSampleApaOutput *apaTmpl.Output
+		GenerateSampleApaPanic  bool
 
 		CloseErr   error
 		ClosePanic bool
@@ -84,6 +89,9 @@ type (
 		HandleSampleReportInstances []*reportTmpl.Instance
 		HandleSampleReportCount     int
 
+		GenerateSampleApaInstance *apaTmpl.Instance
+		GenerateSampleApaCount    int
+
 		CloseCount int
 	}
 
@@ -103,6 +111,12 @@ type (
 		BuildEnv   adapter.Env
 	}
 )
+
+var _ reportTmpl.HandlerBuilder = builder{}
+var _ apaTmpl.HandlerBuilder = builder{}
+
+var _ reportTmpl.Handler = handler{}
+var _ apaTmpl.Handler = handler{}
 
 func (b builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
 	b.data.BuildCount++
@@ -153,6 +167,16 @@ func (h handler) HandleSampleReport(ctx context.Context, instances []*reportTmpl
 	return h.behavior.HandleSampleReportErr
 }
 
+func (h handler) GenerateSampleApaAttributes(ctx context.Context, instance *apaTmpl.Instance) (*apaTmpl.Output, error) {
+	h.data.GenerateSampleApaCount++
+	if h.behavior.GenerateSampleApaPanic {
+		panic("GenerateSampleApaAttributes")
+	}
+
+	h.data.GenerateSampleApaInstance = instance
+	return h.behavior.GenerateSampleApaOutput, h.behavior.GenerateSampleApaErr
+}
+
 func (h handler) Close() error {
 	h.data.CloseCount++
 	if h.behavior.ClosePanic {
@@ -173,7 +197,7 @@ func (s *Adapter) GetAdptInfoFn() adapter.InfoFn {
 		return adapter.Info{
 			Name:               s.Behavior.Name,
 			Description:        "",
-			SupportedTemplates: []string{reportTmpl.TemplateName},
+			SupportedTemplates: []string{reportTmpl.TemplateName, apaTmpl.TemplateName},
 			NewBuilder: func() adapter.HandlerBuilder {
 				return builder{
 					behavior:        s.Behavior.Builder,

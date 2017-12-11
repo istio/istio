@@ -234,20 +234,32 @@ func TestCheck(t *testing.T) {
 
 	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		responseBag.Set("A1", "override")
+		responseBag.Set("genAttrLegacyAttrGen", "genAttrLegacyAttrGenValue")
 		return status.OK
+	}
+
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		responseBag.Set("A1", "override")
+		responseBag.Set("genAttrGen", "genAttrGenValue")
+		return nil
 	}
 
 	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 		if val, _ := requestBag.Get("A1"); val == "override" {
 			return nil, errors.New("attribute overriding not allowed in Check")
 		}
-		return &adapter.CheckResult{
-			Status: status.WithPermissionDenied("Not Implemented"),
-		}, nil
+		if val, _ := requestBag.Get("genAttrLegacyAttrGen"); val != "genAttrLegacyAttrGenValue" {
+			return nil, errors.New("generated attribute via preproc not part of check attributes")
+		}
+		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
+			return nil, errors.New("generated attribute via preproc not part of check attributes")
+		}
+		return &adapter.CheckResult{}, nil
 	}
 
-	if _, err = ts.client.Check(context.Background(), &request); err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+	chkRes, err := ts.client.Check(context.Background(), &request)
+	if err != nil || chkRes.Precondition.Status.Code != 0 {
+		t.Errorf("Got error; expect success: %v, %v", chkRes, err)
 	}
 }
 
@@ -384,12 +396,25 @@ func TestReport(t *testing.T) {
 
 	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
 		responseBag.Set("A1", "override")
+		responseBag.Set("genAttrLegacyAttrGen", "genAttrLegacyAttrGenValue")
 		return status.OK
+	}
+
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		responseBag.Set("A1", "override")
+		responseBag.Set("genAttrGen", "genAttrGenValue")
+		return nil
 	}
 
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		if val, _ := requestBag.Get("A1"); val == "override" {
-			return errors.New("attribute overriding NOT allowed in Check")
+			return errors.New("attribute overriding NOT allowed in Report")
+		}
+		if val, _ := requestBag.Get("genAttrLegacyAttrGen"); val != "genAttrLegacyAttrGenValue" {
+			return errors.New("generated attribute via preproc not part of report attributes")
+		}
+		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
+			return errors.New("generated attribute via preproc not part of report attributes")
 		}
 		return nil
 	}

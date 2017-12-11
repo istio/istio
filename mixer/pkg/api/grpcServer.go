@@ -133,20 +133,40 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
 	compatReqBag := &compatBag{requestBag}
 	preprocResponseBag := attribute.GetMutableBag(nil)
+	preprocResponseBagLegacy := attribute.GetMutableBag(nil)
 
 	glog.V(1).Info("Dispatching Preprocess Check")
-	out := s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag)
 
 	mutableBag := attribute.GetMutableBag(requestBag)
-	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+	var out rpc.Status
+
+	// In the next PR
+	// * this block will be deleted.
+	// * kubernetes2 needs to be renamed to kubernetes and the testdata config needs to be updated too.
+	{
+		out = s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBagLegacy)
+
+		if err := mutableBag.PreserveMerge(preprocResponseBagLegacy); err != nil {
+			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+		}
 	}
+
+	{
+		if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
+			out = status.WithError(err)
+		}
+		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+		}
+	}
+
 	compatRespBag := &compatBag{mutableBag}
 
 	if !status.IsOK(out) {
 		glog.Error("Preprocess Check returned with: ", status.String(out))
 		requestBag.Done()
 		preprocResponseBag.Done()
+		preprocResponseBagLegacy.Done()
 		return nil, makeGRPCError(out)
 	}
 	glog.V(1).Info("Preprocess Check returned with: ", status.String(out))
@@ -226,6 +246,7 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	requestBag.Done()
+	preprocResponseBagLegacy.Done()
 	preprocResponseBag.Done()
 
 	return resp, nil
@@ -276,8 +297,9 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	protoBag := attribute.NewProtoBag(&req.Attributes[0], s.globalDict, s.globalWordList)
 	requestBag := attribute.GetMutableBag(protoBag)
 	compatReqBag := &compatBag{requestBag}
+	mutableBag := attribute.GetMutableBag(requestBag)
+	preprocResponseBagLegacy := attribute.GetMutableBag(nil)
 	preprocResponseBag := attribute.GetMutableBag(nil)
-
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
 		span, newctx := opentracing.StartSpanFromContext(legacyCtx, fmt.Sprintf("Attributes %d", i))
@@ -296,11 +318,27 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 		}
 
 		glog.V(1).Info("Dispatching Preprocess")
-		out := s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag)
-		mutableBag := attribute.GetMutableBag(requestBag)
-		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+		var out rpc.Status
+
+		// In the next PR
+		// * this block will be deleted.
+		// * kubernetes2 needs to be renamed to kubernetes and the testdata config needs to be updated too.
+		{
+			out = s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBagLegacy)
+			if err := mutableBag.PreserveMerge(preprocResponseBagLegacy); err != nil {
+				out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+			}
 		}
+
+		{
+			if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
+				out = status.WithError(err)
+			}
+			if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+				out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
+			}
+		}
+
 		compatRespBag := &compatBag{mutableBag}
 		if !status.IsOK(out) {
 			glog.Error("Preprocess returned with: ", status.String(out))
@@ -334,9 +372,11 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 
 		span.LogFields(log.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
+		preprocResponseBagLegacy.Reset()
 		preprocResponseBag.Reset()
 	}
 
+	preprocResponseBagLegacy.Done()
 	preprocResponseBag.Done()
 	requestBag.Done()
 	protoBag.Done()
