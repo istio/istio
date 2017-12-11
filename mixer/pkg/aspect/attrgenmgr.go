@@ -98,6 +98,7 @@ func (e *attrGenExec) Execute(attrs attribute.Bag, mapper expr.Evaluator) (*Prep
 		return nil, status.WithInternal(errMsg)
 	}
 	out, err := attrGen.Generate(in)
+	glog.Errorf("guptasu attr from preprocessor: %v", out)
 	if err != nil {
 		errMsg := "Attribute value generation failed."
 		glog.Error(errMsg, err)
