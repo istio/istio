@@ -15,7 +15,6 @@
 package file
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -82,8 +81,8 @@ type Monitor struct {
 }
 
 // NewMonitor creates a new config store that monitors files under the given root directory for changes to config.
-// If no types are provided (nil or empty), all IstioConfigTypes will be allowed.
-func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, types []string) *Monitor {
+// If no types are provided in the descriptor, all IstioConfigTypes will be allowed.
+func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, descriptor model.ConfigDescriptor) *Monitor {
 	monitor := &Monitor{
 		store:         delegateStore,
 		root:          rootDirectory,
@@ -91,6 +90,7 @@ func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, types []s
 		checkDuration: defaultDuration,
 	}
 
+	types := descriptor.Types()
 	if len(types) == 0 {
 		types = model.IstioConfigTypes.Types()
 	}
@@ -103,15 +103,18 @@ func NewMonitor(delegateStore model.ConfigStore, rootDirectory string, types []s
 	return monitor
 }
 
-// Start launches a thread that monitors files under the root directory, updating the underlying config
-// store when changes are detected.
-func (m *Monitor) Start(ctx context.Context) {
+// Start starts the file monitor. Immediately checks the root dir to gather all files that are currently present
+// and updates the controller. It then kicks off an asynchronous event loop that periodically looks for changes to the
+// root dir (as well as the channel close event) and returns.
+func (m *Monitor) Start(stop chan struct{}) {
 	m.checkAndUpdate()
 	tick := time.NewTicker(m.checkDuration)
+
+	// Run the close loop asynchronously.
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-stop:
 				tick.Stop()
 				return
 			case <-tick.C:

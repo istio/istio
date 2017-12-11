@@ -88,14 +88,16 @@ if [[ -z "${SVC_ACCT}"  ]]; then
 fi
 
 # generate the substitutions file
-echo "  \"substitutions\": {
-    \"_VER_STRING\": \"${VER_STRING}\",
-    \"_MFEST_URL\": \"${REPO}\",
-    \"_MFEST_FILE\": \"${REPO_FILE}\",
-    \"_MFEST_VER\": \"${REPO_FILE_VER}\",
-    \"_GCS_PATH\": \"${GCS_PATH}\",
-    \"_GCR_PATH\": \"${GCR_PATH}\"
-  }" > "${SUBS_FILE}"
+cat << EOF > ${SUBS_FILE}
+  "substitutions": {
+    "_VER_STRING": "${VER_STRING}",
+    "_MFEST_URL": "${REPO}",
+    "_MFEST_FILE": "${REPO_FILE}",
+    "_MFEST_VER": "${REPO_FILE_VER}",
+    "_GCS_PATH": "${GCS_PATH}",
+    "_GCR_PATH": "${GCR_PATH}"
+  }
+EOF
 
 run_build "${REPO}" "${REPO_FILE}" "${REPO_FILE_VER}" "cloud_build.template.json" \
   "${SUBS_FILE}" "${PROJECT_ID}" "${SVC_ACCT}" "${KEY_FILE_PATH}" "${WAIT_FOR_RESULT}"

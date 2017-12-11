@@ -21,6 +21,8 @@ import (
 
 	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
+	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/mixer/pkg/il/runtime"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -29,7 +31,6 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiler"
 	"istio.io/istio/mixer/pkg/il/interpreter"
-	"istio.io/istio/mixer/pkg/il/runtime"
 )
 
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
@@ -50,11 +51,6 @@ type attrContext struct {
 
 var _ expr.Evaluator = &IL{}
 var _ config.ChangeListener = &IL{}
-
-type cacheEntry struct {
-	expression  *expr.Expression
-	interpreter *interpreter.Interpreter
-}
 
 // Eval evaluates expr using the attr attribute bag and returns the result as interface{}.
 func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
@@ -155,21 +151,21 @@ func (ctx *attrContext) evalResult(
 	attrs attribute.Bag,
 	functions map[string]expr.FunctionMetadata) (interpreter.Result, error) {
 
-	var entry cacheEntry
+	var intr *interpreter.Interpreter
 	var err error
-	if entry, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
+	if intr, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
 		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
 
-	r, err := entry.interpreter.Eval("eval", attrs)
+	r, err := intr.Eval("eval", attrs)
 	return r, err
 }
 
-func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]expr.FunctionMetadata) (cacheEntry, error) {
+func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]expr.FunctionMetadata) (*interpreter.Interpreter, error) {
 	// TODO: add normalization for exprStr string, so that 'a | b' is same as 'a|b', and  'a == b' is same as 'b == a'
 	if entry, found := ctx.cache.Get(expr); found {
-		return entry.(cacheEntry), nil
+		return entry.(*interpreter.Interpreter), nil
 	}
 
 	if glog.V(6) {
@@ -177,25 +173,21 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]
 	}
 
 	var err error
-	var result compiler.Result
-	if result, err = compiler.Compile(expr, ctx.finder, functions); err != nil {
+	var program *il.Program
+	if program, err = compiler.Compile(expr, ctx.finder, functions); err != nil {
 		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
-		return cacheEntry{}, err
+		return nil, err
 	}
 
 	if glog.V(6) {
 		glog.Infof("caching expression for '%s''", expr)
 	}
 
-	intr := interpreter.New(result.Program, runtime.Externs)
-	entry := cacheEntry{
-		expression:  result.Expression,
-		interpreter: intr,
-	}
+	intr := interpreter.New(program, allExterns)
 
-	_ = ctx.cache.Add(expr, entry)
+	_ = ctx.cache.Add(expr, intr)
 
-	return entry, nil
+	return intr, nil
 }
 
 // DefaultCacheSize is the default size for the expression cache.
@@ -211,6 +203,10 @@ func NewILEvaluator(cacheSize int) (*IL, error) {
 
 	return &IL{
 		cacheSize: cacheSize,
-		functions: expr.FuncMap(runtime.ExternFunctionMetadata),
+		functions: allFunctions,
 	}, nil
 }
+
+// TODO: This should be replaced with a common, shared context, instead of a singleton global.
+var allFunctions = expr.FuncMap(runtime.ExternFunctionMetadata)
+var allExterns = runtime.Externs

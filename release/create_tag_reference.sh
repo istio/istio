@@ -30,6 +30,7 @@ set -x
 
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 
+KEYFILE=""
 TOKEN=""
 
 VERSION=""
@@ -61,7 +62,7 @@ while getopts b:d:e:k:n:o:p:t:v: arg ; do
     b) BUILD_FILE="${OPTARG}";;
     d) DATE_STRING="${OPTARG}";;
     e) USER_EMAIL="${OPTARG}";;
-    k) TOKEN=$(< ${OPTARG});;
+    k) KEYFILE="${OPTARG}";;
     n) USER_NAME="${OPTARG}";;
     o) ORG="${OPTARG}";;
     p) PRODUCT="${PRODUCT}";;
@@ -75,11 +76,18 @@ done
 [[ -z "${DATE_STRING}" ]] && usage
 [[ -z "${ORG}" ]] && usage
 [[ -z "${PRODUCT}" ]] && usage
-[[ -z "${TOKEN}" ]] && usage
+[[ -z "${TOKEN}" ]] && [[ -z "${KEYFILE}" ]] && usage
 [[ -z "${VERSION}" ]] && usage
 # I tried using /user to automatically get name and email, but they're both null
 [[ -z "${USER_NAME}" ]] && usage
 [[ -z "${USER_EMAIL}" ]] && usage
+
+if [[ -n "${KEYFILE}" ]]; then
+  if [ ! -f "${KEYFILE}" ]; then
+    echo "specified key file ${KEYFILE} does not exist"
+    usage
+  fi
+fi
 
 function create_tag_reference() {
   # $1 ORG
@@ -104,9 +112,14 @@ cat << EOF > ${REQUEST_FILE}
   }
 }
 EOF
+
+  # disabling command tracing during curl call so token isn't logged
+  set +o xtrace
+  TOKEN=$(< $KEYFILE)
   curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/tags"
+  set -o xtrace
 
   # parse the sha from (note other URLs also present):
   # "url": "https://api.github.com/repos/:user/:repo/git/tags/d3309a0bf813bb5960a9d40245f71f129b471d33",
@@ -125,13 +138,19 @@ EOF
   echo "Created annotated tag ${VERSION} for SHA ${3} on ${1}/${2}, result is ${TAG_SHA}"
 
   # STEP 2: create a reference from the tag
-  echo "{\
-    \"ref\": \"refs/tags/${VERSION}\", \
-    \"sha\": \"${TAG_SHA}\" \
-  }" > ${REQUEST_FILE}
+cat << EOF > ${REQUEST_FILE}
+{
+  "ref": "refs/tags/${VERSION}",
+  "sha": "${TAG_SHA}"
+}
+EOF
+
+  # disabling command tracing during curl call so token isn't logged
+  set +o xtrace
   curl -s -S -X POST -o ${RESPONSE_FILE} -H "Accept: application/vnd.github.v3+json" --retry 3 \
     -H "Content-Type: application/json" -T ${REQUEST_FILE} -H "Authorization: token ${TOKEN}" \
     "https://api.github.com/repos/${1}/${2}/git/refs"
+  set -o xtrace
 
   local REF=$(parse_json_for_string ${RESPONSE_FILE} "ref")
   if [[ -z "${REF}" ]]; then

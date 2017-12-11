@@ -428,6 +428,10 @@ var (
 						"istio_mixer_adapter_sample_myapa.output.out_ip": {
 							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
 						},
+
+						"istio_mixer_adapter_sample_myapa.output.out_str_map": {
+							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
+						},
 					},
 				},
 			},
@@ -818,6 +822,10 @@ var (
 							case "out_ip":
 
 								return []uint8(out.OutIp), true
+
+							case "out_str_map":
+
+								return out.OutStrMap, true
 
 							default:
 								return nil, false

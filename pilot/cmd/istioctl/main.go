@@ -399,6 +399,7 @@ and destination policies.
 					err = otherClient.Delete().
 						Namespace(config.Namespace).
 						Resource(resource.Name).
+						Name(config.Name).
 						Do().
 						Error()
 					if err != nil {
@@ -626,6 +627,8 @@ func newClient() (*crd.Client, error) {
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
+		model.EndUserAuthenticationPolicySpec,
+		model.EndUserAuthenticationPolicySpecBinding,
 	}, "")
 }
 

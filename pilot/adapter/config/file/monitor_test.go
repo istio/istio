@@ -15,7 +15,6 @@
 package file_test
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path"
@@ -58,12 +57,10 @@ type event struct {
 }
 
 type controllerManager struct {
-	controller     model.ConfigStoreCache
-	controllerStop chan struct{}
+	controller model.ConfigStoreCache
 }
 
-func (cm *controllerManager) setup(events chan event) {
-	cm.controllerStop = make(chan struct{})
+func (cm *controllerManager) setup(events chan event, stop chan struct{}) {
 	store := memory.Make(model.IstioConfigTypes)
 	cm.controller = memory.NewBufferedController(store, 100)
 
@@ -78,17 +75,12 @@ func (cm *controllerManager) setup(events chan event) {
 	}
 
 	// Run the controller.
-	go cm.controller.Run(cm.controllerStop)
-}
-
-func (cm *controllerManager) teardown() {
-	close(cm.controllerStop)
+	go cm.controller.Run(stop)
 }
 
 type env struct {
+	stop              chan struct{}
 	controllerManager controllerManager
-	monitorCtx        context.Context
-	monitorCancel     context.CancelFunc
 	events            chan event
 	fsroot            string
 	monitor           *file.Monitor
@@ -96,22 +88,23 @@ type env struct {
 
 func (e *env) setup(tempDir string) {
 	e.events = make(chan event)
+	e.stop = make(chan struct{})
 
 	// Create and setup the controller.
 	e.controllerManager = controllerManager{}
-	e.controllerManager.setup(e.events)
+	e.controllerManager.setup(e.events, e.stop)
 
-	e.monitorCtx, e.monitorCancel = context.WithCancel(context.Background())
 	e.fsroot = tempDir
 
 	// Make all of the updates go through the controller so that the events are triggered.
 	e.monitor = file.NewMonitor(e.controllerManager.controller, e.fsroot, nil)
-	e.monitor.Start(e.monitorCtx)
+
+	// Start the monitor. This will immediately check fsroot and update the controller accordingly.
+	e.monitor.Start(e.stop)
 }
 
 func (e *env) teardown() {
-	e.monitorCancel()
-	e.controllerManager.teardown()
+	close(e.stop)
 
 	// Remove the temp dir.
 	os.RemoveAll(e.fsroot)

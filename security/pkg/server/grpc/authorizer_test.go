@@ -53,7 +53,64 @@ func TestSameIDAuthroizer(t *testing.T) {
 	}
 }
 
-func TestRegistryAuthorizer(t *testing.T) {
+func TestRegistryAuthorizerWithJWT(t *testing.T) {
+	idRequestor := &caller{
+		authSource: authSourceIDToken,
+		identities: []string{"id"},
+	}
+	certRequestor := &caller{
+		authSource: authSourceClientCertificate,
+		identities: []string{"spiffe://id", "spiffe://id2"},
+	}
+	requestedIDs := []string{"spiffe://id", "spiffe://id2"}
+
+	testCases := map[string]struct {
+		requestor    *caller
+		requestedIDs []string
+		authorizor   *registryAuthorizor
+		expectedErr  string
+	}{
+		"Unauthorized with empty mapping": {
+			requestor:    idRequestor,
+			requestedIDs: requestedIDs,
+			authorizor:   &registryAuthorizor{&registry.IdentityRegistry{Map: make(map[string]string)}},
+			expectedErr:  "the requestor (&{1 [id]}) is not registered",
+		},
+		"Authorized with one mapping": {
+			requestor:    idRequestor,
+			requestedIDs: requestedIDs,
+			authorizor: &registryAuthorizor{&registry.IdentityRegistry{
+				Map: map[string]string{"id": "id"},
+			}},
+		},
+		"Authorized cert with one mapping": {
+			requestor:    certRequestor,
+			requestedIDs: requestedIDs,
+			authorizor: func() *registryAuthorizor {
+				authz := &registryAuthorizor{&registry.IdentityRegistry{
+					Map: map[string]string{"id": "id"},
+				}}
+				authz.authorize(idRequestor, requestedIDs)
+				return authz
+			}(),
+		},
+	}
+
+	for id, c := range testCases {
+		err := c.authorizor.authorize(c.requestor, c.requestedIDs)
+		if c.expectedErr != "" {
+			if err == nil {
+				t.Errorf("%s: succeeded. Error expected: %v", id, err)
+			} else if err.Error() != c.expectedErr {
+				t.Errorf("%s: incorrect error message: expected %s, actual %s", id, c.expectedErr, err.Error())
+			}
+		} else if err != nil {
+			t.Errorf("%s: unexpected error: %v", id, err)
+		}
+	}
+}
+
+func TestRegistryAuthorizerWithClientCertificate(t *testing.T) {
 	testCases := map[string]struct {
 		callerIDs    []string
 		requestedIDs []string

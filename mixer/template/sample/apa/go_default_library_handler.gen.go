@@ -72,6 +72,8 @@ type Output struct {
 	Email adapter.EmailAddress
 
 	OutIp net.IP
+
+	OutStrMap map[string]string
 }
 
 type Resource1 struct {

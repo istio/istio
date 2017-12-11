@@ -18,12 +18,15 @@ import (
 	"context"
 	"io"
 	"log"
-	"os"
+	"strconv"
 	"testing"
+
+	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	testEnv "istio.io/istio/mixer/pkg/mock"
+	"istio.io/istio/mixer/pkg/attribute"
+	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
@@ -142,48 +145,58 @@ func TestReport(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		configDir := GetCfgs(tt.cfg, globalCfg)
-		defer func() {
-			if !t.Failed() {
-				_ = os.RemoveAll(configDir)
-			} else {
-				t.Logf("The configs are located at %s", configDir)
+
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
+
+			args := testEnv.NewArgs()
+			args.APIPort = 0
+			args.MonitoringPort = 0
+			args.ConfigAPIPort = 0
+			args.Templates = e2eTmpl.SupportedTmplInfo
+			args.Adapters = adapterInfos
+			args.GlobalConfig = globalCfg
+			args.ServiceConfig = tt.cfg
+
+			env, err := testEnv.New(args)
+			if err != nil {
+				t.Fatalf("fail to create mixer: %v", err)
 			}
-		}() // nolint: gas
 
-		var args = testEnv.Args{
-			// Start Mixer server on a free port on loop back interface
-			MixerServerAddr:               `127.0.0.1:0`,
-			ConfigStoreURL:                `fs://` + configDir,
-			ConfigStore2URL:               `fs://` + configDir,
-			ConfigDefaultNamespace:        "istio-system",
-			ConfigIdentityAttribute:       "destination.service",
-			ConfigIdentityAttributeDomain: "svc.cluster.local",
-		}
+			env.Run()
 
-		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
-		env, err := testEnv.NewServer(&args, e2eTmpl.SupportedTmplInfo, adapterInfos)
-		if err != nil {
-			t.Fatalf("fail to create mock: %v", err)
-		}
+			defer closeHelper(env)
 
-		defer closeHelper(env)
+			conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+			if err != nil {
+				t.Fatalf("Unable to connect to gRPC server: %v", err)
+			}
 
-		client, conn, err := env.CreateClient()
-		if err != nil {
-			t.Fatalf("fail to create client connection: %v", err)
-		}
-		defer closeHelper(conn)
+			client := istio_mixer_v1.NewMixerClient(conn)
+			defer closeHelper(conn)
 
-		req := istio_mixer_v1.ReportRequest{
-			Attributes: []istio_mixer_v1.CompressedAttributes{
-				testEnv.GetAttrBag(tt.attrs,
-					args.ConfigIdentityAttribute,
-					args.ConfigIdentityAttributeDomain)},
-		}
-		_, err = client.Report(context.Background(), &req)
+			req := istio_mixer_v1.ReportRequest{
+				Attributes: []istio_mixer_v1.CompressedAttributes{
+					GetAttrBag(tt.attrs,
+						args.ConfigIdentityAttribute,
+						args.ConfigIdentityAttributeDomain)},
+			}
+			_, err = client.Report(context.Background(), &req)
 
-		tt.validate(t, err, spyAdapters)
+			tt.validate(t, err, spyAdapters)
+		})
 	}
+}
+
+func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
 }

@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -1657,6 +1658,204 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 	for _, c := range cases {
 		if got := ValidateQuotaSpecBinding(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpec(t *testing.T) {
+	var (
+	//
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no jwt",
+			in:   &mccpb.EndUserAuthenticationPolicySpec{Jwts: []*mccpb.JWT{}},
+		},
+		{
+			name: "invalid issuer",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid audiences",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{""},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "missing jwks_uri",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri with missing scheme",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri invalid url",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                ":foo",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid duration",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:    "https://issuer.example.com",
+					Audiences: []string{"audience_foo.example.com"},
+					JwksUri:   "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: &types.Duration{
+						Seconds: -1,
+					},
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid location header",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Header{}}},
+				}},
+			},
+		},
+		{
+			name: "invalid location query",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Query{}}},
+				}},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpec(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpecBinding(t *testing.T) {
+	var (
+		validEndUserAuthenticationPolicySpecRef   = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "bar"}
+		invalidEndUserAuthenticationPolicySpecRef = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "--bar"}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "invalid service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{invalidService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "no spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{},
+			},
+		},
+		{
+			name: "invalid spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{invalidEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpecBinding(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
 }

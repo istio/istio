@@ -357,6 +357,37 @@ var (
 		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route-v1alpha2.yaml.golden",
 	}
+
+	// mixerclient service configuration
+	mixerclientAPISpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpec.Type, Name: "api-spec"},
+		file: "testdata/api-spec.yaml.golden",
+	}
+
+	mixerclientAPISpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpecBinding.Type, Name: "api-spec-binding"},
+		file: "testdata/api-spec-binding.yaml.golden",
+	}
+
+	mixerclientQuotaSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpec.Type, Name: "quota-spec"},
+		file: "testdata/quota-spec.yaml.golden",
+	}
+
+	mixerclientQuotaSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpecBinding.Type, Name: "quota-spec-binding"},
+		file: "testdata/quota-spec-binding.yaml.golden",
+	}
+
+	mixerclientAuthSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpec.Type, Name: "auth-spec"},
+		file: "testdata/auth-spec.yaml.golden",
+	}
+
+	mixerclientAuthSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
+		file: "testdata/auth-spec-binding.yaml.golden",
+	}
 )
 
 func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
@@ -491,3 +522,70 @@ func TestTruncateClusterName(t *testing.T) {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
 	}
 }
+<<<<<<< HEAD
+=======
+
+func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
+	cases := []struct {
+		in          string
+		wantAddress string
+		wantName    string
+		wantError   bool
+	}{
+		{
+			in:          "https://www.googleapis.com/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+		},
+		{
+			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+		},
+		{
+			in:          "http://example.com/oauth2/v1/certs",
+			wantAddress: "example.com:80",
+			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
+		},
+		{
+			in:        ":foo",
+			wantError: true,
+		},
+	}
+	for _, c := range cases {
+		gotName, gotAddress, gotError := buildJWKSURIClusterNameAndAddress(c.in)
+		if c.wantError != (gotError != nil) {
+			t.Errorf("%s returned unexpected error: want %v got %v: %v",
+				c.in, c.wantError, gotError != nil, gotError)
+		} else {
+			if gotAddress != c.wantAddress {
+				t.Errorf("%s: gotAddress %v wantAddress %v", c.in, gotAddress, c.wantAddress)
+			}
+			if gotName != c.wantName {
+				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
+			}
+		}
+	}
+}
+
+/*
+var (
+	ingressCertFile = "testdata/tls.crt"
+	ingressKeyFile  = "testdata/tls.key"
+)
+
+func compareFile(filename string, golden []byte, t *testing.T) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Error loading %s: %s", filename, err.Error())
+	}
+	if string(content) != string(golden) {
+		t.Errorf("Failed validating file %s, got %s", filename, string(content))
+	}
+	err = os.Remove(filename)
+	if err != nil {
+		t.Errorf("Failed cleaning up temporary file %s", filename)
+	}
+}
+*/
+>>>>>>> 96cba105a3c4265499f87f5b727c90e0c1d2686c

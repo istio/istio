@@ -29,7 +29,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 	var hp uint32
 
 	strings := in.program.Strings()
-	body := in.code
+	body := in.program.ByteCode()
 
 	var code uint32
 	var t1 uint32
