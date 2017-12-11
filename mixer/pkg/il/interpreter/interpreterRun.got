@@ -119,7 +119,7 @@ func (in *Interpreter) run(fn *il.Function, bag attribute.Bag, step bool) (Resul
 
 	// Initialize locals
 	strings := in.program.Strings()
-	body := in.code
+	body := in.program.ByteCode()
 
 	// Temporaries
 	var code uint32

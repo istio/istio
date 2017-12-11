@@ -27,6 +27,71 @@ import (
 	"istio.io/istio/mixer/pkg/il"
 )
 
+// Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
+// compilation of expressions.
+type Compiler struct {
+	program   *il.Program
+	finder    expr.AttributeDescriptorFinder
+	functions map[string]expr.FunctionMetadata
+
+	nextFnID int
+}
+
+// New returns a new compiler instance.
+func New(finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) *Compiler {
+	return &Compiler{
+		finder:    finder,
+		program:   il.NewProgram(),
+		functions: functions,
+		nextFnID:  0,
+	}
+}
+
+// CompileExpression creates a new parameterless IL function, using the given expression text as its body. Upon success,
+// it returns the id of the generated function.
+func (c *Compiler) CompileExpression(text string) (uint32, error) {
+	expression, err := expr.Parse(text)
+	if err != nil {
+		return 0, err
+	}
+
+	exprType, err := expression.EvalType(c.finder, c.functions)
+	if err != nil {
+		return 0, err
+	}
+
+	g := generator{
+		program:   c.program,
+		builder:   il.NewBuilder(c.program.Strings()),
+		finder:    c.finder,
+		functions: c.functions,
+	}
+
+	returnType := g.toIlType(exprType)
+	g.generate(expression, 0, nmNone, "")
+	if g.err != nil {
+		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		return 0, g.err
+	}
+	g.builder.Ret()
+
+	body := g.builder.Build()
+
+	name := fmt.Sprintf("$expression%d", c.nextFnID)
+	c.nextFnID++
+
+	if err = g.program.AddFunction(name, []il.Type{}, returnType, body); err != nil {
+		return 0, err
+	}
+
+	return g.program.Functions.IDOf(name), nil
+}
+
+// Program returns the program instance that is being built by this compiler.
+func (c *Compiler) Program() *il.Program {
+	return c.program
+}
+
 type generator struct {
 	program   *il.Program
 	builder   *il.Builder
@@ -58,17 +123,21 @@ type Result struct {
 }
 
 // Compile converts the given expression text, into an IL based program.
-func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) (Result, error) {
+func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[string]expr.FunctionMetadata) (*il.Program, error) {
+	// TODO: This function should either be eliminated entirely, or use the Compiler struct, once we switch over to
+	// to using compiled expressions. Keeping this here in its current form to avoid generation of excessive garbage
+	// in the request path.
+
 	p := il.NewProgram()
 
 	expression, err := expr.Parse(text)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	exprType, err := expression.EvalType(finder, functions)
 	if err != nil {
-		return Result{}, err
+		return nil, err
 	}
 
 	g := generator{
@@ -82,20 +151,17 @@ func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[s
 	g.generate(expression, 0, nmNone, "")
 	if g.err != nil {
 		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
-		return Result{}, g.err
+		return nil, g.err
 	}
 
 	g.builder.Ret()
 	body := g.builder.Build()
 	if err = g.program.AddFunction("eval", []il.Type{}, returnType, body); err != nil {
 		g.internalError(err.Error())
-		return Result{}, err
+		return nil, err
 	}
 
-	return Result{
-		Program:    p,
-		Expression: expression,
-	}, nil
+	return p, nil
 }
 
 func (g *generator) toIlType(t dpb.ValueType) il.Type {
