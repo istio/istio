@@ -16,6 +16,7 @@ MIXER_INPUTS = [
 MIXER_IMPORT_MAP = {
     "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
     "mixer/v1/template/extensions.proto": "istio.io/api/mixer/v1/template",
+    "mixer/v1/template/standard_types.proto": "istio.io/api/mixer/v1/template",
 }
 
 # TODO: develop better approach to import management.

@@ -24,10 +24,10 @@ const (
 	Float64
 	Bool
 	Time
-	Duration
-	IPAddress
-	EmailAddress
-	URI
-	DNSName
+	DurationLegacy
+	IPAddressLegacy
+	EmailAddressLegacy
+	URILegacy
+	DNSNameLegacy
 	StringMap
 )

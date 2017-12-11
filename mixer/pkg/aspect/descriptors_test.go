@@ -35,11 +35,11 @@ func TestFromPbType(t *testing.T) {
 		{dpb.DOUBLE, adapter.Float64, ""},
 		{dpb.BOOL, adapter.Bool, ""},
 		{dpb.TIMESTAMP, adapter.Time, ""},
-		{dpb.IP_ADDRESS, adapter.IPAddress, ""},
-		{dpb.EMAIL_ADDRESS, adapter.EmailAddress, ""},
-		{dpb.URI, adapter.URI, ""},
-		{dpb.DNS_NAME, adapter.DNSName, ""},
-		{dpb.DURATION, adapter.Duration, ""},
+		{dpb.IP_ADDRESS, adapter.IPAddressLegacy, ""},
+		{dpb.EMAIL_ADDRESS, adapter.EmailAddressLegacy, ""},
+		{dpb.URI, adapter.URILegacy, ""},
+		{dpb.DNS_NAME, adapter.DNSNameLegacy, ""},
+		{dpb.DURATION, adapter.DurationLegacy, ""},
 		{dpb.STRING_MAP, adapter.StringMap, ""},
 	}
 	for idx, c := range cases {

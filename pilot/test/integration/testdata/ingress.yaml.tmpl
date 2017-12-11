@@ -41,6 +41,14 @@ spec:
         backend:
           serviceName: b
           servicePort: 80
+      - path: /.well_known/foo
+        backend:
+            serviceName: a
+            servicePort: 80
+      - path: /io.grpc/method
+        backend:
+            serviceName: a
+            servicePort: 80
       - path: /c
         backend:
           serviceName: c

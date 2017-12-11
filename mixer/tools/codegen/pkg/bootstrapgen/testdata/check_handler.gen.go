@@ -18,6 +18,7 @@ package istio_mixer_template_list
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
@@ -84,6 +85,18 @@ type Res2 struct {
 	Dimensions map[string]interface{}
 
 	Int64Primitive int64
+
+	TimeStamp time.Time
+
+	Duration time.Duration
+
+	IpAddr net.IP
+
+	DnsName adapter.DNSName
+
+	EmailAddr adapter.EmailAddress
+
+	Uri adapter.URI
 }
 
 // HandlerBuilder must be implemented by adapters if they want to

@@ -77,8 +77,6 @@ fi
 GCS_PATH="gs://${GCS_PREFIX}"
 GCR_PATH="gcr.io/${GCR_PREFIX}"
 
-gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"
-
 if [[ "${PUSH_DOCKER}" == "true" ]]; then
   for TAR_PATH in ${OUTPUT_PATH}/docker/*.tar
   do
@@ -89,8 +87,11 @@ if [[ "${PUSH_DOCKER}" == "true" ]]; then
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       break
     fi
-    docker load -i "${TAR_PATH}"
+    gzip "${TAR_PATH}"
+    docker load -i "${TAR_PATH}.gz"
     docker tag "${IMAGE_NAME}" "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
     gcloud docker -- push "${GCR_PATH}/${IMAGE_NAME}:${VER_STRING}"
   done
 fi
+
+gsutil -m cp -r "${OUTPUT_PATH}/*" "${GCS_PATH}/"

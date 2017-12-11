@@ -14,6 +14,7 @@ go_library(
         "//mixer/pkg/config:go_default_library",
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/expr:go_default_library",
+        "//mixer/pkg/il:go_default_library",
         "//mixer/pkg/il/compiler:go_default_library",
         "//mixer/pkg/il/interpreter:go_default_library",
         "//mixer/pkg/il/runtime:go_default_library",
@@ -28,6 +29,7 @@ go_test(
     size = "medium",
     srcs = [
         "checker_test.go",
+        "evaluatorBenchmark_test.go",
         "evaluator_test.go",
     ],
     library = ":go_default_library",
