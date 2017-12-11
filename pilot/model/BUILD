@@ -40,6 +40,7 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//pilot/model/test:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
