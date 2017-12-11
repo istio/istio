@@ -18,6 +18,7 @@ package envoy
 
 import (
 	"net"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -142,9 +143,7 @@ func buildMixerOpaqueConfig(check, forward bool, destinationService string) map[
 
 // Mixer filter uses outbound configuration by default (forward attributes,
 // but not invoke check calls)
-func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance,
-	config model.IstioConfigStore) *FilterMixerConfig {
-
+func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, config model.IstioConfigStore) *FilterMixerConfig { // nolint: lll
 	filter := &FilterMixerConfig{
 		MixerAttributes: map[string]string{
 			AttrDestinationIP:  role.IPAddress,
@@ -214,6 +213,31 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance,
 			sc.QuotaSpec = append(sc.QuotaSpec, config.Spec.(*mccpb.QuotaSpec))
 		}
 
+		authSpecs := config.EndUserAuthenticationPolicySpecByDestination(instance)
+		model.SortEndUserAuthenticationPolicySpec(quotaSpecs)
+		if len(authSpecs) > 0 {
+			spec := (authSpecs[0].Spec).(*mccpb.EndUserAuthenticationPolicySpec)
+
+			// Update jwks_uri_envoy_cluster This cluster should be
+			// created elsewhere using the same host-to-cluster naming
+			// scheme, i.e. buildJWKSURIClusterNameAndAddress.
+			for _, jwt := range spec.Jwts {
+				if name, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+					glog.Warningf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
+						jwt.JwksUri, err)
+				} else {
+					jwt.JwksUriEnvoyCluster = name
+				}
+			}
+
+			sc.EndUserAuthnSpec = spec
+			if len(authSpecs) > 1 {
+				// TODO - validation should catch this problem earlier at config time.
+				glog.Warningf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
+					instance.Service, spec)
+			}
+		}
+
 		v2.ServiceConfigs[instance.Service.Hostname] = sc
 	}
 
@@ -249,4 +273,66 @@ func mixerTCPConfig(role proxy.Node, check bool, instance *model.ServiceInstance
 
 	}
 	return filter
+}
+
+const (
+	// OutboundJWTURIClusterPrefix is the prefix for jwt_uri service
+	// clusters external to the proxy instance
+	OutboundJWTURIClusterPrefix = "jwt."
+)
+
+// buildJWKSURIClusterNameAndAddress builds the internal envoy cluster
+// name and DNS address from the jwks_uri. The cluster name is used by
+// the JWT auth filter to fetch public keys. The cluster name and
+// address are used to build an envoy cluster that corresponds to the
+// jwks_uri server.
+func buildJWKSURIClusterNameAndAddress(raw string) (string, string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", "", err
+	}
+
+	host := u.Hostname()
+	port := u.Port()
+	if port == "" {
+		if u.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	address := host + ":" + port
+	name := host + "|" + port
+
+	return truncateClusterName(OutboundJWTURIClusterPrefix + name), address, nil
+}
+
+// buildMixerAuthFilterClusters builds the necessary clusters for the
+// JWT auth filter to fetch public keys from the specified jwks_uri.
+func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, instances []*model.ServiceInstance) Clusters {
+	var clusters Clusters
+	jwksUris := map[string]string{}
+	for _, instance := range instances {
+		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
+			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
+				if name, address, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+					glog.Warningf("Could not build envoy cluster and address from jwks_uri %q: %v",
+						jwt.JwksUri, err)
+				} else {
+					jwksUris[address] = name
+				}
+			}
+		}
+	}
+	for address, name := range jwksUris {
+		cluster := buildCluster(address, name, mesh.ConnectTimeout)
+		cluster.CircuitBreaker = &CircuitBreaker{
+			Default: DefaultCBPriority{
+				MaxPendingRequests: 10000,
+				MaxRequests:        10000,
+			},
+		}
+		clusters = append(clusters, cluster)
+	}
+	return clusters
 }
