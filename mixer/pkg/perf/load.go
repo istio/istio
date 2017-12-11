@@ -90,22 +90,21 @@ func (l *Load) UnmarshalJSON(bytes []byte) error {
 		var rtmp struct {
 			Type string `json:"type"`
 		}
-		err := json.Unmarshal(raw, &rtmp)
-		if err != nil {
+		if err := json.Unmarshal(raw, &rtmp); err != nil {
 			return err
 		}
 
 		switch rtmp.Type {
 		case "basicReport":
 			var r BasicReport
-			if err = json.Unmarshal(raw, &r); err != nil {
+			if err := json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
 			l.Requests[i] = &r
 
 		case "basicCheck":
 			var r BasicCheck
-			if err = json.Unmarshal(raw, &r); err != nil {
+			if err := json.Unmarshal(raw, &r); err != nil {
 				return err
 			}
 			l.Requests[i] = &r

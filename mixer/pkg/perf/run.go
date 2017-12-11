@@ -87,8 +87,7 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 
 	if coprocess {
 		var exeName string
-		exeName, err = locatePerfClientProcess(executablePathSuffix)
-		if err != nil {
+		if exeName, err = locatePerfClientProcess(executablePathSuffix); err != nil {
 			b.fatalf("Unable to locate perf mixer")
 			return
 		}

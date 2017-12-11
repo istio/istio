@@ -86,8 +86,7 @@ func (s *ClientServer) registerWithController(controllerLoc ServiceLocation) err
 func (s *ClientServer) initializeRPCServer() error {
 	// Setup ClientServer's rpc rpcServer first. We will publish this to the controller next.
 	var err error
-	s.listener, err = net.Listen("tcp", "127.0.0.1:")
-	if err != nil {
+	if s.listener, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
 		return err
 	}
 

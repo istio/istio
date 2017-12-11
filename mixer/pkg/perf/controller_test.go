@@ -31,20 +31,19 @@ func TestControllerBasic(t *testing.T) {
 
 	c.waitForClient()
 
-	err = c.initializeClients("10.10.10.10", &Setup{})
-	if err != nil {
+	if err = c.initializeClients("10.10.10.10", &Setup{}); err != nil {
 		t.Fatalf("Initialization failed: %v", err)
 	}
-	err = c.runClients(10)
-	if err != nil {
+
+	if err = c.runClients(10); err != nil {
 		t.Fatalf("run failed.")
 	}
-	err = c.runClients(50)
-	if err != nil {
+
+	if err = c.runClients(50); err != nil {
 		t.Fatalf("run failed")
 	}
-	err = c.close()
-	if err != nil {
+
+	if err = c.close(); err != nil {
 		t.Fatalf("Error: %v", err)
 	}
 
@@ -53,8 +52,8 @@ func TestControllerBasic(t *testing.T) {
 
 func TestAgent_NoController(t *testing.T) {
 	l := ServiceLocation{Address: "127.0.0.1:34829", Path: "/foo"}
-	_, err := NewClientServer(l)
-	if err == nil {
+
+	if _, err := NewClientServer(l); err == nil {
 		t.Fail()
 	}
 }

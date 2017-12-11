@@ -183,8 +183,7 @@ func TestRoundtrip(t *testing.T) {
 		name := fmt.Sprintf("%d", i)
 		t.Run(name, func(tt *testing.T) {
 			var actual Setup
-			err := unmarshallSetup([]byte(test.yaml), &actual)
-			if err != nil {
+			if err := unmarshallSetup([]byte(test.yaml), &actual); err != nil {
 				tt.Fatalf("Unexpected error: %v", err)
 			}
 			actualBytes, err := marshallSetup(&actual)
@@ -208,8 +207,7 @@ func TestMarshallRequestError(t *testing.T) {
 		},
 	}
 
-	_, err := l.MarshalJSON()
-	if err == nil {
+	if _, err := l.MarshalJSON(); err == nil {
 		t.Fatal("expected error was not thrown")
 	}
 }
@@ -245,10 +243,7 @@ load:
 	for i, config := range configs {
 		var setup Setup
 		t.Run(fmt.Sprintf("%d", i), func(tt *testing.T) {
-			err := unmarshallSetup([]byte(config), &setup)
-			//tt.Log(err.Error())
-			//tt.Fail()
-			if err == nil {
+			if err := unmarshallSetup([]byte(config), &setup); err == nil {
 				tt.Fatal("expected error was not thrown")
 			}
 		})
@@ -263,8 +258,7 @@ func TestReportMarshal_Error(t *testing.T) {
 		},
 	}
 
-	_, err := r.MarshalJSON()
-	if err == nil {
+	if _, err := r.MarshalJSON(); err == nil {
 		t.Fail()
 	}
 }
