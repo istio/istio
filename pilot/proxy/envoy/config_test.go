@@ -522,8 +522,6 @@ func TestTruncateClusterName(t *testing.T) {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
 	}
 }
-<<<<<<< HEAD
-=======
 
 func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
 	cases := []struct {
@@ -588,4 +586,3 @@ func compareFile(filename string, golden []byte, t *testing.T) {
 	}
 }
 */
->>>>>>> 96cba105a3c4265499f87f5b727c90e0c1d2686c
