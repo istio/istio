@@ -24,9 +24,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
+
+	"net"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
@@ -211,11 +213,11 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
-	serviceHandler := func(s *model.Service, e model.Event) { out.clearCache() }
+	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
 	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
 		return nil, err
 	}
-	instanceHandler := func(s *model.ServiceInstance, e model.Event) { out.clearCache() }
+	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
 	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
 		return nil, err
 	}
@@ -309,12 +311,38 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	container.Add(ws)
 }
 
-// Run starts the server and blocks
-func (ds *DiscoveryService) Run() {
+// Start starts the Pilot discovery service on the port specified in DiscoveryServiceOptions. If Port == 0, a
+// port number is automatically chosen. This method returns the address on which the server is listening for incoming
+// connections. Content serving is started by this method, but is executed asynchronously. Serving can be cancelled
+// at any time by closing the provided stop channel.
+func (ds *DiscoveryService) Start(stop chan struct{}) (net.Addr, error) {
 	glog.Infof("Starting discovery service at %v", ds.server.Addr)
-	if err := ds.server.ListenAndServe(); err != nil {
-		glog.Warning(err)
+
+	addr := ds.server.Addr
+	if addr == "" {
+		addr = ":http"
 	}
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		go func() {
+			if err := ds.server.Serve(listener); err != nil {
+				glog.Warning(err)
+			}
+		}()
+
+		// Wait for the stop notification and shutdown the server.
+		<-stop
+		err := ds.server.Close()
+		if err != nil {
+			glog.Warning(err)
+		}
+	}()
+
+	return listener.Addr(), nil
 }
 
 // GetCacheStats returns the statistics for cached discovery responses.
@@ -354,7 +382,7 @@ func (ds *DiscoveryService) clearCache() {
 }
 
 // ListAllEndpoints responds with all Services and is not restricted to a single service-key
-func (ds *DiscoveryService) ListAllEndpoints(request *restful.Request, response *restful.Response) {
+func (ds *DiscoveryService) ListAllEndpoints(_ *restful.Request, response *restful.Response) {
 	services := make([]*keyAndService, 0)
 
 	svcs, err := ds.Services()
