@@ -15,7 +15,9 @@
 package ilt
 
 import (
+	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	pbv "istio.io/api/mixer/v1/config/descriptor"
@@ -33,6 +35,83 @@ var t2, _ = time.Parse(time.RFC3339, "2015-01-02T15:04:34Z")
 // TestData contains the common set of tests that is used by various components of il.
 var TestData = []TestInfo{
 
+	// Benchmark test cases
+	{
+		name:  `ExprBench/ok_1st`,
+		Bench: true,
+		E:     `ai == 20 || ar["foo"] == "bar"`,
+		I: map[string]interface{}{
+			"ai": int64(20),
+			"ar": map[string]string{
+				"foo": "bar",
+			},
+		},
+		R: true,
+		IL: `
+ fn eval() bool
+  resolve_i "ai"
+  aeq_i 20
+  jz L0
+  apush_b true
+  ret
+L0:
+  resolve_f "ar"
+  anlookup "foo"
+  aeq_s "bar"
+  ret
+end`,
+	},
+	{
+		name:  `ExprBench/ok_2nd`,
+		Bench: true,
+		E:     `ai == 20 || ar["foo"] == "bar"`,
+		I: map[string]interface{}{
+			"ai": int64(2),
+			"ar": map[string]string{
+				"foo": "bar",
+			},
+		},
+		R: true,
+		IL: `
+ fn eval() bool
+  resolve_i "ai"
+  aeq_i 20
+  jz L0
+  apush_b true
+  ret
+L0:
+  resolve_f "ar"
+  anlookup "foo"
+  aeq_s "bar"
+  ret
+end`,
+	},
+	{
+		name:  `ExprBench/not_found`,
+		Bench: true,
+		E:     `ai == 20 || ar["foo"] == "bar"`,
+		I: map[string]interface{}{
+			"ai": int64(2),
+			"ar": map[string]string{
+				"foo": "baz",
+			},
+		},
+		R: false,
+		IL: `
+ fn eval() bool
+  resolve_i "ai"
+  aeq_i 20
+  jz L0
+  apush_b true
+  ret
+L0:
+  resolve_f "ar"
+  anlookup "foo"
+  aeq_s "bar"
+  ret
+end`,
+	},
+
 	// Tests from expr/eval_test.go TestGoodEval
 	{
 		E: `a == 2`,
@@ -40,7 +119,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `a != 2`,
@@ -48,7 +127,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    false,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `a != 2`,
@@ -57,7 +136,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: "2 != a",
@@ -66,7 +145,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: "a ",
@@ -74,7 +153,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    int64(2),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 
 	// Compilation Error due to type mismatch
@@ -85,7 +164,7 @@ var TestData = []TestInfo{
 		},
 		R:          false,
 		CompileErr: "EQ(true, $a) arg 2 ($a) typeError got INT64, expected BOOL",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 
 	// Compilation Error due to type mismatch
@@ -96,7 +175,7 @@ var TestData = []TestInfo{
 		},
 		R:          false,
 		CompileErr: "EQ(3.14, $a) arg 2 ($a) typeError got INT64, expected DOUBLE",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 
 	{
@@ -105,7 +184,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    int64(2),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.user == "user1"`,
@@ -113,7 +192,7 @@ var TestData = []TestInfo{
 			"request.user": "user1",
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.user2| request.user | "user1"`,
@@ -121,7 +200,7 @@ var TestData = []TestInfo{
 			"request.user": "user2",
 		},
 		R:    "user2",
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.user2| request.user3 | "user1"`,
@@ -129,7 +208,7 @@ var TestData = []TestInfo{
 			"request.user": "user2",
 		},
 		R:    "user1",
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.size| 200`,
@@ -137,7 +216,7 @@ var TestData = []TestInfo{
 			"request.size": int64(120),
 		},
 		R:    int64(120),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.size| 200`,
@@ -145,7 +224,7 @@ var TestData = []TestInfo{
 			"request.size": int64(0),
 		},
 		R:    int64(0),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.size| 200`,
@@ -153,7 +232,7 @@ var TestData = []TestInfo{
 			"request.size1": int64(0),
 		},
 		R:    int64(200),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `(x == 20 && y == 10) || x == 30`,
@@ -162,7 +241,7 @@ var TestData = []TestInfo{
 			"y": int64(10),
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `x == 20 && y == 10`,
@@ -172,7 +251,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'x'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, "*.ns1.cluster") && service.user == "admin"`,
@@ -181,13 +260,13 @@ var TestData = []TestInfo{
 			"service.user": "admin",
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
 		I:    map[string]interface{}{},
 		R:    false,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `( origin.name | "unknown" ) == "users"`,
@@ -195,7 +274,7 @@ var TestData = []TestInfo{
 			"origin.name": "users",
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.header["user"] | "unknown"`,
@@ -205,13 +284,13 @@ var TestData = []TestInfo{
 			},
 		},
 		R:    "unknown",
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `origin.name | "users"`,
 		I:    map[string]interface{}{},
 		R:    "users",
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `(x/y) == 30`,
@@ -221,7 +300,7 @@ var TestData = []TestInfo{
 		},
 		CompileErr: "unknown function: QUO",
 		AstErr:     "unknown function: QUO",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.header["X-FORWARDED-HOST"] == "aaa"`,
@@ -231,7 +310,7 @@ var TestData = []TestInfo{
 			},
 		},
 		R:    false,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.header["X-FORWARDED-HOST"] == "aaa"`,
@@ -242,7 +321,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'request.header'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.header[headername] == "aaa"`,
@@ -253,7 +332,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'headername'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.header[headername] == "aaa"`,
@@ -264,7 +343,7 @@ var TestData = []TestInfo{
 			"headername": "X-FORWARDED-HOST",
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, "*.ns1.cluster")`,
@@ -272,7 +351,7 @@ var TestData = []TestInfo{
 			"service.name": "svc1.ns1.cluster",
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, "*.ns1.cluster")`,
@@ -280,7 +359,7 @@ var TestData = []TestInfo{
 			"service.name": "svc1.ns2.cluster",
 		},
 		R:    false,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, "*.ns1.cluster")`,
@@ -289,7 +368,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "error converting value to string: '20'", // runtime error
 		AstErr: "input 'str' to 'match' func was not a string",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, servicename)`,
@@ -299,7 +378,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'service.name'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, servicename)`,
@@ -308,7 +387,7 @@ var TestData = []TestInfo{
 		},
 		Err:    "lookup failed: 'servicename'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `match(service.name, 1)`,
@@ -317,13 +396,13 @@ var TestData = []TestInfo{
 		},
 		CompileErr: "match($service.name, 1) arg 2 (1) typeError got INT64, expected STRING",
 		AstErr:     "input 'pattern' to 'match' func was not a string",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `target.ip| ip("10.1.12.3")`,
 		I:    map[string]interface{}{},
 		R:    []uint8(net.ParseIP("10.1.12.3")),
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `target.ip| ip(2)`,
@@ -332,20 +411,20 @@ var TestData = []TestInfo{
 		},
 		CompileErr: "ip(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'ip' func was not a string",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:      `target.ip| ip("10.1.12")`,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
 		AstErr: "could not convert '10.1.12' to IP_ADDRESS",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.time | timestamp("2015-01-02T15:04:35Z")`,
 		I:    map[string]interface{}{},
 		R:    t,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: `request.time | timestamp(2)`,
@@ -354,14 +433,14 @@ var TestData = []TestInfo{
 		},
 		CompileErr: "timestamp(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'timestamp' func was not a string",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:      `request.time | timestamp("242233")`,
 		I:      map[string]interface{}{},
 		Err:    "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 
 	// Tests from expr/eval_test.go TestCEXLEval
@@ -372,7 +451,7 @@ var TestData = []TestInfo{
 		},
 		CompileErr: "unable to parse expression 'a = 2': 1:3: expected '==', found '='",
 		AstErr:     "unable to parse",
-		Conf:       TestConfigs["Expr/Eval"],
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E: "a == 2",
@@ -380,7 +459,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: "a == 3",
@@ -388,7 +467,7 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    false,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E: "a == 2",
@@ -396,27 +475,27 @@ var TestData = []TestInfo{
 			"a": int64(2),
 		},
 		R:    true,
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E:      "a == 2",
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.user | "user1"`,
 		I:    map[string]interface{}{},
 		R:    "user1",
-		Conf: TestConfigs["Expr/Eval"],
+		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E:      "a == 2",
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		Conf:   TestConfigs["Expr/Eval"],
+		conf:   TestConfigs["Expr/Eval"],
 	},
 
 	// Tests from compiler/compiler_test.go
@@ -704,6 +783,11 @@ fn eval() bool
   resolve_b "ab"
   ret
 end`,
+	},
+	{
+		E:   `ab`,
+		Err: "lookup failed: 'ab'",
+		R:   true, // Keep the return type, so that the special-purpose methods can be tested.
 	},
 	{
 		E: `as`,
@@ -1819,6 +1903,9 @@ end`,
 // expression => IL conversion, interpreter can use IL and I, R&Err for evaluation
 // tests and the evaluator can use expression and I, R&Err to test evaluation.
 type TestInfo struct {
+	// name is the explicit name supplied for the test. If it is not supplied, then the expression will be used as name.
+	name string
+
 	// E contains the expression that is being tested.
 	E string
 
@@ -1842,7 +1929,7 @@ type TestInfo struct {
 
 	// Config field holds the GlobalConfig to use when compiling/evaluating the tests.
 	// If nil, then "Default" config will be used.
-	Conf *pb.GlobalConfig
+	conf *pb.GlobalConfig
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
 	Fns []expr.FunctionMetadata
@@ -1852,10 +1939,55 @@ type TestInfo struct {
 
 	// SkipAst indicates that AST based evaluator should not be used for this test.
 	SkipAst bool
+
+	// Use this test as a benchmark as well.
+	Bench bool
+}
+
+// TestName is the name to use for the test.
+func (t *TestInfo) TestName() string {
+	if t.name != "" {
+		return t.name
+	}
+
+	return t.E
+}
+
+// Conf returns the global config to use for the test.
+func (t *TestInfo) Conf() *pb.GlobalConfig {
+	if t.conf != nil {
+		return t.conf
+	}
+	return TestConfigs["Default"]
+}
+
+// CheckEvaluationResult compares the given evaluation result and error against the one that is declared in test.
+// Returns an error if there is a mismatch.
+func (t *TestInfo) CheckEvaluationResult(r interface{}, err error) error {
+	if t.Err != "" {
+		if err == nil {
+			return fmt.Errorf("expected error was not found: '%v'", t.Err)
+		}
+		if !strings.HasPrefix(err.Error(), t.Err) {
+			return fmt.Errorf("evaluation error mismatch: '%v' != '%v'", err.Error(), t.Err)
+		}
+
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("unexpected evaluation error: '%v'", err)
+	}
+
+	if !AreEqual(t.R, r) {
+		return fmt.Errorf("evaluation result mismatch: '%v' != '%v'", r, t.R)
+	}
+
+	return nil
 }
 
 // TestConfigs uses a standard set of configs to use when executing tests.
-var TestConfigs map[string]*pb.GlobalConfig = map[string]*pb.GlobalConfig{
+var TestConfigs = map[string]*pb.GlobalConfig{
 	"Expr/Eval": {
 		Manifests: []*pb.AttributeManifest{
 			{

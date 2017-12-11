@@ -17,11 +17,15 @@ package interpreter
 import (
 	"testing"
 
-	pbv "istio.io/api/mixer/v1/config/descriptor"
-	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/il/testing"
 	"istio.io/istio/mixer/pkg/il/text"
 )
+
+// 12/6/2017
+//BenchmarkIL/ExprBench/ok_1st-8         	10000000	       135 ns/op	       0 B/op	       0 allocs/op
+//BenchmarkIL/ExprBench/ok_2nd-8         	 5000000	       238 ns/op	      16 B/op	       1 allocs/op
+//BenchmarkIL/ExprBench/not_found-8      	 5000000	       239 ns/op	      16 B/op	       1 allocs/op
+//PASS
 
 // 5/17/2017
 //ozben-macbookpro2:intr ozben$ go test -run=^$  -bench=.  -benchmem
@@ -30,92 +34,13 @@ import (
 //BenchmarkInterpreter/ASTBenchmark/[a=20,_host="abcd]"-8        	10000000	       165 ns/op	       0 B/op	       0 allocs/op
 //PASS
 
-type benchmarkProgram struct {
-	name       string
-	expression string
-	code       string
-	config     pb.GlobalConfig
-}
+func BenchmarkInterpreter(b *testing.B) {
+	for _, test := range ilt.TestData {
+		if !test.Bench {
+			continue
+		}
 
-var programs = map[string]benchmarkProgram{
-
-	"ASTBenchmark": {
-		name:       "ASTBenchmark",
-		expression: `a == 20 || request.header["host"] == "abc"`,
-		config: pb.GlobalConfig{
-			Manifests: []*pb.AttributeManifest{
-				{
-					Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-						"a": {
-							ValueType: pbv.INT64,
-						},
-						"request.header": {
-							ValueType: pbv.STRING_MAP,
-						},
-					},
-				},
-			},
-		},
-		code: `
-fn eval() bool
-  resolve_i "a"
-  aeq_i 20
-  jz L0
-  apush_b true
-  ret
-L0:
-  resolve_f "request.header"
-  anlookup "host"
-  aeq_s "abc"
-  ret
-end`,
-	},
-}
-
-type benchmarkTest struct {
-	program benchmarkProgram
-	attrs   map[string]interface{}
-	result  interface{}
-}
-
-var interpreterBenchmarkTests = map[string]benchmarkTest{
-	`ExprBench/ok_1st`: {
-		program: programs["ASTBenchmark"],
-		attrs: map[string]interface{}{
-			"a": int64(20),
-			"request.header": map[string]string{
-				"host": "abc",
-			},
-		},
-		result: true,
-	},
-
-	`ExprBench/ok_2nd`: {
-		program: programs["ASTBenchmark"],
-		attrs: map[string]interface{}{
-			"a": int64(2),
-			"request.header": map[string]string{
-				"host": "abc",
-			},
-		},
-		result: true,
-	},
-
-	`ExprBench/not_found`: {
-		program: programs["ASTBenchmark"],
-		attrs: map[string]interface{}{
-			"a": int64(2),
-			"request.header": map[string]string{
-				"host": "abcd",
-			},
-		},
-		result: false,
-	},
-}
-
-func BenchmarkIL(b *testing.B) {
-	for n, bt := range interpreterBenchmarkTests {
-		p, err := text.ReadText(bt.program.code)
+		p, err := text.ReadText(test.IL)
 		if err != nil {
 			b.Fatalf("Unable to parse program text: %v", err)
 		}
@@ -124,19 +49,11 @@ func BenchmarkIL(b *testing.B) {
 			b.Fatal("function not found: 'eval'")
 		}
 
-		bg := ilt.NewFakeBag(bt.attrs)
+		bg := ilt.NewFakeBag(test.I)
 
 		in := New(p, map[string]Extern{})
 
-		r, e := in.EvalFnID(id, bg)
-		if e != nil {
-			b.Fatalf("evaluation failed: '%v'", e)
-		}
-		if r.AsInterface() != bt.result {
-			b.Fatalf("expected result not found: E:'%v' != A:'%v'", bt.result, r)
-		}
-
-		b.Run(n, func(bb *testing.B) {
+		b.Run(test.TestName(), func(bb *testing.B) {
 			for i := 0; i < bb.N; i++ {
 				_, _ = in.EvalFnID(id, bg)
 			}
