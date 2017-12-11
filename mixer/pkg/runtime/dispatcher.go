@@ -280,7 +280,6 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 // Preprocess runs the first phase of adapter processing before any other adapters are run.
 // Attribute producing adapters are run in this phase.
 func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
-
 	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
 		func(call *Action) []dispatchFn {
 			ra := make([]dispatchFn, 0, len(call.instanceConfig))

@@ -315,7 +315,6 @@ func (b *builder) Validate() (ce *adapter.ConfigErrors) {
 
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	ac := b.adapterConfig
-	env.Logger().Warningf("list-guptasu22233 ** trying local changes...")
 	h := &handler{
 		log:     env.Logger(),
 		closing: make(chan bool),

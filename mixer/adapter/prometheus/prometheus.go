@@ -99,7 +99,7 @@ func (b *builder) SetMetricTypes(map[string]*metric.Type) {}
 func (b *builder) SetAdapterConfig(cfg adapter.Config)    { b.cfg = cfg.(*config.Params) }
 func (b *builder) Validate() *adapter.ConfigErrors        { return nil }
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-	env.Logger().Warningf("prometheus-guptasu22233 ** trying local changes...")
+
 	cfg := b.cfg
 	var metricErr *multierror.Error
 
