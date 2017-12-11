@@ -107,7 +107,7 @@ SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
-  die $(git diff)
+  git diff
 fi
 
 # upload images
