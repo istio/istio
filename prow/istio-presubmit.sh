@@ -99,6 +99,9 @@ fetch_envoy
 echo 'Building everything'
 ${ROOT}/bin/init.sh
 
+# TODO(https://github.com/istio/istio/pull/1930): Uncomment
+# run_or_die_on_change ./bin/fmt.sh
+
 echo 'Running Unit Tests'
 time bazel test --test_output=all //...
 
