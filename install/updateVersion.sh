@@ -201,6 +201,32 @@ export FORTIO_TAG="${FORTIO_TAG}"
 EOF
 }
 
+#
+# Updating helm's values.yaml for the current versions
+#
+function update_helm_version() {
+   helm_values_file="$ROOT/install/kubernetes/helm/Istio/values.yaml"
+   if [ -z ${OSTYPE##*darwin*} ]; then
+      sed -i "" 's|\(ca_hub: \).*|\1'${CA_HUB}'|g' $helm_values_file
+      sed -i "" 's|\(ca_tag: \).*|\1'${CA_TAG}'|g' $helm_values_file
+      sed -i "" 's|\(proxy_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
+      sed -i "" 's|\(proxy_tag: \).*|\1'${PROXY_TAG}'|g' $helm_values_file
+      sed -i "" 's|\(pilot_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
+      sed -i "" 's|\(pilot_tag: \).*|\1'${PILOT_TAG}'|g' $helm_values_file
+      sed -i "" 's|\(mixer_hub: \).*|\1'${MIXER_HUB}'|g' $helm_values_file
+      sed -i "" 's|\(mixer_tag: \).*|\1'${MIXER_TAG}'|g' $helm_values_file
+   else
+      sed -i 's|\(ca_hub: \).*|\1'${CA_HUB}'|g' $helm_values_file
+      sed -i 's|\(ca_tag: \).*|\1'${CA_TAG}'|g' $helm_values_file
+      sed -i 's|\(proxy_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
+      sed -i 's|\(proxy_tag: \).*|\1'${PROXY_TAG}'|g' $helm_values_file
+      sed -i 's|\(pilot_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
+      sed -i 's|\(pilot_tag: \).*|\1'${PILOT_TAG}'|g' $helm_values_file
+      sed -i 's|\(mixer_hub: \).*|\1'${MIXER_HUB}'|g' $helm_values_file
+      sed -i 's|\(mixer_tag: \).*|\1'${MIXER_TAG}'|g' $helm_values_file
+   fi
+}
+
 function update_istio_install() {
   pushd $TEMP_DIR/templates
   sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
@@ -284,6 +310,7 @@ fi
 mkdir -p $TEMP_DIR/templates
 cp -R $ROOT/install/kubernetes/templates/* $TEMP_DIR/templates/
 update_version_file
+update_helm_version
 update_istio_install
 update_istio_addons
 merge_files

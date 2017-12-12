@@ -1,0 +1,153 @@
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $proxy_image := dict "image" "" }}
+{{- if .Values.global.proxy_debug }}
+{{- $_ := set $proxy_image "image" "proxy_debug" }}
+{{- else }}
+{{- $_ := set $proxy_image "image" "proxy" }}
+{{- end }}
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $proxy_hub := .Values.global.proxy_hub }}
+{{- $proxy_tag := .Values.global.proxy_tag }}
+{{- $pilot_hub := .Values.global.pilot_hub }}
+{{- $pilot_tag := .Values.global.pilot_tag }}
+################################
+# Pilot
+################################
+# Pilot CRDs
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: destinationpolicies.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: DestinationPolicy
+    listKind: DestinationPolicyList
+    plural: destinationpolicies
+    singular: destinationpolicy
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: egressrules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: EgressRule
+    listKind: EgressRuleList
+    plural: egressrules
+    singular: egressrule
+  scope: Namespaced
+  version: v1alpha2
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: routerules.config.istio.io
+spec:
+  group: config.istio.io
+  names:
+    kind: RouteRule
+    listKind: RouteRuleList
+    plural: routerules
+    singular: routerule
+  scope: Namespaced
+  version: v1alpha2
+---
+# Pilot service for discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-pilot
+  namespace: {{$istio_namespace}}
+  labels:
+    istio: pilot
+spec:
+  ports:
+  - port: 15003
+    name: http-discovery
+  - port: 443
+    name: admission-webhook
+  selector:
+    istio: pilot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-pilot-service-account
+  namespace: {{$istio_namespace}}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-pilot
+  namespace: {{$istio_namespace}}
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: pilot
+    spec:
+      serviceAccountName: istio-pilot-service-account
+      containers:
+      - name: discovery
+        image: {{$pilot_hub}}/pilot:{{$pilot_tag}}
+        imagePullPolicy: IfNotPresent
+        args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
+        ports:
+        - containerPort: 8080
+        - containerPort: 443
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/istio/config
+      - name: istio-proxy
+        image: {{$proxy_hub}}/{{$proxy_image.image}}:{{$proxy_tag}}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 15003
+        args:
+        - proxy
+        - pilot
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:15003
+        - --controlPlaneAuthPolicy
+{{- if .Values.global.auth_enabled }}
+        - MUTUAL_TLS
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_pilot_auth.json
+{{- else }}
+        - NONE #--controlPlaneAuthPolicy
+        - --customConfigFile
+        - /etc/istio/proxy/envoy_pilot.json
+{{- end }}
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+      - name: istio-certs
+        secret:
+          secretName: istio.istio-pilot-service-account
+          optional: true
+---
