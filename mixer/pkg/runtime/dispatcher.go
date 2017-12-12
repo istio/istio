@@ -280,6 +280,10 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 // Preprocess runs the first phase of adapter processing before any other adapters are run.
 // Attribute producing adapters are run in this phase.
 func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+
+	// protect the mutable responseBag
+	var lock sync.Mutex
+
 	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
 		func(call *Action) []dispatchFn {
 			ra := make([]dispatchFn, 0, len(call.instanceConfig))
@@ -291,9 +295,13 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 							requestBag, m.mapper,
 							call.handler)
 						if err == nil {
-							if err = responseBag.Merge(mBag); err != nil {
+							lock.Lock()
+							err = responseBag.Merge(mBag)
+							lock.Unlock()
+							if err != nil {
 								glog.Infof("Attributes merging failed %v", err)
 							}
+
 						}
 						return &result{err, nil, call}
 					})
