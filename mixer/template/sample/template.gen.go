@@ -784,61 +784,65 @@ var (
 				if err != nil {
 					return nil, err
 				}
+				abag := attrs
 				const fullOutName = "istio_mixer_adapter_sample_myapa.output."
-				abag := newWrapperAttrBag(
-					func(name string) (value interface{}, found bool) {
-						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) {
-							switch field {
+				if out == nil {
+					glog.Info(fmt.Sprintf("Preprocess adapter returned nil output for instance name '%s'", instName))
+				} else {
+					abag = newWrapperAttrBag(
+						func(name string) (value interface{}, found bool) {
+							field := strings.TrimPrefix(name, fullOutName)
+							if len(field) != len(name) {
+								switch field {
 
-							case "int64Primitive":
+								case "int64Primitive":
 
-								return out.Int64Primitive, true
+									return out.Int64Primitive, true
 
-							case "boolPrimitive":
+								case "boolPrimitive":
 
-								return out.BoolPrimitive, true
+									return out.BoolPrimitive, true
 
-							case "doublePrimitive":
+								case "doublePrimitive":
 
-								return out.DoublePrimitive, true
+									return out.DoublePrimitive, true
 
-							case "stringPrimitive":
+								case "stringPrimitive":
 
-								return out.StringPrimitive, true
+									return out.StringPrimitive, true
 
-							case "timeStamp":
+								case "timeStamp":
 
-								return out.TimeStamp, true
+									return out.TimeStamp, true
 
-							case "duration":
+								case "duration":
 
-								return out.Duration, true
+									return out.Duration, true
 
-							case "email":
+								case "email":
 
-								return string(out.Email), true
+									return string(out.Email), true
 
-							case "out_ip":
+								case "out_ip":
 
-								return []uint8(out.OutIp), true
+									return []uint8(out.OutIp), true
 
-							case "out_str_map":
+								case "out_str_map":
 
-								return out.OutStrMap, true
+									return out.OutStrMap, true
 
-							default:
-								return nil, false
+								default:
+									return nil, false
+								}
+
 							}
-
-						}
-						return attrs.Get(name)
-					},
-					func() []string { return attrs.Names() },
-					func() { attrs.Done() },
-					func() string { return attrs.DebugString() },
-				)
-
+							return attrs.Get(name)
+						},
+						func() []string { return attrs.Names() },
+						func() { attrs.Done() },
+						func() string { return attrs.DebugString() },
+					)
+				}
 				resultBag := attribute.GetMutableBag(nil)
 				for attrName, outExpr := range instParam.AttributeBindings {
 					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)

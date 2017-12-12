@@ -10,8 +10,10 @@ mixer_supported_template_library(
     name = "go_default_library",
     packages = {
         "//mixer/test/spyAdapter/template/report:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/test/spyAdapter/template/report",
+        "//mixer/test/spyAdapter/template/apa:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/test/spyAdapter/template/apa",
     },
     deps = [
+        "//mixer/test/spyAdapter/template/apa:go_default_library",
         "//mixer/test/spyAdapter/template/report:go_default_library",
     ],
 )
