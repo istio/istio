@@ -1,4 +1,5 @@
 {{- if .Values.Istio.deploy_base_config }}
+{{- if .Values.global.auth_enabled }}
 {{- if .Values.global.ca_demo }}
 {{- $istio_namespace := .Values.global.namespace }}
 {{- $ca_hub := .Values.global.ca_hub }}
@@ -43,5 +44,6 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
 ---
+{{- end }}
 {{- end }}
 {{- end }}
