@@ -40,7 +40,7 @@ type TestEnvManager struct {
 	skipCleanup bool
 }
 
-// NewTestEnvManager create a TestEnvManager with a given environment and ID
+// NewTestEnvManager creates a TestEnvManager with a given environment and ID
 func NewTestEnvManager(env TestEnv, id string) *TestEnvManager {
 	return &TestEnvManager{
 		TestEnv:     env,
@@ -71,7 +71,7 @@ func (envManager *TestEnvManager) StartUp() (err error) {
 	return
 }
 
-// TearDown stop components and clean up environment
+// TearDown stops components and clean up environment
 func (envManager *TestEnvManager) TearDown() {
 	if envManager.skipCleanup {
 		log.Println("Dev mode (--skip_cleanup), skipping cleanup")

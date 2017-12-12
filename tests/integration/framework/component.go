@@ -16,26 +16,26 @@ package framework
 
 // Component is a interface of a test component
 type Component interface {
-	// GetName return component name
+	// GetName returns component name
 	GetName() string
 
-	// GetConfig return the config for outside use
+	// GetConfig returns the config for outside use
 	GetConfig() Config
 
-	// SetConfig set a config into this component
+	// SetConfig sets a config into this component
 	SetConfig(config Config) error
 
-	// Bringup doing setup for this component
-	// Start() is being called in framework.StartUp()
+	// Start sets up for this component
+	// Start is being called in framework.StartUp()
 	Start() error
 
-	// Stop stop this component
-	// Stop() is being called in framework.TearDown()
+	// Stop stops this component
+	// Stop is being called in framework.TearDown()
 	Stop() error
 
-	// IsAlive check if component is alive/running
+	// IsAlive checks if component is alive/running
 	IsAlive() (bool, error)
 
-	// Cleanup clean up tmp files and other resource created by this component
+	// Cleanup cleans up tmp files and other resource created by this component
 	Cleanup() error
 }
