@@ -16,12 +16,17 @@ package e2e
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
 
@@ -103,4 +108,35 @@ func interfaceMap(m interface{}) map[interface{}]interface{} {
 	}
 
 	return ret
+}
+
+// nolint: deadcode
+type testData struct {
+	name      string
+	cfg       string
+	behaviors []spyAdapter.AdapterBehavior
+	templates map[string]template.Info
+	attrs     map[string]interface{}
+	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
+}
+
+// nolint: deadcode
+func closeHelper(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// nolint: deadcode
+func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
 }

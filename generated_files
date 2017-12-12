@@ -49,6 +49,8 @@ mixer/template/sample/template.gen.go
 mixer/template/template.gen.go
 mixer/template/tracespan/go_default_library_handler.gen.go
 mixer/template/tracespan/go_default_library_tmpl.pb.go
+mixer/test/spyAdapter/template/apa/go_default_library_handler.gen.go
+mixer/test/spyAdapter/template/apa/go_default_library_tmpl.pb.go
 mixer/test/spyAdapter/template/report/go_default_library_handler.gen.go
 mixer/test/spyAdapter/template/report/go_default_library_tmpl.pb.go
 mixer/test/spyAdapter/template/template.gen.go

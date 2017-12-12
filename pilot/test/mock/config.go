@@ -20,7 +20,9 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
@@ -117,6 +119,27 @@ var (
 				Charge: 2,
 			}},
 		}},
+	}
+
+	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
+	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
+		Jwts: []*mccpb.JWT{
+			{
+				Issuer: "https://issuer.example.com",
+				Audiences: []string{
+					"audience_foo.example.com",
+					"audience_bar.example.com",
+				},
+				JwksUri:                "https://www.example.com/oauth/v1/certs",
+				ForwardJwt:             true,
+				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+				Locations: []*mccpb.JWT_Location{{
+					Scheme: &mccpb.JWT_Location_Header{
+						Header: "x-goog-iap-jwt-assertion",
+					},
+				}},
+			},
+		},
 	}
 )
 
@@ -324,6 +347,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
 		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
 		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
+		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
+			ExampleEndUserAuthenticationPolicySpec},
 	}
 
 	for _, c := range cases {

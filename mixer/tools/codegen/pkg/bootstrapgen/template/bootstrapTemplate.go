@@ -409,8 +409,12 @@ var (
 					if err != nil {
 						return nil, err
 					}
+					abag := attrs
 					const fullOutName = "{{.GoPackageName}}.output."
-					abag := newWrapperAttrBag(
+					if out == nil {
+						glog.Info(fmt.Sprintf("Preprocess adapter returned nil output for instance name '%s'", instName))
+					} else {
+					abag = newWrapperAttrBag(
 						func(name string) (value interface{}, found bool) {
 							field := strings.TrimPrefix(name, fullOutName)
 							if len(field) != len(name) {
@@ -434,7 +438,7 @@ var (
 						func() {attrs.Done()},
 						func() string {return attrs.DebugString()},
 					)
-
+					}
 					resultBag := attribute.GetMutableBag(nil)
 					for attrName, outExpr := range instParam.AttributeBindings {
 						ex := strings.Replace(outExpr, "$out.", fullOutName, -1)

@@ -78,7 +78,7 @@ Available routing and traffic management configuration types:
 
 	[routerule ingressrule egressrule destinationpolicy]
 
-See http://istio.io/docs/reference for an overview of routing rules
+See https://istio.io/docs/reference/ for an overview of routing rules
 and destination policies.
 
 `,
@@ -626,6 +626,8 @@ func newClient() (*crd.Client, error) {
 		model.HTTPAPISpecBinding,
 		model.QuotaSpec,
 		model.QuotaSpecBinding,
+		model.EndUserAuthenticationPolicySpec,
+		model.EndUserAuthenticationPolicySpecBinding,
 	}, "")
 }
 

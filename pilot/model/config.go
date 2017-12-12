@@ -250,6 +250,11 @@ type IstioConfigStore interface {
 	// QuotaSpecByDestination selects Mixerclient quota specifications
 	// associated with destination service instances.
 	QuotaSpecByDestination(instance *ServiceInstance) []Config
+
+	// EndUserAuthenticationPolicySpecByDestination selects
+	// Mixerclient end user authn policy specifications associated
+	// with destination service instances.
+	EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config
 }
 
 const (
@@ -347,6 +352,22 @@ var (
 		Validate:    ValidateQuotaSpecBinding,
 	}
 
+	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
+	EndUserAuthenticationPolicySpec = ProtoSchema{
+		Type:        "end-user-authentication-policy-spec",
+		Plural:      "end-user-authentication-policy-specs",
+		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
+		Validate:    ValidateEndUserAuthenticationPolicySpec,
+	}
+
+	// EndUserAuthenticationPolicySpecBinding describes an EndUserAuthenticationPolicy specification binding.
+	EndUserAuthenticationPolicySpecBinding = ProtoSchema{
+		Type:        "end-user-authentication-policy-spec-binding",
+		Plural:      "end-user-authentication-policy-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpecBinding",
+		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
+	}
+
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
@@ -357,6 +378,8 @@ var (
 		HTTPAPISpecBinding,
 		QuotaSpec,
 		QuotaSpecBinding,
+		EndUserAuthenticationPolicySpec,
+		EndUserAuthenticationPolicySpecBinding,
 	}
 )
 
@@ -626,6 +649,46 @@ func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance)
 	return out
 }
 
+// EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(EndUserAuthenticationPolicySpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(EndUserAuthenticationPolicySpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of end user authn spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.EndUserAuthenticationPolicySpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.Policies {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
 // SortHTTPAPISpec sorts a slice in a stable manner.
 func SortHTTPAPISpec(specs []Config) {
 	sort.Slice(specs, func(i, j int) bool {
@@ -642,6 +705,16 @@ func SortQuotaSpec(specs []Config) {
 		// protect against incompatible types
 		irule, _ := specs[i].Spec.(*mccpb.QuotaSpec)
 		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
+}
+
+// SortEndUserAuthenticationPolicySpec sorts a slice in a stable manner.
+func SortEndUserAuthenticationPolicySpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
+		jrule, _ := specs[j].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
 		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
 	})
 }

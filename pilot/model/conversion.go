@@ -24,7 +24,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 	yaml2 "gopkg.in/yaml.v2"

@@ -17,7 +17,6 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -281,8 +280,41 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 // Preprocess runs the first phase of adapter processing before any other adapters are run.
 // Attribute producing adapters are run in this phase.
 func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
-	// FIXME
-	return errors.New("not implemented")
+
+	// protect the mutable responseBag
+	var lock sync.Mutex
+
+	_, err := m.dispatch(ctx, requestBag, adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
+		func(call *Action) []dispatchFn {
+			ra := make([]dispatchFn, 0, len(call.instanceConfig))
+			for _, inst := range call.instanceConfig {
+				ra = append(ra,
+					func(ctx context.Context) *result {
+						mBag, err := call.processor.ProcessGenAttrs(ctx, inst.Name,
+							inst.Params.(proto.Message),
+							requestBag, m.mapper,
+							call.handler)
+						if err == nil {
+							lock.Lock()
+							defer lock.Unlock()
+							err = responseBag.Merge(mBag)
+
+							if err != nil {
+								glog.Infof("Attributes merging failed %v", err)
+							}
+
+						}
+						return &result{err, nil, call}
+					})
+			}
+			return ra
+		},
+	)
+
+	if glog.V(3) {
+		glog.Infof("Attributes generated from preprocess phase are %v", responseBag.DebugString())
+	}
+	return err
 }
 
 // combineResults combines results
