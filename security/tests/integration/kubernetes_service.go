@@ -61,7 +61,6 @@ func (c *KubernetesService) GetName() string {
 	return c.name
 }
 
-// Bringup doing setup for this component
 // Start is being called in framework.StartUp()
 func (c *KubernetesService) Start() (err error) {
 	c.uuid = string(uuid.NewUUID())
