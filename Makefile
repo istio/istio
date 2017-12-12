@@ -54,7 +54,14 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-setup: pilot/platform/kube/config
+verify.preconditions:
+	@if [ -d "vendor" ]; then echo "You have directory 'vendor' in the top-level directory, please remove it."\
+	" Otherwise it will confuse Bazel." ; exit 1; fi
+
+.PHONY: verify.preconditions
+
+setup: pilot/platform/kube/config verify.preconditions
+
 
 #-----------------------------------------------------------------------------
 # Target: depend
