@@ -20,6 +20,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/mixer/pkg/il/compiled"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
@@ -83,6 +84,8 @@ type (
 		ProcessGenAttrs         ProcessGenerateAttributesFn
 
 		AttributeManifests []*istio_mixer_v1_config.AttributeManifest
+
+		CreateProcessor         CreateProcessorFn
 	}
 
 	// templateRepo implements Repository
@@ -91,6 +94,16 @@ type (
 
 		allSupportedTmpls  []string
 		tmplToBuilderNames map[string]string
+	}
+
+	// CreateProcessor is used during config time to create a processor for the specified instanceConfigs, to run
+	// against the given handler.
+	CreateProcessorFn func(instanceConfigs []interface{}, builder compiled.ExpressionBuilder, handler adapter.Handler) Processor
+
+	// Processor handles all incoming requests, after rule processing. It can handle dispatching of one or more
+	// instances to a handler.
+	Processor interface {
+		Process(ctx context.Context, bag attribute.Bag) (adapter.Result, error)
 	}
 )
 
