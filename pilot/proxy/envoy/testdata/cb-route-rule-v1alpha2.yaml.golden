@@ -13,9 +13,7 @@ http:
           version: v1
       weight: 25
     match:
-      - source:
-          name: hello
-          labels:
+      - sourceLabels:
             version: v0
 # TODO: uncomment when this is re-added to the api proto
 #upstreamSettings:

@@ -456,10 +456,7 @@ func TestRouteRulesV1Alpha2(t *testing.T) {
 			{
 				Match: []*routing_v1alpha2.HTTPMatchRequest{
 					{
-						Source: &routing_v1alpha2.Source{
-							Name: "hello",
-							Labels: instance.Labels,
-						},
+						SourceLabels: instance.Labels,
 					},
 				},
 			},

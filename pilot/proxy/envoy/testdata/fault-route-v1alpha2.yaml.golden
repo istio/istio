@@ -9,9 +9,7 @@ http:
             prefix: dog.cat
           name:
             regex: "sco+do+"
-        source:
-          name: hello
-          labels:
+        sourceLabels:
             version: v0
     route:
       - destination:
