@@ -13,11 +13,9 @@ set -ex
 
 DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent-test"
 
-ARGS="--image $DOCKER_IMAGE"
-
+ARGS=""
 HUB=""
 TAG=""
-
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,8 +55,9 @@ export CERTS_OUTPUT_DIR=`pwd`/docker
 bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
 
 # Run integration tests
-bazel run $BAZEL_ARGS //security/integration -- $ARGS \
--k $HOME/.kube/config \
---root-cert ${CERTS_OUTPUT_DIR}/istio_ca.crt \
---cert-chain ${CERTS_OUTPUT_DIR}/node_agent.crt \
+bazel run $BAZEL_ARGS //security/tests/integration/cmd:integration_test -- $ARGS \
+-kube-config=$HOME/.kube/config \
+-root-cert=${CERTS_OUTPUT_DIR}/istio_ca.crt \
+-cert-chain=${CERTS_OUTPUT_DIR}/node_agent.crt \
+-stderrthreshold=INFO \
 --alsologtostderr
