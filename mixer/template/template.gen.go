@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -545,6 +546,171 @@ var (
 				return resultBag, nil
 
 			},
+
+			/* runtime2 bindings */
+
+			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+				instance := inst.(*adapter_template_kubernetes.Instance)
+
+				out, err := handler.(adapter_template_kubernetes.Handler).GenerateKubernetesAttributes(ctx, instance)
+				if err != nil {
+					return nil, err
+				}
+
+				const fullOutName = "adapter_template_kubernetes.output."
+				abag := newWrapperAttrBag(
+					func(name string) (value interface{}, found bool) {
+						field := strings.TrimPrefix(name, fullOutName)
+						if len(field) != len(name) {
+							switch field {
+
+							case "source_pod_ip":
+
+								return []uint8(out.SourcePodIp), true
+
+							case "source_pod_name":
+
+								return out.SourcePodName, true
+
+							case "source_labels":
+
+								return out.SourceLabels, true
+
+							case "source_namespace":
+
+								return out.SourceNamespace, true
+
+							case "source_service":
+
+								return out.SourceService, true
+
+							case "source_service_account_name":
+
+								return out.SourceServiceAccountName, true
+
+							case "source_host_ip":
+
+								return []uint8(out.SourceHostIp), true
+
+							case "destination_pod_ip":
+
+								return []uint8(out.DestinationPodIp), true
+
+							case "destination_pod_name":
+
+								return out.DestinationPodName, true
+
+							case "destination_labels":
+
+								return out.DestinationLabels, true
+
+							case "destination_namespace":
+
+								return out.DestinationNamespace, true
+
+							case "destination_service":
+
+								return out.DestinationService, true
+
+							case "destination_service_account_name":
+
+								return out.DestinationServiceAccountName, true
+
+							case "destination_host_ip":
+
+								return []uint8(out.DestinationHostIp), true
+
+							case "origin_pod_ip":
+
+								return []uint8(out.OriginPodIp), true
+
+							case "origin_pod_name":
+
+								return out.OriginPodName, true
+
+							case "origin_labels":
+
+								return out.OriginLabels, true
+
+							case "origin_namespace":
+
+								return out.OriginNamespace, true
+
+							case "origin_service":
+
+								return out.OriginService, true
+
+							case "origin_service_account_name":
+
+								return out.OriginServiceAccountName, true
+
+							case "origin_host_ip":
+
+								return []uint8(out.OriginHostIp), true
+
+							default:
+								return nil, false
+							}
+						}
+						return attrs.Get(name)
+					},
+					func() []string { return attrs.Names() },
+					func() { attrs.Done() },
+					func() string { return attrs.DebugString() },
+				)
+
+				return mapper(abag)
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_adapter_template_kubernetes_Template(expb, param.(*adapter_template_kubernetes.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
+
+			CreateOutputMapperFn: func(instanceParam interface{}, expb *compiled.ExpressionBuilder) template.OutputMapperFn {
+				var err error
+
+				param := instanceParam.(*adapter_template_kubernetes.InstanceParam)
+
+				expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
+
+				const fullOutName = "adapter_template_kubernetes.output."
+				for attrName, outExpr := range param.AttributeBindings {
+					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
+					if expressions[attrName], err = expb.Compile(ex); err != nil {
+						break
+					}
+				}
+
+				if err != nil {
+					return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
+						return nil, err
+					}
+				}
+
+				return template.NewOutputMapperFn(expressions)
+			},
 		},
 
 		servicecontrolreport.TemplateName: {
@@ -898,6 +1064,45 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*servicecontrolreport.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*servicecontrolreport.Instance)
+				}
+				if err := handler.(servicecontrolreport.Handler).HandleServicecontrolReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_servicecontrolreport_Template(expb, param.(*servicecontrolreport.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 
 		apikey.TemplateName: {
@@ -1088,6 +1293,44 @@ var (
 				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
 
 			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*apikey.Instance)
+
+				result, err := handler.(apikey.Handler).HandleApiKey(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_apikey_Template(expb, param.(*apikey.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 
 		checknothing.TemplateName: {
@@ -1177,6 +1420,44 @@ var (
 				}
 				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*checknothing.Instance)
+
+				result, err := handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_checknothing_Template(expb, param.(*checknothing.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
 			},
 		},
 
@@ -1287,6 +1568,44 @@ var (
 				}
 				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*listentry.Instance)
+
+				result, err := handler.(listentry.Handler).HandleListEntry(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_listentry_Template(expb, param.(*listentry.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
 			},
 		},
 
@@ -1481,6 +1800,45 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*logentry.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*logentry.Instance)
+				}
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_logentry_Template(expb, param.(*logentry.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 
 		metric.TemplateName: {
@@ -1651,6 +2009,45 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*metric.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*metric.Instance)
+				}
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_metric_Template(expb, param.(*metric.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 
 		quota.TemplateName: {
@@ -1760,6 +2157,44 @@ var (
 				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
 
 			},
+
+			/* runtime2 bindings */
+
+			ProcessQuota2: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+				instance := inst.(*quota.Instance)
+
+				result, err := handler.(quota.Handler).HandleQuota(ctx, instance, args)
+				if err != nil {
+					return adapter.QuotaResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_quota_Template(expb, param.(*quota.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 
 		reportnothing.TemplateName: {
@@ -1852,6 +2287,45 @@ var (
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*reportnothing.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*reportnothing.Instance)
+				}
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_reportnothing_Template(expb, param.(*reportnothing.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
 			},
 		},
 
@@ -2086,6 +2560,1021 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*tracespan.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*tracespan.Instance)
+				}
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_tracespan_Template(expb, param.(*tracespan.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 	}
 )
+
+// builder_adapter_template_kubernetes_Template builds an instance of Template.
+type builder_adapter_template_kubernetes_Template struct {
+	bldSourceUid compiled.Expression
+
+	bldSourceIp compiled.Expression
+
+	bldDestinationUid compiled.Expression
+
+	bldDestinationIp compiled.Expression
+
+	bldOriginUid compiled.Expression
+
+	bldOriginIp compiled.Expression
+} // builder_adapter_template_kubernetes_Template
+
+func newBuilder_adapter_template_kubernetes_Template(
+	expb *compiled.ExpressionBuilder, param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_adapter_template_kubernetes_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldSourceUid, err = expb.Compile(param.SourceUid)
+	if err != nil {
+		return nil, template.NewErrorPath("SourceUid", err)
+	}
+
+	b.bldSourceIp, err = expb.Compile(param.SourceIp)
+	if err != nil {
+		return nil, template.NewErrorPath("SourceIp", err)
+	}
+
+	b.bldDestinationUid, err = expb.Compile(param.DestinationUid)
+	if err != nil {
+		return nil, template.NewErrorPath("DestinationUid", err)
+	}
+
+	b.bldDestinationIp, err = expb.Compile(param.DestinationIp)
+	if err != nil {
+		return nil, template.NewErrorPath("DestinationIp", err)
+	}
+
+	b.bldOriginUid, err = expb.Compile(param.OriginUid)
+	if err != nil {
+		return nil, template.NewErrorPath("OriginUid", err)
+	}
+
+	b.bldOriginIp, err = expb.Compile(param.OriginIp)
+	if err != nil {
+		return nil, template.NewErrorPath("OriginIp", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_adapter_template_kubernetes_Template) build(
+	attrs attribute.Bag) (*adapter_template_kubernetes.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &adapter_template_kubernetes.Instance{}
+
+	if iface, err = b.bldSourceUid.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("SourceUid", err)
+	}
+	r.SourceUid = iface.(string)
+
+	if iface, err = b.bldSourceIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("SourceIp", err)
+	}
+	r.SourceIp = iface.(net.IP)
+
+	if iface, err = b.bldDestinationUid.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("DestinationUid", err)
+	}
+	r.DestinationUid = iface.(string)
+
+	if iface, err = b.bldDestinationIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("DestinationIp", err)
+	}
+	r.DestinationIp = iface.(net.IP)
+
+	if iface, err = b.bldOriginUid.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("OriginUid", err)
+	}
+	r.OriginUid = iface.(string)
+
+	if iface, err = b.bldOriginIp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("OriginIp", err)
+	}
+	r.OriginIp = iface.(net.IP)
+
+	return r, template.ErrorPath{}
+}
+
+// builder_servicecontrolreport_Template builds an instance of Template.
+type builder_servicecontrolreport_Template struct {
+	bldApiVersion compiled.Expression
+
+	bldApiOperation compiled.Expression
+
+	bldApiProtocol compiled.Expression
+
+	bldApiService compiled.Expression
+
+	bldApiKey compiled.Expression
+
+	bldRequestTime compiled.Expression
+
+	bldRequestMethod compiled.Expression
+
+	bldRequestPath compiled.Expression
+
+	bldRequestBytes compiled.Expression
+
+	bldResponseTime compiled.Expression
+
+	bldResponseCode compiled.Expression
+
+	bldResponseBytes compiled.Expression
+
+	bldResponseLatency compiled.Expression
+} // builder_servicecontrolreport_Template
+
+func newBuilder_servicecontrolreport_Template(
+	expb *compiled.ExpressionBuilder, param *servicecontrolreport.InstanceParam) (*builder_servicecontrolreport_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_servicecontrolreport_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldApiVersion, err = expb.Compile(param.ApiVersion)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	b.bldApiOperation, err = expb.Compile(param.ApiOperation)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	b.bldApiProtocol, err = expb.Compile(param.ApiProtocol)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiProtocol", err)
+	}
+
+	b.bldApiService, err = expb.Compile(param.ApiService)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiService", err)
+	}
+
+	b.bldApiKey, err = expb.Compile(param.ApiKey)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	b.bldRequestTime, err = expb.Compile(param.RequestTime)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestTime", err)
+	}
+
+	b.bldRequestMethod, err = expb.Compile(param.RequestMethod)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestMethod", err)
+	}
+
+	b.bldRequestPath, err = expb.Compile(param.RequestPath)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestPath", err)
+	}
+
+	b.bldRequestBytes, err = expb.Compile(param.RequestBytes)
+	if err != nil {
+		return nil, template.NewErrorPath("RequestBytes", err)
+	}
+
+	b.bldResponseTime, err = expb.Compile(param.ResponseTime)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseTime", err)
+	}
+
+	b.bldResponseCode, err = expb.Compile(param.ResponseCode)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseCode", err)
+	}
+
+	b.bldResponseBytes, err = expb.Compile(param.ResponseBytes)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseBytes", err)
+	}
+
+	b.bldResponseLatency, err = expb.Compile(param.ResponseLatency)
+	if err != nil {
+		return nil, template.NewErrorPath("ResponseLatency", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_servicecontrolreport_Template) build(
+	attrs attribute.Bag) (*servicecontrolreport.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &servicecontrolreport.Instance{}
+
+	if iface, err = b.bldApiVersion.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+	r.ApiVersion = iface.(string)
+
+	if iface, err = b.bldApiOperation.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+	r.ApiOperation = iface.(string)
+
+	if iface, err = b.bldApiProtocol.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiProtocol", err)
+	}
+	r.ApiProtocol = iface.(string)
+
+	if iface, err = b.bldApiService.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiService", err)
+	}
+	r.ApiService = iface.(string)
+
+	if iface, err = b.bldApiKey.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+	r.ApiKey = iface.(string)
+
+	if iface, err = b.bldRequestTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("RequestTime", err)
+	}
+	r.RequestTime = iface.(time.Time)
+
+	if iface, err = b.bldRequestMethod.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("RequestMethod", err)
+	}
+	r.RequestMethod = iface.(string)
+
+	if iface, err = b.bldRequestPath.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("RequestPath", err)
+	}
+	r.RequestPath = iface.(string)
+
+	if iface, err = b.bldRequestBytes.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("RequestBytes", err)
+	}
+	r.RequestBytes = iface.(int64)
+
+	if iface, err = b.bldResponseTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseTime", err)
+	}
+	r.ResponseTime = iface.(time.Time)
+
+	if iface, err = b.bldResponseCode.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseCode", err)
+	}
+	r.ResponseCode = iface.(int64)
+
+	if iface, err = b.bldResponseBytes.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseBytes", err)
+	}
+	r.ResponseBytes = iface.(int64)
+
+	if iface, err = b.bldResponseLatency.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ResponseLatency", err)
+	}
+	r.ResponseLatency = iface.(time.Duration)
+
+	return r, template.ErrorPath{}
+}
+
+// builder_apikey_Template builds an instance of Template.
+type builder_apikey_Template struct {
+	bldApi compiled.Expression
+
+	bldApiVersion compiled.Expression
+
+	bldApiOperation compiled.Expression
+
+	bldApiKey compiled.Expression
+
+	bldTimestamp compiled.Expression
+} // builder_apikey_Template
+
+func newBuilder_apikey_Template(
+	expb *compiled.ExpressionBuilder, param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_apikey_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldApi, err = expb.Compile(param.Api)
+	if err != nil {
+		return nil, template.NewErrorPath("Api", err)
+	}
+
+	b.bldApiVersion, err = expb.Compile(param.ApiVersion)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+
+	b.bldApiOperation, err = expb.Compile(param.ApiOperation)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+
+	b.bldApiKey, err = expb.Compile(param.ApiKey)
+	if err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+
+	b.bldTimestamp, err = expb.Compile(param.Timestamp)
+	if err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_apikey_Template) build(
+	attrs attribute.Bag) (*apikey.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &apikey.Instance{}
+
+	if iface, err = b.bldApi.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Api", err)
+	}
+	r.Api = iface.(string)
+
+	if iface, err = b.bldApiVersion.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiVersion", err)
+	}
+	r.ApiVersion = iface.(string)
+
+	if iface, err = b.bldApiOperation.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiOperation", err)
+	}
+	r.ApiOperation = iface.(string)
+
+	if iface, err = b.bldApiKey.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ApiKey", err)
+	}
+	r.ApiKey = iface.(string)
+
+	if iface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+	r.Timestamp = iface.(time.Time)
+
+	return r, template.ErrorPath{}
+}
+
+// builder_checknothing_Template builds an instance of Template.
+type builder_checknothing_Template struct {
+} // builder_checknothing_Template
+
+func newBuilder_checknothing_Template(
+	expb *compiled.ExpressionBuilder, param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_checknothing_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_checknothing_Template) build(
+	attrs attribute.Bag) (*checknothing.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &checknothing.Instance{}
+
+	return r, template.ErrorPath{}
+}
+
+// builder_listentry_Template builds an instance of Template.
+type builder_listentry_Template struct {
+	bldValue compiled.Expression
+} // builder_listentry_Template
+
+func newBuilder_listentry_Template(
+	expb *compiled.ExpressionBuilder, param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_listentry_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldValue, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_listentry_Template) build(
+	attrs attribute.Bag) (*listentry.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &listentry.Instance{}
+
+	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+	r.Value = iface.(string)
+
+	return r, template.ErrorPath{}
+}
+
+// builder_logentry_Template builds an instance of Template.
+type builder_logentry_Template struct {
+	bldVariables map[string]compiled.Expression
+
+	bldTimestamp compiled.Expression
+
+	bldSeverity compiled.Expression
+
+	bldMonitoredResourceType compiled.Expression
+
+	bldMonitoredResourceDimensions map[string]compiled.Expression
+} // builder_logentry_Template
+
+func newBuilder_logentry_Template(
+	expb *compiled.ExpressionBuilder, param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_logentry_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldVariables = make(map[string]compiled.Expression, len(param.Variables))
+	for k, v := range param.Variables {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Variables["+k+"].", err)
+		}
+		b.bldVariables[k] = exp
+	}
+
+	b.bldTimestamp, err = expb.Compile(param.Timestamp)
+	if err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+
+	b.bldSeverity, err = expb.Compile(param.Severity)
+	if err != nil {
+		return nil, template.NewErrorPath("Severity", err)
+	}
+
+	b.bldMonitoredResourceType, err = expb.Compile(param.MonitoredResourceType)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	b.bldMonitoredResourceDimensions = make(map[string]compiled.Expression, len(param.MonitoredResourceDimensions))
+	for k, v := range param.MonitoredResourceDimensions {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+		}
+		b.bldMonitoredResourceDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_logentry_Template) build(
+	attrs attribute.Bag) (*logentry.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &logentry.Instance{}
+
+	r.Variables = make(map[string]interface{}, len(b.bldVariables))
+
+	for k, v := range b.bldVariables {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Variables["+k+"].", err)
+		}
+
+		r.Variables[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	if iface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Timestamp", err)
+	}
+	r.Timestamp = iface.(time.Time)
+
+	if iface, err = b.bldSeverity.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Severity", err)
+	}
+	r.Severity = iface.(string)
+
+	if iface, err = b.bldMonitoredResourceType.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+	r.MonitoredResourceType = iface.(string)
+
+	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
+
+	for k, v := range b.bldMonitoredResourceDimensions {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+		}
+
+		r.MonitoredResourceDimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder_metric_Template builds an instance of Template.
+type builder_metric_Template struct {
+	bldValue compiled.Expression
+
+	bldDimensions map[string]compiled.Expression
+
+	bldMonitoredResourceType compiled.Expression
+
+	bldMonitoredResourceDimensions map[string]compiled.Expression
+} // builder_metric_Template
+
+func newBuilder_metric_Template(
+	expb *compiled.ExpressionBuilder, param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_metric_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldValue, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldMonitoredResourceType, err = expb.Compile(param.MonitoredResourceType)
+	if err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+
+	b.bldMonitoredResourceDimensions = make(map[string]compiled.Expression, len(param.MonitoredResourceDimensions))
+	for k, v := range param.MonitoredResourceDimensions {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+		}
+		b.bldMonitoredResourceDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_metric_Template) build(
+	attrs attribute.Bag) (*metric.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &metric.Instance{}
+
+	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+
+		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	if iface, err = b.bldMonitoredResourceType.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("MonitoredResourceType", err)
+	}
+	r.MonitoredResourceType = iface.(string)
+
+	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
+
+	for k, v := range b.bldMonitoredResourceDimensions {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+		}
+
+		r.MonitoredResourceDimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder_quota_Template builds an instance of Template.
+type builder_quota_Template struct {
+	bldDimensions map[string]compiled.Expression
+} // builder_quota_Template
+
+func newBuilder_quota_Template(
+	expb *compiled.ExpressionBuilder, param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_quota_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+		b.bldDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_quota_Template) build(
+	attrs attribute.Bag) (*quota.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &quota.Instance{}
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+
+		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder_reportnothing_Template builds an instance of Template.
+type builder_reportnothing_Template struct {
+} // builder_reportnothing_Template
+
+func newBuilder_reportnothing_Template(
+	expb *compiled.ExpressionBuilder, param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_reportnothing_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_reportnothing_Template) build(
+	attrs attribute.Bag) (*reportnothing.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &reportnothing.Instance{}
+
+	return r, template.ErrorPath{}
+}
+
+// builder_tracespan_Template builds an instance of Template.
+type builder_tracespan_Template struct {
+	bldTraceId compiled.Expression
+
+	bldSpanId compiled.Expression
+
+	bldParentSpanId compiled.Expression
+
+	bldSpanName compiled.Expression
+
+	bldStartTime compiled.Expression
+
+	bldEndTime compiled.Expression
+
+	bldSpanTags map[string]compiled.Expression
+} // builder_tracespan_Template
+
+func newBuilder_tracespan_Template(
+	expb *compiled.ExpressionBuilder, param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_tracespan_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldTraceId, err = expb.Compile(param.TraceId)
+	if err != nil {
+		return nil, template.NewErrorPath("TraceId", err)
+	}
+
+	b.bldSpanId, err = expb.Compile(param.SpanId)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanId", err)
+	}
+
+	b.bldParentSpanId, err = expb.Compile(param.ParentSpanId)
+	if err != nil {
+		return nil, template.NewErrorPath("ParentSpanId", err)
+	}
+
+	b.bldSpanName, err = expb.Compile(param.SpanName)
+	if err != nil {
+		return nil, template.NewErrorPath("SpanName", err)
+	}
+
+	b.bldStartTime, err = expb.Compile(param.StartTime)
+	if err != nil {
+		return nil, template.NewErrorPath("StartTime", err)
+	}
+
+	b.bldEndTime, err = expb.Compile(param.EndTime)
+	if err != nil {
+		return nil, template.NewErrorPath("EndTime", err)
+	}
+
+	b.bldSpanTags = make(map[string]compiled.Expression, len(param.SpanTags))
+	for k, v := range param.SpanTags {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("SpanTags["+k+"].", err)
+		}
+		b.bldSpanTags[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_tracespan_Template) build(
+	attrs attribute.Bag) (*tracespan.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &tracespan.Instance{}
+
+	if iface, err = b.bldTraceId.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TraceId", err)
+	}
+	r.TraceId = iface.(string)
+
+	if iface, err = b.bldSpanId.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("SpanId", err)
+	}
+	r.SpanId = iface.(string)
+
+	if iface, err = b.bldParentSpanId.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("ParentSpanId", err)
+	}
+	r.ParentSpanId = iface.(string)
+
+	if iface, err = b.bldSpanName.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("SpanName", err)
+	}
+	r.SpanName = iface.(string)
+
+	if iface, err = b.bldStartTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("StartTime", err)
+	}
+	r.StartTime = iface.(time.Time)
+
+	if iface, err = b.bldEndTime.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("EndTime", err)
+	}
+	r.EndTime = iface.(time.Time)
+
+	r.SpanTags = make(map[string]interface{}, len(b.bldSpanTags))
+
+	for k, v := range b.bldSpanTags {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("SpanTags["+k+"].", err)
+		}
+
+		r.SpanTags[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	return r, template.ErrorPath{}
+}
