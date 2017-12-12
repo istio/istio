@@ -65,7 +65,7 @@ func (c *KubernetesPod) Start() (err error) {
 	}
 
 	if _, err = createPod(c.clientset, c.namespace, c.image, c.name, labels, c.cmds, c.args); err != nil {
-		glog.Errorf("failed to create a POD with command: %v", c.namespace)
+		glog.Errorf("failed to create a pod: %v", c.name)
 	}
 
 	return err

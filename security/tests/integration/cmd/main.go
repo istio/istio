@@ -35,8 +35,9 @@ const (
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime = 20 * time.Second
 	// Certificates validation retry
-	certValidateRetry      = 10
-	certValidationInterval = 1 // Initially wait for 1 second. This value will be increased exponentially on retry
+	certValidateRetry = 10
+	// Initially wait for 1 second. This value will be increased exponentially on retry
+	certValidationInterval = 1
 )
 
 func runSecretCreationTests(env *integration.SecretTestEnv) error {

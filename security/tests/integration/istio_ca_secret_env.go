@@ -78,7 +78,6 @@ func (env *SecretTestEnv) GetComponents() []framework.Component {
 // Bringup doing general setup for environment level, not components.
 // Bringup() is called by framework.SetUp()
 func (env *SecretTestEnv) Bringup() error {
-
 	return nil
 }
 

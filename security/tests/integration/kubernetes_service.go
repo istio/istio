@@ -76,7 +76,7 @@ func (c *KubernetesService) Start() (err error) {
 		c.selector,
 		c.annotation)
 	if err != nil {
-		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
+		glog.Errorf("failed to create a service %v", c.name)
 	}
 
 	return err
