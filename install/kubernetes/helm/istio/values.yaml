@@ -15,7 +15,7 @@ Istio:
       nodeport_port: 32000 
 
 global:
-   auth_enabled: true
+   auth_enabled: false 
    namespace: istio-system
    proxy_hub: gcr.io/istio-testing
    proxy_tag: d82d983e983dc14fe4ce8b39374a91ef0ced6779
