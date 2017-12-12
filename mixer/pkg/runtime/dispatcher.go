@@ -296,8 +296,9 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 							call.handler)
 						if err == nil {
 							lock.Lock()
+							defer lock.Unlock()
 							err = responseBag.Merge(mBag)
-							lock.Unlock()
+
 							if err != nil {
 								glog.Infof("Attributes merging failed %v", err)
 							}
