@@ -1967,7 +1967,7 @@ func TestValidateGateway(t *testing.T) {
 					},
 					{
 						Domains: []string{"baz.bar.com"},
-						Port:    &routingv2.Server_Port{Number: -1, Protocol: "redis"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
@@ -2009,7 +2009,7 @@ func TestValidateServer(t *testing.T) {
 		{"invalid port",
 			&routingv2.Server{
 				Domains: []string{"foo.bar.com"},
-				Port:    &routingv2.Server_Port{Number: -1, Protocol: "http"},
+				Port:    &routingv2.Server_Port{Number: 66000, Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
@@ -2066,7 +2066,7 @@ func TestValidateServerPort(t *testing.T) {
 		{"invalid number",
 			&routingv2.Server_Port{
 				Protocol: "http",
-				Number:   int32(1 << 30),
+				Number:   uint32(1 << 30),
 				Name:     "",
 			},
 			"port number"},
