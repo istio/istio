@@ -5,6 +5,7 @@ go_test(
     srcs = ["sample2_test.go"],
     tags = ["manual"],
     deps = [
+        "//tests/integration/component/mixer:go_default_library"
         "//tests/integration/example/environment/mixerEnvoyEnv:go_default_library",
         "//tests/integration/framework:go_default_library",
     ],
