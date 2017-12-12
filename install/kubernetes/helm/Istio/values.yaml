@@ -1,0 +1,26 @@
+Istio:
+   deploy_base_config: true
+   initializer_enabled: true 
+   mixer_enabled: true 
+   pilot_enabled: true 
+   ca_hub: gcr.io/istio-testing
+   ca_tag: d10e0c4aa05ca726cae71aa5d033dea4f7bc26e4
+   ca_demo: false
+   ingress:
+#
+# By default istio ingress uses LoadBalancer type of service
+# to use NodePort, it needs to be enabled and desired port specified
+#
+      use_nodeport: false
+      nodeport_port: 32000 
+
+global:
+   auth_enabled: true
+   namespace: istio-system
+   proxy_hub: gcr.io/istio-testing
+   proxy_tag: d82d983e983dc14fe4ce8b39374a91ef0ced6779
+   proxy_debug: false
+   pilot_hub: gcr.io/istio-testing
+   pilot_tag: 3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+   mixer_hub: gcr.io/istio-testing
+   mixer_tag: 5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
