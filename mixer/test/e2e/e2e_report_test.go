@@ -16,8 +16,6 @@ package e2e
 
 import (
 	"context"
-	"io"
-	"log"
 	"strconv"
 	"testing"
 
@@ -25,16 +23,14 @@ import (
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/attribute"
 	testEnv "istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/mixer/pkg/template"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
 	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
 	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 const (
-	globalCfg = `
+	reportGlobalCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -58,7 +54,7 @@ spec:
         value_type: INT64
 ---
 `
-	reportTestCfg = `
+	reportSvcCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -96,27 +92,11 @@ spec:
 `
 )
 
-type testData struct {
-	name      string
-	cfg       string
-	behaviors []spyAdapter.AdapterBehavior
-	templates map[string]template.Info
-	attrs     map[string]interface{}
-	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
-}
-
-func closeHelper(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func TestReport(t *testing.T) {
 	tests := []testData{
 		{
 			name:      "Report",
-			cfg:       reportTestCfg,
+			cfg:       reportSvcCfg,
 			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
 			templates: e2eTmpl.SupportedTmplInfo,
 			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
@@ -145,7 +125,6 @@ func TestReport(t *testing.T) {
 			},
 		},
 	}
-
 	for i, tt := range tests {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
@@ -156,7 +135,7 @@ func TestReport(t *testing.T) {
 			args.ConfigAPIPort = 0
 			args.Templates = e2eTmpl.SupportedTmplInfo
 			args.Adapters = adapterInfos
-			args.GlobalConfig = globalCfg
+			args.GlobalConfig = reportGlobalCfg
 			args.ServiceConfig = tt.cfg
 
 			env, err := testEnv.New(args)
@@ -178,7 +157,7 @@ func TestReport(t *testing.T) {
 
 			req := istio_mixer_v1.ReportRequest{
 				Attributes: []istio_mixer_v1.CompressedAttributes{
-					GetAttrBag(tt.attrs,
+					getAttrBag(tt.attrs,
 						args.ConfigIdentityAttribute,
 						args.ConfigIdentityAttributeDomain)},
 			}
@@ -187,16 +166,4 @@ func TestReport(t *testing.T) {
 			tt.validate(t, err, spyAdapters)
 		})
 	}
-}
-
-func GetAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
-	requestBag := attribute.GetMutableBag(nil)
-	requestBag.Set(identityAttr, identityAttrDomain)
-	for k, v := range attrs {
-		requestBag.Set(k, v)
-	}
-
-	var attrProto istio_mixer_v1.CompressedAttributes
-	requestBag.ToProto(&attrProto, nil, 0)
-	return attrProto
 }
