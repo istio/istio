@@ -540,7 +540,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 			continue
 		}
 
-		if !matchSource(rule, config.ConfigMeta, instances) {
+		if !matchSource(rule, instances) {
 			continue
 		}
 
@@ -552,7 +552,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 
 // TODO: can the instance matching be optimized?
 // TODO: tcp match conditions
-func matchSource(rule *routing_v1alpha2.RouteRule, meta ConfigMeta, instances []*ServiceInstance) bool {
+func matchSource(rule *routing_v1alpha2.RouteRule, instances []*ServiceInstance) bool {
 	if len(rule.Http) == 0 {
 		return true
 	}
@@ -560,17 +560,10 @@ func matchSource(rule *routing_v1alpha2.RouteRule, meta ConfigMeta, instances []
 		if len(http.Match) == 0 {
 			return true
 		}
-		// Short-circuit if there are any nil sources (avoid unnecessary computation)
-		for _, match := range http.Match {
-			if match.Source == nil {
-				return true
-			}
-		}
+
 		for _, match := range http.Match {
 			for _, instance := range instances {
-				fqdn := ResolveFQDN(meta, match.Source.Name)
-				if fqdn == instance.Service.Hostname &&
-					Labels(match.Source.Labels).SubsetOf(instance.Labels) {
+				if Labels(match.SourceLabels).SubsetOf(instance.Labels) {
 					return true
 				}
 			}
