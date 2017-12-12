@@ -16,12 +16,14 @@ package integration
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"istio.io/istio/tests/integration/framework"
 	"k8s.io/client-go/kubernetes"
 )
 
 type (
+	// CertRotationTestEnv is the test environment for CA certificate rotation test
 	CertRotationTestEnv struct {
 		framework.TestEnv
 		name      string
@@ -32,7 +34,7 @@ type (
 	}
 )
 
-// NewSecretTestEnv creates the environment instance
+// NewCertRotationTestEnv creates the environment instance
 func NewCertRotationTestEnv(name string, clientset *kubernetes.Clientset, hub string, tag string) *CertRotationTestEnv {
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {

@@ -16,12 +16,14 @@ package integration
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"istio.io/istio/tests/integration/framework"
 	"k8s.io/client-go/kubernetes"
 )
 
 type (
+	// SecretTestEnv is the test environment for istio.default secret test
 	SecretTestEnv struct {
 		framework.TestEnv
 		name      string

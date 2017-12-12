@@ -17,6 +17,8 @@ package integration
 import (
 	"crypto/x509"
 	"fmt"
+	"time"
+
 	"github.com/golang/glog"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/pki/testutil"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
-	"time"
 )
 
 var (
@@ -97,7 +98,8 @@ func deleteTestNamespace(clientset kubernetes.Interface, namespace string) error
 
 // createService creates a service object and returns a pointer pointing to this object on success.
 func createService(clientset kubernetes.Interface, namespace string, name string, port int32,
-	serviceType v1.ServiceType, labels map[string]string, selector map[string]string, annotation map[string]string) (*v1.Service, error) {
+	serviceType v1.ServiceType, labels map[string]string, selector map[string]string,
+	annotation map[string]string) (*v1.Service, error) {
 	_, err := clientset.CoreV1().Services(namespace).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      labels,
@@ -128,7 +130,8 @@ func deleteService(clientset kubernetes.Interface, namespace string, name string
 }
 
 // createPod creates a pod object and returns a pointer pointing to this object on success.
-func createPod(clientset kubernetes.Interface, namespace string, image string, name string, labels map[string]string, command []string, args []string) (*v1.Pod, error) {
+func createPod(clientset kubernetes.Interface, namespace string, image string, name string,
+	labels map[string]string, command []string, args []string) (*v1.Pod, error) {
 	env := []v1.EnvVar{
 		{
 			Name: "NAMESPACE",
@@ -331,7 +334,7 @@ func WaitForSecretExist(clientset kubernetes.Interface, namespace string, secret
 	}
 }
 
-// This method examines the content of an Istio secret to make sure that
+// ExamineSecret examines the content of an Istio secret to make sure that
 // * Secret type is correctly set;
 // * Key, certificate and CA root are correctly saved in the data section;
 func ExamineSecret(secret *v1.Secret) error {

@@ -16,6 +16,7 @@ package integration
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"istio.io/istio/tests/integration/framework"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -23,6 +24,7 @@ import (
 )
 
 type (
+	// KubernetesPod is the test component for K8s pod
 	KubernetesPod struct {
 		framework.Component
 		clientset *kubernetes.Clientset
@@ -35,7 +37,7 @@ type (
 	}
 )
 
-// NewKubernetesService create a K8s pod instance
+// NewKubernetesPod create a K8s pod instance
 func NewKubernetesPod(clientset *kubernetes.Clientset, namespace string, name string,
 	image string, cmds []string, args []string) *KubernetesPod {
 	return &KubernetesPod{
@@ -54,7 +56,7 @@ func (c *KubernetesPod) GetName() string {
 }
 
 // Bringup doing setup for this component
-// Start() is being called in framework.StartUp()
+// Start is being called in framework.StartUp()
 func (c *KubernetesPod) Start() (err error) {
 	c.uuid = string(uuid.NewUUID())
 
@@ -71,7 +73,7 @@ func (c *KubernetesPod) Start() (err error) {
 }
 
 // Stop stop this component
-// Stop() is being called in framework.TearDown()
+// Stop is being called in framework.TearDown()
 func (c *KubernetesPod) Stop() (err error) {
 	glog.Infof("deleting the pod: %v", c.name)
 	return deletePod(c.clientset, c.namespace, c.name)

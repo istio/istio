@@ -20,13 +20,14 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
 	"io/ioutil"
+	"net/http"
+	"time"
+
+	"github.com/golang/glog"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/tests/integration"
 	"istio.io/istio/tests/integration/framework"
-	"net/http"
-	"time"
 )
 
 const (
@@ -238,14 +239,14 @@ func main() {
 		testEM.TearDown()
 	}
 
-	env_cert_rotation := integration.NewCertRotationTestEnv("Certificates rotation test", clientset, *hub, *tag)
-	if env_cert_rotation != nil {
-		testEM := framework.NewTestEnvManager(env_cert_rotation, testID)
+	envCertRotation := integration.NewCertRotationTestEnv("Certificates rotation test", clientset, *hub, *tag)
+	if envCertRotation != nil {
+		testEM := framework.NewTestEnvManager(envCertRotation, testID)
 		if err := testEM.StartUp(); err != nil {
 			glog.Fatalf("failed to start the environment: %s\n", err)
 		} else {
-			glog.Infof("environment %v is ready for testing..", env_cert_rotation.GetName())
-			err := runCertificatesRotationTests(env_cert_rotation)
+			glog.Infof("environment %v is ready for testing..", envCertRotation.GetName())
+			err := runCertificatesRotationTests(envCertRotation)
 			if err != nil {
 				glog.Fatal(err)
 			}
@@ -254,15 +255,15 @@ func main() {
 		testEM.TearDown()
 	}
 
-	env_node_agent := integration.NewNodeAgentTestEnv("NodeAgent test", clientset, *hub, *tag)
-	if env_node_agent != nil {
-		testEM := framework.NewTestEnvManager(env_node_agent, testID)
+	envNodeAgent := integration.NewNodeAgentTestEnv("NodeAgent test", clientset, *hub, *tag)
+	if envNodeAgent != nil {
+		testEM := framework.NewTestEnvManager(envNodeAgent, testID)
 		if err := testEM.StartUp(); err != nil {
 			glog.Fatalf("failed to start the environment: %s\n", err)
 		} else {
-			glog.Infof("environment %v is ready for testing..", env_node_agent.GetName())
+			glog.Infof("environment %v is ready for testing..", envNodeAgent.GetName())
 
-			err := runNodeAgentCertificateTests(env_node_agent, *rootCert, *certChain)
+			err := runNodeAgentCertificateTests(envNodeAgent, *rootCert, *certChain)
 			if err != nil {
 				glog.Fatal(err)
 			}

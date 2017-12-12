@@ -26,6 +26,7 @@ import (
 )
 
 type (
+	// NodeAgentTestEnv is the test environment for CA and NodeAgent certificate test
 	NodeAgentTestEnv struct {
 		framework.TestEnv
 		name      string
@@ -36,7 +37,7 @@ type (
 	}
 )
 
-// NewSecretTestEnv creates the environment instance
+// NewNodeAgentTestEnv creates the environment instance
 func NewNodeAgentTestEnv(name string, clientset *kubernetes.Clientset, hub string, tag string) *NodeAgentTestEnv {
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
 	if err != nil {

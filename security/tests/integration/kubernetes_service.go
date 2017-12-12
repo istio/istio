@@ -16,6 +16,7 @@ package integration
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"istio.io/istio/tests/integration/framework"
 	"k8s.io/api/core/v1"
@@ -24,6 +25,7 @@ import (
 )
 
 type (
+	// KubernetesService is the test component for K8s service
 	KubernetesService struct {
 		framework.Component
 		clientset *kubernetes.Clientset
@@ -60,7 +62,7 @@ func (c *KubernetesService) GetName() string {
 }
 
 // Bringup doing setup for this component
-// Start() is being called in framework.StartUp()
+// Start is being called in framework.StartUp()
 func (c *KubernetesService) Start() (err error) {
 	c.uuid = string(uuid.NewUUID())
 	_, err = createService(
@@ -82,7 +84,7 @@ func (c *KubernetesService) Start() (err error) {
 }
 
 // Stop stop this component
-// Stop() is being called in framework.TearDown()
+// Stop is being called in framework.TearDown()
 func (c *KubernetesService) Stop() (err error) {
 	glog.Infof("deleting the service: %v", c.name)
 	return deleteService(c.clientset, c.namespace, c.name)
