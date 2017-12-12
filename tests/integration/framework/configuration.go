@@ -18,10 +18,7 @@ package framework
 // Any item (component, environment or even framework itself can has a Config)
 // Actual implement can take this interface with its configuration.
 // Implement is recommended to also take sync.Mutex to lock data while read/write
-type Config interface {
-	// GetConfig return the Config.
-	GetConfig() *Config
 
-	// SetConfig set a Config interface to an item.
-	SetConfig(config *Config)
+// Config is a interface to accumulate config fields into one structure
+type Config interface {
 }

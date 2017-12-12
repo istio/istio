@@ -19,6 +19,12 @@ type Component interface {
 	// GetName return component name
 	GetName() string
 
+	// GetConfig return the config for outside use
+	GetConfig() Config
+
+	// SetConfig set a config into this component
+	SetConfig(config Config) error
+
 	// Bringup doing setup for this component
 	// Start() is being called in framework.StartUp()
 	Start() error

@@ -61,9 +61,9 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 	// Define what components this environment has
 	comps := []framework.Component{}
 	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", mixerEnvoyEnv.TmpDir))
-	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", mixerEnvoyEnv.TmpDir, mixerEnvoyEnv.configDir))
 	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", mixerEnvoyEnv.TmpDir))
-
+	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", mixerEnvoyEnv.TmpDir,
+		mixer.LocalCompConfig{ConfigFileDir: mixerEnvoyEnv.configDir}))
 	return comps
 }
 

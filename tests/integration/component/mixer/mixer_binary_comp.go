@@ -38,24 +38,45 @@ var (
 type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
-	Name        string
+	config      LocalCompConfig
+	name        string
 	LogFile     string
-	configDir   string
+}
+
+// LocalCompConfig contains configs for LocalComponent
+type LocalCompConfig struct {
+	framework.Config
+	ConfigFileDir string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
-func NewLocalComponent(n, logDir, configDir string) *LocalComponent {
+func NewLocalComponent(n, logDir string, config LocalCompConfig) *LocalComponent {
 	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
 	return &LocalComponent{
-		Name:      n,
-		LogFile:   logFile,
-		configDir: configDir,
+		name:    n,
+		LogFile: logFile,
+		config:  config,
 	}
 }
 
 // GetName implement the function in component interface
 func (mixerComp *LocalComponent) GetName() string {
-	return mixerComp.Name
+	return mixerComp.name
+}
+
+// GetConfig return the config for outside use
+func (mixerComp *LocalComponent) GetConfig() framework.Config {
+	return mixerComp.config
+}
+
+// SetConfig set a config into this component
+func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
+	mixerConfig, ok := config.(LocalCompConfig)
+	if !ok {
+		return fmt.Errorf("cannot cast config into mixer local config")
+	}
+	mixerComp.config = mixerConfig
+	return nil
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -65,12 +86,12 @@ func (mixerComp *LocalComponent) Start() (err error) {
 		log.Printf("Failed to get current directory: %s", err)
 		return
 	}
-	emptyDir := filepath.Join(wd, mixerComp.configDir, "emptydir")
+	emptyDir := filepath.Join(wd, mixerComp.config.ConfigFileDir, "emptydir")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", emptyDir)); err != nil {
 		log.Printf("Failed to create emptydir: %v", err)
 		return
 	}
-	mixerConfig := filepath.Join(wd, mixerComp.configDir, "mixerconfig")
+	mixerConfig := filepath.Join(wd, mixerComp.config.ConfigFileDir, "mixerconfig")
 	if _, err = util.Shell(fmt.Sprintf("mkdir -p %s", mixerConfig)); err != nil {
 		log.Printf("Failed to create mixerconfig dir: %v", err)
 		return

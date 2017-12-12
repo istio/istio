@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	mixerComp "istio.io/istio/tests/integration/component/mixer"
 	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
 )
@@ -56,6 +57,13 @@ func TestSample2(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
+
+	config := testEM.Components[2].GetConfig()
+	mixerConfig, ok := config.(mixerComp.LocalCompConfig)
+	if !ok {
+		t.Fatalf("failed to get config of mixer component")
+	}
+	log.Printf("mixer configfile Dir is: %s", mixerConfig.ConfigFileDir)
 
 	log.Printf("%s succeeded!", testEM.TestID)
 }
