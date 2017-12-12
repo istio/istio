@@ -24,3 +24,5 @@ pilot/proxy/envoy/envoy
 lintconfig.gen.json
 # dep
 Gopkg.lock
+# coverage
+coverage.txt
