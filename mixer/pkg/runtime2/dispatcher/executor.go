@@ -30,35 +30,43 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-const InitialResultQueueSize = 16
+const queueAllocSize = 64
 
-// VectoredExecutor is used to perform scatter-gather calls against multiple handlers using go-routines, in a
+// execPool is used to perform scatter-gather calls against multiple handlers using go-routines, in a
 // panic-safe manner.
+//
 // Aggregates results before returning.
-type VectoredExecutor struct {
+type executor struct {
 
-	// current result channel depth
-	channelDepth int
+	// the maximum number of routines that can be executed side-by-side.
+	maxParallelism int
 
 	// channel for collecting results
 	results     chan *result
 
 	// The current number of outstanding operations
-	vectorSize  int
+	outstanding int
 
+	// The go-routine pool to schedule work on.
 	gp *pool.GoroutinePool
 }
 
-// Invoke the given call within a panic-protected context.
-func (v *VectoredExecutor) Invoke(ctx context.Context, bag attribute.Bag, processor template.Processor, op string) {
+// Start executing a call to the processor within a panic-protected context, in a separate go-routine.
+func (v *executor) execute(ctx context.Context, bag attribute.Bag, processor template.Processor, op string) {
+	if v.outstanding == v.maxParallelism {
+		panic("Request to execute more parallel tasks than can be handled.")
+	}
+
+	v.outstanding++
+
 	v.gp.ScheduleWork(func(){
-		var res *result
+		var r *result
 
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from processor. It has the most context.
-				log.Errorf("Invoke %s panic: %v", op, r)
-				res = &result{
+				log.Errorf("execute %s panic: %v", op, r)
+				r = &result{
 					err: fmt.Errorf("dispatch %s panic: %v", op, r),
 				}
 			}
@@ -66,24 +74,23 @@ func (v *VectoredExecutor) Invoke(ctx context.Context, bag attribute.Bag, proces
 
 		result, err := processor.Process(ctx, bag)
 		if err != nil {
-			res = &result{err: err}
+			r = &result{err: err}
 		} else {
-			res = &result{res:result}
+			r = &result{res:result}
 		}
 
-		v.results <- res
+		v.results <- r
 	})
-
-	v.vectorSize++
 }
 
-func (v *VectoredExecutor) AggregateResults() (adapter.Result, error) {
+// wait for the completion of outstanding work and collect results.
+func (v *executor) wait() (adapter.Result, error) {
 	var res adapter.Result
 	var err *multierror.Error
 	var buf *bytes.Buffer
 	code :=  google_rpc.OK
 
-	for i := 0; i < v.vectorSize; i++ {
+	for i := 0; i < v.outstanding; i++ {
 		rs := <- v.results
 
 		if rs.err != nil {
@@ -121,38 +128,42 @@ func (v *VectoredExecutor) AggregateResults() (adapter.Result, error) {
 	return res, err.ErrorOrNil()
 }
 
-// Create a new pool of vectored executorsg.
-func NewVectoredExecutorPool(gp *pool.GoroutinePool) *VectoredExecutorPool {
-	return &VectoredExecutorPool{
+// Create a new pool of executors.
+func newExecutorPool(gp *pool.GoroutinePool) *executorPool {
+	return &executorPool{
 		pool: sync.Pool{
 			New: func() interface{} {
-				return &VectoredExecutor{
-					results: make(chan *result, InitialResultQueueSize),
+				return &executor{
+					results: make(chan *result, queueAllocSize),
 					gp: gp,
 				}
 			}},
 	}
 }
 
-// VectoredExecutorPool is a pool of VectoredDispatchers.
-type VectoredExecutorPool struct {
+// executorPool is a pool of executors.
+// Saves on allocation of result channels.
+type executorPool struct {
 	pool sync.Pool
-	}
+}
 
-func (p *VectoredExecutorPool) get(maxVectorSize int) *VectoredExecutor {
-	dispatcher := p.pool.Get().(*VectoredExecutor)
-	dispatcher.vectorSize = 0
+// returns an execPool from the pool, with capability to execute the specified number of items.
+func (p *executorPool) get(maxParallelism int) *executor {
+	dispatcher := p.pool.Get().(*executor)
+	dispatcher.outstanding = 0
 
-	// Resize the channel to accommodate the vector, if necessary.
-	if dispatcher.channelDepth < maxVectorSize {
-		dispatcher.results = make(chan *result, maxVectorSize) // TODO: Use a larger allocation to avoid frequent re-allocs.
-		dispatcher.channelDepth = maxVectorSize
+	// Resize the channel to accommodate the parallelism, if necessary.
+	if dispatcher.maxParallelism < maxParallelism {
+		allocSize := ((maxParallelism / queueAllocSize) + 1) * queueAllocSize
+		dispatcher.results = make(chan *result, allocSize)
+		dispatcher.maxParallelism = maxParallelism
 	}
 
 	return dispatcher
 }
 
-func (p *VectoredExecutorPool) put(d *VectoredExecutor) {
+// returns the execPool back to the pool.
+func (p *executorPool) put(d *executor) {
 	d.gp = nil
 	p.pool.Put(d)
 }

@@ -28,11 +28,12 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// Dispatcher contains dispatcher targets for efficient dispatching of incoming requests.
-type Dispatcher struct {
+// Router calculates the dispatch destinations for an incoming request and dispatches the requests to the appropriate
+// handlers on a scatter-gather execPool that protects against panics.
+type Router struct {
 
-	// targets by template variety.
-	targets map[istio_mixer_v1_template.TemplateVariety]*VarietyTargets
+	// destinations by template variety.
+	destinations map[istio_mixer_v1_template.TemplateVariety]*varietyDestinations
 
 	// identityAttribute defines which configuration scopes apply to a request.
 	// default: target.service
@@ -44,47 +45,48 @@ type Dispatcher struct {
 	// default: istio-default-config
 	defaultConfigNamespace string
 
-	// executor pool for executing the dispatches in a vectorized manner
-	executor *VectoredExecutorPool
+	// execPool pool for executing the dispatches in a vectorized manner
+	execPool *executorPool
 }
 
-// VarietyTargets contains targets for a particular variaty.
-type VarietyTargets struct {
-	// targets by namespace
-	byNamespace map[string]TargetSet
+// destinations for a specific variety.
+type varietyDestinations struct {
 
-	// byNamespace in the default namespace
-	defaultTargets TargetSet
+	// destinations by namespace
+	byNamespace map[string]destinationSet
+
+	// destinations for the default config namespace
+	defaultTargets destinationSet
 }
 
-// TargetSet has a set of targets that conform to a particular rule (i.e. within the same namespace).
-type TargetSet struct {
-	dispatchers []DispatchTarget
+// destinationSet has a set of destinations that conform to a particular rule (i.e. within the same namespace).
+type destinationSet struct {
+	destinations []destination
 }
 
-// DispatchTarget conditionally dispatches an incoming request to a template-constructed template.Processor.
-type DispatchTarget struct {
+// destination conditionally dispatches an incoming request to a template-constructed template.Processor.
+type destination struct {
 	condition compiled.Expression
 	processor template.Processor
 }
 
-func (t *Dispatcher) DispatchReport(ctx context.Context, bag attribute.Bag) (adapter.Result, error) {
+func (t *Router) DispatchReport(ctx context.Context, bag attribute.Bag) (adapter.Result, error) {
 	return t.dispatch(ctx, istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
 }
 
-//func (t *Dispatcher) DispatchCheck(ctx context.Context, bag attribute.Bag) error {
+//func (t *Router) DispatchCheck(ctx context.Context, bag attribute.Bag) error {
 //	return t.dispatch(ctx, istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK, bag, doCheck)
 //}
 
-func (d *Dispatcher) dispatch(ctx context.Context, variety istio_mixer_v1_template.TemplateVariety, bag attribute.Bag) (adapter.Result, error) {
+func (d *Router) dispatch(ctx context.Context, variety istio_mixer_v1_template.TemplateVariety, bag attribute.Bag) (adapter.Result, error) {
 
-	byVariety, ok := d.targets[variety]
+	byVariety, ok := d.destinations[variety]
 	if !ok {
 		// TODO: NYI
 		panic("nyi")
 	}
 
-	defaultSet, namespaceSet, err := d.getDispatchSets(byVariety, bag)
+	defaultSet, namespaceSet, err := d.getDestinationSets(byVariety, bag)
 
 	if err != nil {
 		// TODO: NYI
@@ -92,26 +94,26 @@ func (d *Dispatcher) dispatch(ctx context.Context, variety istio_mixer_v1_templa
 	}
 
 	// Get an executor from the pool
-	executor := d.executor.get(defaultSet.Size() + namespaceSet.Size())
+	executor := d.execPool.get(defaultSet.Size() + namespaceSet.Size())
 
 	// dispatch the default target set, and the namespace-specific set.
 	defaultSet.dispatch(executor, ctx, bag)
 	namespaceSet.dispatch(executor, ctx, bag)
 
 	// aggregate and combine the results and return back.
-	result, err := executor.AggregateResults()
+	result, err := executor.wait()
 
-	d.executor.put(executor)
+	d.execPool.put(executor)
 
 	return result, err
 }
 
-func (s TargetSet) dispatch(e *VectoredExecutor, ctx context.Context, bag attribute.Bag) error {
-	if s.dispatchers == nil {
+func (s destinationSet) dispatch(e *executor, ctx context.Context, bag attribute.Bag) error {
+	if s.destinations == nil {
 		return nil
 	}
 
-	for _, d := range s.dispatchers {
+	for _, d := range s.destinations {
 		if d.condition != nil {
 			match, err := d.condition.EvaluateBoolean(bag)
 			if err != nil {
@@ -124,21 +126,21 @@ func (s TargetSet) dispatch(e *VectoredExecutor, ctx context.Context, bag attrib
 		}
 
 		// TODO: op
-		e.Invoke(ctx, bag, d.processor, "op")
+		e.execute(ctx, bag, d.processor, "op")
 	}
 
 	return nil
 }
 
-func (s TargetSet) Size() int {
-	if s.dispatchers == nil {
+func (s destinationSet) Size() int {
+	if s.destinations == nil {
 		return 0
 	}
 
-	return len(s.dispatchers)
+	return len(s.destinations)
 }
 
-func (s Dispatcher) getDispatchSets(byVariety *VarietyTargets, bag attribute.Bag) (TargetSet, TargetSet, error) {
+func (s Router) getDestinationSets(byVariety *varietyDestinations, bag attribute.Bag) (destinationSet, destinationSet, error) {
 	dest, err := getDestination(bag, s.identityAttribute)
 	if err != nil {
 		// TODO: NYI
@@ -148,14 +150,14 @@ func (s Dispatcher) getDispatchSets(byVariety *VarietyTargets, bag attribute.Bag
 	ns := getNamespace(dest)
 
 	if ns == s.defaultConfigNamespace {
-		return byVariety.defaultTargets, TargetSet{}, nil
+		return byVariety.defaultTargets, destinationSet{}, nil
 	}
 
 	if nsDispatchers, found := byVariety.byNamespace[ns]; found {
 		return byVariety.defaultTargets, nsDispatchers, nil
 	}
 
-	return byVariety.defaultTargets, TargetSet{}, nil
+	return byVariety.defaultTargets, destinationSet{}, nil
 }
 
 
