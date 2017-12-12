@@ -50,20 +50,42 @@ var baseSingleReportSetup = perf.Setup{
 	},
 }
 
-func Benchmark_Single_Report(b *testing.B) {
+func Benchmark_InP_Single_Report_R1(b *testing.B) {
 	settings := baseSettings
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseSingleReportSetup
+	setup.Config.UseRuntime2 = false
+	perf.Run(b, &setup, settings)
+}
+
+func Benchmark_InP_Single_Report_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseSingleReportSetup
+	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }
 
-func Benchmark_Single_Report_SuccessCondition(b *testing.B) {
+func Benchmark_InP_Single_Report_SuccessCondition_R1(b *testing.B) {
 	settings := baseSettings
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseSingleReportSetup
+	setup.Config.UseRuntime2 = false
+	setup.Config.Global = joinConfigs(h1Noop, i1ReportNothing, r3UsingH1AndI1Conditional)
+
+	perf.Run(b, &setup, settings)
+}
+
+func Benchmark_InP_Single_Report_SuccessCondition_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseSingleReportSetup
+	setup.Config.UseRuntime2 = true
 	setup.Config.Global = joinConfigs(h1Noop, i1ReportNothing, r3UsingH1AndI1Conditional)
 
 	perf.Run(b, &setup, settings)

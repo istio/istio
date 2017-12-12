@@ -52,11 +52,22 @@ var baseMultiMetricSetup = perf.Setup{
 	},
 }
 
-func Benchmark_Multi_Metric(b *testing.B) {
+func Benchmark_InP_Multi_Metric_R1(b *testing.B) {
 	settings := baseSettings
 	settings.RunMode = perf.InProcessBypassGrpc
 
 	setup := baseMultiMetricSetup
+	setup.Config.UseRuntime2 = false
+
+	perf.Run(b, &setup, settings)
+}
+
+func Benchmark_InP_Multi_Metric_R2(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcessBypassGrpc
+
+	setup := baseMultiMetricSetup
+	setup.Config.UseRuntime2 = true
 
 	perf.Run(b, &setup, settings)
 }
