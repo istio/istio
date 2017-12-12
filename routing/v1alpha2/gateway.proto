@@ -1,0 +1,272 @@
+// Copyright 2017 Istio Authors
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
+syntax = "proto3";
+
+package istio.routing.v1alpha2;
+
+// Gateway describes a load balancer operating at the edge of the mesh
+// receiving incoming or outgoing HTTP/TCP connections. The specification
+// describes a set of ports that should be exposed, the type of protocol to
+// use, SNI configuration for the load balancer, etc.
+//
+// For example, the following gateway spec sets up a proxy to act as a load
+// balancer exposing port 80 and 9080 (http), 443 (https), and port 2379
+// (TCP) for ingress.  While Istio will configure the proxy to listen on
+// these ports, it is the responsibility of the user to ensure that
+// external traffic to these ports are allowed into the mesh.
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: Gateway
+//     metadata:
+//       name: my-gateway
+//     spec:
+//       servers:
+//       - port:
+//           number: 80
+//           name: http
+//         domains:
+//         - uk.bookinfo.com
+//         - eu.bookinfo.com
+//         tls:
+//           httpsRedirect: true # sends 302 redirect for http requests
+//       - port:
+//           number: 443
+//           name: https
+//         domains:
+//         - uk.bookinfo.com
+//         - eu.bookinfo.com
+//         tls:
+//           mode: simple #enables HTTPS on this port
+//           serverCert: server.crt
+//           clientCABundle: client.ca-bundle
+//       - port:
+//           number: 9080
+//           name: http-wildcard
+//         # no domains implies wildcard match
+//       - port:
+//           number: 2379 #to expose internal service via external port 2379
+//           name: Mongo
+//           protocol: MONGO
+//
+// The gateway specification above describes the L4-L6 properties of a load
+// balancer. Routing rules can then be bound to a gateway to control 
+// the forwarding of traffic arriving at a particular domain or gateway port.
+//
+// The following sample route rule splits traffic for
+// https://uk.bookinfo.com/reviews, https://eu.bookinfo.com/reviews,
+// http://uk.bookinfo.com:9080/reviews, http://eu.bookinfo.com:9080/reviews
+// into two versions (prod and qa) of an internal reviews service on port
+// 9080. In addition, requests containing the cookie user: dev-123 will be
+// sent to special port 7777 in the qa version. The same rule is also
+// applicable inside the mesh for requests to the reviews.prod
+// service. This rule is applicable across ports 443, 9080. Note that
+// http://uk.bookinfo.com gets redirected to https://uk.bookinfo.com
+// (i.e. 80 redirects to 443).
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: RouteRule
+//     metadata:
+//       name: bookinfo-rule
+//     spec:
+//       hosts:
+//       - reviews.prod
+//       - uk.bookinfo.com
+//       - eu.bookinfo.com
+//       gateways:
+//       - my-gateway
+//       http:
+//       - match:
+//         - headers:
+//             cookie:
+//               user: dev-123
+//         route:
+//         - destination:
+//             port:
+//               number: 7777
+//             name: reviews.qa
+//       - match:
+//           uri:
+//             prefix: /reviews/
+//         route:
+//         - destination:
+//             port:
+//               number: 9080 # can be omitted if its the only port for reviews
+//             name: reviews.prod
+//           weight: 80
+//         - destination:
+//             name: reviews.qa
+//           weight: 20
+//
+// The following routing rule forwards traffic arriving at (external)
+// port 2379 from 172.17.16.* subnet to internal Mongo server on port 5555.
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: RouteRule
+//     metadata:
+//       name: bookinfo-Mongo
+//     spec:
+//       hosts:
+//       - Mongosvr #name of Mongo service
+//       gateways:
+//       - my-gateway
+//       tcp:
+//       - match:
+//         - port:
+//             number: 2379
+//           sourceSubnet: "172.17.16.0/24"
+//         route:
+//         - destination:
+//             name: mongo.prod
+//
+// By default, if there is no wildcard, HTTP requests for unknown domains
+// or requests that have no matching route rule will respond with a 404. If
+// a specific default behavior is desired at the ingress, add a route rule
+// with a wildcard host and the desired backend. For example, the following
+// wildcard routing rule routes all traffic to homepage.prod by default.
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: RouteRule
+//     metadata:
+//       name: default-ingress
+//     spec:
+//       hosts:
+//       - *
+//       gateways:
+//       - my-gateway
+//       http:
+//       - route:
+//         - destination:
+//             name: homepage.prod
+//
+message Gateway {
+  // REQUIRED: A list of server specifications.
+  repeated Server servers = 1;
+}
+
+// Server describes the properties of the proxy on a given load balancer port.
+// For example,
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: Gateway
+//     metadata:
+//       name: my-ingress
+//     spec:
+//       servers:
+//       - port:
+//           number: 80
+//           protocol: HTTP2
+//
+// Another example
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: Gateway
+//     metadata:
+//       name: my-tcp-ingress
+//     spec:
+//       servers:
+//       - port:
+//           number: 27018
+//           protocol: MONGO
+//
+// The following is an example of TLS configuration for port 443
+//
+//     apiVersion: config.istio.io/v1alpha2
+//     kind: Gateway
+//     metadata:
+//       name: my-ingress
+//     spec:
+//       servers:
+//       - port:
+//           number: 443
+//           protocol: HTTP
+//         tls:
+//           mode: simple
+//           serverCertificatet: server.crt
+//
+message Server {
+  // Port describes the properties of a specific port of a service.
+  message Port {
+    // REQUIRED: A valid non-negative integer port number.
+    uint32 number = 1;
+
+    // The protocol exposed on the port.
+    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.
+    string protocol = 2;
+
+    // Label assigned to the port.
+    string name = 3;
+  }
+
+  // REQUIRED: The Port on which the proxy should listen for incoming
+  // connections
+  Port port = 1;
+
+  // A list of domains exposed by this gateway. While
+  // typically applicable to HTTP services, it can also be used for TCP
+  // services using TLS with SNI. Standard DNS wildcard prefix syntax
+  // is permitted.
+  //
+  // RouteRules that are bound to a gateway must having a matching domain
+  // in their default destination. Specifically one of the route rule
+  // destination domains is a strict suffix of a gateway domain or
+  // a gateway domain is a suffix of one of the route rule domains.
+  repeated string domains = 2;
+
+  message TLSOptions {
+    // If set to true, the load balancer will send a 302 redirect for all
+    // http connections, asking the clients to use HTTPS.
+    bool https_redirect = 1;
+
+    // TLS modes enforced by the gateway
+    enum TLSmode {
+      // If set to "passthrough", the gateway will forward the connection to the
+      // upstream server as is.
+      PASSTHROUGH = 0;
+
+      // If set to "simple", the gateway will secure connections with
+      // standard TLS semantics (server certs only).
+      SIMPLE = 1;
+
+      // If set to "mutual", the gateway will use standard mTLS authentication.
+      MUTUAL = 2;
+    };
+
+    // Optional: Indicates whether connections to this port should be
+    // secured using TLS.  The value of this field determines how TLS is
+    // enforced.  
+    TLSmode mode = 2;
+
+    // REQUIRED if mode == SIMPLE/MUTUAL. The name of the file holding the
+    // server-side TLS certificate to use.  It is the responsibility of the
+    // underlying platform to mount the certificate as a file under
+    // /etc/istio/ingress-certs with the same name as the specified in this
+    // field.
+    string server_certificate = 3;
+
+    // REQUIRED if mode == MUTUAL. To use mutual TLS for external clients,
+    // specify the name of the file holding the CA certificate to validate
+    // the client's certificate. It is the responsibility of the underlying
+    // platform to mount the certificate as a file under
+    // /etc/istio/ingress-certs with the same name as specified in this
+    // field.
+    string client_ca_bundle = 4;
+  }
+
+  // Set of TLS related options that govern the server's behavior. Use
+  // these options to control if all http requests should be redirected to
+  // https, and the TLS modes to use.
+  TLSOptions tls = 3;
+}
+
