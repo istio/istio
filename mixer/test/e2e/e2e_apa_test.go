@@ -210,7 +210,7 @@ func TestApa(t *testing.T) {
 		args.ConfigAPIPort = 0
 		args.Templates = e2eTmpl.SupportedTmplInfo
 		args.Adapters = adapterInfos
-		args.GlobalConfig = reportGlobalCfg
+		args.GlobalConfig = apaGlobalCfg
 		args.ServiceConfig = tt.cfg
 
 		env, err := testEnv.New(args)
