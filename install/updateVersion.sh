@@ -155,7 +155,6 @@ function merge_files() {
   cp $ISTIO $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
-
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
   sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
