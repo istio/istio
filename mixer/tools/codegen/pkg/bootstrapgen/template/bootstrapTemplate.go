@@ -63,9 +63,6 @@ var (
 	_ = strings.Reader{}
 )
 
-
-const emptyQuotes = "\"\""
-
 type (
 	getFn         func(name string) (value interface{}, found bool)
 	namesFn       func() []string
@@ -190,7 +187,7 @@ var (
 									}
 								}
 							{{else}}
-								if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+								if param.{{.GoName}} == "" {
 									return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
 								}
 								if infrdType.{{.GoName}}, err = tEvalFn(param.{{.GoName}}); err != nil {
@@ -211,7 +208,7 @@ var (
 								}
 							}
 						{{else}}
-							if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+							if param.{{.GoName}} == "" {
 								return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
 							}
 							if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
