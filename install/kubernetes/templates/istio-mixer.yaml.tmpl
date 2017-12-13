@@ -184,6 +184,40 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: kuberneteses.config.istio.io
+  labels:
+    package: adapter.template.kubernetes
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetes
+    plural: kuberneteses
+    singular: kubernetes
+  scope: Namespaced
+  version: v1alpha2
+
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: kubernetesenvs.config.istio.io
+  labels:
+    package: kubernetesenv
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetesenv
+    plural: kubernetesenvs
+    singular: kubernetesenv
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: memquotas.config.istio.io
   labels:
     package: memquota
