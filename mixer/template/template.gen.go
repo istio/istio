@@ -63,8 +63,6 @@ var (
 	_ = strings.Reader{}
 )
 
-const emptyQuotes = "\"\""
-
 type (
 	getFn         func(name string) (value interface{}, found bool)
 	namesFn       func() []string
@@ -144,7 +142,7 @@ var (
 
 					var err error = nil
 
-					if param.ApiVersion == "" || param.ApiVersion == emptyQuotes {
+					if param.ApiVersion == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiVersion")
 					}
 					if t, e := tEvalFn(param.ApiVersion); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -154,7 +152,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiVersion", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiOperation == "" || param.ApiOperation == emptyQuotes {
+					if param.ApiOperation == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiOperation")
 					}
 					if t, e := tEvalFn(param.ApiOperation); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -164,7 +162,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiOperation", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiProtocol == "" || param.ApiProtocol == emptyQuotes {
+					if param.ApiProtocol == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiProtocol")
 					}
 					if t, e := tEvalFn(param.ApiProtocol); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -174,7 +172,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiProtocol", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiService == "" || param.ApiService == emptyQuotes {
+					if param.ApiService == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiService")
 					}
 					if t, e := tEvalFn(param.ApiService); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -184,7 +182,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiService", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiKey == "" || param.ApiKey == emptyQuotes {
+					if param.ApiKey == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiKey")
 					}
 					if t, e := tEvalFn(param.ApiKey); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -194,7 +192,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiKey", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.RequestTime == "" || param.RequestTime == emptyQuotes {
+					if param.RequestTime == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"RequestTime")
 					}
 					if t, e := tEvalFn(param.RequestTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -204,7 +202,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestTime", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.RequestMethod == "" || param.RequestMethod == emptyQuotes {
+					if param.RequestMethod == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"RequestMethod")
 					}
 					if t, e := tEvalFn(param.RequestMethod); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -214,7 +212,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestMethod", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.RequestPath == "" || param.RequestPath == emptyQuotes {
+					if param.RequestPath == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"RequestPath")
 					}
 					if t, e := tEvalFn(param.RequestPath); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -224,7 +222,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestPath", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.RequestBytes == "" || param.RequestBytes == emptyQuotes {
+					if param.RequestBytes == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"RequestBytes")
 					}
 					if t, e := tEvalFn(param.RequestBytes); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -234,7 +232,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"RequestBytes", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.ResponseTime == "" || param.ResponseTime == emptyQuotes {
+					if param.ResponseTime == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ResponseTime")
 					}
 					if t, e := tEvalFn(param.ResponseTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -244,7 +242,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ResponseTime", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.ResponseCode == "" || param.ResponseCode == emptyQuotes {
+					if param.ResponseCode == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ResponseCode")
 					}
 					if t, e := tEvalFn(param.ResponseCode); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -254,7 +252,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ResponseCode", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.ResponseBytes == "" || param.ResponseBytes == emptyQuotes {
+					if param.ResponseBytes == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ResponseBytes")
 					}
 					if t, e := tEvalFn(param.ResponseBytes); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -264,7 +262,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ResponseBytes", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.ResponseLatency == "" || param.ResponseLatency == emptyQuotes {
+					if param.ResponseLatency == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ResponseLatency")
 					}
 					if t, e := tEvalFn(param.ResponseLatency); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -497,7 +495,7 @@ var (
 
 					var err error = nil
 
-					if param.Api == "" || param.Api == emptyQuotes {
+					if param.Api == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Api")
 					}
 					if t, e := tEvalFn(param.Api); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -507,7 +505,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Api", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiVersion == "" || param.ApiVersion == emptyQuotes {
+					if param.ApiVersion == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiVersion")
 					}
 					if t, e := tEvalFn(param.ApiVersion); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -517,7 +515,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiVersion", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiOperation == "" || param.ApiOperation == emptyQuotes {
+					if param.ApiOperation == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiOperation")
 					}
 					if t, e := tEvalFn(param.ApiOperation); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -527,7 +525,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiOperation", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ApiKey == "" || param.ApiKey == emptyQuotes {
+					if param.ApiKey == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ApiKey")
 					}
 					if t, e := tEvalFn(param.ApiKey); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -537,7 +535,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ApiKey", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.Timestamp == "" || param.Timestamp == emptyQuotes {
+					if param.Timestamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Timestamp")
 					}
 					if t, e := tEvalFn(param.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -777,7 +775,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if t, e := tEvalFn(param.Value); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -897,7 +895,7 @@ var (
 						}
 					}
 
-					if param.Timestamp == "" || param.Timestamp == emptyQuotes {
+					if param.Timestamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Timestamp")
 					}
 					if t, e := tEvalFn(param.Timestamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -907,7 +905,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Timestamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Severity == "" || param.Severity == emptyQuotes {
+					if param.Severity == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Severity")
 					}
 					if t, e := tEvalFn(param.Severity); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -917,7 +915,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Severity", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.MonitoredResourceType == "" || param.MonitoredResourceType == emptyQuotes {
+					if param.MonitoredResourceType == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"MonitoredResourceType")
 					}
 					if t, e := tEvalFn(param.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1080,7 +1078,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -1097,7 +1095,7 @@ var (
 						}
 					}
 
-					if param.MonitoredResourceType == "" || param.MonitoredResourceType == emptyQuotes {
+					if param.MonitoredResourceType == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"MonitoredResourceType")
 					}
 					if t, e := tEvalFn(param.MonitoredResourceType); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1452,7 +1450,7 @@ var (
 
 					var err error = nil
 
-					if param.TraceId == "" || param.TraceId == emptyQuotes {
+					if param.TraceId == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TraceId")
 					}
 					if t, e := tEvalFn(param.TraceId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1462,7 +1460,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TraceId", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.SpanId == "" || param.SpanId == emptyQuotes {
+					if param.SpanId == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SpanId")
 					}
 					if t, e := tEvalFn(param.SpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1472,7 +1470,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SpanId", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.ParentSpanId == "" || param.ParentSpanId == emptyQuotes {
+					if param.ParentSpanId == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"ParentSpanId")
 					}
 					if t, e := tEvalFn(param.ParentSpanId); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1482,7 +1480,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"ParentSpanId", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.SpanName == "" || param.SpanName == emptyQuotes {
+					if param.SpanName == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SpanName")
 					}
 					if t, e := tEvalFn(param.SpanName); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1492,7 +1490,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SpanName", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.StartTime == "" || param.StartTime == emptyQuotes {
+					if param.StartTime == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StartTime")
 					}
 					if t, e := tEvalFn(param.StartTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -1502,7 +1500,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"StartTime", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.EndTime == "" || param.EndTime == emptyQuotes {
+					if param.EndTime == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"EndTime")
 					}
 					if t, e := tEvalFn(param.EndTime); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
