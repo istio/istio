@@ -22,6 +22,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	istioCaSelfSigned = "istio-ca-self-signed"
+)
+
 type (
 	// SecretTestEnv is the test environment for istio.default secret test
 	SecretTestEnv struct {
@@ -63,7 +67,7 @@ func (env *SecretTestEnv) GetComponents() []framework.Component {
 		NewKubernetesPod(
 			env.ClientSet,
 			env.NameSpace,
-			"istio-ca-self-signed",
+			istioCaSelfSigned,
 			fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
 			[]string{
 				"/usr/local/bin/istio_ca",

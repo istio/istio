@@ -34,6 +34,10 @@ type (
 	}
 )
 
+const (
+	istioCaSelfSignedShortTTL = "istio-ca-self-signed-short-ttl"
+)
+
 // NewCertRotationTestEnv creates the environment instance
 func NewCertRotationTestEnv(name string, clientset *kubernetes.Clientset, hub string, tag string) *CertRotationTestEnv {
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
@@ -63,7 +67,7 @@ func (env *CertRotationTestEnv) GetComponents() []framework.Component {
 		NewKubernetesPod(
 			env.ClientSet,
 			env.NameSpace,
-			"istio-ca-self-signed-short-ttl",
+			istioCaSelfSignedShortTTL,
 			fmt.Sprintf("%v/istio-ca:%v", env.Hub, env.Tag),
 			[]string{
 				"/usr/local/bin/istio_ca",

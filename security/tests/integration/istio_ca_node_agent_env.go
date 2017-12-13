@@ -37,6 +37,13 @@ type (
 	}
 )
 
+const (
+	istioCaWithGivenCertificate = "istio-ca-with-given-certificate"
+	nodeAgent                   = "node-agent"
+	nodeAgentService            = "node-agent-service"
+	podGroupPostfix             = "-pod-group"
+)
+
 // NewNodeAgentTestEnv creates the environment instance
 func NewNodeAgentTestEnv(name string, clientset *kubernetes.Clientset, hub string, tag string) *NodeAgentTestEnv {
 	namespace, err := createTestNamespace(clientset, testNamespacePrefix)
@@ -66,7 +73,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 		NewKubernetesPod(
 			env.ClientSet,
 			env.NameSpace,
-			"istio-ca-with-given-certificate",
+			istioCaWithGivenCertificate,
 			fmt.Sprintf("%v/istio-ca-test:%v", env.Hub, env.Tag),
 			[]string{},
 			[]string{},
@@ -78,7 +85,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 			v1.ServiceTypeClusterIP,
 			8060,
 			map[string]string{
-				"pod-group": "istio-ca-with-given-certificate-pod-group",
+				"pod-group": istioCaWithGivenCertificate + podGroupPostfix,
 			},
 			map[string]string{
 				kube.KubeServiceAccountsOnVMAnnotation: "nodeagent.google.com",
@@ -87,7 +94,7 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 		NewKubernetesPod(
 			env.ClientSet,
 			env.NameSpace,
-			"node-agent",
+			nodeAgent,
 			fmt.Sprintf("%v/node-agent-test:%v", env.Hub, env.Tag),
 			[]string{},
 			[]string{},
@@ -95,11 +102,11 @@ func (env *NodeAgentTestEnv) GetComponents() []framework.Component {
 		NewKubernetesService(
 			env.ClientSet,
 			env.NameSpace,
-			"node-agent-service",
+			nodeAgentService,
 			v1.ServiceTypeLoadBalancer,
 			8080,
 			map[string]string{
-				"pod-group": "node-agent-pod-group",
+				"pod-group": nodeAgent + podGroupPostfix,
 			},
 			map[string]string{},
 		),
