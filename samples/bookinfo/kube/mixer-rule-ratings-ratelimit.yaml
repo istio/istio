@@ -71,6 +71,7 @@ metadata:
 spec:
   quotaSpecs:
   - name: request-count
+    namespace: istio-system
   services:
   - service: ratings
 
