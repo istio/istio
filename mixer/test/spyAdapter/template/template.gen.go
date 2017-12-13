@@ -47,8 +47,6 @@ var (
 	_ = strings.Reader{}
 )
 
-const emptyQuotes = "\"\""
-
 type (
 	getFn         func(name string) (value interface{}, found bool)
 	namesFn       func() []string
@@ -126,7 +124,7 @@ var (
 
 					var err error = nil
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -136,7 +134,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -146,7 +144,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -156,7 +154,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -397,7 +395,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
