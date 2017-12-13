@@ -23,7 +23,6 @@ import (
 	"github.com/googleapis/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
@@ -34,15 +33,13 @@ const queueAllocSize = 64
 
 // execPool is used to perform scatter-gather calls against multiple handlers using go-routines, in a
 // panic-safe manner.
-//
-// Aggregates results before returning.
 type executor struct {
 
 	// the maximum number of routines that can be executed side-by-side.
 	maxParallelism int
 
 	// channel for collecting results
-	results     chan *result
+	results chan *result
 
 	// The current number of outstanding operations
 	outstanding int
@@ -51,20 +48,57 @@ type executor struct {
 	gp *pool.GoroutinePool
 }
 
-// Start executing a call to the processor within a panic-protected context, in a separate go-routine.
-func (v *executor) execute(ctx context.Context, bag attribute.Bag, processor template.Processor, op string) {
+//// Start executing a call to the Processor within a panic-protected context, in a separate go-routine.
+//func (v *executor) execute(ctx context.Context, bag attribute.Bag, param interface{}, processor template.Processor, op string) {
+//	if v.outstanding == v.maxParallelism {
+//		panic("Request to execute more parallel tasks than can be handled.")
+//	}
+//
+//	v.outstanding++
+//
+//	v.gp.ScheduleWork(func(){
+//		var r *result
+//
+//		defer func() {
+//			if r := recover(); r != nil {
+//				// TODO: Obtain "op" from Processor. It has the most context.
+//				log.Errorf("execute %s panic: %v", op, r)
+//				r = &result{
+//					err: fmt.Errorf("dispatch %s panic: %v", op, r),
+//				}
+//			}
+//		}()
+//
+//		res, err := processor.Process(ctx, param, bag)
+//		if err != nil {
+//			r = &result{err: err}
+//		} else {
+//			r = &result{res:res}
+//		}
+//
+//		v.results <- r
+//	})
+//}
+
+func (v *executor) executeSingleInstance(
+	ctx context.Context,
+	handler adapter.Handler,
+	processor template.SingleInstanceProcessorFn,
+	param interface{},
+	instance interface{}, op string) {
+
 	if v.outstanding == v.maxParallelism {
 		panic("Request to execute more parallel tasks than can be handled.")
 	}
 
 	v.outstanding++
 
-	v.gp.ScheduleWork(func(){
+	v.gp.ScheduleWork(func() {
 		var r *result
 
 		defer func() {
 			if r := recover(); r != nil {
-				// TODO: Obtain "op" from processor. It has the most context.
+				// TODO: Obtain "op" from Processor. It has the most context.
 				log.Errorf("execute %s panic: %v", op, r)
 				r = &result{
 					err: fmt.Errorf("dispatch %s panic: %v", op, r),
@@ -72,11 +106,48 @@ func (v *executor) execute(ctx context.Context, bag attribute.Bag, processor tem
 			}
 		}()
 
-		result, err := processor.Process(ctx, bag)
+		res, err := processor(ctx, handler, param, instance)
 		if err != nil {
 			r = &result{err: err}
 		} else {
-			r = &result{res:result}
+			r = &result{res: res}
+		}
+
+		v.results <- r
+	})
+}
+
+func (v *executor) executeMultiInstance(
+	ctx context.Context,
+	handler adapter.Handler,
+	processor template.MultiInstanceProcessorFn,
+	param interface{},
+	instances []interface{}, op string) {
+
+	if v.outstanding == v.maxParallelism {
+		panic("Request to execute more parallel tasks than can be handled.")
+	}
+
+	v.outstanding++
+
+	v.gp.ScheduleWork(func() {
+		var r *result
+
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: Obtain "op" from Processor. It has the most context.
+				log.Errorf("execute %s panic: %v", op, r)
+				r = &result{
+					err: fmt.Errorf("dispatch %s panic: %v", op, r),
+				}
+			}
+		}()
+
+		res, err := processor(ctx, handler, param, instances)
+		if err != nil {
+			r = &result{err: err}
+		} else {
+			r = &result{res: res}
 		}
 
 		v.results <- r
@@ -88,10 +159,10 @@ func (v *executor) wait() (adapter.Result, error) {
 	var res adapter.Result
 	var err *multierror.Error
 	var buf *bytes.Buffer
-	code :=  google_rpc.OK
+	code := google_rpc.OK
 
 	for i := 0; i < v.outstanding; i++ {
-		rs := <- v.results
+		rs := <-v.results
 
 		if rs.err != nil {
 			err = multierror.Append(err, rs.err)
@@ -135,7 +206,7 @@ func newExecutorPool(gp *pool.GoroutinePool) *executorPool {
 			New: func() interface{} {
 				return &executor{
 					results: make(chan *result, queueAllocSize),
-					gp: gp,
+					gp:      gp,
 				}
 			}},
 	}
@@ -181,4 +252,3 @@ type result struct {
 	//// callinfo that resulted in "res". Used for informational purposes.
 	//callinfo *Action
 }
-

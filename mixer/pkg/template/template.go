@@ -85,7 +85,12 @@ type (
 
 		AttributeManifests []*istio_mixer_v1_config.AttributeManifest
 
-		CreateProcessor         CreateProcessorFn
+		ProcessReport2   MultiInstanceProcessorFn
+		ProcessCheck2    SingleInstanceProcessorFn
+		ProcessQuota2    MultiInstanceProcessorFn
+		ProcessGenAttrs2 MultiInstanceProcessorFn
+
+		CreateInstanceBuilder CreateInstanceBuilderFn
 	}
 
 	// templateRepo implements Repository
@@ -96,15 +101,15 @@ type (
 		tmplToBuilderNames map[string]string
 	}
 
-	// CreateProcessor is used during config time to create a processor for the specified instanceConfigs, to run
-	// against the given handler.
-	CreateProcessorFn func(instanceConfigs []interface{}, builder compiled.ExpressionBuilder, handler adapter.Handler) Processor
+	CreateInstanceBuilderFn func(instanceConfig proto.Message, builder *compiled.ExpressionBuilder) (InstanceBuilder, error)
 
-	// Processor handles all incoming requests, after rule processing. It can handle dispatching of one or more
-	// instances to a handler.
-	Processor interface {
-		Process(ctx context.Context, bag attribute.Bag) (adapter.Result, error)
+	InstanceBuilder interface {
+		Build(bag attribute.Bag) (interface{}, error)
 	}
+
+	SingleInstanceProcessorFn func(ctx context.Context, handler adapter.Handler, param interface{}, instance interface{}) (adapter.Result, error)
+
+	MultiInstanceProcessorFn func(ctx context.Context, handler adapter.Handler, param interface{}, instances []interface{}) (adapter.Result, error)
 )
 
 func (t repo) GetTemplateInfo(template string) (Info, bool) {
