@@ -270,10 +270,10 @@ const (
 	// HeaderAuthority is authority HTTP header
 	HeaderAuthority = "authority"
 
-	// HeaderAuthority is method HTTP header
+	// HeaderMethod is method HTTP header
 	HeaderMethod = "method"
 
-	// HeaderAuthority is scheme HTTP header
+	// HeaderScheme is scheme HTTP header
 	HeaderScheme = "scheme"
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
