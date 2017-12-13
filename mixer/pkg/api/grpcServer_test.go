@@ -17,11 +17,12 @@ package api
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap/zapcore"
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/pkg/log"
 )
 
 type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
@@ -444,5 +446,7 @@ func TestFailingPreproc(t *testing.T) {
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
+	o := log.NewOptions()
+	o.SetOutputLevel(zapcore.DebugLevel)
+	_ = log.Configure(o)
 }

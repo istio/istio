@@ -13,10 +13,10 @@ go_library(
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )
@@ -35,5 +35,6 @@ go_test(
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )
