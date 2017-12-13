@@ -232,12 +232,6 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v, expected success", err)
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		responseBag.Set("A1", "override")
-		responseBag.Set("genAttrLegacyAttrGen", "genAttrLegacyAttrGenValue")
-		return status.OK
-	}
-
 	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 		responseBag.Set("A1", "override")
 		responseBag.Set("genAttrGen", "genAttrGenValue")
@@ -247,9 +241,6 @@ func TestCheck(t *testing.T) {
 	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 		if val, _ := requestBag.Get("A1"); val == "override" {
 			return nil, errors.New("attribute overriding not allowed in Check")
-		}
-		if val, _ := requestBag.Get("genAttrLegacyAttrGen"); val != "genAttrLegacyAttrGenValue" {
-			return nil, errors.New("generated attribute via preproc not part of check attributes")
 		}
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
 			return nil, errors.New("generated attribute via preproc not part of check attributes")
@@ -394,12 +385,6 @@ func TestReport(t *testing.T) {
 		t.Errorf("Got %d, expected call count of 2", callCount)
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		responseBag.Set("A1", "override")
-		responseBag.Set("genAttrLegacyAttrGen", "genAttrLegacyAttrGenValue")
-		return status.OK
-	}
-
 	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 		responseBag.Set("A1", "override")
 		responseBag.Set("genAttrGen", "genAttrGenValue")
@@ -409,9 +394,6 @@ func TestReport(t *testing.T) {
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		if val, _ := requestBag.Get("A1"); val == "override" {
 			return errors.New("attribute overriding NOT allowed in Report")
-		}
-		if val, _ := requestBag.Get("genAttrLegacyAttrGen"); val != "genAttrLegacyAttrGenValue" {
-			return errors.New("generated attribute via preproc not part of report attributes")
 		}
 		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
 			return errors.New("generated attribute via preproc not part of report attributes")
@@ -455,11 +437,8 @@ func TestFailingPreproc(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return rpc.Status{
-			Code:    12345678,
-			Message: "DEADBEEF!",
-		}
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		return errors.New("123 preproc failed")
 	}
 
 	{
@@ -470,8 +449,8 @@ func TestFailingPreproc(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("Got success, expected failure")
-		} else if !strings.Contains(err.Error(), "DEADBEEF!") {
-			t.Errorf("Got '%s', expected DEADBEEF!", err.Error())
+		} else if !strings.Contains(err.Error(), "123 preproc failed") {
+			t.Errorf("Got '%s', expected '123 preproc failed'", err.Error())
 		}
 	}
 
@@ -483,8 +462,8 @@ func TestFailingPreproc(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("Got success, expected failure")
-		} else if !strings.Contains(err.Error(), "DEADBEEF!") {
-			t.Errorf("Got '%s', expected DEADBEEF!", err.Error())
+		} else if !strings.Contains(err.Error(), "123 preproc failed") {
+			t.Errorf("Got '%s', expected '123 preproc failed'", err.Error())
 		}
 	}
 }
