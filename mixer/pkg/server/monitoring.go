@@ -26,7 +26,6 @@ import (
 )
 
 type monitor struct {
-	listener         net.Listener
 	monitoringServer *http.Server
 	shutdown         chan struct{}
 }
@@ -42,8 +41,9 @@ func startMonitor(port uint16) (*monitor, error) {
 	}
 
 	// get the network stuff setup
+	var listener net.Listener
 	var err error
-	if m.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
+	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
@@ -60,19 +60,18 @@ func startMonitor(port uint16) (*monitor, error) {
 	})
 
 	m.monitoringServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
 	}
 
 	go func() {
 		m.shutdown <- struct{}{}
-		_ = m.monitoringServer.ListenAndServe()
+		_ = m.monitoringServer.Serve(listener)
 		m.shutdown <- struct{}{}
 	}()
 
-	// This is here to work around (mostly) a race condition in the ListenAndServe
+	// This is here to work around (mostly) a race condition in the Serve
 	// function. If the Close method is called before or during the execution of
-	// ListenAndServe, the call may be ignored and ListenAndServe never returns.
+	// Serve, the call may be ignored and Serve never returns.
 	<-m.shutdown
 
 	return m, nil
@@ -81,6 +80,5 @@ func startMonitor(port uint16) (*monitor, error) {
 func (m *monitor) Close() error {
 	_ = m.monitoringServer.Close()
 	<-m.shutdown
-	_ = m.listener.Close()
 	return nil
 }
