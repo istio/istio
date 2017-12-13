@@ -1,0 +1,145 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package clusterregistry
+
+import (
+	"bytes"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"reflect"
+
+	"github.com/golang/glog"
+
+	"k8s.io/apimachinery/pkg/util/yaml"
+	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
+)
+
+var (
+	supportedExtensions = map[string]bool{
+		".yaml": true,
+		".yml":  true,
+	}
+)
+
+// annotations for a Cluster
+const (
+	ClusterPilotEndpoint    = "config.istio.io/pilotEndpoint"
+	ClusterPlatform         = "config.istio.io/platform"
+	ClusterAccessConfigFile = "config.istio.io/accessConfigFile"
+	ClusterPilotCfgStore    = "config.istio.io/pilotCfgStore"
+)
+
+// ClusterStore is a collection of clusters
+type ClusterStore struct {
+	clusters []*k8s_cr.Cluster
+	cfgStore *k8s_cr.Cluster
+}
+
+// GetPilotKubeConfig returns this pilot's kubeconfig file name
+func (cs *ClusterStore) GetPilotKubeConfig() string {
+	for _, cluster := range cs.clusters {
+		if cluster.ObjectMeta.Annotations[ClusterPilotCfgStore] != "" {
+			cs.cfgStore = cluster
+			glog.V(2).Infof("ConfigStore: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
+			return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
+		}
+	}
+	return ""
+}
+
+// GetClusterKubeConfig returns the kubeconfig file of a cluster
+func GetClusterKubeConfig(cluster *k8s_cr.Cluster) string {
+	return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
+}
+
+// GetClusterName returns a cluster's name
+func GetClusterName(cluster *k8s_cr.Cluster) string {
+	return cluster.ObjectMeta.Name
+}
+
+// GetPilotClusters return a list of clusters under this pilot
+func (cs *ClusterStore) GetPilotClusters() (clusters []*k8s_cr.Cluster) {
+	if cs.cfgStore != nil {
+		pilotEndpoint := cs.cfgStore.ObjectMeta.Annotations[ClusterPilotEndpoint]
+		for _, cluster := range cs.clusters {
+			if cluster.ObjectMeta.Annotations[ClusterPilotEndpoint] == pilotEndpoint {
+				glog.V(2).Infof("KubeConfig: %s", cluster.ObjectMeta.Annotations[ClusterAccessConfigFile])
+				clusters = append(clusters, cluster)
+			}
+		}
+	}
+	return
+}
+
+// ReadClusters reads multiple clusters from files in a directory
+func ReadClusters(crPath string) (cs *ClusterStore, err error) {
+	cs = &ClusterStore{
+		clusters: []*k8s_cr.Cluster{},
+		cfgStore: nil,
+	}
+	err = filepath.Walk(crPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !supportedExtensions[filepath.Ext(path)] || (info.Mode()&os.ModeType) != 0 {
+			return nil
+		}
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			glog.Warningf("Failed to read %s: %v", path, err)
+			return err
+		}
+		result, err := parseClusters(data)
+		if err != nil {
+			glog.Warningf("Failed to parse cluster file %s: %v", path, err)
+			return err
+		}
+		cs.clusters = append(cs.clusters, result...)
+		return nil
+	})
+
+	return
+}
+
+//
+func parseClusters(inputs []byte) (clusters []*k8s_cr.Cluster, err error) {
+	reader := bytes.NewReader([]byte(inputs))
+	var empty = k8s_cr.Cluster{}
+
+	// We store configs as a YaML stream; there may be more than one decoder.
+	yamlDecoder := yaml.NewYAMLOrJSONDecoder(reader, 512*1024)
+	for {
+		obj := k8s_cr.Cluster{}
+		err = yamlDecoder.Decode(&obj)
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if reflect.DeepEqual(obj, empty) {
+			continue
+		}
+
+		clusters = append(clusters, &obj)
+	}
+
+	return
+}
