@@ -17,6 +17,7 @@ package envoy
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sort"
@@ -24,11 +25,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
-	"github.com/hashicorp/go-multierror"
-
-	"net"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
