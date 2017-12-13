@@ -2181,7 +2181,7 @@ func TestValidateTlsOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateTlsOptions(tt.in)
+			err := validateTLSOptions(tt.in)
 			if err == nil && tt.out != "" {
 				t.Fatalf("validateTlsOptions(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {

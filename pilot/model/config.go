@@ -296,6 +296,7 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
+	// Gateway describes a gateway (how a proxy is exposed on the network)
 	Gateway = ProtoSchema{
 		Type:        "gateway",
 		Plural:      "gateways",

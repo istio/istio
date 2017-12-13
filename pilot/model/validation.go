@@ -235,6 +235,7 @@ func ValidateFQDN(fqdn string) error {
 	return appendErrors(checkDNS1123Preconditions(fqdn), validateDNS1123Labels(fqdn))
 }
 
+// ValidateWildcardDomain checks that a domain is a valid FQDN, but also allows wildcard prefixes.
 func ValidateWildcardDomain(domain string) error {
 	if err := checkDNS1123Preconditions(domain); err != nil {
 		return err
@@ -915,7 +916,7 @@ func validateServer(server *routingv2.Server) (errs error) {
 			}
 		}
 	}
-	return appendErrors(errs, validateTlsOptions(server.Tls), validateServerPort(server.Port))
+	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
 }
 
 func validateServerPort(port *routingv2.Server_Port) (errs error) {
@@ -933,7 +934,7 @@ func validateServerPort(port *routingv2.Server_Port) (errs error) {
 	return
 }
 
-func validateTlsOptions(tls *routingv2.Server_TLSOptions) (errs error) {
+func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
 	if tls == nil {
 		// no tls config at all is valid
 		return
