@@ -811,7 +811,6 @@ metadata:
   name: kubeattrgenrulerule
   namespace: {ISTIO_NAMESPACE}
 spec:
-  selector: match(destination.service, "*")
   actions:
   - handler: handler.kubernetesenv
     instances:

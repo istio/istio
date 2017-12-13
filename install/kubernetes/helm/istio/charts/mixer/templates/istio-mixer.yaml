@@ -822,7 +822,6 @@ metadata:
   name: kubeattrgenrule
   namespace: {{$istio_namespace}}
 spec:
-  selector: match(destination.service, "*")
   actions:
   - handler: handler.kubernetesenv
     instances:
