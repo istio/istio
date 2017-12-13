@@ -25,6 +25,26 @@
         "vet",
         "vetshadow"
     ],
+    "severity": {
+        "aligncheck": "error",
+        "deadcode": "error",
+        "errcheck": "error",
+        "gas": "error",
+        "goconst": "error",
+        "gofmt": "error",
+        "goimports": "error",
+        "golint": "error",
+        "ineffassign": "error",
+        "interfacer": "error",
+        "lll": "error",
+        "megacheck": "error",
+        "misspell": "error",
+        "structcheck": "error",
+        "unconvert": "error",
+        "varcheck": "error",
+        "vet": "error",
+        "vetshadow": "error"
+    },
     "exclude": [
         "vendor",
         ".pb.go",
