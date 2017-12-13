@@ -20,6 +20,5 @@ import (
 
 // InventoryLegacy returns the inventory of all available adapters.
 func InventoryLegacy() []adapter.RegisterFn {
-	return []adapter.RegisterFn{
-	}
+	return []adapter.RegisterFn{}
 }
