@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ import (
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 )
 
 const (
@@ -41,9 +41,9 @@ type (
 	}
 
 	// Label generator function prototype
-	generateLabelFunc func(instance *svcctrlreport.Instance) (string, bool)
+	generateLabelFunc func(instance *servicecontrolreport.Instance) (string, bool)
 	// Metric value generator function prototype
-	generateMetricValueFunc func(instance *svcctrlreport.Instance) (*sc.MetricValue, error)
+	generateMetricValueFunc func(instance *servicecontrolreport.Instance) (*sc.MetricValue, error)
 
 	// A definition for a metric
 	metricDef struct {
@@ -73,7 +73,7 @@ type (
 	// reportBuilder builds metrics and logs from a single Google ServiceControl report template instance.
 	reportBuilder struct {
 		supportedMetrics []metricDef
-		instance         *svcctrlreport.Instance
+		instance         *servicecontrolreport.Instance
 		resolver         consumerProjectIDResolver
 	}
 )
@@ -95,49 +95,49 @@ var errorTypes = []string{
 	"5xx", "6xx", "7xx", "8xx", "9xx"}
 
 // Well-known metric labels generator functions
-func generateConsumerID(instance *svcctrlreport.Instance) (string, bool) {
+func generateConsumerID(instance *servicecontrolreport.Instance) (string, bool) {
 	if instance.ApiKey == "" {
 		return "", false
 	}
 	return generateConsumerIDFromAPIKey(instance.ApiKey), true
 }
 
-func generateCredentialID(instance *svcctrlreport.Instance) (string, bool) {
+func generateCredentialID(instance *servicecontrolreport.Instance) (string, bool) {
 	if instance.ApiKey == "" {
 		return "", false
 	}
 	return "apiKey:" + instance.ApiKey, true
 }
 
-func generateErrorType(instance *svcctrlreport.Instance) (string, bool) {
+func generateErrorType(instance *servicecontrolreport.Instance) (string, bool) {
 	if instance.ResponseCode < 400 || instance.ResponseCode >= 1000 {
 		return "", false
 	}
 	return errorTypes[instance.ResponseCode/100], true
 }
 
-func generateProtocol(instance *svcctrlreport.Instance) (string, bool) {
+func generateProtocol(instance *servicecontrolreport.Instance) (string, bool) {
 	return instance.ApiProtocol, instance.ApiProtocol != ""
 }
 
-func generateResponseCode(instance *svcctrlreport.Instance) (string, bool) {
+func generateResponseCode(instance *servicecontrolreport.Instance) (string, bool) {
 	return strconv.Itoa(int(instance.ResponseCode)), true
 }
 
-func generateResponseCodeClass(instance *svcctrlreport.Instance) (string, bool) {
+func generateResponseCodeClass(instance *servicecontrolreport.Instance) (string, bool) {
 	if instance.ResponseCode < 0 || instance.ResponseCode >= 1000 {
 		return "", false
 	}
 	return errorTypes[instance.ResponseCode/100], true
 }
 
-func generateStatusCode(instance *svcctrlreport.Instance) (string, bool) {
+func generateStatusCode(instance *servicecontrolreport.Instance) (string, bool) {
 	rpcCode := toRPCCode(int(instance.ResponseCode))
 	return strconv.Itoa(int(rpcCode)), true
 }
 
 // Helpers to generate metric value.
-func generateRequestCount(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
+func generateRequestCount(instance *servicecontrolreport.Instance) (*sc.MetricValue, error) {
 	return &sc.MetricValue{
 		StartTime:  instance.RequestTime.UTC().Format(time.RFC3339Nano),
 		EndTime:    instance.ResponseTime.UTC().Format(time.RFC3339Nano),
@@ -145,7 +145,7 @@ func generateRequestCount(instance *svcctrlreport.Instance) (*sc.MetricValue, er
 	}, nil
 }
 
-func generateRequestSize(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
+func generateRequestSize(instance *servicecontrolreport.Instance) (*sc.MetricValue, error) {
 	builder, err := newDistValueBuilder(sizeOption)
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func generateRequestSize(instance *svcctrlreport.Instance) (*sc.MetricValue, err
 	}, nil
 }
 
-func generateBackendLatencies(instance *svcctrlreport.Instance) (*sc.MetricValue, error) {
+func generateBackendLatencies(instance *servicecontrolreport.Instance) (*sc.MetricValue, error) {
 	builder, err := newDistValueBuilder(timeOption)
 	if err != nil {
 		return nil, nil
@@ -184,14 +184,14 @@ func generateLogSeverity(httpCode int) string {
 	return endPointsLogSeverityInfo
 }
 
-func generateLogMessage(instance *svcctrlreport.Instance) string {
+func generateLogMessage(instance *servicecontrolreport.Instance) string {
 	if instance.ApiOperation == "" {
 		return ""
 	}
 	return endPointsMessage + instance.ApiOperation
 }
 
-func generateLogErrorCause(instance *svcctrlreport.Instance) string {
+func generateLogErrorCause(instance *servicecontrolreport.Instance) string {
 	if instance.ResponseCode < 400 {
 		return ""
 	} else if toRPCCode(int(instance.ResponseCode)) == rpc.PERMISSION_DENIED {
@@ -315,7 +315,7 @@ func (b *reportBuilder) generateAPIResourceLabels() map[string]string {
 	return labels
 }
 
-func newReportBuilder(instance *svcctrlreport.Instance, supportedMetrics []metricDef,
+func newReportBuilder(instance *servicecontrolreport.Instance, supportedMetrics []metricDef,
 	resolver consumerProjectIDResolver) *reportBuilder {
 	return &reportBuilder{
 		supportedMetrics,

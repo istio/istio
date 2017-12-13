@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"reflect"
@@ -21,7 +21,7 @@ import (
 
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 )
 
 func getTestReportBuilder() *reportBuilder {
@@ -54,7 +54,7 @@ func getTestReportBuilder() *reportBuilder {
 				labels:         []string{},
 			},
 		},
-		instance: &svcctrlreport.Instance{
+		instance: &servicecontrolreport.Instance{
 			ApiVersion:      "v1.0",
 			ApiOperation:    "echo",
 			ApiProtocol:     "REST",
@@ -283,7 +283,7 @@ func TestGenerateLogErrorCause(t *testing.T) {
 }
 
 func TestNewReportBuilder(t *testing.T) {
-	instance := new(svcctrlreport.Instance)
+	instance := new(servicecontrolreport.Instance)
 	metrics := []metricDef{
 		{
 			name:           "test_metric",

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -22,8 +22,8 @@ import (
 	"github.com/pborman/uuid"
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -36,8 +36,8 @@ type (
 	}
 )
 
-// ProcessReport processes svcctrlreport data point and send metrics and logs via Google ServiceControl API.
-func (r *reportImpl) ProcessReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
+// ProcessReport processes servicecontrolreport data point and send metrics and logs via Google ServiceControl API.
+func (r *reportImpl) ProcessReport(ctx context.Context, instances []*servicecontrolreport.Instance) error {
 	logger := r.env.Logger()
 	for _, inst := range instances {
 		builder := newReportBuilder(inst, supportedMetrics, r.resolver)
@@ -82,7 +82,7 @@ func (r *reportImpl) scheduleReport(op *sc.Operation) {
 	})
 }
 
-func initializeOperation(inst *svcctrlreport.Instance) *sc.Operation {
+func initializeOperation(inst *servicecontrolreport.Instance) *sc.Operation {
 	op := &sc.Operation{}
 	op.ConsumerId, _ = generateConsumerID(inst)
 	op.OperationId = uuid.New()

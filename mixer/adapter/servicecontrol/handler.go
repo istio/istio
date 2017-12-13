@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -23,8 +23,8 @@ import (
 
 	sc "google.golang.org/api/servicecontrol/v1"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/status"
@@ -45,7 +45,7 @@ type (
 
 	reportProcessor interface {
 		io.Closer
-		ProcessReport(ctx context.Context, instances []*svcctrlreport.Instance) error
+		ProcessReport(ctx context.Context, instances []*servicecontrolreport.Instance) error
 	}
 
 	quotaProcessor interface {
@@ -64,7 +64,7 @@ type (
 		// A map keyed by mesh service name to service config in adapter config
 		serviceConfigIndex map[string]*config.GcpServiceSetting
 		checkDataShape     map[string]*apikey.Type
-		reportDataShape    map[string]*svcctrlreport.Type
+		reportDataShape    map[string]*servicecontrolreport.Type
 		checkResponseCache cache.ExpiringCache // A LRU cache for check response
 		client             serviceControlClient
 	}
@@ -115,8 +115,8 @@ func (h *handler) HandleApiKey(ctx context.Context, instance *apikey.Instance) (
 	return svcProc.ProcessCheck(ctx, instance)
 }
 
-// HandleSvcctrlReport handles reporting metrics and logs.
-func (h *handler) HandleSvcctrlReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
+// HandleServicecontrolReport handles reporting metrics and logs.
+func (h *handler) HandleServicecontrolReport(ctx context.Context, instances []*servicecontrolreport.Instance) error {
 	svcProc, err := h.getServiceProcessor(ctx)
 	if err != nil {
 		return err
