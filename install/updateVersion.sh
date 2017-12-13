@@ -147,12 +147,14 @@ function merge_files() {
   cat $SRC/istio-ns.yaml.tmpl >> $ISTIO
   cat $SRC/istio-rbac-beta.yaml.tmpl >> $ISTIO
   cat $SRC/istio-mixer.yaml.tmpl >> $ISTIO
+  cat $SRC/istio-mixer-customresources.yaml.tmpl >> $ISTIO
   cat $SRC/istio-config.yaml.tmpl >> $ISTIO
   cat $SRC/istio-pilot.yaml.tmpl >> $ISTIO
   cat $SRC/istio-ingress.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
+
 
   cp $ISTIO $ISTIO_AUTH
   sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
