@@ -1,0 +1,86 @@
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $pilot_hub := .Values.global.pilot_hub }}
+{{- $pilot_tag := .Values.global.pilot_tag }}
+################################
+# Istio initializer
+################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-inject
+  namespace: {{ $istio_namespace }}
+data:
+  config: |-
+    policy: "enabled"
+    namespaces: [""] # everything, aka v1.NamepsaceAll, aka cluster-wide
+    initializerName: "sidecar.initializer.istio.io"
+    params:
+      initImage: {{$pilot_hub}}/proxy_init:{{$pilot_tag}}
+      proxyImage: {{$pilot_hub}}/proxy_debug:{{$pilot_tag}}
+      verbosity: 2
+      version: {{$pilot_tag}}
+      meshConfigMapName: istio
+      imagePullPolicy: IfNotPresent
+      debugMode: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-initializer-service-account
+  namespace: {{ $istio_namespace }}
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: istio-initializer
+  namespace: {{ $istio_namespace }}
+  annotations:
+    sidecar.istio.io/inject: "false"
+  initializers:
+    pending: []
+  labels:
+    istio: istio-initializer
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: istio-initializer
+      labels:
+        istio: initializer
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: istio-initializer-service-account
+      containers:
+        - name: initializer
+          image: {{$pilot_hub}}/sidecar_initializer:{{$pilot_tag}}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=8083
+            - --namespace={{ $istio_namespace }}
+            - -v=2
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/istio/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: istio
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: InitializerConfiguration
+metadata:
+  name: istio-sidecar
+initializers:
+  - name: sidecar.initializer.istio.io
+    rules:
+      - apiGroups:
+          - "*"
+        apiVersions:
+          - "*"
+        resources:
+          - deployments
+          - statefulsets
+          - jobs
+          - daemonsets
+---

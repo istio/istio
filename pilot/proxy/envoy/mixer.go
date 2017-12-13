@@ -222,7 +222,7 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 			// created elsewhere using the same host-to-cluster naming
 			// scheme, i.e. buildJWKSURIClusterNameAndAddress.
 			for _, jwt := range spec.Jwts {
-				if name, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+				if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
 					glog.Warningf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
@@ -286,10 +286,12 @@ const (
 // the JWT auth filter to fetch public keys. The cluster name and
 // address are used to build an envoy cluster that corresponds to the
 // jwks_uri server.
-func buildJWKSURIClusterNameAndAddress(raw string) (string, string, error) {
+func buildJWKSURIClusterNameAndAddress(raw string) (string, string, bool, error) {
+	var useSSL bool
+
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "", "", err
+		return "", "", useSSL, err
 	}
 
 	host := u.Hostname()
@@ -297,6 +299,7 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, error) {
 	if port == "" {
 		if u.Scheme == "https" {
 			port = "443"
+
 		} else {
 			port = "80"
 		}
@@ -304,33 +307,45 @@ func buildJWKSURIClusterNameAndAddress(raw string) (string, string, error) {
 	address := host + ":" + port
 	name := host + "|" + port
 
-	return truncateClusterName(OutboundJWTURIClusterPrefix + name), address, nil
+	if u.Scheme == "https" {
+		useSSL = true
+	}
+
+	return truncateClusterName(OutboundJWTURIClusterPrefix + name), address, useSSL, nil
 }
 
 // buildMixerAuthFilterClusters builds the necessary clusters for the
 // JWT auth filter to fetch public keys from the specified jwks_uri.
 func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfig.MeshConfig, instances []*model.ServiceInstance) Clusters {
-	var clusters Clusters
-	jwksUris := map[string]string{}
+	type authCluster struct {
+		name   string
+		useSSL bool
+	}
+	authClusters := map[string]authCluster{}
 	for _, instance := range instances {
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
-				if name, address, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
+				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
 					glog.Warningf("Could not build envoy cluster and address from jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
-					jwksUris[address] = name
+					authClusters[address] = authCluster{name, ssl}
 				}
 			}
 		}
 	}
-	for address, name := range jwksUris {
-		cluster := buildCluster(address, name, mesh.ConnectTimeout)
+
+	var clusters Clusters
+	for address, auth := range authClusters {
+		cluster := buildCluster(address, auth.name, mesh.ConnectTimeout)
 		cluster.CircuitBreaker = &CircuitBreaker{
 			Default: DefaultCBPriority{
 				MaxPendingRequests: 10000,
 				MaxRequests:        10000,
 			},
+		}
+		if auth.useSSL {
+			cluster.SSLContext = &SSLContextExternal{}
 		}
 		clusters = append(clusters, cluster)
 	}

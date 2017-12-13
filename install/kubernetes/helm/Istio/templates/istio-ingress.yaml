@@ -1,0 +1,125 @@
+{{- if .Values.Istio.deploy_base_config }}
+{{- $proxy_image := dict "image" "" }}
+{{- if .Values.global.proxy_debug }}
+{{- $_ := set $proxy_image "image" "proxy_debug" }}
+{{- else }}
+{{- $_ := set $proxy_image "image" "proxy" }}
+{{- end }}
+{{- $istio_namespace := .Values.global.namespace }}
+{{- $proxy_hub := .Values.global.proxy_hub }}
+{{- $proxy_tag := .Values.global.proxy_tag }}
+{{- $use_nodeport := .Values.Istio.ingress.use_nodeport }}
+{{- $nodeport_port := .Values.Istio.ingress.nodeport_port | default 32000 }}
+################################
+# Istio ingress
+################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingress
+  namespace: {{ $istio_namespace }}
+  labels:
+    istio: ingress
+spec:
+{{- if $use_nodeport }}
+  type: NodePort
+{{- else }}
+  type: LoadBalancer
+{{- end }}
+  ports:
+  - port: 80
+{{- if $use_nodeport }}
+    nodePort: {{$nodeport_port}}
+{{- end }}
+    name: http
+  - port: 443
+    name: https
+  selector:
+    istio: ingress
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingress-service-account
+  namespace: {{ $istio_namespace }}
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-ingress
+  namespace: {{ $istio_namespace }}
+  annotations:
+    sidecar.istio.io/inject: "false"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: ingress
+    spec:
+      serviceAccountName: istio-ingress-service-account
+      containers:
+      - name: istio-ingress
+        image: {{$proxy_hub}}/{{$proxy_image.image}}:{{$proxy_tag}}
+        args:
+        - proxy
+        - ingress
+        - -v
+        - "2"
+        - --discoveryAddress
+        - istio-pilot:15003
+        - --discoveryRefreshDelay
+        - '1s' #discoveryRefreshDelay
+        - --drainDuration
+        - '45s' #drainDuration
+        - --parentShutdownDuration
+        - '1m0s' #parentShutdownDuration
+        - --connectTimeout
+        - '10s' #connectTimeout
+        - --serviceCluster
+        - istio-ingress
+        - --zipkinAddress
+        - zipkin:9411
+        - --statsdUdpAddress
+        - istio-mixer:9125
+        - --proxyAdminPort
+        - "15000"
+        - --controlPlaneAuthPolicy
+{{- if .Values.global.auth_enabled }}
+        - MUTUAL_TLS
+{{- else }}
+        - NONE #--controlPlaneAuthPolicy
+{{- end }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: istio-certs
+          mountPath: /etc/certs
+          readOnly: true
+        - name: ingress-certs
+          mountPath: /etc/istio/ingress-certs
+          readOnly: true
+      volumes:
+      - name: istio-certs
+        secret:
+          secretName: istio.default
+          optional: true
+      - name: ingress-certs
+        secret:
+          secretName: istio-ingress-certs
+          optional: true
+---
+{{- end }}
