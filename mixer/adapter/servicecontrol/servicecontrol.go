@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -22,19 +22,19 @@ import (
 	pbtypes "github.com/gogo/protobuf/types"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
 )
 
-// svcctrl adapter builder
+// servicecontrol adapter builder
 type builder struct {
 	config          *config.Params // Handler config
 	checkDataShape  map[string]*apikey.Type
-	reportDataShape map[string]*svcctrlreport.Type
+	reportDataShape map[string]*servicecontrolreport.Type
 	quotaDataShape  map[string]*quota.Type
 }
 
@@ -46,8 +46,8 @@ func (b *builder) SetApiKeyTypes(types map[string]*apikey.Type) {
 	b.checkDataShape = types
 }
 
-// SetSvcctrlReportTypes sets svcctrlreport template data type.
-func (b *builder) SetSvcctrlReportTypes(types map[string]*svcctrlreport.Type) {
+// SetServicecontrolReportTypes sets servicecontrolreport template data type.
+func (b *builder) SetServicecontrolReportTypes(types map[string]*servicecontrolreport.Type) {
 	b.reportDataShape = types
 }
 
@@ -136,7 +136,7 @@ func validateGcpServiceSetting(settings []*config.GcpServiceSetting) *multierror
 // Build builds an adapter handler.
 func (b *builder) Build(context context.Context, env adapter.Env) (adapter.Handler, error) {
 	var _ apikey.HandlerBuilder = (*builder)(nil)
-	var _ svcctrlreport.HandlerBuilder = (*builder)(nil)
+	var _ servicecontrolreport.HandlerBuilder = (*builder)(nil)
 	var _ quota.HandlerBuilder = (*builder)(nil)
 
 	client, err := newClient(b.config.CredentialPath)
@@ -178,12 +178,12 @@ func initializeHandlerContext(env adapter.Env, adapterCfg *config.Params,
 // GetInfo registers Adapter with Mixer.
 func GetInfo() adapter.Info {
 	return adapter.Info{
-		Name:        "svcctrl",
-		Impl:        "istio.io/istio/mixer/adapter/svcctrl",
+		Name:        "servicecontrol",
+		Impl:        "istio.io/istio/mixer/adapter/servicecontrol",
 		Description: "Interface to Google Service Control",
 		SupportedTemplates: []string{
 			apikey.TemplateName,
-			svcctrlreport.TemplateName,
+			servicecontrolreport.TemplateName,
 			quota.TemplateName,
 		},
 		DefaultConfig: &config.Params{},

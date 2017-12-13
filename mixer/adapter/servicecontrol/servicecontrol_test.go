@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"reflect"
@@ -20,8 +20,8 @@ import (
 
 	pbtypes "github.com/gogo/protobuf/types"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	at "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
@@ -114,7 +114,7 @@ func TestGetInfo(t *testing.T) {
 	info := GetInfo()
 	expectedSupportedTemplate := []string{
 		apikey.TemplateName,
-		svcctrlreport.TemplateName,
+		servicecontrolreport.TemplateName,
 		quota.TemplateName,
 	}
 	if !reflect.DeepEqual(expectedSupportedTemplate, info.SupportedTemplates) {

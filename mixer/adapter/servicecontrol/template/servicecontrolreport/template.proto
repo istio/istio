@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package svcctrlReport;
+package servicecontrolReport;
 
 import "mixer/v1/template/standard_types.proto";
 import "mixer/v1/template/extensions.proto";
@@ -22,14 +22,14 @@ import "mixer/v1/config/descriptor/value_type.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
-// A template used by Google Service Control (svcctrl) adapter. The adapter
+// A template used by Google Service Control (servicecontrol) adapter. The adapter
 // generates metrics and logentry for each request based on the data point
 // defined by this template.
 //
 // Config example:
 // ```
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: svcctrlreport
+// kind: servicecontrolreport
 // metadata:
 //   name: report
 //   namespace: istio-system

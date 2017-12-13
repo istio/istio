@@ -505,13 +505,13 @@ inventory_library(
    packages = {
        # list of all adapters
        # "friendlyName" : "go_import_path"
-       "svcctrl": "istio.io/istio/mixer/adapter/svcctrl",
+       "servicecontrol": "istio.io/istio/mixer/adapter/servicecontrol",
        ...
        <b>"mysampleadapter": "istio.io/istio/mixer/adapter/mysampleadapter",</b>
    },
    deps = [
        # list of all go_default_library rule for adapters.
-       "//mixer/adapter/svcctrl:go_default_library",
+       "//mixer/adapter/servicecontrol:go_default_library",
        ...
        <b>"//mixer/adapter/mysampleadapter:go_default_library",</b>
    ],

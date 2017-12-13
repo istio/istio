@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package svcctrl
+package servicecontrol
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/adapter/svcctrl/config"
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/config"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
 	at "istio.io/istio/mixer/pkg/adapter/test"
 	"istio.io/istio/mixer/pkg/status"
@@ -43,7 +43,7 @@ func (p *mockProcessor) ProcessCheck(ctx context.Context, instance *apikey.Insta
 	return *p.checkResult, nil
 }
 
-func (p *mockProcessor) ProcessReport(ctx context.Context, instances []*svcctrlreport.Instance) error {
+func (p *mockProcessor) ProcessReport(ctx context.Context, instances []*servicecontrolreport.Instance) error {
 	return p.reportError
 }
 
@@ -80,7 +80,7 @@ func TestHandleApiKey(t *testing.T) {
 
 func TestHandleReport(t *testing.T) {
 	now := time.Now()
-	instances := []*svcctrlreport.Instance{
+	instances := []*servicecontrolreport.Instance{
 		{
 			ApiVersion:      "v1",
 			ApiOperation:    "echo.foo.bar",
@@ -99,7 +99,7 @@ func TestHandleReport(t *testing.T) {
 	}
 	mock := &mockProcessor{}
 	h := getTestHandler(mock, t)
-	err := h.HandleSvcctrlReport(createTestContext(), instances)
+	err := h.HandleServicecontrolReport(createTestContext(), instances)
 	if err != nil {
 		t.Errorf(`expect success but failed with %v`, err)
 	}

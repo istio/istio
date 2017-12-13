@@ -286,16 +286,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: svcctrls.config.istio.io
+  name: servicecontrols.config.istio.io
   labels:
-    package: svcctrl
+    package: servicecontrol
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: svcctrl
-    plural: svcctrls
-    singular: svcctrl
+    kind: servicecontrol
+    plural: servicecontrols
+    singular: servicecontrol
   scope: Namespaced
   version: v1alpha2
 ---

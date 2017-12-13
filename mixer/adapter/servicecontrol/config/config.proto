@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package adapter.svcctrl.config;
+package adapter.servicecontrol.config;
 
 import "gogoproto/gogo.proto";
 import "google/protobuf/duration.proto";
@@ -54,7 +54,7 @@ message GcpServiceSetting {
 // Sample adapter config:
 // '''
 // apiVersion: "config.istio.io/v1alpha2"
-// kind: svcctrl
+// kind: servicecontrol
 // metadata:
 //   name: testhandler
 //   namespace: istio-system
