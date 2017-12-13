@@ -23,12 +23,12 @@ func TestIdentityRegistry(t *testing.T) {
 		Map: make(map[string]string),
 	}
 
-	reg.AddMapping("id1", "id2")
+	_ = reg.AddMapping("id1", "id2")
 	if !reg.Check("id1", "id2") {
 		t.Errorf("add mapping: id1 -> id2 should be in registry")
 	}
 
-	reg.DeleteMapping("id1", "id2")
+	_ = reg.DeleteMapping("id1", "id2")
 	if reg.Check("id1", "id2") {
 		t.Errorf("delete mapping: id1 -> id2 should not be in registry")
 	}
