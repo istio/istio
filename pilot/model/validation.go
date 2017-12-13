@@ -883,7 +883,7 @@ func ValidateIngressRule(msg proto.Message) error {
 	return errs
 }
 
-// ValidateGateway checks ingress rules
+// ValidateGateway checks gateway specifications
 func ValidateGateway(msg proto.Message) (errs error) {
 	value, ok := msg.(*routingv2.Gateway)
 	if !ok {
@@ -906,7 +906,13 @@ func validateServer(server *routingv2.Server) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one domain"))
 	} else {
 		for _, domain := range server.Domains {
-			errs = appendErrors(errs, ValidateWildcardDomain(domain))
+			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
+			// (including CIDR addresses). If it's neither, we report both errors.
+			if err := ValidateWildcardDomain(domain); err != nil {
+				if err2 := ValidateIPv4Subnet(domain); err2 != nil {
+					errs = appendErrors(errs, err, err2)
+				}
+			}
 		}
 	}
 	return appendErrors(errs, validateTlsOptions(server.Tls), validateServerPort(server.Port))

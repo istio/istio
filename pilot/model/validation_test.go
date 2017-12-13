@@ -1345,13 +1345,10 @@ func TestValidateMixerAttributes(t *testing.T) {
 			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{""}},
 			false},
 		{"happy duration",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Nanos: -1}}},
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Seconds: 1}}},
 			true},
 		{"invalid duration",
 			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Nanos: -1e9}}},
-			false},
-		{"nil duration",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{nil}},
 			false},
 		{"happy bytes",
 			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{1, 2, 3}}},
@@ -1386,7 +1383,11 @@ func TestValidateMixerAttributes(t *testing.T) {
 				Attributes: map[string]*mpb.Attributes_AttributeValue{"key": c.in},
 			}
 			if got := ValidateMixerAttributes(attrs); (got == nil) != c.valid {
-				t.Errorf("ValidateMixerAttributes(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+				if c.valid {
+					t.Fatal("got error, wanted none")
+				} else {
+					t.Fatal("got no error, wanted one")
+				}
 			}
 		})
 	}
@@ -1937,10 +1938,26 @@ func TestValidateGateway(t *testing.T) {
 	}{
 		{"empty", &routingv2.Gateway{}, "server"},
 		{"invalid message", &routingv2.Server{}, "cannot cast"},
-		{"happy",
+		{"happy domain",
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{{
 					Domains: []string{"foo.bar.com"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy ip",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.1"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy cidr",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.0/16"},
 					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 				}},
 			},
@@ -1953,12 +1970,12 @@ func TestValidateGateway(t *testing.T) {
 						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 					},
 					{
-						Domains: []string{"baz.bar.com"},
+						Domains: []string{"192.168.0.0/16"},
 						Port:    &routingv2.Server_Port{Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
-		{"invalid server",
+		{"invalid port",
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{
 					{
@@ -1966,11 +1983,24 @@ func TestValidateGateway(t *testing.T) {
 						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 					},
 					{
-						Domains: []string{"baz.bar.com"},
+						Domains: []string{"192.168.0.0/16"},
 						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
+		{"invalid domain",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.*.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/33"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+					}},
+			},
+			"domain"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
