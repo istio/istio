@@ -51,14 +51,15 @@ type Ephemeral struct {
 
 func NewEphemeral(
 	templates map[string]template.Info,
-	adapters map[string]*adapter.Info) *Ephemeral {
+	adapters map[string]*adapter.Info,
+	initialConfig map[store.Key]*store.Resource) *Ephemeral {
 
 	return &Ephemeral{
 		templates: templates,
 		adapters:  adapters,
 
 		attributesChanged: false,
-		entries:           make(map[store.Key]*store.Resource),
+		entries:           initialConfig,
 		latest:            emptySnapshot,
 	}
 }

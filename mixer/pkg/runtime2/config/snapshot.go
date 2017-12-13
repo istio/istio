@@ -82,10 +82,12 @@ func (s *Snapshot) AdapterInfo(name string) (*adapter.Info, bool) {
 	info, found := s.adapterInfos[name]
 	return info, found
 }
+
 func (s *Snapshot) TemplateInfo(name string) (template.Info, bool) {
 	info, found := s.templateInfos[name]
 	return info, found
 }
+
 func (s *Snapshot) Rules() []*RuleConfiguration {
 	return s.rules
 }
@@ -121,35 +123,3 @@ func (i *InstanceConfiguration) Params() proto.Message {
 func (h *HandlerConfiguration) Name() string {
 	return h.name
 }
-
-//
-//// State is the current configuration state.
-//type Snapshot struct {
-//	// Static information
-//	templates   map[string]template.Info
-//	adapters    map[string]*adapter.Info
-//
-//
-//	// Config store based information
-//	attributes  *attributeFinder
-//
-//	handlers    map[string]*configpb.Handler
-//
-//	instances   map[string]*configpb.Instance
-//}
-//
-//func NewSnapshot(
-//	templates       map[string]template.Info,
-//	adapters        map[string]*adapter.Info,
-//	attributes      map[string]*configpb.AttributeManifest_AttributeInfo,
-//	handlers        map[string]*configpb.Handler,
-//	instances       map[string]*configpb.Instance) *Snapshot {
-//
-//	return &Snapshot{
-//		templates:  templates,
-//		adapters:   adapters,
-//		attributes: &attributeFinder{ attrs: attributes },
-//		handlers:   handlers,
-//		instances:  instances,
-//	}
-//}

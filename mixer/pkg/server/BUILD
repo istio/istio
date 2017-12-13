@@ -24,6 +24,7 @@ go_library(
         "//mixer/pkg/il/evaluator:go_default_library",
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/runtime:go_default_library",
+        "//mixer/pkg/runtime2:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//mixer/pkg/tracing:go_default_library",
         "//mixer/pkg/version:go_default_library",

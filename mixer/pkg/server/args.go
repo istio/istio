@@ -104,6 +104,9 @@ type Args struct {
 
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
+
+	// Enables use of pkg/runtime2, instead of pkg/runtime.
+	UseNewRuntime bool
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -121,6 +124,7 @@ func NewArgs() *Args {
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		ConfigFetchIntervalSec:        5,
+		UseNewRuntime:                 false,
 	}
 }
 
@@ -162,5 +166,6 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ConfigFetchIntervalSec: ", a.ConfigFetchIntervalSec, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprint("UseNewRuntime: ", a.UseNewRuntime, "\n"))
 	return b.String()
 }

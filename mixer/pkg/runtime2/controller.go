@@ -16,6 +16,8 @@ package runtime2
 
 import (
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
@@ -34,12 +36,22 @@ type Controller struct {
 	dispatcher *dispatcher.Dispatcher
 }
 
-func NewController(templates map[string]template.Info, adapters map[string]*adapter.Info) *Controller {
+func NewController(
+	templates map[string]template.Info,
+	adapters map[string]*adapter.Info,
+	initialConfig map[store.Key]*store.Resource,
+	dispatcher *dispatcher.Dispatcher) *Controller {
 	return &Controller{
-		ephemeral: config.NewEphemeral(templates, adapters),
-		snapshot:  config.Empty(),
-		handlers:  handler.Empty(),
+		ephemeral:  config.NewEphemeral(templates, adapters, initialConfig),
+		snapshot:   config.Empty(),
+		handlers:   handler.Empty(),
+		dispatcher: dispatcher,
 	}
+}
+
+func (c *Controller) onConfigChange(events []*store.Event) {
+	c.ephemeral.ApplyEvents(events)
+	c.applyNewConfig()
 }
 
 func (c *Controller) applyNewConfig() {
@@ -49,19 +61,15 @@ func (c *Controller) applyNewConfig() {
 
 	newHandlers := handler.Instantiate(oldHandlers, newSnapshot)
 
-	newRoutes := buildRoutingTable(newSnapshot, newHandlers)
+	builder := compiled.NewBuilder(newSnapshot.Attributes())
+	newRoutes := routing.BuildTable(newHandlers, newSnapshot, builder)
 
 	oldRoutes := c.dispatcher.ChangeRoute(newRoutes)
 
 	c.handlers = newHandlers
 	c.snapshot = newSnapshot
 
-	cleanupHandlers(oldRoutes, oldHandlers, c.handlers)
-}
-
-func buildRoutingTable(snapshot *config.Snapshot, handlers *handler.Table) *routing.Table {
-	// TODO
-	return nil
+	cleanupHandlers(oldRoutes, oldHandlers, newHandlers)
 }
 
 func cleanupHandlers(oldRoutes *routing.Table, oldHandlers *handler.Table, currentHandlers *handler.Table) {

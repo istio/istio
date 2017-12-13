@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -60,6 +61,9 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
+	newRuntime2 func(gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
+		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
+		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
 	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
 	startMonitor func(port uint16) (*monitor, error)
 	listen       func(network string, address string) (net.Listener, error)
@@ -76,6 +80,7 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
 		newRuntime:     mixerRuntime.New,
+		newRuntime2:    mixerRuntime2.New,
 		startTracer:    startTracer,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
@@ -172,10 +177,18 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
-	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+	if a.UseNewRuntime {
+		if dispatcher, err = p.newRuntime2(s.gp, s.adapterGP, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2,
+			adapterMap, a.Templates); err != nil {
+			_ = s.Close()
+		}
+		return nil, fmt.Errorf("unable to create runtime2 dispatcher: %v", err)
+	} else {
+		if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
+			a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		}
 	}
 
 	// Legacy Runtime

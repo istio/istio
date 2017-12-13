@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 )
@@ -39,9 +40,10 @@ type Dispatcher struct {
 
 var _ runtime.Dispatcher = &Dispatcher{}
 
-func NewDispatcher() *Dispatcher {
-	// TODO:
-	return &Dispatcher{}
+func New(handlerGP *pool.GoroutinePool) *Dispatcher {
+	return &Dispatcher{
+		execPool: newExecutorPool(handlerGP),
+	}
 }
 
 func (d *Dispatcher) ChangeRoute(new *routing.Table) *routing.Table {
