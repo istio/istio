@@ -25,17 +25,20 @@ import (
 	"sync"
 	"sync/atomic"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pilot/tools/version"
 )
 
 const (
-	metricsPath          = "/metrics"
+	metricsPath = "/metrics"
+	versionPath = "/version"
+
 	metricsNamespace     = "pilot"
 	metricsSubsystem     = "discovery"
 	metricLabelCacheName = "cache_name"
@@ -48,7 +51,7 @@ var (
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_size",
-			Help:      "Current size of a single cache within Pilot",
+			Help:      "Current size (in bytes) of a single cache within Pilot",
 		}, []string{metricLabelCacheName})
 	cacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -400,6 +403,11 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
 	container.Handle(metricsPath, promhttp.Handler())
+	container.Handle(versionPath, http.HandlerFunc(func(out http.ResponseWriter, req *http.Request) {
+		if _, err := out.Write([]byte(version.Line())); err != nil {
+			glog.Errorf("Unable to write version string: %v", err)
+		}
+	}))
 }
 
 // Start starts the Pilot discovery service on the port specified in DiscoveryServiceOptions. If Port == 0, a
