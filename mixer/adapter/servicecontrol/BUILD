@@ -14,7 +14,6 @@ go_library(
         "reportbuilder.go",
         "reportprocessor.go",
         "servicecontrol.go",
-        "testhelper.go",
         "utils.go",
     ],
     visibility = ["//visibility:public"],
