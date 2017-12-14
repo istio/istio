@@ -32,7 +32,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, legacyA
 	sa.Adapters = adapters
 	sa.LegacyAdapters = legacyAdapters
 
-	serverCmd := cobra.Command{
+	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: "Starts Mixer as a server",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -95,7 +95,10 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, legacyA
 	serverCmd.PersistentFlags().StringVarP(&sa.GlobalConfigFile, "globalConfigFile", "", "", "Global Config")
 
 	serverCmd.PersistentFlags().UintVarP(&sa.ConfigFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
-	return &serverCmd
+
+	sa.LoggingOptions.AttachCobraFlags(serverCmd)
+
+	return serverCmd
 }
 
 func runServer(sa *server.Args, printf, fatalf shared.FormatFn) {

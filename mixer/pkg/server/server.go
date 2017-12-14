@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Server is an in-memory Mixer service.
@@ -85,6 +86,10 @@ func newPatchTable() *patchTable {
 
 func new(a *Args, p *patchTable) (*Server, error) {
 	if err := a.validate(); err != nil {
+		return nil, err
+	}
+
+	if err := log.Configure(a.LoggingOptions); err != nil {
 		return nil, err
 	}
 

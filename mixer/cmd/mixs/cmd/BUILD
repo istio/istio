@@ -32,6 +32,7 @@ go_library(
         "//mixer/pkg/template:go_default_library",
         "//mixer/pkg/tracing:go_default_library",
         "//mixer/pkg/version:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",

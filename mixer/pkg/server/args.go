@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Args contains the startup arguments to instantiate Mixer.
@@ -104,6 +105,9 @@ type Args struct {
 
 	// Enables gRPC-level tracing
 	EnableGRPCTracing bool
+
+	// The logging options to use
+	LoggingOptions *log.Options
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -121,6 +125,7 @@ func NewArgs() *Args {
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		ConfigFetchIntervalSec:        5,
+		LoggingOptions:                log.NewOptions(),
 	}
 }
 
@@ -162,5 +167,6 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("ConfigFetchIntervalSec: ", a.ConfigFetchIntervalSec, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
+	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
 	return b.String()
 }

@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/log"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 type server struct {
