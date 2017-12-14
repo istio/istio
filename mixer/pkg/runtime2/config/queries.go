@@ -14,30 +14,19 @@
 
 package config
 
-// isFQN returns true if the name is fully qualified.
-// every resource name is defined by Key.String()
-// shortname.kind.namespace
-func isFQN(name string) bool {
-	c := 0
-	l := len(name)
-	for i := 0; i < l; i++ {
-		if name[i] == '.' {
-			c++
-		}
+// GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will receive them.
+func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
+	result := make(map[*Handler][]*Instance)
 
-		if c > 3 {
-			return false
+	for _, r := range s.Rules {
+		for _, a := range r.Actions {
+
+			if _, found := result[a.Handler]; !found {
+				result[a.Handler] = []*Instance{}
+			}
+			result[a.Handler] = append(result[a.Handler], a.Instances...)
 		}
 	}
 
-	return c == 3
-}
-
-// canonicalize ensures that the name is fully qualified.
-func canonicalize(name string, namespace string) string {
-	if isFQN(name) {
-		return name
-	}
-
-	return name + "." + namespace
+	return result
 }

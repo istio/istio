@@ -38,7 +38,7 @@ func New(
 		return nil, err
 	}
 
-	c := NewController(templateInfo, adapterInfo, data, d)
+	c := NewController(templateInfo, adapterInfo, data, d, handlerPool)
 	c.applyNewConfig()
 
 	log.Infof("Config controller has started with %d config elements", len(data))

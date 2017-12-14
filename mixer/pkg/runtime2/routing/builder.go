@@ -32,7 +32,7 @@ type builder struct {
 func BuildTable(handlers *handler.Table, config *config.Snapshot, expb *compiled.ExpressionBuilder) *Table {
 	b := &builder{
 		table: &Table{
-			id:      config.ID(),
+			id:      config.ID,
 			entries: make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations),
 		},
 
@@ -45,21 +45,21 @@ func BuildTable(handlers *handler.Table, config *config.Snapshot, expb *compiled
 }
 
 func (b *builder) build(config *config.Snapshot) {
-	for _, rule := range config.Rules() {
+	for _, rule := range config.Rules {
 
-		for _, action := range rule.Actions() {
+		for _, action := range rule.Actions {
 
-			handlerName := action.Handler().Name()
+			handlerName := action.Handler.Name
 			handlerInstance := b.handlers.Get(handlerName)
 			if handlerInstance == nil {
 				// TODO: log the pruning of the action
 				continue
 			}
 
-			for _, instance := range action.Instances() {
+			for _, instance := range action.Instances {
 				// TODO: Should we single-instance instances? An instance config could be referenced multiple times.
 
-				template := instance.Template()
+				template := instance.Template
 
 				// TODO: Is this redundant?
 				if !template.HandlerSupportsTemplate(handlerInstance) {
@@ -67,7 +67,7 @@ func (b *builder) build(config *config.Snapshot) {
 					continue
 				}
 
-				builder, err := template.CreateInstanceBuilder(instance.Params(), b.expb)
+				builder, err := template.CreateInstanceBuilder(instance.Params, b.expb)
 				if err != nil {
 					// TODO: log the compile error
 					continue
@@ -77,18 +77,20 @@ func (b *builder) build(config *config.Snapshot) {
 				// for a given adapter.
 
 				var condition compiled.Expression
-				if rule.Match() != "" {
-					condition, err = b.expb.Compile(rule.Match())
+				if rule.Match != "" {
+					condition, err = b.expb.Compile(rule.Match)
 					if err != nil {
 						// TODO: log
 					}
 					continue
 				}
 
-				b.add(rule.Namespace(), template, handlerInstance, condition, builder)
+				b.add(rule.Namespace, template, handlerInstance, condition, builder)
 			}
 		}
 	}
+
+	// TODO: prefix all namespace destinations with the destinations from the default namespace.
 }
 
 func (b *builder) add(

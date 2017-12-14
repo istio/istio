@@ -22,9 +22,11 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/log"
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
+	"istio.io/istio/mixer/pkg/runtime2/legacy"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/template"
 )
@@ -38,18 +40,23 @@ type Controller struct {
 	handlers *handler.Table
 
 	dispatcher *dispatcher.Dispatcher
+
+	// handlerGoRoutinePool is the goroutine pool used by handlers.
+	handlerGoRoutinePool *pool.GoroutinePool
 }
 
 func NewController(
 	templates map[string]template.Info,
 	adapters map[string]*adapter.Info,
 	initialConfig map[store.Key]*store.Resource,
-	dispatcher *dispatcher.Dispatcher) *Controller {
+	dispatcher *dispatcher.Dispatcher,
+	handlerPool *pool.GoroutinePool) *Controller {
 	return &Controller{
-		ephemeral:  config.NewEphemeral(templates, adapters, initialConfig),
-		snapshot:   config.Empty(),
-		handlers:   handler.Empty(),
-		dispatcher: dispatcher,
+		ephemeral:            config.NewEphemeral(templates, adapters, initialConfig),
+		snapshot:             config.Empty(),
+		handlers:             handler.Empty(),
+		dispatcher:           dispatcher,
+		handlerGoRoutinePool: handlerPool,
 	}
 }
 
@@ -63,9 +70,9 @@ func (c *Controller) applyNewConfig() {
 
 	oldHandlers := c.handlers
 
-	newHandlers := handler.Instantiate(oldHandlers, newSnapshot)
+	newHandlers := handler.Instantiate(oldHandlers, newSnapshot, legacy.NewEnv("", c.handlerGoRoutinePool))
 
-	builder := compiled.NewBuilder(newSnapshot.Attributes())
+	builder := compiled.NewBuilder(newSnapshot.Attributes)
 	newRoutes := routing.BuildTable(newHandlers, newSnapshot, builder)
 
 	oldRoutes := c.dispatcher.ChangeRoute(newRoutes)

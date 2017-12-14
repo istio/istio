@@ -17,115 +17,87 @@ package config
 import (
 	"github.com/gogo/protobuf/proto"
 	"istio.io/istio/mixer/pkg/adapter"
-	configpb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 var emptySnapshot = &Snapshot{
-	attributes: emptyFinder,
+	Attributes: emptyFinder,
 }
 
-type HandlerConfiguration struct {
-	info *adapter.Info
-
-	// fully qualified name
-	name string
-
-	params proto.Message
-
-	config *configpb.Handler
+// Empty returns a new, empty configuration snapshot.
+func Empty() *Snapshot {
+	return &Snapshot{
+		ID:         -1,
+		Templates:  make(map[string]template.Info, 0),
+		Adapters:   make(map[string]*adapter.Info, 0),
+		Attributes: emptyFinder,
+		Handlers:   make(map[string]*Handler, 0),
+		Instances:  make(map[string]*Instance, 0),
+		Rules:      []*Rule{},
+	}
 }
 
-type InstanceConfiguration struct {
-	template template.Info
-
-	// fully qualified name
-	name string
-
-	params proto.Message
-}
-
-type RuleConfiguration struct {
-	config    *configpb.Rule
-	namespace string
-	actions   []*ActionConfiguration
-}
-
-type ActionConfiguration struct {
-	handler   *HandlerConfiguration
-	instances []*InstanceConfiguration
-}
-
+// Snapshot view of configuration.
 type Snapshot struct {
-	id int
+	ID int
 
 	// Static information
-	templateInfos map[string]template.Info
-	adapterInfos  map[string]*adapter.Info
+	Templates map[string]template.Info
+	Adapters  map[string]*adapter.Info
 
 	// Config store based information
-	attributes *attributeFinder
+	Attributes *attributeFinder
 
-	handlers  map[string]*HandlerConfiguration
-	instances map[string]*InstanceConfiguration
-	rules     []*RuleConfiguration
+	Handlers  map[string]*Handler
+	Instances map[string]*Instance
+	Rules     []*Rule
 }
 
-func Empty() *Snapshot {
-	return emptySnapshot
+// Handler configuration. Fully resolved.
+type Handler struct {
+
+	// Name of the Handler. Fully qualified.
+	Name string
+
+	// Associated adapter. Always resolved.
+	Adapter *adapter.Info
+
+	// parameters used to construct the Handler.
+	Params proto.Message
 }
 
-func (s *Snapshot) ID() int {
-	return s.id
+// Instance configuration. Fully resolved.
+type Instance struct {
+	// Name of the instance. Fully qualified.
+	Name string
+
+	// Associated template. Always resolved.
+	Template template.Info
+
+	// parameters used to construct the instance.
+	Params proto.Message
 }
 
-func (s *Snapshot) Attributes() expr.AttributeDescriptorFinder {
-	return s.attributes
+// Rule configuration. Fully resolved.
+type Rule struct {
+	// Name of the rule
+	Name string
+
+	// Namespace of the rule
+	Namespace string
+
+	// Match condition
+	Match string
+
+	//config    *configpb.Rule
+	Actions []*Action
 }
 
-func (s *Snapshot) AdapterInfo(name string) (*adapter.Info, bool) {
-	info, found := s.adapterInfos[name]
-	return info, found
-}
+// Action configuration. Fully resolved.
+type Action struct {
+	// Handler that this action is resolved to.
+	Handler *Handler
 
-func (s *Snapshot) TemplateInfo(name string) (template.Info, bool) {
-	info, found := s.templateInfos[name]
-	return info, found
-}
-
-func (s *Snapshot) Rules() []*RuleConfiguration {
-	return s.rules
-}
-
-func (r *RuleConfiguration) Match() string {
-	return r.config.Match
-}
-
-func (r *RuleConfiguration) Actions() []*ActionConfiguration {
-	return r.actions
-}
-
-func (r *RuleConfiguration) Namespace() string {
-	return r.namespace
-}
-
-func (a *ActionConfiguration) Handler() *HandlerConfiguration {
-	return a.handler
-}
-
-func (a *ActionConfiguration) Instances() []*InstanceConfiguration {
-	return a.instances
-}
-
-func (i *InstanceConfiguration) Template() template.Info {
-	return i.template
-}
-
-func (i *InstanceConfiguration) Params() proto.Message {
-	return i.params
-}
-
-func (h *HandlerConfiguration) Name() string {
-	return h.name
+	// Instances that should be generated as part of invoking action.
+	Instances []*Instance
 }

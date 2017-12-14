@@ -15,21 +15,21 @@
 package config
 
 import (
-	"istio.io/istio/mixer/pkg/config/proto"
+	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 )
 
-var emptyFinder = &attributeFinder{attrs: make(map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo, 0)}
+var emptyFinder = &attributeFinder{attrs: make(map[string]*configpb.AttributeManifest_AttributeInfo, 0)}
 
 // attributeFinder exposes expr.AttributeDescriptorFinder
 type attributeFinder struct {
-	attrs map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo
+	attrs map[string]*configpb.AttributeManifest_AttributeInfo
 }
 
 var _ expr.AttributeDescriptorFinder = &attributeFinder{}
 
-// GetAttribute finds an attribute by name.
-// This function is only called when a new handler is instantiated.
-func (a attributeFinder) GetAttribute(name string) *istio_mixer_v1_config.AttributeManifest_AttributeInfo {
+// GetAttribute finds an attribute by Name.
+// This function is only called when a new Handler is instantiated.
+func (a attributeFinder) GetAttribute(name string) *configpb.AttributeManifest_AttributeInfo {
 	return a.attrs[name]
 }

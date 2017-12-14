@@ -48,38 +48,6 @@ type executor struct {
 	gp *pool.GoroutinePool
 }
 
-//// Start executing a call to the Processor within a panic-protected context, in a separate go-routine.
-//func (v *executor) execute(ctx context.Context, bag attribute.Bag, param interface{}, processor template.Processor, op string) {
-//	if v.outstanding == v.maxParallelism {
-//		panic("Request to execute more parallel tasks than can be handled.")
-//	}
-//
-//	v.outstanding++
-//
-//	v.gp.ScheduleWork(func(){
-//		var r *result
-//
-//		defer func() {
-//			if r := recover(); r != nil {
-//				// TODO: Obtain "op" from Processor. It has the most context.
-//				log.Errorf("execute %s panic: %v", op, r)
-//				r = &result{
-//					err: fmt.Errorf("dispatch %s panic: %v", op, r),
-//				}
-//			}
-//		}()
-//
-//		res, err := processor.Process(ctx, param, bag)
-//		if err != nil {
-//			r = &result{err: err}
-//		} else {
-//			r = &result{res:res}
-//		}
-//
-//		v.results <- r
-//	})
-//}
-
 func (v *executor) executeSingleInstance(
 	ctx context.Context,
 	handler adapter.Handler,

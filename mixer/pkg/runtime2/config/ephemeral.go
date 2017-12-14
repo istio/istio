@@ -22,10 +22,10 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// RulesKind defines the config kind name of mixer rules.
+// RulesKind defines the config kind Name of mixer Rules.
 const RulesKind = "rule"
 
-// AttributeManifestKind define the config kind name of attribute manifests.
+// AttributeManifestKind define the config kind Name of attribute manifests.
 const AttributeManifestKind = "attributemanifest"
 
 // ContextProtocolTCP defines constant for tcp protocol.
@@ -33,15 +33,16 @@ const ContextProtocolTCP = "tcp"
 
 const istioProtocol = "istio-protocol"
 
-// Ephemeral configuration state that is being updated by incoming config change events.
+// Ephemeral configuration state that gets updated by incoming config change events.
 type Ephemeral struct {
 	// Static information
 	adapters  map[string]*adapter.Info // maps adapter shortName to Info.
 	templates map[string]template.Info
 
+	// next snapshot id
 	nextId int
 
-	// whether the attributes have changed since last snapshot
+	// whether the Attributes have changed since last snapshot
 	attributesChanged bool
 
 	// entries that are currently known.
@@ -96,17 +97,17 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	id := e.nextId
 	e.nextId++
 	return &Snapshot{
-		id:         id,
-		attributes: &attributeFinder{attrs: attributes},
-		handlers:   handlers,
-		instances:  instances,
-		rules:      rules,
+		ID:         id,
+		Attributes: &attributeFinder{attrs: attributes},
+		Handlers:   handlers,
+		Instances:  instances,
+		Rules:      rules,
 	}
 }
 
 func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeManifest_AttributeInfo {
 	if !e.attributesChanged && e.latest != nil {
-		return e.latest.attributes.attrs
+		return e.latest.Attributes.attrs
 	}
 
 	attrs := make(map[string]*configpb.AttributeManifest_AttributeInfo)
@@ -122,9 +123,9 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 
 	// append all the well known attribute vocabulary from the templates.
 	//
-	// ATTRIBUTE_GENERATOR variety templates allows operators to write attributes
-	// using the $out.<field name> convention, where $out refers to the output object from the attribute generating adapter.
-	// The list of valid names for a given template is available in the template.Info.AttributeManifests object.
+	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
+	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
+	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
@@ -134,14 +135,14 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 	}
 
 	if log.DebugEnabled() {
-		log.Debugf("%d known attributes", len(attrs))
+		log.Debugf("%d known Attributes", len(attrs))
 	}
 
 	return attrs
 }
 
-func (e *Ephemeral) processHandlerConfigs() map[string]*HandlerConfiguration {
-	configs := make(map[string]*HandlerConfiguration)
+func (e *Ephemeral) processHandlerConfigs() map[string]*Handler {
+	configs := make(map[string]*Handler)
 
 	for key, resource := range e.entries {
 		var info *adapter.Info
@@ -150,98 +151,111 @@ func (e *Ephemeral) processHandlerConfigs() map[string]*HandlerConfiguration {
 			continue
 		}
 
-		config := &HandlerConfiguration{
-			info:   info,
-			name:   key.String(),
-			params: resource.Spec,
+		config := &Handler{
+			Name:    key.String(),
+			Adapter: info,
+			Params:  resource.Spec,
 		}
 
-		configs[config.name] = config
+		configs[config.Name] = config
 	}
 
 	if log.DebugEnabled() {
-		log.Debugf("handler = %v", configs)
+		log.Debugf("Handler = %v", configs)
 	}
 
 	return configs
 }
 
-func (e *Ephemeral) processInstanceConfigs() map[string]*InstanceConfiguration {
-	configs := make(map[string]*InstanceConfiguration)
+func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
+	configs := make(map[string]*Instance)
 
 	for key, resource := range e.entries {
 		var info template.Info
 		var found bool
 		if info, found = e.templates[key.Kind]; !found {
 			if log.DebugEnabled() {
-				log.Debugf("Skipping configuration for unknown adapter: '%s/%s'", key.Namespace, key.Name)
+				log.Debugf("Skipping instance configuration due to unknown template: '%s/%s'", key.Namespace, key.Name)
 			}
 			continue
 		}
 
-		config := &InstanceConfiguration{
-			template: info,
-			name:     key.String(),
-			params:   resource.Spec,
+		config := &Instance{
+			Name:     key.String(),
+			Template: info,
+			Params:   resource.Spec,
 		}
 
-		configs[config.name] = config
+		configs[config.Name] = config
 	}
 
 	return configs
 }
 
 func (e *Ephemeral) processRuleConfigs(
-	handlers map[string]*HandlerConfiguration,
-	instances map[string]*InstanceConfiguration) []*RuleConfiguration {
-	var configs []*RuleConfiguration
+	handlers map[string]*Handler,
+	instances map[string]*Instance) []*Rule {
 
-	for key, resource := range e.entries {
-		if key.Kind != RulesKind {
+	var configs []*Rule
+
+	for ruleKey, resource := range e.entries {
+		if ruleKey.Kind != RulesKind {
 			continue
 		}
 
 		cfg := resource.Spec.(*configpb.Rule)
 
-		var actions []*ActionConfiguration
-		for _, a := range cfg.Actions {
-			handlerName := canonicalize(a.Handler, key.Namespace)
+		var actions []*Action
+		for i, a := range cfg.Actions {
+
+			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			handler, found := handlers[handlerName]
 			if !found {
-				log.Warnf("ConfigWarning unknown handler: %s", handlerName)
+				log.Warnf("ConfigWarning unknown Handler: %s", handlerName)
 				continue
 
 			}
 
-			ruleInstances := []*InstanceConfiguration{}
+			actionInstances := []*Instance{}
 			for _, instanceName := range a.Instances {
-				instanceName := canonicalize(instanceName, key.Namespace)
+				instanceName := canonicalize(instanceName, ruleKey.Namespace)
 				instance, found := instances[instanceName]
 				if !found {
 					log.Warnf("ConfigWarning unknown instance: %s", instanceName)
 					continue
 				}
 
-				ruleInstances = append(ruleInstances, instance)
+				actionInstances = append(actionInstances, instance)
 			}
 
-			action := &ActionConfiguration{
-				handler:   handler,
-				instances: ruleInstances,
+			if len(actionInstances) == 0 {
+				log.Warnf("ConfigWarning no valid instances found in action: %s[%d]", ruleKey.String(), i)
+				continue
+			}
+
+			action := &Action{
+				Handler:   handler,
+				Instances: actionInstances,
 			}
 
 			actions = append(actions, action)
 		}
 
-		config := &RuleConfiguration{
-			namespace: key.Namespace,
-			config:    cfg,
-			actions:   actions,
+		if len(actions) == 0 {
+			log.Warnf("ConfigWarning no valid actions found in rule: %s", ruleKey.String())
+			continue
 		}
+
+		rule := &Rule{
+			Name:      ruleKey.String(),
+			Namespace: ruleKey.Namespace,
+			Actions:   actions,
+		}
+
 		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
 		//rt := resourceType(resource.Metadata.Labels)
 
-		configs = append(configs, config)
+		configs = append(configs, rule)
 	}
 
 	return configs

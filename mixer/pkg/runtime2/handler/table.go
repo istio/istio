@@ -15,23 +15,11 @@
 package handler
 
 import (
-	"crypto/sha1"
-
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/runtime2/config"
 )
 
-var emptyTable = &Table{
-	entries: []entry{},
-}
-
 type Table struct {
-	entries []entry
-}
-
-func (table *Table) Get(handlerName string) adapter.Handler {
-	// TODO
-	return nil
+	entries map[string]entry
 }
 
 type entry struct {
@@ -42,14 +30,21 @@ type entry struct {
 	Handler adapter.Handler
 
 	// sha is used to verify and update the handlerEntry.
-	sha [sha1.Size]byte
+	Signature HandlerSignature
+
+	// error that was received during startup.
+	StartupError error
+}
+
+func (table *Table) Get(handlerName string) adapter.Handler {
+	// TODO
+	return nil
+}
+
+var emptyTable = &Table{
+	entries: make(map[string]entry, 0),
 }
 
 func Empty() *Table {
 	return emptyTable
-}
-
-func Instantiate(current *Table, snapshot *config.Snapshot) *Table {
-	// TODO:
-	return nil
 }

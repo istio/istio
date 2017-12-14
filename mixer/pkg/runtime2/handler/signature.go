@@ -22,33 +22,40 @@ import (
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
-	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/log"
+	"istio.io/istio/mixer/pkg/runtime2/config"
 )
 
-// computeSha for individual adapters
-func computeSha(handler istio_mixer_v1_config.Handler, instances map[string]istio_mixer_v1_config.Instance) [sha1.Size]byte {
-	buf := new(bytes.Buffer)
+type HandlerSignature [sha1.Size]byte
 
-	encode(buf, handler.Adapter)
-	encode(buf, handler.Params)
+func (h HandlerSignature) Equals(other HandlerSignature) bool {
 
-	// instances in alphabetical order
-	// TODO add instance details only if the handler cares about it.
-	insts := make([]string, 0, len(instances))
-	for _, k := range instances {
-		insts = append(insts, k.Name)
+	return bytes.Equal(h[:], other[:])
+}
+
+func CalculateHandlerSignature(handler *config.Handler, instances []*config.Instance) HandlerSignature {
+
+	// sort the instances by name
+	instanceMap := make(map[string]*config.Instance)
+	instanceNames := make([]string, len(instances))
+	for i, instance := range instances {
+		instanceMap[instance.Name] = instance
+		instanceNames[i] = instance.Name
 	}
-	sort.Strings(insts)
+	sort.Strings(instanceNames)
 
-	for _, iname := range insts {
-		inst := instances[iname]
-		encode(buf, inst.Template)
-		encode(buf, inst.Params)
+	buf := new(bytes.Buffer)
+	encode(buf, handler.Adapter.Name)
+	encode(buf, handler.Params)
+	for _, name := range instanceNames {
+		instance := instanceMap[name]
+		encode(buf, instance.Template)
+		encode(buf, instance.Params)
 	}
 
 	sha := sha1.Sum(buf.Bytes())
 	buf.Reset()
+
 	return sha
 }
 
@@ -61,7 +68,7 @@ func encode(w io.Writer, v interface{}) {
 		b = []byte(t)
 	case proto.Message:
 		if b, err = proto.Marshal(t); err != nil {
-			log.Warnf("Failed to marshall %v into a proto: %v", t, err)
+			log.Warnf("Failed to marshal %v into a proto: %v", t, err)
 		}
 	}
 

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "ephemeral.go",
         "finder.go",
+        "queries.go",
         "resourceType.go",
         "snapshot.go",
         "util.go",
