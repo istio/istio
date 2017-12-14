@@ -419,7 +419,7 @@ func ValidateL4MatchAttributes(ma *routing.L4MatchAttributes) (errs error) {
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
-		return fmt.Errorf("invalid percentage: must be in range 0..100")
+		return fmt.Errorf("percentage value %q is not in range 0..100", val)
 	}
 	return nil
 }
@@ -427,7 +427,7 @@ func ValidatePercent(val int32) error {
 // ValidateFloatPercent checks that percent is in range
 func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("invalid percentage: must be in range 0..100")
+		return fmt.Errorf("percentage value %q is not in range 0..100", val)
 	}
 	return nil
 }
@@ -1754,7 +1754,7 @@ func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) 
 
 func validateHTTPStatus(status int32) error {
 	if status < 0 || status > 600 {
-		return fmt.Errorf("HTTP status must be in range 0-600: %d", status)
+		return fmt.Errorf("HTTP status %q is not in range 0-600", status)
 	}
 	return nil
 }
