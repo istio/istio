@@ -29,6 +29,7 @@ import (
 type serviceHandler func(*model.Service, model.Event)
 type instanceHandler func(*model.ServiceInstance, model.Event)
 
+// Ticker acts like time.Ticker but is mockable for testing
 type Ticker interface {
 	Chan() <-chan time.Time
 	Stop()
@@ -42,10 +43,12 @@ func (r realTicker) Chan() <-chan time.Time {
 	return r.C
 }
 
+// NewTicker returns a Ticker used to instantiate a Controller
 func NewTicker(d time.Duration) Ticker {
 	return realTicker{time.NewTicker(d)}
 }
 
+// Controller communicates with Cloud Foundry and monitors for changes
 type Controller struct {
 	Client           copilotapi.IstioCopilotClient
 	Ticker           Ticker
@@ -53,16 +56,19 @@ type Controller struct {
 	instanceHandlers []instanceHandler
 }
 
+// AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	c.serviceHandlers = append(c.serviceHandlers, f)
 	return nil
 }
 
+// AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
+// Run will loop, calling handlers in response to changes, until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	cache := &copilotapi.RoutesResponse{}
 	for {

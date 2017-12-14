@@ -24,16 +24,20 @@ import (
 	"istio.io/istio/pilot/model"
 )
 
+// CopilotClient defines a local interface for interacting with Cloud Foundry Copilot
 type CopilotClient interface {
 	copilotapi.IstioCopilotClient
 }
 
+// AppPort is the container-side port on which Cloud Foundry Diego applications listen
 const AppPort = 8080
 
+// ServiceDiscovery implements the model.ServiceDiscovery interface for Cloud Foundry
 type ServiceDiscovery struct {
 	Client CopilotClient
 }
 
+// Services implements a service catalog operation
 func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
 	if err != nil {
@@ -48,6 +52,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	return services, nil
 }
 
+// GetService implements a service catalog operation
 func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) {
 	services, err := sd.Services()
 	if err != nil {
@@ -58,7 +63,7 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 			return svc, nil
 		}
 	}
-	return nil, fmt.Errorf("No service exists with name '%s'.", hostname)
+	return nil, fmt.Errorf("no service exists with name '%s'", hostname)
 }
 
 func newService(hostname string) *model.Service {
@@ -73,6 +78,7 @@ func newService(hostname string) *model.Service {
 	}
 }
 
+// Instances implements a service catalog operation
 func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	tagsList model.LabelsCollection) ([]*model.ServiceInstance, error) {
 	resp, err := sd.Client.Routes(context.Background(), new(copilotapi.RoutesRequest))
@@ -99,10 +105,12 @@ func (sd *ServiceDiscovery) Instances(hostname string, ports []string,
 	return instances, nil
 }
 
+// HostInstances is not currently implemented for Cloud Foundry
 func (sd *ServiceDiscovery) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
 	return nil, nil
 }
 
+// ManagementPorts is not currently implemented for Cloud Foundry
 func (sd *ServiceDiscovery) ManagementPorts(addr string) model.PortList {
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// CopilotConfig describes how the Cloud Foundry platform adapter can connect to the Cloud Foundry Copilot
 type CopilotConfig struct {
 	ServerCACertPath string        `yaml:"server_ca_cert_path" validate:"nonzero"`
 	ClientCertPath   string        `yaml:"client_cert_path" validate:"nonzero"`
@@ -34,10 +35,12 @@ type CopilotConfig struct {
 	PollInterval     time.Duration `yaml:"poll_interval" validate:"nonzero"`
 }
 
+// Config for the Cloud Foundry platform adapter
 type Config struct {
 	Copilot CopilotConfig `yaml:"copilot"`
 }
 
+// LoadConfig reads configuration data from a YAML file
 func LoadConfig(path string) (*Config, error) {
 	cfgBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -55,6 +58,7 @@ func LoadConfig(path string) (*Config, error) {
 	return cfg, nil
 }
 
+// Save writes configuration data to a YAML file
 func (c *Config) Save(path string) error {
 	configBytes, err := yaml.Marshal(c)
 	if err != nil {
@@ -63,6 +67,7 @@ func (c *Config) Save(path string) error {
 	return ioutil.WriteFile(path, configBytes, 0600)
 }
 
+// ClientTLSConfig returns a tls.Config needed to instantiate a copilot.IstioClient
 func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 	clientCert, err := tls.LoadX509KeyPair(c.Copilot.ClientCertPath, c.Copilot.ClientKeyPath)
 	if err != nil {

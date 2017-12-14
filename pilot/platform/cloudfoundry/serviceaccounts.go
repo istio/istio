@@ -19,6 +19,7 @@ import "istio.io/istio/pilot/model"
 type serviceAccounts struct {
 }
 
+// NewServiceAccounts instantiates the Cloud Foundry service account interface
 func NewServiceAccounts() model.ServiceAccounts {
 	return &serviceAccounts{}
 }

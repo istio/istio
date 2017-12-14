@@ -128,7 +128,7 @@ var _ = Describe("ServiceDiscovery", func() {
 			client.RoutesOutput.Ret0 <- routesResponse
 			client.RoutesOutput.Ret1 <- nil
 			_, err := serviceDiscovery.GetService("non-existent-service.whatever")
-			Expect(err).To(MatchError("No service exists with name 'non-existent-service.whatever'."))
+			Expect(err).To(MatchError("no service exists with name 'non-existent-service.whatever'."))
 		})
 	})
 
