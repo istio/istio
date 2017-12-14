@@ -23,6 +23,8 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_G
 
 // kubernetes template represents data used to generate kubernetes attributes.
 //
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
 //
 // Example config:
 // ```
@@ -52,13 +54,22 @@ option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_G
 //     destination.serviceAccount: $out.destination_service_account_name
 // ```
 message Template {
+    // Source pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string source_uid = 1;
+
+    // Source pod's ip.
     istio.mixer.v1.template.IPAddress source_ip = 2;
 
+    // Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string destination_uid = 3;
+
+    // Destination pod's ip.
     istio.mixer.v1.template.IPAddress destination_ip = 4;
 
+    // Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
     string origin_uid = 5;
+
+    // Origin pod's ip.
     istio.mixer.v1.template.IPAddress origin_ip = 6;
 }
 

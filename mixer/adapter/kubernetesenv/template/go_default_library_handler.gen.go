@@ -30,6 +30,8 @@ const TemplateName = "kubernetes"
 //
 // kubernetes template represents data used to generate kubernetes attributes.
 //
+// The values provided controls the manner in which the kubernetesenv adapter discovers and
+// generates values related to pod information.
 //
 // Example config:
 // ```
@@ -62,16 +64,22 @@ type Instance struct {
 	// Name of the instance as specified in configuration.
 	Name string
 
+	// Source pod's uid. Must be of the form: "kubernetes://pod.namespace"
 	SourceUid string
 
+	// Source pod's ip.
 	SourceIp net.IP
 
+	// Destination pod's uid. Must be of the form: "kubernetes://pod.namespace"
 	DestinationUid string
 
+	// Destination pod's ip.
 	DestinationIp net.IP
 
+	// Origin pod's uid. Must be of the form: "kubernetes://pod.namespace"
 	OriginUid string
 
+	// Origin pod's ip.
 	OriginIp net.IP
 }
 
