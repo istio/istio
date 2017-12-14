@@ -186,3 +186,23 @@ func BenchmarkLocked(b *testing.B) {
 
 	done = true
 }
+
+func BenchmarkWaitGroup(b *testing.B) {
+	var g sync.WaitGroup
+
+	b.Run("bb", func(bb *testing.B) {
+		for i := 0; i < bb.N; i++ {
+			g.Add(1)
+			g.Done()
+		}
+	})
+}
+
+func BenchmarkRefCount(b *testing.B) {
+	var r int32
+
+	for i := 0; i < b.N; i++ {
+		atomic.AddInt32(&r, 1)
+		atomic.AddInt32(&r, -1)
+	}
+}

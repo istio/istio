@@ -61,9 +61,11 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
-	newRuntime2 func(gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
-		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
-		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
+
+	newRuntime2 func(s store.Store2, templates map[string]*template.Info, adapters map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
+		handlerPool *pool.GoroutinePool) *mixerRuntime2.Runtime
+
 	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
 	startMonitor func(port uint16) (*monitor, error)
 	listen       func(network string, address string) (net.Listener, error)
@@ -178,11 +180,17 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var dispatcher mixerRuntime.Dispatcher
 	if a.UseNewRuntime {
-		if dispatcher, err = p.newRuntime2(s.gp, s.adapterGP, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2,
-			adapterMap, a.Templates); err != nil {
-			_ = s.Close()
+		// TODO: Why do we store the template structs directly? Can't we simply have pointers?
+		templateMap := make(map[string]*template.Info, len(a.Templates))
+		for k, v := range a.Templates {
+			templateMap[k] = &v
 		}
-		return nil, fmt.Errorf("unable to create runtime2 dispatcher: %v", err)
+		runtime := p.newRuntime2(store2, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, s.gp, s.adapterGP)
+		if err = runtime.StartListening(); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime2 dispatcher: %v", err)
+		}
+		dispatcher = runtime.Dispatcher()
 	} else {
 		if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 			a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {

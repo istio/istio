@@ -43,6 +43,7 @@ var _ runtime.Dispatcher = &Dispatcher{}
 func New(handlerGP *pool.GoroutinePool) *Dispatcher {
 	return &Dispatcher{
 		execPool: newExecutorPool(handlerGP),
+		table:    routing.Empty(),
 	}
 }
 

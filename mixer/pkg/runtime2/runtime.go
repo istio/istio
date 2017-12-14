@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
@@ -31,8 +32,11 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// Temporary type. Will change this later.
-type Controller struct {
+type Runtime struct {
+	identityAttribute string
+
+	defaultConfigNamespace string
+
 	ephemeral *config.Ephemeral
 
 	snapshot *config.Snapshot
@@ -41,39 +45,75 @@ type Controller struct {
 
 	dispatcher *dispatcher.Dispatcher
 
-	// handlerGoRoutinePool is the goroutine pool used by handlers.
-	handlerGoRoutinePool *pool.GoroutinePool
+	env adapter.Env
+
+	store store.Store2
 }
 
-func NewController(
-	templates map[string]template.Info,
+func New(
+	s store.Store2,
+	templates map[string]*template.Info,
 	adapters map[string]*adapter.Info,
-	initialConfig map[store.Key]*store.Resource,
-	dispatcher *dispatcher.Dispatcher,
-	handlerPool *pool.GoroutinePool) *Controller {
-	return &Controller{
-		ephemeral:            config.NewEphemeral(templates, adapters, initialConfig),
-		snapshot:             config.Empty(),
-		handlers:             handler.Empty(),
-		dispatcher:           dispatcher,
-		handlerGoRoutinePool: handlerPool,
+	identityAttribute string,
+	defaultConfigNamespace string,
+	executorPool *pool.GoroutinePool,
+	handlerPool *pool.GoroutinePool) *Runtime {
+
+	runtime := &Runtime{
+		identityAttribute:      identityAttribute,
+		defaultConfigNamespace: defaultConfigNamespace,
+		ephemeral:              config.NewEphemeral(templates, adapters),
+		snapshot:               config.Empty(),
+		handlers:               handler.Empty(),
+		dispatcher:             dispatcher.New(executorPool),
+		env:                    legacy.NewEnv("???", handlerPool),
+
+		store: s,
 	}
+
+	// Make sure we have a stable state.
+	runtime.processNewConfig()
+
+	return runtime
 }
 
-func (c *Controller) onConfigChange(events []*store.Event) {
+func (c *Runtime) Dispatcher() runtime.Dispatcher {
+	return c.dispatcher
+}
+
+func (c *Runtime) StartListening() error {
+
+	kinds := config.KindMap(c.snapshot.Adapters, c.snapshot.Templates)
+
+	data, watchChan, err := startWatch(c.store, kinds)
+	if err != nil {
+		return err
+	}
+
+	c.ephemeral.SetState(data)
+	c.processNewConfig()
+
+	// TODO: !!! capture shutdown, so that we can perform graceful shutdown of the watchChanges goroutine.
+	shutdown := make(chan struct{})
+	go watchChanges(watchChan, shutdown, c.onConfigChange)
+
+	return nil
+}
+
+func (c *Runtime) onConfigChange(events []*store.Event) {
 	c.ephemeral.ApplyEvents(events)
-	c.applyNewConfig()
+	c.processNewConfig()
 }
 
-func (c *Controller) applyNewConfig() {
+func (c *Runtime) processNewConfig() {
 	newSnapshot := c.ephemeral.BuildSnapshot()
 
 	oldHandlers := c.handlers
 
-	newHandlers := handler.Instantiate(oldHandlers, newSnapshot, legacy.NewEnv("", c.handlerGoRoutinePool))
+	newHandlers := handler.Instantiate(oldHandlers, newSnapshot, c.env)
 
 	builder := compiled.NewBuilder(newSnapshot.Attributes)
-	newRoutes := routing.BuildTable(newHandlers, newSnapshot, builder)
+	newRoutes := routing.BuildTable(newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace)
 
 	oldRoutes := c.dispatcher.ChangeRoute(newRoutes)
 

@@ -3,8 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "controller.go",
-        "init.go",
+        "listener.go",
+        "runtime.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

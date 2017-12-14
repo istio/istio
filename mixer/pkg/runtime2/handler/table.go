@@ -36,9 +36,13 @@ type entry struct {
 	StartupError error
 }
 
-func (table *Table) Get(handlerName string) adapter.Handler {
-	// TODO
-	return nil
+func (table *Table) GetHealthyHandler(handlerName string) (adapter.Handler, bool) {
+	e, found := table.entries[handlerName]
+	if !found || e.StartupError != nil {
+		return nil, false
+	}
+
+	return e.Handler, true
 }
 
 var emptyTable = &Table{

@@ -24,20 +24,29 @@ import (
 )
 
 type builder struct {
-	table    *Table
-	handlers *handler.Table
-	expb     *compiled.ExpressionBuilder
+	table                  *Table
+	handlers               *handler.Table
+	expb                   *compiled.ExpressionBuilder
+	defaultConfigNamespace string
 }
 
-func BuildTable(handlers *handler.Table, config *config.Snapshot, expb *compiled.ExpressionBuilder) *Table {
+func BuildTable(
+	handlers *handler.Table,
+	config *config.Snapshot,
+	expb *compiled.ExpressionBuilder,
+	identityAttribute string,
+	defaultConfigNamespace string) *Table {
+
 	b := &builder{
 		table: &Table{
-			id:      config.ID,
-			entries: make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations),
+			id:                config.ID,
+			entries:           make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations),
+			identityAttribute: identityAttribute,
 		},
 
 		handlers: handlers,
 		expb:     expb,
+		defaultConfigNamespace: defaultConfigNamespace,
 	}
 	b.build(config)
 
@@ -50,8 +59,8 @@ func (b *builder) build(config *config.Snapshot) {
 		for _, action := range rule.Actions {
 
 			handlerName := action.Handler.Name
-			handlerInstance := b.handlers.Get(handlerName)
-			if handlerInstance == nil {
+			handlerInstance, found := b.handlers.GetHealthyHandler(handlerName)
+			if !found {
 				// TODO: log the pruning of the action
 				continue
 			}
@@ -90,12 +99,29 @@ func (b *builder) build(config *config.Snapshot) {
 		}
 	}
 
-	// TODO: prefix all namespace destinations with the destinations from the default namespace.
+	// Prefix all namespace destinations with the destinations from the default namespace.
+	for _, vDestinations := range b.table.entries {
+		defaultSet, found := vDestinations.entries[b.defaultConfigNamespace]
+		if !found {
+			// Nothing to do here
+			// TODO: log
+			continue
+		}
+
+		for namespace, set := range vDestinations.entries {
+			if namespace == b.defaultConfigNamespace {
+				// Skip the default namespace itself
+				continue
+			}
+
+			set.entries = append(defaultSet.entries, set.entries...)
+		}
+	}
 }
 
 func (b *builder) add(
 	namespace string,
-	t template.Info,
+	t *template.Info,
 	handler adapter.Handler,
 	condition compiled.Expression,
 	builder template.InstanceBuilder) {

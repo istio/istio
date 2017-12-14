@@ -28,7 +28,7 @@ var emptySnapshot = &Snapshot{
 func Empty() *Snapshot {
 	return &Snapshot{
 		ID:         -1,
-		Templates:  make(map[string]template.Info, 0),
+		Templates:  make(map[string]*template.Info, 0),
 		Adapters:   make(map[string]*adapter.Info, 0),
 		Attributes: emptyFinder,
 		Handlers:   make(map[string]*Handler, 0),
@@ -42,7 +42,7 @@ type Snapshot struct {
 	ID int
 
 	// Static information
-	Templates map[string]template.Info
+	Templates map[string]*template.Info
 	Adapters  map[string]*adapter.Info
 
 	// Config store based information
@@ -72,7 +72,7 @@ type Instance struct {
 	Name string
 
 	// Associated template. Always resolved.
-	Template template.Info
+	Template *template.Info
 
 	// parameters used to construct the instance.
 	Params proto.Message

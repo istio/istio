@@ -37,7 +37,7 @@ const istioProtocol = "istio-protocol"
 type Ephemeral struct {
 	// Static information
 	adapters  map[string]*adapter.Info // maps adapter shortName to Info.
-	templates map[string]template.Info
+	templates map[string]*template.Info
 
 	// next snapshot id
 	nextId int
@@ -53,9 +53,8 @@ type Ephemeral struct {
 }
 
 func NewEphemeral(
-	templates map[string]template.Info,
-	adapters map[string]*adapter.Info,
-	initialConfig map[store.Key]*store.Resource) *Ephemeral {
+	templates map[string]*template.Info,
+	adapters map[string]*adapter.Info) *Ephemeral {
 
 	return &Ephemeral{
 		templates: templates,
@@ -64,9 +63,13 @@ func NewEphemeral(
 		nextId: 1,
 
 		attributesChanged: false,
-		entries:           initialConfig,
+		entries:           make(map[store.Key]*store.Resource, 0),
 		latest:            emptySnapshot,
 	}
+}
+
+func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
+	e.entries = state
 }
 
 func (e *Ephemeral) ApplyEvents(events []*store.Event) {
@@ -171,7 +174,7 @@ func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
 	configs := make(map[string]*Instance)
 
 	for key, resource := range e.entries {
-		var info template.Info
+		var info *template.Info
 		var found bool
 		if info, found = e.templates[key.Kind]; !found {
 			if log.DebugEnabled() {

@@ -37,11 +37,6 @@ type Table struct {
 	// The value of this attribute is expected to be a hostname of form "svc.$ns.suffix"
 	identityAttribute string
 
-	// defaultConfigNamespace defines the namespace that contains configuration defaults for istio.
-	// This is distinct from the "default" namespace in K8s.
-	// default: istio-default-config
-	defaultConfigNamespace string
-
 	// the current reference count. Indicates how-many calls are currently active.
 	refCount int32
 }
@@ -56,6 +51,13 @@ type VarietyDestinations struct {
 
 type DestinationSet struct {
 	entries []Destination
+}
+
+func Empty() *Table {
+	return &Table{
+		id:      -1,
+		entries: make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations, 0),
+	}
 }
 
 func (r *Table) IncRef() {

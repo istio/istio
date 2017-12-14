@@ -118,7 +118,7 @@ func (f *factory) build(
 
 func (h *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map[string]inferredTypesMap,
 	adapterConfig interface{}, env adapter.Env) (handler adapter.Handler, err error) {
-	var ti template.Info
+	var ti *template.Info
 	var types inferredTypesMap
 
 	// calls into handler can panic. If that happens, we will log and return error with nil handler
