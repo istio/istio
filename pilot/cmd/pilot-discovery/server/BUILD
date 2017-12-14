@@ -16,6 +16,7 @@ go_library(
         "//pilot/cmd:go_default_library",
         "//pilot/model:go_default_library",
         "//pilot/platform:go_default_library",
+        "//pilot/platform/cloudfoundry:go_default_library",
         "//pilot/platform/consul:go_default_library",
         "//pilot/platform/eureka:go_default_library",
         "//pilot/platform/kube:go_default_library",
@@ -30,6 +31,7 @@ go_library(
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",
+        "@org_cloudfoundry_code_copilot//:go_default_library",
     ],
 )
 
@@ -41,8 +43,6 @@ go_test(
     ],
     deps = [
         ":go_default_library",
-        "//pilot/adapter/config/memory:go_default_library",
-        "//pilot/model:go_default_library",
         "//pilot/proxy/envoy:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
     ],
