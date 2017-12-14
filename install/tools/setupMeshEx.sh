@@ -33,6 +33,9 @@
 # running. Defaults to the current workspace in kube config.
 # ISTIO_SECRET_PREFIX - prefix where the istio CA generates secrets for each
 # service account. defaults to "istio."
+# TODO: read MeshConfig to get the value of control plane auth policy, for now assume mTLS
+# CONTROL_PLANE_AUTH_POLICY - control plane auth policy, defaults to "MUTUAL_TLS", only
+# needs to be set when "NONE" is desired
 
 # GCP_OPTS - optional parameters for gcloud command, for example
 # "--project P --zone Z".
@@ -86,10 +89,15 @@ function istioDnsmasq() {
 # - name of the k8s cluster.
 function istioClusterEnv() {
    local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
+   local ISTIO_NS=${ISTIO_NAMESPACE:-istio-system}
+   local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
 
    # TODO: parse it all from $(kubectl config current-context)
    CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
    echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
+   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
+   echo "CONTROL_PLANE_AUTH_POLICY=$CP_AUTH_POLICY" >> cluster.env
+
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
