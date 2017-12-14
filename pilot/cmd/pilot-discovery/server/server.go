@@ -20,8 +20,6 @@ import (
 	"os"
 	"time"
 
-	"net"
-
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
