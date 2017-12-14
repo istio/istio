@@ -7,6 +7,9 @@ mixer/adapter/circonus/config/config.pb.go
 mixer/adapter/denier/config/config.pb.go
 mixer/adapter/inventory.gen.go
 mixer/adapter/kubernetes/config/config.pb.go
+mixer/adapter/kubernetesenv/config/config.pb.go
+mixer/adapter/kubernetesenv/template/go_default_library_handler.gen.go
+mixer/adapter/kubernetesenv/template/go_default_library_tmpl.pb.go
 mixer/adapter/list/config/config.pb.go
 mixer/adapter/memquota/config/config.pb.go
 mixer/adapter/prometheus/config/config.pb.go

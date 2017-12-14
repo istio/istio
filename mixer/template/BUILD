@@ -12,6 +12,7 @@ mixer_supported_template_library(
         "//mixer/adapter/servicecontrol/template/servicecontrolreport:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport",
         "//mixer/template/apikey:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/apikey",
         "//mixer/template/checknothing:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/checknothing",
+        "//mixer/adapter/kubernetesenv/template:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/adapter/kubernetesenv/template",
         "//mixer/template/listentry:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/listentry",
         "//mixer/template/logentry:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/logentry",
         "//mixer/template/metric:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/metric",
@@ -20,6 +21,7 @@ mixer_supported_template_library(
         "//mixer/template/tracespan:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/tracespan",
     },
     deps = [
+        "//mixer/adapter/kubernetesenv/template:go_default_library",
         "//mixer/adapter/servicecontrol/template/servicecontrolreport:go_default_library",
         "//mixer/template/apikey:go_default_library",
         "//mixer/template/checknothing:go_default_library",
