@@ -42,11 +42,8 @@ const (
 
 type (
 	Config struct {
-		kubeconfig string
-		hub        string
-		tag        string
-		rootCert   string
-		certChain  string
+		rootCert  string
+		certChain string
 	}
 )
 
@@ -163,29 +160,17 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	config = &Config{
-		kubeconfig: *kubeconfig,
-		hub:        *hub,
-		tag:        *tag,
-		rootCert:   *rootCert,
-		certChain:  *certChain,
+		rootCert:  *rootCert,
+		certChain: *certChain,
 	}
 
 	glog.Errorf("%v", config)
 
-	clientset, err := integration.CreateClientset(config.kubeconfig)
-	if err != nil {
-		glog.Fatalf("failed to initialize K8s client: %s\n", err)
-	}
-
-	testEnv = integration.NewNodeAgentTestEnv(testEnvName, clientset, config.hub, config.tag)
+	testEnv = integration.NewNodeAgentTestEnv(testEnvName, *kubeconfig, *hub, *tag)
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
 	glog.Infof("Test result %d in env %s", res, testEnvName)
 
-	if res == 0 {
-		os.Exit(0)
-	} else {
-		os.Exit(1)
-	}
+	os.Exit(res)
 }

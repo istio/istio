@@ -56,17 +56,17 @@ bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
 
 # Run integration tests
 
-go test istio.io/istio/security/tests/integration/certificateRotationTestEnv $ARGS  \
+go test istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
 -kube-config=$HOME/.kube/config \
 -stderrthreshold=INFO --alsologtostderr
 
 
-go test istio.io/istio/security/tests/integration/secretCreationTestEnv $ARGS  \
+go test istio.io/istio/security/tests/integration/secretCreationTest $ARGS  \
 -kube-config=$HOME/.kube/config \
 -stderrthreshold=INFO --alsologtostderr
 
 
-go test istio.io/istio/security/tests/integration/nodeAgentTestEnv $ARGS  \
+go test istio.io/istio/security/tests/integration/nodeAgentTest $ARGS  \
 -kube-config=$HOME/.kube/config \
 -root-cert=${CERTS_OUTPUT_DIR}/istio_ca.crt \
 -cert-chain=${CERTS_OUTPUT_DIR}/node_agent.crt \

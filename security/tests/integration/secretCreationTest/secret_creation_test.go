@@ -32,19 +32,8 @@ const (
 	testEnvName    = "Secret creation and recovery test"
 )
 
-type (
-	Config struct {
-		kubeconfig string
-		hub        string
-		tag        string
-		rootCert   string
-		certChain  string
-	}
-)
-
 var (
 	testEnv *integration.SecretTestEnv
-	config  *Config
 )
 
 func TestSecretCreation(t *testing.T) {
@@ -80,26 +69,11 @@ func TestMain(m *testing.M) {
 
 	flag.Parse()
 
-	config = &Config{
-		kubeconfig: *kubeconfig,
-		hub:        *hub,
-		tag:        *tag,
-	}
-
-	clientset, err := integration.CreateClientset(config.kubeconfig)
-	if err != nil {
-		glog.Fatalf("failed to initialize K8s client: %s\n", err)
-	}
-
-	testEnv = integration.NewSecretTestEnv(testEnvName, clientset, config.hub, config.tag)
+	testEnv = integration.NewSecretTestEnv(testEnvName, *kubeconfig, *hub, *tag)
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
 	glog.Infof("Test result %d in env %s", res, testEnvName)
 
-	if res == 0 {
-		os.Exit(0)
-	} else {
-		os.Exit(1)
-	}
+	os.Exit(res)
 }

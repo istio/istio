@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["integration_test.go"],
+    srcs = ["node_agent_test_env.go"],
     tags = ["manual"],
     deps = [
         "//security/pkg/pki/ca/controller:go_default_library",
