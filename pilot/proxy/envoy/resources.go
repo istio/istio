@@ -120,9 +120,9 @@ const (
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
 	// headers with special meaning in Envoy
-	methodHeader    = ":method"
-	authorityHeader = ":authority"
-	schemeHeader    = ":scheme"
+	headerMethod = ":method"
+	headerAuthority = ":authority"
+	headerScheme = ":scheme"
 
 	router  = "router"
 	auto    = "auto"

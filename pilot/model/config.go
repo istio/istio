@@ -273,6 +273,12 @@ const (
 	// HeaderAuthority is authority HTTP header
 	HeaderAuthority = "authority"
 
+	// HeaderMethod is method HTTP header
+	HeaderMethod = "method"
+
+	// HeaderScheme is scheme HTTP header
+	HeaderScheme = "scheme"
+
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
 )
@@ -305,6 +311,14 @@ var (
 		Plural:      "v1alpha2-route-rules",
 		MessageName: "istio.routing.v1alpha2.RouteRule",
 		Validate:    ValidateRouteRuleV1Alpha2,
+	}
+
+	// Gateway describes a gateway (how a proxy is exposed on the network)
+	Gateway = ProtoSchema{
+		Type:        "gateway",
+		Plural:      "gateways",
+		MessageName: "istio.routing.v1alpha2.Gateway",
+		Validate:    ValidateGateway,
 	}
 
 	// IngressRule describes ingress rules
@@ -384,6 +398,7 @@ var (
 		RouteRule,
 		V1alpha2RouteRule,
 		IngressRule,
+		Gateway,
 		EgressRule,
 		DestinationPolicy,
 		HTTPAPISpec,

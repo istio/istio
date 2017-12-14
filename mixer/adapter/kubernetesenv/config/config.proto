@@ -1,0 +1,87 @@
+// Copyright 2017 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package adapter.kubernetes.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configuration parameters for the kubernetes adapter. These params
+// control the manner in which the kubernetes adapter discovers and
+// generates values related to pod information.
+//
+// The adapter works by looking up pod information by UIDs (of the
+// form: "kubernetes://pod.namespace"). It expects that the UIDs will be
+// supplied in an input map for three distinct traffic classes (source,
+// destination, and origin).
+//
+// For all valid UIDs supplied, this adapter generates output
+// values containing information about the related pods.
+message Params {
+    // File path to discover kubeconfig. For in-cluster configuration,
+    // this should be left unset. For local configuration, this should
+    // be set to the path of a kubeconfig file that can be used to
+    // reach a kubernetes API server.
+    //
+    // NOTE: The kubernetes adapter will use the value of the env var
+    // KUBECONFIG in the case where it is set (overriding any value configured
+    // through this proto).
+    //
+    // Default: "" (unset)
+    string kubeconfig_path = 1;
+
+    // Controls the resync period of the kubernetes cluster info cache.
+    // The cache will watch for events and every so often completely resync.
+    // This controls how frequently the complete resync occurs.
+    //
+    // Default: 5 minutes
+    google.protobuf.Duration cache_refresh_duration = 2 [(gogoproto.nullable)=false,(gogoproto.stdduration) = true];
+
+    // Configures the cluster domain name to use for service name normalization.
+    //
+    // Default: svc.cluster.local
+    string cluster_domain_name = 3;
+
+    // In order to extract the service associated with a source, destination, or
+    // origin, this adapter relies on pod labels. In particular, it looks for
+    // the value of a specific label, as specified by this parameter.
+    //
+    // Default: app
+    string pod_label_for_service = 4;
+
+    // In order to extract the service associated with a source, destination, or
+    // origin, this adapter relies on pod labels. In particular, it looks for
+    // the value of a specific label for istio component services, as specified 
+    // by this parameter.
+    //
+    // Default: istio
+    string pod_label_for_istio_component_service = 5;
+
+    //
+    // Default: false
+    bool lookup_ingress_source_and_origin_values = 6;
+
+    // Istio ingress service string. This is used to identify the
+    // ingress service in requests.
+    //
+    // Default: "ingress.istio-system.svc.cluster.local"
+    string fully_qualified_istio_ingress_service_name = 7;
+}

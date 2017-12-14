@@ -12,7 +12,6 @@ go_library(
         "queue.go",
         "store.go",
         "store2.go",
-        "testutil.go",
         "validator.go",
     ],
     visibility = ["//visibility:public"],
@@ -30,7 +29,6 @@ go_test(
     srcs = [
         "convert_test.go",
         "fsstore2_test.go",
-        "fsstore_test.go",
         "queue_test.go",
         "store2_test.go",
         "store_test.go",

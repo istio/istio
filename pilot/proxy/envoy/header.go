@@ -43,6 +43,10 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 					headers = append(headers, buildHeader(name, match))
 				}
 			} else {
+				switch name {
+				case model.HeaderAuthority, model.HeaderScheme, model.HeaderMethod:
+					name = ":" + name // convert to Envoy header name
+				}
 				headers = append(headers, buildHeader(name, match))
 			}
 		}
@@ -89,15 +93,15 @@ func buildHTTPRouteMatches(matches []*routing_v1alpha2.HTTPMatchRequest) []*HTTP
 		}
 
 		if match.Method != nil {
-			route.Headers = append(route.Headers, buildHeaderV1Alpha2(methodHeader, match.Method))
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(headerMethod, match.Method))
 		}
 
 		if match.Authority != nil {
-			route.Headers = append(route.Headers, buildHeaderV1Alpha2(authorityHeader, match.Authority))
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(headerAuthority, match.Authority))
 		}
 
 		if match.Scheme != nil {
-			route.Headers = append(route.Headers, buildHeaderV1Alpha2(schemeHeader, match.Scheme)) // FIXME: ensure header name is valid for HTTP 1.1
+			route.Headers = append(route.Headers, buildHeaderV1Alpha2(headerScheme, match.Scheme)) // FIXME: ensure header name is valid for HTTP 1.1
 		}
 
 		// TODO: match.DestinationPorts
