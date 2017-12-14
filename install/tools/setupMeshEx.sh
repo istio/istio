@@ -90,7 +90,7 @@ function istioDnsmasq() {
 function istioClusterEnv() {
    local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
    local ISTIO_NS=${ISTIO_NAMESPACE:-istio-system}
-   local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS"
+   local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
 
    # TODO: parse it all from $(kubectl config current-context)
    CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
