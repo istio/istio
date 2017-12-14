@@ -43,44 +43,48 @@ const (
 	metricsSubsystem     = "discovery"
 	metricLabelCacheName = "cache_name"
 	metricLabelMethod    = "method"
+	metricBuildVersion   = "build_version"
 )
 
 var (
+	// Save the build version information.
+	buildVersion = version.Line()
+
 	cacheSizeGauge = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_size",
 			Help:      "Current size (in bytes) of a single cache within Pilot",
-		}, []string{metricLabelCacheName})
+		}, []string{metricLabelCacheName, metricBuildVersion})
 	cacheHitCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_hit",
 			Help:      "Count of cache hits for a particular cache within Pilot",
-		}, []string{metricLabelCacheName})
+		}, []string{metricLabelCacheName, metricBuildVersion})
 	cacheMissCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "cache_miss",
 			Help:      "Count of cache misses for a particular cache within Pilot",
-		}, []string{metricLabelCacheName})
+		}, []string{metricLabelCacheName, metricBuildVersion})
 	callCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "calls",
 			Help:      "Counter of individual method calls in Pilot",
-		}, []string{metricLabelMethod})
+		}, []string{metricLabelMethod, metricBuildVersion})
 	errorCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: metricsNamespace,
 			Subsystem: metricsSubsystem,
 			Name:      "errors",
 			Help:      "Counter of errors encountered during a given method call within Pilot",
-		}, []string{metricLabelMethod})
+		}, []string{metricLabelMethod, metricBuildVersion})
 
 	resourceBuckets = []float64{0, 10, 20, 30, 40, 50, 75, 100, 150, 250, 500, 1000, 10000}
 	resourceCounter = prometheus.NewHistogramVec(
@@ -90,7 +94,7 @@ var (
 			Name:      "resources",
 			Help:      "Histogram of returned resource counts per method by Pilot",
 			Buckets:   resourceBuckets,
-		}, []string{metricLabelMethod})
+		}, []string{metricLabelMethod, metricBuildVersion})
 )
 
 func init() {
@@ -232,6 +236,7 @@ func (c *discoveryCache) stats() map[string]*discoveryCacheStatEntry {
 func (c *discoveryCache) cacheSizeLabels() prometheus.Labels {
 	return prometheus.Labels{
 		metricLabelCacheName: c.name,
+		metricBuildVersion:   buildVersion,
 	}
 }
 
@@ -707,15 +712,24 @@ func (ds *DiscoveryService) ListRoutes(request *restful.Request, response *restf
 }
 
 func incCalls(methodName string) {
-	callCounter.With(prometheus.Labels{metricLabelMethod: methodName}).Inc()
+	callCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
 }
 
 func incErrors(methodName string) {
-	errorCounter.With(prometheus.Labels{metricLabelMethod: methodName}).Inc()
+	errorCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Inc()
 }
 
 func observeResources(methodName string, count uint32) {
-	resourceCounter.With(prometheus.Labels{metricLabelMethod: methodName}).Observe(float64(count))
+	resourceCounter.With(prometheus.Labels{
+		metricLabelMethod:  methodName,
+		metricBuildVersion: buildVersion,
+	}).Observe(float64(count))
 }
 
 func errorResponse(methodName string, r *restful.Response, status int, msg string) {
