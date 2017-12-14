@@ -23,7 +23,6 @@
 #   -p gs://istio-release/release/0.2.1/deb
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-VERSION_FILE="${ROOT}/tools/deb/version"
 BAZEL_ARGS=""
 BAZEL_TARGET='//tools/deb:istio-proxy'
 BAZEL_BINARY="${ROOT}/bazel-bin/tools/deb/istio-proxy"
@@ -56,10 +55,8 @@ while getopts ":c:o:p:v:" arg; do
 done
 
 if [[ -n "${ISTIO_VERSION}" ]]; then
-  BAZEL_TARGET+='-release'
-  BAZEL_BINARY+='-release'
-  echo "${ISTIO_VERSION}" > "${VERSION_FILE}"
-  trap 'rm "${VERSION_FILE}"' EXIT
+  BAZEL_ARGS+=" --action_env=ISTIO_VERSION"
+  export ISTIO_VERSION
 fi
 
 [[ -z "${GCS_PATH}" ]] && [[ -z "${OUTPUT_DIR}" ]] && usage
