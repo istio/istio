@@ -28,9 +28,11 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	m := defaultModel()
 	cmd := &cobra.Command{
-		Use:     "control-plane",
-		Short:   "Generates the configuration for Istio's control plane.",
-		Long:    `istioctl control-plane produces deployment files to run the minimum Istio control for the set of features requested by the --feature flag. If no features are provided, we create deployments for the default control plane: Pilot, Mixer, CA, and Ingress Proxies, with mTLS enabled.`,
+		Use:   "control-plane",
+		Short: "Generates the configuration for Istio's control plane.",
+		Long: "istioctl control-plane produces deployment files to run the minimum Istio control for the set of " +
+			"features requested by the --feature flag. If no features are provided, we create deployments for the " +
+			"default control plane: Pilot, Mixer, CA, and Ingress Proxies, with mTLS enabled.",
 		Example: `istioctl control-plane --features routing,policy,initializer -o helm`,
 		RunE: func(c *cobra.Command, args []string) error {
 			m.setFeatures(*features)
@@ -82,11 +84,10 @@ type model struct {
 
 func defaultModel() *model {
 	return &model{
-		Mixer:       true,
-		Pilot:       true,
-		Ca:          true,
-		Ingress:     true,
-		Initializer: false,
+		Mixer:   true,
+		Pilot:   true,
+		Ca:      true,
+		Ingress: true,
 	}
 }
 
@@ -102,9 +103,7 @@ func (m *model) setFeatures(features []string) error {
 	}
 	for _, f := range features {
 		switch strings.ToLower(f) {
-		case "telemetry":
-			fallthrough
-		case "policy":
+		case "telemetry", "policy":
 			m.Mixer = true
 		case "routing":
 			m.Pilot = true
