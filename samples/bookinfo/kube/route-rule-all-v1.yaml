@@ -20,6 +20,7 @@ spec:
     name: productpage
   match:
     source:
+      service: productpage
       labels:
         istio: ingress
   precedence: 2
@@ -39,6 +40,7 @@ spec:
     name: productpage
   match:
     source:
+      service: productpage
       labels:
         istio: ingress
     request:
@@ -59,6 +61,7 @@ spec:
     name: productpage
   match:
     source:
+      service: productpage
       labels:
         istio: ingress
     request:
@@ -79,6 +82,7 @@ spec:
     name: productpage
   match:
     source:
+      service: productpage
       labels:
         istio: ingress
     request:
@@ -99,6 +103,7 @@ spec:
     name: productpage
   match:
     source:
+      service: productpage
       labels:
         istio: ingress
     request:
