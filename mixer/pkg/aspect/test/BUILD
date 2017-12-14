@@ -10,7 +10,6 @@ go_library(
         "descriptor.go",
         "env.go",
         "evaluator.go",
-        "logger.go",
     ],
     visibility = ["//visibility:public"],
     deps = [

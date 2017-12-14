@@ -14,8 +14,6 @@ def _inventory_gen(name, packages, out):
 
 DEPS = [
     "//mixer/pkg/adapter:go_default_library",
-    "//mixer/adapter/kubernetes:go_default_library",
-    "//mixer/adapter/noopLegacy:go_default_library",
 ]
 
 def inventory_library(name, packages, deps):
