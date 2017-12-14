@@ -419,7 +419,7 @@ func ValidateL4MatchAttributes(ma *routing.L4MatchAttributes) (errs error) {
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
-		return fmt.Errorf("must be in range 0..100")
+		return fmt.Errorf("invalid percentage: must be in range 0..100")
 	}
 	return nil
 }
@@ -427,7 +427,7 @@ func ValidatePercent(val int32) error {
 // ValidateFloatPercent checks that percent is in range
 func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("must be in range 0..100")
+		return fmt.Errorf("invalid percentage: must be in range 0..100")
 	}
 	return nil
 }
@@ -1143,11 +1143,11 @@ func ValidateDuration(pd *duration.Duration) error {
 	if err != nil {
 		return err
 	}
-	if dur < (1 * time.Millisecond) {
+	if dur < time.Millisecond {
 		return errors.New("duration must be greater than 1ms")
 	}
 	if dur%time.Millisecond != 0 {
-		return errors.New("only durations to ms precision is supported")
+		return errors.New("only durations to ms precision are supported")
 	}
 	return nil
 }
@@ -1543,19 +1543,6 @@ func ValidateQuotaSpecBinding(msg proto.Message) error {
 	return errs
 }
 
-func ValidateRouteRuleV1Alpha2(msg proto.Message) error {
-	in, ok := msg.(*routingv2.RouteRule)
-	if !ok {
-		return errors.New("cannot cast to v1alpha2 routing rule")
-	}
-
-	var errs error
-	if len(in.Hosts) == 0 {
-		multierror.Append(errs, errors.New("at least one host required"))
-	}
-	return errs
-}
-
 // ValidateEndUserAuthenticationPolicySpec checks that EndUserAuthenticationPolicySpec is well-formed.
 func ValidateEndUserAuthenticationPolicySpec(msg proto.Message) error {
 	in, ok := msg.(*mccpb.EndUserAuthenticationPolicySpec)
@@ -1633,6 +1620,195 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+func ValidateRouteRuleV1Alpha2(msg proto.Message) (errs error) {
+	routeRule, ok := msg.(*routingv2.RouteRule)
+	if !ok {
+		return errors.New("cannot cast to v1alpha2 routing rule")
+	}
+
+	// TODO: routeRule.Gateways
+
+	if len(routeRule.Hosts) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one host required"))
+	}
+
+	for _, http := range routeRule.Http {
+		for name := range http.AppendHeaders {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+		errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
+		errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
+
+		for _, match := range http.Match {
+			for _, stringMatch := range []*routingv2.StringMatch{
+				match.Authority, match.Method, match.Scheme, match.Uri} {
+				errs = appendErrors(errs, validateStringMatch(stringMatch))
+			}
+
+			for _, stringMatch := range match.Headers {
+				errs = appendErrors(errs, validateStringMatch(stringMatch))
+			}
+
+			// TODO: match.Port
+			// TODO: match.SourceLabels
+		}
+		errs = appendErrors(errs, validateDestination(http.Mirror))
+		errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
+		errs = appendErrors(errs, validateHTTPRetries(http.Retries))
+		errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+		for _, route := range http.Route {
+			if route.Destination == nil {
+				errs = multierror.Append(errs, errors.New("destination is required"))
+			}
+			errs = appendErrors(errs, validateDestination(route.Destination))
+			errs = appendErrors(errs, ValidatePercent(route.Weight))
+		}
+		if http.Timeout != nil {
+			errs = appendErrors(errs, ValidateDuration(http.Timeout))
+		}
+
+		// TODO: http.WebsocketUpgrade
+	}
+
+	// TODO: in.Tcp
+	//for _, tcp := range in.Tcp {
+	//}
+
+	return
+}
+
+func validateCORSPolicy(policy *routingv2.CorsPolicy) (errs error) {
+	if policy == nil {
+		return
+	}
+
+	// TODO: AllowOrigin
+
+	for _, method := range policy.AllowMethods {
+		errs = appendErrors(errs, validateHTTPMethod(method))
+	}
+
+	for _, name := range policy.AllowHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
+	for _, name := range policy.ExposeHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
+	if policy.MaxAge != nil {
+		errs = appendErrors(errs, ValidateDuration(policy.MaxAge))
+		if policy.MaxAge.Nanos > 0 {
+			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
+		}
+	}
+
+	// TODO: AllowCredentials
+
+	return
+}
+
+func validateHTTPMethod(method string) error {
+	if !supportedMethods[method] {
+		return fmt.Errorf("%q is not a supported HTTP method", method)
+	}
+	return nil
+}
+
+func validateHTTPFaultInjection(fault *routingv2.HTTPFaultInjection) (errs error) {
+	if fault == nil {
+		return
+	}
+
+	if fault.Abort == nil && fault.Delay == nil {
+		errs = multierror.Append(errs, errors.New("HTTP fault injection must have an abort and/or a delay"))
+	}
+
+	errs = appendErrors(errs, validateHTTPFaultInjectionAbort(fault.Abort))
+	errs = appendErrors(errs, validateHTTPFaultInjectionDelay(fault.Delay))
+
+	return
+}
+
+func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) (errs error) {
+	if abort == nil {
+		return
+	}
+
+	errs = appendErrors(errs, ValidatePercent(abort.Percent))
+
+	switch abort.ErrorType.(type) {
+	case *routingv2.HTTPFaultInjection_Abort_GrpcStatus:
+		// TODO: GRPC status validation
+		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
+	case *routingv2.HTTPFaultInjection_Abort_Http2Error:
+		// TODO: HTTP2 error validation
+	case *routingv2.HTTPFaultInjection_Abort_HttpStatus:
+		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
+	}
+
+	return
+}
+
+func validateHTTPStatus(status int32) error {
+	if status < 0 || status > 600 {
+		return fmt.Errorf("HTTP status must be in range 0-600: %d", status)
+	}
+	return nil
+}
+
+func validateHTTPFaultInjectionDelay(delay *routingv2.HTTPFaultInjection_Delay) (errs error) {
+	if delay == nil {
+		return
+	}
+
+	errs = appendErrors(errs, ValidatePercent(delay.Percent))
+	switch v := delay.HttpDelayType.(type) {
+	case *routingv2.HTTPFaultInjection_Delay_FixedDelay:
+		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
+	case *routingv2.HTTPFaultInjection_Delay_ExponentialDelay:
+		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
+		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
+	}
+	return
+}
+
+func validateStringMatch(match *routingv2.StringMatch) (errs error) {
+	// TODO: does any validation need to be done here?
+	return
+}
+
+func validateDestination(destination *routingv2.Destination) (errs error) {
+	if destination == nil {
+		return
+	}
+
+	errs = appendErrors(errs, Labels(destination.Labels).Validate())
+	// TODO: Name
+	// TODO: Port
+	return
+}
+
+func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) (errs error)  {
+	return // TODO
+}
+
+func validateHTTPRetries(retries *routingv2.HTTPRetry) (errs error) {
+	if retries == nil {
+		return // no retry policy is valid
+	}
+
+	if retries.Attempts <= 0 {
+		errs = multierror.Append(errs, errors.New("attempts must be positive"))
+	}
+	errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	return
+}
+
+func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) (errs error) {
+	return // TODO
 }
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
