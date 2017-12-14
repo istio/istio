@@ -18,7 +18,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://istio-pilot:8080"
+            "url": "tcp://istio-pilot:15003"
           }
         ]
       },
@@ -29,7 +29,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://istio-pilot:8080"
+            "url": "tcp://istio-pilot:15003"
           }
         ]
       },
@@ -53,7 +53,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://istio-pilot:8080"
+            "url": "tcp://istio-pilot:15003"
           }
         ]
       },
@@ -67,7 +67,7 @@
         "lb_type": "round_robin",
         "hosts": [
           {
-            "url": "tcp://istio-pilot:8080"
+            "url": "tcp://istio-pilot:15003"
           }
         ]
       },

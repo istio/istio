@@ -26,12 +26,20 @@ if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
   . $ISTIO_SIDECAR_CONFIG
 fi
 
+# Load config variables ISTIO_SYSTEM_NAMESPACE, CONTROL_PLANE_AUTH_POLICY
+ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
+if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
+  . $ISTIO_CLUSTER_CONFIG
+fi
+
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
 ISTIO_LOG_DIR=${ISTIO_LOG_DIR:-/var/log/istio}
 ISTIO_CFG=${ISTIO_CFG:-/var/lib/istio}
 NS=${ISTIO_NAMESPACE:-default}
 SVC=${ISTIO_SERVICE:-rawvm}
+ISTIO_SYSTEM_NAMESPACE=${ISTIO_SYSTEM_NAMESPACE:-istio-system}
+CONTROL_PLANE_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
 
 
 if [ -z "${ISTIO_SVC_IP:-}" ]; then
@@ -54,7 +62,7 @@ fi
 ${ISTIO_BIN_BASE}/istio-iptables.sh
 
 if [ -f ${ISTIO_BIN_BASE}/pilot-agent ]; then
-  exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy --serviceCluster $SVC > ${ISTIO_LOG_DIR}/istio.log" istio-proxy
+  exec su -s /bin/bash -c "INSTANCE_IP=${ISTIO_SVC_IP} POD_NAME=${POD_NAME} POD_NAMESPACE=${NS} exec ${ISTIO_BIN_BASE}/pilot-agent proxy --serviceCluster $SVC --discoveryAddress istio-pilot.${ISTIO_SYSTEM_NAMESPACE} --controlPlaneAuthPolicy $CONTROL_PLANE_AUTH_POLICY > ${ISTIO_LOG_DIR}/istio.log" istio-proxy
 else
   ENVOY_CFG=${ENVOY_CFG:-${ISTIO_CFG}/envoy/envoy.json}
   # Run envoy directly - agent not installed. This should be used only for debugging/testing standalone envoy
