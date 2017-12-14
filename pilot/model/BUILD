@@ -27,6 +27,7 @@ go_library(
         "@io_istio_api//mixer/v1:go_default_library",
         "@io_istio_api//mixer/v1/config/client:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",
+        "@io_istio_api//routing/v1alpha2:go_default_library",
     ],
 )
 
