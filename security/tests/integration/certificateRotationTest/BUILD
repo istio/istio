@@ -2,7 +2,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "go_default_test",
-    srcs = ["certificate_rotation_test_env.go"],
+    srcs = ["certificate_rotation_test.go"],
     tags = ["manual"],
     deps = [
         "//security/pkg/pki/ca/controller:go_default_library",
