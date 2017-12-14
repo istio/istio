@@ -113,10 +113,6 @@ void HttpMixerConfig::Load(const Json::Object& json) {
   ReadTransportConfig(json, http_config.mutable_transport());
 
   has_v2_config = ReadV2Config(json, &http_config);
-  if (has_v2_config) {
-    // If v2 config is valid, clear v1 legacy_quotas.
-    legacy_quotas.clear();
-  }
 }
 
 void HttpMixerConfig::CreateLegacyRouteConfig(
