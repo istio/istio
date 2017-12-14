@@ -205,7 +205,7 @@ EOF
 # Updating helm's values.yaml for the current versions
 #
 function update_helm_version() {
-   helm_values_file="$ROOT/install/kubernetes/helm/Istio/values.yaml"
+   helm_values_file="$ROOT/install/kubernetes/helm/istio/values.yaml"
    if [ -z ${OSTYPE##*darwin*} ]; then
       sed -i "" 's|\(ca_hub: \).*|\1'${CA_HUB}'|g' $helm_values_file
       sed -i "" 's|\(ca_tag: \).*|\1'${CA_TAG}'|g' $helm_values_file
