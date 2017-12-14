@@ -58,6 +58,8 @@ type ActionConfiguration struct {
 }
 
 type Snapshot struct {
+	id int
+
 	// Static information
 	templateInfos map[string]template.Info
 	adapterInfos  map[string]*adapter.Info
@@ -72,6 +74,10 @@ type Snapshot struct {
 
 func Empty() *Snapshot {
 	return emptySnapshot
+}
+
+func (s *Snapshot) ID() int {
+	return s.id
 }
 
 func (s *Snapshot) Attributes() expr.AttributeDescriptorFinder {

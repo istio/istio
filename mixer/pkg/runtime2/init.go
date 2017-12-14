@@ -86,11 +86,6 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 	return kindMap
 }
 
-// maxCleanupDuration is the maximum amount of time cleanup operation will wait
-// before resolver ref count does to 0. It will return after this duration without
-// calling Close() on handlers.
-var maxCleanupDuration = 10 * time.Second
-
 var watchFlushDuration = time.Second
 
 // maxEvents is the likely maximum number of events

@@ -39,6 +39,8 @@ type Ephemeral struct {
 	adapters  map[string]*adapter.Info // maps adapter shortName to Info.
 	templates map[string]template.Info
 
+	nextId int
+
 	// whether the attributes have changed since last snapshot
 	attributesChanged bool
 
@@ -57,6 +59,8 @@ func NewEphemeral(
 	return &Ephemeral{
 		templates: templates,
 		adapters:  adapters,
+
+		nextId: 1,
 
 		attributesChanged: false,
 		entries:           initialConfig,
@@ -89,7 +93,10 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	rules := e.processRuleConfigs(handlers, instances)
 
+	id := e.nextId
+	e.nextId++
 	return &Snapshot{
+		id:         id,
 		attributes: &attributeFinder{attrs: attributes},
 		handlers:   handlers,
 		instances:  instances,

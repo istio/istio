@@ -27,6 +27,7 @@ var emptySet = &DestinationSet{
 
 // Table calculates the dispatch varietyDestinations for an incoming request.
 type Table struct {
+	id int
 
 	// destinations grouped by variety
 	entries map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations
@@ -63,6 +64,14 @@ func (r *Table) IncRef() {
 
 func (r *Table) DecRef() {
 	atomic.AddInt32(&r.refCount, -1)
+}
+
+func (r *Table) GetRefs() int32 {
+	return atomic.LoadInt32(&r.refCount)
+}
+
+func (r *Table) ID() int {
+	return r.id
 }
 
 func (r *Table) GetDestinations(variety istio_mixer_v1_template.TemplateVariety, bag attribute.Bag) (*DestinationSet, error) {

@@ -32,6 +32,7 @@ type builder struct {
 func BuildTable(handlers *handler.Table, config *config.Snapshot, expb *compiled.ExpressionBuilder) *Table {
 	b := &builder{
 		table: &Table{
+			id:      config.ID(),
 			entries: make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations),
 		},
 

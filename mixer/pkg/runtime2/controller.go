@@ -15,9 +15,13 @@
 package runtime2
 
 import (
+	"fmt"
+	"time"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
@@ -69,9 +73,34 @@ func (c *Controller) applyNewConfig() {
 	c.handlers = newHandlers
 	c.snapshot = newSnapshot
 
-	cleanupHandlers(oldRoutes, oldHandlers, newHandlers)
+	cleanupHandlers(oldRoutes, oldHandlers, newHandlers, maxCleanupDuration)
 }
 
-func cleanupHandlers(oldRoutes *routing.Table, oldHandlers *handler.Table, currentHandlers *handler.Table) {
-	// TODO
+// maxCleanupDuration is the maximum amount of time cleanup operation will wait
+// before resolver ref count does to 0. It will return after this duration without
+// calling Close() on handlers.
+var maxCleanupDuration = 10 * time.Second
+
+var cleanupSleepTime = 500 * time.Millisecond
+
+func cleanupHandlers(oldRoutes *routing.Table, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) error {
+	start := time.Now()
+	for {
+		rc := oldRoutes.GetRefs()
+		if rc > 0 {
+			if time.Since(start) > timeout {
+				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
+			}
+
+			log.Warnf("Waiting for resolver %d to finish %d remaining requests", oldRoutes.ID(), rc)
+
+			time.Sleep(cleanupSleepTime)
+			continue
+		}
+	}
+
+	log.Infof("cleanupResolver[%d] handler table has %d entries", oldRoutes.ID())
+
+	handler.Cleanup(currentHandlers, oldHandlers)
+	return nil
 }
