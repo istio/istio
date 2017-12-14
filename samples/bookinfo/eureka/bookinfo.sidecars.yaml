@@ -34,7 +34,7 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster details-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster details-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   ratings-v1-init:
     image: gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     cap_add:
@@ -52,7 +52,7 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster ratings-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster ratings-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   productpage-v1-init:
     image: gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     cap_add:
@@ -70,7 +70,7 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster productpage-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster productpage-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v1-init:
     image: gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     cap_add:
@@ -88,7 +88,7 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster reviews-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster reviews-v1 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v2-init:
     image: gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     cap_add:
@@ -106,7 +106,7 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster reviews-v2 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster reviews-v2 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
   reviews-v3-init:
     image: gcr.io/istio-testing/proxy_init:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
     cap_add:
@@ -124,4 +124,4 @@ services:
       - su
       - istio-proxy
       - -c
-      - "/usr/local/bin/pilot-agent proxy -v 2 --serviceregistry Eureka --serviceCluster reviews-v3 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
+      - "/usr/local/bin/pilot-agent proxy -v 2 --discoveryAddress istio-pilot:8080 --serviceregistry Eureka --serviceCluster reviews-v3 --zipkinAddress zipkin:9411 --configPath /var/lib/istio >/tmp/envoy.log"
