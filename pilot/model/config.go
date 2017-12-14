@@ -302,6 +302,14 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
+	// Gateway describes a gateway (how a proxy is exposed on the network)
+	Gateway = ProtoSchema{
+		Type:        "gateway",
+		Plural:      "gateways",
+		MessageName: "istio.routing.v1alpha2.Gateway",
+		Validate:    ValidateGateway,
+	}
+
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
@@ -378,6 +386,7 @@ var (
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
 		IngressRule,
+		Gateway,
 		EgressRule,
 		DestinationPolicy,
 		HTTPAPISpec,
