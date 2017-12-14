@@ -34,10 +34,10 @@ go_test(
         "@com_github_onsi_ginkgo//:go_default_library",
         "@com_github_onsi_ginkgo//extensions/table:go_default_library",
         "@com_github_onsi_gomega//:go_default_library",
+        "@com_github_square_certstrap//pkix:go_default_library",
         "@org_cloudfoundry_code_copilot//api:go_default_library",
         "@org_cloudfoundry_code_copilot//testhelpers:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_net//context:go_default_library",
-        "@com_github_square_certstrap//pkix:go_default_library",
     ],
 )

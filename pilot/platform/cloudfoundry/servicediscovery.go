@@ -41,7 +41,7 @@ func (sd *ServiceDiscovery) Services() ([]*model.Service, error) {
 	}
 	services := make([]*model.Service, 0, len(resp.GetBackends()))
 
-	for hostname, _ := range resp.Backends {
+	for hostname := range resp.Backends {
 		services = append(services, newService(hostname))
 	}
 
@@ -65,7 +65,7 @@ func newService(hostname string) *model.Service {
 	return &model.Service{
 		Hostname: hostname,
 		Ports: []*model.Port{
-			&model.Port{
+			{
 				Port:     AppPort,
 				Protocol: model.ProtocolTCP,
 			},

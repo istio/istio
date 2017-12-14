@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/copilot/api"
+
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"
 
@@ -38,7 +39,7 @@ var _ = Describe("Controller", func() {
 		client = newMockCopilotClient()
 		client.RoutesOutput.Ret0 <- &api.RoutesResponse{
 			Backends: map[string]*api.BackendSet{
-				"process-guid-a.cfapps.internal": &api.BackendSet{
+				"process-guid-a.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.10.1.5",
@@ -50,7 +51,7 @@ var _ = Describe("Controller", func() {
 						},
 					},
 				},
-				"process-guid-b.cfapps.internal": &api.BackendSet{
+				"process-guid-b.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.0.50.4",
@@ -110,7 +111,7 @@ var _ = Describe("Controller", func() {
 		By("checking that all handlers are called again when the cache is invalidated")
 		client.RoutesOutput.Ret0 <- &api.RoutesResponse{
 			Backends: map[string]*api.BackendSet{
-				"other-process-guid-a.cfapps.internal": &api.BackendSet{
+				"other-process-guid-a.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.10.2.6",
@@ -122,7 +123,7 @@ var _ = Describe("Controller", func() {
 						},
 					},
 				},
-				"process-guid-b.cfapps.internal": &api.BackendSet{
+				"process-guid-b.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.0.50.4",

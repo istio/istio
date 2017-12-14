@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"code.cloudfoundry.org/copilot/api"
+
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"
 )
@@ -36,7 +37,7 @@ var _ = Describe("ServiceDiscovery", func() {
 		client = newMockCopilotClient()
 		routesResponse = &api.RoutesResponse{
 			Backends: map[string]*api.BackendSet{
-				"process-guid-a.cfapps.internal": &api.BackendSet{
+				"process-guid-a.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.10.1.5",
@@ -48,7 +49,7 @@ var _ = Describe("ServiceDiscovery", func() {
 						},
 					},
 				},
-				"process-guid-b.cfapps.internal": &api.BackendSet{
+				"process-guid-b.cfapps.internal": {
 					Backends: []*api.Backend{
 						{
 							Address: "10.0.50.4",
@@ -76,11 +77,11 @@ var _ = Describe("ServiceDiscovery", func() {
 
 			Expect(serviceModels).To(HaveLen(2))
 			Expect(serviceModels).To(ConsistOf([]*model.Service{
-				&model.Service{
+				{
 					Hostname: "process-guid-a.cfapps.internal",
 					Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolTCP}},
 				},
-				&model.Service{
+				{
 					Hostname: "process-guid-b.cfapps.internal",
 					Ports:    []*model.Port{{Port: 8080, Protocol: model.ProtocolTCP}},
 				},
@@ -172,7 +173,7 @@ var _ = Describe("ServiceDiscovery", func() {
 				}
 
 				Expect(instances).To(ConsistOf([]*model.ServiceInstance{
-					&model.ServiceInstance{
+					{
 						Endpoint: model.NetworkEndpoint{
 							Address:     "10.10.1.5",
 							Port:        61005,
@@ -180,7 +181,7 @@ var _ = Describe("ServiceDiscovery", func() {
 						},
 						Service: service,
 					},
-					&model.ServiceInstance{
+					{
 						Endpoint: model.NetworkEndpoint{
 							Address:     "10.0.40.2",
 							Port:        61008,
