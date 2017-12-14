@@ -6,12 +6,12 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cache.go",
-        "kubernetes.go",
+        "kubernetesenv.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//mixer/adapter/kubernetes2/config:go_default_library",
-        "//mixer/adapter/kubernetes2/template:go_default_library",
+        "//mixer/adapter/kubernetesenv/config:go_default_library",
+        "//mixer/adapter/kubernetesenv/template:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
@@ -30,12 +30,12 @@ go_test(
     size = "small",
     srcs = [
         "cache_test.go",
-        "kubernetes_test.go",
+        "kubernetesenv_test.go",
     ],
     library = ":go_default_library",
     deps = [
-        "//mixer/adapter/kubernetes2/config:go_default_library",
-        "//mixer/adapter/kubernetes2/template:go_default_library",
+        "//mixer/adapter/kubernetesenv/config:go_default_library",
+        "//mixer/adapter/kubernetesenv/template:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/adapter/test:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",

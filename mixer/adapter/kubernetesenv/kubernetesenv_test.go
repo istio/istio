@@ -26,8 +26,8 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/mixer/adapter/kubernetes2/config"
-	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetes2/template"
+	"istio.io/istio/mixer/adapter/kubernetesenv/config"
+	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
 )
@@ -369,7 +369,7 @@ func TestKubegen_Generate(t *testing.T) {
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
 
-			kg := &handler{log: test.NewEnv(t).Logger(), params: v.params, pods: fakeCache{pods: pods}}
+			kg := &handler{env: test.NewEnv(t), params: v.params, pods: fakeCache{pods: pods}}
 
 			got, err := kg.GenerateKubernetesAttributes(context.Background(), v.inputs)
 			if err != nil {

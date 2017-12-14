@@ -19,7 +19,7 @@ package adapter
 import (
 	circonus "istio.io/istio/mixer/adapter/circonus"
 	denier "istio.io/istio/mixer/adapter/denier"
-	kubernetes "istio.io/istio/mixer/adapter/kubernetes2"
+	kubernetes "istio.io/istio/mixer/adapter/kubernetesenv"
 	list "istio.io/istio/mixer/adapter/list"
 	memquota "istio.io/istio/mixer/adapter/memquota"
 	noop "istio.io/istio/mixer/adapter/noop"

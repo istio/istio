@@ -35,8 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/mixer/adapter/kubernetes2/config"
-	ktmpl "istio.io/istio/mixer/adapter/kubernetes2/template"
+	"istio.io/istio/mixer/adapter/kubernetesenv/config"
+	ktmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -76,7 +76,7 @@ type (
 
 	handler struct {
 		pods   cacheController
-		log    adapter.Logger
+		env    adapter.Env
 		params *config.Params
 	}
 
@@ -143,18 +143,14 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 	env.ScheduleDaemon(func() { controller.Run(stopChan) })
 	// ensure that any request is only handled after
 	// a sync has occurred
-	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		env.Logger().Infof("Waiting for kubernetes cache sync...")
-	}
+	env.Logger().Infof("Waiting for kubernetes cache sync...")
 	if success := cache.WaitForCacheSync(stopChan, controller.HasSynced); !success {
 		stopChan <- struct{}{}
 		return nil, errors.New("cache sync failure")
 	}
-	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		env.Logger().Infof("Cache sync successful.")
-	}
+	env.Logger().Infof("Cache sync successful.")
 	return &handler{
-		log:    env.Logger(),
+		env:    env,
 		pods:   controller,
 		params: paramsProto,
 	}, nil
@@ -171,11 +167,11 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 	out := &ktmpl.Output{}
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
-			fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, out, h.params)
 		}
 	} else if inst.DestinationIp != nil && !inst.DestinationIp.IsUnspecified() {
 		if p, found := h.findPod(inst.DestinationIp.String()); found {
-			fillDestinationAttrs(p, out, h.params)
+			h.fillDestinationAttrs(p, out, h.params)
 		}
 	}
 
@@ -185,21 +181,21 @@ func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.
 
 	if inst.SourceUid != "" {
 		if p, found := h.findPod(inst.SourceUid); found {
-			fillSourceAttrs(p, out, h.params)
+			h.fillSourceAttrs(p, out, h.params)
 		}
 	} else if inst.SourceIp != nil && !inst.SourceIp.IsUnspecified() {
 		if p, found := h.findPod(inst.SourceIp.String()); found {
-			fillSourceAttrs(p, out, h.params)
+			h.fillSourceAttrs(p, out, h.params)
 		}
 	}
 
 	if inst.OriginUid != "" {
 		if p, found := h.findPod(inst.OriginUid); found {
-			fillOriginAttrs(p, out, h.params)
+			h.fillOriginAttrs(p, out, h.params)
 		}
 	} else if inst.OriginIp != nil && !inst.OriginIp.IsUnspecified() {
 		if p, found := h.findPod(inst.OriginIp.String()); found {
-			fillOriginAttrs(p, out, h.params)
+			h.fillOriginAttrs(p, out, h.params)
 		}
 	}
 	return out, nil
@@ -212,9 +208,7 @@ func (h *handler) Close() error {
 func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	pod, found := h.pods.GetPod(podKey)
-	if !found && h.log.VerbosityLevel(debugVerbosityLevel) {
-		h.log.Infof("could not find pod for (uid: %s, key: %s)", uid, podKey)
-	}
+	h.env.Logger().Infof("could not find pod for (uid: %s, key: %s)", uid, podKey)
 	return pod, found
 }
 
@@ -282,7 +276,7 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.OriginLabels = p.Labels
 	}
@@ -305,16 +299,20 @@ func fillOriginAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.OriginService = n
+		} else {
+			h.env.Logger().Warningf("OriginService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.OriginService = n
+		} else {
+			h.env.Logger().Warningf("OriginService not set: %v", err)
 		}
 	}
 }
 
-func fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.DestinationLabels = p.Labels
 	}
@@ -337,16 +335,20 @@ func fillDestinationAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.DestinationService = n
+		} else {
+			h.env.Logger().Warningf("DestinationService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.DestinationService = n
+		} else {
+			h.env.Logger().Warningf("DestinationService not set: %v", err)
 		}
 	}
 }
 
-func fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
+func (h *handler) fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 	if len(p.Labels) > 0 {
 		o.SourceLabels = p.Labels
 	}
@@ -369,26 +371,26 @@ func fillSourceAttrs(p *v1.Pod, o *ktmpl.Output, params *config.Params) {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SourceService = n
+		} else {
+			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	} else if app, found := p.Labels[params.PodLabelForIstioComponentService]; found {
 		n, err := canonicalName(app, p.Namespace, params.ClusterDomainName)
 		if err == nil {
 			o.SourceService = n
+		} else {
+			h.env.Logger().Warningf("SourceService not set: %v", err)
 		}
 	}
 }
 
 func newCacheFromConfig(kubeconfigPath string, refreshDuration time.Duration, env adapter.Env) (cacheController, error) {
-	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
-	}
+	env.Logger().Infof("getting kubeconfig from: %#v", kubeconfigPath)
 	config, err := getRESTConfig(kubeconfigPath)
 	if err != nil || config == nil {
 		return nil, fmt.Errorf("could not retrieve kubeconfig: %v", err)
 	}
-	if env.Logger().VerbosityLevel(debugVerbosityLevel) {
-		env.Logger().Infof("getting k8s client from config")
-	}
+	env.Logger().Infof("getting k8s client from config")
 	clientset, err := k8s.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("could not create clientset for k8s: %v", err)

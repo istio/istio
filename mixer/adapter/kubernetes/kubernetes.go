@@ -302,7 +302,7 @@ func (k *kubegen) addValues(vals map[string]interface{}, uid, valPrefix string) 
 		}
 		return
 	}
-	addPodValues(vals, valPrefix, k.params, pod)
+	k.addPodValues(vals, valPrefix, k.params, pod)
 }
 
 func (k *kubegen) skipIngressLookups(values map[string]interface{}) bool {
@@ -324,7 +324,7 @@ func keyFromUID(uid string) string {
 	return fullname
 }
 
-func addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod) {
+func (k *kubegen) addPodValues(m map[string]interface{}, prefix string, params config.Params, p *v1.Pod) {
 	if len(p.Labels) > 0 {
 		m[valueName(prefix, params.LabelsValueName)] = p.Labels
 	}

@@ -34,9 +34,9 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 
-	"istio.io/istio/mixer/adapter/kubernetes2/template"
+	"istio.io/istio/mixer/adapter/kubernetesenv/template"
 
-	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
+	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 
 	"istio.io/istio/mixer/template/apikey"
 
@@ -142,7 +142,7 @@ var (
 
 					var err error = nil
 
-					if param.SourceUid == "" || param.SourceUid == emptyQuotes {
+					if param.SourceUid == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SourceUid")
 					}
 					if t, e := tEvalFn(param.SourceUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -152,7 +152,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceUid", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.SourceIp == "" || param.SourceIp == emptyQuotes {
+					if param.SourceIp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SourceIp")
 					}
 					if t, e := tEvalFn(param.SourceIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
@@ -162,7 +162,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceIp", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
 					}
 
-					if param.DestinationUid == "" || param.DestinationUid == emptyQuotes {
+					if param.DestinationUid == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DestinationUid")
 					}
 					if t, e := tEvalFn(param.DestinationUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -172,7 +172,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationUid", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.DestinationIp == "" || param.DestinationIp == emptyQuotes {
+					if param.DestinationIp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DestinationIp")
 					}
 					if t, e := tEvalFn(param.DestinationIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
@@ -182,7 +182,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationIp", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
 					}
 
-					if param.OriginUid == "" || param.OriginUid == emptyQuotes {
+					if param.OriginUid == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"OriginUid")
 					}
 					if t, e := tEvalFn(param.OriginUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -192,7 +192,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OriginUid", t, istio_mixer_v1_config_descriptor.STRING)
 					}
 
-					if param.OriginIp == "" || param.OriginIp == emptyQuotes {
+					if param.OriginIp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"OriginIp")
 					}
 					if t, e := tEvalFn(param.OriginIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
@@ -548,36 +548,36 @@ var (
 			},
 		},
 
-		svcctrlreport.TemplateName: {
-			Name:               svcctrlreport.TemplateName,
-			Impl:               "svcctrlreport",
-			CtrCfg:             &svcctrlreport.InstanceParam{},
+		servicecontrolreport.TemplateName: {
+			Name:               servicecontrolreport.TemplateName,
+			Impl:               "servicecontrolreport",
+			CtrCfg:             &servicecontrolreport.InstanceParam{},
 			Variety:            adptTmpl.TEMPLATE_VARIETY_REPORT,
-			BldrInterfaceName:  svcctrlreport.TemplateName + "." + "HandlerBuilder",
-			HndlrInterfaceName: svcctrlreport.TemplateName + "." + "Handler",
+			BldrInterfaceName:  servicecontrolreport.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: servicecontrolreport.TemplateName + "." + "Handler",
 			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(svcctrlreport.HandlerBuilder)
+				_, ok := hndlrBuilder.(servicecontrolreport.HandlerBuilder)
 				return ok
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(svcctrlreport.Handler)
+				_, ok := hndlr.(servicecontrolreport.Handler)
 				return ok
 			},
 			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
 
-				var BuildTemplate func(param *svcctrlreport.InstanceParam,
-					path string) (*svcctrlreport.Type, error)
+				var BuildTemplate func(param *servicecontrolreport.InstanceParam,
+					path string) (*servicecontrolreport.Type, error)
 
 				_ = BuildTemplate
 
-				BuildTemplate = func(param *svcctrlreport.InstanceParam,
-					path string) (*svcctrlreport.Type, error) {
+				BuildTemplate = func(param *servicecontrolreport.InstanceParam,
+					path string) (*servicecontrolreport.Type, error) {
 
 					if param == nil {
 						return nil, nil
 					}
 
-					infrdType := &svcctrlreport.Type{}
+					infrdType := &servicecontrolreport.Type{}
 
 					var err error = nil
 
@@ -715,33 +715,33 @@ var (
 
 				}
 
-				instParam := cp.(*svcctrlreport.InstanceParam)
+				instParam := cp.(*servicecontrolreport.InstanceParam)
 
 				return BuildTemplate(instParam, "")
 			},
 
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 				// Mixer framework should have ensured the type safety.
-				castedBuilder := builder.(svcctrlreport.HandlerBuilder)
-				castedTypes := make(map[string]*svcctrlreport.Type, len(types))
+				castedBuilder := builder.(servicecontrolreport.HandlerBuilder)
+				castedTypes := make(map[string]*servicecontrolreport.Type, len(types))
 				for k, v := range types {
 					// Mixer framework should have ensured the type safety.
-					v1 := v.(*svcctrlreport.Type)
+					v1 := v.(*servicecontrolreport.Type)
 					castedTypes[k] = v1
 				}
-				castedBuilder.SetSvcctrlReportTypes(castedTypes)
+				castedBuilder.SetServicecontrolReportTypes(castedTypes)
 			},
 
 			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
 				var BuildTemplate func(instName string,
-					param *svcctrlreport.InstanceParam, path string) (
-					*svcctrlreport.Instance, error)
+					param *servicecontrolreport.InstanceParam, path string) (
+					*servicecontrolreport.Instance, error)
 				_ = BuildTemplate
 
 				BuildTemplate = func(instName string,
-					param *svcctrlreport.InstanceParam, path string) (
-					*svcctrlreport.Instance, error) {
+					param *servicecontrolreport.InstanceParam, path string) (
+					*servicecontrolreport.Instance, error) {
 					if param == nil {
 						return nil, nil
 					}
@@ -853,7 +853,7 @@ var (
 					}
 
 					_ = param
-					return &svcctrlreport.Instance{
+					return &servicecontrolreport.Instance{
 
 						Name: instName,
 
@@ -885,16 +885,16 @@ var (
 					}, nil
 				}
 
-				var instances []*svcctrlreport.Instance
+				var instances []*servicecontrolreport.Instance
 				for instName, inst := range insts {
-					instance, err := BuildTemplate(instName, inst.(*svcctrlreport.InstanceParam), "")
+					instance, err := BuildTemplate(instName, inst.(*servicecontrolreport.InstanceParam), "")
 					if err != nil {
 						return err
 					}
 					instances = append(instances, instance)
 				}
 
-				if err := handler.(svcctrlreport.Handler).HandleSvcctrlReport(ctx, instances); err != nil {
+				if err := handler.(servicecontrolreport.Handler).HandleServicecontrolReport(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
