@@ -8,6 +8,7 @@ inventory_library(
     name = "go_default_library",
     packages = {
         "denier": "istio.io/istio/mixer/adapter/denier",
+        "kubernetes": "istio.io/istio/mixer/adapter/kubernetesenv",
         "list": "istio.io/istio/mixer/adapter/list",
         "noop": "istio.io/istio/mixer/adapter/noop",
         "prometheus": "istio.io/istio/mixer/adapter/prometheus",
@@ -21,6 +22,7 @@ inventory_library(
     deps = [
         "//mixer/adapter/circonus:go_default_library",
         "//mixer/adapter/denier:go_default_library",
+        "//mixer/adapter/kubernetesenv:go_default_library",
         "//mixer/adapter/list:go_default_library",
         "//mixer/adapter/memquota:go_default_library",
         "//mixer/adapter/noop:go_default_library",
