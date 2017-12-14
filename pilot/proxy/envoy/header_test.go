@@ -67,12 +67,12 @@ func TestHTTPMatch(t *testing.T) {
 			in: &routing.MatchCondition{
 				Request: &routing.MatchRequest{
 					Headers: map[string]*routing.StringMatch{
-						model.HeaderURI: {MatchType: &routing.StringMatch_Regex{Regex: "/.*"}},
+						model.HeaderURI:       {MatchType: &routing.StringMatch_Regex{Regex: "/.*"}},
 						model.HeaderAuthority: {MatchType: &routing.StringMatch_Exact{Exact: "foo.bar.com"}},
-						model.HeaderScheme: {MatchType: &routing.StringMatch_Exact{Exact: "http"}},
-						model.HeaderMethod: {MatchType: &routing.StringMatch_Exact{Exact: "GET"}},
-						"cookie":        {MatchType: &routing.StringMatch_Prefix{Prefix: "user=jason?"}},
-						"test":          {MatchType: &routing.StringMatch_Exact{Exact: "value"}},
+						model.HeaderScheme:    {MatchType: &routing.StringMatch_Exact{Exact: "http"}},
+						model.HeaderMethod:    {MatchType: &routing.StringMatch_Exact{Exact: "GET"}},
+						"cookie":              {MatchType: &routing.StringMatch_Prefix{Prefix: "user=jason?"}},
+						"test":                {MatchType: &routing.StringMatch_Exact{Exact: "value"}},
 					},
 				},
 			},
