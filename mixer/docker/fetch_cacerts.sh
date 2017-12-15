@@ -9,7 +9,7 @@ set -o pipefail
 # based on the following 
 # https://github.com/GoogleCloudPlatform/distroless/blob/master/cacerts/extract.sh
 
-# Latest available certs as of 2017-12-14
+# Latest available ca certs as of 2017-12-14
 DEB_CACAERTS=http://ftp.de.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20170717_all.deb
 DEB=ca-certs.deb
 

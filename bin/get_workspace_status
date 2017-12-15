@@ -72,3 +72,4 @@ echo buildHost          "$(hostname -f)"
 # used by mixer/broker version package
 echo "buildVersion ${VERSION}"
 echo "buildStatus ${tree_status}"
+echo "buildID $(date +%Y-%m-%d-$(git rev-parse --short HEAD))"
