@@ -123,11 +123,13 @@ var _ = Describe("ServiceDiscovery", func() {
 				},
 			))
 		})
-		It("returns an error when a hostname not found", func() {
+
+		It("returns a nil service when a hostname is not found", func() {
 			client.RoutesOutput.Ret0 <- routesResponse
 			client.RoutesOutput.Ret1 <- nil
-			_, err := serviceDiscovery.GetService("non-existent-service.whatever")
-			Expect(err).To(MatchError("no service exists with name 'non-existent-service.whatever'"))
+			service, err := serviceDiscovery.GetService("non-existent-service.whatever")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(service).To(BeNil())
 		})
 	})
 

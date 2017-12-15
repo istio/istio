@@ -62,7 +62,7 @@ func (sd *ServiceDiscovery) GetService(hostname string) (*model.Service, error) 
 			return svc, nil
 		}
 	}
-	return nil, fmt.Errorf("no service exists with name '%s'", hostname)
+	return nil, nil
 }
 
 func newService(hostname string) *model.Service {
