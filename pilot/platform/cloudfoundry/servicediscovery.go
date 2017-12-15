@@ -17,9 +17,8 @@ package cloudfoundry
 import (
 	"fmt"
 
-	"golang.org/x/net/context"
-
 	copilotapi "code.cloudfoundry.org/copilot/api"
+	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/model"
 )

@@ -17,10 +17,9 @@ package cloudfoundry_test
 import (
 	"errors"
 
+	"code.cloudfoundry.org/copilot/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"code.cloudfoundry.org/copilot/api"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"

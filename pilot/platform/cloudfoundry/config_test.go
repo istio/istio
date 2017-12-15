@@ -23,12 +23,11 @@ import (
 	"time"
 
 	"code.cloudfoundry.org/copilot/testhelpers"
-
-	"istio.io/istio/pilot/platform/cloudfoundry"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pilot/platform/cloudfoundry"
 )
 
 var _ = Describe("Config", func() {

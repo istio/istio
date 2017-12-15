@@ -18,10 +18,9 @@ import (
 	"reflect"
 	"time"
 
-	"golang.org/x/net/context"
-
 	copilotapi "code.cloudfoundry.org/copilot/api"
 	"github.com/golang/glog"
+	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/model"
 )
