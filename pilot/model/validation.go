@@ -1635,6 +1635,25 @@ func ValidateRouteRuleV1Alpha2(msg proto.Message) (errs error) {
 	}
 
 	for _, http := range routeRule.Http {
+		// check for conflicts
+		if http.Redirect != nil {
+			if len(http.Route) > 0 {
+				errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
+			}
+
+			if http.Fault != nil {
+				errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
+			}
+
+			if http.Rewrite != nil {
+				errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
+			}
+
+			if http.WebsocketUpgrade {
+				errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
+			}
+		}
+
 		for name := range http.AppendHeaders {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
@@ -1642,17 +1661,16 @@ func ValidateRouteRuleV1Alpha2(msg proto.Message) (errs error) {
 		errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
 
 		for _, match := range http.Match {
-			for _, stringMatch := range []*routingv2.StringMatch{
-				match.Authority, match.Method, match.Scheme, match.Uri} {
-				errs = appendErrors(errs, validateStringMatch(stringMatch))
+			for name := range match.Headers {
+				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 			}
 
-			for _, stringMatch := range match.Headers {
-				errs = appendErrors(errs, validateStringMatch(stringMatch))
+			// TODO: validate once implemented
+			if match.Port != nil {
+				errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
 			}
 
-			// TODO: match.Port
-			// TODO: match.SourceLabels
+			errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
 		}
 		errs = appendErrors(errs, validateDestination(http.Mirror))
 		errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
@@ -1668,13 +1686,12 @@ func ValidateRouteRuleV1Alpha2(msg proto.Message) (errs error) {
 		if http.Timeout != nil {
 			errs = appendErrors(errs, ValidateDuration(http.Timeout))
 		}
-
-		// TODO: http.WebsocketUpgrade
 	}
 
-	// TODO: in.Tcp
-	//for _, tcp := range in.Tcp {
-	//}
+	// TODO: validate once implemented
+	if len(routeRule.Tcp) > 0 {
+		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	}
 
 	return
 }
@@ -1684,7 +1701,7 @@ func validateCORSPolicy(policy *routingv2.CorsPolicy) (errs error) {
 		return
 	}
 
-	// TODO: AllowOrigin
+	// TODO: additional validation for AllowOrigin?
 
 	for _, method := range policy.AllowMethods {
 		errs = appendErrors(errs, validateHTTPMethod(method))
@@ -1705,7 +1722,7 @@ func validateCORSPolicy(policy *routingv2.CorsPolicy) (errs error) {
 		}
 	}
 
-	// TODO: AllowCredentials
+	// TODO: additional validation for AllowCredentials?
 
 	return
 }
@@ -1775,11 +1792,6 @@ func validateHTTPFaultInjectionDelay(delay *routingv2.HTTPFaultInjection_Delay) 
 	return
 }
 
-func validateStringMatch(match *routingv2.StringMatch) (errs error) {
-	// TODO: does any validation need to be done here?
-	return
-}
-
 func validateDestination(destination *routingv2.Destination) (errs error) {
 	if destination == nil {
 		return
@@ -1789,10 +1801,6 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 	// TODO: Name
 	// TODO: Port
 	return
-}
-
-func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) (errs error)  {
-	return // TODO
 }
 
 func validateHTTPRetries(retries *routingv2.HTTPRetry) (errs error) {
@@ -1807,8 +1815,18 @@ func validateHTTPRetries(retries *routingv2.HTTPRetry) (errs error) {
 	return
 }
 
-func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) (errs error) {
-	return // TODO
+func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) error {
+	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
+		return errors.New("redirect must specify URI, authority, or both")
+	}
+	return nil
+}
+
+func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
+	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
+		return errors.New("rewrite must specify URI, authority, or both")
+	}
+	return nil
 }
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
