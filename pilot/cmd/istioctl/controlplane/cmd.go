@@ -58,6 +58,9 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&m.CaTag, "ca-tag", "latest", "The tag to use to pull the `ca` container")
 	cmd.PersistentFlags().StringVar(&m.ProxyTag, "proxy-tag", "latest", "The tag to use to pull the `proxy` container")
 	cmd.PersistentFlags().BoolVar(&m.Debug, "debug", false, "If true, uses debug images instead of release images")
+	cmd.PersistentFlags().Uint16Var(&m.NodePort, "ingress-node-port", 0,
+		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
+			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too")
 	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
 					"helm": produces contents of values.yaml
 					"yaml": produces Kubernetes deployments`)
@@ -80,6 +83,7 @@ type model struct {
 	CaTag    string
 	ProxyTag string
 	Debug    bool
+	NodePort uint16
 }
 
 func defaultModel() *model {

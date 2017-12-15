@@ -26,8 +26,8 @@ var valuesTemplate = template.Must(template.New("helm").Parse(
    mixer_enabled: {{ .Mixer }}
    pilot_enabled: {{ .Pilot }}
    ingress:
-      use_nodeport: false
-      nodeport_port: 32000
+      use_nodeport: {{ gt .NodePort 0 }}
+      nodeport_port: {{ .NodePort }}
 
 global:
    auth_enabled: {{ .Ca }}
@@ -40,7 +40,6 @@ global:
    proxy_debug: {{ .Debug }}
    pilot_hub: {{ .Hub }}
    pilot_tag: {{ .PilotTag }}
-
 `))
 
 // fromModel returns a string representation of the values.yaml file for helm config
