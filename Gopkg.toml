@@ -59,6 +59,10 @@
   name = "github.com/russross/blackfriday"
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
 
+[[constraint]]
+  name = "code.cloudfoundry.org/copilot"
+  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+
 [[override]]
   name = "github.com/ugorji/go"
   revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"

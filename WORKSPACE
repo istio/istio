@@ -1198,3 +1198,35 @@ go_repository(
     commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
     importpath = "github.com/codahale/hdrhistogram",
 )
+
+go_repository(
+    name = "org_cloudfoundry_code_copilot",
+    commit = "03646eb993243c330f30e3053523da4e8c0850ab",
+    importpath = "code.cloudfoundry.org/copilot",
+)
+
+go_repository(
+    name = "com_github_onsi_ginkgo",
+    commit = "cb73bd0f14eb8d91a9801647edbebe6ddb5b4cb4",
+    importpath = "github.com/onsi/ginkgo",
+)
+
+go_repository(
+    name = "com_github_onsi_gomega",
+    commit = "c1fb6682134d162f37c13f42e7157653a7de7d2b",
+    importpath = "github.com/onsi/gomega",
+)
+
+go_repository(
+    name = "in_gopkg_validator_v2",
+    commit = "460c83432a98c35224a6fe352acf8b23e067ad06",
+    importpath = "gopkg.in/validator.v2",
+)
+
+go_repository(
+    name = "com_github_square_certstrap",
+    commit = "ae69f1c8301cc4d140d281998e9cac1c9df78c61",
+    importpath = "github.com/square/certstrap",
+    remote = "https://github.com/cf-routing/certstrap",
+    vcs = "git",
+)

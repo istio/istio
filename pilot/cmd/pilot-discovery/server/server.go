@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/platform/cloudfoundry"
 	"istio.io/istio/pilot/platform/consul"
 	"istio.io/istio/pilot/platform/eureka"
 	"istio.io/istio/pilot/platform/kube"
@@ -58,6 +60,8 @@ const (
 	ConsulRegistry ServiceRegistry = "Consul"
 	// EurekaRegistry environment flag
 	EurekaRegistry ServiceRegistry = "Eureka"
+	// CloudFoundryRegistry environment flag
+	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 )
 
 var (
@@ -87,6 +91,7 @@ type MeshArgs struct {
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
 	KubeConfig        string
+	CFConfig          string
 	ControllerOptions kube.ControllerOptions
 	FileDir           string
 }
@@ -424,6 +429,30 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
+
+		case CloudFoundryRegistry:
+			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			if err != nil {
+				return multierror.Prefix(err, "loading cloud foundry config")
+			}
+			tlsConfig, err := cfConfig.ClientTLSConfig()
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client tls config")
+			}
+			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client")
+			}
+			serviceControllers.AddRegistry(aggregate.Registry{
+				Name: platform.ServiceRegistry(r),
+				Controller: &cloudfoundry.Controller{
+					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+					Client: client,
+				},
+				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
+				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
+			})
+
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}

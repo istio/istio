@@ -12,18 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package platform
+package cloudfoundry_test
 
-// ServiceRegistry defines underlying platform supporting service registry
-type ServiceRegistry string
+import (
+	"testing"
 
-const (
-	// KubernetesRegistry environment flag
-	KubernetesRegistry ServiceRegistry = "Kubernetes"
-	// ConsulRegistry environment flag
-	ConsulRegistry ServiceRegistry = "Consul"
-	// EurekaRegistry environment flag
-	EurekaRegistry ServiceRegistry = "Eureka"
-	// CloudFoundryRegistry environment flag
-	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
+
+func TestCloudFoundry(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cloud Foundry Suite")
+}
