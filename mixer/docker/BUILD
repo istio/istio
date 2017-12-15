@@ -29,11 +29,10 @@ cacerts(
 
 mixer_docker_build(
     cmd = [
-        "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--configStore2URL=k8s://",
         "--logtostderr",
         "--v=2",
-        "--traceOutput=http://zipkin:9411/api/v1/spans",
+        "--zipkinURL=http://zipkin:9411/api/v1/spans",
     ],
     debs = [
         "@openssl//file:pkg.deb",
