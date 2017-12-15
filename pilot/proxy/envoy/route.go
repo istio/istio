@@ -90,7 +90,7 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRouteV1Alpha2(config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRouteV2(config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		matchRoutes := buildHTTPRouteMatches(http.Match)
@@ -154,15 +154,15 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
-		return []*HTTPRoute{buildHTTPRouteV1Alpha1(config, service, port)}
+		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRouteV1Alpha2(config, service, port)
+		return buildHTTPRouteV2(config, service, port)
 	default:
 		panic("unsupported rule")
 	}
 }
 
-func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -281,7 +281,7 @@ func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *m
 	return route
 }
 
-func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
+func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
@@ -330,7 +330,7 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 			if http.Fault != nil {
 				route.faults = make([]*HTTPFilter, 0, len(route.clusters))
 				for _, c := range route.clusters {
-					if fault := buildHTTPFaultFilterV1Alpha2(c.Name, http.Fault, route.Headers); fault != nil {
+					if fault := buildHTTPFaultFilterV2(c.Name, http.Fault, route.Headers); fault != nil {
 						route.faults = append(route.faults, fault)
 					}
 				}

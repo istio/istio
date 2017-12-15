@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy},
-		{cbRouteRuleV1Alpha2},
+		{cbRouteRuleV2},
 	}
 
 	for _, configs := range tests {
@@ -383,7 +383,7 @@ func TestRouteDiscoveryV1(t *testing.T) {
 }
 
 func TestRouteDiscoveryTimeout(t *testing.T) {
-	for _, timeoutConfig := range []fileConfig{timeoutRouteRule, timeoutRouteRuleV1Alpha2} {
+	for _, timeoutConfig := range []fileConfig{timeoutRouteRule, timeoutRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, egressRule, t)
 
@@ -396,7 +396,7 @@ func TestRouteDiscoveryTimeout(t *testing.T) {
 }
 
 func TestRouteDiscoveryWeighted(t *testing.T) {
-	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV1Alpha2} {
+	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightedConfig, t)
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -406,7 +406,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 }
 
 func TestRouteDiscoveryFault(t *testing.T) {
-	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV1Alpha2} {
+	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, faultConfig, t)
 
@@ -422,7 +422,7 @@ func TestRouteDiscoveryFault(t *testing.T) {
 }
 
 func TestRouteDiscoveryMirror(t *testing.T) {
-	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV1Alpha2} {
+	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, mirrorConfig, t)
 
@@ -433,7 +433,7 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 }
 
 func TestRouteDiscoveryAppendHeaders(t *testing.T) {
-	for _, addHeaderConfig := range []fileConfig{addHeaderRule, addHeaderRuleV1Alpha2} {
+	for _, addHeaderConfig := range []fileConfig{addHeaderRule, addHeaderRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, addHeaderConfig, t)
 
@@ -444,7 +444,7 @@ func TestRouteDiscoveryAppendHeaders(t *testing.T) {
 }
 
 func TestRouteDiscoveryCORSPolicy(t *testing.T) {
-	for _, corsConfig := range []fileConfig{corsPolicyRule, corsPolicyRuleV1Alpha2} {
+	for _, corsConfig := range []fileConfig{corsPolicyRule, corsPolicyRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, corsConfig, t)
 
@@ -455,7 +455,7 @@ func TestRouteDiscoveryCORSPolicy(t *testing.T) {
 }
 
 func TestRouteDiscoveryRedirect(t *testing.T) {
-	for _, redirectConfig := range []fileConfig{redirectRouteRule, redirectRouteRuleV1Alpha2} {
+	for _, redirectConfig := range []fileConfig{redirectRouteRule, redirectRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, redirectConfig, t)
 
@@ -467,7 +467,7 @@ func TestRouteDiscoveryRedirect(t *testing.T) {
 }
 
 func TestRouteDiscoveryRewrite(t *testing.T) {
-	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV1Alpha2} {
+	for _, rewriteConfig := range []fileConfig{rewriteRouteRule, rewriteRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, rewriteConfig, t)
 
@@ -479,7 +479,7 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
-	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV1Alpha2} {
+	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, websocketConfig, t)
 
@@ -518,7 +518,7 @@ func TestRouteDiscoveryIngress(t *testing.T) {
 }
 
 func TestRouteDiscoveryIngressWeighted(t *testing.T) {
-	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV1Alpha2} {
+	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addIngressRoutes(registry, t)
 		addConfig(registry, weightConfig, t)
@@ -541,7 +541,7 @@ func TestRouteDiscoveryRouterError(t *testing.T) {
 }
 
 func TestRouteDiscoveryRouterWeighted(t *testing.T) {
-	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV1Alpha2} {
+	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightConfig, t)
 
@@ -586,7 +586,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "weighted",
-			file: weightedRouteRuleV1Alpha2,
+			file: weightedRouteRuleV2,
 		},
 		{
 			name: "fault",
@@ -594,7 +594,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		},
 		{
 			name: "fault",
-			file: faultRouteRuleV1Alpha2,
+			file: faultRouteRuleV2,
 		},
 		{
 			name: "egress-rule",

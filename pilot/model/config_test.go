@@ -446,7 +446,7 @@ func TestRouteRules(t *testing.T) {
 	}
 }
 
-func TestRouteRulesV1Alpha2(t *testing.T) {
+func TestRouteRulesV2(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
 

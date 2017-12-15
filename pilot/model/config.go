@@ -310,7 +310,7 @@ var (
 		Type:        "v1alpha2-route-rule",
 		Plural:      "v1alpha2-route-rules",
 		MessageName: "istio.routing.v1alpha2.RouteRule",
-		Validate:    ValidateRouteRuleV1Alpha2,
+		Validate:    ValidateRouteRuleV2,
 	}
 
 	// Gateway describes a gateway (how a proxy is exposed on the network)
@@ -501,12 +501,12 @@ func SortRouteRules(rules []Config) {
 }
 
 func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destination string) []Config {
-	configs := store.routeRulesV1Alpha1(instances, destination)
-	configs = append(configs, store.routeRulesV1Alpha2(instances, destination)...)
+	configs := store.routeRules(instances, destination)
+	configs = append(configs, store.routeRulesV2(instances, destination)...)
 	return configs
 }
 
-func (store *istioConfigStore) routeRulesV1Alpha1(instances []*ServiceInstance, destination string) []Config {
+func (store *istioConfigStore) routeRules(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -533,7 +533,7 @@ func (store *istioConfigStore) routeRulesV1Alpha1(instances []*ServiceInstance, 
 	return out
 }
 
-func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, destination string) []Config {
+func (store *istioConfigStore) routeRulesV2(instances []*ServiceInstance, destination string) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -566,7 +566,6 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 }
 
 // TODO: can the instance matching be optimized?
-// TODO: tcp match conditions
 func matchSource(rule *routingv2.RouteRule, instances []*ServiceInstance) bool {
 	if len(rule.Http) == 0 {
 		return true
@@ -588,12 +587,12 @@ func matchSource(rule *routingv2.RouteRule, instances []*ServiceInstance) bool {
 }
 
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {
-	configs := store.routeRulesByDestinationV1Alpha1(instances)
-	configs = append(configs, store.routeRulesByDestinationV1Alpha2(instances)...)
+	configs := store.routeRulesByDestination(instances)
+	configs = append(configs, store.routeRulesByDestinationV2(instances)...)
 	return configs
 }
 
-func (store *istioConfigStore) routeRulesByDestinationV1Alpha1(instances []*ServiceInstance) []Config {
+func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(RouteRule.Type, NamespaceAll)
 	if err != nil {
@@ -614,7 +613,7 @@ func (store *istioConfigStore) routeRulesByDestinationV1Alpha1(instances []*Serv
 	return out
 }
 
-func (store *istioConfigStore) routeRulesByDestinationV1Alpha2(instances []*ServiceInstance) []Config {
+func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance) []Config {
 	out := make([]Config, 0)
 	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {

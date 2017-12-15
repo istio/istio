@@ -1622,7 +1622,7 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 	return errs
 }
 
-func ValidateRouteRuleV1Alpha2(msg proto.Message) (errs error) {
+func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	routeRule, ok := msg.(*routingv2.RouteRule)
 	if !ok {
 		return errors.New("cannot cast to v1alpha2 routing rule")
