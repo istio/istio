@@ -28,7 +28,6 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapterManager"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -42,24 +41,6 @@ type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
 
 type preprocCallbackLegacy func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
-type quotaCallbackLegacy func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
-	rpc.Status)
-
-type legacyDispatcher struct {
-	adapterManager.AspectDispatcher
-	quota   quotaCallbackLegacy
-	preproc preprocCallbackLegacy
-}
-
-func (l *legacyDispatcher) Preprocess(_ context.Context, requestBag attribute.Bag,
-	responseBag *attribute.MutableBag) rpc.Status {
-	return l.preproc(requestBag, responseBag)
-}
-
-func (l *legacyDispatcher) Quota(_ context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-	return l.quota(requestBag, qma)
-}
 
 type testState struct {
 	client     mixerpb.MixerClient
@@ -72,8 +53,6 @@ type testState struct {
 	report  reportCallback
 	quota   quotaCallback
 	preproc preprocCallback
-
-	legacy *legacyDispatcher
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -93,7 +72,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(ts.legacy, ts, ts.gp)
+	ms := NewGRPCServer(ts, ts.gp)
 	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
@@ -129,9 +108,7 @@ func (ts *testState) deleteAPIClient() {
 }
 
 func prepTestState() (*testState, error) {
-	ts := &testState{
-		legacy: &legacyDispatcher{},
-	}
+	ts := &testState{}
 	dial, err := ts.createGRPCServer()
 	if err != nil {
 		return nil, err
@@ -146,9 +123,6 @@ func prepTestState() (*testState, error) {
 		return nil
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return status.OK
-	}
 	return ts, nil
 }
 

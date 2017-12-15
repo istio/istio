@@ -33,9 +33,6 @@ type Args struct {
 	// The adapters to use
 	Adapters []adapter.InfoFn
 
-	// The legacy adapters to use
-	LegacyAdapters []adapter.RegisterFn
-
 	// Maximum size of individual gRPC messages
 	MaxMessageSize uint
 

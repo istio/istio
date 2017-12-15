@@ -6,14 +6,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "adapterInfoRegistry.go",
-        "apiserver.go",
-        "compatStore.go",
-        "handler.go",
         "inventory.go",
-        "kind.go",
-        "manager.go",
-        "runtime.go",
-        "validator.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -43,17 +36,10 @@ go_test(
     size = "small",
     srcs = [
         "adapterInfoRegistry_test.go",
-        "apiserver_test.go",
-        "handler_test.go",
-        "kind_test.go",
-        "manager_test.go",
-        "runtime_test.go",
-        "validator_test.go",
     ],
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/aspect/config:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",

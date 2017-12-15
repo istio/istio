@@ -8,7 +8,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/adapterManager:go_default_library",
         "//mixer/pkg/aspect:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/pool:go_default_library",
@@ -35,7 +34,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/adapterManager:go_default_library",
         "//mixer/pkg/aspect:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/pool:go_default_library",

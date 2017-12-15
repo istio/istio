@@ -29,7 +29,6 @@ import (
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapterManager"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
@@ -45,9 +44,8 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
-		dispatcher       runtime.Dispatcher
-		aspectDispatcher adapterManager.AspectDispatcher
-		gp               *pool.GoroutinePool
+		dispatcher runtime.Dispatcher
+		gp         *pool.GoroutinePool
 
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
@@ -68,7 +66,7 @@ var checkOk = &adapter.CheckResult{
 }
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -76,11 +74,10 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher 
 	}
 
 	return &grpcServer{
-		dispatcher:       dispatcher,
-		aspectDispatcher: aspectDispatcher,
-		gp:               gp,
-		globalWordList:   list,
-		globalDict:       globalDict,
+		dispatcher:     dispatcher,
+		gp:             gp,
+		globalWordList: list,
+		globalDict:     globalDict,
 	}
 }
 
