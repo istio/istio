@@ -40,7 +40,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/aspect/config:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
