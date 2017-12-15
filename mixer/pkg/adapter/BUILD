@@ -12,7 +12,6 @@ go_library(
         "configError.go",
         "handler.go",
         "info.go",
-        "labels.go",
         "quotas.go",
         "requestData.go",
         "result.go",
