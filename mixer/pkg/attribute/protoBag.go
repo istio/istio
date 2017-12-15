@@ -20,9 +20,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/golang/glog"
-
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/log"
 )
 
 // TODO: consider implementing a pool of proto bags
@@ -48,7 +47,7 @@ type ProtoBag struct {
 
 // NewProtoBag creates a new proto-based attribute bag.
 func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
-	glog.V(4).Infof("Creating bag with attributes: %v", proto)
+	log.Debugf("Creating bag with attributes: %v", proto)
 
 	// build the message-level dictionary
 	d := make(map[string]int32, len(proto.Words))
@@ -93,7 +92,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	// find the dictionary index for the given string
 	index, ok := pb.getIndex(name)
 	if !ok {
-		glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
+		log.Debugf("Attribute '%s' not in either global or message dictionaries", name)
 		// the string is not in the dictionary, and hence the attribute is not in the proto either
 		pb.trackReference(name, mixerpb.ABSENCE)
 		return nil, false
@@ -165,7 +164,7 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		// found the attribute, now convert its value from a dictionary index to a string
 		str, err := pb.lookup(strIndex)
 		if err != nil {
-			glog.Errorf("string attribute %s: %v", name, err)
+			log.Errorf("string attribute %s: %v", name, err)
 			return nil, false
 		}
 
@@ -189,7 +188,7 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		// convert from map[int32]int32 to map[string]string
 		m, err := pb.convertStringMap(sm.Entries)
 		if err != nil {
-			glog.Errorf("string map %s: %v", name, err)
+			log.Errorf("string map %s: %v", name, err)
 			return nil, false
 		}
 
@@ -364,7 +363,7 @@ func (pb *ProtoBag) DebugString() string {
 		// find the dictionary index for the given string
 		index, ok := pb.getIndex(name)
 		if !ok {
-			glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
+			log.Debugf("Attribute '%s' not in either global or message dictionaries", name)
 			continue
 		}
 
