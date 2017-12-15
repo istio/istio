@@ -72,6 +72,8 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
 					"helm": produces contents of values.yaml
 					"yaml": produces Kubernetes deployments`)
+
+	// TODO: figure out how we want to package up the charts with the binary to make this easy
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
 		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
 	_ = cmd.PersistentFlags().MarkHidden("helm-chart-dir")

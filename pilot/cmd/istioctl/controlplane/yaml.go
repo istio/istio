@@ -33,21 +33,22 @@ func yamlFromModel(m *model, helmChartDirectory string) (string, error) {
 
 	v := valuesFromModel(m)
 	config := &chart.Config{Raw: v, Values: map[string]*chart.Value{}}
-
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
 		Namespace: m.Namespace,
 	}
 
-	render := engine.New()
-
 	vals, err := chartutil.ToRenderValues(c, config, options)
 	if err != nil {
 		return "", err
 	}
 
-	files, err := render.Render(c, vals)
+	files, err := engine.New().Render(c, vals)
+	if err != nil {
+		return "", err
+	}
+
 	out := &bytes.Buffer{}
 	for name, data := range files {
 		if len(strings.TrimSpace(string(data))) == 0 {
