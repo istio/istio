@@ -14,8 +14,6 @@
 
 package perf
 
-import "istio.io/api/mixer/v1"
-
 // This file contains sample data sets to simplify the tests.
 
 // MinimalConfig is a very basic configuration, mainly useful for testing the perf infrastructure itself,

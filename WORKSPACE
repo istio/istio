@@ -39,6 +39,30 @@ load("//mixer:adapter_author_deps.bzl", "mixer_adapter_repositories")
 mixer_adapter_repositories()
 
 go_repository(
+    name = "com_github_peterbourgon_diskv",
+    commit = "2973218375c3d13162e1d3afe1708aaee318ef3f",  # Nov 19, 2017 (no releases)
+    importpath = "github.com/peterbourgon/diskv",
+)
+
+go_repository(
+    name = "com_github_gregjones_httpcache",
+    commit = "2bcd89a1743fd4b373f7370ce8ddc14dfbd18229",  # Nov 19, 2017 (no releases)
+    importpath = "github.com/gregjones/httpcache",
+)
+
+go_repository(
+    name = "com_github_gophercloud_gophercloud",
+    commit = "4d2733c962898d8cd68456bd275aee64256cd2a1",  # Dec 8, 2017 (no releases)
+    importpath = "github.com/gophercloud/gophercloud",
+)
+
+go_repository(
+    name = "com_github_google_btree",
+    commit = "316fb6d3f031ae8f4d457c6c5186b9e3ded70435",  # Dec 17, 2016 (no releases)
+    importpath = "github.com/google/btree",
+)
+
+go_repository(
     name = "com_github_ghodss_yaml",
     commit = "04f313413ffd65ce25f2541bfd2b2ceec5c0908c",  # Dec 6, 2016 (no releases)
     importpath = "github.com/ghodss/yaml",
@@ -238,7 +262,7 @@ go_repository(
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
     build_file_proto_mode = "legacy",
-    commit = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7",  # Jul 19, 2017 (no releases)
+    commit = "11147472b7c934c474a2c484af3c0c5210b7a3af",  # Dec 1, 2017 (1.9)
     importpath = "k8s.io/api",
 )
 
@@ -247,7 +271,7 @@ go_repository(
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
     build_file_proto_mode = "legacy",
-    commit = "6134cb2da6d90597b0434e349f90f94fafc9ae51",  # Jun 19, 2017 (no releases)
+    commit = "180eddb345a5be3a157cea1c624700ad5bd27b8f",  # Nov 27, 2017 (1.9)
     importpath = "k8s.io/apimachinery",
 )
 
@@ -256,7 +280,7 @@ go_repository(
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
     build_file_proto_mode = "legacy",
-    commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017 (no releases)
+    commit = "78700dec6369ba22221b72770783300f143df150",  # Dec 06, 2017 (1.6)
     importpath = "k8s.io/client-go",
 )
 
@@ -265,8 +289,17 @@ go_repository(
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
     build_file_proto_mode = "legacy",
-    commit = "c682349b0d1c12975d8e24a9799b66747255d7a5",  #  Jul 18, 2017 (no releases)
+    commit = "98ecf7bbd60f9f11a72000e4f05203f542136219",  #  Nov 27, 2017 (1.9)
     importpath = "k8s.io/apiextensions-apiserver",
+)
+
+go_repository(
+    name = "io_k8s_kube_openapi",
+    build_file_generation = "on",
+    build_file_name = "BUILD.bazel",
+    build_file_proto_mode = "legacy",
+    commit = "c4fd2f0a5bff91647fd75e77ea52a8722264b0ce",  #  Dec 5, 2017 (master)
+    importpath = "k8s.io/kube-openapi",
 )
 
 go_repository(
@@ -767,6 +800,12 @@ go_repository(
     importpath = "github.com/go-openapi/swag",
 )
 
+go_repository(
+    name = "com_github_json_iterator_go",
+    commit = "d2a7335211d09cd625d205dcb68695ed7079b926",
+    importpath = "github.com/json-iterator/go",
+)
+
 # gogo/protobuf dependency is described in mixer/adapter_author_deps.bzl.
 # This is not necessary.
 # go_repository(
@@ -934,38 +973,22 @@ go_repository(
     name = "io_k8s_apiserver",
     build_file_generation = "on",
     build_file_name = "BUILD.bazel",
-    commit = "149fc2228647cea28b0670c240ec582e985e8eda",  # Jul Aug 1, 2017
+    commit = "a287f20706c089ed3ba23856fed05c605b6bf860",  # Dec 6, 2017
     importpath = "k8s.io/apiserver",
-)
-
-go_repository(
-    name = "io_k8s_client_go",
-    build_file_generation = "on",
-    build_file_name = "BUILD.bazel",
-    commit = "7c69e980210777a6292351ac6873de083526f08e",  # Jul 18, 2017
-    importpath = "k8s.io/client-go",
-)
-
-# End of k8s dependencies
-
-go_repository(
-    name = "io_k8s_apiextensions_apiserver",
-    build_file_generation = "on",
-    build_file_name = "BUILD.bazel",
-    commit = "c682349b0d1c12975d8e24a9799b66747255d7a5",
-    importpath = "k8s.io/apiextensions-apiserver",
-)
-
-go_repository(
-    name = "com_github_pkg_errors",
-    commit = "a22138067af1c4942683050411a841ade67fe1eb",
-    importpath = "github.com/pkg/errors",
 )
 
 go_repository(
     name = "io_k8s_ingress",
     commit = "0c6f15e372c831de52fcc393932540bb3a6d51b5",
     importpath = "k8s.io/ingress",
+)
+
+# End of k8s dependencies
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "a22138067af1c4942683050411a841ade67fe1eb",
+    importpath = "github.com/pkg/errors",
 )
 
 ##

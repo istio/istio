@@ -37,6 +37,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
@@ -489,16 +490,13 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 	spec.Containers = append(spec.Containers, sidecar)
 }
 
-func intoObject(c *Config, in interface{}) (interface{}, error) {
+func intoObject(c *Config, in runtime.Object) (interface{}, error) {
 	obj, err := meta.Accessor(in)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := injectScheme.DeepCopy(in)
-	if err != nil {
-		return nil, err
-	}
+	out := in.DeepCopyObject()
 
 	if !injectRequired(c.IncludeNamespaces, ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
 		log.Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())

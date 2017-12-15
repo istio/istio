@@ -20,7 +20,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 	mixer "istio.io/istio/mixer/pkg/server"
 )
