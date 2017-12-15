@@ -65,7 +65,7 @@ func New(
 		ephemeral:              config.NewEphemeral(templates, adapters),
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
-		dispatcher:             dispatcher.New(executorPool),
+		dispatcher:             dispatcher.New(identityAttribute, executorPool),
 		env:                    legacy.NewEnv("???", handlerPool),
 
 		store: s,
@@ -135,6 +135,7 @@ func cleanupHandlers(oldRoutes *routing.Table, oldHandlers *handler.Table, curre
 	for {
 		rc := oldRoutes.GetRefs()
 		if rc > 0 {
+			// TODO: We should probably use finalizers.
 			if time.Since(start) > timeout {
 				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
 			}

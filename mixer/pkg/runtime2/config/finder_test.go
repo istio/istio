@@ -14,30 +14,31 @@
 
 package config
 
-// isFQN returns true if the name is fully qualified.
-// every resource name is defined by Key.String()
-// shortname.kind.namespace
-func isFQN(name string) bool {
-	c := 0
-	l := len(name)
-	for i := 0; i < l; i++ {
-		if name[i] == '.' {
-			c++
-		}
+import (
+	"testing"
 
-		if c > 2 {
-			return false
-		}
+	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
+	configpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
+)
+
+func TestFinder(t *testing.T) {
+
+	var finder expr.AttributeDescriptorFinder = &attributeFinder{
+		attrs: map[string]*configpb.AttributeManifest_AttributeInfo{
+			"foo": {
+				ValueType: descriptorpb.DOUBLE,
+			},
+		},
 	}
 
-	return c == 2
-}
-
-// canonicalize ensures that the name is fully qualified.
-func canonicalize(name string, namespace string) string {
-	if isFQN(name) {
-		return name
+	foo := finder.GetAttribute("foo")
+	if foo == nil || foo.ValueType != descriptorpb.DOUBLE {
+		t.Fail()
 	}
 
-	return name + "." + namespace
+	bar := finder.GetAttribute("bar")
+	if bar != nil {
+		t.Fail()
+	}
 }

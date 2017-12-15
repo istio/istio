@@ -56,16 +56,21 @@ func NewEphemeral(
 	templates map[string]*template.Info,
 	adapters map[string]*adapter.Info) *Ephemeral {
 
-	return &Ephemeral{
+	e := &Ephemeral{
 		templates: templates,
 		adapters:  adapters,
 
-		nextId: 1,
+		nextId: 0,
 
 		attributesChanged: false,
 		entries:           make(map[store.Key]*store.Resource, 0),
-		latest:            emptySnapshot,
+		latest:            nil,
 	}
+
+	// build the initial snapshot.
+	_ = e.BuildSnapshot()
+
+	return e
 }
 
 func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
@@ -97,15 +102,24 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	rules := e.processRuleConfigs(handlers, instances)
 
+	e.attributesChanged = false
+
 	id := e.nextId
 	e.nextId++
-	return &Snapshot{
+
+	s := &Snapshot{
 		ID:         id,
+		Templates:  e.templates,
+		Adapters:   e.adapters,
 		Attributes: &attributeFinder{attrs: attributes},
 		Handlers:   handlers,
 		Instances:  instances,
 		Rules:      rules,
 	}
+
+	e.latest = s
+
+	return s
 }
 
 func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeManifest_AttributeInfo {
@@ -137,9 +151,7 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 		}
 	}
 
-	if log.DebugEnabled() {
-		log.Debugf("%d known Attributes", len(attrs))
-	}
+	log.Debugf("%d known Attributes", len(attrs))
 
 	return attrs
 }
@@ -163,9 +175,7 @@ func (e *Ephemeral) processHandlerConfigs() map[string]*Handler {
 		configs[config.Name] = config
 	}
 
-	if log.DebugEnabled() {
-		log.Debugf("Handler = %v", configs)
-	}
+	log.Debugf("Handler = %v", configs)
 
 	return configs
 }
@@ -177,9 +187,6 @@ func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
 		var info *template.Info
 		var found bool
 		if info, found = e.templates[key.Kind]; !found {
-			if log.DebugEnabled() {
-				log.Debugf("Skipping instance configuration due to unknown template: '%s/%s'", key.Namespace, key.Name)
-			}
 			continue
 		}
 

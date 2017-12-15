@@ -9,6 +9,7 @@ go_library(
         "queries.go",
         "resourceType.go",
         "snapshot.go",
+        "snapshotstring.go",
         "util.go",
     ],
     visibility = ["//visibility:public"],
@@ -25,3 +26,17 @@ go_library(
     ],
 )
 
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "config_test.go",
+        "finder_test.go",
+        "kinds_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/template:go_default_library",
+        "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+    ],
+)

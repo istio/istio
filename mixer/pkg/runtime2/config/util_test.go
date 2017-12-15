@@ -14,30 +14,34 @@
 
 package config
 
-// isFQN returns true if the name is fully qualified.
-// every resource name is defined by Key.String()
-// shortname.kind.namespace
-func isFQN(name string) bool {
-	c := 0
-	l := len(name)
-	for i := 0; i < l; i++ {
-		if name[i] == '.' {
-			c++
-		}
+import (
+	"testing"
+)
 
-		if c > 2 {
-			return false
-		}
+func TestIsFQN(t *testing.T) {
+	tests := map[string]bool{
+		"a":       false,
+		"b":       false,
+		"a.b":     false,
+		"a.b.c.d": false,
+
+		"a.b.c": true,
 	}
 
-	return c == 2
+	for k, v := range tests {
+		if isFQN(k) != v {
+			t.Fatal(k)
+		}
+	}
 }
 
-// canonicalize ensures that the name is fully qualified.
-func canonicalize(name string, namespace string) string {
-	if isFQN(name) {
-		return name
+
+func TestCanonicalize(t *testing.T) {
+	if canonicalize("foo", "bar") != "foo.bar" {
+		t.Fail()
 	}
 
-	return name + "." + namespace
+	if canonicalize("foo.bar.baz", "bar") != "foo.bar.baz" {
+		t.Fail()
+	}
 }

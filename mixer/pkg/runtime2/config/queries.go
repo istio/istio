@@ -16,17 +16,31 @@ package config
 
 // GetInstancesGroupedByHandlers queries the snapshot and returns all used instances, grouped by the handlers that will receive them.
 func GetInstancesGroupedByHandlers(s *Snapshot) map[*Handler][]*Instance {
-	result := make(map[*Handler][]*Instance)
+	m := make(map[*Handler]map[*Instance]bool)
 
 	for _, r := range s.Rules {
 		for _, a := range r.Actions {
-
-			if _, found := result[a.Handler]; !found {
-				result[a.Handler] = []*Instance{}
+			instances, found := m[a.Handler]
+			if !found {
+				instances = make(map[*Instance]bool)
+				m[a.Handler] = instances
 			}
-			result[a.Handler] = append(result[a.Handler], a.Instances...)
+
+			for _, i := range a.Instances {
+				instances[i] = true
+			}
 		}
 	}
 
+	result := make(map[*Handler][]*Instance, len(m))
+	for k, v := range m {
+		i := 0
+		instances := make([]*Instance, len(v))
+		for instance := range v {
+			instances[i] = instance
+			i++
+		}
+		result[k] = instances
+	}
 	return result
 }

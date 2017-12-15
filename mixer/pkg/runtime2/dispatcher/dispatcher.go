@@ -28,6 +28,8 @@ import (
 )
 
 type Dispatcher struct {
+	destinationServiceAttribute string
+
 	// the current, active table.
 	table *routing.Table
 
@@ -40,10 +42,11 @@ type Dispatcher struct {
 
 var _ runtime.Dispatcher = &Dispatcher{}
 
-func New(handlerGP *pool.GoroutinePool) *Dispatcher {
+func New(destinationServiceAttribute string, handlerGP *pool.GoroutinePool) *Dispatcher {
 	return &Dispatcher{
-		execPool: newExecutorPool(handlerGP),
-		table:    routing.Empty(),
+		destinationServiceAttribute: destinationServiceAttribute,
+		execPool:                    newExecutorPool(handlerGP),
+		table:                       routing.Empty(),
 	}
 }
 
@@ -66,8 +69,21 @@ func (d *Dispatcher) acquireRouter() *routing.Table {
 	return r
 }
 
+func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
+	//}, destinationServiceAttr string) context.Context {
+	data := &adapter.RequestData{}
+
+	// fill the destination information
+	if destSrvc, found := bag.Get(d.destinationServiceAttribute); found {
+		data.DestinationService = adapter.Service{FullName: destSrvc.(string)}
+	}
+
+	return adapter.NewContextWithRequestData(ctx, data)
+}
+
 func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
 	r := d.acquireRouter()
+	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK, bag)
 	if err != nil {
@@ -100,6 +116,7 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 
 func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	r := d.acquireRouter()
+	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
 	if err != nil {
@@ -129,6 +146,7 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	r := d.acquireRouter()
+	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA, bag)
 	if err != nil {
@@ -162,6 +180,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 
 func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
 	r := d.acquireRouter()
+	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
 	if err != nil {
