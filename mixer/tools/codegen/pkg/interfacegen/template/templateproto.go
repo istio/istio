@@ -26,6 +26,7 @@ $$additional_imports$$
 
 option (istio.mixer.v1.template.template_variety) = {{.VarietyName}};
 
+{{if ne .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
 {{.Comment}}
 {{.TemplateMessage.Comment}}
 message Type {
@@ -48,10 +49,19 @@ message {{getResourcMessageTypeName .Name}} {
   {{- end}}
 }
 {{end}}
+{{end}}
 
 message InstanceParam {
   {{range .TemplateMessage.Fields}}
   {{stringify .ProtoType}} {{.ProtoName}} = {{.Number}};
+  {{end}}
+  {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
+  // Attribute names to expression mapping. These expressions can use the fields from the output object
+  // returned by the attribute producing adapters using $out.<fieldName> notation. For example:
+  // source.ip : $out.source_pod_ip
+  // In the above example, source.ip attribute will be added to the existing attribute list and its value will be set to
+  // the value of source_pod_ip field of the output returned by the adapter.
+  map<string, string> attribute_bindings = 72295728;
   {{end}}
 }
 

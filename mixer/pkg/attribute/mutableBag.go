@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	me "github.com/hashicorp/go-multierror"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/pkg/log"
 )
 
 // MutableBag is a generic mechanism to read and write a set of attributes.
@@ -317,72 +317,72 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 	// TODO: fail if the proto carries multiple attributes by the same name (but different types)
 
 	var buf *bytes.Buffer
-	log := func(format string, args ...interface{}) {}
+	lg := func(format string, args ...interface{}) {}
 
-	if glog.V(2) {
+	if log.DebugEnabled() {
 		buf = pool.GetBuffer()
-		log = func(format string, args ...interface{}) {
+		lg = func(format string, args ...interface{}) {
 			fmt.Fprintf(buf, format, args...)
 			buf.WriteString("\n")
 		}
 	}
 
-	log("Updating bag from wire attributes:")
+	lg("Updating bag from wire attributes:")
 
-	log("  setting string attributes:")
+	lg("  setting string attributes:")
 	for k, v := range attrs.Strings {
 		name, e = lookup(k, e, globalWordList, messageWordList)
 		value, e = lookup(v, e, globalWordList, messageWordList)
-		log("    %s -> '%s'", name, value)
+		lg("    %s -> '%s'", name, value)
 		mb.values[name] = value
 	}
 
-	log("  setting int64 attributes:")
+	lg("  setting int64 attributes:")
 	for k, v := range attrs.Int64S {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%d'", name, v)
+		lg("    %s -> '%d'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting double attributes:")
+	lg("  setting double attributes:")
 	for k, v := range attrs.Doubles {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%f'", name, v)
+		lg("    %s -> '%f'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting bool attributes:")
+	lg("  setting bool attributes:")
 	for k, v := range attrs.Bools {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%t'", name, v)
+		lg("    %s -> '%t'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting timestamp attributes:")
+	lg("  setting timestamp attributes:")
 	for k, v := range attrs.Timestamps {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%v'", name, v)
+		lg("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting duration attributes:")
+	lg("  setting duration attributes:")
 	for k, v := range attrs.Durations {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%v'", name, v)
+		lg("    %s -> '%v'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting bytes attributes:")
+	lg("  setting bytes attributes:")
 	for k, v := range attrs.Bytes {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("    %s -> '%s'", name, v)
+		lg("    %s -> '%s'", name, v)
 		mb.values[name] = v
 	}
 
-	log("  setting string map attributes:")
+	lg("  setting string map attributes:")
 	for k, v := range attrs.StringMaps {
 		name, e = lookup(k, e, globalWordList, messageWordList)
-		log("  %s", name)
+		lg("  %s", name)
 
 		sm := make(map[string]string, len(v.Entries))
 		for k2, v2 := range v.Entries {
@@ -390,14 +390,14 @@ func (mb *MutableBag) UpdateBagFromProto(attrs *mixerpb.CompressedAttributes, gl
 			var value2 string
 			name2, e = lookup(k2, e, globalWordList, messageWordList)
 			value2, e = lookup(v2, e, globalWordList, messageWordList)
-			log("    %s -> '%v'", name2, value2)
+			lg("    %s -> '%v'", name2, value2)
 			sm[name2] = value2
 		}
 		mb.values[name] = sm
 	}
 
 	if buf != nil {
-		glog.Info(buf.String())
+		log.Debug(buf.String())
 		pool.PutBuffer(buf)
 	}
 

@@ -34,7 +34,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
@@ -98,13 +98,7 @@ func init() {
 	flag.BoolVar(&params.UseAdmissionWebhook, "use-admission-webhook", false,
 		"Use k8s external admission webhook for config validation")
 
-	// TODO(github.com/kubernetes/kubernetes/issues/49987) - use
-	// `istio-pilot-external` for the registered service name and
-	// provide `istio-pilot` as --service-name argument to
-	// platform/kube/admit/webhook-workaround.sh. Once this bug is
-	// fixed (and for non-GKE k8s) the admission-service-name should
-	// be `istio-pilot`.
-	flag.StringVar(&params.AdmissionServiceName, "admission-service-name", "istio-pilot-external",
+	flag.StringVar(&params.AdmissionServiceName, "admission-service-name", "istio-pilot",
 		"Name of admission webhook service name")
 
 	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
@@ -133,7 +127,7 @@ func main() {
 	}
 
 	params.Name = "(default infra)"
-	params.Auth = proxyconfig.MeshConfig_NONE
+	params.Auth = meshconfig.MeshConfig_NONE
 	params.Ingress = true
 	params.Zipkin = true
 	params.MixerCustomConfigFile = mixerConfigFile
@@ -166,8 +160,8 @@ func main() {
 func setAuth(params infra) infra {
 	out := params
 	out.Name = "(auth infra)"
-	out.Auth = proxyconfig.MeshConfig_MUTUAL_TLS
-	out.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	out.Auth = meshconfig.MeshConfig_MUTUAL_TLS
+	out.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	out.MixerCustomConfigFile = mixerConfigAuthFile
 	out.PilotCustomConfigFile = pilotConfigAuthFile
 	return out
@@ -210,6 +204,7 @@ func runTests(envs ...infra) {
 			&ingress{infra: &istio},
 			&egressRules{infra: &istio},
 			&routing{infra: &istio},
+			&routingToEgress{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
 		}

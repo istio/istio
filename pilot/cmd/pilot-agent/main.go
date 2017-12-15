@@ -17,6 +17,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -26,7 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
@@ -106,9 +108,22 @@ var (
 				}
 			}
 
+			// Get AZ for proxy
+			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
+			if err != nil {
+				glog.V(2).Infof("Error retrieving availability zone from pilot: %v", err)
+			} else {
+				body, err := ioutil.ReadAll(azResp.Body)
+				if err != nil {
+					glog.V(2).Infof("Error reading availability zone response from pilot: %v", err)
+				}
+				availabilityZone = string(body)
+				glog.V(2).Infof("Proxy availability zone: %v", availabilityZone)
+			}
+
 			glog.V(2).Infof("Proxy role: %#v", role)
 
-			proxyConfig := proxyconfig.ProxyConfig{}
+			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -127,11 +142,11 @@ var (
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
-			case proxyconfig.AuthenticationPolicy_NONE.String():
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_NONE
-			case proxyconfig.AuthenticationPolicy_MUTUAL_TLS.String():
+			case meshconfig.AuthenticationPolicy_NONE.String():
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				var ns string
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if serviceregistry == platform.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]

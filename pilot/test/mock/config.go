@@ -20,13 +20,15 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/model/test"
 	"istio.io/istio/pilot/test/util"
@@ -37,41 +39,41 @@ var (
 	Types = model.ConfigDescriptor{model.MockConfig}
 
 	// ExampleRouteRule is an example route rule
-	ExampleRouteRule = &proxyconfig.RouteRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleRouteRule = &routing.RouteRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		Route: []*proxyconfig.DestinationWeight{
+		Route: []*routing.DestinationWeight{
 			{Weight: 80, Labels: map[string]string{"version": "v1"}},
 			{Weight: 20, Labels: map[string]string{"version": "v2"}},
 		},
 	}
 
 	// ExampleIngressRule is an example ingress rule
-	ExampleIngressRule = &proxyconfig.IngressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleIngressRule = &routing.IngressRule{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
 		Port: 80,
-		DestinationServicePort: &proxyconfig.IngressRule_DestinationPort{DestinationPort: 80},
+		DestinationServicePort: &routing.IngressRule_DestinationPort{DestinationPort: 80},
 	}
 
 	// ExampleEgressRule is an example egress rule
-	ExampleEgressRule = &proxyconfig.EgressRule{
-		Destination: &proxyconfig.IstioService{
+	ExampleEgressRule = &routing.EgressRule{
+		Destination: &routing.IstioService{
 			Service: "*cnn.com",
 		},
-		Ports:          []*proxyconfig.EgressRule_Port{{Port: 80, Protocol: "http"}},
+		Ports:          []*routing.EgressRule_Port{{Port: 80, Protocol: "http"}},
 		UseEgressProxy: false,
 	}
 
 	// ExampleDestinationPolicy is an example destination policy
-	ExampleDestinationPolicy = &proxyconfig.DestinationPolicy{
-		Destination: &proxyconfig.IstioService{
+	ExampleDestinationPolicy = &routing.DestinationPolicy{
+		Destination: &routing.IstioService{
 			Name: "world",
 		},
-		LoadBalancing: &proxyconfig.LoadBalancing{
-			LbPolicy: &proxyconfig.LoadBalancing_Name{Name: proxyconfig.LoadBalancing_RANDOM},
+		LoadBalancing: &routing.LoadBalancing{
+			LbPolicy: &routing.LoadBalancing_Name{Name: routing.LoadBalancing_RANDOM},
 		},
 	}
 
@@ -117,6 +119,27 @@ var (
 				Charge: 2,
 			}},
 		}},
+	}
+
+	// ExampleEndUserAuthenticationPolicySpec is an example EndUserAuthenticationPolicySpec
+	ExampleEndUserAuthenticationPolicySpec = &mccpb.EndUserAuthenticationPolicySpec{
+		Jwts: []*mccpb.JWT{
+			{
+				Issuer: "https://issuer.example.com",
+				Audiences: []string{
+					"audience_foo.example.com",
+					"audience_bar.example.com",
+				},
+				JwksUri:                "https://www.example.com/oauth/v1/certs",
+				ForwardJwt:             true,
+				PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+				Locations: []*mccpb.JWT_Location{{
+					Scheme: &mccpb.JWT_Location_Header{
+						Header: "x-goog-iap-jwt-assertion",
+					},
+				}},
+			},
+		},
 	}
 )
 
@@ -324,6 +347,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"DestinationPolicy", model.DestinationPolicy.Type, ExampleDestinationPolicy},
 		{"HTTPAPISpec", model.HTTPAPISpec.Type, ExampleHTTPAPISpec},
 		{"QuotaSpec", model.QuotaSpec.Type, ExampleQuotaSpec},
+		{"EndUserAuthenticationPolicySpec", model.EndUserAuthenticationPolicySpec.Type,
+			ExampleEndUserAuthenticationPolicySpec},
 	}
 
 	for _, c := range cases {

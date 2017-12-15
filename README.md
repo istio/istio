@@ -50,7 +50,7 @@ Istio is composed of these components:
 
 * **CA** - A component responsible for cert issuance and rotation.
 
-* **Broker** - A component implementing the open service broker API for Istio-based services. (Under development)
+* **Broker** - A component implementing the [Open Service Broker API](https://github.com/openservicebrokerapi/servicebroker) for Istio-based services. (Under development)
 
 Istio currently supports Kubernetes, Consul, and Eureka-based environments. We plan support for additional platforms such as
 Cloud Foundry, and Mesos in the near future.

@@ -20,7 +20,7 @@ package envoy
 import (
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 )
 
 // buildFaultFilters builds a list of fault filters for the http route
@@ -40,7 +40,7 @@ func buildFaultFilters(routeConfig *HTTPRouteConfig) []HTTPFilter {
 }
 
 // buildFaultFilter builds a single fault filter for envoy cluster
-func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInjection, headers Headers) *HTTPFilter {
+func buildHTTPFaultFilter(cluster string, faultRule *routing.HTTPFaultInjection, headers Headers) *HTTPFilter {
 	abort := buildAbortConfig(faultRule.Abort)
 	delay := buildDelayConfig(faultRule.Delay)
 	if abort == nil && delay == nil {
@@ -60,7 +60,7 @@ func buildHTTPFaultFilter(cluster string, faultRule *proxyconfig.HTTPFaultInject
 }
 
 // buildAbortConfig builds the envoy config related to abort spec in a fault filter
-func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFilter {
+func buildAbortConfig(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
 		return nil
 	}
@@ -72,7 +72,7 @@ func buildAbortConfig(abortRule *proxyconfig.HTTPFaultInjection_Abort) *AbortFil
 }
 
 // buildDelayConfig builds the envoy config related to delay spec in a fault filter
-func buildDelayConfig(delayRule *proxyconfig.HTTPFaultInjection_Delay) *DelayFilter {
+func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter {
 	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
 	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
 		return nil

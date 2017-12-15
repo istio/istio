@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
 	"k8s.io/api/admission/v1alpha1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/api/core/v1"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -211,7 +211,7 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 	// in GKE 1.8.
 	tlsConfig, caCert, err := setup(ac.client, &ac.options)
 	if err != nil {
-		glog.Errorf(err.Error())
+		log.Errorf(err.Error())
 		return
 	}
 
@@ -221,29 +221,29 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		TLSConfig: tlsConfig,
 	}
 
-	glog.Info("Found certificates for validation admission webhook. Delaying registration for %v",
+	log.Infoa("Found certificates for validation admission webhook. Delaying registration for %v",
 		ac.options.RegistrationDelay)
 
 	select {
 	case <-time.After(ac.options.RegistrationDelay):
 		cl := ac.client.AdmissionregistrationV1alpha1().ExternalAdmissionHookConfigurations()
 		if err := ac.register(cl, caCert); err != nil {
-			glog.Errorf("Failed to register admission webhook: %v", err)
+			log.Errorf("Failed to register admission webhook: %v", err)
 			return
 		}
 		defer func() {
 			if err := ac.unregister(cl); err != nil {
-				glog.Errorf("Failed to unregister admission webhook: %v", err)
+				log.Errorf("Failed to unregister admission webhook: %v", err)
 			}
 		}()
-		glog.Info("Finished validation admission webhook registration")
+		log.Info("Finished validation admission webhook registration")
 	case <-stop:
 		return
 	}
 
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			glog.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
 		}
 	}()
 	<-stop
@@ -290,7 +290,7 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 	if err := client.Delete(webhook.Name, nil); err != nil {
 		serr, ok := err.(*apierrors.StatusError)
 		if !ok || serr.ErrStatus.Code != http.StatusNotFound {
-			glog.Warningf("Could not delete previously created AdmissionRegistration: %v", err)
+			log.Warnf("Could not delete previously created AdmissionRegistration: %v", err)
 		}
 	}
 	_, err := client.Create(webhook) // Update?
@@ -299,17 +299,15 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 
 // ServeHTTP implements the external admission webhook.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.V(7).Infof("AdmissionController ServeHTTP request=%#v", r)
-
 	var body []byte
 	if r.Body != nil {
 		if data, err := ioutil.ReadAll(r.Body); err == nil {
 			body = data
 		} else {
-			glog.V(4).Infof("Failed to read request body: %v", err)
+			log.Debugf("Failed to read request body: %v", err)
 		}
 	}
-	glog.V(4).Infof("request body: %s", body)
+	log.Debugf("request body: %s", body)
 
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
@@ -329,7 +327,7 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		Status: *status,
 	}
 
-	glog.V(4).Infof("AdmissionReview for %v: status=%v", review.Spec.Name, status)
+	log.Debugf("AdmissionReview for %v: status=%v", review.Spec.Name, status)
 
 	resp, err := json.Marshal(ar)
 	if err != nil {
@@ -388,7 +386,7 @@ func (ac *AdmissionController) admit(review *v1alpha1.AdmissionReview) *v1alpha1
 		ev.Type = store.Delete
 		ev.Key.Name = review.Spec.Name
 	default:
-		glog.Warningf("Unsupported webhook operation %v", review.Spec.Operation)
+		log.Warnf("Unsupported webhook operation %v", review.Spec.Operation)
 		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
 	}
 

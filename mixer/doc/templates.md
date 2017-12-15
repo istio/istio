@@ -101,23 +101,38 @@ name should follow the normal protobuf naming convention of snake_case.
 
 ## Supported field types
 
-Templates currently only support a subset of the full protobuf type system. Fields in a template can
-be one of the following types:
+Templates currently only support a subset of the full protobuf type system. Following types can be used for fields in a
+template. Below table also shows the corresponding Golang type delivered to the adapters:
 
-- `string`
-- `int64`
-- `double`
-- `bool`
-- `google.protobuf.Timestamp`
-- `google.protobuf.Duration`
-- `istio.mixer.v1.config.descriptor.ValueType`
-- `map<string, string>`
-- `map<string, int64>`
-- `map<string, double>`
-- `map<string, bool>`
-- `map<string, google.protobuf.Timestamp>`
-- `map<string, google.protobuf.Duration>`
-- `map<string, istio.mixer.v1.config.descriptor.ValueType>`
+Template field type | Golang type
+--- | ---
+`string` | `string`
+`int64` | `int64`
+`double` | `float64`
+`bool` | `bool`
+`istio.mixer.v1.template.TimeStamp` | `time.Time`
+`istio.mixer.v1.template.Duration` | `time.Duration`
+`istio.mixer.v1.template.IPAddress` | `net.IP`
+`istio.mixer.v1.template.DNSName` | `adapter.DNSName`
+`istio.mixer.v1.config.descriptor.ValueType` | `interface{}`
+`map<string, string>` | `map[string]string`
+`map<string, int64>` | `map[string]int64`
+`map<string, double>` | `map[string]float64`
+`map<string, bool>` | `map[string]bool`
+`map<string, istio.mixer.v1.template.TimeStamp>` | `map[string]time.Time`
+`map<string, istio.mixer.v1.template.Duration>` | `map[string]time.Duration`
+`map<string, istio.mixer.v1.template.IPAddress>` | `map[string]net.IP`
+`map<string, istio.mixer.v1.template.DNSName>` | `map[string]adapter.DNSName`
+`map<string, istio.mixer.v1.config.descriptor.ValueType>` | `map[string]interface{}`
+
+There is currently no support for nested messages, enums, `oneof`, and `repeated`.
+
+The type `istio.mixer.v1.config.descriptor.ValueType` has a special meaning. Use of this type
+tells Mixer that the associated value can be any of the supported attribute
+types which are defined by the [ValueType](https://github.com/istio/api/blob/master/mixer/v1/config/descriptor/value_type.proto)
+enum. The specific type that will be used at runtime depends on the configuration the operator writes.
+Adapters are told what these types are at [configuration time](./adapters.md##adapter-lifecycle) so they can prepare
+themselves accordingly.
 
 There is currently no support for nested messages, enums, `oneof`, and `repeated`.
 

@@ -22,12 +22,13 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/glog"
 	opentracing "github.com/opentracing/opentracing-go"
 	jaeger "github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/log"
 	"github.com/uber/jaeger-client-go/transport"
 	"github.com/uber/jaeger-client-go/transport/zipkin"
+
+	ilog "istio.io/istio/pkg/log"
 )
 
 var (
@@ -140,10 +141,10 @@ type glogLogger struct{}
 
 // Error implements the Error() method of log.Logger.
 func (g *glogLogger) Error(msg string) {
-	glog.Error(msg)
+	ilog.Error(msg)
 }
 
 // Infof implements the Infof() method of log.Logger.
 func (g *glogLogger) Infof(msg string, args ...interface{}) {
-	glog.Infof(msg, args...)
+	ilog.Infof(msg, args...)
 }

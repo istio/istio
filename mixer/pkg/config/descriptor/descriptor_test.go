@@ -16,7 +16,6 @@ package descriptor
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -27,9 +26,11 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"go.uber.org/zap/zapcore"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -389,5 +390,7 @@ logs:
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
+	o := log.NewOptions()
+	o.SetOutputLevel(zapcore.DebugLevel)
+	_ = log.Configure(o)
 }

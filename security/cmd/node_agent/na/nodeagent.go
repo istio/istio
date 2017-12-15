@@ -41,7 +41,7 @@ type cAGrpcClientImpl struct {
 // SendCSR sends CSR to CA through GRPC.
 func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Config) (*pb.Response, error) {
 	if cfg.IstioCAAddress == "" {
-		return nil, fmt.Errorf("Istio CA address is empty")
+		return nil, fmt.Errorf("istio CA address is empty")
 	}
 	dialOptions, err := pc.GetDialOptions()
 	if err != nil {
@@ -49,7 +49,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Con
 	}
 	conn, err := grpc.Dial(cfg.IstioCAAddress, dialOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to dial %s: %s", cfg.IstioCAAddress, err)
+		return nil, fmt.Errorf("failed to dial %s: %s", cfg.IstioCAAddress, err)
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {

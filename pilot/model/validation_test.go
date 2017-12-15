@@ -19,15 +19,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	multierror "github.com/hashicorp/go-multierror"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -93,7 +96,7 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 		{
 			name:    "undeclared kind",
 			typ:     "special-type",
-			config:  &proxyconfig.RouteRule{},
+			config:  &routing.RouteRule{},
 			wantErr: true,
 		},
 		{
@@ -105,13 +108,13 @@ func TestConfigDescriptorValidateConfig(t *testing.T) {
 		{
 			name:    "message type and kind mismatch",
 			typ:     RouteRule.Type,
-			config:  &proxyconfig.DestinationPolicy{},
+			config:  &routing.DestinationPolicy{},
 			wantErr: true,
 		},
 		{
 			name:    "ProtoSchema validation1",
 			typ:     RouteRule.Type,
-			config:  &proxyconfig.RouteRule{},
+			config:  &routing.RouteRule{},
 			wantErr: true,
 		},
 		{
@@ -302,332 +305,363 @@ func TestValidateFQDN(t *testing.T) {
 	}
 }
 
+func TestValidateWildcardDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{"empty", "", "empty"},
+		{"too long", strings.Repeat("x", 256), "too long"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"wildcard", "*", ""},
+		{"wildcard multi-segment", "*.bar.com", ""},
+		{"wildcard single segment", "*foo", ""},
+		{"wildcard prefix", "*foo.bar.com", ""},
+		{"wildcard prefix dash", "*-foo.bar.com", ""},
+		{"bad wildcard", "foo.*.com", "invalid"},
+		{"bad wildcard", "foo*.bar.com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateWildcardDomain(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
 func TestValidateRouteAndIngressRule(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    proto.Message
 		valid bool
 	}{
-		{name: "empty destination policy", in: &proxyconfig.DestinationPolicy{}, valid: false},
-		{name: "empty route rule", in: &proxyconfig.RouteRule{}, valid: false},
-		{name: "route rule w destination", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
+		{name: "empty destination policy", in: &routing.DestinationPolicy{}, valid: false},
+		{name: "empty route rule", in: &routing.RouteRule{}, valid: false},
+		{name: "route rule w destination", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
 		},
 			valid: true},
-		{name: "route rule bad destination", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar?"},
+		{name: "route rule bad destination", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar?"},
 		},
 			valid: false},
-		{name: "route rule bad destination", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar", Labels: Labels{"version": "v1"}},
+		{name: "route rule bad destination", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar", Labels: Labels{"version": "v1"}},
 		},
 			valid: false},
-		{name: "route rule bad match source", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Match:       &proxyconfig.MatchCondition{Source: &proxyconfig.IstioService{Name: "somehost!"}},
+		{name: "route rule bad match source", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Match:       &routing.MatchCondition{Source: &routing.IstioService{Name: "somehost!"}},
 		},
 			valid: false},
-		{name: "route rule bad weight", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Route: []*proxyconfig.DestinationWeight{
+		{name: "route rule bad weight", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Route: []*routing.DestinationWeight{
 				{Weight: -1},
 			},
 		},
 			valid: false},
-		{name: "route rule no weight", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Route: []*proxyconfig.DestinationWeight{
+		{name: "route rule no weight", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Route: []*routing.DestinationWeight{
 				{Labels: map[string]string{"a": "b"}},
 			},
 		},
 			valid: true},
-		{name: "route rule two destinationweights", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Route: []*proxyconfig.DestinationWeight{
+		{name: "route rule two destinationweights", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Route: []*routing.DestinationWeight{
 				{Labels: map[string]string{"a": "b"}, Weight: 50},
 				{Labels: map[string]string{"a": "c"}, Weight: 50},
 			},
 		},
 			valid: true},
-		{name: "route rule two destinationweights 99", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Route: []*proxyconfig.DestinationWeight{
+		{name: "route rule two destinationweights 99", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Route: []*routing.DestinationWeight{
 				{Labels: map[string]string{"a": "b"}, Weight: 50},
 				{Labels: map[string]string{"a": "c"}, Weight: 49},
 			},
 		},
 			valid: false},
-		{name: "route rule bad route tags", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Route: []*proxyconfig.DestinationWeight{
+		{name: "route rule bad route tags", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Route: []*routing.DestinationWeight{
 				{Labels: map[string]string{"a": "?"}},
 			},
 		},
 			valid: false},
-		{name: "route rule bad timeout", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpReqTimeout: &proxyconfig.HTTPTimeout{
-				TimeoutPolicy: &proxyconfig.HTTPTimeout_SimpleTimeout{
-					SimpleTimeout: &proxyconfig.HTTPTimeout_SimpleTimeoutPolicy{
+		{name: "route rule bad timeout", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpReqTimeout: &routing.HTTPTimeout{
+				TimeoutPolicy: &routing.HTTPTimeout_SimpleTimeout{
+					SimpleTimeout: &routing.HTTPTimeout_SimpleTimeoutPolicy{
 						Timeout: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad retry attempts", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpReqRetries: &proxyconfig.HTTPRetry{
-				RetryPolicy: &proxyconfig.HTTPRetry_SimpleRetry{
-					SimpleRetry: &proxyconfig.HTTPRetry_SimpleRetryPolicy{
+		{name: "route rule bad retry attempts", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpReqRetries: &routing.HTTPRetry{
+				RetryPolicy: &routing.HTTPRetry_SimpleRetry{
+					SimpleRetry: &routing.HTTPRetry_SimpleRetryPolicy{
 						Attempts: -1, PerTryTimeout: &duration.Duration{Seconds: 0}},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad delay fixed seconds", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+		{name: "route rule bad delay fixed seconds", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Delay: &routing.HTTPFaultInjection_Delay{
 					Percent: -1,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelay{
+					HttpDelayType: &routing.HTTPFaultInjection_Delay_FixedDelay{
 						FixedDelay: &duration.Duration{Seconds: 3}},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad delay fixed seconds", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+		{name: "route rule bad delay fixed seconds", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Delay: &routing.HTTPFaultInjection_Delay{
 					Percent: 100,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_FixedDelay{
+					HttpDelayType: &routing.HTTPFaultInjection_Delay_FixedDelay{
 						FixedDelay: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad abort percent", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+		{name: "route rule bad abort percent", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Abort: &routing.HTTPFaultInjection_Abort{
 					Percent:   -1,
-					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: 500},
+					ErrorType: &routing.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: 500},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad abort status", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+		{name: "route rule bad abort status", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Abort: &routing.HTTPFaultInjection_Abort{
 					Percent:   100,
-					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: -1},
+					ErrorType: &routing.HTTPFaultInjection_Abort_HttpStatus{HttpStatus: -1},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad unsupported status", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Abort: &proxyconfig.HTTPFaultInjection_Abort{
+		{name: "route rule bad unsupported status", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Abort: &routing.HTTPFaultInjection_Abort{
 					Percent:   100,
-					ErrorType: &proxyconfig.HTTPFaultInjection_Abort_GrpcStatus{GrpcStatus: "test"},
+					ErrorType: &routing.HTTPFaultInjection_Abort_GrpcStatus{GrpcStatus: "test"},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad delay exp seconds", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			HttpFault: &proxyconfig.HTTPFaultInjection{
-				Delay: &proxyconfig.HTTPFaultInjection_Delay{
+		{name: "route rule bad delay exp seconds", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			HttpFault: &routing.HTTPFaultInjection{
+				Delay: &routing.HTTPFaultInjection_Delay{
 					Percent: 101,
-					HttpDelayType: &proxyconfig.HTTPFaultInjection_Delay_ExponentialDelay{
+					HttpDelayType: &routing.HTTPFaultInjection_Delay_ExponentialDelay{
 						ExponentialDelay: &duration.Duration{Seconds: -1}},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad throttle after seconds", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			L4Fault: &proxyconfig.L4FaultInjection{
-				Throttle: &proxyconfig.L4FaultInjection_Throttle{
+		{name: "route rule bad throttle after seconds", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			L4Fault: &routing.L4FaultInjection{
+				Throttle: &routing.L4FaultInjection_Throttle{
 					Percent:            101,
 					DownstreamLimitBps: -1,
 					UpstreamLimitBps:   -1,
-					ThrottleAfter: &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterPeriod{
+					ThrottleAfter: &routing.L4FaultInjection_Throttle_ThrottleAfterPeriod{
 						ThrottleAfterPeriod: &duration.Duration{Seconds: -1}},
 				},
-				Terminate: &proxyconfig.L4FaultInjection_Terminate{
+				Terminate: &routing.L4FaultInjection_Terminate{
 					Percent:              101,
 					TerminateAfterPeriod: &duration.Duration{Seconds: -1},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule bad throttle after bytes", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			L4Fault: &proxyconfig.L4FaultInjection{
-				Throttle: &proxyconfig.L4FaultInjection_Throttle{
+		{name: "route rule bad throttle after bytes", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			L4Fault: &routing.L4FaultInjection{
+				Throttle: &routing.L4FaultInjection_Throttle{
 					Percent:            101,
 					DownstreamLimitBps: -1,
 					UpstreamLimitBps:   -1,
-					ThrottleAfter: &proxyconfig.L4FaultInjection_Throttle_ThrottleAfterBytes{
+					ThrottleAfter: &routing.L4FaultInjection_Throttle_ThrottleAfterBytes{
 						ThrottleAfterBytes: -1},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule match valid subnets", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Match: &proxyconfig.MatchCondition{
-				Tcp: &proxyconfig.L4MatchAttributes{
+		{name: "route rule match valid subnets", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Match: &routing.MatchCondition{
+				Tcp: &routing.L4MatchAttributes{
 					SourceSubnet:      []string{"1.2.3.4"},
 					DestinationSubnet: []string{"1.2.3.4/24"},
 				},
 			},
 		},
 			valid: true},
-		{name: "route rule match invalid subnets", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Match: &proxyconfig.MatchCondition{
-				Tcp: &proxyconfig.L4MatchAttributes{
+		{name: "route rule match invalid subnets", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Match: &routing.MatchCondition{
+				Tcp: &routing.L4MatchAttributes{
 					SourceSubnet:      []string{"foo", "1.2.3.4/banana"},
 					DestinationSubnet: []string{"1.2.3.4/500", "1.2.3.4/-1"},
 				},
-				Udp: &proxyconfig.L4MatchAttributes{
+				Udp: &routing.L4MatchAttributes{
 					SourceSubnet:      []string{"1.2.3.4", "1.2.3.4/24", ""},
 					DestinationSubnet: []string{"foo.2.3.4", "1.2.3"},
 				},
 			},
 		},
 			valid: false},
-		{name: "route rule match invalid redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match invalid redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri:       "",
 				Authority: "",
 			},
 		},
 			valid: false},
-		{name: "route rule match valid host redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match valid host redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Authority: "foo.bar.com",
 			},
 		},
 			valid: true},
-		{name: "route rule match valid path redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match valid path redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri: "/new/path",
 			},
 		},
 			valid: true},
-		{name: "route rule match valid redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match valid redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri:       "/new/path",
 				Authority: "foo.bar.com",
 			},
 		},
 			valid: true},
-		{name: "route rule match valid redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match valid redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri:       "/new/path",
 				Authority: "foo.bar.com",
 			},
-			HttpFault: &proxyconfig.HTTPFaultInjection{},
+			HttpFault: &routing.HTTPFaultInjection{},
 		},
 			valid: false},
-		{name: "route rule match invalid redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "route rule match invalid redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri: "/new/path",
 			},
-			Route: []*proxyconfig.DestinationWeight{
+			Route: []*routing.DestinationWeight{
 				{Labels: map[string]string{"version": "v1"}},
 			},
 		},
 			valid: false},
-		{name: "websocket upgrade invalid redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect: &proxyconfig.HTTPRedirect{
+		{name: "websocket upgrade invalid redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect: &routing.HTTPRedirect{
 				Uri: "/new/path",
 			},
-			Route: []*proxyconfig.DestinationWeight{
-				{Destination: &proxyconfig.IstioService{Name: "host"}, Weight: 100},
+			Route: []*routing.DestinationWeight{
+				{Destination: &routing.IstioService{Name: "host"}, Weight: 100},
 			},
 			WebsocketUpgrade: true,
 		},
 			valid: false},
-		{name: "route rule match invalid rewrite", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Rewrite:     &proxyconfig.HTTPRewrite{},
+		{name: "route rule match invalid rewrite", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Rewrite:     &routing.HTTPRewrite{},
 		},
 			valid: false},
-		{name: "route rule match valid host rewrite", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Rewrite: &proxyconfig.HTTPRewrite{
+		{name: "route rule match valid host rewrite", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Rewrite: &routing.HTTPRewrite{
 				Authority: "foo.bar.com",
 			},
 		},
 			valid: true},
-		{name: "route rule match rewrite and redirect", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Redirect:    &proxyconfig.HTTPRedirect{Uri: "/new/path"},
-			Rewrite:     &proxyconfig.HTTPRewrite{Authority: "foo.bar.com"},
+		{name: "route rule match rewrite and redirect", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Redirect:    &routing.HTTPRedirect{Uri: "/new/path"},
+			Rewrite:     &routing.HTTPRewrite{Authority: "foo.bar.com"},
 		},
 			valid: false},
-		{name: "route rule match valid prefix rewrite", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Rewrite: &proxyconfig.HTTPRewrite{
+		{name: "route rule match valid prefix rewrite", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Rewrite: &routing.HTTPRewrite{
 				Uri: "/new/path",
 			},
 		},
 			valid: true},
-		{name: "route rule match valid rewrite", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Rewrite: &proxyconfig.HTTPRewrite{
+		{name: "route rule match valid rewrite", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Rewrite: &routing.HTTPRewrite{
 				Authority: "foo.bar.com",
 				Uri:       "/new/path",
 			},
 		},
 			valid: true},
-		{name: "append headers", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
+		{name: "append headers", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
 			AppendHeaders: map[string]string{
 				"name": "val",
 			},
 		},
 			valid: true},
-		{name: "append headers bad name", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
+		{name: "append headers bad name", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
 			AppendHeaders: map[string]string{
 				"": "val",
 			},
 		},
 			valid: false},
-		{name: "append headers bad val", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
+		{name: "append headers bad val", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
 			AppendHeaders: map[string]string{
 				"name": "",
 			},
 		},
 			valid: false},
-		{name: "mirror", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Mirror:      &proxyconfig.IstioService{Name: "barfoo"},
+		{name: "mirror", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Mirror:      &routing.IstioService{Name: "barfoo"},
 		},
 			valid: true},
-		{name: "mirror bad service", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			Mirror:      &proxyconfig.IstioService{},
+		{name: "mirror bad service", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			Mirror:      &routing.IstioService{},
 		},
 			valid: false},
-		{name: "valid cors policy", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "valid cors policy", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge:           &duration.Duration{Seconds: 5},
 				AllowOrigin:      []string{"http://foo.example"},
 				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
@@ -637,9 +671,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: true},
-		{name: "cors policy invalid allow headers", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "cors policy invalid allow headers", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge:           &duration.Duration{Seconds: 5},
 				AllowOrigin:      []string{"http://foo.example"},
 				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
@@ -649,9 +683,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
-		{name: "cors policy invalid expose headers", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "cors policy invalid expose headers", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge:           &duration.Duration{Seconds: 5},
 				AllowOrigin:      []string{"http://foo.example"},
 				AllowMethods:     []string{"POST", "GET", "OPTIONS"},
@@ -661,23 +695,23 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
-		{name: "invalid cors policy bad max age", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "invalid cors policy bad max age", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge: &duration.Duration{Nanos: 1000000},
 			},
 		},
 			valid: false},
-		{name: "invalid cors policy invalid max age", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "invalid cors policy invalid max age", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge: &duration.Duration{Nanos: 100},
 			},
 		},
 			valid: false},
-		{name: "invalid cors policy bad allow method", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "invalid cors policy bad allow method", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge:           &duration.Duration{Seconds: 5},
 				AllowOrigin:      []string{"http://foo.example"},
 				AllowMethods:     []string{"POST", "GET", "UNSUPPORTED"},
@@ -687,9 +721,9 @@ func TestValidateRouteAndIngressRule(t *testing.T) {
 			},
 		},
 			valid: false},
-		{name: "invalid cors policy bad allow method 2", in: &proxyconfig.RouteRule{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			CorsPolicy: &proxyconfig.CorsPolicy{
+		{name: "invalid cors policy bad allow method 2", in: &routing.RouteRule{
+			Destination: &routing.IstioService{Name: "foobar"},
+			CorsPolicy: &routing.CorsPolicy{
 				MaxAge:           &duration.Duration{Seconds: 5},
 				AllowOrigin:      []string{"http://foo.example"},
 				AllowMethods:     []string{"POST", "get"},
@@ -713,18 +747,18 @@ func TestValidateDestinationPolicy(t *testing.T) {
 		in    proto.Message
 		valid bool
 	}{
-		{in: &proxyconfig.RouteRule{}, valid: false},
-		{in: &proxyconfig.DestinationPolicy{}, valid: false},
-		{in: &proxyconfig.DestinationPolicy{Destination: &proxyconfig.IstioService{Name: "foobar"}}, valid: true},
-		{in: &proxyconfig.DestinationPolicy{
-			Destination: &proxyconfig.IstioService{
+		{in: &routing.RouteRule{}, valid: false},
+		{in: &routing.DestinationPolicy{}, valid: false},
+		{in: &routing.DestinationPolicy{Destination: &routing.IstioService{Name: "foobar"}}, valid: true},
+		{in: &routing.DestinationPolicy{
+			Destination: &routing.IstioService{
 				Name:      "?",
 				Namespace: "?",
 				Domain:    "a.?",
 			},
-			CircuitBreaker: &proxyconfig.CircuitBreaker{
-				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
-					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+			CircuitBreaker: &routing.CircuitBreaker{
+				CbPolicy: &routing.CircuitBreaker_SimpleCb{
+					SimpleCb: &routing.CircuitBreaker_SimpleCircuitBreakerPolicy{
 						MaxConnections:               -1,
 						HttpMaxPendingRequests:       -1,
 						HttpMaxRequests:              -1,
@@ -738,33 +772,33 @@ func TestValidateDestinationPolicy(t *testing.T) {
 			},
 		},
 			valid: false},
-		{in: &proxyconfig.DestinationPolicy{
-			Destination: &proxyconfig.IstioService{Name: "ratings"},
-			CircuitBreaker: &proxyconfig.CircuitBreaker{
-				CbPolicy: &proxyconfig.CircuitBreaker_SimpleCb{
-					SimpleCb: &proxyconfig.CircuitBreaker_SimpleCircuitBreakerPolicy{
+		{in: &routing.DestinationPolicy{
+			Destination: &routing.IstioService{Name: "ratings"},
+			CircuitBreaker: &routing.CircuitBreaker{
+				CbPolicy: &routing.CircuitBreaker_SimpleCb{
+					SimpleCb: &routing.CircuitBreaker_SimpleCircuitBreakerPolicy{
 						HttpMaxEjectionPercent: 101,
 					},
 				},
 			},
 		},
 			valid: false},
-		{in: &proxyconfig.DestinationPolicy{
-			Destination: &proxyconfig.IstioService{Name: "foobar"},
-			LoadBalancing: &proxyconfig.LoadBalancing{
-				LbPolicy: &proxyconfig.LoadBalancing_Name{
+		{in: &routing.DestinationPolicy{
+			Destination: &routing.IstioService{Name: "foobar"},
+			LoadBalancing: &routing.LoadBalancing{
+				LbPolicy: &routing.LoadBalancing_Name{
 					Name: 0,
 				},
 			},
 		},
 			valid: true},
-		{in: &proxyconfig.DestinationPolicy{
-			Destination:   &proxyconfig.IstioService{Name: "foobar"},
-			LoadBalancing: &proxyconfig.LoadBalancing{},
+		{in: &routing.DestinationPolicy{
+			Destination:   &routing.IstioService{Name: "foobar"},
+			LoadBalancing: &routing.LoadBalancing{},
 		},
 			valid: false},
-		{in: &proxyconfig.DestinationPolicy{
-			Source: &proxyconfig.IstioService{},
+		{in: &routing.DestinationPolicy{
+			Source: &routing.IstioService{},
 		},
 			valid: false},
 	}
@@ -912,18 +946,18 @@ func TestValidateConnectTimeout(t *testing.T) {
 }
 
 func TestValidateMeshConfig(t *testing.T) {
-	if ValidateMeshConfig(&proxyconfig.MeshConfig{}) == nil {
+	if ValidateMeshConfig(&meshconfig.MeshConfig{}) == nil {
 		t.Error("expected an error on an empty mesh config")
 	}
 
-	invalid := proxyconfig.MeshConfig{
+	invalid := meshconfig.MeshConfig{
 		EgressProxyAddress: "10.0.0.100",
 		MixerAddress:       "10.0.0.100",
 		ProxyListenPort:    0,
 		ConnectTimeout:     ptypes.DurationProto(-1 * time.Second),
 		AuthPolicy:         -1,
 		RdsRefreshDelay:    ptypes.DurationProto(-1 * time.Second),
-		DefaultConfig:      &proxyconfig.ProxyConfig{},
+		DefaultConfig:      &meshconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -943,11 +977,11 @@ func TestValidateMeshConfig(t *testing.T) {
 }
 
 func TestValidateProxyConfig(t *testing.T) {
-	if ValidateProxyConfig(&proxyconfig.ProxyConfig{}) == nil {
+	if ValidateProxyConfig(&meshconfig.ProxyConfig{}) == nil {
 		t.Error("expected an error on an empty proxy config")
 	}
 
-	invalid := proxyconfig.ProxyConfig{
+	invalid := meshconfig.ProxyConfig{
 		ConfigPath:             "",
 		BinaryPath:             "",
 		DiscoveryAddress:       "10.0.0.100",
@@ -980,49 +1014,49 @@ func TestValidateProxyConfig(t *testing.T) {
 
 func TestValidateIstioService(t *testing.T) {
 	type IstioService struct {
-		Service proxyconfig.IstioService
+		Service routing.IstioService
 		Valid   bool
 	}
 
 	services := []IstioService{
 		{
-			Service: proxyconfig.IstioService{Name: "", Service: "", Domain: "", Namespace: ""},
+			Service: routing.IstioService{Name: "", Service: "", Domain: "", Namespace: ""},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "**cnn.com"},
+			Service: routing.IstioService{Service: "**cnn.com"},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "cnn.com", Labels: Labels{"*": ":"}},
+			Service: routing.IstioService{Service: "cnn.com", Labels: Labels{"*": ":"}},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "*cnn.com", Domain: "domain", Namespace: "namespace"},
+			Service: routing.IstioService{Service: "*cnn.com", Domain: "domain", Namespace: "namespace"},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "*cnn.com", Namespace: "namespace"},
+			Service: routing.IstioService{Service: "*cnn.com", Namespace: "namespace"},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "*cnn.com", Domain: "domain"},
+			Service: routing.IstioService{Service: "*cnn.com", Domain: "domain"},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Name: "name", Service: "*cnn.com"},
+			Service: routing.IstioService{Name: "name", Service: "*cnn.com"},
 			Valid:   false,
 		},
 		{
-			Service: proxyconfig.IstioService{Service: "*cnn.com"},
+			Service: routing.IstioService{Service: "*cnn.com"},
 			Valid:   true,
 		},
 		{
-			Service: proxyconfig.IstioService{Name: "reviews", Domain: "svc.local", Namespace: "default"},
+			Service: routing.IstioService{Name: "reviews", Domain: "svc.local", Namespace: "default"},
 			Valid:   true,
 		},
 		{
-			Service: proxyconfig.IstioService{Name: "reviews", Domain: "default", Namespace: "svc.local"},
+			Service: routing.IstioService{Name: "reviews", Domain: "default", Namespace: "svc.local"},
 			Valid:   false,
 		},
 	}
@@ -1036,30 +1070,30 @@ func TestValidateIstioService(t *testing.T) {
 }
 
 func TestValidateMatchCondition(t *testing.T) {
-	for key, mc := range map[string]*proxyconfig.MatchCondition{
+	for key, mc := range map[string]*routing.MatchCondition{
 		"bad header key": {
-			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
-				"XHeader": {MatchType: &proxyconfig.StringMatch_Exact{Exact: "test"}},
+			Request: &routing.MatchRequest{Headers: map[string]*routing.StringMatch{
+				"XHeader": {MatchType: &routing.StringMatch_Exact{Exact: "test"}},
 			}},
 		},
 		"bad header value": {
-			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
+			Request: &routing.MatchRequest{Headers: map[string]*routing.StringMatch{
 				"user-agent": {},
 			}},
 		},
 		"uri header exact empty": {
-			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
-				HeaderURI: {MatchType: &proxyconfig.StringMatch_Exact{}},
+			Request: &routing.MatchRequest{Headers: map[string]*routing.StringMatch{
+				HeaderURI: {MatchType: &routing.StringMatch_Exact{}},
 			}},
 		},
 		"uri header prefix empty": {
-			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
-				HeaderURI: {MatchType: &proxyconfig.StringMatch_Prefix{}},
+			Request: &routing.MatchRequest{Headers: map[string]*routing.StringMatch{
+				HeaderURI: {MatchType: &routing.StringMatch_Prefix{}},
 			}},
 		},
 		"uri header regex empty": {
-			Request: &proxyconfig.MatchRequest{Headers: map[string]*proxyconfig.StringMatch{
-				HeaderURI: {MatchType: &proxyconfig.StringMatch_Regex{}},
+			Request: &routing.MatchRequest{Headers: map[string]*routing.StringMatch{
+				HeaderURI: {MatchType: &routing.StringMatch_Regex{}},
 			}},
 		},
 	} {
@@ -1135,7 +1169,7 @@ func TestValidateEgressRuleService(t *testing.T) {
 }
 
 func TestValidateEgressRulePort(t *testing.T) {
-	ports := map[*proxyconfig.EgressRule_Port]bool{
+	ports := map[*routing.EgressRule_Port]bool{
 		{Port: 80, Protocol: "http"}:    true,
 		{Port: 80, Protocol: "http2"}:   true,
 		{Port: 80, Protocol: "grpc"}:    true,
@@ -1145,6 +1179,7 @@ func TestValidateEgressRulePort(t *testing.T) {
 		{Port: 1, Protocol: "http"}:     true,
 		{Port: 2, Protocol: "https"}:    true,
 		{Port: 80, Protocol: "tcp"}:     true,
+		{Port: 1000, Protocol: "mongo"}: true,
 		{Port: 80, Protocol: "udp"}:     false,
 		{Port: 0, Protocol: "http"}:     false,
 		{Port: 65536, Protocol: "http"}: false,
@@ -1164,9 +1199,9 @@ func TestValidateIngressRule(t *testing.T) {
 		in   proto.Message
 	}{
 		{name: "nil egress rule"},
-		{name: "empty egress rule", in: &proxyconfig.IngressRule{}},
-		{name: "empty egress rule", in: &proxyconfig.IngressRule{
-			Destination: &proxyconfig.IstioService{
+		{name: "empty egress rule", in: &routing.IngressRule{}},
+		{name: "empty egress rule", in: &routing.IngressRule{
+			Destination: &routing.IstioService{
 				Service: "***", Labels: Labels{"version": "v1"},
 			},
 		}},
@@ -1186,24 +1221,24 @@ func TestValidateEgressRule(t *testing.T) {
 		valid bool
 	}{
 		{name: "nil egress rule"},
-		{name: "empty egress rule", in: &proxyconfig.EgressRule{}, valid: false},
+		{name: "empty egress rule", in: &routing.EgressRule{}, valid: false},
 		{name: "valid egress rule",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: true},
 		{name: "valid egress rule with IP address",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "192.168.3.0",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
@@ -1211,61 +1246,61 @@ func TestValidateEgressRule(t *testing.T) {
 			valid: true},
 
 		{name: "valid egress rule with tcp ports",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "192.168.3.0/24",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "tcp"},
 					{Port: 443, Protocol: "tcp"},
 				},
 				UseEgressProxy: false},
 			valid: true},
 		{name: "egress rule with tcp ports, an http protocol",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "192.168.3.0/24",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "tcp"},
 					{Port: 443, Protocol: "http"},
 				},
 				UseEgressProxy: false},
 			valid: false},
 		{name: "egress rule with use_egress_proxy = true, not yet implemented",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 8080, Protocol: "http"},
 				},
 				UseEgressProxy: true},
 			valid: false},
 		{name: "empty destination",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{},
-				Ports: []*proxyconfig.EgressRule_Port{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{},
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 				},
 				UseEgressProxy: false},
 			valid: false},
 		{name: "empty ports",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports:          []*proxyconfig.EgressRule_Port{},
+				Ports:          []*routing.EgressRule_Port{},
 				UseEgressProxy: false},
 			valid: false},
 		{name: "duplicate port",
-			in: &proxyconfig.EgressRule{
-				Destination: &proxyconfig.IstioService{
+			in: &routing.EgressRule{
+				Destination: &routing.IstioService{
 					Service: "*cnn.com",
 				},
-				Ports: []*proxyconfig.EgressRule_Port{
+				Ports: []*routing.EgressRule_Port{
 					{Port: 80, Protocol: "http"},
 					{Port: 443, Protocol: "https"},
 					{Port: 80, Protocol: "https"},
@@ -1300,23 +1335,61 @@ var (
 func TestValidateMixerAttributes(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    proto.Message
+		in    *mpb.Attributes_AttributeValue
 		valid bool
 	}{
-		{
-			name:  "valid",
-			in:    validAttributes,
-			valid: true,
-		},
-		{
-			name: "invalid",
-			in:   invalidAttributes,
-		},
+		{"happy string",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+			true},
+		{"invalid string",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{""}},
+			false},
+		{"happy duration",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Seconds: 1}}},
+			true},
+		{"invalid duration",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Nanos: -1e9}}},
+			false},
+		{"happy bytes",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{1, 2, 3}}},
+			true},
+		{"invalid bytes",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{}}},
+			false},
+		{"happy timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{}}},
+			true},
+		{"invalid timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{Nanos: -1}}},
+			false},
+		{"nil timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{nil}},
+			false},
+		{"happy stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				&mpb.Attributes_StringMap{Entries: map[string]string{"foo": "bar"}}}},
+			true},
+		{"invalid stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				&mpb.Attributes_StringMap{Entries: nil}}},
+			false},
+		{"nil stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{nil}},
+			false},
 	}
 	for _, c := range cases {
-		if got := ValidateMixerAttributes(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateMixerAttributes(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			attrs := &mpb.Attributes{
+				Attributes: map[string]*mpb.Attributes_AttributeValue{"key": c.in},
+			}
+			if got := ValidateMixerAttributes(attrs); (got == nil) != c.valid {
+				if c.valid {
+					t.Fatal("got error, wanted none")
+				} else {
+					t.Fatal("got no error, wanted one")
+				}
+			}
+		})
 	}
 }
 
@@ -1656,5 +1729,466 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 		if got := ValidateQuotaSpecBinding(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpec(t *testing.T) {
+	var (
+	//
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no jwt",
+			in:   &mccpb.EndUserAuthenticationPolicySpec{Jwts: []*mccpb.JWT{}},
+		},
+		{
+			name: "invalid issuer",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid audiences",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{""},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "missing jwks_uri",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri with missing scheme",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri invalid url",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                ":foo",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid duration",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:    "https://issuer.example.com",
+					Audiences: []string{"audience_foo.example.com"},
+					JwksUri:   "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: &types.Duration{
+						Seconds: -1,
+					},
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid location header",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Header{}}},
+				}},
+			},
+		},
+		{
+			name: "invalid location query",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Query{}}},
+				}},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpec(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpecBinding(t *testing.T) {
+	var (
+		validEndUserAuthenticationPolicySpecRef   = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "bar"}
+		invalidEndUserAuthenticationPolicySpecRef = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "--bar"}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "invalid service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{invalidService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "no spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{},
+			},
+		},
+		{
+			name: "invalid spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{invalidEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpecBinding(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateGateway(t *testing.T) {
+	tests := []struct {
+		name string
+		in   proto.Message
+		out  string
+	}{
+		{"empty", &routingv2.Gateway{}, "server"},
+		{"invalid message", &routingv2.Server{}, "cannot cast"},
+		{"happy domain",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"foo.bar.com"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy ip",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.1"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy cidr",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.0/16"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy multiple servers",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 18, Protocol: "redis"},
+					}},
+			},
+			""},
+		{"invalid port",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+					}},
+			},
+			"port"},
+		{"invalid domain",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.*.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/33"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+					}},
+			},
+			"domain"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateGateway(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateGateway(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateGateway(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateServer(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server
+		out  string
+	}{
+		{"empty", &routingv2.Server{}, "domain"},
+		{"empty", &routingv2.Server{}, "port"},
+		{"happy",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+			},
+			""},
+		{"invalid domain",
+			&routingv2.Server{
+				Domains: []string{"foo.*.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+			},
+			"domain"},
+		{"invalid port",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 66000, Protocol: "http"},
+			},
+			"port"},
+		{"invalid tls options",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 1, Protocol: "http"},
+				Tls:     &routingv2.Server_TLSOptions{Mode: routingv2.Server_TLSOptions_SIMPLE},
+			},
+			"TLS"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServer(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateServer(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateServer(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateServer(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateServerPort(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server_Port
+		out  string
+	}{
+		{"empty", &routingv2.Server_Port{}, "invalid protocol"},
+		{"empty", &routingv2.Server_Port{}, "port number"},
+		{"happy",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   1,
+				Name:     "Henry",
+			},
+			""},
+		{"invalid protocol",
+			&routingv2.Server_Port{
+				Protocol: "kafka",
+				Number:   1,
+				Name:     "Henry",
+			},
+			"invalid protocol"},
+		{"no port name/number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "",
+			},
+			"either port number or name"},
+		{"invalid number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   uint32(1 << 30),
+				Name:     "",
+			},
+			"port number"},
+		{"name, no number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "Henry",
+			},
+			""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServerPort(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateServerPort(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateServerPort(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateServerPort(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateTlsOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server_TLSOptions
+		out  string
+	}{
+		{"empty", &routingv2.Server_TLSOptions{}, ""},
+		{"simple",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard"},
+			""},
+		{"simple with client bundle",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    "Commander William T. Riker"},
+			""},
+		{"simple no server cert",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: ""},
+			"server certificate"},
+		{"mutual",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    "Commander William T. Riker"},
+			""},
+		{"mutual no server cert",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    "Commander William T. Riker"},
+			"server certificate"},
+		{"mutual no client CA bundle",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    ""},
+			"client CA bundle"},
+		// this pair asserts we get errors about both client and server certs missing when in mutual mode
+		// and both are absent, but requires less rewriting of the testing harness than merging the cases
+		{"mutual no certs",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    ""},
+			"server certificate"},
+		{"mutual no certs",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    ""},
+			"client CA bundle"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTLSOptions(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateTlsOptions(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
 	}
 }

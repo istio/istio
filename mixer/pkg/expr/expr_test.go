@@ -47,6 +47,19 @@ func TestGoodParse(t *testing.T) {
 		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
 		{`a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
 			`LOR(LAND(LAND(EQ($a.b, 3.14), EQ($c, "d")), EQ(INDEX($r.h, "abc"), "pqr")), EQ(INDEX($r.h, "abc"), "xyz"))`},
+
+		{`a()`, `a()`},
+		{`a.b()`, `$a:b()`},
+		{`a.b.c(q)`, `$a.b:c($q)`},
+		{`a.b.c(q, z)`, `$a.b:c($q, $z)`},
+		{`a.b(q.z(d()))`, `$a:b($q:z(d()))`},
+		{`a.b(q.z(d())) == 42`, `EQ($a:b($q:z(d())), 42)`},
+		{`a.b().c().d()`, `$a:b():c():d()`},
+		{`a.b.c().d()`, `$a.b:c():d()`},
+		{`a.b.c().d() == 23`, `EQ($a.b:c():d(), 23)`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
+		{`"abc".prefix(23).matches("foo")`, `"abc":prefix(23):matches("foo")`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -182,14 +195,18 @@ func TestBadParse(t *testing.T) {
 		{`*a != b`, "unexpected expression"},
 		{"a = bc", `unable to parse`},
 		{`3 = 10`, "unable to parse"},
-		{`a.b.c() == 20`, "unexpected expression"},
-		{`a.b().c() == 20`, "unexpected expression"},
 		{`(a.c).d == 300`, `unexpected expression`},
 		{`substring(*a, 20) == 12`, `unexpected expression`},
 		{`(*a == 20) && 12`, `unexpected expression`},
 		{`!*a`, `unexpected expression`},
 		{`request.headers[*a] == 200`, `unexpected expression`},
 		{`atr == 'aaa'`, "unable to parse"},
+		{`c().e.d()`, `unexpected expression`},
+		{`foo{}`, `unexpected expression`},
+		{`foo{}.bar`, `unexpected expression`},
+		{`foo{}.bar()`, `unexpected expression`},
+		{`(foo{}).bar()`, `unexpected expression`},
+		{`a().b`, `unexpected expression`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -235,23 +252,92 @@ func TestInternalTypeCheck(t *testing.T) {
 		s       string
 		retType dpb.ValueType
 		ds      []*ad
+		fns     []FunctionMetadata
 		err     string
 	}{
-		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
-		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.BOOL}}, "typeError"},
-		{"a == 2 || a == 5", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
-		{"a | b | 5", dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, success},
-		{`a | b | "5"`, dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, "typeError"},
-		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, success},
-		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, "typeError"},
-		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, success},
-		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "unknown attribute"},
-		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "arity mismatch"},
-		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, "unknown function"},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, success},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.BOOL}}, nil, "typeError"},
+		{"a == 2 || a == 5", dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, success},
+		{"a | b | 5", dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, nil, success},
+		{`a | b | "5"`, dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, nil, "typeError"},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, nil, success},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, nil, "typeError"},
+		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, success},
+		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, "unknown attribute"},
+		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, "arity mismatch"},
+		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, "unknown function"},
+
+		{`fn1()`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn1", Instance: false, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{}},
+		}, success},
+		{`fn2(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn2", Instance: false, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, success},
+		{`fn3(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn3", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, "invoking instance method without an instance"},
+		{`a.fn4(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn4", Instance: false, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, "invoking regular function on instance method"},
+		{`a.fn5()`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn5", Instance: true, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{}},
+		}, "unknown attribute"},
+		{`pattern.matches(str)`, dpb.BOOL,
+			[]*ad{
+				{"pattern", dpb.STRING},
+				{"str", dpb.STRING},
+			},
+			[]FunctionMetadata{
+				{Name: "matches", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			success},
+		{`text.prefix(3).startswith(str)`, dpb.BOOL,
+			[]*ad{
+				{"text", dpb.STRING},
+				{"str", dpb.STRING},
+			},
+			[]FunctionMetadata{
+				{Name: "prefix", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.STRING, ArgumentTypes: []dpb.ValueType{
+					dpb.INT64,
+				}},
+				{Name: "startswith", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			success},
+		{`no.matches("a")`, dpb.BOOL,
+			[]*ad{
+				{"no", dpb.INT64},
+			},
+			[]FunctionMetadata{
+				{Name: "matches", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			`$no:matches("a") target typeError got INT64`},
+		{`"abc".genericEquals("cba")`, dpb.BOOL, []*ad{},
+			[]FunctionMetadata{
+				{Name: "genericEquals", Instance: true, TargetType: dpb.VALUE_TYPE_UNSPECIFIED, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.VALUE_TYPE_UNSPECIFIED,
+				}},
+			},
+			success},
 	}
-	fMap := FuncMap([]FunctionMetadata{})
 	for idx, c := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
+			fns := c.fns
+			if fns == nil {
+				fns = []FunctionMetadata{}
+			}
+			fMap := FuncMap(fns)
 			var ex *Expression
 			var err error
 			var retType dpb.ValueType

@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/glog"
+	"istio.io/istio/pkg/log"
 )
 
 // fsStore implements file system KeyValueStore and change store.
@@ -99,7 +99,7 @@ func (f *fsStore) Get(key string) (value string, index int, found bool) {
 
 	if b, err = f.readfile(p); err != nil {
 		if !os.IsNotExist(err) {
-			glog.Warningf("Could not access '%s': %v", p, err)
+			log.Warnf("Could not access '%s': %v", p, err)
 		}
 		return "", IndexNotSupported, false
 	}

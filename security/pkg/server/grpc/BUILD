@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//security/pkg/pki:go_default_library",
         "//security/pkg/pki/ca:go_default_library",
+        "//security/pkg/registry:go_default_library",
         "//security/proto:go_default_library",
         "@com_github_coreos_go_oidc//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
@@ -34,6 +35,7 @@ go_test(
     deps = [
         "//security/pkg/pki:go_default_library",
         "//security/pkg/pki/ca:go_default_library",
+        "//security/pkg/registry:go_default_library",
         "//security/proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",

@@ -1,8 +1,8 @@
-# dummy line 5 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+# dummy line 6 - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -75,6 +75,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_google_go_github",
+    commit = "fbfee053c26dab3772adfc7799d995eed379133e",  # Dec 2, 2017 (no releases)
+    importpath = "github.com/google/go-github",
+)
+
+go_repository(
+    name = "com_github_google_go_querystring",
+    commit = "53e6ce116135b80d037921a7fdd5138cf32d7a8a",  # Jan 11, 2017 (no releases)
+    importpath = "github.com/google/go-querystring",
+)
+
+go_repository(
     name = "com_github_hashicorp_errwrap",
     commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",  # Oct 27, 2014 (no releases)
     importpath = "github.com/hashicorp/errwrap",
@@ -93,9 +105,45 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 
@@ -1040,7 +1088,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "ad3f963c6a197b8ad36c9f9428986c7fe84d20ca"
+ISTIO_PROXY_BUCKET = "164dd584e63065ef8150bddf23d2c5c196319bad"
 
 http_file(
     name = "envoy_binary",
@@ -1063,7 +1111,7 @@ go_repository(
 
 git_repository(
     name = "com_github_istio_test_infra",
-    commit = "67e73ad01f9d1074a7d787a91201d41938ad4310",  # Aug 25, 2017
+    commit = "470646bb988771c3bac655b1acf9aa70d68db5e4",  # Dec 5, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
 
@@ -1149,4 +1197,36 @@ go_repository(
     name = "com_github_codahale_hdrhistogram",
     commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
     importpath = "github.com/codahale/hdrhistogram",
+)
+
+go_repository(
+    name = "org_cloudfoundry_code_copilot",
+    commit = "03646eb993243c330f30e3053523da4e8c0850ab",
+    importpath = "code.cloudfoundry.org/copilot",
+)
+
+go_repository(
+    name = "com_github_onsi_ginkgo",
+    commit = "cb73bd0f14eb8d91a9801647edbebe6ddb5b4cb4",
+    importpath = "github.com/onsi/ginkgo",
+)
+
+go_repository(
+    name = "com_github_onsi_gomega",
+    commit = "c1fb6682134d162f37c13f42e7157653a7de7d2b",
+    importpath = "github.com/onsi/gomega",
+)
+
+go_repository(
+    name = "in_gopkg_validator_v2",
+    commit = "460c83432a98c35224a6fe352acf8b23e067ad06",
+    importpath = "gopkg.in/validator.v2",
+)
+
+go_repository(
+    name = "com_github_square_certstrap",
+    commit = "ae69f1c8301cc4d140d281998e9cac1c9df78c61",
+    importpath = "github.com/square/certstrap",
+    remote = "https://github.com/cf-routing/certstrap",
+    vcs = "git",
 )

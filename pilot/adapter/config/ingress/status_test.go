@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/proxy"
 )
@@ -49,37 +49,37 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 // representation correctly.
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
-		Mode       proxyconfig.MeshConfig_IngressControllerMode
+		Mode       meshconfig.MeshConfig_IngressControllerMode
 		Annotation string
 		Ignore     bool
 	}{
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},

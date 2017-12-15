@@ -30,8 +30,6 @@ import (
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
 
-const maxStringTableSizeForPurge int = 1024
-
 func TestExpressions(t *testing.T) {
 	for _, test := range ilt.TestData {
 		if test.E == "" {
@@ -39,7 +37,12 @@ func TestExpressions(t *testing.T) {
 			continue
 		}
 
-		name := "IL/" + test.E
+		if test.Fns != nil {
+			// Skip tests that have extern functions defined. We cannot inject extern functions into the evaluator.
+			// Compiler tests actually also do evaluation.
+			continue
+		}
+		name := "IL/" + test.TestName()
 		t.Run(name, func(tt *testing.T) {
 			testWithILEvaluator(test, tt)
 		})
@@ -47,64 +50,46 @@ func TestExpressions(t *testing.T) {
 }
 
 func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
-	config := test.Conf
-	if config == nil {
-		config = ilt.TestConfigs["Default"]
-	}
-
-	evaluator := initEvaluator(t, *config)
+	evaluator := initEvaluator(t, test.Conf())
 	bag := ilt.NewFakeBag(test.I)
 
 	r, err := evaluator.Eval(test.E, bag)
-	if test.Err != "" || test.CompileErr != "" {
-		expectedErr := test.Err
-		if expectedErr == "" {
-			expectedErr = test.CompileErr
-		}
-
+	// Evaluator does in-line compilation. Check for both.
+	if test.CompileErr != "" {
 		if err == nil {
-			t.Errorf("Expected error was not thrown: %s", expectedErr)
-			return
-		}
-		if !strings.EqualFold(expectedErr, err.Error()) {
-			t.Errorf("Error mismatch: '%s' != '%s'", err.Error(), expectedErr)
+			t.Errorf("expected compile error was not thrown: %s", test.CompileErr)
+		} else if !strings.HasPrefix(err.Error(), test.CompileErr) {
+			t.Errorf("Error mismatch: '%s' != '%s'", err.Error(), test.CompileErr)
 		}
 		return
 	}
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	if !ilt.AreEqual(test.R, r) {
-		t.Errorf("Result mismatch: %v != %v", r, test.R)
+	if err = test.CheckEvaluationResult(r, err); err != nil {
+		t.Errorf(err.Error())
+		return
 	}
 
 	// Depending on the type, try testing specialized methods as well.
 
-	if estr, ok := test.R.(string); ok {
+	switch test.R.(type) {
+	case string:
 		astr, err := evaluator.EvalString(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+		if e := test.CheckEvaluationResult(astr, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
-		if astr != estr {
-			t.Errorf("EvalString failed: '%s' != '%s'", astr, estr)
-		}
-	}
 
-	if ebool, ok := test.R.(bool); ok {
+	case bool:
 		abool, err := evaluator.EvalPredicate(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		if abool != ebool {
-			t.Errorf("EvalPredicate failed: '%v' != '%v'", abool, ebool)
+		if e := test.CheckEvaluationResult(abool, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
 	}
 }
 
 func TestEvalString_WrongType(t *testing.T) {
-	e := initEvaluator(t, configInt)
+	e := initEvaluator(t, &configInt)
 	bag := initBag(int64(23))
 	r, err := e.EvalString("attr", bag)
 	if err != nil {
@@ -116,7 +101,7 @@ func TestEvalString_WrongType(t *testing.T) {
 }
 
 func TestEvalString_Error(t *testing.T) {
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 	bag := initBag("foo")
 	_, err := e.EvalString("bar", bag)
 	if err == nil {
@@ -125,7 +110,7 @@ func TestEvalString_Error(t *testing.T) {
 }
 
 func TestEvalPredicate_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	bag := initBag(int64(23))
 	_, err := e.EvalPredicate("attr", bag)
 	if err == nil {
@@ -134,7 +119,7 @@ func TestEvalPredicate_WrongType(t *testing.T) {
 }
 
 func TestEvalPredicate_Error(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	bag := initBag(true)
 	_, err := e.EvalPredicate("boo", bag)
 	if err == nil {
@@ -170,7 +155,7 @@ func TestConcurrent(t *testing.T) {
 	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
 	maxThreads := 10
 
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 	errChan := make(chan error, len(bags)*maxThreads)
 
 	wg := sync.WaitGroup{}
@@ -198,7 +183,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestEvalType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	ty, err := e.EvalType("attr", e.getAttrContext().finder)
 	if err != nil {
 		t.Fatalf("error: %s", err)
@@ -209,7 +194,7 @@ func TestEvalType(t *testing.T) {
 }
 
 func TestEvalType_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	_, err := e.EvalType("boo", e.getAttrContext().finder)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -217,7 +202,7 @@ func TestEvalType_WrongType(t *testing.T) {
 }
 
 func TestAssertType_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -225,7 +210,7 @@ func TestAssertType_WrongType(t *testing.T) {
 }
 
 func TestAssertType_EvaluationError(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	err := e.AssertType("boo", e.getAttrContext().finder, pbv.BOOL)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -233,7 +218,7 @@ func TestAssertType_EvaluationError(t *testing.T) {
 }
 
 func TestConfigChange(t *testing.T) {
-	e := initEvaluator(t, configInt)
+	e := initEvaluator(t, &configInt)
 	bag := initBag(int64(23))
 
 	// Prime the cache
@@ -255,34 +240,11 @@ func TestConfigChange(t *testing.T) {
 	}
 }
 
-func Test_StringTableSizeBasedEviction(t *testing.T) {
-	src := rand.NewSource(time.Now().UnixNano())
-	rnd := rand.New(src)
-	e := initEvaluator(t, configString)
-
-	expr := `attr == "boo"`
-
-	for i := 0; i < maxStringTableSizeForPurge*10; i++ {
-		bag := initBag(generateRandomStr(rnd))
-		_, err := e.Eval(expr, bag)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr, e.functions)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
-			t.Fatalf("%d > %d", entry.interpreter.StringTableSize(), maxStringTableSizeForPurge)
-		}
-	}
-}
-
 func Test_Stress(t *testing.T) {
 	src := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(src)
 
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 
 	exprs := []string{
 		`attr`,
@@ -311,7 +273,7 @@ func Test_Stress(t *testing.T) {
 }
 
 func Test_TypeChecker_Uninitialized(t *testing.T) {
-	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
@@ -352,12 +314,12 @@ func initBag(attrValue interface{}) attribute.Bag {
 	return ilt.NewFakeBag(attrs)
 }
 
-func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
-	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+func initEvaluator(t *testing.T, config *pb.GlobalConfig) *IL {
+	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
-	finder := descriptor.NewFinder(&config)
+	finder := descriptor.NewFinder(config)
 	e.ChangeVocabulary(finder)
 	return e
 }
