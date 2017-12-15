@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "adapter.go",
-        "builder.go",
         "cacheability.go",
         "check.go",
         "configError.go",
@@ -30,7 +29,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "builder_test.go",
         "configError_test.go",
         "requestData_test.go",
         "result_test.go",
