@@ -74,12 +74,12 @@ func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 		return nil, fmt.Errorf("parsing client cert/key: %s", err)
 	}
 
-	ServerCABytes, err := ioutil.ReadFile(c.Copilot.ServerCACertPath)
+	serverCABytes, err := ioutil.ReadFile(c.Copilot.ServerCACertPath)
 	if err != nil {
 		return nil, fmt.Errorf("loading server CAs: %s", err)
 	}
 	serverCAs := x509.NewCertPool()
-	if ok := serverCAs.AppendCertsFromPEM(ServerCABytes); !ok {
+	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
 		return nil, errors.New("parsing server CAs: invalid pem block")
 	}
 
