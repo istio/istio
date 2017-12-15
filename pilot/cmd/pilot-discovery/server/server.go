@@ -157,13 +157,13 @@ type PilotArgs struct {
 
 // Server contains the runtime configuration for the Pilot discovery service.
 type Server struct {
-	mesh              *meshconfig.MeshConfig
-	serviceController *aggregate.Controller
-	configController  model.ConfigStoreCache
-	mixerSAN          []string
-	kubeClient        kubernetes.Interface
-	startFuncs        []startFunc
-	listeningAddr     net.Addr
+	mesh             *meshconfig.MeshConfig
+	meshResourceView *aggregate.MeshResourceView
+	configController model.ConfigStoreCache
+	mixerSAN         []string
+	kubeClient       kubernetes.Interface
+	startFuncs       []startFunc
+	listeningAddr    net.Addr
 }
 
 // NewServer creates a new Server instance based on the provided arguments.
@@ -356,7 +356,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 
 // initServiceControllers creates and initializes the service controllers
 func (s *Server) initServiceControllers(args *PilotArgs) error {
-	serviceControllers := aggregate.NewController()
+	meshResourceView := aggregate.NewMeshResourceView()
 	registered := make(map[ServiceRegistry]bool)
 	for _, r := range args.Service.Registries {
 		serviceRegistry := ServiceRegistry(r)
@@ -390,11 +390,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				ServiceAccounts:  discovery2,
 				Controller:       &mockController{},
 			}
-			serviceControllers.AddRegistry(registry1)
-			serviceControllers.AddRegistry(registry2)
+			meshResourceView.AddRegistry(registry1)
+			meshResourceView.AddRegistry(registry2)
 		case KubernetesRegistry:
 			kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
-			serviceControllers.AddRegistry(
+			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name:             platform.ServiceRegistry(serviceRegistry),
 					ServiceDiscovery: kubectl,
@@ -432,7 +432,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
-			serviceControllers.AddRegistry(
+			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name:             platform.ServiceRegistry(r),
 					ServiceDiscovery: conctl,
@@ -442,7 +442,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case EurekaRegistry:
 			glog.V(2).Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
-			serviceControllers.AddRegistry(
+			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name: platform.ServiceRegistry(r),
 					// TODO: Remove sync time hardcoding!
@@ -479,11 +479,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		}
 	}
 
-	s.serviceController = serviceControllers
+	s.meshResourceView = meshResourceView
 
 	// Defer running of the service controllers.
 	s.addStartFunc(func(stop chan struct{}) error {
-		go s.serviceController.Run(stop)
+		go s.meshResourceView.Run(stop)
 		return nil
 	})
 
@@ -494,14 +494,14 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	environment := proxy.Environment{
 		Mesh:             s.mesh,
 		IstioConfigStore: model.MakeIstioStore(s.configController),
-		ServiceDiscovery: s.serviceController,
-		ServiceAccounts:  s.serviceController,
+		ServiceDiscovery: s.meshResourceView,
+		ServiceAccounts:  s.meshResourceView,
 		MixerSAN:         s.mixerSAN,
 	}
 
 	// Set up discovery service
 	discovery, err := envoy.NewDiscoveryService(
-		s.serviceController,
+		s.meshResourceView,
 		s.configController,
 		environment,
 		args.DiscoveryOptions)
