@@ -10,7 +10,6 @@ go_library(
         "cacheability.go",
         "check.go",
         "configError.go",
-        "denials.go",
         "handler.go",
         "info.go",
         "labels.go",
