@@ -22,7 +22,8 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
@@ -187,11 +188,11 @@ func (s *store2) List() map[Key]*Resource {
 	for k, d := range data {
 		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
-			glog.Errorf("Failed to clone %s spec: %v", k, err)
+			log.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
 		if err = convert(k, d.Spec, pbSpec); err != nil {
-			glog.Errorf("Failed to convert %s spec: %v", k, err)
+			log.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
 		result[k] = &Resource{

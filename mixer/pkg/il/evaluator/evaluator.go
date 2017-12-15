@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/glog"
 	lru "github.com/hashicorp/golang-lru"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/compiler"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 	"istio.io/istio/mixer/pkg/il/runtime"
+	"istio.io/istio/pkg/log"
 )
 
 // IL is an implementation of expr.Evaluator that also exposes specific methods.
@@ -54,7 +54,7 @@ func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
-		glog.Infof("evaluator.Eval failed expr:'%s', err: %v", expr, err)
+		log.Infof("evaluator.Eval failed expr:'%s', err: %v", expr, err)
 		return nil, err
 	}
 	return result.AsInterface(), nil
@@ -65,7 +65,7 @@ func (e *IL) EvalString(expr string, attrs attribute.Bag) (string, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
-		glog.Infof("evaluator.EvalString failed expr:'%s', err: %v", expr, err)
+		log.Infof("evaluator.EvalString failed expr:'%s', err: %v", expr, err)
 		return "", err
 	}
 	return result.AsString(), nil
@@ -76,7 +76,7 @@ func (e *IL) EvalPredicate(expr string, attrs attribute.Bag) (bool, error) {
 	var result interpreter.Result
 	var err error
 	if result, err = e.evalResult(expr, attrs); err != nil {
-		glog.Infof("evaluator.EvalPredicate failed expr:'%s', err: %v", expr, err)
+		log.Infof("evaluator.EvalPredicate failed expr:'%s', err: %v", expr, err)
 		return false, err
 	}
 	return result.AsBool(), nil
@@ -146,7 +146,7 @@ func (ctx *attrContext) evalResult(
 	var intr *interpreter.Interpreter
 	var err error
 	if intr, err = ctx.getOrCreateCacheEntry(expr, functions); err != nil {
-		glog.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
+		log.Infof("evaluator.evalResult failed expr:'%s', err: %v", expr, err)
 		return interpreter.Result{}, err
 	}
 
@@ -160,20 +160,16 @@ func (ctx *attrContext) getOrCreateCacheEntry(expr string, functions map[string]
 		return entry.(*interpreter.Interpreter), nil
 	}
 
-	if glog.V(6) {
-		glog.Infof("expression cache miss for '%s'", expr)
-	}
+	log.Debugf("expression cache miss for '%s'", expr)
 
 	var err error
 	var program *il.Program
 	if program, err = compiler.Compile(expr, ctx.finder, functions); err != nil {
-		glog.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
+		log.Infof("evaluator.getOrCreateCacheEntry failed expr:'%s', err: %v", expr, err)
 		return nil, err
 	}
 
-	if glog.V(6) {
-		glog.Infof("caching expression for '%s''", expr)
-	}
+	log.Debugf("caching expression for '%s''", expr)
 
 	intr := interpreter.New(program, allExterns)
 

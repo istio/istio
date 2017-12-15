@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/template"
 
@@ -744,6 +744,7 @@ var (
 					*servicecontrolreport.Instance, error) {
 					if param == nil {
 						return nil, nil
+						``
 					}
 					var err error
 					_ = err
@@ -752,7 +753,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiVersion", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -760,7 +761,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiOperation", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -768,7 +769,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiProtocol", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -776,7 +777,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiService", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -784,7 +785,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiKey", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -792,7 +793,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestTime", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -800,7 +801,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestMethod", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -808,7 +809,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestPath", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -816,7 +817,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestBytes", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -824,7 +825,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseTime", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -832,7 +833,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseCode", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -840,7 +841,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseBytes", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -848,7 +849,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseLatency", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1026,7 +1027,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Api", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1034,7 +1035,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiVersion", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1042,7 +1043,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiOperation", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1050,7 +1051,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiKey", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1058,7 +1059,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Timestamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1266,7 +1267,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1415,7 +1416,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Variables", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1423,7 +1424,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Timestamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1431,7 +1432,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Severity", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1439,7 +1440,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1447,7 +1448,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceDimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1595,7 +1596,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1603,7 +1604,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1611,7 +1612,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1619,7 +1620,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceDimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1739,7 +1740,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2000,7 +2001,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TraceId", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2008,7 +2009,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanId", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2016,7 +2017,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ParentSpanId", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2024,7 +2025,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanName", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2032,7 +2033,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StartTime", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2040,7 +2041,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"EndTime", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2048,7 +2049,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanTags", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
