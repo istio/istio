@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "crd.go",
-        "inventory.go",
         "root.go",
         "server.go",
         "validator.go",
@@ -18,7 +17,6 @@ go_library(
     deps = [
         "//mixer/cmd/shared:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/adapterManager:go_default_library",
         "//mixer/pkg/api:go_default_library",
         "//mixer/pkg/aspect:go_default_library",
         "//mixer/pkg/config:go_default_library",
