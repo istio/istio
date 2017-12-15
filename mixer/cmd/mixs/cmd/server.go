@@ -43,7 +43,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 
 	serverCmd.PersistentFlags().Uint16VarP(&sa.APIPort, "port", "p", 9091, "TCP port to use for Mixer's gRPC API")
 	serverCmd.PersistentFlags().Uint16Var(&sa.MonitoringPort, "monitoringPort", 9093, "HTTP port to use for the exposing mixer self-monitoring information")
-	serverCmd.PersistentFlags().Uint16VarP(&sa.ConfigAPIPort, "configAPIPort", "", 9094, "HTTP port to use for Mixer's Configuration API")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxMessageSize, "maxMessageSize", "", 1024*1024, "Maximum size of individual gRPC messages")
 	serverCmd.PersistentFlags().UintVarP(&sa.MaxConcurrentStreams, "maxConcurrentStreams", "", 1024, "Maximum number of outstanding RPCs per connection")
 	serverCmd.PersistentFlags().IntVarP(&sa.APIWorkerPoolSize, "apiWorkerPoolSize", "", 1024, "Max number of goroutines in the API worker pool")
@@ -54,11 +53,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 
-	// DEPRECATED FLAG (traceOutput). TO BE REMOVED IN SUBSEQUENT RELEASES.
-	serverCmd.PersistentFlags().StringVarP(&sa.ZipkinURL, "traceOutput", "", "",
-		"DEPRECATED. URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'")
-	serverCmd.PersistentFlags().MarkDeprecated("traceOutput", "please use one (or more) of the following flags: --zipkinURL, --jaegerURL, or --logTraceSpans")
-
 	serverCmd.PersistentFlags().StringVarP(&sa.ZipkinURL, "zipkinURL", "", "",
 		"URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.")
 	serverCmd.PersistentFlags().StringVarP(&sa.JaegerURL, "jaegerURL", "", "",
@@ -66,16 +60,13 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().BoolVarP(&sa.LogTraceSpans, "logTraceSpans", "", false,
 		"Whether or not to log Mixer trace spans. This enables tracing for Mixer itself.")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStoreURL, "configStoreURL", "", "",
-		"URL of the config store. May be fs:// for file system, or redis:// for redis url")
-
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStore2URL, "configStore2URL", "", "",
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigDefaultNamespace, "configDefaultNamespace", "", mixerRuntime.DefaultConfigNamespace,
 		"Namespace used to store mesh wide configuration.")
 
-	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose it.
+	// Hide configIdentityAttribute and configIdentityAttributeDomain until we have a need to expose them.
 	// These parameters ensure that rest of Mixer makes no assumptions about specific identity attribute.
 	// Rules selection is based on scopes.
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigIdentityAttribute, "configIdentityAttribute", "", "destination.service",
@@ -89,11 +80,28 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		fatalf("unable to hide: %v", err)
 	}
 
-	// serviceConfig and globalConfig are for compatibility only
-	serverCmd.PersistentFlags().StringVarP(&sa.ServiceConfigFile, "serviceConfigFile", "", "", "Combined Service Config")
-	serverCmd.PersistentFlags().StringVarP(&sa.GlobalConfigFile, "globalConfigFile", "", "", "Global Config")
-
-	serverCmd.PersistentFlags().UintVarP(&sa.ConfigFetchIntervalSec, "configFetchInterval", "", 5, "Configuration fetch interval in seconds")
+	// TODO: Remove all this stuff by the 0.5 release
+	var dummy string
+	var dummy2 uint16
+	var dummy3 uint
+	serverCmd.PersistentFlags().StringVarP(&sa.ZipkinURL, "traceOutput", "", "", "deprecated")
+	serverCmd.PersistentFlags().StringVarP(&dummy, "configStoreURL", "", "", "deprecated")
+	serverCmd.PersistentFlags().StringVarP(&dummy, "serviceConfigFile", "", "", "deprecated")
+	serverCmd.PersistentFlags().StringVarP(&dummy, "globalConfigFile", "", "", "deprecated")
+	serverCmd.PersistentFlags().Uint16VarP(&dummy2, "configAPIPort", "", 0, "deprecated")
+	serverCmd.PersistentFlags().UintVarP(&dummy3, "configFetchInterval", "", 0, "deprecated")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("traceOutput", "")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("configStoreURL", "")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("serviceConfigFile", "")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("globalConfigFile", "")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("configAPIPort", "")
+	_ = serverCmd.PersistentFlags().MarkDeprecated("configFetchInterval", "")
+	_ = serverCmd.PersistentFlags().MarkHidden("traceOutput")
+	_ = serverCmd.PersistentFlags().MarkHidden("configStoreURL")
+	_ = serverCmd.PersistentFlags().MarkHidden("serviceConfigFile")
+	_ = serverCmd.PersistentFlags().MarkHidden("globalConfigFile")
+	_ = serverCmd.PersistentFlags().MarkHidden("configAPIPort")
+	_ = serverCmd.PersistentFlags().MarkHidden("configFetchInterval")
 
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
 
