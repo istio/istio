@@ -19,10 +19,9 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"istio.io/istio/mixer/pkg/version"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pilot/tools/version"
 )
 
 type monitor struct {
@@ -35,7 +34,7 @@ const (
 	versionPath = "/version"
 )
 
-func startMonitor(port uint16) (*monitor, error) {
+func startMonitor(port int) (*monitor, error) {
 	m := &monitor{
 		shutdown: make(chan struct{}),
 	}
@@ -48,14 +47,14 @@ func startMonitor(port uint16) (*monitor, error) {
 	}
 
 	// NOTE: this is a temporary solution to provide bare-bones debug functionality
-	// for mixer. a full design / implementation of self-monitoring and reporting
+	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
-	// functionality, in addition to how mixer reports its own metrics.
+	// functionality, in addition to how pilot reports its own metrics.
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, promhttp.Handler())
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
-		if _, err := out.Write([]byte(version.Info.String())); err != nil {
-			log.Errorf("Unable to write version string: %v", err)
+		if _, err := out.Write([]byte(version.Line())); err != nil {
+			glog.Errorf("Unable to write version string: %v", err)
 		}
 	})
 
