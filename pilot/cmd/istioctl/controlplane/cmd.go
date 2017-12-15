@@ -24,8 +24,11 @@ import (
 
 // Command returns the "control-plane" subcommand for istioctl.
 func Command(istioNamespaceFlag *string) *cobra.Command {
-	var features *[]string
-	var out string
+	var (
+		features          *[]string
+		out               string
+		helmChartLocation string
+	)
 
 	m := defaultModel()
 	cmd := &cobra.Command{
@@ -40,10 +43,15 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 			m.Namespace = *istioNamespaceFlag
 			switch strings.ToLower(out) {
 			case "helm":
-				_, err := fmt.Fprint(os.Stdout, fromModel(m))
+				_, err := fmt.Fprint(os.Stdout, valuesFromModel(m))
 				return err
 			case "yaml":
-				return fmt.Errorf("not implemented")
+				rendered, err := yamlFromModel(m, helmChartLocation)
+				if err != nil {
+					return err
+				}
+				_, err = fmt.Fprint(os.Stdout, rendered)
+				return err
 			default:
 				return fmt.Errorf("unsupported output %q", out)
 			}
@@ -60,10 +68,13 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&m.Debug, "debug", false, "If true, uses debug images instead of release images")
 	cmd.PersistentFlags().Uint16Var(&m.NodePort, "ingress-node-port", 0,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
-			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too")
+			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too.")
 	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
 					"helm": produces contents of values.yaml
 					"yaml": produces Kubernetes deployments`)
+	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
+		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
+	_ = cmd.PersistentFlags().MarkHidden("helm-chart-dir")
 
 	return cmd
 }
