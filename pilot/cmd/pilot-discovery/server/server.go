@@ -24,7 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -176,6 +176,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
+	if err := s.initMonitor(&args); err != nil {
+		return nil, err
+	}
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
@@ -217,6 +220,24 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop chan struct{}) error
+
+// initMonitor initializes the configuration for the pilot monitoring server.
+func (s *Server) initMonitor(args *PilotArgs) error {
+	s.addStartFunc(func(stop chan struct{}) error {
+		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			<-stop
+			err := monitor.Close()
+			glog.V(2).Infof("Monitoring server terminated: %v", err)
+		}()
+		return nil
+	})
+	return nil
+}
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
