@@ -18,8 +18,6 @@ import (
 	"errors"
 
 	"code.cloudfoundry.org/copilot/api"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"
