@@ -46,25 +46,24 @@
 # Generate a 'kubedns' Dnsmasq config file using the internal load balancer.
 # It will need to be installed on each machine expanding the mesh.
 function istioDnsmasq() {
-   local NS=${ISTIO_NAMESPACE:-istio-system}
-
+  local NS=${ISTIO_NAMESPACE:-istio-system}
   # Multiple tries, it may take some time until the controllers generate the IPs
-  for i in {1..10}
+  for i in {1..20}
   do
     PILOT_IP=$(kubectl get -n $NS service istio-pilot-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     ISTIO_DNS=$(kubectl get -n kube-system service dns-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     MIXER_IP=$(kubectl get -n $NS service mixer-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
     CA_IP=$(kubectl get -n $NS service istio-ca-ilb -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
-        echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
-        sleep 5
+    if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
+      echo "Waiting for ILBs, pilot=$PILOT_IP, MIXER_IP=$MIXER_IP, CA_IP=$CA_IP, DNS=$ISTIO_DNS - kubectl get -n $NS service: $(kubectl get -n $NS service)"
+      sleep 30
     else
-        break
+      break
     fi
   done
 
-  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" ] ; then
+  if [ "${PILOT_IP}" == "" -o  "${ISTIO_DNS}" == "" -o "${MIXER_IP}" == "" -o "${CA_IP}" == "" ] ; then
     echo "Failed to create ILBs"
     exit 1
   fi
@@ -88,16 +87,15 @@ function istioDnsmasq() {
 # Parameters:
 # - name of the k8s cluster.
 function istioClusterEnv() {
-   local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
-   local ISTIO_NS=${ISTIO_NAMESPACE:-istio-system}
-   local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
+  local K8S_CLUSTER=${1:-${K8S_CLUSTER}}
+  local ISTIO_NS=${ISTIO_NAMESPACE:-istio-system}
+  local CP_AUTH_POLICY=${CONTROL_PLANE_AUTH_POLICY:-MUTUAL_TLS}
 
-   # TODO: parse it all from $(kubectl config current-context)
-   CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
-   echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
-   echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
-   echo "CONTROL_PLANE_AUTH_POLICY=$CP_AUTH_POLICY" >> cluster.env
-
+  # TODO: parse it all from $(kubectl config current-context)
+  CIDR=$(gcloud container clusters describe ${K8S_CLUSTER} ${GCP_OPTS:-} --format "value(servicesIpv4Cidr)")
+  echo "ISTIO_SERVICE_CIDR=$CIDR" > cluster.env
+  echo "ISTIO_SYSTEM_NAMESPACE=$ISTIO_NS" >> cluster.env
+  echo "CONTROL_PLANE_AUTH_POLICY=$CP_AUTH_POLICY" >> cluster.env
 
   echo "Generated cluster.env, needs to be installed in each VM as /var/lib/istio/envoy/cluster.env"
   echo "the /var/lib/istio/envoy/ directory and files must be readable by 'istio-proxy' user"
@@ -140,23 +138,37 @@ function istio_provision_certs() {
 #
 # Expected to be run from the release directory (ie istio-0.2.8/ or istio/)
 function istioBootstrapVM() {
- local DESTINATION=${1}
+  local DESTINATION=${1}
+  local SA=${2:-${SERVICE_ACCOUNT:-default}}
+  local NS=${3:-${SERVICE_NAMESPACE:-}}
 
- local SA=${2:-${SERVICE_ACCOUNT:-default}}
- local NS=${3:-${SERVICE_NAMESPACE:-}}
- echo "Making certs for service account $SA (namespace $NS)"
- istio_provision_certs $SA $NS
+  DEFAULT_SCRIPT="install/tools/setupIstioVM.sh"
+  SETUP_ISTIO_VM_SCRIPT=${SETUP_ISTIO_VM_SCRIPT:-${DEFAULT_SCRIPT}}
+  echo "Making certs for service account $SA (namespace $NS)"
+  istio_provision_certs $SA $NS
 
- # Copy deb, helper and config files
- istioCopy $DESTINATION \
-   kubedns \
-   *.pem \
-   cluster.env \
-   istio.VERSION \
-   install/tools/setupIstioVM.sh
+  for i in {1..10}; do
+    # Copy deb, helper and config files
+    istioCopy $DESTINATION \
+      kubedns \
+      *.pem \
+      cluster.env \
+      istio.VERSION \
+      ${SETUP_ISTIO_VM_SCRIPT}
 
- # Run the setup script.
- istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
+    if [[ $? -ne 0 ]]; then
+      echo "scp failed, retry in 10 sec"
+      sleep 10
+    else
+      echo "scp succeeded"
+      break
+    fi
+  done
+
+  istioRun $DESTINATION "ls -a"
+
+  # Run the setup script.
+  istioRun $DESTINATION "sudo bash -c -x ./setupIstioVM.sh"
 }
 
 
