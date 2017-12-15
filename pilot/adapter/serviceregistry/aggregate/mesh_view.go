@@ -18,13 +18,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net"
-	"sync"
-
 	"github.com/golang/glog"
-
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
+	"net"
+	"sync"
 )
 
 const (
@@ -146,8 +144,12 @@ func resourceLabelFromNameValue(label string, value *string) resourceLabel {
 func resourceLabelsFromModelLabels(lc model.Labels) resourceLabels {
 	rl := make(resourceLabels, len(lc))
 	i := 0
-	for k, v := range lc {
-		rl[i] = resourceLabelFromNameValue(k, &v)
+	for k := range lc {
+		// make a copy to ensure each label
+		// has a diff string address
+		val := new(string)
+		*val = lc[k]
+		rl[i] = resourceLabelFromNameValue(k, val)
 		i++
 	}
 	return rl
@@ -155,8 +157,11 @@ func resourceLabelsFromModelLabels(lc model.Labels) resourceLabels {
 
 func resourceLabelsFromNameValues(label string, values []string) resourceLabels {
 	rl := make(resourceLabels, len(values))
-	for idx, v := range values {
-		rl[idx] = resourceLabelFromNameValue(label, &v)
+	for idx := range values {
+		// ensure distinct string addresses
+		var v *string
+		v = &values[idx]
+		rl[idx] = resourceLabelFromNameValue(label, v)
 	}
 	return rl
 }
