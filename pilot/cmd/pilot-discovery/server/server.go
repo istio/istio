@@ -306,17 +306,34 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-type mockController struct{}
+type mockController struct{
+   mockDiscovery model.ServiceDiscovery 
+   svcHandler func(*model.Service, model.Event)
+   instHandler func(*model.ServiceInstance, model.Event)
+}
 
 func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
+    // TODO: Last call wins. This may work, but may need refactoring down the line
+    c.svcHandler = f
 	return nil
 }
 
 func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+    // TODO: Last call wins. This may work, but may need refactoring down the line
+    c.instHandler = f
 	return nil
 }
 
-func (c *mockController) Run(<-chan struct{}) {}
+func (c *mockController) Run(<-chan struct{}) {
+    svcs, err := c.mockDiscovery.Services()
+    if err != nil {
+        glog.Errorf("mockDiscovery failed to return services: '%v'", err)
+        return
+    }
+    for _, svc := range svcs {
+        c.svcHandler(svc, model.EventAdd)
+    } 
+}
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
@@ -381,14 +398,14 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				Name:             platform.ServiceRegistry("mockAdapter1"),
 				ServiceDiscovery: discovery1,
 				ServiceAccounts:  discovery1,
-				Controller:       &mockController{},
+				Controller:       &mockController{mockDiscovery: discovery1},
 			}
 
 			registry2 := aggregate.Registry{
 				Name:             platform.ServiceRegistry("mockAdapter2"),
 				ServiceDiscovery: discovery2,
 				ServiceAccounts:  discovery2,
-				Controller:       &mockController{},
+				Controller:       &mockController{mockDiscovery: discovery2},
 			}
 			meshResourceView.AddRegistry(registry1)
 			meshResourceView.AddRegistry(registry2)
