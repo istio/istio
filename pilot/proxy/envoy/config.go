@@ -31,7 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -769,8 +769,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 
 							host.Routes = append(host.Routes, route)
 						}
-					case *routing_v1alpha2.RouteRule:
-						rule := config.Spec.(*routing_v1alpha2.RouteRule)
+					case *routingv2.RouteRule:
+						rule := config.Spec.(*routingv2.RouteRule)
 						// if no routes are returned, it is a TCP RouteRule
 						if routes := buildInboundRouteV1Alpha2(config, rule, cluster); len(routes) != 0 {
 							for _, route := range routes {

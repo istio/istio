@@ -22,7 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	routing "istio.io/api/routing/v1alpha1"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"
@@ -450,11 +450,11 @@ func TestRouteRulesV1Alpha2(t *testing.T) {
 	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
 
-	routerule1 := &routing_v1alpha2.RouteRule{
+	routerule1 := &routingv2.RouteRule{
 		Hosts: []string{"world"},
-		Http: []*routing_v1alpha2.HTTPRoute{
+		Http: []*routingv2.HTTPRoute{
 			{
-				Match: []*routing_v1alpha2.HTTPMatchRequest{
+				Match: []*routingv2.HTTPMatchRequest{
 					{
 						SourceLabels: instance.Labels,
 					},

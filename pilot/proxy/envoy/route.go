@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	routing "istio.io/api/routing/v1alpha1"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -90,7 +90,7 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRouteV1Alpha2(config model.Config, rule *routing_v1alpha2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRouteV1Alpha2(config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
 		matchRoutes := buildHTTPRouteMatches(http.Match)
@@ -155,7 +155,7 @@ func buildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1Alpha1(config, service, port)}
-	case *routing_v1alpha2.RouteRule:
+	case *routingv2.RouteRule:
 		return buildHTTPRouteV1Alpha2(config, service, port)
 	default:
 		panic("unsupported rule")
@@ -231,7 +231,7 @@ func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *m
 	if rule.HttpFault != nil {
 		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
 		for _, c := range route.clusters {
-			if fault := buildHTTPFaultFilterV1Alpha1(c.Name, rule.HttpFault, route.Headers); fault != nil {
+			if fault := buildHTTPFaultFilter(c.Name, rule.HttpFault, route.Headers); fault != nil {
 				route.faults = append(route.faults, fault)
 			}
 		}
@@ -282,7 +282,7 @@ func buildHTTPRouteV1Alpha1(config model.Config, service *model.Service, port *m
 }
 
 func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
-	rule := config.Spec.(*routing_v1alpha2.RouteRule)
+	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
 	defaultDestination := service.Hostname
@@ -359,7 +359,7 @@ func buildHTTPRouteV1Alpha2(config model.Config, service *model.Service, port *m
 	return routes
 }
 
-func applyRedirect(route *HTTPRoute, redirect *routing_v1alpha2.HTTPRedirect) {
+func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
 	if redirect != nil {
 		route.HostRedirect = redirect.Authority
 		route.PathRedirect = redirect.Uri
@@ -367,7 +367,7 @@ func applyRedirect(route *HTTPRoute, redirect *routing_v1alpha2.HTTPRedirect) {
 	}
 }
 
-func buildRetryPolicy(retries *routing_v1alpha2.HTTPRetry) (policy *RetryPolicy) {
+func buildRetryPolicy(retries *routingv2.HTTPRetry) (policy *RetryPolicy) {
 	if retries != nil && retries.Attempts > 0 {
 		policy = &RetryPolicy{
 			NumRetries: int(retries.GetAttempts()),
@@ -380,14 +380,14 @@ func buildRetryPolicy(retries *routing_v1alpha2.HTTPRetry) (policy *RetryPolicy)
 	return
 }
 
-func applyRewrite(route *HTTPRoute, rewrite *routing_v1alpha2.HTTPRewrite) {
+func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	if rewrite != nil {
 		route.HostRewrite = rewrite.Authority
 		route.PrefixRewrite = rewrite.Uri
 	}
 }
 
-func buildShadowCluster(meta model.ConfigMeta, mirror *routing_v1alpha2.Destination) *ShadowCluster {
+func buildShadowCluster(meta model.ConfigMeta, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
 		return &ShadowCluster{Cluster: model.ResolveFQDN(meta, mirror.Name)}
 	}
@@ -405,7 +405,7 @@ func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
 	return out
 }
 
-func buildCORSPolicy(policy *routing_v1alpha2.CorsPolicy) *CORSPolicy {
+func buildCORSPolicy(policy *routingv2.CorsPolicy) *CORSPolicy {
 	if policy == nil {
 		return nil
 	}

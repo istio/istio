@@ -25,7 +25,7 @@ import (
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
-	routing_v1alpha2 "istio.io/api/routing/v1alpha2"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -305,7 +305,7 @@ var (
 		Validate:    ValidateRouteRule,
 	}
 
-	// RouteRuleV1Alpha2 describes v1alpha2 route rules
+	// V1alpha2RouteRule describes v1alpha2 route rules
 	V1alpha2RouteRule = ProtoSchema{
 		Type:        "v1alpha2-route-rule",
 		Plural:      "v1alpha2-route-rules",
@@ -541,7 +541,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routing_v1alpha2.RouteRule)
+		rule := config.Spec.(*routingv2.RouteRule)
 
 		var found bool
 		for _, host := range rule.Hosts {
@@ -567,7 +567,7 @@ func (store *istioConfigStore) routeRulesV1Alpha2(instances []*ServiceInstance, 
 
 // TODO: can the instance matching be optimized?
 // TODO: tcp match conditions
-func matchSource(rule *routing_v1alpha2.RouteRule, instances []*ServiceInstance) bool {
+func matchSource(rule *routingv2.RouteRule, instances []*ServiceInstance) bool {
 	if len(rule.Http) == 0 {
 		return true
 	}
@@ -622,7 +622,7 @@ func (store *istioConfigStore) routeRulesByDestinationV1Alpha2(instances []*Serv
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*routing_v1alpha2.RouteRule)
+		rule := config.Spec.(*routingv2.RouteRule)
 		// TODO: optimize lookup
 		HostLoop:
 		for _, host := range rule.Hosts {
