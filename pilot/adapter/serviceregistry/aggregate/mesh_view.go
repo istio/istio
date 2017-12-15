@@ -18,11 +18,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
 	"net"
 	"sync"
+
+	"github.com/golang/glog"
+
+	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform"
 )
 
 const (
