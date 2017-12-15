@@ -29,6 +29,7 @@ go_library(
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/status:go_default_library",
         "//mixer/pkg/template:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_googleapis_googleapis//:google/rpc",

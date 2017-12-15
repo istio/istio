@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Validator offers semantic validation of the config changes.
@@ -139,7 +139,7 @@ func (v *Validator) validateHandlerDelete(hkey store.Key) error {
 			key, err := v.getKey(action.Handler, rkey.Namespace)
 			if err != nil {
 				// invalid rules are already in the cache; simply log it and continue
-				glog.Errorf("Invalid handler value %s in %s", action.Handler, rkey)
+				log.Errorf("Invalid handler value %s in %s", action.Handler, rkey)
 				continue
 			}
 			if key == hkey {
@@ -162,7 +162,7 @@ func (v *Validator) validateInstanceDelete(ikey store.Key) error {
 				key, err := v.getKey(instance, rkey.Namespace)
 				if err != nil {
 					// invalid rules are already in the cache; simply log it and continue
-					glog.Errorf("Invalid handler value %s in %s", instance, rkey)
+					log.Errorf("Invalid handler value %s in %s", instance, rkey)
 					continue
 				}
 				if key == ikey {
@@ -224,7 +224,7 @@ func (v *Validator) validateDelete(key store.Key) error {
 			v.refreshTypeChecker()
 		}()
 	} else {
-		glog.V(4).Infof("don't know how to validate %s", key)
+		log.Debugf("don't know how to validate %s", key)
 	}
 	return nil
 }
@@ -265,7 +265,7 @@ func (v *Validator) validateUpdate(ev *store.Event) error {
 			v.refreshTypeChecker()
 		}()
 	} else {
-		glog.V(4).Infof("don't know how to validate %s", ev.Key)
+		log.Debugf("don't know how to validate %s", ev.Key)
 	}
 	return nil
 }

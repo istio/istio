@@ -80,7 +80,7 @@ func getValidatorForTest() (*Validator, error) {
 	if err != nil {
 		return nil, err
 	}
-	eval, err := evaluator.NewILEvaluator(evaluator.DefaultCacheSize, evaluator.DefaultMaxStringTableSizeForPurge)
+	eval, err := evaluator.NewILEvaluator(evaluator.DefaultCacheSize)
 	if err != nil {
 		return nil, err
 	}
