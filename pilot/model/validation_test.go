@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -29,6 +30,7 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -300,6 +302,37 @@ func TestValidateFQDN(t *testing.T) {
 	}
 	if ValidateFQDN("") == nil {
 		t.Error("expected error on empty FQDN")
+	}
+}
+
+func TestValidateWildcardDomain(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{"empty", "", "empty"},
+		{"too long", strings.Repeat("x", 256), "too long"},
+		{"happy", strings.Repeat("x", 63), ""},
+		{"wildcard", "*", ""},
+		{"wildcard multi-segment", "*.bar.com", ""},
+		{"wildcard single segment", "*foo", ""},
+		{"wildcard prefix", "*foo.bar.com", ""},
+		{"wildcard prefix dash", "*-foo.bar.com", ""},
+		{"bad wildcard", "foo.*.com", "invalid"},
+		{"bad wildcard", "foo*.bar.com", "invalid"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateWildcardDomain(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateWildcardDomain(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
 	}
 }
 
@@ -1302,23 +1335,61 @@ var (
 func TestValidateMixerAttributes(t *testing.T) {
 	cases := []struct {
 		name  string
-		in    proto.Message
+		in    *mpb.Attributes_AttributeValue
 		valid bool
 	}{
-		{
-			name:  "valid",
-			in:    validAttributes,
-			valid: true,
-		},
-		{
-			name: "invalid",
-			in:   invalidAttributes,
-		},
+		{"happy string",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
+			true},
+		{"invalid string",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{""}},
+			false},
+		{"happy duration",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Seconds: 1}}},
+			true},
+		{"invalid duration",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Nanos: -1e9}}},
+			false},
+		{"happy bytes",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{1, 2, 3}}},
+			true},
+		{"invalid bytes",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{}}},
+			false},
+		{"happy timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{}}},
+			true},
+		{"invalid timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{Nanos: -1}}},
+			false},
+		{"nil timestamp",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{nil}},
+			false},
+		{"happy stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				&mpb.Attributes_StringMap{Entries: map[string]string{"foo": "bar"}}}},
+			true},
+		{"invalid stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
+				&mpb.Attributes_StringMap{Entries: nil}}},
+			false},
+		{"nil stringmap",
+			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{nil}},
+			false},
 	}
 	for _, c := range cases {
-		if got := ValidateMixerAttributes(c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateMixerAttributes(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			attrs := &mpb.Attributes{
+				Attributes: map[string]*mpb.Attributes_AttributeValue{"key": c.in},
+			}
+			if got := ValidateMixerAttributes(attrs); (got == nil) != c.valid {
+				if c.valid {
+					t.Fatal("got error, wanted none")
+				} else {
+					t.Fatal("got no error, wanted one")
+				}
+			}
+		})
 	}
 }
 
@@ -1658,5 +1729,466 @@ func TestValidateQuotaSpecBinding(t *testing.T) {
 		if got := ValidateQuotaSpecBinding(c.in); (got == nil) != c.valid {
 			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpec(t *testing.T) {
+	var (
+	//
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no jwt",
+			in:   &mccpb.EndUserAuthenticationPolicySpec{Jwts: []*mccpb.JWT{}},
+		},
+		{
+			name: "invalid issuer",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid audiences",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{""},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "missing jwks_uri",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri with missing scheme",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: " jwks_uri invalid url",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                ":foo",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid duration",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:    "https://issuer.example.com",
+					Audiences: []string{"audience_foo.example.com"},
+					JwksUri:   "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: &types.Duration{
+						Seconds: -1,
+					},
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+		},
+		{
+			name: "invalid location header",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Header{}}},
+				}},
+			},
+		},
+		{
+			name: "invalid location query",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations:              []*mccpb.JWT_Location{{Scheme: &mccpb.JWT_Location_Query{}}},
+				}},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpec{
+				Jwts: []*mccpb.JWT{{
+					Issuer:                 "https://issuer.example.com",
+					Audiences:              []string{"audience_foo.example.com"},
+					JwksUri:                "https://www.example.com/oauth/v1/certs",
+					PublicKeyCacheDuration: types.DurationProto(5 * time.Minute),
+					Locations: []*mccpb.JWT_Location{{
+						Scheme: &mccpb.JWT_Location_Header{Header: "x-goog-iap-jwt-assertion"},
+					}},
+				}},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpec(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateEndUserAuthenticationPolicySpecBinding(t *testing.T) {
+	var (
+		validEndUserAuthenticationPolicySpecRef   = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "bar"}
+		invalidEndUserAuthenticationPolicySpecRef = &mccpb.EndUserAuthenticationPolicySpecReference{Name: "foo", Namespace: "--bar"}
+	)
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{
+			name: "no service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "invalid service",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{invalidService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "no spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{},
+			},
+		},
+		{
+			name: "invalid spec",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{invalidEndUserAuthenticationPolicySpecRef},
+			},
+		},
+		{
+			name: "valid",
+			in: &mccpb.EndUserAuthenticationPolicySpecBinding{
+				Services: []*mccpb.IstioService{validService},
+				Policies: []*mccpb.EndUserAuthenticationPolicySpecReference{validEndUserAuthenticationPolicySpecRef},
+			},
+			valid: true,
+		},
+	}
+	for _, c := range cases {
+		if got := ValidateEndUserAuthenticationPolicySpecBinding(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateEndUserAuthenticationPolicySpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateGateway(t *testing.T) {
+	tests := []struct {
+		name string
+		in   proto.Message
+		out  string
+	}{
+		{"empty", &routingv2.Gateway{}, "server"},
+		{"invalid message", &routingv2.Server{}, "cannot cast"},
+		{"happy domain",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"foo.bar.com"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy ip",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.1"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy cidr",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{{
+					Domains: []string{"192.168.0.0/16"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				}},
+			},
+			""},
+		{"happy multiple servers",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 18, Protocol: "redis"},
+					}},
+			},
+			""},
+		{"invalid port",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+					}},
+			},
+			"port"},
+		{"invalid domain",
+			&routingv2.Gateway{
+				Servers: []*routingv2.Server{
+					{
+						Domains: []string{"foo.*.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					},
+					{
+						Domains: []string{"192.168.0.0/33"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+					}},
+			},
+			"domain"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateGateway(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("ValidateGateway(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("ValidateGateway(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateServer(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server
+		out  string
+	}{
+		{"empty", &routingv2.Server{}, "domain"},
+		{"empty", &routingv2.Server{}, "port"},
+		{"happy",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+			},
+			""},
+		{"invalid domain",
+			&routingv2.Server{
+				Domains: []string{"foo.*.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
+			},
+			"domain"},
+		{"invalid port",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 66000, Protocol: "http"},
+			},
+			"port"},
+		{"invalid tls options",
+			&routingv2.Server{
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 1, Protocol: "http"},
+				Tls:     &routingv2.Server_TLSOptions{Mode: routingv2.Server_TLSOptions_SIMPLE},
+			},
+			"TLS"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServer(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateServer(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateServer(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateServer(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateServerPort(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server_Port
+		out  string
+	}{
+		{"empty", &routingv2.Server_Port{}, "invalid protocol"},
+		{"empty", &routingv2.Server_Port{}, "port number"},
+		{"happy",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   1,
+				Name:     "Henry",
+			},
+			""},
+		{"invalid protocol",
+			&routingv2.Server_Port{
+				Protocol: "kafka",
+				Number:   1,
+				Name:     "Henry",
+			},
+			"invalid protocol"},
+		{"no port name/number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "",
+			},
+			"either port number or name"},
+		{"invalid number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   uint32(1 << 30),
+				Name:     "",
+			},
+			"port number"},
+		{"name, no number",
+			&routingv2.Server_Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "Henry",
+			},
+			""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServerPort(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateServerPort(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateServerPort(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateServerPort(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
+	}
+}
+
+func TestValidateTlsOptions(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *routingv2.Server_TLSOptions
+		out  string
+	}{
+		{"empty", &routingv2.Server_TLSOptions{}, ""},
+		{"simple",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard"},
+			""},
+		{"simple with client bundle",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    "Commander William T. Riker"},
+			""},
+		{"simple no server cert",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_SIMPLE,
+				ServerCertificate: ""},
+			"server certificate"},
+		{"mutual",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    "Commander William T. Riker"},
+			""},
+		{"mutual no server cert",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    "Commander William T. Riker"},
+			"server certificate"},
+		{"mutual no client CA bundle",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				ClientCaBundle:    ""},
+			"client CA bundle"},
+		// this pair asserts we get errors about both client and server certs missing when in mutual mode
+		// and both are absent, but requires less rewriting of the testing harness than merging the cases
+		{"mutual no certs",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    ""},
+			"server certificate"},
+		{"mutual no certs",
+			&routingv2.Server_TLSOptions{
+				Mode:              routingv2.Server_TLSOptions_MUTUAL,
+				ServerCertificate: "",
+				ClientCaBundle:    ""},
+			"client CA bundle"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTLSOptions(tt.in)
+			if err == nil && tt.out != "" {
+				t.Fatalf("validateTlsOptions(%v) = nil, wanted %q", tt.in, tt.out)
+			} else if err != nil && tt.out == "" {
+				t.Fatalf("validateTlsOptions(%v) = %v, wanted nil", tt.in, err)
+			} else if err != nil && !strings.Contains(err.Error(), tt.out) {
+				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
+			}
+		})
 	}
 }

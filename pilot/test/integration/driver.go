@@ -204,6 +204,7 @@ func runTests(envs ...infra) {
 			&ingress{infra: &istio},
 			&egressRules{infra: &istio},
 			&routing{infra: &istio},
+			&routingToEgress{infra: &istio},
 			&zipkin{infra: &istio},
 			&authExclusion{infra: &istio},
 		}

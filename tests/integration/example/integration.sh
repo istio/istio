@@ -27,8 +27,8 @@ function process_result() {
 }
 
 # Build mixer binary
-bazel build //mixer/cmd/server:mixs
-MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/server/mixs
+bazel build //mixer/cmd/mixs:mixs
+MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/mixs/mixs
 
 # Get fortio
 go get -u istio.io/fortio

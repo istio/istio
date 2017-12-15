@@ -16,7 +16,6 @@ package ingress
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -93,15 +92,9 @@ func createIngressRule(name, host, path, domainSuffix string,
 	}
 
 	if path != "" {
-		if isRegularExpression(path) {
-			if strings.HasSuffix(path, ".*") && !isRegularExpression(strings.TrimSuffix(path, ".*")) {
-				rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-					MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
-				}
-			} else {
-				rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
-					MatchType: &routing.StringMatch_Regex{Regex: path},
-				}
+		if strings.HasSuffix(path, ".*") {
+			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
+				MatchType: &routing.StringMatch_Prefix{Prefix: strings.TrimSuffix(path, ".*")},
 			}
 		} else {
 			rule.Match.Request.Headers[model.HeaderURI] = &routing.StringMatch{
@@ -155,13 +148,6 @@ func decodeIngressRuleName(name string) (ingressName string, ruleNum, pathNum in
 	}
 
 	return
-}
-
-// isRegularExpression determines whether the given string s is a non-trivial regular expression,
-// i.e., it can potentially match other strings different than itself.
-// TODO: warning that Envoy regex language is not 1-1 with golang's regex language!
-func isRegularExpression(s string) bool {
-	return len(s) < len(regexp.QuoteMeta(s))
 }
 
 // shouldProcessIngress determines whether the given ingress resource should be processed

@@ -21,6 +21,6 @@ filegroup(
     visibility = [
         "//mixer/pkg/mock:__subpackages__",
         "//mixer/pkg/runtime:__subpackages__",
-        "//tests/integration/component/mixer:__subpackages__"
+        "//tests/integration/component/mixer:__subpackages__",
     ],
 )

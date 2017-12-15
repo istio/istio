@@ -34,8 +34,11 @@ rules:
   resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
   verbs: ["*"]
 - apiGroups: [""]
-  resources: ["configmaps", "endpoints", "pods", "services"]
-  verbs: ["*"]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "watch", "update"]
+- apiGroups: [""]
+  resources: ["endpoints", "pods", "services"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["namespaces", "nodes", "secrets"]
   verbs: ["get", "list", "watch"]
@@ -373,6 +376,40 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: kuberneteses.config.istio.io
+  labels:
+    package: adapter.template.kubernetes
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetes
+    plural: kuberneteses
+    singular: kubernetes
+  scope: Namespaced
+  version: v1alpha2
+
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: kubernetesenvs.config.istio.io
+  labels:
+    package: kubernetesenv
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetesenv
+    plural: kubernetesenvs
+    singular: kubernetesenv
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: memquotas.config.istio.io
   labels:
     package: memquota
@@ -475,16 +512,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: svcctrls.config.istio.io
+  name: servicecontrols.config.istio.io
   labels:
-    package: svcctrl
+    package: servicecontrol
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: svcctrl
-    plural: svcctrls
-    singular: svcctrl
+    kind: servicecontrol
+    plural: servicecontrols
+    singular: servicecontrol
   scope: Namespaced
   version: v1alpha2
 ---
@@ -945,6 +982,58 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+apiVersion: "config.istio.io/v1alpha2"
+kind: kubernetesenv
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  # when running from mixer root, use the following config after adding a
+  # symbolic link to a kubernetes config file via:
+  #
+  # $ ln -s ~/.kube/config mixer/adapter/kubernetes/kubeconfig
+  #
+  # kubeconfig_path: "mixer/adapter/kubernetes/kubeconfig"
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: kubeattrgenrule
+  namespace: istio-system
+spec:
+  actions:
+  - handler: handler.kubernetesenv
+    instances:
+    - attributes.kubernetes
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: kubernetes
+metadata:
+  name: attributes
+  namespace: istio-system
+spec:
+  # Pass the required attribute data to the adapter
+  source_uid: source.uid | ""
+  source_ip: source.ip | ip("0.0.0.0") # default to unspecified ip addr
+  destination_uid: destination.uid | ""
+  destination_ip: destination.ip | ip("0.0.0.0") # default to unspecified ip addr
+  origin_uid: '""'
+  origin_ip: ip("0.0.0.0") # default to unspecified ip addr
+  attribute_bindings:
+    # Fill the new attributes from the adapter produced output.
+    # $out refers to an instance of OutputTemplate message
+    source.ip: $out.source_pod_ip
+    source.labels: $out.source_labels
+    source.namespace: $out.source_namespace
+    source.service: $out.source_service
+    source.serviceAccount: $out.source_service_account_name
+    destination.ip: $out.destination_pod_ip
+    destination.labels: $out.destination_labels
+    destination.namespace: $out.destination_namespace
+    destination.service: $out.destination_service
+    destination.serviceAccount: $out.destination_service_account_name
+---
 ################################
 # Istio configMap cluster-wide
 ################################
@@ -958,6 +1047,11 @@ data:
     # Uncomment the following line to enable mutual TLS between proxies
     authPolicy: MUTUAL_TLS
     #
+    # Edit this list to avoid using mTLS to connect to these services.
+    # Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
+    # to transparently terminate mTLS authentication.
+    mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
+
     # Set the following variable to true to disable policy checks by the Mixer.
     # Note that metrics will still be reported to the Mixer.
     disablePolicyChecks: false
@@ -1291,4 +1385,7 @@ spec:
           - --grpc-port=8060
           - --grpc-hostname=istio-ca
           - --self-signed-ca=true
+          - --logtostderr
+          - --stderrthreshold
+          - INFO
 ---

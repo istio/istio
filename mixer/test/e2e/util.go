@@ -16,33 +16,19 @@ package e2e
 
 import (
 	"fmt"
-	"os"
-	"path"
+	"io"
+	"log"
 	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/test/spyAdapter"
 )
-
-// GetCfgs takes the operator configuration as strings and creates directory with config files from it.
-func GetCfgs(srvcCnfg, attrCnfg string) (dir string) {
-	tmpDir := path.Join(os.TempDir(), "e2eStoreDir")
-	_ = os.MkdirAll(tmpDir, os.ModePerm)
-
-	srvcCnfgFile, _ := os.Create(path.Join(tmpDir, "srvc.yaml"))
-	globalCnfgFile, _ := os.Create(path.Join(tmpDir, "global.yaml"))
-
-	_, _ = globalCnfgFile.Write([]byte(attrCnfg))
-	_, _ = srvcCnfgFile.Write([]byte(srvcCnfg))
-
-	_ = globalCnfgFile.Close()
-	_ = srvcCnfgFile.Close()
-
-	return tmpDir
-}
 
 // ConstructAdapterInfos constructs spyAdapters for each of the adptBehavior. It returns
 // the constructed spyAdapters along with the adapters Info functions.
@@ -122,4 +108,35 @@ func interfaceMap(m interface{}) map[interface{}]interface{} {
 	}
 
 	return ret
+}
+
+// nolint: deadcode
+type testData struct {
+	name      string
+	cfg       string
+	behaviors []spyAdapter.AdapterBehavior
+	templates map[string]template.Info
+	attrs     map[string]interface{}
+	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
+}
+
+// nolint: deadcode
+func closeHelper(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// nolint: deadcode
+func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
 }

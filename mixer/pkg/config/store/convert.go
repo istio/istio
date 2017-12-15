@@ -21,7 +21,8 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -40,7 +41,7 @@ func warnDeprecationAndFix(key Key, spec map[string]interface{}) map[string]inte
 	if sel == nil {
 		return spec
 	}
-	glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
+	log.Warnf("Deprecated field 'selector' used in %s. Use 'match' instead.", key)
 	spec[matchField] = sel
 	delete(spec, selectorField)
 	return spec
@@ -62,7 +63,7 @@ func convert(key Key, spec map[string]interface{}, target proto.Message) error {
 		return err
 	}
 	if err = jsonpb.Unmarshal(bytes.NewReader(jsonData), target); err != nil {
-		glog.Warningf("%s unable to unmarshal: %s, %s", key, err.Error(), string(jsonData))
+		log.Warnf("%s unable to unmarshal: %s, %s", key, err.Error(), string(jsonData))
 	}
 
 	return err

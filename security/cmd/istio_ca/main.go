@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ca/controller"
 	"istio.io/istio/security/pkg/registry"
+	"istio.io/istio/security/pkg/registry/kube"
 	"istio.io/istio/security/pkg/server/grpc"
 )
 
@@ -142,13 +143,24 @@ func runCA() {
 	stopCh := make(chan struct{})
 	sc.Run(stopCh)
 
-	serviceController := controller.NewServiceController(cs.CoreV1(), opts.namespace,
-		registry.K8SServiceAdded, registry.K8SServiceDeleted, registry.K8SServiceUpdated)
-	serviceController.Run(stopCh)
-
 	if opts.grpcPort > 0 {
+		// start registry if gRPC server is to be started
+		reg := registry.GetIdentityRegistry()
+		ch := make(chan struct{})
+
+		// monitor service objects with "alpha.istio.io/kubernetes-serviceaccounts" annotation
+		serviceController := kube.NewServiceController(cs.CoreV1(), opts.namespace, reg)
+		serviceController.Run(ch)
+
+		// monitor service account objects for istio mesh expansion
+		serviceAccountController := kube.NewServiceAccountController(cs.CoreV1(), opts.namespace, reg)
+		serviceAccountController.Run(ch)
+
 		grpcServer := grpc.New(ca, opts.grpcHostname, opts.grpcPort)
 		if err := grpcServer.Run(); err != nil {
+			// stop the registry-related controllers
+			ch <- struct{}{}
+
 			glog.Warningf("Failed to start GRPC server with error: %v", err)
 		}
 	}

@@ -26,6 +26,7 @@ type authorizer interface {
 
 // sameIDAuthorizer approves a request if the requested identities matches the
 // identities of the requester.
+// nolint
 type sameIDAuthorizer struct{}
 
 func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []string) error {
@@ -51,14 +52,33 @@ func (authZ *sameIDAuthorizer) authorize(requester *caller, requestedIDs []strin
 }
 
 // registryAuthorizor uses an underlying identity registry to make authorization decisions
-// nolint
 type registryAuthorizor struct {
 	reg registry.Registry
 }
 
-// authorize checks for each requested ID, if there is an identity from caller
-// that supports it in registry.
 func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []string) error {
+	// if auth source is JWT token, only check if any of its identities is registered,
+	// as we cannot predict what ID may it request yet
+	if requestor.authSource == authSourceIDToken {
+		valid := false
+		for _, identity := range requestor.identities {
+			if authZ.reg.Check(identity, identity) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("the requestor (%v) is not registered", requestor)
+		}
+		// add the requestedIDs to the registry
+		for _, requestedID := range requestedIDs {
+			authZ.reg.AddMapping(requestedID, requestedID)
+		}
+		return nil
+	}
+
+	// if auth source is certificate, for each requested ID we require an identity
+	// from caller that supports it in registry
 	for _, requestedID := range requestedIDs {
 		valid := false
 		for _, identity := range requestor.identities {

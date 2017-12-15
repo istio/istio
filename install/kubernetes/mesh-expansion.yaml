@@ -12,7 +12,7 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 8080
+  - port: 15003
     protocol: TCP
   selector:
     istio: pilot
@@ -48,7 +48,7 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 9091
+  - port: 15004
     protocol: TCP
   selector:
     istio: mixer

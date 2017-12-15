@@ -4,8 +4,7 @@ package istio.mixer.adapter.sample.report;
 
 import "mixer/v1/config/descriptor/value_type.proto";
 import "mixer/v1/template/extensions.proto";
-import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
+import "mixer/v1/template/standard_types.proto";
 
 option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_REPORT;
 
@@ -23,9 +22,9 @@ message Template {
 
     map<string, int64> int64Map = 7;
 
-    google.protobuf.Timestamp timeStamp = 9;
+    istio.mixer.v1.template.TimeStamp timeStamp = 9;
 
-    google.protobuf.Duration duration = 10;
+    istio.mixer.v1.template.Duration duration = 10;
 
     Res1 res1 = 11;
 }
@@ -44,9 +43,9 @@ message Res1 {
 
     map<string, int64> int64Map = 7;
 
-    google.protobuf.Timestamp timeStamp = 9;
+    istio.mixer.v1.template.TimeStamp timeStamp = 9;
 
-    google.protobuf.Duration duration = 10;
+    istio.mixer.v1.template.Duration duration = 10;
 
     Res2 res2 = 11;
 
@@ -58,4 +57,16 @@ message Res2 {
     map<string, istio.mixer.v1.config.descriptor.ValueType> dimensions = 2;
 
     int64 int64Primitive = 3;
+
+    istio.mixer.v1.template.TimeStamp timeStamp = 9;
+
+    istio.mixer.v1.template.Duration duration = 10;
+
+    istio.mixer.v1.template.IPAddress ip_addr = 11;
+
+    istio.mixer.v1.template.DNSName dns_name = 12;
+
+    istio.mixer.v1.template.EmailAddress email_addr = 13;
+
+    istio.mixer.v1.template.Uri uri = 14;
 }

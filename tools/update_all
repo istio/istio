@@ -4,7 +4,7 @@ set -e
 set -x
 cd istio
 git pull
-bazel build -c opt mixer/cmd/server:mixs
+bazel build -c opt mixer/cmd/mixs:mixs
 cd ../proxy
 git pull
 bazel build -c opt src/envoy/mixer:envoy

@@ -18,7 +18,8 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 // The size of the buffer for the outbound channel for the queue.
@@ -68,7 +69,7 @@ loop:
 		case ev := <-q.chin:
 			converted, err := q.convertValue(ev)
 			if err != nil {
-				glog.Errorf("Failed to convert %s an event: %v", ev.Key, err)
+				log.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 				break
 			}
 			evs := []Event{converted}
@@ -79,7 +80,7 @@ loop:
 				case ev := <-q.chin:
 					converted, err = q.convertValue(ev)
 					if err != nil {
-						glog.Errorf("Failed to convert %s an event: %v", ev.Key, err)
+						log.Errorf("Failed to convert %s an event: %v", ev.Key, err)
 						break
 					}
 					evs = append(evs, converted)

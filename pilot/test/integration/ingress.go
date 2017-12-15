@@ -79,6 +79,8 @@ func (t *ingress) run() error {
 		{"a", fmt.Sprintf("https://%s.%s:443/http", ingressServiceName, t.IstioNamespace), ""},
 		{"b", fmt.Sprintf("https://%s.%s:443/pasta", ingressServiceName, t.IstioNamespace), ""},
 		{"a", fmt.Sprintf("http://%s.%s/lucky", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/.well_known/foo", ingressServiceName, t.IstioNamespace), ""},
+		{"a", fmt.Sprintf("http://%s.%s/io.grpc/method", ingressServiceName, t.IstioNamespace), ""},
 		{"b", fmt.Sprintf("http://%s.%s/lol", ingressServiceName, t.IstioNamespace), ""},
 		{"a", fmt.Sprintf("http://%s.%s/foo", ingressServiceName, t.IstioNamespace), "foo.bar.com"},
 		{"a", fmt.Sprintf("http://%s.%s/bar", ingressServiceName, t.IstioNamespace), "foo.baz.com"},

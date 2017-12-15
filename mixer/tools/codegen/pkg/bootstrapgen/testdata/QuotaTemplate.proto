@@ -31,7 +31,7 @@ message Res1 {
 
     map<string, int64> int64Map = 7;
 
-    google.protobuf.Timestamp timeStamp = 9;
+    istio.mixer.v1.template.TimeStamp timeStamp = 9;
 
     google.protobuf.Duration duration = 10;
 
