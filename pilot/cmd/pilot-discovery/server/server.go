@@ -481,7 +481,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err != nil {
 				return multierror.Prefix(err, "creating cloud foundry client")
 			}
-			serviceControllers.AddRegistry(aggregate.Registry{
+			meshResourceView.AddRegistry(aggregate.Registry{
 				Name: platform.ServiceRegistry(r),
 				Controller: &cloudfoundry.Controller{
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),

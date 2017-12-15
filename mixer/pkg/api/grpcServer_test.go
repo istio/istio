@@ -22,9 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
 	rpc "github.com/googleapis/googleapis/google/rpc"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"

@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"time"
 
-	"gopkg.in/validator.v2"
 	yaml "gopkg.in/yaml.v2"
 )
 
