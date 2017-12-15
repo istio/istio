@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Command returns the "control-plane" subcommand for istioctl.
 func Command(istioNamespaceFlag *string) *cobra.Command {
 	var features *[]string
 	var out string
@@ -46,7 +47,6 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 			default:
 				return fmt.Errorf("unsupported output %q", out)
 			}
-			return nil
 		},
 	}
 
@@ -98,13 +98,13 @@ func defaultModel() *model {
 func (m *model) setFeatures(features []string) error {
 	if len(features) == 0 {
 		return nil
-	} else {
-		m.Mixer = false
-		m.Pilot = false
-		m.Ca = false
-		m.Ingress = false
-		m.Initializer = false
 	}
+
+	m.Mixer = false
+	m.Pilot = false
+	m.Ca = false
+	m.Ingress = false
+	m.Initializer = false
 	for _, f := range features {
 		switch strings.ToLower(f) {
 		case "telemetry", "policy":
