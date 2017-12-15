@@ -306,33 +306,33 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 	return nil
 }
 
-type mockController struct{
-   mockDiscovery model.ServiceDiscovery 
-   svcHandler func(*model.Service, model.Event)
-   instHandler func(*model.ServiceInstance, model.Event)
+type mockController struct {
+	mockDiscovery model.ServiceDiscovery
+	svcHandler    func(*model.Service, model.Event)
+	instHandler   func(*model.ServiceInstance, model.Event)
 }
 
 func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-    // TODO: Last call wins. This may work, but may need refactoring down the line
-    c.svcHandler = f
+	// TODO: Last call wins. This may work, but may need refactoring down the line
+	c.svcHandler = f
 	return nil
 }
 
 func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-    // TODO: Last call wins. This may work, but may need refactoring down the line
-    c.instHandler = f
+	// TODO: Last call wins. This may work, but may need refactoring down the line
+	c.instHandler = f
 	return nil
 }
 
 func (c *mockController) Run(<-chan struct{}) {
-    svcs, err := c.mockDiscovery.Services()
-    if err != nil {
-        glog.Errorf("mockDiscovery failed to return services: '%v'", err)
-        return
-    }
-    for _, svc := range svcs {
-        c.svcHandler(svc, model.EventAdd)
-    } 
+	svcs, err := c.mockDiscovery.Services()
+	if err != nil {
+		glog.Errorf("mockDiscovery failed to return services: '%v'", err)
+		return
+	}
+	for _, svc := range svcs {
+		c.svcHandler(svc, model.EventAdd)
+	}
 }
 
 // initConfigController creates the config controller in the pilotConfig.
