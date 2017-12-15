@@ -154,6 +154,9 @@ func writeRules(b *bytes.Buffer, rules []*Rule) {
 		fmt.Fprintf(b, "  Match:   %+v", r.Match)
 		fmt.Fprintln(b)
 
+		fmt.Fprintf(b, "  ResourceType: %v", r.ResourceType)
+		fmt.Fprintln(b)
+
 		fmt.Fprintln(b, "  Actions:")
 		writeActions(b, r.Actions)
 	}

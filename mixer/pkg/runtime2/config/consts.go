@@ -14,33 +14,16 @@
 
 package config
 
-import (
-	"testing"
-)
+// RulesKind defines the config kind Name of mixer Rules.
+const RulesKind = "rule"
 
-func TestIsFQN(t *testing.T) {
-	tests := map[string]bool{
-		"a":       false,
-		"b":       false,
-		"a.b":     false,
-		"a.b.c.d": false,
+// AttributeManifestKind define the config kind Name of attribute manifests.
+const AttributeManifestKind = "attributemanifest"
 
-		"a.b.c": true,
-	}
+// ContextProtocolTCP defines constant for tcp protocol.
+const ContextProtocolTCP = "tcp"
 
-	for k, v := range tests {
-		if isFQN(k) != v {
-			t.Fatal(k)
-		}
-	}
-}
+// ContextProtocolAttributeName is the attribute that defines the protocol context.
+const ContextProtocolAttributeName = "context.protocol"
 
-func TestCanonicalize(t *testing.T) {
-	if canonicalize("foo", "bar") != "foo.bar" {
-		t.Fail()
-	}
-
-	if canonicalize("foo.bar.baz", "bar") != "foo.bar.baz" {
-		t.Fail()
-	}
-}
+const istioProtocol = "istio-protocol"

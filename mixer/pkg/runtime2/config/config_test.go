@@ -631,6 +631,87 @@ Rules:
   Name:      rule1.rule.ns
   Namespace: ns
   Match:
+  ResourceType: ResourceType:{HTTP / Check Report Preprocess}
+  Actions:
+    Handler: handler1.adapter1.ns
+    Instances:
+      Name: instance1.check.ns
+Attributes:
+  template.attr: BOOL
+`,
+	},
+
+	{
+		Name: "basic rule with istio protocol label",
+		Events1: []*store.Event{
+			{
+				Key: store.Key{
+					Name:      "handler1",
+					Namespace: "ns",
+					Kind:      "adapter1",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: testParam1,
+				},
+			},
+			{
+				Key: store.Key{
+					Name:      "instance1",
+					Namespace: "ns",
+					Kind:      "check",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Spec: testParam2,
+				},
+			},
+			{
+				Key: store.Key{
+					Name:      "rule1",
+					Namespace: "ns",
+					Kind:      "rule",
+				},
+				Type: store.Update,
+				Value: &store.Resource{
+					Metadata: store.ResourceMeta{
+						Labels: map[string]string{istioProtocol: ContextProtocolTCP},
+					},
+					Spec: &configpb.Rule{
+						Actions: []*configpb.Action{
+							{
+								Handler: "handler1.adapter1",
+								Instances: []string{
+									"instance1.check.ns",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		E: `
+ID: 1
+Templates:
+  Name: apa
+  Name: check
+  Name: quota
+  Name: report
+Adapters:
+  Name: adapter1
+Handlers:
+  Name:    handler1.adapter1.ns
+  Adapter: adapter1
+  Params:  value:"param1"
+Instances:
+  Name:     instance1.check.ns
+  Template: check
+  Params:   value:"param2"
+Rules:
+  Name:      rule1.rule.ns
+  Namespace: ns
+  Match:
+  ResourceType: ResourceType:{TCP / Check Report Preprocess}
   Actions:
     Handler: handler1.adapter1.ns
     Instances:

@@ -22,17 +22,6 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// RulesKind defines the config kind Name of mixer Rules.
-const RulesKind = "rule"
-
-// AttributeManifestKind define the config kind Name of attribute manifests.
-const AttributeManifestKind = "attributemanifest"
-
-// ContextProtocolTCP defines constant for tcp protocol.
-const ContextProtocolTCP = "tcp"
-
-const istioProtocol = "istio-protocol"
-
 // Ephemeral configuration state that gets updated by incoming config change events.
 type Ephemeral struct {
 	// Static information
@@ -256,14 +245,15 @@ func (e *Ephemeral) processRuleConfigs(
 			continue
 		}
 
-		rule := &Rule{
-			Name:      ruleKey.String(),
-			Namespace: ruleKey.Namespace,
-			Actions:   actions,
-		}
-
 		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
-		//rt := resourceType(resource.Metadata.Labels)
+		rt := resourceType(resource.Metadata.Labels)
+
+		rule := &Rule{
+			Name:         ruleKey.String(),
+			Namespace:    ruleKey.Namespace,
+			Actions:      actions,
+			ResourceType: rt,
+		}
 
 		configs = append(configs, rule)
 	}

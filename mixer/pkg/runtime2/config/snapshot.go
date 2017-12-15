@@ -20,10 +20,6 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
-var emptySnapshot = &Snapshot{
-	Attributes: emptyFinder,
-}
-
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
 	return &Snapshot{
@@ -89,8 +85,9 @@ type Rule struct {
 	// Match condition
 	Match string
 
-	//config    *configpb.Rule
 	Actions []*Action
+
+	ResourceType ResourceType
 }
 
 // Action configuration. Fully resolved.

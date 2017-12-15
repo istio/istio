@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "consts.go",
         "ephemeral.go",
         "finder.go",
         "kinds.go",
@@ -32,6 +33,7 @@ go_test(
         "config_test.go",
         "finder_test.go",
         "kinds_test.go",
+        "resourceType_test.go",
     ],
     library = ":go_default_library",
     deps = [

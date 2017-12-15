@@ -103,7 +103,7 @@ func (f *factory) build(
 		// ti should be there for a valid configuration.
 		ti, _ := f.snapshot.Templates[tmplName]
 
-		// TODO: !!! The adapter is instantiated. Should we simply drop it on the floor.
+		// TODO: !!! The adapter is instantiated. Should we simply drop it on the floor?
 		if supports := ti.HandlerSupportsTemplate(instantiatedAdapter); !supports {
 			// adapter is bad since it does not support the necessary interface
 			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+

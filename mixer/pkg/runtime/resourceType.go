@@ -59,7 +59,7 @@ func (r ResourceType) String() string {
 	if r.IsPreprocess() {
 		m += "Preprocess"
 	}
-	return "ResourceType:{" + p + "/" + m + "}"
+	return "ResourceType:{" + p + "/ " + m + "}"
 }
 
 // IsTCP returns true if resource is for TCP
