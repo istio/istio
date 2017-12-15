@@ -14,7 +14,6 @@ go_library(
         "handler.go",
         "info.go",
         "labels.go",
-        "lists.go",
         "quotas.go",
         "requestData.go",
         "result.go",
