@@ -7,7 +7,6 @@ go_library(
     srcs = [
         "adapterInfoRegistry.go",
         "inventory.go",
-        "kind.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -37,7 +36,6 @@ go_test(
     size = "small",
     srcs = [
         "adapterInfoRegistry_test.go",
-        "kind_test.go",
     ],
     library = ":go_default_library",
     deps = [
