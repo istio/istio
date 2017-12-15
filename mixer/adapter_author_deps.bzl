@@ -25,12 +25,6 @@ def mixer_adapter_repositories():
     )
 
     go_repository(
-        name = "com_github_golang_glog",
-        commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
-        importpath = "github.com/golang/glog",
-    )
-
-    go_repository(
         name = "com_github_golang_protobuf",
         commit = "17ce1425424ab154092bbb43af630bd647f3bb0d",  # Nov 16, 2016 (match pubref dep)
         importpath = "github.com/golang/protobuf",
