@@ -29,17 +29,12 @@ import (
 	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
 )
 
 const (
-	metricsPath = "/metrics"
-	versionPath = "/version"
-
 	metricsNamespace     = "pilot"
 	metricsSubsystem     = "discovery"
 	metricLabelCacheName = "cache_name"
@@ -280,6 +275,7 @@ const (
 // service instance.
 type DiscoveryServiceOptions struct {
 	Port            int
+	MonitoringPort  int
 	EnableProfiling bool
 	EnableCaching   bool
 }
@@ -403,17 +399,6 @@ func (ds *DiscoveryService) Register(container *restful.Container) {
 		Doc("Clear discovery service cache stats"))
 
 	container.Add(ws)
-
-	// NOTE: this is a temporary solution to provide bare-bones debug functionality
-	// for pilot. a full design / implementation of self-monitoring and reporting
-	// is coming. that design will include proper coverage of statusz/healthz type
-	// functionality, in addition to how pilot reports its own metrics.
-	container.Handle(metricsPath, promhttp.Handler())
-	container.Handle(versionPath, http.HandlerFunc(func(out http.ResponseWriter, req *http.Request) {
-		if _, err := out.Write([]byte(version.Line())); err != nil {
-			glog.Errorf("Unable to write version string: %v", err)
-		}
-	}))
 }
 
 // Start starts the Pilot discovery service on the port specified in DiscoveryServiceOptions. If Port == 0, a
