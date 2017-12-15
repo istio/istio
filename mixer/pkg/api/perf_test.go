@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -39,8 +38,6 @@ type benchState struct {
 	gp           *pool.GoroutinePool
 	s            *grpcServer
 	delayOnClose bool
-
-	legacy *legacyDispatcher
 }
 
 func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
@@ -65,7 +62,7 @@ func (bs *benchState) createGRPCServer(grpcCompression bool) (string, error) {
 	bs.gp = pool.NewGoroutinePool(32, false)
 	bs.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(bs.legacy, bs, bs.gp)
+	ms := NewGRPCServer(bs, bs.gp)
 	bs.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(bs.gs, bs.s)
 
@@ -115,10 +112,6 @@ func (bs *benchState) deleteAPIClient() {
 
 func prepBenchState(grpcCompression bool) (*benchState, error) {
 	bs := &benchState{}
-	bs.legacy = &legacyDispatcher{
-		preproc: bs.legacyPreprocess,
-		quota:   bs.legacyQuota,
-	}
 	dial, err := bs.createGRPCServer(grpcCompression)
 	if err != nil {
 		return nil, err
@@ -160,15 +153,6 @@ func (bs *benchState) Quota(ctx context.Context, requestBag attribute.Bag,
 		Amount: 42,
 	}
 	return qr, nil
-}
-
-func (bs *benchState) legacyQuota(_ attribute.Bag, _ *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-	qmr := &aspect.QuotaMethodResp{Amount: 42}
-	return qmr, status.OK
-}
-
-func (bs *benchState) legacyPreprocess(_ attribute.Bag, _ *attribute.MutableBag) rpc.Status {
-	return status.OK
 }
 
 func BenchmarkAPI_Unary_GlobalDict_NoCompress(b *testing.B) {

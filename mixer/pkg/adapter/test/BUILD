@@ -6,7 +6,6 @@ go_library(
     name = "go_default_library",
     testonly = 1,
     srcs = [
-        "adapters.go",
         "env.go",
     ],
     visibility = ["//visibility:public"],

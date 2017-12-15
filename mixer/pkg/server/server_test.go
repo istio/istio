@@ -207,10 +207,6 @@ func TestErrors(t *testing.T) {
 				pt.listen = func(network string, address string) (net.Listener, error) {
 					return nil, errors.New("BAD")
 				}
-			case 6:
-				pt.newStore = func(r *store.Registry, configURL string) (store.KeyValueStore, error) {
-					return nil, errors.New("BAD")
-				}
 			default:
 				return
 			}
