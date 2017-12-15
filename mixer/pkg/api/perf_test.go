@@ -20,6 +20,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"

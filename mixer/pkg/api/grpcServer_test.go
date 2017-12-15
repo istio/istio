@@ -108,8 +108,7 @@ func (ts *testState) deleteAPIClient() {
 }
 
 func prepTestState() (*testState, error) {
-	ts := &testState{
-	}
+	ts := &testState{}
 	dial, err := ts.createGRPCServer()
 	if err != nil {
 		return nil, err

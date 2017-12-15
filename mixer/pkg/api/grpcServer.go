@@ -44,8 +44,8 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
-		dispatcher       runtime.Dispatcher
-		gp               *pool.GoroutinePool
+		dispatcher runtime.Dispatcher
+		gp         *pool.GoroutinePool
 
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
@@ -74,10 +74,10 @@ func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerp
 	}
 
 	return &grpcServer{
-		dispatcher:       dispatcher,
-		gp:               gp,
-		globalWordList:   list,
-		globalDict:       globalDict,
+		dispatcher:     dispatcher,
+		gp:             gp,
+		globalWordList: list,
+		globalDict:     globalDict,
 	}
 }
 

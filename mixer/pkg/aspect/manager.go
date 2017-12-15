@@ -26,7 +26,6 @@ type (
 	// It accepts optional params that may be required for some aspects (Metrics, Quotas).
 	CreateAspectFunc func(env adapter.Env, c adapter.Config, optional ...interface{}) (adapter.Aspect, error)
 
-
 	// QuotaMethodArgs is supplied by invocations of the Quota method.
 	QuotaMethodArgs struct {
 		// Used for deduplicating quota allocation/free calls in the case of
