@@ -24,8 +24,6 @@ import (
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/config"
-	"istio.io/istio/mixer/pkg/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/mixer/pkg/il/compiler"
@@ -50,7 +48,6 @@ type attrContext struct {
 }
 
 var _ expr.Evaluator = &IL{}
-var _ config.ChangeListener = &IL{}
 
 // Eval evaluates expr using the attr attribute bag and returns the result as interface{}.
 func (e *IL) Eval(expr string, attrs attribute.Bag) (interface{}, error) {
@@ -109,11 +106,6 @@ func (e *IL) AssertType(expr string, finder expr.AttributeDescriptorFinder, expe
 // ChangeVocabulary handles changing of the attribute vocabulary.
 func (e *IL) ChangeVocabulary(finder expr.AttributeDescriptorFinder) {
 	e.updateAttrContext(finder)
-}
-
-// ConfigChange handles changing of configuration.
-func (e *IL) ConfigChange(cfg config.Resolver, df descriptor.Finder, handlers map[string]*config.HandlerInfo) {
-	e.updateAttrContext(df)
 }
 
 // updateAttrContext creates a new attrContext based on the supplied finder and a new cache, and replaces

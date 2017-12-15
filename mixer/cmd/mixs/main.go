@@ -33,12 +33,8 @@ func supportedAdapters() []adptr.InfoFn {
 	return adapter.Inventory()
 }
 
-func supportedLegacyAdapters() []adptr.RegisterFn {
-	return adapter.InventoryLegacy()
-}
-
 func main() {
-	rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters(), supportedLegacyAdapters(), shared.Printf, shared.Fatalf)
+	rootCmd := cmd.GetRootCmd(os.Args[1:], supportedTemplates(), supportedAdapters(), shared.Printf, shared.Fatalf)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
