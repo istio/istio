@@ -6,7 +6,6 @@ external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go
 mixer/adapter/circonus/config/config.pb.go
 mixer/adapter/denier/config/config.pb.go
 mixer/adapter/inventory.gen.go
-mixer/adapter/kubernetes/config/config.pb.go
 mixer/adapter/kubernetesenv/config/config.pb.go
 mixer/adapter/kubernetesenv/template/go_default_library_handler.gen.go
 mixer/adapter/kubernetesenv/template/go_default_library_tmpl.pb.go
@@ -19,10 +18,6 @@ mixer/adapter/servicecontrol/template/servicecontrolreport/go_default_library_tm
 mixer/adapter/stackdriver/config/config.pb.go
 mixer/adapter/statsd/config/config.pb.go
 mixer/adapter/stdio/config/config.pb.go
-mixer/pkg/adapter/template/TemplateExtensions.pb.go
-mixer/pkg/aspect/config/attrgen.pb.go
-mixer/pkg/aspect/config/lists.pb.go
-mixer/pkg/aspect/config/quotas.pb.go
 mixer/pkg/attribute/list.gen.go
 mixer/template/apikey/go_default_library_handler.gen.go
 mixer/template/apikey/go_default_library_tmpl.pb.go
