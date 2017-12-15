@@ -75,6 +75,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_google_go_github",
+    commit = "fbfee053c26dab3772adfc7799d995eed379133e",  # Dec 2, 2017 (no releases)
+    importpath = "github.com/google/go-github",
+)
+
+go_repository(
+    name = "com_github_google_go_querystring",
+    commit = "53e6ce116135b80d037921a7fdd5138cf32d7a8a",  # Jan 11, 2017 (no releases)
+    importpath = "github.com/google/go-querystring",
+)
+
+go_repository(
     name = "com_github_hashicorp_errwrap",
     commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",  # Oct 27, 2014 (no releases)
     importpath = "github.com/hashicorp/errwrap",
@@ -1099,7 +1111,7 @@ go_repository(
 
 git_repository(
     name = "com_github_istio_test_infra",
-    commit = "67e73ad01f9d1074a7d787a91201d41938ad4310",  # Aug 25, 2017
+    commit = "470646bb988771c3bac655b1acf9aa70d68db5e4",  # Dec 5, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
 
