@@ -5,10 +5,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "accessLogs.go",
         "adapter.go",
-        "applicationLogs.go",
-        "attributes.go",
         "builder.go",
         "cacheability.go",
         "check.go",
@@ -19,7 +16,6 @@ go_library(
         "labels.go",
         "lists.go",
         "quotas.go",
-        "registrar.go",
         "requestData.go",
         "result.go",
         "standardTypes.go",
@@ -37,7 +33,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "applicationLogs_test.go",
         "builder_test.go",
         "configError_test.go",
         "requestData_test.go",

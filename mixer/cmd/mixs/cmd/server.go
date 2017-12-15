@@ -26,11 +26,10 @@ import (
 	"istio.io/istio/mixer/pkg/version"
 )
 
-func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
+func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	sa := server.NewArgs()
 	sa.Templates = info
 	sa.Adapters = adapters
-	sa.LegacyAdapters = legacyAdapters
 
 	serverCmd := &cobra.Command{
 		Use:   "server",

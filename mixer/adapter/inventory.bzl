@@ -21,6 +21,6 @@ def inventory_library(name, packages, deps):
 
   go_library(
       name = name,
-      srcs = ["inventory.gen.go", "inventory.go"],
+      srcs = ["inventory.gen.go"],
       deps = deps + DEPS,
   )
