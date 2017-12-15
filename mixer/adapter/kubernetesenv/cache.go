@@ -39,8 +39,6 @@ type (
 	}
 )
 
-const debugVerbosityLevel = 4
-
 func ipIndex(obj interface{}) ([]string, error) {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
