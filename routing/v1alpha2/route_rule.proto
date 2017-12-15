@@ -62,7 +62,9 @@ package istio.routing.v1alpha2;
 // For example, the following rule routes all traffic by default to pods of
 // reviews service with label "version: v1". In addition, HTTP requests
 // containing for /wpcatalog/, /consumercatalog/ url prefixes will be
-// rewritten to /api/v2 and send to pods with label version: v2.
+// rewritten to /api/v2 and send to pods with label version: v2. The rule
+// will be applied at the gateway named "bookinfo" as well as at all the
+// sidecars in the mesh (indicated by the reserved gateway name "mesh").
 //
 //     apiVersion: config.istio.io/v1alpha2
 //     kind: RouteRule
@@ -71,6 +73,9 @@ package istio.routing.v1alpha2;
 //     spec:
 //       hosts:
 //       - reviews
+//       gateways: #if omitted, defaults to "sidecars"
+//       - bookinfo
+//       - mesh
 //       http:
 //       - match:
 //         - uri:
@@ -117,13 +122,16 @@ message RouteRule {
   // CIDR prefix can be used.
   repeated string hosts = 1;
 
-  // The names of gateways that should apply these routes. A single route
-  // rule could be used for sources inside the mesh as well as one or more
-  // gateways. The selection condition imposed by this field is
-  // independant of the sourceLabels match condition in HTTP/TCP routes. It
-  // is possible to define a route rule that applies to both the gateway
-  // and a specific internal workload by specifying gateways as well as the
-  // source match condition in HTTP/TCP routes.
+  // The names of gateways and sidecars that should apply these routes. A
+  // single route rule is used for sidecars inside the mesh as well
+  // as for one or more gateways. The selection condition imposed by this field
+  // can be overridden using the source field in the match conditions of HTTP/TCP
+  // routes. The reserved word "mesh" is used to imply all the sidecars in
+  // the mesh. When this field is omitted, the default gateway ("mesh")
+  // will be used, which would apply the rule to all sidecars in the
+  // mesh. If a list of gateway names is provided, the rule will apply
+  // only to the gateways. To apply a rule to both gateways and sidecars,
+  // specify "mesh" as one of the gateway names.
   repeated string gateways = 2;
 
   // A list of routes for HTTP traffic.
@@ -246,7 +254,7 @@ message HTTPRoute {
 //       tcp:
 //       - match:
 //         - port:
-//             name: Mongo #only applies to ports named Mongo
+//             name: Mongo # only applies to ports named Mongo
 //           sourceSubnet: "172.17.16.0/24"
 //         route:
 //         - destination:
@@ -270,7 +278,7 @@ message TCPRoute {
 // route rule to be applied to the HTTP request. For example, the following
 // route rule restricts the rule to match only requests where the URL path
 // starts with /ratings/v2/ and the request contains a "cookie" with value
-// "user=jason",
+// "user=jason".
 //
 //     apiVersion: config.istio.io/v1alpha2
 //     kind: RouteRule
@@ -361,8 +369,15 @@ message HTTPMatchRequest {
   PortSelector port = 6;
 
   // One or more labels that constrain the applicability of a rule to
-  // sources with the given labels.
+  // workloads with the given labels. If the route rule has a list of
+  // gateways specified at the top, it should include the reserved gateway
+  // "mesh" in order for this field to be applicable.
   map<string, string> source_labels = 7;
+
+  // Names of gateways where the rule should be applied to. Gateway names
+  // at the top of the rule (if any) are overridden. The gateway match is
+  // independent of sourceLabels.
+  repeated string gateways = 8;
 }
 
 // Each routing rule is associated with one or more service versions (see
@@ -428,8 +443,15 @@ message L4MatchAttributes {
   string source_subnet = 3;
 
   // One or more labels that constrain the applicability of a rule to
-  // sources with the given labels.
+  // workloads with the given labels. If the route rule has a list of
+  // gateways specified at the top, it should include the reserved gateway
+  // "mesh" in order for this field to be applicable.
   map<string, string> source_labels = 4;
+
+  // Names of gateways where the rule should be applied to. Gateway names
+  // at the top of the rule (if any) are overridden. The gateway match is
+  // independent of sourceLabels.
+  repeated string gateways = 5;
 }
 
 // HTTPRedirect can be used to send a 302 redirect response to the caller,

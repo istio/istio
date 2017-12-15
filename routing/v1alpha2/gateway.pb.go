@@ -145,6 +145,7 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //       - eu.bookinfo.com
 //       gateways:
 //       - my-gateway
+//       - mesh # applies to all the sidecars in the mesh
 //       http:
 //       - match:
 //         - headers:
@@ -168,8 +169,10 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //             name: reviews.qa
 //           weight: 20
 //
-// The following routing rule forwards traffic arriving at (external)
-// port 2379 from 172.17.16.* subnet to internal Mongo server on port 5555.
+// The following routing rule forwards traffic arriving at (external) port
+// 2379 from 172.17.16.0/24 subnet to internal Mongo server on port 5555. This
+// rule is not applicable internally in the mesh as the gateway list omits
+// the reserved name "mesh".
 //
 //     apiVersion: config.istio.io/v1alpha2
 //     kind: RouteRule
@@ -188,26 +191,6 @@ func (Server_TLSOptions_TLSmode) EnumDescriptor() ([]byte, []int) {
 //         route:
 //         - destination:
 //             name: mongo.prod
-//
-// By default, if there is no wildcard, HTTP requests for unknown domains
-// or requests that have no matching route rule will respond with a 404. If
-// a specific default behavior is desired at the ingress, add a route rule
-// with a wildcard host and the desired backend. For example, the following
-// wildcard routing rule routes all traffic to homepage.prod by default.
-//
-//     apiVersion: config.istio.io/v1alpha2
-//     kind: RouteRule
-//     metadata:
-//       name: default-ingress
-//     spec:
-//       hosts:
-//       - *
-//       gateways:
-//       - my-gateway
-//       http:
-//       - route:
-//         - destination:
-//             name: homepage.prod
 //
 type Gateway struct {
 	// REQUIRED: A list of server specifications.
