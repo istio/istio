@@ -65,8 +65,10 @@ var (
 func init() {
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(server.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
-			server.KubernetesRegistry, server.ConsulRegistry, server.EurekaRegistry, server.MockRegistry))
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
+			server.KubernetesRegistry, server.ConsulRegistry, server.EurekaRegistry, server.CloudFoundryRegistry, server.MockRegistry))
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
+		"Cloud Foundry config file")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
