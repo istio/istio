@@ -6,6 +6,7 @@ go_library(
         "builder.go",
         "destination.go",
         "table.go",
+        "tablestring.go",
         "util.go",
     ],
     visibility = ["//visibility:public"],
@@ -21,3 +22,15 @@ go_library(
     ],
 )
 
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "builder_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//mixer/pkg/runtime2/testing/data:go_default_library",
+        "//mixer/pkg/runtime2/testing/util:go_default_library",
+    ],
+)

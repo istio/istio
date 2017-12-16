@@ -113,7 +113,8 @@ func (c *Runtime) processNewConfig() {
 	newHandlers := handler.Instantiate(oldHandlers, newSnapshot, c.env)
 
 	builder := compiled.NewBuilder(newSnapshot.Attributes)
-	newRoutes := routing.BuildTable(newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace)
+	newRoutes := routing.BuildTable(
+		newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace, false)
 
 	oldRoutes := c.dispatcher.ChangeRoute(newRoutes)
 

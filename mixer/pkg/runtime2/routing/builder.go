@@ -35,7 +35,8 @@ func BuildTable(
 	config *config.Snapshot,
 	expb *compiled.ExpressionBuilder,
 	identityAttribute string,
-	defaultConfigNamespace string) *Table {
+	defaultConfigNamespace string,
+	debugInfo bool) *Table {
 
 	b := &builder{
 		table: &Table{
@@ -48,6 +49,15 @@ func BuildTable(
 		expb:     expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 	}
+
+	if debugInfo {
+		b.table.debugInfo = &tableDebugInfo{
+			instanceNames: make(map[template.InstanceBuilder]string),
+			handlerNames: make(map[adapter.Handler]string),
+			matchConditions: make(map[compiled.Expression]string),
+		}
+	}
+
 	b.build(config)
 
 	return b.table
@@ -56,13 +66,24 @@ func BuildTable(
 func (b *builder) build(config *config.Snapshot) {
 	for _, rule := range config.Rules {
 
-		for _, action := range rule.Actions {
+		var condition compiled.Expression
+		var err error
+		if rule.Match != "" {
+			condition, err = b.expb.Compile(rule.Match)
+			if err != nil {
+				// TODO: log
+			}
+		}
 
+		for _, action := range rule.Actions {
 			handlerName := action.Handler.Name
 			handlerInstance, found := b.handlers.GetHealthyHandler(handlerName)
 			if !found {
 				// TODO: log the pruning of the action
 				continue
+			}
+			if b.table.debugInfo != nil {
+				b.table.debugInfo.handlerNames[handlerInstance] = handlerName
 			}
 
 			for _, instance := range action.Instances {
@@ -85,13 +106,11 @@ func (b *builder) build(config *config.Snapshot) {
 				// TODO: Flatten destinations, so that we can match one rule condition to generate multiple instances,
 				// for a given adapter.
 
-				var condition compiled.Expression
-				if rule.Match != "" {
-					condition, err = b.expb.Compile(rule.Match)
-					if err != nil {
-						// TODO: log
+				if b.table.debugInfo != nil {
+					b.table.debugInfo.instanceNames[builder] = instance.Name
+					if condition != nil {
+						b.table.debugInfo.matchConditions[condition] = rule.Match
 					}
-					continue
 				}
 
 				b.add(rule.Namespace, template, handlerInstance, condition, builder)
@@ -137,19 +156,39 @@ func (b *builder) add(
 	byNamespace, found := byVariety.entries[namespace]
 	if !found {
 		byNamespace = &DestinationSet{
-			entries: []Destination{},
+			entries: []*Destination{},
 		}
 		byVariety.entries[namespace] = byNamespace
 	}
 
 	for _, d := range byNamespace.Entries() {
+		// Try to flatting destinations.
 		if d.Handler == handler {
-			// TODO: Flatten these, so that we can have multiple builders for a matching condition.
+			// Try to flatting input sets.
+			for _, existing := range d.Inputs {
+				if existing.Condition == condition {
+					existing.Builders = append(existing.Builders, builder)
+					return
+				}
+			}
+
 			input := &InputSet{
 				Condition: condition,
 				Builders:  []template.InstanceBuilder{builder},
 			}
 			d.Inputs = append(d.Inputs, input)
+			return
 		}
 	}
+
+	input := &InputSet{
+		Condition: condition,
+		Builders:  []template.InstanceBuilder{builder},
+	}
+	destination := &Destination{
+		Handler: handler,
+		Template: t,
+		Inputs: []*InputSet{input},
+	}
+	byNamespace.entries = append(byNamespace.entries, destination)
 }

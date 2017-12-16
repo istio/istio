@@ -18,11 +18,14 @@ import (
 	"sync/atomic"
 
 	"istio.io/api/mixer/v1/template"
+	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 var emptySet = &DestinationSet{
-	entries: []Destination{},
+	entries: []*Destination{},
 }
 
 // Table calculates the dispatch varietyDestinations for an incoming request.
@@ -39,6 +42,20 @@ type Table struct {
 
 	// the current reference count. Indicates how-many calls are currently active.
 	refCount int32
+
+	debugInfo *tableDebugInfo
+}
+
+// tableDebugInfo contains debugging information for the table.
+type tableDebugInfo struct {
+	// Name of the handlers in use
+	handlerNames map[adapter.Handler]string
+
+	// Name of the instances
+	instanceNames map[template.InstanceBuilder]string
+
+	// Match conditions
+	matchConditions map[compiled.Expression]string
 }
 
 type VarietyDestinations struct {
@@ -50,7 +67,7 @@ type VarietyDestinations struct {
 }
 
 type DestinationSet struct {
-	entries []Destination
+	entries []*Destination
 }
 
 func Empty() *Table {
@@ -107,6 +124,6 @@ func (v *DestinationSet) Count() int {
 	return len(v.entries)
 }
 
-func (v *DestinationSet) Entries() []Destination {
+func (v *DestinationSet) Entries() []*Destination {
 	return v.entries
 }

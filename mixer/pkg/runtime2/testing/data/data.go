@@ -14,6 +14,8 @@
 
 package data
 
+import "strings"
+
 var ServiceConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -39,59 +41,72 @@ spec:
 ---
 `
 
-var GlobalConfig = `
+var HandlerH1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: a1
 metadata:
   name: h1
   namespace: istio-system
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: t1
-metadata:
-  name: i1
-  namespace: istio-system
-spec:
----
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: r1
-  namespace: istio-system
-spec:
-  selector: match(target.name, "*")
-  actions:
-  - handler: h1.a1
-    instances:
-    - i1.t1.istio-system
----
 `
 
-var GlobalConfigI2 = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: a1
-metadata:
-  name: h1
-  namespace: istio-system
----
+var InstanceI1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
 metadata:
   name: i1
   namespace: istio-system
 spec:
----
+`
+
+var InstanceI2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
 metadata:
   name: i2
   namespace: istio-system
 spec:
----
+`
+var InstanceI3 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: t1
+metadata:
+  name: i2
+  namespace: istio-system
+spec:
+`
+
+var RuleR1_I1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
   name: r1
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.istio-system
+`
+
+var RuleR2_I1_I2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r2
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.istio-system
+    - i2.t1.istio-system
+`
+
+var RuleR3_I1_I2_Conditional = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r3
   namespace: istio-system
 spec:
   selector: match(target.name, "*")
@@ -100,5 +115,27 @@ spec:
     instances:
     - i1.t1.istio-system
     - i2.t1.istio-system
----
 `
+
+var GlobalConfig = JoinConfigs(HandlerH1, InstanceI1, RuleR1_I1)
+
+var GlobalConfigI2 = JoinConfigs(HandlerH1, InstanceI1, InstanceI2, RuleR1a)
+
+var RuleR1a = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r1
+  namespace: istio-system
+spec:
+  selector: target.name == "*"
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.istio-system
+    - i2.t1.istio-system
+`
+
+func JoinConfigs(configs ...string) string {
+	return strings.Join(configs, "\n---\n")
+}

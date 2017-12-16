@@ -259,6 +259,7 @@ func (e *Ephemeral) processRuleConfigs(
 			Namespace:    ruleKey.Namespace,
 			Actions:      actions,
 			ResourceType: rt,
+			Match:        cfg.Match,
 		}
 
 		configs = append(configs, rule)

@@ -15,9 +15,13 @@
 package data
 
 import (
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
 )
 
@@ -40,6 +44,11 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
 
 			},
+			CreateInstanceBuilder: func(instanceConfig proto.Message, builder *compiled.ExpressionBuilder) (template.InstanceBuilder, error) {
+					return &FakeInstanceBuilder{
+						discriminator: time.Now().Unix(),
+					}, nil
+			},
 		},
 	}
 
@@ -56,4 +65,14 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 	}
 
 	return t
+}
+
+type FakeInstanceBuilder struct {
+	// discriminator to avoid clashes when used as keys
+	discriminator int64
+}
+var _ template.InstanceBuilder = &FakeInstanceBuilder{}
+
+func (i *FakeInstanceBuilder) Build(bag attribute.Bag) (interface{}, error) {
+	return &types.Empty{}, nil
 }

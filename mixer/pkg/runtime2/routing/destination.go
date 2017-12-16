@@ -22,7 +22,7 @@ import (
 )
 
 type Destination struct {
-	Template template.Info
+	Template *template.Info
 	Handler  adapter.Handler
 	Inputs   []*InputSet
 }
