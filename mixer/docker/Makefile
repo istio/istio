@@ -1,6 +1,4 @@
-
 GO_MINOR_VERSION = $(shell go version | cut -d . -f 2)
-
 
 .PHONY: docker
 .INTERMEDIATE: check.prereqs
@@ -13,6 +11,7 @@ check.prereqs:
 docker: mixs ca-certificates.tgz
 	docker build -t mixs .
 
+# fetch debian ca-certs to package in the docker container.
 ca-certificates.tgz:
 	./fetch_cacerts.sh
 

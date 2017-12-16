@@ -29,4 +29,4 @@ shift
 export GOOS=linux
 export GOARCH=amd64
 echo "LINK=$LINK, OUT=$OUT"
-CGO_ENABLED=0 go build -x -i -o ${OUT} -ldflags '-extldflags "-static" -X ${LINK}.buildStatus="HAHA"' "$*"
+CGO_ENABLED=0 go build -i -o ${OUT} -ldflags '-extldflags "-static" -X ${LINK}.buildStatus="HAHA"' "$*"
