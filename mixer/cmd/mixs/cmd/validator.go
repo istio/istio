@@ -24,17 +24,18 @@ import (
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/crd"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/runtime"
-	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
 	var kubeconfig string
-	kinds := runtime.KindMap(server.InventoryMap(adapters), info)
+	tmplRepo := template.NewRepository(info)
+	kinds := runtime.KindMap(config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate), info)
 	vc.ResourceNames = make([]string, 0, len(kinds))
 	for name := range kinds {
 		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))

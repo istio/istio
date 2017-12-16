@@ -103,7 +103,8 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	s.adapterGP = pool.NewGoroutinePool(adapterPoolSize, a.SingleThreaded)
 	s.adapterGP.AddWorkers(adapterPoolSize)
 
-	adapterMap := InventoryMap(a.Adapters)
+	tmplRepo := template.NewRepository(a.Templates)
+	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	// construct the gRPC options
 
@@ -252,14 +253,4 @@ func (s *Server) Close() error {
 // Addr returns the address of the server's API port, where gRPC requests can be sent.
 func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
-}
-
-// InventoryMap converts adapter inventory to a builder map.
-func InventoryMap(inv []adapter.InfoFn) map[string]*adapter.Info {
-	m := make(map[string]*adapter.Info, len(inv))
-	for _, ai := range inv {
-		bi := ai()
-		m[bi.Name] = &bi
-	}
-	return m
 }
