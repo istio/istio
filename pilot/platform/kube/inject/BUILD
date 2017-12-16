@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "configmap.go",
-        "http.go",
         "initializer.go",
         "inject.go",
     ],
@@ -14,7 +13,6 @@ go_library(
         "//pilot/proxy:go_default_library",
         "//pilot/tools/version:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
-        "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
@@ -47,7 +45,6 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        "http_test.go",
         "initializer_test.go",
         "inject_test.go",
     ],
@@ -58,7 +55,6 @@ go_test(
         "//pilot/proxy:go_default_library",
         "//pilot/test/util:go_default_library",
         "//pilot/tools/version:go_default_library",
-        "@com_github_emicklei_go_restful//:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
