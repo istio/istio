@@ -17,4 +17,4 @@ ca-certificates.tgz:
 	./fetch_cacerts.sh
 
 mixs: check.prereqs
-	CGO_ENABLED=0 go build -i -ldflags '-extldflags "-static" -X istio.io/istio/mixer/pkg/version.buildStatus="HAHA"' -o mixs ../cmd/mixs/main.go 
+	../../bin/gobuild.sh mixs istio.io/istio/mixer/pkg/version ../cmd/mixs
