@@ -95,13 +95,3 @@ func doesBuilderSupportsTemplates(info adapter.Info, hndlrBldrValidator handlerB
 	}
 	return true, ""
 }
-
-// InventoryMap converts adapter inventory to a builder map.
-func InventoryMap(inv []adapter.InfoFn) map[string]*adapter.Info {
-	m := make(map[string]*adapter.Info, len(inv))
-	for _, ai := range inv {
-		bi := ai()
-		m[bi.Name] = &bi
-	}
-	return m
-}

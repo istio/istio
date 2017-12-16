@@ -34,7 +34,8 @@ import (
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
 	var kubeconfig string
-	kinds := runtime.KindMap(config.InventoryMap(adapters), info)
+	tmplRepo := template.NewRepository(info)
+	kinds := runtime.KindMap(config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate), info)
 	vc.ResourceNames = make([]string, 0, len(kinds))
 	for name := range kinds {
 		vc.ResourceNames = append(vc.ResourceNames, pluralize(name))
