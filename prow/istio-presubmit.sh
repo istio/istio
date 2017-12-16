@@ -148,6 +148,9 @@ if [[ -n "$diff" ]]; then
   # exit -1
 fi
 
+# Integration framework sample
+${ROOT}/tests/integration/example/integration.sh
+
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
 # upload images

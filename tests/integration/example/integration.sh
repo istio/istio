@@ -34,12 +34,15 @@ MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/mixs/mixs
 go get -u istio.io/fortio
 
 # Download Proxy
+PROXY_SHA=$(awk '/ISTIO_PROXY_BUCKET = /{print $NF}' WORKSPACE)
+# Trim leading & tailing double quote
+PROXY_SHA="${PROXY_SHA%\"}"
+PROXY_SHA="${PROXY_SHA#\"}"
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
 git pull
 
-PROXY_SHA=$(awk '/ISTIO_PROXY_BUCKET = /{print $NF}' WORKSPACE)
 PROXY_TAR="envoy-debug-${PROXY_SHA}.tar.gz"
 rm -rf usr ${PROXY_TAR}
 wget "https://storage.googleapis.com/istio-build/proxy/${PROXY_TAR}"
