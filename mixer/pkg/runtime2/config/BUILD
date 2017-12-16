@@ -40,5 +40,6 @@ go_test(
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )

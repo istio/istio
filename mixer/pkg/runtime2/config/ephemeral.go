@@ -64,6 +64,12 @@ func NewEphemeral(
 
 func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 	e.entries = state
+
+	for k := range state {
+		if k.Kind == AttributeManifestKind {
+			e.attributesChanged = true
+		}
+	}
 }
 
 func (e *Ephemeral) ApplyEvents(events []*store.Event) {

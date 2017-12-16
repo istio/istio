@@ -23,3 +23,22 @@ go_library(
     ],
 )
 
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "cleanup_test.go",
+        "common_test.go",
+        "factory_test.go",
+        "instantiate_test.go",
+        "table_test.go",
+    ],
+    library = ":go_default_library",
+    deps = [
+        "//mixer/pkg/runtime2/config/testutil:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+
+        "//mixer/pkg/log:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
+    ],
+)

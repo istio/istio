@@ -52,14 +52,15 @@ func newFactory(snapshot *config.Snapshot, env adapter.Env) *factory {
 		snapshot: snapshot,
 		checker:  evaluator.NewTypeChecker(),
 		env:      env,
+
+		inferredTypesCache: make(map[string]proto.Message),
 	}
 }
 
 // build instantiates a Handler object using the passed in handler and instances configuration.
 func (f *factory) build(
 	handler *config.Handler,
-	instances []*config.Instance,
-	env adapter.Env) (adapter.Handler, error) {
+	instances []*config.Instance) (adapter.Handler, error) {
 
 	inferredTypesByTemplates, err := f.inferTypes(instances)
 	if err != nil {
@@ -92,7 +93,7 @@ func (f *factory) build(
 		}
 	}
 
-	instantiatedAdapter, err := f.buildHandler(builder, inferredTypesByTemplates, handler.Params, env)
+	instantiatedAdapter, err := f.buildHandler(builder, inferredTypesByTemplates, handler.Params)
 	if err != nil {
 		msg := fmt.Sprintf("cannot configure adapter '%s' in handlerConfig config '%s': %v", handler.Adapter.Name, handler.Name, err)
 		log.Warn(msg)
@@ -116,8 +117,8 @@ func (f *factory) build(
 	return instantiatedAdapter, err
 }
 
-func (h *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map[string]inferredTypesMap,
-	adapterConfig interface{}, env adapter.Env) (handler adapter.Handler, err error) {
+func (f *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map[string]inferredTypesMap,
+	adapterConfig interface{}) (handler adapter.Handler, err error) {
 	var ti *template.Info
 	var types inferredTypesMap
 
@@ -136,7 +137,7 @@ func (h *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map
 	for tmplName := range inferredTypes {
 		types = inferredTypes[tmplName]
 		// ti should be there for a valid configuration.
-		ti, _ = h.snapshot.Templates[tmplName]
+		ti, _ = f.snapshot.Templates[tmplName]
 		ti.SetType(types, builder)
 	}
 	builder.SetAdapterConfig(adapterConfig.(proto.Message))
@@ -149,7 +150,7 @@ func (h *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map
 		return
 	}
 
-	return builder.Build(context.Background(), env)
+	return builder.Build(context.Background(), f.env)
 }
 
 func (h *factory) inferTypes(instances []*config.Instance) (map[string]inferredTypesMap, error) {

@@ -43,7 +43,7 @@ func Instantiate(current *Table, snapshot *config.Snapshot, env adapter.Env) *Ta
 			f = newFactory(snapshot, env)
 		}
 
-		instantiatedHandler, err := f.build(handler, instances, nil)
+		instantiatedHandler, err := f.build(handler, instances)
 
 		t.entries[handler.Name] = entry{
 			Name:         handler.Name,
