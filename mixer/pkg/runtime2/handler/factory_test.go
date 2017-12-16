@@ -24,19 +24,20 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
 
-	"istio.io/istio/mixer/pkg/runtime2/config/testutil"
+	"istio.io/istio/mixer/pkg/runtime2/testing/data"
+	"istio.io/istio/mixer/pkg/runtime2/testing/util"
 )
 
 func TestBasic(t *testing.T) {
-	templates := buildTemplates(nil)
-	attributes := buildAdapters(nil)
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil)
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	h, err := f.build(h1, []*config.Instance{i1})
 	if err != nil {
 		t.Fatal(err)
@@ -48,15 +49,15 @@ func TestBasic(t *testing.T) {
 }
 
 func TestCacheUse(t *testing.T) {
-	templates := buildTemplates(nil)
-	attributes := buildAdapters(nil)
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(nil)
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err != nil {
 		t.Fatal(err)
@@ -74,18 +75,18 @@ func TestCacheUse(t *testing.T) {
 }
 
 func TestInferError(t *testing.T) {
-	templates := buildTemplates(&template.Info{InferType: func(proto.Message, template.TypeEvalFn) (proto.Message, error) {
-		return nil, fmt.Errorf("fake infer error")
+	templates := data.BuildTemplates(&template.Info{InferType: func(proto.Message, template.TypeEvalFn) (proto.Message, error) {
+		return nil, fmt.Errorf("data.Fake infer error")
 	}})
 
-	attributes := buildAdapters(nil)
+	attributes := data.BuildAdapters(nil)
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()
@@ -93,20 +94,20 @@ func TestInferError(t *testing.T) {
 }
 
 func TestNilBuilder(t *testing.T) {
-	templates := buildTemplates(nil)
+	templates := data.BuildTemplates(nil)
 
-	attributes := buildAdapters(&adapter.Info{
+	attributes := data.BuildAdapters(&adapter.Info{
 		NewBuilder: func() adapter.HandlerBuilder {
 			return nil
 		},
 	})
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()
@@ -114,20 +115,20 @@ func TestNilBuilder(t *testing.T) {
 }
 
 func TestBuilderDoesNotSupportTemplate(t *testing.T) {
-	templates := buildTemplates(&template.Info{
+	templates := data.BuildTemplates(&template.Info{
 		BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
 			return false
 		},
 	})
 
-	attributes := buildAdapters(nil)
+	attributes := data.BuildAdapters(nil)
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()
@@ -135,20 +136,20 @@ func TestBuilderDoesNotSupportTemplate(t *testing.T) {
 }
 
 func TestHandlerDoesNotSupportTemplate(t *testing.T) {
-	templates := buildTemplates(&template.Info{
+	templates := data.BuildTemplates(&template.Info{
 		HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 			return false
 		},
 	})
 
-	attributes := buildAdapters(nil)
+	attributes := data.BuildAdapters(nil)
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()
@@ -156,21 +157,21 @@ func TestHandlerDoesNotSupportTemplate(t *testing.T) {
 }
 
 func TestPanicAtSetAdapterConfig(t *testing.T) {
-	templates := buildTemplates(nil)
-	attributes := buildAdapters(&adapter.Info{
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(&adapter.Info{
 		NewBuilder: func() adapter.HandlerBuilder {
-			return &fakeHandlerBuilder{
-				panicAtSetAdapterConfig: true,
+			return &data.FakeHandlerBuilder{
+				PanicAtSetAdapterConfig: true,
 			}
 		},
 	})
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()
@@ -178,21 +179,21 @@ func TestPanicAtSetAdapterConfig(t *testing.T) {
 }
 
 func TestFailedValidation(t *testing.T) {
-	templates := buildTemplates(nil)
-	attributes := buildAdapters(&adapter.Info{
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(&adapter.Info{
 		NewBuilder: func() adapter.HandlerBuilder {
-			return &fakeHandlerBuilder{
-				errorAtValidate: true,
+			return &data.FakeHandlerBuilder{
+				ErrorAtValidate: true,
 			}
 		},
 	})
 
-	s := testutil.GetSnapshot(templates, attributes, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, data.GlobalConfig)
 
 	i1 := s.Instances["i1.t1.istio-system"]
 	h1 := s.Handlers["h1.a1.istio-system"]
 
-	f := newFactory(s, &fakeEnv{})
+	f := newFactory(s, &data.FakeEnv{})
 	_, err := f.build(h1, []*config.Instance{i1})
 	if err == nil {
 		t.Fatal()

@@ -18,16 +18,17 @@ import (
 	"testing"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/runtime2/config/testutil"
+	"istio.io/istio/mixer/pkg/runtime2/testing/data"
+	"istio.io/istio/mixer/pkg/runtime2/testing/util"
 )
 
 func TestEmptyConfig(t *testing.T) {
-	adapters := buildAdapters(nil)
-	templates := buildTemplates(nil)
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 	h, found := table.GetHealthyHandler("h1.a1.istio-system")
 	if !found {
 		t.Fatal("not found")
@@ -39,20 +40,20 @@ func TestEmptyConfig(t *testing.T) {
 }
 
 func TestReuse(t *testing.T) {
-	adapters := buildAdapters(nil)
-	templates := buildTemplates(nil)
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
 	// Instantiate again using the same config, but add fault to the adapter to detect change.
-	adapters = buildAdapters(&adapter.Info{
+	adapters = data.BuildAdapters(&adapter.Info{
 		SupportedTemplates: []string{},
 	})
-	s = testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s = util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table2 := Instantiate(table, s, &fakeEnv{})
+	table2 := Instantiate(table, s, &data.FakeEnv{})
 
 	if len(table2.entries) != 1 {
 		t.Fatal("size")
@@ -64,17 +65,17 @@ func TestReuse(t *testing.T) {
 }
 
 func TestNoReuse_DifferentConfig(t *testing.T) {
-	adapters := buildAdapters(nil)
-	templates := buildTemplates(nil)
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
 	// Instantiate again using the slightly different config
-	s = testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfigI2)
+	s = util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfigI2)
 
-	table2 := Instantiate(table, s, &fakeEnv{})
+	table2 := Instantiate(table, s, &data.FakeEnv{})
 
 	if len(table2.entries) != 1 {
 		t.Fatal("size")

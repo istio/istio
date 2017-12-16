@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "util.go",
+        "snapshot.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -14,4 +14,3 @@ go_library(
         "//mixer/pkg/template:go_default_library",
     ],
 )
-

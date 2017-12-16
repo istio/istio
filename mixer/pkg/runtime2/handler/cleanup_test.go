@@ -19,72 +19,73 @@ import (
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/runtime2/config"
-	"istio.io/istio/mixer/pkg/runtime2/config/testutil"
+	"istio.io/istio/mixer/pkg/runtime2/testing/data"
+	"istio.io/istio/mixer/pkg/runtime2/testing/util"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 func TestCleanup_Basic(t *testing.T) {
-	f := &fakeHandlerBuilder{}
-	adapters := buildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
+	f := &data.FakeHandlerBuilder{}
+	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
 		return f
 	}})
-	templates := buildTemplates(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 	s = config.Empty()
 
-	table2 := Instantiate(table, s, &fakeEnv{})
+	table2 := Instantiate(table, s, &data.FakeEnv{})
 
 	Cleanup(table2, table)
 
-	if !f.handler.closeCalled {
+	if !f.Handler.CloseCalled {
 		t.Fail()
 	}
 }
 
 func TestCleanup_NoChange(t *testing.T) {
-	f := &fakeHandlerBuilder{}
-	adapters := buildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
+	f := &data.FakeHandlerBuilder{}
+	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
 		return f
 	}})
-	templates := buildTemplates(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
 	// use same config again.
-	table2 := Instantiate(table, s, &fakeEnv{})
+	table2 := Instantiate(table, s, &data.FakeEnv{})
 
 	Cleanup(table2, table)
 
-	if f.handler.closeCalled {
+	if f.Handler.CloseCalled {
 		t.Fail()
 	}
 }
 
 func TestCleanup_WithStartupError(t *testing.T) {
-	adapters := buildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
+	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
 		return nil
 	}})
-	templates := buildTemplates(&template.Info{
+	templates := data.BuildTemplates(&template.Info{
 		HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
 			// Inject an error during startup
 			return false
 		},
 	})
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
 	if table.entries["h1.a1.istio-system"].StartupError == nil {
 		t.Fail()
 	}
 
 	// use different config to force cleanup
-	table2 := Instantiate(table, config.Empty(), &fakeEnv{})
+	table2 := Instantiate(table, config.Empty(), &data.FakeEnv{})
 
 	Cleanup(table2, table)
 
@@ -95,19 +96,19 @@ func TestCleanup_WithStartupError(t *testing.T) {
 }
 
 func TestCleanup_CloseError(t *testing.T) {
-	f := &fakeHandlerBuilder{
-		errorOnHandlerClose: true,
+	f := &data.FakeHandlerBuilder{
+		ErrorOnHandlerClose: true,
 	}
-	adapters := buildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
+	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
 		return f
 	}})
-	templates := buildTemplates(nil)
+	templates := data.BuildTemplates(nil)
 
-	s := testutil.GetSnapshot(templates, adapters, serviceConfig, globalConfig)
-	table := Instantiate(Empty(), s, &fakeEnv{})
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
+	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
 	// use different config to force cleanup
-	table2 := Instantiate(table, config.Empty(), &fakeEnv{})
+	table2 := Instantiate(table, config.Empty(), &data.FakeEnv{})
 
 	Cleanup(table2, table)
 

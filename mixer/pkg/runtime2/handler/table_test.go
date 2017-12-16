@@ -17,6 +17,8 @@ package handler
 import (
 	"fmt"
 	"testing"
+
+	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 )
 
 func TestTable_GetHealthyHandler(t *testing.T) {
@@ -26,7 +28,7 @@ func TestTable_GetHealthyHandler(t *testing.T) {
 
 	table.entries["h1"] = entry{
 		Name:    "h1",
-		Handler: &fakeHandler{},
+		Handler: &data.FakeHandler{},
 	}
 
 	h, found := table.GetHealthyHandler("h1")
@@ -57,7 +59,7 @@ func TestTable_GetHealthyHandler_Unhealthy(t *testing.T) {
 
 	table.entries["h1"] = entry{
 		Name:         "h1",
-		Handler:      &fakeHandler{},
+		Handler:      &data.FakeHandler{},
 		StartupError: fmt.Errorf("cheese not found"),
 	}
 
