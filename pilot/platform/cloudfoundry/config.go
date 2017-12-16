@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"gopkg.in/validator.v2"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -94,3 +95,4 @@ func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 		RootCAs:          serverCAs,
 	}, nil
 }
+
