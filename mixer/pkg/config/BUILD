@@ -11,40 +11,21 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/config/crd:go_default_library",
-        "//mixer/pkg/config/descriptor:go_default_library",
-        "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/config/store:go_default_library",
-        "//mixer/pkg/expr:go_default_library",
-        "//mixer/pkg/pool:go_default_library",
-        "//mixer/pkg/status:go_default_library",
-        "//mixer/pkg/template:go_default_library",
         "//pkg/log:go_default_library",
-        "@com_github_emicklei_go_restful//:go_default_library",
-        "@com_github_ghodss_yaml//:go_default_library",
-        "@com_github_gogo_protobuf//jsonpb:go_default_library",
-        "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
     ],
 )
 
 go_test(
     name = "go_default_test",
     size = "small",
-    srcs = [
-        "adapterInfoRegistry_test.go",
-    ],
+    srcs = ["adapterInfoRegistry_test.go"],
     library = ":go_default_library",
     deps = [
-        "//mixer/pkg/il/testing:go_default_library",
+        "//mixer/pkg/template:go_default_library",
         "//mixer/template/sample:go_default_library",
         "//mixer/template/sample/report:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_golang_protobuf//ptypes/empty:go_default_library",
-        "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
-        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )
