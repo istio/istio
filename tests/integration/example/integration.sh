@@ -37,9 +37,16 @@ go get -u istio.io/fortio
 cd ..
 ls proxy || git clone https://github.com/istio/proxy
 cd proxy
-#git pull
-bazel build //src/envoy/mixer:envoy
-ENVOY_BINARY=$(pwd)/src/envoy/mixer/start_envoy
+git pull
+
+PROXY_SHA=$(awk '/ISTIO_PROXY_BUCKET = /{print $NF}' WORKSPACE)
+PROXY_TAR="envoy-debug-${PROXY_SHA}.tar.gz"
+rm -rf usr ${PROXY_TAR}
+wget "https://storage.googleapis.com/istio-build/proxy/${PROXY_TAR}"
+tar xvzf "${PROXY_TAR}"
+
+ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
+START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
 
 # Run Tests
@@ -48,7 +55,7 @@ TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)")) || error_exit 'Could 
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
-TESTARG=(-envoy_binary ${ENVOY_BINARY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
+TESTARG=(-envoy_binary ${ENVOY_BINARY} -envoy_start_script ${START_ENVOY} -mixer_binary ${MIXER_BINARY} -fortio_binary fortio)
 
 for T in ${TESTS_TARGETS[@]}; do
     echo "Running ${T}"

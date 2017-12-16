@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/tests/integration/component/mixer"
 	"istio.io/istio/tests/integration/component/proxy"
 	"istio.io/istio/tests/integration/framework"
+	"fmt"
 )
 
 // MixerEnvoyEnv is a test environment with envoy, mixer and echo server
@@ -62,8 +63,12 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 	comps := []framework.Component{}
 	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", mixerEnvoyEnv.TmpDir))
 	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", mixerEnvoyEnv.TmpDir))
-	comps = append(comps, mixer.NewLocalComponent("my_local_mixer", mixerEnvoyEnv.TmpDir,
-		mixer.LocalCompConfig{ConfigFileDir: mixerEnvoyEnv.configDir}))
+
+	comps = append(comps, mixer.NewLocalComponent("my_local_mixer",
+		mixer.LocalCompConfig{
+			ConfigFileDir: mixerEnvoyEnv.configDir,
+			LogFile: fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.TmpDir, "my_local_mixer"),
+			}))
 	return comps
 }
 

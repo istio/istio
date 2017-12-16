@@ -28,6 +28,7 @@ import (
 
 const (
 	testConfigPath = "mixer/testdata/config"
+	metricsEndpoint = "http://localhost:42422/metrics"
 )
 
 var (
@@ -39,22 +40,26 @@ type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
 	config      LocalCompConfig
+	status		LocalCompStatus
 	name        string
-	LogFile     string
 }
 
 // LocalCompConfig contains configs for LocalComponent
 type LocalCompConfig struct {
 	framework.Config
 	ConfigFileDir string
+	LogFile     string
+}
+
+type LocalCompStatus struct {
+	framework.Status
+	metricsEndpoint string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
-func NewLocalComponent(n, logDir string, config LocalCompConfig) *LocalComponent {
-	logFile := fmt.Sprintf("%s/%s.log", logDir, n)
+func NewLocalComponent(n string, config LocalCompConfig) *LocalComponent {
 	return &LocalComponent{
 		name:    n,
-		LogFile: logFile,
 		config:  config,
 	}
 }
@@ -77,6 +82,10 @@ func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
 	}
 	mixerComp.config = mixerConfig
 	return nil
+}
+
+func (mixerComp *LocalComponent) GetStatus() framework.Status {
+	return mixerComp.status
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -114,6 +123,8 @@ func (mixerComp *LocalComponent) Start() (err error) {
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
+
+	mixerComp.status.metricsEndpoint = metricsEndpoint
 
 	log.Printf("Started component %s", mixerComp.GetName())
 	return

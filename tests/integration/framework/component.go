@@ -25,6 +25,8 @@ type Component interface {
 	// SetConfig sets a config into this component
 	SetConfig(config Config) error
 
+	GetStatus() Status
+
 	// Start sets up for this component
 	// Start is being called in framework.StartUp()
 	Start() error

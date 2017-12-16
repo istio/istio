@@ -6,6 +6,7 @@ go_library(
         "component.go",
         "configuration.go",
         "environment.go",
+        "status.go",
         "testEnvManager.go",
         "testProcess.go",
     ],

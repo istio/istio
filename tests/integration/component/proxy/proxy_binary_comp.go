@@ -24,6 +24,7 @@ import (
 )
 
 var (
+	envoyStartScript = flag.String("envoy_start_script", "", "start_envoy script")
 	envoyBinary = flag.String("envoy_binary", "", "Envoy binary path.")
 )
 
@@ -52,8 +53,8 @@ func (proxyComp *LocalComponent) GetName() string {
 
 // Start brings up a local envoy using start_envory script from istio/proxy
 func (proxyComp *LocalComponent) Start() (err error) {
-	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s > %s 2>&1",
-		*envoyBinary, proxyComp.LogFile)); err != nil {
+	if err = proxyComp.testProcess.Start(fmt.Sprintf("%s -e %s > %s 2>&1",
+		*envoyStartScript, *envoyBinary, proxyComp.LogFile)); err != nil {
 		return
 	}
 

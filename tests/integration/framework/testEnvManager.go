@@ -68,6 +68,7 @@ func (envManager *TestEnvManager) StartUp() (err error) {
 		return err
 	}
 
+	log.Printf("Successfully started environment %s", envManager.TestEnv.GetName())
 	return
 }
 
@@ -113,6 +114,7 @@ func (envManager *TestEnvManager) WaitUntilReady() (bool, error) {
 		}
 
 		ready = true
+		log.Println("All components are ready")
 		return nil
 	}
 
