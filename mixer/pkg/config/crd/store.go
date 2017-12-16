@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
@@ -29,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -128,12 +128,12 @@ func (s *Store) checkAndCreateCaches(
 			break
 		}
 		if retry {
-			glog.V(4).Infof("Retrying to fetch config...")
+			log.Debug("Retrying to fetch config...")
 			time.Sleep(retryInterval)
 		}
 		resources, err := d.ServerResourcesForGroupVersion(apiGroupVersion)
 		if err != nil {
-			glog.V(3).Infof("Failed to obtain resources for CRD: %v", err)
+			log.Debugf("Failed to obtain resources for CRD: %v", err)
 			continue
 		}
 		s.cacheMutex.Lock()

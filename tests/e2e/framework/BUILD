@@ -7,6 +7,7 @@ go_library(
         "framework.go",
         "istioctl.go",
         "kubernetes.go",
+        "rawVM.go",
         "testInfo.go",
     ],
     data = [

@@ -22,7 +22,18 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
+)
+
+// ChangeType denotes the type of a change
+type ChangeType int
+
+const (
+	// Update - change was an update or a create to a key.
+	Update ChangeType = iota
+	// Delete - key was removed.
+	Delete
 )
 
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
@@ -187,11 +198,11 @@ func (s *store2) List() map[Key]*Resource {
 	for k, d := range data {
 		pbSpec, err := cloneMessage(k.Kind, s.kinds)
 		if err != nil {
-			glog.Errorf("Failed to clone %s spec: %v", k, err)
+			log.Errorf("Failed to clone %s spec: %v", k, err)
 			continue
 		}
 		if err = convert(k, d.Spec, pbSpec); err != nil {
-			glog.Errorf("Failed to convert %s spec: %v", k, err)
+			log.Errorf("Failed to convert %s spec: %v", k, err)
 			continue
 		}
 		result[k] = &Resource{
@@ -222,6 +233,12 @@ func NewRegistry2(inventory ...RegisterFunc2) *Registry2 {
 	}
 	return &Registry2{builders: b}
 }
+
+// URL types supported by the config store
+const (
+	// example fs:///tmp/testdata/configroot
+	FSUrl = "fs"
+)
 
 // NewStore2 creates a new Store2 instance with the specified backend.
 func (r *Registry2) NewStore2(configURL string) (Store2, error) {

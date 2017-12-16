@@ -16,15 +16,17 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"time"
 
-	"net"
-
+	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/client-go/kubernetes"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	configaggregate "istio.io/istio/pilot/adapter/config/aggregate"
 	"istio.io/istio/pilot/adapter/config/crd"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/platform/cloudfoundry"
 	"istio.io/istio/pilot/platform/consul"
 	"istio.io/istio/pilot/platform/eureka"
 	"istio.io/istio/pilot/platform/kube"
@@ -43,7 +46,6 @@ import (
 	"istio.io/istio/pilot/proxy/envoy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/tools/version"
-	"k8s.io/client-go/kubernetes"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
@@ -58,6 +60,8 @@ const (
 	ConsulRegistry ServiceRegistry = "Consul"
 	// EurekaRegistry environment flag
 	EurekaRegistry ServiceRegistry = "Eureka"
+	// CloudFoundryRegistry environment flag
+	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 )
 
 var (
@@ -87,6 +91,7 @@ type MeshArgs struct {
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
 	KubeConfig        string
+	CFConfig          string
 	ControllerOptions kube.ControllerOptions
 	FileDir           string
 }
@@ -171,6 +176,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
+	if err := s.initMonitor(&args); err != nil {
+		return nil, err
+	}
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
@@ -212,6 +220,24 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop chan struct{}) error
+
+// initMonitor initializes the configuration for the pilot monitoring server.
+func (s *Server) initMonitor(args *PilotArgs) error {
+	s.addStartFunc(func(stop chan struct{}) error {
+		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			<-stop
+			err := monitor.Close()
+			glog.V(2).Infof("Monitoring server terminated: %v", err)
+		}()
+		return nil
+	})
+	return nil
+}
 
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
@@ -424,6 +450,30 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
+
+		case CloudFoundryRegistry:
+			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			if err != nil {
+				return multierror.Prefix(err, "loading cloud foundry config")
+			}
+			tlsConfig, err := cfConfig.ClientTLSConfig()
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client tls config")
+			}
+			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client")
+			}
+			serviceControllers.AddRegistry(aggregate.Registry{
+				Name: platform.ServiceRegistry(r),
+				Controller: &cloudfoundry.Controller{
+					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+					Client: client,
+				},
+				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
+				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
+			})
+
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}

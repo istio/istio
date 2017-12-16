@@ -15,16 +15,20 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/go-github/github"
 )
 
 const (
@@ -32,6 +36,54 @@ const (
 	pathPrefix     = "io_istio_istio"
 	runfilesSuffix = ".runfiles"
 )
+
+// GetHeadCommitSHA finds the SHA of the commit to which the HEAD of branch points
+func GetHeadCommitSHA(org, repo, branch string) (string, error) {
+	client := github.NewClient(nil)
+	githubRefObj, _, err := client.Git.GetRef(
+		context.Background(), org, repo, "refs/heads/"+branch)
+	if err != nil {
+		log.Printf("Failed to get reference SHA of branch [%s]on repo [%s]\n", branch, repo)
+		return "", err
+	}
+	return *githubRefObj.Object.SHA, nil
+}
+
+// WriteTextFile overwrites the file on the given path with content
+func WriteTextFile(filePath, content string) error {
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		content += "\n"
+	}
+	return ioutil.WriteFile(filePath, []byte(content), 0600)
+}
+
+// GitRootDir returns the absolute path to the root directory of the git repo
+// where this function is called
+func GitRootDir() (string, error) {
+	dir, err := Shell("git rev-parse --show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(dir, "\n"), nil
+}
+
+// Poll executes do() after time interval for a max of numTrials times.
+// The bool returned by do() indicates if polling succeeds in that trial
+func Poll(interval time.Duration, numTrials int, do func() (bool, error)) error {
+	if numTrials < 0 {
+		return fmt.Errorf("numTrials cannot be negative")
+	}
+	for i := 0; i < numTrials; i++ {
+		if success, err := do(); err != nil {
+			return fmt.Errorf("error during trial %d: %v", i, err)
+		} else if success {
+			return nil
+		} else {
+			time.Sleep(interval)
+		}
+	}
+	return fmt.Errorf("max polling iteration reached")
+}
 
 // CreateTempfile creates a tempfile string.
 func CreateTempfile(tmpDir, prefix, suffix string) (string, error) {

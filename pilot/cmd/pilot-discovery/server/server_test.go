@@ -16,17 +16,16 @@ package server_test
 
 import (
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"strings"
-
-	"net"
-
 	"github.com/golang/protobuf/ptypes"
+
 	"istio.io/istio/pilot/cmd/pilot-discovery/server"
 	"istio.io/istio/pilot/proxy/envoy"
 )

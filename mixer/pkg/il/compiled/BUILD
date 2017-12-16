@@ -22,8 +22,8 @@ go_test(
     name = "go_default_test",
     size = "medium",
     srcs = [
-        "expressionbuilder_test.go",
         "expressionBenchmark_test.go",
+        "expressionbuilder_test.go",
     ],
     library = ":go_default_library",
     deps = [

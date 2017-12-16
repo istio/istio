@@ -15,7 +15,6 @@
 package attribute
 
 import (
-	"flag"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -23,7 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -740,5 +742,7 @@ func TestGlobalWordCount(t *testing.T) {
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
+	o := log.NewOptions()
+	o.SetOutputLevel(zapcore.DebugLevel)
+	_ = log.Configure(o)
 }

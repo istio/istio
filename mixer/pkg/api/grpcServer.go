@@ -19,22 +19,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/log"
+	otlog "github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapterManager"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/pkg/log"
 )
 
 // We have a slightly messy situation around the use of context objects. gRPC stubs are
@@ -45,9 +44,8 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
-		dispatcher       runtime.Dispatcher
-		aspectDispatcher adapterManager.AspectDispatcher
-		gp               *pool.GoroutinePool
+		dispatcher runtime.Dispatcher
+		gp         *pool.GoroutinePool
 
 		// the global dictionary. This will eventually be writable via config
 		globalWordList []string
@@ -68,7 +66,7 @@ var checkOk = &adapter.CheckResult{
 }
 
 // NewGRPCServer creates a gRPC serving stack.
-func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
+func NewGRPCServer(dispatcher runtime.Dispatcher, gp *pool.GoroutinePool) mixerpb.MixerServer {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
@@ -76,11 +74,10 @@ func NewGRPCServer(aspectDispatcher adapterManager.AspectDispatcher, dispatcher 
 	}
 
 	return &grpcServer{
-		dispatcher:       dispatcher,
-		aspectDispatcher: aspectDispatcher,
-		gp:               gp,
-		globalWordList:   list,
-		globalDict:       globalDict,
+		dispatcher:     dispatcher,
+		gp:             gp,
+		globalWordList: list,
+		globalDict:     globalDict,
 	}
 }
 
@@ -105,7 +102,7 @@ func (c *compatBag) Get(name string) (v interface{}, found bool) {
 	compatAttr := strings.Replace(name, "destination.", "target.", 1)
 	v, found = c.parent.Get(compatAttr)
 	if found {
-		glog.Warning("Deprecated attribute found: ", compatAttr)
+		log.Warna("Deprecated attribute found: ", compatAttr)
 	}
 	return
 }
@@ -133,50 +130,34 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	// compatReqBag ensures that preprocessor input handles deprecated attributes gracefully.
 	compatReqBag := &compatBag{requestBag}
 	preprocResponseBag := attribute.GetMutableBag(nil)
-	preprocResponseBagLegacy := attribute.GetMutableBag(nil)
 
-	glog.V(1).Info("Dispatching Preprocess Check")
+	log.Debuga("Dispatching Preprocess Check")
 
 	mutableBag := attribute.GetMutableBag(requestBag)
 	var out rpc.Status
-
-	// In the next PR
-	// * this block will be deleted.
-	// * kubernetes2 needs to be renamed to kubernetes and the testdata config needs to be updated too.
-	{
-		out = s.aspectDispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBagLegacy)
-
-		if err := mutableBag.PreserveMerge(preprocResponseBagLegacy); err != nil {
-			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-		}
+	if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
+		out = status.WithError(err)
 	}
-
-	{
-		if err := s.dispatcher.Preprocess(legacyCtx, compatReqBag, preprocResponseBag); err != nil {
-			out = status.WithError(err)
-		}
-		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-		}
+	if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+		out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 	}
 
 	compatRespBag := &compatBag{mutableBag}
 
 	if !status.IsOK(out) {
-		glog.Error("Preprocess Check returned with: ", status.String(out))
+		log.Errora("Preprocess Check returned with: ", status.String(out))
 		requestBag.Done()
 		preprocResponseBag.Done()
-		preprocResponseBagLegacy.Done()
 		return nil, makeGRPCError(out)
 	}
-	glog.V(1).Info("Preprocess Check returned with: ", status.String(out))
 
-	if glog.V(2) {
-		glog.Info("Dispatching to main adapters after running processors")
-		glog.Info("Attribute Bag: \n", mutableBag.DebugString())
+	if log.DebugEnabled() {
+		log.Debuga("Preprocess Check returned with: ", status.String(out))
+		log.Debug("Dispatching to main adapters after running processors")
+		log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+		log.Debug("Dispatching Check")
 	}
 
-	glog.V(1).Info("Dispatching Check")
 	cr, err := s.dispatcher.Check(legacyCtx, compatRespBag)
 	if err != nil {
 		out = status.WithError(err)
@@ -199,9 +180,9 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	if status.IsOK(out) {
-		glog.V(2).Info("Check returned with ok")
+		log.Debug("Check returned with ok")
 	} else {
-		glog.Error("Check returned with error : ", status.String(out))
+		log.Errora("Check returned with error: ", status.String(out))
 	}
 	requestBag.ClearReferencedAttributes()
 
@@ -246,7 +227,6 @@ func (s *grpcServer) Check(legacyCtx legacyContext.Context, req *mixerpb.CheckRe
 	}
 
 	requestBag.Done()
-	preprocResponseBagLegacy.Done()
 	preprocResponseBag.Done()
 
 	return resp, nil
@@ -257,11 +237,11 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 	if d == nil {
 		return nil, nil
 	}
-	glog.V(1).Info("Dispatching Quota: ", qma.Quota)
+	log.Debuga("Dispatching Quota: ", qma.Quota)
 	qmr, err := d.Quota(legacyCtx, bag, qma)
 	if err != nil {
 		// TODO record the error in the quota specific result
-		glog.Warningf("Quota %s returned error: %v", qma.Quota, err)
+		log.Warnf("Quota %s returned error: %v", qma.Quota, err)
 		return nil, err
 	}
 
@@ -269,9 +249,8 @@ func quota(legacyCtx legacyContext.Context, d runtime.Dispatcher, bag attribute.
 		return nil, nil
 	}
 
-	if glog.V(4) {
-		glog.Infof("Quota '%s' result: %#v", qma.Quota, qmr.Status)
-	}
+	log.Debugf("Quota '%s' result: %#v", qma.Quota, qmr.Status)
+
 	return &mixerpb.CheckResponse_QuotaResult{
 		GrantedAmount: qmr.Amount,
 		ValidDuration: qmr.ValidDuration,
@@ -298,7 +277,6 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 	requestBag := attribute.GetMutableBag(protoBag)
 	compatReqBag := &compatBag{requestBag}
 	mutableBag := attribute.GetMutableBag(requestBag)
-	preprocResponseBagLegacy := attribute.GetMutableBag(nil)
 	preprocResponseBag := attribute.GetMutableBag(nil)
 	var err error
 	for i := 0; i < len(req.Attributes); i++ {
@@ -310,73 +288,60 @@ func (s *grpcServer) Report(legacyCtx legacyContext.Context, req *mixerpb.Report
 			err = requestBag.UpdateBagFromProto(&req.Attributes[i], s.globalWordList)
 			if err != nil {
 				msg := "Request could not be processed due to invalid attributes."
-				glog.Error(msg, "\n", err)
+				log.Errora(msg, "\n", err)
 				details := status.NewBadRequest("attributes", err)
 				err = makeGRPCError(status.InvalidWithDetails(msg, details))
 				break
 			}
 		}
 
-		glog.V(1).Info("Dispatching Preprocess")
+		log.Debug("Dispatching Preprocess")
 		var out rpc.Status
-
-		// In the next PR
-		// * this block will be deleted.
-		// * kubernetes2 needs to be renamed to kubernetes and the testdata config needs to be updated too.
-		{
-			out = s.aspectDispatcher.Preprocess(newctx, compatReqBag, preprocResponseBagLegacy)
-			if err := mutableBag.PreserveMerge(preprocResponseBagLegacy); err != nil {
-				out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-			}
+		if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
+			out = status.WithError(err)
 		}
-
-		{
-			if err = s.dispatcher.Preprocess(newctx, compatReqBag, preprocResponseBag); err != nil {
-				out = status.WithError(err)
-			}
-			if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
-				out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
-			}
+		if err := mutableBag.PreserveMerge(preprocResponseBag); err != nil {
+			out = status.WithError(fmt.Errorf("could not merge preprocess attributes into request attributes: %v", err))
 		}
 
 		compatRespBag := &compatBag{mutableBag}
 		if !status.IsOK(out) {
-			glog.Error("Preprocess returned with: ", status.String(out))
+			log.Errora("Preprocess returned with: ", status.String(out))
 			err = makeGRPCError(out)
-			span.LogFields(log.String("error", err.Error()))
+			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Info("Preprocess returned with: ", status.String(out))
 
-		if glog.V(2) {
-			glog.Info("Dispatching to main adapters after running processors")
-			glog.Info("Attribute Bag: \n", mutableBag.DebugString())
+		if log.DebugEnabled() {
+			log.Debuga("Preprocess returned with: ", status.String(out))
+			log.Debug("Dispatching to main adapters after running processors")
+			log.Debuga("Attribute Bag: \n", mutableBag.DebugString())
+			log.Debugf("Dispatching Report %d out of %d", i, len(req.Attributes))
 		}
-
-		glog.V(1).Infof("Dispatching Report %d out of %d", i, len(req.Attributes))
 		err = s.dispatcher.Report(legacyCtx, compatRespBag)
 		if err != nil {
 			out = status.WithError(err)
-			glog.Warningf("Report returned %v", err)
+			log.Warnf("Report returned %v", err)
 		}
 
 		if !status.IsOK(out) {
-			glog.Errorf("Report %d returned with: %s", i, status.String(out))
+			log.Errorf("Report %d returned with: %s", i, status.String(out))
 			err = makeGRPCError(out)
-			span.LogFields(log.String("error", err.Error()))
+			span.LogFields(otlog.String("error", err.Error()))
 			span.Finish()
 			break
 		}
-		glog.V(1).Infof("Report %d returned with: %s", i, status.String(out))
 
-		span.LogFields(log.String("success", "finished Report for attribute bag "+string(i)))
+		if log.DebugEnabled() {
+			log.Debugf("Report %d returned with: %s", i, status.String(out))
+		}
+
+		span.LogFields(otlog.String("success", "finished Report for attribute bag "+string(i)))
 		span.Finish()
-		preprocResponseBagLegacy.Reset()
 		preprocResponseBag.Reset()
 	}
 
-	preprocResponseBagLegacy.Done()
 	preprocResponseBag.Done()
 	requestBag.Done()
 	protoBag.Done()
