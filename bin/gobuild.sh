@@ -17,6 +17,20 @@
 # This script builds and link stamps the output
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT=$1
+
+set -x
+
+GOOPRN=${GOOPRN:-build}
+GOINCREMENTAL=-i
+
+if [[ ${OUT} == "__run__" ]];then
+    OUT=""
+    GOINCREMENTAL=""
+    GOOPRN=run
+else
+    OUT="-o ${OUT}"
+fi
+
 shift
 VERSION_MODULE=$1 # istio.io/istio/mixer/pkg/version
 shift
@@ -33,5 +47,5 @@ GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBIN=${GOBIN:-go}
 
-GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} build ${V} -i -o ${OUT} \
+GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} ${GOOPRN} ${V} ${GOINCREMENTAL} ${OUT} \
 	-ldflags "-extldflags -static $(${ROOT}/bin/get_workspace_status ${VERSION_MODULE})" "$*"

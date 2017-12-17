@@ -26,7 +26,7 @@ source ${ROOT}/../bin/docker_lib.sh
 cd $ROOT
 
 GOBUILD=${ROOT}/../bin/gobuild.sh
-VERSION_MODULE=istio.io/istio/pilot/tools/version
+VERSION_MODULE=istio.io/istio/security/cmd/istio_ca/version
 
 
 ${GOBUILD} docker/istio_ca ${VERSION_MODULE} ./cmd/istio_ca
@@ -35,23 +35,23 @@ ${GOBUILD} docker/node_agent ${VERSION_MODULE} ./cmd/node_agent
 #!/bin/bash
 
 echo "Generate certificate and private key for Istio CA"
-bazel run //security/cmd/generate_cert -- \
--key-size=2048 \
--out-cert=${ROOT}/docker/istio_ca.crt \
--out-priv=${ROOT}/docker/istio_ca.key \
--organization="k8s.cluster.local" \
--self-signed=true \
--ca=true
+go run ./cmd/generate_cert/main.go \
+--key-size=2048 \
+--out-cert=${ROOT}/docker/istio_ca.crt \
+--out-priv=${ROOT}/docker/istio_ca.key \
+--organization="k8s.cluster.local" \
+--self-signed=true \
+--ca=true
 
 echo "Generate certificate and private key for node agent"
-bazel run //security/cmd/generate_cert -- \
--key-size=2048 \
--out-cert=${ROOT}/docker/node_agent.crt \
--out-priv=${ROOT}/docker/node_agent.key \
--organization="NodeAgent" \
--host="nodeagent.google.com" \
--signer-cert=${ROOT}/docker/istio_ca.crt \
--signer-priv=${ROOT}/docker/istio_ca.key
+go run ./cmd/generate_cert/main.go \
+--key-size=2048 \
+--out-cert=${ROOT}/docker/node_agent.crt \
+--out-priv=${ROOT}/docker/node_agent.key \
+--organization="NodeAgent" \
+--host="nodeagent.google.com" \
+--signer-cert=${ROOT}/docker/istio_ca.crt \
+--signer-priv=${ROOT}/docker/istio_ca.key
 
 IMAGES=()
 
