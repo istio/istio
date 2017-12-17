@@ -121,10 +121,10 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 	return nil
 }
 
-func (t *routingToEgress) verifyRequestHeaders(src, httpbinUrl string, expectedHeaders map[string]string) error {
-	glog.Infof("Making 1 request (%s) from %s...\n", httpbinUrl, src)
+func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
+	glog.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
 
-	resp := t.clientRequest(src, httpbinUrl, 1, "")
+	resp := t.clientRequest(src, httpbinURL, 1, "")
 
 	containsAllExpectedHeaders := true
 
