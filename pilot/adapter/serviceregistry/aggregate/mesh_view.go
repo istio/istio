@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// See resourceLabelsFromModelLabels() for more on why we need
+	// See labelsFromModel() for more on why we need
 	// internal / external representations
 	labelXdsPrefix     = "config.istio.io/xds"
 	labelServicePrefix = labelXdsPrefix + "Service."
@@ -98,18 +98,20 @@ func NewMeshResourceView() *MeshResourceView {
 	}
 }
 
-// A resource key representing a mesh service resource
+// buildServiceKey builds a key to a service for a specific registry
 // Format for service: [service name][platformRegistry]
-// There can only be one service object per platformRegistry
-// TODO: this will change with multi-cluster to be one service object per platformRegistry per cluster
-func BuildServiceKey(r *Registry, s *model.Service) resourceKey {
+// At the moment, there can only be one service object per platformRegistry
+// TODO Upcoming PRs under #1223 plan to accommodate multi-cluster multi-cloud
+// where the platform will be replaced by the name of the cluster
+func buildServiceKey(r *Registry, s *model.Service) resourceKey {
 	return resourceKey("[" + s.Hostname + "][" + string(r.Name) + "]")
 }
 
+// buildServiceInstanceKey builds a key to a service instance for a specific registry
 // Format for service instance: [service name][hex value of IP address][hex value of port number]
 // Within the mesh there can be exactly one endpoint for a service with the combination of
-// IP address and port
-func BuildServiceInstanceKey(i *model.ServiceInstance) resourceKey {
+// IP address and port.
+func buildServiceInstanceKey(i *model.ServiceInstance) resourceKey {
 	return resourceKey("[" + i.Service.Hostname + "][" + getIPHex(i.Endpoint.Address) + "][" + getPortHex(i.Endpoint.Port) + "]")
 }
 
@@ -127,7 +129,7 @@ func getPortHex(port int) string {
 // compatibility between various numeric and IP text
 // values that are otherwise identical, ex: 08880 and 8080
 // or 10.1.1.3 and ::ffff:10.1.1.3
-func resourceLabelFromNameValue(label string, value *string) resourceLabel {
+func labelForNameValue(label string, value *string) resourceLabel {
 	switch label {
 	case labelServiceVIP:
 		fallthrough
@@ -143,7 +145,7 @@ func resourceLabelFromNameValue(label string, value *string) resourceLabel {
 	return resourceLabel{label, value}
 }
 
-func resourceLabelsFromModelLabels(lc model.Labels) resourceLabels {
+func labelsFromModel(lc model.Labels) resourceLabels {
 	rl := make(resourceLabels, len(lc))
 	i := 0
 	for k := range lc {
@@ -151,30 +153,30 @@ func resourceLabelsFromModelLabels(lc model.Labels) resourceLabels {
 		// has a diff string address
 		val := new(string)
 		*val = lc[k]
-		rl[i] = resourceLabelFromNameValue(k, val)
+		rl[i] = labelForNameValue(k, val)
 		i++
 	}
 	return rl
 }
 
-func resourceLabelsFromNameValues(label string, values []string) resourceLabels {
+func labelsForNameValues(label string, values []string) resourceLabels {
 	rl := make(resourceLabels, len(values))
 	for idx := range values {
 		// ensure distinct string addresses
 		var v *string
 		v = &values[idx]
-		rl[idx] = resourceLabelFromNameValue(label, v)
+		rl[idx] = labelForNameValue(label, v)
 	}
 	return rl
 }
 
-func (r *Registry) HandleService(s *model.Service, e model.Event) {
-	k := BuildServiceKey(r, s)
+func (r *Registry) handleService(s *model.Service, e model.Event) {
+	k := buildServiceKey(r, s)
 	r.MeshView.handleService(k, s, e)
 }
 
-func (r *Registry) HandleServiceInstance(i *model.ServiceInstance, e model.Event) {
-	k := BuildServiceInstanceKey(i)
+func (r *Registry) handleServiceInstance(i *model.ServiceInstance, e model.Event) {
+	k := buildServiceInstanceKey(i)
 	r.MeshView.handleServiceInstance(k, i, e)
 }
 
@@ -194,7 +196,7 @@ func (v *MeshResourceView) Services() ([]*model.Service, error) {
 
 // GetService retrieves a service by hostname if exists
 func (v *MeshResourceView) GetService(hostname string) (*model.Service, error) {
-	lbls := resourceLabelFromNameValue(labelServiceName, &hostname)
+	lbls := labelForNameValue(labelServiceName, &hostname)
 	svcs := v.serviceByLabels(resourceLabels{lbls})
 	if len(svcs) > 0 {
 		return svcs[0], nil
@@ -220,11 +222,11 @@ func (v *MeshResourceView) ManagementPorts(addr string) model.PortList {
 // any of the supplied labels. All instances match an empty label list.
 func (v *MeshResourceView) Instances(hostname string, ports []string,
 	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	hostPortLbls := resourceLabelsFromNameValues(labelInstancePort, ports)
+	hostPortLbls := labelsForNameValues(labelInstancePort, ports)
 	hostPortLbls.appendNameValue(labelServiceName, hostname)
 	if len(labels) > 0 {
 		for _, lblset := range labels {
-			lbls := resourceLabelsFromModelLabels(lblset)
+			lbls := labelsFromModel(lblset)
 			lbls = append(lbls, hostPortLbls...)
 			out := v.serviceInstancesByLabels(lbls)
 			if len(out) > 0 {
@@ -237,7 +239,7 @@ func (v *MeshResourceView) Instances(hostname string, ports []string,
 	return v.serviceInstancesByLabels(hostPortLbls), nil
 }
 
-func resourceLabelsForIpSet(name string, values map[string]bool) resourceLabels {
+func labelsForIPSet(name string, values map[string]bool) resourceLabels {
 	rl := make(resourceLabels, len(values))
 	i := 0
 	for v := range values {
@@ -250,7 +252,7 @@ func resourceLabelsForIpSet(name string, values map[string]bool) resourceLabels 
 
 // HostInstances lists service instances for a given set of IPv4 addresses.
 func (v *MeshResourceView) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
-	lbls := resourceLabelsForIpSet(labelInstanceIP, addrs)
+	lbls := labelsForIPSet(labelInstanceIP, addrs)
 	return v.serviceInstancesByLabels(lbls), nil
 }
 
@@ -275,7 +277,7 @@ func (v *MeshResourceView) AppendServiceHandler(f func(*model.Service, model.Eve
 	v.serviceHandler = f
 	for idx := range v.registries {
 		r := &v.registries[idx]
-		if err := r.AppendServiceHandler(r.HandleService); err != nil {
+		if err := r.AppendServiceHandler(r.handleService); err != nil {
 			glog.V(2).Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
 		}
@@ -293,7 +295,7 @@ func (v *MeshResourceView) AppendInstanceHandler(f func(*model.ServiceInstance, 
 	v.serviceInstanceHandler = f
 	for idx := range v.registries {
 		r := &v.registries[idx]
-		if err := r.AppendInstanceHandler(r.HandleServiceInstance); err != nil {
+		if err := r.AppendInstanceHandler(r.handleServiceInstance); err != nil {
 			glog.V(2).Infof("Fail to append instance handler to adapter %s", r.Name)
 			return err
 		}
@@ -303,8 +305,8 @@ func (v *MeshResourceView) AppendInstanceHandler(f func(*model.ServiceInstance, 
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (v *MeshResourceView) GetIstioServiceAccounts(hostname string, ports []string) []string {
-	hostLabel := resourceLabelFromNameValue(labelServiceName, &hostname)
-	hostPortLbls := resourceLabelsFromNameValues(labelInstancePort, ports)
+	hostLabel := labelForNameValue(labelServiceName, &hostname)
+	hostPortLbls := labelsForNameValues(labelInstancePort, ports)
 	hostPortLbls.appendFrom(resourceLabels{hostLabel})
 	instances := v.serviceInstancesByLabels(hostPortLbls)
 	saSet := make(map[string]bool)

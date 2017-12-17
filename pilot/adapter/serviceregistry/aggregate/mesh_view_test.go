@@ -38,7 +38,7 @@ var countInstPerSvc int
 type MockController struct {
 	model.ServiceDiscovery
 	model.ServiceAccounts
-	platform platform.ServiceRegistry
+	registry platform.ServiceRegistry
 }
 
 type serviceEvent struct {
@@ -81,17 +81,17 @@ func (ev *eventVerifier) trackInstance(i *model.ServiceInstance, e model.Event) 
 	ev.instTracked = append(ev.instTracked, instanceEvent{i, e})
 }
 
-func (ev *eventVerifier) mockSvcEvent(platform platform.ServiceRegistry, s *model.Service, e model.Event) {
+func (ev *eventVerifier) mockSvcEvent(registry platform.ServiceRegistry, s *model.Service, e model.Event) {
 	ev.svcToVerify = append(ev.svcToVerify, serviceEvent{s, e})
-	handler, found := ev.mockSvcHandlerMap[platform]
+	handler, found := ev.mockSvcHandlerMap[registry]
 	if found {
 		handler(s, e)
 	}
 }
 
-func (ev *eventVerifier) mockInstEvent(platform platform.ServiceRegistry, i *model.ServiceInstance, e model.Event) {
+func (ev *eventVerifier) mockInstEvent(registry platform.ServiceRegistry, i *model.ServiceInstance, e model.Event) {
 	ev.instToVerify = append(ev.instToVerify, instanceEvent{i, e})
-	handler, found := ev.mockInstHandlerMap[platform]
+	handler, found := ev.mockInstHandlerMap[registry]
 	if found {
 		handler(i, e)
 	}
@@ -147,12 +147,12 @@ func (ev *eventVerifier) verifyInstanceEvents(t *testing.T) {
 }
 
 func (v *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	evVerifier.mockSvcHandlerMap[v.platform] = f
+	evVerifier.mockSvcHandlerMap[v.registry] = f
 	return nil
 }
 
 func (v *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	evVerifier.mockInstHandlerMap[v.platform] = f
+	evVerifier.mockInstHandlerMap[v.registry] = f
 	return nil
 }
 
@@ -458,13 +458,13 @@ func buildMockInstances() []*model.ServiceInstance {
 
 func triggerAddInstanceEvents() {
 	for _, inst := range mockInstances {
-		var platform platform.ServiceRegistry
+		var registry platform.ServiceRegistry
 		if inst.Service.Hostname == mock.HelloService.Hostname {
-			platform = platform1
+			registry = platform1
 		} else {
-			platform = platform2
+			registry = platform2
 		}
-		evVerifier.mockInstEvent(platform, inst, model.EventAdd)
+		evVerifier.mockInstEvent(registry, inst, model.EventAdd)
 	}
 }
 

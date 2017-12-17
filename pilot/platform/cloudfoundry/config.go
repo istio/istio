@@ -95,4 +95,3 @@ func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 		RootCAs:          serverCAs,
 	}, nil
 }
-
