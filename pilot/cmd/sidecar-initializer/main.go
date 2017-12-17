@@ -65,10 +65,6 @@ func getRootCmd() *cobra.Command {
 
 			stop := make(chan struct{})
 
-			if flags.port != 0 {
-				server := inject.NewHTTPServer(flags.port, config)
-				go server.Run(stop)
-			}
 			go initializer.Run(stop)
 
 			cmd.WaitSignal(stop)
@@ -84,8 +80,6 @@ func getRootCmd() *cobra.Command {
 		"Name of initializer configuration ConfigMap")
 	rootCmd.PersistentFlags().StringVar(&flags.namespace, "namespace", v1.NamespaceDefault, // TODO istio-system?
 		"Namespace of initializer configuration ConfigMap")
-	rootCmd.PersistentFlags().IntVar(&flags.port, "port", 8083,
-		"HTTP-based initializer service port. Zero value disables HTTP endpoint")
 
 	cmd.AddFlags(rootCmd)
 
