@@ -62,9 +62,7 @@ elif [[ -n ${ISTIO_VERSION} ]]; then
   VERSION="${ISTIO_VERSION}"
 fi
 
-VERSION_MODULE=${1:-""}
-
-# avoid associative map because MacOS cannot use BASH 4 by default
+# avoid associative array because MacOS cannot use BASH 4 by default
 bv=(buildAppVersion buildGitRevision buildGitBranch buildUser buildHost)
 
 # used by pilot/istioctl/security version package
@@ -80,13 +78,6 @@ buildVersion="${VERSION}"
 buildStatus="${tree_status}"
 buildID="$(date +%Y-%m-%d-$(git rev-parse --short HEAD))"
 
-if [[ -z "${VERSION_MODULE}" ]];then
-	# plain output
-	for v in ${bv[@]}; do
-		echo -n "$v="; eval echo \$$v
-	done
-else
-	for v in ${bv[@]}; do
-		echo -n "-X ${VERSION_MODULE}.$v=\""; eval echo -n \$$v; echo -n "\" "
-	done
-fi
+for v in ${bv[@]}; do
+  echo -n "$v "; eval echo \$$v
+done

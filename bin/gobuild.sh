@@ -16,24 +16,10 @@
 #
 # This script builds and link stamps the output
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT=$1
 
-set -e
-
-GOOPRN=${GOOPRN:-build}
-GOINCREMENTAL=-i
-
-if [[ ${OUT} == "__run__" ]];then
-    OUT=""
-    GOINCREMENTAL=""
-    GOOPRN=run
-else
-    OUT="-o ${OUT}"
-fi
-
-shift
-VERSION_MODULE=$1 # istio.io/istio/mixer/pkg/version
-shift
+OUT=${1:?"output path"}
+VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
+BUILDPATH=${3:?"path to build"}
 
 set -e
 
@@ -46,6 +32,22 @@ fi
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBIN=${GOBIN:-go}
+BUILDINFO=${BUILDINFO:-""}
 
-GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} ${GOOPRN} ${V} ${GOINCREMENTAL} ${OUT} \
-	-ldflags "-extldflags -static $(${ROOT}/bin/get_workspace_status ${VERSION_MODULE})" "$*"
+# gather buildinfo if not already provided
+# For a release build BUILDINFO should be produced
+# at the beginning of the build and used throughout
+if [[ -z ${BUILDINFO} ]];then
+    BUILDINFO=$(mktemp)
+    ${ROOT}/bin/get_workspace_status > ${BUILDINFO}
+fi
+
+# BUILD LD_VERSIONFLAGS
+LD_VERSIONFLAGS=""
+while read line; do
+    read SYMBOL VALUE < <(echo $line)
+    LD_VERSIONFLAGS=${LD_VERSIONFLAGS}" -X ${VERSION_PACKAGE}.${SYMBOL}=${VALUE}"
+done < "${BUILDINFO}"
+
+GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} build ${V} -i -o ${OUT} \
+	-ldflags "-extldflags -static ${LD_VERSIONFLAGS}" "${BUILDPATH}"

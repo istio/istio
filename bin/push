@@ -7,6 +7,18 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd $ROOT
 
+
+BUILDINFO=$(mktemp)
+
+function cleanup {
+  rm -rf "${BUILDINFO}"
+}
+
+trap cleanup exit
+
+${ROOT}/bin/get_workspace_status > ${BUILDINFO}
+export BUILDINFO
+
 pilot/bin/push-docker -hub ${HUB} -tag ${TAG} &
 mixer/bin/push-docker -hub ${HUB} -tag ${TAG} &
 security/bin/push-docker -hub ${HUB} -tag ${TAG} &
