@@ -42,7 +42,10 @@ func makeClient(t *testing.T) (*rest.Config, kubernetes.Interface) {
 		t.Fatal(err.Error())
 	}
 
-	kubeconfig := usr.HomeDir + "/.kube/config"
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = usr.HomeDir + "/.kube/config"
+	}
 
 	// For Bazel sandbox we search a different location:
 	if _, err = os.Stat(kubeconfig); err != nil {
