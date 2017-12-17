@@ -9,7 +9,10 @@ check.prereqs:
 	@if test $(GO_MINOR_VERSION) -lt 9; then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
 
 docker: mixs docker/ca-certificates.tgz
-	cp mixs docker && cd docker && docker build -t mixs . && rm mixs
+	cp mixs docker
+	cd docker && docker build -t mixer -f Dockerfile .
+	cd docker && docker build -t mixer_debug -f Dockerfile.debug .
+	rm mixs
 
 # fetch debian ca-certs to package in the docker container.
 docker/ca-certificates.tgz:
