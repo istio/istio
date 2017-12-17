@@ -15,18 +15,16 @@
 # limitations under the License.
 #
 # This script builds and link stamps the output
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 set -x
-
-echo $*
-echo $@
-pwd
-echo "full = $@"
 OUT=$1
 shift
-LINK=$1 # istio.io/istio/mixer/pkg/version
+VERSION_MODULE=$1 # istio.io/istio/mixer/pkg/version
 shift
 
-export GOOS=linux
-export GOARCH=amd64
-echo "LINK=$LINK, OUT=$OUT"
-CGO_ENABLED=0 go build -i -o ${OUT} -ldflags '-extldflags "-static" -X ${LINK}.buildStatus="HAHA"' "$*"
+GOOS=${GOOS:-linux}
+GOARCH=${GOARCH:-amd64}
+GOBIN=${GOBIN:-go}
+
+GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} build -x -i -o ${OUT} \
+	-ldflags "-extldflags -static $(${ROOT}/bin/get_workspace_status ${VERSION_MODULE})" "$*"
