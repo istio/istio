@@ -115,9 +115,8 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 	}
 
 	if strconv.Itoa(respCode) != statusCode {
-		return fmt.Errorf("fault injection verification failed: "+
-			"status code %s, "+
-			"expected status code %d", statusCode, respCode)
+		return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
+			statusCode, respCode)
 	}
 	return nil
 }
