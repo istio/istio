@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	// TODO(nmittler): Remove this
@@ -53,6 +54,18 @@ func (t *routingToEgress) run() error {
 			configRouting: "rule-fault-injection-httpbin.yaml.tmpl",
 			check: func() error {
 				return t.verifyFaultInjectionByResponseCode("a", "http://httpbin.org", 418)
+			},
+		},
+		{
+			description:   "append http headers in traffic to httpbin.org",
+			configEgress:  "egress-rule-httpbin.yaml.tmpl",
+			configRouting: "rule-route-append-headers-httpbin.yaml.tmpl",
+			check: func() error {
+				return t.verifyRequestHeaders("a", "http://httpbin.org/headers",
+					map[string]string{
+						"istio-custom-header1": "user-defined-value1",
+						"istio-custom-header2": "user-defined-value2",
+					})
 			},
 		},
 	}
@@ -105,6 +118,28 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 		return fmt.Errorf("fault injection verification failed: "+
 			"status code %s, "+
 			"expected status code %d", statusCode, respCode)
+	}
+	return nil
+}
+
+func (t *routingToEgress) verifyRequestHeaders(src, httpbinUrl string, expectedHeaders map[string]string) error {
+	glog.Infof("Making 1 request (%s) from %s...\n", httpbinUrl, src)
+
+	resp := t.clientRequest(src, httpbinUrl, 1, "")
+
+	containsAllExpectedHeaders := true
+
+	headerFormat := "\"%s\": \"%s\""
+	for name, value := range expectedHeaders {
+		headerContent := fmt.Sprintf(headerFormat, name, value)
+		if !strings.Contains(strings.ToLower(resp.body), strings.ToLower(headerContent)) {
+			containsAllExpectedHeaders = false
+		}
+	}
+
+	if !containsAllExpectedHeaders {
+		return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
+			resp.body, expectedHeaders)
 	}
 	return nil
 }
