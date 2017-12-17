@@ -1,0 +1,9 @@
+FROM alpine:3.5
+RUN apk add --no-cache curl
+
+WORKDIR /tmp/
+ADD servicegraph /usr/local/bin/
+ADD viz /tmp/js/
+
+EXPOSE 8088
+ENTRYPOINT ["/usr/local/bin/servicegraph", "--assetDir=/tmp"]
