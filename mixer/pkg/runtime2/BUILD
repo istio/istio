@@ -21,7 +21,6 @@ go_library(
         "//mixer/pkg/runtime2/config:go_default_library",
         "//mixer/pkg/runtime2/dispatcher:go_default_library",
         "//mixer/pkg/runtime2/handler:go_default_library",
-        "//mixer/pkg/runtime2/legacy:go_default_library",
         "//mixer/pkg/runtime2/routing:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
     ],

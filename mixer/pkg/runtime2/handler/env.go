@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package legacy
+package handler
 
 import (
 	"istio.io/istio/mixer/pkg/adapter"

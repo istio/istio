@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/dispatcher"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
-	"istio.io/istio/mixer/pkg/runtime2/legacy"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/mixer/pkg/template"
 )
@@ -66,7 +65,7 @@ func New(
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
 		dispatcher:             dispatcher.New(identityAttribute, executorPool),
-		env:                    legacy.NewEnv("???", handlerPool),
+		env:                    handler.NewEnv("???", handlerPool),
 
 		store: s,
 	}

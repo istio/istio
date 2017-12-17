@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package legacy
+package handler
 
 // TODO this file is copied from pkg/adapterManager.
 // Remove the adapterManager package once adapters2 switch is complete.

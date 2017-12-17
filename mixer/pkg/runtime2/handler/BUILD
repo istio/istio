@@ -4,8 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cleanup.go",
+        "env.go",
         "factory.go",
         "instantiate.go",
+        "logger.go",
         "signature.go",
         "table.go",
     ],
@@ -15,11 +17,13 @@ go_library(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il/evaluator:go_default_library",
+        "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//mixer/pkg/runtime2/config:go_default_library",
         "//mixer/pkg/log:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@com_github_golang_glog//:go_default_library",
     ],
 )
 
@@ -28,6 +32,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "cleanup_test.go",
+        "env_test.go",
         "factory_test.go",
         "instantiate_test.go",
         "table_test.go",
