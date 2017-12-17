@@ -18,7 +18,7 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT=$1
 
-set -x
+set -e
 
 GOOPRN=${GOOPRN:-build}
 GOINCREMENTAL=-i

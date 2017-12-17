@@ -18,19 +18,20 @@
 #
 # This script creates a base image for the init image that includes iptables.
 #
-set -ex
+set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
 cd $ROOT
 
-GOBUILD=${ROOT}/../bin/gobuild.sh
-VERSION_MODULE=istio.io/istio/security/cmd/istio_ca/version
+
+#GOBUILD=${ROOT}/../bin/gobuild.sh
+#VERSION_MODULE=istio.io/istio/security/cmd/istio_ca/version
 
 
-${GOBUILD} docker/istio_ca ${VERSION_MODULE} ./cmd/istio_ca
-${GOBUILD} docker/node_agent ${VERSION_MODULE} ./cmd/node_agent
+#${GOBUILD} docker/istio_ca ${VERSION_MODULE} ./cmd/istio_ca
+#${GOBUILD} docker/node_agent ${VERSION_MODULE} ./cmd/node_agent
 
 #!/bin/bash
 
@@ -58,7 +59,7 @@ IMAGES=()
 pushd docker
   for image in istio-ca istio-ca-test node-agent-test; do
     local_image="${image}:${local_tag}"
-    docker build -q -f "Dockerfile.${image}" -t "${image}" .
+    docker build -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")
   done
 popd

@@ -24,4 +24,4 @@ docker/ca-certificates.tgz:
 	./docker/fetch_cacerts.sh
 
 docker/mixs: check.prereqs
-	../bin/gobuild.sh docker/mixs istio.io/istio/mixer/pkg/version ./cmd/mixs
+	../bin/gobuild.sh $@ istio.io/istio/mixer/pkg/version ./cmd/mixs
