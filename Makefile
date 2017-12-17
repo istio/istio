@@ -184,24 +184,29 @@ go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc
 # Target: go test
 #-----------------------------------------------------------------------------
 
-.PHONY: go-test
+.PHONY: go-test localTestEnv
+
+GOTEST_PARALLEL ?= '-test.parallel=4'
+
+localTestEnv:
+	bin/testEnvLocalK8S.sh ensure
 
 .PHONY: pilot-test
-pilot-test: pilot-agent
-	go test $(if $(VERBOSE),-v) ${T} ./pilot/...
+pilot-test: pilot-agent localTestEnv
+	go test ${T} ${GOTEST_PARALLEL} ./pilot/...
 
 .PHONY: mixer-test
 mixer-test: mixs
 	# Some tests use relative path "testdata", must be run from mixer dir
-	(cd mixer; go test $(if $(VERBOSE),-v) ${T} ./...)
+	(cd mixer; go test ${T} ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-test
 broker-test: vendor
-	go test $(if $(VERBOSE),-v) ./broker/...
+	go test ${T} ./broker/...
 
 .PHONY: security-test
 security-test:
-	go test $(if $(VERBOSE),-v) ./security/...
+	go test ${T} ./security/...
 
 # Run coverage tests
 go-test: pilot-test mixer-test security-test broker-test

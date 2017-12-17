@@ -16,6 +16,9 @@ export K8S_VER=v1.7.4
 export MASTER_IP=127.0.0.1
 export MASTER_CLUSTER_IP=10.99.0.1
 
+# TODO: customize the ports and generate a local config
+export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
+
 
 CERTDIR=${CERTDIR:-${OUT}/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
@@ -65,7 +68,7 @@ function getDeps() {
     PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
     PROXY=debug-$PROXYVERSION
     pushd $OUT
-    # TODO: Use circleci builds 
+    # TODO: Use circleci builds
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $TOP/bin/envoy
     popd
@@ -102,7 +105,12 @@ function stopLocalApiserver() {
   fi
 }
 
+function ensureLocalApiserver() {
+    kubectl get nodes 2>/dev/null || startLocalApiserver
+}
+
 case "$1" in
     start) startLocalApiserver ;;
     stop) stopLocalApiserver ;;
+    ensure) ensureLocalApiserver ;;
 esac
