@@ -73,6 +73,13 @@ func (t *routingToEgress) run() error {
 		} else {
 			log.Info("Success!")
 		}
+
+		if err := t.deleteConfig(cs.configRouting); err != nil {
+			return err
+		}
+		if err := t.deleteConfig(cs.configEgress); err != nil {
+			return err
+		}
 	}
 	return errs
 }

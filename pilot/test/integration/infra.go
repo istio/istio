@@ -463,6 +463,33 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	return nil
 }
 
+func (infra *infra) deleteConfig(inFile string) error {
+	config, err := fill(inFile, nil)
+	if err != nil {
+		return err
+	}
+
+	vs, _, err := crd.ParseInputs(config)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range vs {
+		// fill up namespace for the config
+		v.Namespace = infra.Namespace
+
+		glog.Infof("Delete config %s", v.Key())
+		if err = infra.config.Delete(v.Type, v.Name, v.Namespace); err != nil {
+			return err
+		}
+	}
+
+	sleepTime := time.Second * 3
+	glog.Infof("Sleeping %v for the config to propagate", sleepTime)
+	time.Sleep(sleepTime)
+	return nil
+}
+
 func (infra *infra) deleteAllConfigs() error {
 	for _, desc := range infra.config.ConfigDescriptor() {
 		configs, err := infra.config.List(desc.Type, infra.Namespace)
