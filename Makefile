@@ -18,7 +18,18 @@
 TOP := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
+# Make sure GOPATH is set based on the executing Makefile and workspace. Will override
+# GOPATH from the env.
+export GOPATH= $(shell cd ../../..; pwd)
+
+# OUT is the directory where dist artifacts and temp files will be created.
+OUT=${GOPATH}/out
+
 GO ?= go
+
+# Compile for linux/amd64 by default.
+export GOOS ?= linux
+export GOARCH ?= amd64
 
 # @todo allow user to run for a single $PKG only?
 PACKAGES := $(shell $(GO) list ./...)
@@ -28,6 +39,10 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 BAZEL_STARTUP_ARGS ?=
 BAZEL_BUILD_ARGS ?=
 BAZEL_TEST_ARGS ?=
+
+# Environment for tests, the directory containing istio and deps binaries.
+# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+export ISTIO_BIN=${GOPATH}/bin
 
 hub = ""
 tag = ""
@@ -78,11 +93,21 @@ depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
 	$(Q) dep status
 
 # @todo only run if there are changes (e.g., create a checksum file?) 
+# Update the vendor dir, pulling latest compatible dependencies from the
+# defined branches.
 depend.ensure: Gopkg.lock ; $(info $(H) ensuring dependencies are up to date...)
 	$(Q) dep ensure
 
 depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
 	$(Q) dep status -dot | dot -T png | display
+
+# Re-create the vendor directory, if it doesn't exist, using the checked in lock file
+depend.vendor: vendor
+	$(Q) dep ensure -vendor-only
+
+vendor:
+	dep ensure -update
+
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -122,6 +147,88 @@ check.lint: ; $(info $(H) running golint on packages...)
 
 build: setup
 	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+
+#-----------------------------------------------------------------------------
+# Target: go build
+#-----------------------------------------------------------------------------
+
+.PHONY: go-build
+
+.PHONY: pilot
+pilot: vendor
+	go install istio.io/istio/pilot/cmd/pilot-discovery
+
+.PHONY: pilot-agent
+pilot-agent: vendor
+	go install istio.io/istio/pilot/cmd/pilot-agent
+
+.PHONY: istioctl
+istioctl: vendor
+	go install istio.io/istio/pilot/cmd/istioctl
+
+.PHONY: sidecar-initializer
+sidecar-initializer: vendor
+	go install istio.io/istio/pilot/cmd/sidecar-initializer
+
+.PHONY: mixs
+mixs: vendor
+	go install istio.io/istio/mixer/cmd/mixs
+
+.PHONY: mixc
+mixc: vendor
+	go install istio.io/istio/mixer/cmd/mixs
+
+go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc
+
+#-----------------------------------------------------------------------------
+# Target: go test
+#-----------------------------------------------------------------------------
+
+.PHONY: go-test
+
+.PHONY: pilot-test
+pilot-test: pilot-agent
+	go test $(if $(VERBOSE),-v) ${T} ./pilot/...
+
+.PHONY: mixer-test
+mixer-test: mixs
+	# Some tests use relative path "testdata", must be run from mixer dir
+	(cd mixer; go test $(if $(VERBOSE),-v) ${T} ./...)
+
+.PHONY: broker-test
+broker-test: vendor
+	go test $(if $(VERBOSE),-v) ./broker/...
+
+.PHONY: security-test
+security-test:
+	go test $(if $(VERBOSE),-v) ./security/...
+
+# Run coverage tests
+go-test: pilot-test mixer-test security-test broker-test
+
+#-----------------------------------------------------------------------------
+# Target: Code coverage ( go )
+#-----------------------------------------------------------------------------
+
+.PHONY: pilot-cov
+pilot-cov:
+	bin/parallel-codecov.sh pilot
+
+.PHONY: mixer-cov
+mixer-cov:
+	bin/parallel-codecov.sh mixer
+
+.PHONY: broker-cov
+broker-cov:
+	bin/parallel-codecov.sh broker
+
+.PHONY: security-cov
+security-cov:
+	bin/parallel-codecov.sh security
+
+# Run coverage tests
+cov: pilot-cov mixer-cov security-cov broker-cov
+
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -175,3 +282,16 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+#-----------------------------------------------------------------------------
+# Target: artifacts and distribution
+#-----------------------------------------------------------------------------
+
+${OUT}/dist/Gopkg.lock:
+	mkdir -p ${OUT}/dist
+	cp Gopkg.lock ${OUT}/dist/
+
+# Binary/built artifacts of the distribution
+dist-bin: ${OUT}/dist/Gopkg.lock
+
+dist: dist-bin
