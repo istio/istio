@@ -15,6 +15,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -63,6 +64,15 @@ var (
 )
 
 func init() {
+	cmd.AddFlags(rootCmd)
+
+	// hack to make flag.Parsed return true such that glog is happy
+	// about the flags having been parsed
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	/* #nosec */
+	_ = fs.Parse([]string{})
+	flag.CommandLine = fs
+
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(server.KubernetesRegistry)},
 		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
@@ -117,7 +127,6 @@ func init() {
 		"admission-registration-delay", 0*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 
-	cmd.AddFlags(rootCmd)
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 }
