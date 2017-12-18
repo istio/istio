@@ -21,7 +21,7 @@ OUT=${1:?"output path"}
 VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
 BUILDPATH=${3:?"path to build"}
 
-set -ex
+set -e
 
 VERBOSE=${VERBOSE:-"0"}
 V=""

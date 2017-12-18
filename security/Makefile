@@ -14,17 +14,18 @@ check.prereqs:
 clean:
 	rm -f docker/istio_ca
 	rm -f docker/node_agent
+	rm -f docker/ca-certificates.tgz
 
-docker/istio_ca: check.prereqs
-	../bin/gobuild.sh $@ $(VERSION_MODULE) ./cmd/istio_ca
-
-docker/node_agent: check.prereqs
-	../bin/gobuild.sh $@ $(VERSION_MODULE) ./cmd/node_agent
+.PHONY: docker.artifacts
+docker.artifacts:
+	../bin/gobuild.sh ./docker/istio_ca $(VERSION_MODULE) ./cmd/istio_ca
+	../bin/gobuild.sh ./docker/node_agent $(VERSION_MODULE) ./cmd/node_agent
+	cp ../docker/ca-certificates.tgz ./docker/
 
 .PHONY: docker
-docker: docker/istio_ca docker/node_agent
+docker: docker.artifacts
 	@bin/push-docker ${hub} ${tag} -build-only
 
 .PHONY: docker-push
-docker-push: docker/istio_ca docker/node_agent
+docker-push: docker.artifacts
 	@bin/push-docker ${hub} ${tag}

@@ -23,7 +23,7 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
-cd ${ROOT}; make docker/istio_ca; make docker/node_agent
+cd ${ROOT}; make docker.artifacts
 
 echo "Generate certificate and private key for Istio CA"
 go run ./cmd/generate_cert/main.go \
