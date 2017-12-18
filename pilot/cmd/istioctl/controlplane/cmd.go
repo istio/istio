@@ -22,6 +22,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultTag = "0.4.0"
+)
+
 // Command returns the "control-plane" subcommand for istioctl.
 func Command(istioNamespaceFlag *string) *cobra.Command {
 	var (
@@ -63,10 +67,10 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
 		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "initializer".`)
 	cmd.PersistentFlags().StringVar(&install.Hub, "hub", "gcr.io/istio-testing", "The container registry to pull Istio images from")
-	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", "0.3.0", "The tag to use to pull the `mixer` container")
-	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", "0.3.0", "The tag to use to pull the `pilot-discovery` container")
-	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", "0.3.0", "The tag to use to pull the `ca` container")
-	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", "0.3.0", "The tag to use to pull the `proxy` container")
+	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", defaultTag, "The tag to use to pull the `mixer` container")
+	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", defaultTag, "The tag to use to pull the `pilot-discovery` container")
+	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", defaultTag, "The tag to use to pull the `ca` container")
+	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", defaultTag, "The tag to use to pull the `proxy` container")
 	cmd.PersistentFlags().BoolVar(&install.Debug, "debug", false, "If true, uses debug images instead of release images")
 	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", 0,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
