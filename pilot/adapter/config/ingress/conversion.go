@@ -35,9 +35,9 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 	tls := ""
 
 	if len(ingress.Spec.TLS) > 0 {
-		// due to lack of listener SNI in the proxy, we only support a single secret and ignore secret hosts
+		// TODO(istio/istio/issues/1424): implement SNI
 		if len(ingress.Spec.TLS) > 1 {
-			glog.Warningf("ingress %s requires several TLS secrets which is not supported by envoy!", ingress.Name)
+			glog.Warningf("ingress %s requires several TLS secrets but Envoy can only serve one", ingress.Name)
 		}
 		secret := ingress.Spec.TLS[0]
 		tls = fmt.Sprintf("%s.%s", secret.SecretName, ingress.Namespace)
@@ -50,6 +50,10 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 	}
 
 	for i, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			glog.Warningf("invalid ingress rule for host %q, no paths defined", rule.Host)
+			continue
+		}
 		for j, path := range rule.HTTP.Paths {
 			name := encodeIngressRuleName(ingress.Name, i+1, j+1)
 			ingressRule := createIngressRule(name, rule.Host, path.Path,
@@ -57,7 +61,6 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 			out = append(out, ingressRule)
 		}
 	}
-
 	return out
 }
 
