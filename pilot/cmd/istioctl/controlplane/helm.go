@@ -43,8 +43,8 @@ global:
 `))
 
 // fromModel returns a string representation of the values.yaml file for helm config
-func valuesFromModel(m *model) string {
+func valuesFromInstallation(i *installation) string {
 	buf := &bytes.Buffer{}
-	_ = valuesTemplate.Execute(buf, m)
+	_ = valuesTemplate.Execute(buf, i)
 	return buf.String()
 }

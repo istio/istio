@@ -25,13 +25,13 @@ import (
 	"k8s.io/helm/pkg/timeconv"
 )
 
-func yamlFromModel(m *model, helmChartDirectory string) (string, error) {
+func yamlFromInstallation(m *installation, helmChartDirectory string) (string, error) {
 	c, err := chartutil.Load(helmChartDirectory)
 	if err != nil {
 		return "", err
 	}
 
-	v := valuesFromModel(m)
+	v := valuesFromInstallation(m)
 	config := &chart.Config{Raw: v, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",

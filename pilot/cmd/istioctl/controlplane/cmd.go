@@ -30,7 +30,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 		helmChartLocation string
 	)
 
-	m := defaultModel()
+	install := defaultInstall()
 	cmd := &cobra.Command{
 		Use:   "control-plane",
 		Short: "Generates the configuration for Istio's control plane.",
@@ -40,14 +40,16 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 			"Proxies, with mTLS enabled.",
 		Example: `istioctl control-plane --features routing,policy,initializer -o helm`,
 		RunE: func(c *cobra.Command, args []string) error {
-			m.setFeatures(*features)
-			m.Namespace = *istioNamespaceFlag
+			if err := install.setFeatures(*features); err != nil {
+				return err
+			}
+			install.Namespace = *istioNamespaceFlag
 			switch strings.ToLower(out) {
 			case "helm":
-				_, err := fmt.Fprint(os.Stdout, valuesFromModel(m))
+				_, err := fmt.Fprint(os.Stdout, valuesFromInstallation(install))
 				return err
 			case "yaml":
-				rendered, err := yamlFromModel(m, helmChartLocation)
+				rendered, err := yamlFromInstallation(install, helmChartLocation)
 				if err != nil {
 					return err
 				}
@@ -61,13 +63,13 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
 		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "initializer".`)
-	cmd.PersistentFlags().StringVar(&m.Hub, "hub", "gcr.io/istio-testing", "The container registry to pull Istio images from")
-	cmd.PersistentFlags().StringVar(&m.MixerTag, "mixer-tag", "latest", "The tag to use to pull the `mixer` container")
-	cmd.PersistentFlags().StringVar(&m.PilotTag, "pilot-tag", "latest", "The tag to use to pull the `pilot-discovery` container")
-	cmd.PersistentFlags().StringVar(&m.CaTag, "ca-tag", "latest", "The tag to use to pull the `ca` container")
-	cmd.PersistentFlags().StringVar(&m.ProxyTag, "proxy-tag", "latest", "The tag to use to pull the `proxy` container")
-	cmd.PersistentFlags().BoolVar(&m.Debug, "debug", false, "If true, uses debug images instead of release images")
-	cmd.PersistentFlags().Uint16Var(&m.NodePort, "ingress-node-port", 0,
+	cmd.PersistentFlags().StringVar(&install.Hub, "hub", "gcr.io/istio-testing", "The container registry to pull Istio images from")
+	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", "latest", "The tag to use to pull the `mixer` container")
+	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", "latest", "The tag to use to pull the `pilot-discovery` container")
+	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", "latest", "The tag to use to pull the `ca` container")
+	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", "latest", "The tag to use to pull the `proxy` container")
+	cmd.PersistentFlags().BoolVar(&install.Debug, "debug", false, "If true, uses debug images instead of release images")
+	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", 0,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
 			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too.")
 	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
@@ -86,7 +88,7 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	return cmd
 }
 
-type model struct {
+type installation struct {
 	Mixer       bool
 	Pilot       bool
 	Ca          bool
@@ -104,8 +106,8 @@ type model struct {
 	NodePort uint16
 }
 
-func defaultModel() *model {
-	return &model{
+func defaultInstall() *installation {
+	return &installation{
 		Mixer:       true,
 		Pilot:       true,
 		Ca:          true,
@@ -114,31 +116,31 @@ func defaultModel() *model {
 	}
 }
 
-func (m *model) setFeatures(features []string) error {
+func (i *installation) setFeatures(features []string) error {
 	if len(features) == 0 {
 		return nil
 	}
 
-	m.Mixer = false
-	m.Pilot = false
-	m.Ca = false
-	m.Ingress = false
-	m.Initializer = false
+	i.Mixer = false
+	i.Pilot = false
+	i.Ca = false
+	i.Ingress = false
+	i.Initializer = false
 	for _, f := range features {
 		switch strings.ToLower(f) {
 		case "telemetry", "policy":
-			m.Mixer = true
-			m.Pilot = true
+			i.Mixer = true
+			i.Pilot = true
 		case "routing":
-			m.Pilot = true
+			i.Pilot = true
 		case "mtls":
-			m.Ca = true
-			m.Pilot = true
+			i.Ca = true
+			i.Pilot = true
 		case "ingress":
-			m.Ingress = true
-			m.Pilot = true
+			i.Ingress = true
+			i.Pilot = true
 		case "initializer":
-			m.Initializer = true
+			i.Initializer = true
 		default:
 			return fmt.Errorf("invalid feature name %q", f)
 		}
