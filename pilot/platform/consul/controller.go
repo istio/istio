@@ -17,10 +17,12 @@ package consul
 import (
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller communicates with Consul and monitors for changes
@@ -67,7 +69,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 
@@ -82,7 +84,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 func (c *Controller) getServices() (map[string][]string, error) {
 	data, _, err := c.client.Catalog().Services(nil)
 	if err != nil {
-		glog.Warningf("Could not retrieve services from consul: %v", err)
+		log.Warnf("Could not retrieve services from consul: %v", err)
 		return nil, err
 	}
 
@@ -92,7 +94,7 @@ func (c *Controller) getServices() (map[string][]string, error) {
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
-		glog.Warningf("Could not retrieve service catalogue from consul: %v", err)
+		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
 		return nil, err
 	}
 
@@ -114,7 +116,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 	// Get actual service by name
 	name, err := parseHostname(hostname)
 	if err != nil {
-		glog.V(2).Infof("parseHostname(%s) => error %v", hostname, err)
+		log.Infof("parseHostname(%s) => error %v", hostname, err)
 		return nil, err
 	}
 

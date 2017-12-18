@@ -21,7 +21,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 type controller struct {
@@ -56,7 +58,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 	// queue requires a time duration for a retry delay after a handler error
 	queue := kube.NewQueue(1 * time.Second)
 
-	glog.V(2).Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
+	log.Infof("Ingress controller watching namespaces %q", options.WatchedNamespace)
 	// informer framework from Kubernetes
 	informer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -90,7 +92,7 @@ func NewController(client kubernetes.Interface, mesh *meshconfig.MeshConfig,
 			return errors.New("waiting till full synchronization")
 		}
 		if ingress, ok := obj.(*v1beta1.Ingress); ok {
-			glog.V(2).Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
+			log.Infof("ingress event %s for %s/%s", event, ingress.Namespace, ingress.Name)
 		}
 		return nil
 	})

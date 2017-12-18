@@ -17,9 +17,11 @@ package eureka
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Convert Eureka applications to services. If provided, only convert applications in the hostnames whitelist,
@@ -56,7 +58,7 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 			for _, port := range ports {
 				if servicePort, exists := service.Ports.GetByPort(port.Port); exists {
 					if servicePort.Protocol != protocol {
-						glog.Warningf(
+						log.Warnf(
 							"invalid Eureka config: "+
 								"%s:%d has conflicting protocol definitions %s, %s",
 							instance.Hostname, servicePort.Port,
@@ -127,7 +129,7 @@ func convertProtocol(md metadata) model.Protocol {
 	if md != nil {
 		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
 		if protocol == model.ProtocolUnsupported {
-			glog.Warningf("unsupported protocol value: %s", name)
+			log.Warnf("unsupported protocol value: %s", name)
 		} else {
 			return protocol
 		}
