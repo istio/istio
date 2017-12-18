@@ -76,8 +76,12 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	// TODO: figure out how we want to package up the charts with the binary to make this easy
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
 		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
-	_ = cmd.PersistentFlags().MarkHidden("helm-chart-dir")
 
+	_ = cmd.PersistentFlags().MarkHidden("hub")
+	_ = cmd.PersistentFlags().MarkHidden("mixer-tag")
+	_ = cmd.PersistentFlags().MarkHidden("pilot-tag")
+	_ = cmd.PersistentFlags().MarkHidden("ca-tag")
+	_ = cmd.PersistentFlags().MarkHidden("proxy-tag")
 	return cmd
 }
 
@@ -122,6 +126,7 @@ func (m *model) setFeatures(features []string) error {
 		switch strings.ToLower(f) {
 		case "telemetry", "policy":
 			m.Mixer = true
+			m.Pilot = true
 		case "routing":
 			m.Pilot = true
 		case "mtls":
