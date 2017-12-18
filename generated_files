@@ -11,6 +11,7 @@ mixer/adapter/kubernetesenv/template/go_default_library_handler.gen.go
 mixer/adapter/kubernetesenv/template/go_default_library_tmpl.pb.go
 mixer/adapter/list/config/config.pb.go
 mixer/adapter/memquota/config/config.pb.go
+mixer/adapter/opa/config/config.pb.go
 mixer/adapter/prometheus/config/config.pb.go
 mixer/adapter/servicecontrol/config/config.pb.go
 mixer/adapter/servicecontrol/template/servicecontrolreport/go_default_library_handler.gen.go
