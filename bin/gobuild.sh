@@ -21,7 +21,7 @@ OUT=${1:?"output path"}
 VERSION_PACKAGE=${2:?"version go package"} # istio.io/istio/mixer/pkg/version
 BUILDPATH=${3:?"path to build"}
 
-set -e
+set -ex
 
 VERBOSE=${VERBOSE:-"0"}
 V=""
@@ -33,6 +33,14 @@ GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
 GOBIN=${GOBIN:-go}
 BUILDINFO=${BUILDINFO:-""}
+STATIC=${STATIC:-1}
+CGO="CGO_ENABLED=0"
+LDFLAGS="-extldflags -static"
+
+if [[ "${STATIC}" !=  "1" ]];then
+    LDFLAGS=""
+    CGO=""
+fi
 
 # gather buildinfo if not already provided
 # For a release build BUILDINFO should be produced
@@ -49,5 +57,6 @@ while read line; do
     LD_VERSIONFLAGS=${LD_VERSIONFLAGS}" -X ${VERSION_PACKAGE}.${SYMBOL}=${VALUE}"
 done < "${BUILDINFO}"
 
-GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=0 ${GOBIN} build ${V} -i -o ${OUT} \
-	-ldflags "-extldflags -static ${LD_VERSIONFLAGS}" "${BUILDPATH}"
+# forgoing -i (incremental build) because it will be deprecated by tool chain. 
+GOOS=${GOOS} GOARCH=${GOARCH} ${CGO} ${GOBIN} build ${V} -o ${OUT} \
+	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
