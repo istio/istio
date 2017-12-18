@@ -32,13 +32,13 @@ type builder struct {
 	nextIdCounter          uint32
 
 	// The handler names by the handler entry id.
-	handlerNamesByID        map[uint32]string
+	handlerNamesByID map[uint32]string
 
 	// match condition sets by the input set id.
-	matchesByID             map[uint32]string
+	matchesByID map[uint32]string
 
 	// instanceName set of builders by the input set.
-	instanceNamesByID       map[uint32][]string
+	instanceNamesByID map[uint32][]string
 }
 
 func BuildTable(
@@ -62,8 +62,8 @@ func BuildTable(
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIdCounter:          1,
 
-		handlerNamesByID: make(map[uint32]string),
-		matchesByID: make(map[uint32]string),
+		handlerNamesByID:  make(map[uint32]string),
+		matchesByID:       make(map[uint32]string),
 		instanceNamesByID: make(map[uint32][]string),
 	}
 
@@ -71,8 +71,8 @@ func BuildTable(
 
 	if debugInfo {
 		b.table.debugInfo = &tableDebugInfo{
-			handlerNamesByID: b.handlerNamesByID,
-			matchesByID: b.matchesByID,
+			handlerNamesByID:  b.handlerNamesByID,
+			matchesByID:       b.matchesByID,
 			instanceNamesByID: b.instanceNamesByID,
 		}
 	}

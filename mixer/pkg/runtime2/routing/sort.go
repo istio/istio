@@ -49,7 +49,7 @@ func (s *sortByHandlers) Swap(i, j int) {
 
 func (h *HandlerEntry) sortByMatchText(matches map[uint32]string) {
 	sorter := sortByMatchText{
-		h: h,
+		h:       h,
 		matches: matches,
 	}
 
@@ -57,7 +57,7 @@ func (h *HandlerEntry) sortByMatchText(matches map[uint32]string) {
 }
 
 type sortByMatchText struct {
-	h *HandlerEntry
+	h       *HandlerEntry
 	matches map[uint32]string
 }
 
@@ -79,15 +79,15 @@ func (s *sortByMatchText) Less(i, j int) bool {
 // sorts InputSet.Builders by instance names.
 func (i *InputSet) sortByInstanceName(instanceNames []string) {
 	sorter := sortByInstanceName{
-		i: i,
+		i:             i,
 		instanceNames: instanceNames,
 	}
 	sort.Stable(&sorter)
 }
 
 type sortByInstanceName struct {
-	i               *InputSet
-	instanceNames   []string
+	i             *InputSet
+	instanceNames []string
 }
 
 // Len is part of sortByHandlerName.Interface.

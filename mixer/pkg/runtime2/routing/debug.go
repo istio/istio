@@ -21,10 +21,10 @@ type tableDebugInfo struct {
 	handlerNamesByID map[uint32]string
 
 	// match condition sets by the input set id.
-	matchesByID             map[uint32]string
+	matchesByID map[uint32]string
 
 	// instanceName set of builders by the input set.
-	instanceNamesByID       map[uint32][]string
+	instanceNamesByID map[uint32][]string
 }
 
 type inputSetDebugInfo struct {

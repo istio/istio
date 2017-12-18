@@ -143,4 +143,3 @@ func (s *InputSet) String() string {
 	s.write(&b, 0, nil)
 	return b.String()
 }
-

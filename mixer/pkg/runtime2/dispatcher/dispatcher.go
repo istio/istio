@@ -46,7 +46,6 @@ type DispatchContext struct {
 	// the current, active Routes.
 	Routes *routing.Table
 
-
 	// TODO: This should be moved out of the routing Routes.
 	// the current reference count. Indicates how-many calls are currently active.
 	refCount int32
