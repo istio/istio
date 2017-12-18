@@ -36,7 +36,8 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 		Short: "Generates the configuration for Istio's control plane.",
 		Long: "istioctl control-plane produces deployment files to run the minimum Istio control for the set of " +
 			"features requested by the --feature flag. If no features are provided, we create deployments for the " +
-			"default control plane: Pilot, Mixer, CA, and Ingress Proxies, with mTLS enabled.",
+			"default control plane: Pilot, Mixer, CA, an initializer for automatic side-car injection, and Ingress " +
+			"Proxies, with mTLS enabled.",
 		Example: `istioctl control-plane --features routing,policy,initializer -o helm`,
 		RunE: func(c *cobra.Command, args []string) error {
 			m.setFeatures(*features)
@@ -105,10 +106,11 @@ type model struct {
 
 func defaultModel() *model {
 	return &model{
-		Mixer:   true,
-		Pilot:   true,
-		Ca:      true,
-		Ingress: true,
+		Mixer:       true,
+		Pilot:       true,
+		Ca:          true,
+		Ingress:     true,
+		Initializer: true,
 	}
 }
 
