@@ -8,7 +8,7 @@ import (
 // Kubeconfig returns the config to use for testing.
 func Kubeconfig(relpath string) string {
 	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
+	if kubeconfig != "" {
 		return kubeconfig
 	}
 
