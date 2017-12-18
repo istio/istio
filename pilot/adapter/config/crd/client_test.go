@@ -25,7 +25,7 @@ import (
 )
 
 func kubeconfig(t *testing.T) string {
-	kubeconfig := k8s.Kubeconfig("/../../../platform/kube/inject/config")
+	kubeconfig := k8s.Kubeconfig("/../../../platform/kube/config")
 	return kubeconfig
 }
 
