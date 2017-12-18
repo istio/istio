@@ -34,12 +34,12 @@ GOARCH=${GOARCH:-amd64}
 GOBIN=${GOBIN:-go}
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
-CGO="CGO_ENABLED=0"
 LDFLAGS="-extldflags -static"
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
-    CGO=""
+else
+    export CGO_ENABLED=0
 fi
 
 # gather buildinfo if not already provided
@@ -58,5 +58,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-GOOS=${GOOS} GOARCH=${GOARCH} ${CGO} ${GOBIN} build ${V} -o ${OUT} \
+GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
