@@ -27,18 +27,13 @@ import (
 
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/expr"
 )
 
 // Rule represents a runtime view of cpb.Rule.
 type Rule struct {
 	// Match condition from the original rule.
-	// This is here for debugging purposes.
-	originalMatchString string
-
-	// originalMatchString condition in compiled form.
-	expression compiled.Expression
-
+	match string
 	// Actions are stored in runtime format.
 	actions map[adptTmpl.TemplateVariety][]*Action
 	// Rule is a top level config object and it has a unique name.
@@ -50,11 +45,14 @@ type Rule struct {
 
 func (r Rule) String() string {
 	return fmt.Sprintf("[name:<%s>, match:<%s>, type:%s, actions: %v",
-		r.name, r.originalMatchString, r.rtype, r.actions)
+		r.name, r.match, r.rtype, r.actions)
 }
 
 // resolver is the runtime view of the configuration database.
 type resolver struct {
+	// evaluator evaluates selectors
+	evaluator expr.Evaluator
+
 	// identityAttribute defines which configuration scopes apply to a request.
 	// default: target.service
 	// The value of this attribute is expected to be a hostname of form "svc.$ns.suffix"
@@ -77,9 +75,10 @@ type resolver struct {
 }
 
 // newResolver returns a Resolver.
-func newResolver(identityAttribute string, defaultConfigNamespace string,
+func newResolver(evaluator expr.Evaluator, identityAttribute string, defaultConfigNamespace string,
 	rules map[string][]*Rule, id int) *resolver {
 	return &resolver{
+		evaluator:              evaluator,
 		identityAttribute:      identityAttribute,
 		defaultConfigNamespace: defaultConfigNamespace,
 		rules: rules,
@@ -224,8 +223,8 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			}
 
 			// do not evaluate empty predicates.
-			if rule.expression != nil {
-				if selected, err = rule.expression.EvaluateBoolean(attrs); err != nil {
+			if len(rule.match) != 0 {
+				if selected, err = r.evaluator.EvalPredicate(rule.match, attrs); err != nil {
 					return nil, 0, err
 				}
 				if !selected {

@@ -18,6 +18,7 @@ package template
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -25,15 +26,15 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/mixer/v1/config/descriptor"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/pkg/template/impl"
-
-	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/istio/mixer/pkg/config/proto"
 
 	"istio.io/istio/mixer/test/spyAdapter/template/report"
 )
@@ -165,18 +166,75 @@ var (
 				castedBuilder.SetSampleReportTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*samplereport.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*samplereport.Instance)
+				var BuildTemplate func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *samplereport.InstanceParam, path string) (
+					*samplereport.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Value, err := mapper.Eval(param.Value, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &samplereport.Instance{
+
+						Name: instName,
+
+						Value: Value,
+
+						Dimensions: Dimensions,
+					}, nil
 				}
 
-				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, ins); err != nil {
+				var instances []*samplereport.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*samplereport.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*samplereport.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*samplereport.Instance)
+				}
+				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -281,34 +339,4 @@ func (b *builder_samplereport_Template) build(
 	}
 
 	return r, impl.ErrorPath{}
-}
-
-func NewOutputMapperFn(expressions map[string]compiled.Expression) template.OutputMapperFn {
-	return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
-		var val interface{}
-		var err error
-
-		resultBag := attribute.GetMutableBag(nil)
-		for attrName, expr := range expressions {
-			if val, err = expr.Evaluate(attrs); err != nil {
-				return nil, err
-			}
-
-			switch v := val.(type) {
-			case net.IP:
-				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-				// TODO: remove
-				log.Info("converting net.IP to []byte")
-				if v4 := v.To4(); v4 != nil {
-					resultBag.Set(attrName, []byte(v4))
-					continue
-				}
-				resultBag.Set(attrName, []byte(v.To16()))
-			default:
-				resultBag.Set(attrName, val)
-			}
-		}
-
-		return resultBag, nil
-	}
 }

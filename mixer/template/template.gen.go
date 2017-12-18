@@ -18,6 +18,7 @@ package template
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -25,15 +26,15 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/mixer/v1/config/descriptor"
+	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/mixer/pkg/template/impl"
-
-	adptTmpl "istio.io/api/mixer/v1/template"
-	"istio.io/istio/mixer/pkg/config/proto"
 
 	"istio.io/istio/mixer/adapter/svcctrl/template/svcctrlreport"
 
@@ -296,18 +297,185 @@ var (
 				castedBuilder.SetSvcctrlReportTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*svcctrlreport.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*svcctrlreport.Instance)
+				var BuildTemplate func(instName string,
+					param *svcctrlreport.InstanceParam, path string) (
+					*svcctrlreport.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *svcctrlreport.InstanceParam, path string) (
+					*svcctrlreport.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					ApiVersion, err := mapper.Eval(param.ApiVersion, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiVersion", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiOperation, err := mapper.Eval(param.ApiOperation, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiOperation", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiProtocol, err := mapper.Eval(param.ApiProtocol, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiProtocol", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiService, err := mapper.Eval(param.ApiService, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiService", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiKey, err := mapper.Eval(param.ApiKey, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiKey", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					RequestTime, err := mapper.Eval(param.RequestTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestTime", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					RequestMethod, err := mapper.Eval(param.RequestMethod, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestMethod", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					RequestPath, err := mapper.Eval(param.RequestPath, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestPath", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					RequestBytes, err := mapper.Eval(param.RequestBytes, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"RequestBytes", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ResponseTime, err := mapper.Eval(param.ResponseTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseTime", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ResponseCode, err := mapper.Eval(param.ResponseCode, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseCode", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ResponseBytes, err := mapper.Eval(param.ResponseBytes, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseBytes", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ResponseLatency, err := mapper.Eval(param.ResponseLatency, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResponseLatency", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &svcctrlreport.Instance{
+
+						Name: instName,
+
+						ApiVersion: ApiVersion.(string),
+
+						ApiOperation: ApiOperation.(string),
+
+						ApiProtocol: ApiProtocol.(string),
+
+						ApiService: ApiService.(string),
+
+						ApiKey: ApiKey.(string),
+
+						RequestTime: RequestTime.(time.Time),
+
+						RequestMethod: RequestMethod.(string),
+
+						RequestPath: RequestPath.(string),
+
+						RequestBytes: RequestBytes.(int64),
+
+						ResponseTime: ResponseTime.(time.Time),
+
+						ResponseCode: ResponseCode.(int64),
+
+						ResponseBytes: ResponseBytes.(int64),
+
+						ResponseLatency: ResponseLatency.(time.Duration),
+					}, nil
 				}
 
-				if err := handler.(svcctrlreport.Handler).HandleSvcctrlReport(ctx, ins); err != nil {
+				var instances []*svcctrlreport.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*svcctrlreport.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(svcctrlreport.Handler).HandleSvcctrlReport(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*svcctrlreport.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*svcctrlreport.Instance)
+				}
+				if err := handler.(svcctrlreport.Handler).HandleSvcctrlReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -441,12 +609,101 @@ var (
 				castedBuilder.SetApiKeyTypes(castedTypes)
 			},
 
-			ProcessCheck: func(ctx context.Context, instName string, instance interface{}, attrs attribute.Bag,
-				handler adapter.Handler) (adapter.CheckResult, error) {
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
-				ins := instance.(*apikey.Instance)
-				return handler.(apikey.Handler).HandleApiKey(ctx, ins)
+				var BuildTemplate func(instName string,
+					param *apikey.InstanceParam, path string) (
+					*apikey.Instance, error)
+				_ = BuildTemplate
 
+				BuildTemplate = func(instName string,
+					param *apikey.InstanceParam, path string) (
+					*apikey.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Api, err := mapper.Eval(param.Api, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Api", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiVersion, err := mapper.Eval(param.ApiVersion, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiVersion", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiOperation, err := mapper.Eval(param.ApiOperation, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiOperation", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ApiKey, err := mapper.Eval(param.ApiKey, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ApiKey", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Timestamp, err := mapper.Eval(param.Timestamp, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Timestamp", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &apikey.Instance{
+
+						Name: instName,
+
+						Api: Api.(string),
+
+						ApiVersion: ApiVersion.(string),
+
+						ApiOperation: ApiOperation.(string),
+
+						ApiKey: ApiKey.(string),
+
+						Timestamp: Timestamp.(time.Time),
+					}, nil
+				}
+
+				instParam := inst.(*apikey.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+
+					return adapter.CheckResult{}, err
+
+				}
+				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+
+			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*apikey.Instance)
+
+				result, err := handler.(apikey.Handler).HandleApiKey(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -530,12 +787,51 @@ var (
 				castedBuilder.SetCheckNothingTypes(castedTypes)
 			},
 
-			ProcessCheck: func(ctx context.Context, instName string, instance interface{}, attrs attribute.Bag,
-				handler adapter.Handler) (adapter.CheckResult, error) {
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
-				ins := instance.(*checknothing.Instance)
-				return handler.(checknothing.Handler).HandleCheckNothing(ctx, ins)
+				var BuildTemplate func(instName string,
+					param *checknothing.InstanceParam, path string) (
+					*checknothing.Instance, error)
+				_ = BuildTemplate
 
+				BuildTemplate = func(instName string,
+					param *checknothing.InstanceParam, path string) (
+					*checknothing.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					_ = param
+					return &checknothing.Instance{
+
+						Name: instName,
+					}, nil
+				}
+
+				instParam := inst.(*checknothing.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+
+					return adapter.CheckResult{}, err
+
+				}
+				return handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+
+			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*checknothing.Instance)
+
+				result, err := handler.(checknothing.Handler).HandleCheckNothing(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -629,12 +925,61 @@ var (
 				castedBuilder.SetListEntryTypes(castedTypes)
 			},
 
-			ProcessCheck: func(ctx context.Context, instName string, instance interface{}, attrs attribute.Bag,
-				handler adapter.Handler) (adapter.CheckResult, error) {
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
 
-				ins := instance.(*listentry.Instance)
-				return handler.(listentry.Handler).HandleListEntry(ctx, ins)
+				var BuildTemplate func(instName string,
+					param *listentry.InstanceParam, path string) (
+					*listentry.Instance, error)
+				_ = BuildTemplate
 
+				BuildTemplate = func(instName string,
+					param *listentry.InstanceParam, path string) (
+					*listentry.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Value, err := mapper.Eval(param.Value, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &listentry.Instance{
+
+						Name: instName,
+
+						Value: Value.(string),
+					}, nil
+				}
+
+				instParam := inst.(*listentry.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+
+					return adapter.CheckResult{}, err
+
+				}
+				return handler.(listentry.Handler).HandleListEntry(ctx, instance)
+
+			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*listentry.Instance)
+
+				result, err := handler.(listentry.Handler).HandleListEntry(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -768,18 +1113,105 @@ var (
 				castedBuilder.SetLogEntryTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*logentry.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*logentry.Instance)
+				var BuildTemplate func(instName string,
+					param *logentry.InstanceParam, path string) (
+					*logentry.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *logentry.InstanceParam, path string) (
+					*logentry.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Variables, err := template.EvalAll(param.Variables, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Variables", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Timestamp, err := mapper.Eval(param.Timestamp, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Timestamp", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Severity, err := mapper.Eval(param.Severity, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Severity", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					MonitoredResourceType, err := mapper.Eval(param.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceType", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(param.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceDimensions", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &logentry.Instance{
+
+						Name: instName,
+
+						Variables: Variables,
+
+						Timestamp: Timestamp.(time.Time),
+
+						Severity: Severity.(string),
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
+					}, nil
 				}
 
-				if err := handler.(logentry.Handler).HandleLogEntry(ctx, ins); err != nil {
+				var instances []*logentry.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*logentry.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*logentry.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*logentry.Instance)
+				}
+				if err := handler.(logentry.Handler).HandleLogEntry(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -900,18 +1332,95 @@ var (
 				castedBuilder.SetMetricTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*metric.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*metric.Instance)
+				var BuildTemplate func(instName string,
+					param *metric.InstanceParam, path string) (
+					*metric.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *metric.InstanceParam, path string) (
+					*metric.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Value, err := mapper.Eval(param.Value, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					MonitoredResourceType, err := mapper.Eval(param.MonitoredResourceType, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceType", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					MonitoredResourceDimensions, err := template.EvalAll(param.MonitoredResourceDimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"MonitoredResourceDimensions", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &metric.Instance{
+
+						Name: instName,
+
+						Value: Value,
+
+						Dimensions: Dimensions,
+
+						MonitoredResourceType: MonitoredResourceType.(string),
+
+						MonitoredResourceDimensions: MonitoredResourceDimensions,
+					}, nil
 				}
 
-				if err := handler.(metric.Handler).HandleMetric(ctx, ins); err != nil {
+				var instances []*metric.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*metric.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*metric.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*metric.Instance)
+				}
+				if err := handler.(metric.Handler).HandleMetric(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -1005,12 +1514,60 @@ var (
 				castedBuilder.SetQuotaTypes(castedTypes)
 			},
 
-			ProcessQuota: func(ctx context.Context, instName string, instance interface{}, attrs attribute.Bag,
-				handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+			ProcessQuota: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
-				ins := instance.(*quota.Instance)
-				return handler.(quota.Handler).HandleQuota(ctx, ins, args)
+				var BuildTemplate func(instName string,
+					param *quota.InstanceParam, path string) (
+					*quota.Instance, error)
+				_ = BuildTemplate
 
+				BuildTemplate = func(instName string,
+					param *quota.InstanceParam, path string) (
+					*quota.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Dimensions, err := template.EvalAll(param.Dimensions, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &quota.Instance{
+
+						Name: instName,
+
+						Dimensions: Dimensions,
+					}, nil
+				}
+
+				instParam := inst.(*quota.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+					return adapter.QuotaResult{}, err
+
+				}
+				return handler.(quota.Handler).HandleQuota(ctx, instance, args)
+
+			},
+
+			/* runtime2 bindings */
+
+			ProcessQuota2: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+				instance := inst.(*quota.Instance)
+
+				result, err := handler.(quota.Handler).HandleQuota(ctx, instance, args)
+				if err != nil {
+					return adapter.QuotaResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -1094,18 +1651,55 @@ var (
 				castedBuilder.SetReportNothingTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*reportnothing.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*reportnothing.Instance)
+				var BuildTemplate func(instName string,
+					param *reportnothing.InstanceParam, path string) (
+					*reportnothing.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *reportnothing.InstanceParam, path string) (
+					*reportnothing.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					_ = param
+					return &reportnothing.Instance{
+
+						Name: instName,
+					}, nil
 				}
 
-				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, ins); err != nil {
+				var instances []*reportnothing.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*reportnothing.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*reportnothing.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*reportnothing.Instance)
+				}
+				if err := handler.(reportnothing.Handler).HandleReportNothing(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -1259,18 +1853,125 @@ var (
 				castedBuilder.SetTraceSpanTypes(castedTypes)
 			},
 
-			ProcessReport: func(ctx context.Context, instances []interface{}, attrs attribute.Bag, handler adapter.Handler) error {
+			ProcessReport: func(ctx context.Context, insts map[string]proto.Message, attrs attribute.Bag, mapper expr.Evaluator, handler adapter.Handler) error {
 
-				ins := make([]*tracespan.Instance, len(instances))
-				for i, instance := range instances {
-					ins[i] = instance.(*tracespan.Instance)
+				var BuildTemplate func(instName string,
+					param *tracespan.InstanceParam, path string) (
+					*tracespan.Instance, error)
+				_ = BuildTemplate
+
+				BuildTemplate = func(instName string,
+					param *tracespan.InstanceParam, path string) (
+					*tracespan.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					TraceId, err := mapper.Eval(param.TraceId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TraceId", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					SpanId, err := mapper.Eval(param.SpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanId", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					ParentSpanId, err := mapper.Eval(param.ParentSpanId, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ParentSpanId", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					SpanName, err := mapper.Eval(param.SpanName, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanName", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					StartTime, err := mapper.Eval(param.StartTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StartTime", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					EndTime, err := mapper.Eval(param.EndTime, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"EndTime", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					SpanTags, err := template.EvalAll(param.SpanTags, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SpanTags", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &tracespan.Instance{
+
+						Name: instName,
+
+						TraceId: TraceId.(string),
+
+						SpanId: SpanId.(string),
+
+						ParentSpanId: ParentSpanId.(string),
+
+						SpanName: SpanName.(string),
+
+						StartTime: StartTime.(time.Time),
+
+						EndTime: EndTime.(time.Time),
+
+						SpanTags: SpanTags,
+					}, nil
 				}
 
-				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, ins); err != nil {
+				var instances []*tracespan.Instance
+				for instName, inst := range insts {
+					instance, err := BuildTemplate(instName, inst.(*tracespan.InstanceParam), "")
+					if err != nil {
+						return err
+					}
+					instances = append(instances, instance)
+				}
+
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
 					return fmt.Errorf("failed to report all values: %v", err)
 				}
 				return nil
+			},
 
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*tracespan.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*tracespan.Instance)
+				}
+				if err := handler.(tracespan.Handler).HandleTraceSpan(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
 			},
 
 			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
@@ -2163,34 +2864,4 @@ func (b *builder_tracespan_Template) build(
 	}
 
 	return r, impl.ErrorPath{}
-}
-
-func NewOutputMapperFn(expressions map[string]compiled.Expression) template.OutputMapperFn {
-	return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
-		var val interface{}
-		var err error
-
-		resultBag := attribute.GetMutableBag(nil)
-		for attrName, expr := range expressions {
-			if val, err = expr.Evaluate(attrs); err != nil {
-				return nil, err
-			}
-
-			switch v := val.(type) {
-			case net.IP:
-				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-				// TODO: remove
-				log.Info("converting net.IP to []byte")
-				if v4 := v.To4(); v4 != nil {
-					resultBag.Set(attrName, []byte(v4))
-					continue
-				}
-				resultBag.Set(attrName, []byte(v.To16()))
-			default:
-				resultBag.Set(attrName, val)
-			}
-		}
-
-		return resultBag, nil
-	}
 }

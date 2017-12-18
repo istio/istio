@@ -53,7 +53,7 @@ func (t *Table) String() string {
 	return b.String()
 }
 
-func (v *VarietyDestinations) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (v *namespaceTable) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	keys := make([]string, 0, len(v.entries))
@@ -68,37 +68,37 @@ func (v *VarietyDestinations) write(b *bytes.Buffer, indent int, debugInfo *tabl
 		fmt.Fprintf(b, "%s[#%d] %s {NS}", idnt, i, k)
 		fmt.Fprintln(b)
 
-		sets.write(b, indent + 1, debugInfo)
+		sets.write(b, indent+1, debugInfo)
 	}
 }
 
-func (v *VarietyDestinations) String() string {
+func (v *namespaceTable) String() string {
 	var b bytes.Buffer
 	v.write(&b, 0, nil)
 	return b.String()
 }
 
-func (d *DestinationSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (e *handlerEntries) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
-	for i, e := range d.entries {
+	for i, entry := range e.entries {
 		fmt.Fprintf(b, "%s[#%d] ", idnt, i)
 
 		if debugInfo != nil {
-			fmt.Fprintf(b, "%s", debugInfo.handlerNames[e.Handler])
+			fmt.Fprintf(b, "%s", debugInfo.handlerEntries[entry.ID])
 		} else {
-			fmt.Fprintf(b, "%v",e.Handler)
+			fmt.Fprintf(b, "%v", entry.Handler)
 		}
 		fmt.Fprintln(b, " {H}")
 
 		indent++
 		idnt := strings.Repeat("  ", indent)
 
-		inputs := e.Inputs
+		inputs := entry.Inputs
 		if debugInfo != nil {
 			// sort entries by condition string for stable ordering. This helps with tests.
 			s := inputSetSorter{
-				inputs: inputs,
+				inputs:    inputs,
 				debugInfo: debugInfo,
 			}
 			sort.Stable(&s)
@@ -111,19 +111,19 @@ func (d *DestinationSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebu
 		}
 	}
 }
-func (d *DestinationSet) String() string {
+func (e *handlerEntries) String() string {
 	var b bytes.Buffer
-	d.write(&b, 0, nil)
+	e.write(&b, 0, nil)
 	return b.String()
 }
 
-func (i *InputSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (s *InputSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	fmt.Fprintf(b, "%sConditional: ", idnt)
-	if i.Condition != nil {
+	if s.Condition != nil {
 		if debugInfo != nil {
-			fmt.Fprint(b, debugInfo.matchConditions[i.Condition])
+			fmt.Fprint(b, debugInfo.inputSets[s.ID].match)
 		} else {
 			fmt.Fprint(b, "...")
 		}
@@ -133,36 +133,35 @@ func (i *InputSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo)
 	fmt.Fprintln(b)
 
 	if debugInfo != nil {
-		s := builderSorter {
-			builders: i.Builders,
+		sorter := builderSorter{
+			setId:     s.ID,
+			builders:  s.Builders,
 			debugInfo: debugInfo,
 		}
-		sort.Stable(&s)
-		for i, bld := range i.Builders {
-			fmt.Fprintf(b, "%s[#%d]", idnt, i)
+		sort.Stable(&sorter)
+		for j := range s.Builders {
+			fmt.Fprintf(b, "%s[#%d]", idnt, j)
 			if debugInfo != nil {
-				fmt.Fprintf(b, " %s {I}", debugInfo.instanceNames[bld])
+				fmt.Fprintf(b, " %s {I}", debugInfo.inputSets[s.ID].instanceNames[j])
 			}
 			fmt.Fprintln(b)
 		}
-
 	} else {
-		for i, bld := range i.Builders {
+		for i, bld := range s.Builders {
 			fmt.Fprintf(b, "%s[#%d] %v", idnt, i, bld)
 			fmt.Fprintln(b)
 		}
 	}
 }
 
-func (i *InputSet) String() string {
+func (s *InputSet) String() string {
 	var b bytes.Buffer
-	i.write(&b, 0, nil)
+	s.write(&b, 0, nil)
 	return b.String()
 }
 
-
 type inputSetSorter struct {
-	inputs []*InputSet
+	inputs    []*InputSet
 	debugInfo *tableDebugInfo
 }
 
@@ -184,11 +183,12 @@ func (s *inputSetSorter) Less(i, j int) bool {
 	if s.inputs[i].Condition == nil {
 		return true
 	}
-	return s.debugInfo.matchConditions[s.inputs[i].Condition] < s.debugInfo.matchConditions[s.inputs[j].Condition]
+	return s.debugInfo.inputSets[s.inputs[i].ID].match < s.debugInfo.inputSets[s.inputs[j].ID].match
 }
 
 type builderSorter struct {
-	builders []template.InstanceBuilder
+	setId     uint32
+	builders  []template.InstanceBuilderFn
 	debugInfo *tableDebugInfo
 }
 
@@ -200,9 +200,11 @@ func (s *builderSorter) Len() int {
 // Swap is part of sort.Interface.
 func (s *builderSorter) Swap(i, j int) {
 	s.builders[i], s.builders[j] = s.builders[j], s.builders[i]
+	s.debugInfo.inputSets[s.setId].instanceNames[i], s.debugInfo.inputSets[s.setId].instanceNames[j] =
+		s.debugInfo.inputSets[s.setId].instanceNames[j], s.debugInfo.inputSets[s.setId].instanceNames[i]
 }
 
 // Less is part of sort.Interface.
 func (s *builderSorter) Less(i, j int) bool {
-	return s.debugInfo.instanceNames[s.builders[i]] < s.debugInfo.instanceNames[s.builders[j]]
+	return s.debugInfo.inputSets[s.setId].instanceNames[i] < s.debugInfo.inputSets[s.setId].instanceNames[j]
 }

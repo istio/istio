@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "builder.go",
+        "debug.go",
         "destination.go",
         "table.go",
         "tablestring.go",

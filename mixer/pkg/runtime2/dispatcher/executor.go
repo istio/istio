@@ -23,6 +23,7 @@ import (
 	"github.com/googleapis/googleapis/google/rpc"
 	"github.com/hashicorp/go-multierror"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
@@ -48,12 +49,12 @@ type executor struct {
 	gp *pool.GoroutinePool
 }
 
-func (v *executor) executeSingleInstance(
+func (v *executor) executeQuota(
 	ctx context.Context,
+	processFn template.ProcessQuota2Fn,
 	handler adapter.Handler,
-	processor template.SingleInstanceProcessorFn,
-	param interface{},
-	instance interface{}, op string) {
+	args *adapter.QuotaArgs,
+	instance interface{}) {
 
 	if v.outstanding == v.maxParallelism {
 		panic("Request to execute more parallel tasks than can be handled.")
@@ -67,14 +68,14 @@ func (v *executor) executeSingleInstance(
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from Processor. It has the most context.
-				log.Errorf("execute %s panic: %v", op, r)
+				log.Errorf("execute panic: %v", r)
 				r = &result{
-					err: fmt.Errorf("dispatch %s panic: %v", op, r),
+					err: fmt.Errorf("dispatch panic: %v", r),
 				}
 			}
 		}()
 
-		res, err := processor(ctx, handler, param, instance)
+		res, err := processFn(ctx, handler, instance, args)
 		if err != nil {
 			r = &result{err: err}
 		} else {
@@ -85,12 +86,39 @@ func (v *executor) executeSingleInstance(
 	})
 }
 
-func (v *executor) executeMultiInstance(
+func (v *executor) executeReport(
 	ctx context.Context,
+	processFn template.ProcessReport2Fn,
 	handler adapter.Handler,
-	processor template.MultiInstanceProcessorFn,
-	param interface{},
-	instances []interface{}, op string) {
+	instances []interface{}) {
+
+	if v.outstanding == v.maxParallelism {
+		panic("Request to execute more parallel tasks than can be handled.")
+	}
+
+	v.outstanding++
+
+	v.gp.ScheduleWork(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: Obtain "op" from Processor. It has the most context.
+				log.Errorf("execute panic: %v", r)
+				r = &result{
+					err: fmt.Errorf("dispatch panic: %v", r),
+				}
+			}
+		}()
+
+		err := processFn(ctx, handler, instances)
+		v.results <- &result{err: err}
+	})
+}
+
+func (v *executor) executeCheck(
+	ctx context.Context,
+	processFn template.ProcessCheck2Fn,
+	handler adapter.Handler,
+	instance interface{}) {
 
 	if v.outstanding == v.maxParallelism {
 		panic("Request to execute more parallel tasks than can be handled.")
@@ -104,14 +132,14 @@ func (v *executor) executeMultiInstance(
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from Processor. It has the most context.
-				log.Errorf("execute %s panic: %v", op, r)
+				log.Errorf("execute panic: %v", r)
 				r = &result{
-					err: fmt.Errorf("dispatch %s panic: %v", op, r),
+					err: fmt.Errorf("dispatch panic: %v", r),
 				}
 			}
 		}()
 
-		res, err := processor(ctx, handler, param, instances)
+		res, err := processFn(ctx, handler, instance)
 		if err != nil {
 			r = &result{err: err}
 		} else {
@@ -121,9 +149,85 @@ func (v *executor) executeMultiInstance(
 		v.results <- r
 	})
 }
+
+func (v *executor) executePreprocess(
+	ctx context.Context,
+	processFn template.ProcessGenAttrs2Fn,
+	handler adapter.Handler,
+	instance interface{},
+	attrs attribute.Bag,
+	mapper template.OutputMapperFn) {
+
+	if v.outstanding == v.maxParallelism {
+		panic("Request to execute more parallel tasks than can be handled.")
+	}
+
+	v.outstanding++
+
+	v.gp.ScheduleWork(func() {
+		var r *result
+
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: Obtain "op" from Processor. It has the most context.
+				log.Errorf("execute panic: %v", r)
+				r = &result{
+					err: fmt.Errorf("dispatch panic: %v", r),
+				}
+			}
+		}()
+
+		res, err := processFn(ctx, handler, instance, attrs, mapper)
+		if err != nil {
+			r = &result{err: err}
+		} else {
+			r = &result{res: res}
+		}
+
+		v.results <- r
+	})
+}
+
+//
+//func (v *executor) executeMultiInstance(
+//	ctx context.Context,
+//	handler adapter.Handler,
+//	processor template.MultiInstanceProcessorFn,
+//	param interface{},
+//	instances []interface{}, op string) {
+//
+//	if v.outstanding == v.maxParallelism {
+//		panic("Request to execute more parallel tasks than can be handled.")
+//	}
+//
+//	v.outstanding++
+//
+//	v.gp.ScheduleWork(func() {
+//		var r *result
+//
+//		defer func() {
+//			if r := recover(); r != nil {
+//				// TODO: Obtain "op" from Processor. It has the most context.
+//				log.Errorf("execute %s panic: %v", op, r)
+//				r = &result{
+//					err: fmt.Errorf("dispatch %s panic: %v", op, r),
+//				}
+//			}
+//		}()
+//
+//		res, err := processor(ctx, handler, param, instances)
+//		if err != nil {
+//			r = &result{err: err}
+//		} else {
+//			r = &result{res: res}
+//		}
+//
+//		v.results <- r
+//	})
+//}
 
 // wait for the completion of outstanding work and collect results.
-func (v *executor) wait() (adapter.Result, error) {
+func (v *executor) wait() (interface{}, error) {
 	var res adapter.Result
 	var err *multierror.Error
 	var buf *bytes.Buffer
@@ -139,13 +243,13 @@ func (v *executor) wait() (adapter.Result, error) {
 			continue
 		}
 		if res == nil {
-			res = rs.res
+			res = rs.res.(adapter.Result)
 		} else {
 			if rc, ok := res.(*adapter.CheckResult); ok { // only check is expected to supported combining.
 				rc.Combine(rs.res)
 			}
 		}
-		st := rs.res.GetStatus()
+		st := rs.res.(adapter.Result).GetStatus()
 		if !status.IsOK(st) {
 			if buf == nil {
 				buf = pool.GetBuffer()
@@ -214,7 +318,7 @@ type result struct {
 	err error
 
 	// CheckResult or QuotaResultLegacy
-	res adapter.Result
+	res interface{}
 
 	// TODO: replace this with a more appropriate result
 	//// callinfo that resulted in "res". Used for informational purposes.

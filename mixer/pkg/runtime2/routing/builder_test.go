@@ -26,15 +26,15 @@ import (
 )
 
 var tests = []struct {
-	Name            string
-	ServiceConfig   string
-	Configs         []string
-	E string
+	Name          string
+	ServiceConfig string
+	Configs       []string
+	E             string
 }{
 	{
-		Name: "basic",
+		Name:          "basic",
 		ServiceConfig: data.ServiceConfig,
-		Configs: []string {
+		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
 			data.RuleR1_I1,
@@ -53,9 +53,9 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "multi-instance",
+		Name:          "multi-instance",
 		ServiceConfig: data.ServiceConfig,
-		Configs: []string {
+		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
 			data.InstanceI2,
@@ -76,9 +76,9 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "multi-instance-conditional",
+		Name:          "multi-instance-conditional",
 		ServiceConfig: data.ServiceConfig,
-		Configs: []string {
+		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
 			data.InstanceI2,
@@ -100,9 +100,9 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "multi-rule-to-same-target",
+		Name:          "multi-rule-to-same-target",
 		ServiceConfig: data.ServiceConfig,
-		Configs: []string {
+		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
 			data.InstanceI2,
@@ -126,9 +126,9 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "multi-rule-to-same-target-with-conditional",
+		Name:          "multi-rule-to-same-target-with-conditional",
 		ServiceConfig: data.ServiceConfig,
-		Configs: []string {
+		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
 			data.InstanceI2,
@@ -153,7 +153,6 @@ Identity Attr: destination.service
 `,
 	},
 }
-
 
 func TestFoo(t *testing.T) {
 	for _, tst := range tests {

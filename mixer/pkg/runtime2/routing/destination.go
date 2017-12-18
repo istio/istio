@@ -14,60 +14,40 @@
 
 package routing
 
-import (
-	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/mixer/pkg/template"
-)
+//import (
+//	"istio.io/istio/mixer/pkg/adapter"
+//	"istio.io/istio/mixer/pkg/attribute"
+//	"istio.io/istio/mixer/pkg/il/compiled"
+//	"istio.io/istio/mixer/pkg/template"
+//)
 
-type Destination struct {
-	Template *template.Info
-	Handler  adapter.Handler
-	Inputs   []*InputSet
-}
-
-func (d *Destination) MaxInstances() int {
-	// TODO: Precalculate this
-	c := 0
-	for _, i := range d.Inputs {
-		c += len(i.Builders)
-	}
-
-	return c
-}
-
-type InputSet struct {
-	Condition compiled.Expression
-	Builders  []template.InstanceBuilder
-}
-
-func (d *Destination) BuildInstances(bag attribute.Bag) []interface{} {
-	// TODO: we should avoid this allocation, if possible.
-	result := make([]interface{}, 0, d.MaxInstances())
-
-	for _, i := range d.Inputs {
-		if i.Condition != nil {
-			match, err := i.Condition.EvaluateBoolean(bag)
-			if err != nil {
-				// TODO: log
-				continue
-			}
-
-			if !match {
-				continue
-			}
-		}
-
-		for _, b := range i.Builders {
-			instance, err := b.Build(bag)
-			if err != nil {
-				// TODO: log
-				continue
-			}
-			result = append(result, instance)
-		}
-	}
-
-	return result
-}
+//
+//func (d *HandlerEntry) BuildInstances(bag attribute.Bag) []interface{} {
+//	// TODO: we should avoid this allocation, if possible.
+//	result := make([]interface{}, 0, d.MaxInstances())
+//
+//	for _, i := range d.Inputs {
+//		if i.Condition != nil {
+//			match, err := i.Condition.EvaluateBoolean(bag)
+//			if err != nil {
+//				// TODO: log
+//				continue
+//			}
+//
+//			if !match {
+//				continue
+//			}
+//		}
+//
+//		for _, b := range i.Builders {
+//			instance, err := b(bag)
+//			if err != nil {
+//				// TODO: log
+//				continue
+//			}
+//			result = append(result, instance)
+//		}
+//	}
+//
+//	return result
+//}

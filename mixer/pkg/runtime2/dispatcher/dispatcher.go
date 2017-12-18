@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
@@ -61,7 +62,7 @@ func (d *Dispatcher) ChangeRoute(new *routing.Table) *routing.Table {
 	return old
 }
 
-func (d *Dispatcher) acquireRouter() *routing.Table {
+func (d *Dispatcher) acquireRoutingTable() *routing.Table {
 	d.routerLock.RLock()
 	r := d.table
 	r.IncRef()
@@ -82,7 +83,7 @@ func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) conte
 }
 
 func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
-	r := d.acquireRouter()
+	r := d.acquireRoutingTable()
 	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK, bag)
@@ -100,11 +101,20 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
-		// TODO: avoid this allocation.
-		instances := destination.BuildInstances(bag)
-		for _, instance := range instances {
-			// TODO:op
-			executor.executeSingleInstance(ctx, destination.Handler, destination.Template.ProcessCheck2, nil, instance, "op")
+		for _, inputs := range destination.Inputs {
+			if !inputs.ShouldApply(bag) {
+				continue
+			}
+
+			for _, input := range inputs.Builders {
+				instance, err := input(bag)
+				if err != nil {
+					// TODO: Better logging.
+					log.Warnf("Unable to create instance: '%v'", err)
+					continue
+				}
+				executor.executeCheck(ctx, destination.Template.ProcessCheck2, destination.Handler, instance)
+			}
 		}
 	}
 
@@ -115,7 +125,7 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 }
 
 func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
-	r := d.acquireRouter()
+	r := d.acquireRoutingTable()
 	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
@@ -133,9 +143,23 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
-		// TODO: avoid this allocation.
-		instances := destination.BuildInstances(bag)
-		executor.executeMultiInstance(ctx, destination.Handler, destination.Template.ProcessReport2, nil, instances, "op")
+		// TODO: We can create a pooled buffer to avoid this allocation
+		instances := make([]interface{}, 0, destination.MaxInstances())
+		for _, inputs := range destination.Inputs {
+			if !inputs.ShouldApply(bag) {
+				continue
+			}
+			for _, input := range inputs.Builders {
+				instance, err := input(bag)
+				if err != nil {
+					// TODO: Better logging.
+					log.Warnf("Unable to create instance: '%v'", err)
+					continue
+				}
+				instances = append(instances, instance)
+			}
+		}
+		executor.executeReport(ctx, destination.Template.ProcessReport2, destination.Handler, instances)
 	}
 
 	_, err = executor.wait()
@@ -145,7 +169,7 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 }
 
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-	r := d.acquireRouter()
+	r := d.acquireRoutingTable()
 	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA, bag)
@@ -160,12 +184,31 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 		return nil, err
 	}
 
+	quotaArgs := &adapter.QuotaArgs{
+		DeduplicationID: qma.DeduplicationID,
+		QuotaAmount:     qma.Amount,
+		BestEffort:      qma.BestEffort,
+	}
+
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
-		// TODO: avoid this allocation.
-		instances := destination.BuildInstances(bag)
-		executor.executeMultiInstance(ctx, destination.Handler, destination.Template.ProcessQuota2, nil, instances, "op")
+		for _, inputs := range destination.Inputs {
+			if !inputs.ShouldApply(bag) {
+				continue
+			}
+
+			for _, input := range inputs.Builders {
+				instance, err := input(bag)
+				if err != nil {
+					// TODO: Better logging.
+					log.Warnf("Unable to create instance: '%v'", err)
+					continue
+				}
+
+				executor.executeQuota(ctx, destination.Template.ProcessQuota2, destination.Handler, quotaArgs, instance)
+			}
+		}
 	}
 
 	res, err := executor.wait()
@@ -179,7 +222,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 }
 
 func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
-	r := d.acquireRouter()
+	r := d.acquireRoutingTable()
 	ctx = d.updateContext(ctx, bag)
 
 	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
@@ -197,9 +240,21 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
-		// TODO: avoid this allocation.
-		instances := destination.BuildInstances(bag)
-		executor.executeMultiInstance(ctx, destination.Handler, destination.Template.ProcessGenAttrs2, nil, instances, "op")
+		for _, inputs := range destination.Inputs {
+			if !inputs.ShouldApply(bag) {
+				continue
+			}
+
+			for i, input := range inputs.Builders {
+				instance, err := input(bag)
+				if err != nil {
+					// TODO: Better logging.
+					log.Warnf("Unable to create instance: '%v'", err)
+					continue
+				}
+				executor.executePreprocess(ctx, destination.Template.ProcessGenAttrs2, destination.Handler, instance, bag, inputs.Mappers[i])
+			}
+		}
 	}
 
 	_, err = executor.wait()

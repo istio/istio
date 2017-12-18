@@ -18,6 +18,7 @@ import (
 	"istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/log"
 	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/handler"
 	"istio.io/istio/mixer/pkg/template"
@@ -28,6 +29,7 @@ type builder struct {
 	handlers               *handler.Table
 	expb                   *compiled.ExpressionBuilder
 	defaultConfigNamespace string
+	nextIdCounter          uint32
 }
 
 func BuildTable(
@@ -39,22 +41,23 @@ func BuildTable(
 	debugInfo bool) *Table {
 
 	b := &builder{
+
 		table: &Table{
 			id:                config.ID,
-			entries:           make(map[istio_mixer_v1_template.TemplateVariety]*VarietyDestinations),
+			entries:           make(map[istio_mixer_v1_template.TemplateVariety]*namespaceTable),
 			identityAttribute: identityAttribute,
 		},
 
 		handlers: handlers,
 		expb:     expb,
 		defaultConfigNamespace: defaultConfigNamespace,
+		nextIdCounter:          1,
 	}
 
 	if debugInfo {
 		b.table.debugInfo = &tableDebugInfo{
-			instanceNames: make(map[template.InstanceBuilder]string),
-			handlerNames: make(map[adapter.Handler]string),
-			matchConditions: make(map[compiled.Expression]string),
+			handlerEntries: make(map[uint32]string),
+			inputSets:      make(map[uint32]inputSetDebugInfo),
 		}
 	}
 
@@ -63,7 +66,14 @@ func BuildTable(
 	return b.table
 }
 
+func (b *builder) nextID() uint32 {
+	id := b.nextIdCounter
+	b.nextIdCounter++
+	return id
+}
+
 func (b *builder) build(config *config.Snapshot) {
+	// Go over the rules and find the right slot in the table to put entries in.
 	for _, rule := range config.Rules {
 
 		var condition compiled.Expression
@@ -71,49 +81,41 @@ func (b *builder) build(config *config.Snapshot) {
 		if rule.Match != "" {
 			condition, err = b.expb.Compile(rule.Match)
 			if err != nil {
-				// TODO: log
+				log.Warnf("Unable to compile match condition expression: '%v', rule: '%s', expression: '%s'",
+					err, rule.Name, rule.Match)
+				continue
 			}
 		}
 
-		for _, action := range rule.Actions {
+		for i, action := range rule.Actions {
 			handlerName := action.Handler.Name
 			handlerInstance, found := b.handlers.GetHealthyHandler(handlerName)
 			if !found {
-				// TODO: log the pruning of the action
+				log.Warnf("Unable to find a handler for action. rule[action]: '%s[%d]', handler: '%s'",
+					rule.Name, i, handlerName)
 				continue
-			}
-			if b.table.debugInfo != nil {
-				b.table.debugInfo.handlerNames[handlerInstance] = handlerName
 			}
 
 			for _, instance := range action.Instances {
 				// TODO: Should we single-instance instances? An instance config could be referenced multiple times.
 
-				template := instance.Template
+				t := instance.Template
 
 				// TODO: Is this redundant?
-				if !template.HandlerSupportsTemplate(handlerInstance) {
-					// TODO: log the pruning of the instance
+				if !t.HandlerSupportsTemplate(handlerInstance) {
+					log.Warnf("The handler doesn't support the template: handler:'%s', template:'%s'",
+						handlerName, t.Name)
 					continue
 				}
 
-				builder, err := template.CreateInstanceBuilder(instance.Params, b.expb)
-				if err != nil {
-					// TODO: log the compile error
-					continue
+				builder := t.CreateInstanceBuilder(instance.Name, instance.Params, b.expb)
+
+				var mapper template.OutputMapperFn
+				if t.Variety == istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR {
+					mapper = t.CreateOutputMapperFn(instance.Params, b.expb)
 				}
 
-				// TODO: Flatten destinations, so that we can match one rule condition to generate multiple instances,
-				// for a given adapter.
-
-				if b.table.debugInfo != nil {
-					b.table.debugInfo.instanceNames[builder] = instance.Name
-					if condition != nil {
-						b.table.debugInfo.matchConditions[condition] = rule.Match
-					}
-				}
-
-				b.add(rule.Namespace, template, handlerInstance, condition, builder)
+				b.add(rule.Namespace, t, handlerInstance, condition, builder, mapper, handlerName, instance.Name, rule.Match)
 			}
 		}
 	}
@@ -143,52 +145,89 @@ func (b *builder) add(
 	t *template.Info,
 	handler adapter.Handler,
 	condition compiled.Expression,
-	builder template.InstanceBuilder) {
+	builder template.InstanceBuilderFn,
+	mapper template.OutputMapperFn,
+	handlerName string,
+	instanceName string,
+	matchText string) {
 
+	// Find or create variety entry.
 	byVariety, found := b.table.entries[t.Variety]
 	if !found {
-		byVariety = &VarietyDestinations{
-			entries: make(map[string]*DestinationSet),
+		byVariety = &namespaceTable{
+			entries: make(map[string]*handlerEntries),
 		}
 		b.table.entries[t.Variety] = byVariety
 	}
 
+	// Find or create the namespace entry.
 	byNamespace, found := byVariety.entries[namespace]
 	if !found {
-		byNamespace = &DestinationSet{
-			entries: []*Destination{},
+		byNamespace = &handlerEntries{
+			entries: []*HandlerEntry{},
 		}
 		byVariety.entries[namespace] = byNamespace
 	}
 
+	// Find or create the handler entry.
+	var byHandler *HandlerEntry
 	for _, d := range byNamespace.Entries() {
-		// Try to flatting destinations.
 		if d.Handler == handler {
-			// Try to flatting input sets.
-			for _, existing := range d.Inputs {
-				if existing.Condition == condition {
-					existing.Builders = append(existing.Builders, builder)
-					return
-				}
-			}
-
-			input := &InputSet{
-				Condition: condition,
-				Builders:  []template.InstanceBuilder{builder},
-			}
-			d.Inputs = append(d.Inputs, input)
-			return
+			byHandler = d
+			break
 		}
 	}
 
-	input := &InputSet{
-		Condition: condition,
-		Builders:  []template.InstanceBuilder{builder},
+	if byHandler == nil {
+		byHandler = &HandlerEntry{
+			ID:       b.nextID(),
+			Handler:  handler,
+			Template: t,
+			Inputs:   []*InputSet{},
+		}
+		byNamespace.entries = append(byNamespace.entries, byHandler)
+
+		if b.table.debugInfo != nil {
+			b.table.debugInfo.handlerEntries[byHandler.ID] = handlerName
+		}
 	}
-	destination := &Destination{
-		Handler: handler,
-		Template: t,
-		Inputs: []*InputSet{input},
+
+	// Find or create the input set.
+	var inputSet *InputSet
+	for _, set := range byHandler.Inputs {
+		// TODO: This doesn't flatten accross all conditions, only for actions coming from the same rule. We can
+		// single instance based on the expression text as well.
+		if set.Condition == condition {
+			inputSet = set
+			break
+		}
 	}
-	byNamespace.entries = append(byNamespace.entries, destination)
+
+	if inputSet == nil {
+		inputSet = &InputSet{
+			ID:        b.nextID(),
+			Condition: condition,
+			Builders:  []template.InstanceBuilderFn{},
+			Mappers:   []template.OutputMapperFn{},
+		}
+		byHandler.Inputs = append(byHandler.Inputs, inputSet)
+
+		if b.table.debugInfo != nil {
+			b.table.debugInfo.inputSets[inputSet.ID] = inputSetDebugInfo{match: matchText, instanceNames: []string{}}
+		}
+	}
+
+	// Append the builder & mapper.
+	inputSet.Builders = append(inputSet.Builders, builder)
+
+	// TODO: mapper should either be nil for all entries, or be present for all builders. We should validate.
+	if mapper != nil {
+		inputSet.Mappers = append(inputSet.Mappers, mapper)
+	}
+
+	if b.table.debugInfo != nil {
+		debugInfo := b.table.debugInfo.inputSets[inputSet.ID]
+		debugInfo.instanceNames = append(debugInfo.instanceNames, instanceName)
+		b.table.debugInfo.inputSets[inputSet.ID] = debugInfo
+	}
 }
