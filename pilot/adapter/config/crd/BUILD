@@ -56,7 +56,7 @@ go_test(
         "//pilot/platform/kube:go_default_library",
         "//pilot/test/mock:go_default_library",
         "//pilot/test/util:go_default_library",
-        "//test/k8s:go_default_library",
+        "//tests/k8s:go_default_library",
     ],
 )
 
