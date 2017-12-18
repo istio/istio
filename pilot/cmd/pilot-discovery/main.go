@@ -23,9 +23,10 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"flag"
+
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-discovery/server"
-	"flag"
 )
 
 var (
