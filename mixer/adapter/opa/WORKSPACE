@@ -577,6 +577,7 @@ go_repository(
     importpath = "golang.org/x/sync",
 )
 
+
 go_repository(
     name = "com_github_open_policy_agent_opa",
     commit = "d9f7f5f00f24e4fc4f9ef15c8afaf44b5b8612f9",  # Aug 15, 2017 (no releases)
@@ -600,6 +601,7 @@ go_repository(
     commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
     importpath = "golang.org/x/sync",
 )
+
 
 ##
 ## Docker image build deps
@@ -1112,7 +1114,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
+ISTIO_PROXY_BUCKET = "164dd584e63065ef8150bddf23d2c5c196319bad"
 
 http_file(
     name = "envoy_binary",
@@ -1221,36 +1223,4 @@ go_repository(
     name = "com_github_codahale_hdrhistogram",
     commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
     importpath = "github.com/codahale/hdrhistogram",
-)
-
-go_repository(
-    name = "org_cloudfoundry_code_copilot",
-    commit = "03646eb993243c330f30e3053523da4e8c0850ab",
-    importpath = "code.cloudfoundry.org/copilot",
-)
-
-go_repository(
-    name = "com_github_onsi_ginkgo",
-    commit = "cb73bd0f14eb8d91a9801647edbebe6ddb5b4cb4",
-    importpath = "github.com/onsi/ginkgo",
-)
-
-go_repository(
-    name = "com_github_onsi_gomega",
-    commit = "c1fb6682134d162f37c13f42e7157653a7de7d2b",
-    importpath = "github.com/onsi/gomega",
-)
-
-go_repository(
-    name = "in_gopkg_validator_v2",
-    commit = "460c83432a98c35224a6fe352acf8b23e067ad06",
-    importpath = "gopkg.in/validator.v2",
-)
-
-go_repository(
-    name = "com_github_square_certstrap",
-    commit = "ae69f1c8301cc4d140d281998e9cac1c9df78c61",
-    importpath = "github.com/square/certstrap",
-    remote = "https://github.com/cf-routing/certstrap",
-    vcs = "git",
 )
