@@ -115,12 +115,12 @@ func (c *Runtime) processNewConfig() {
 	newRoutes := routing.BuildTable(
 		newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace, false)
 
-	oldRoutes := c.dispatcher.ChangeRoute(newRoutes)
+	oldContext := c.dispatcher.ChangeRoute(newRoutes)
 
 	c.handlers = newHandlers
 	c.snapshot = newSnapshot
 
-	cleanupHandlers(oldRoutes, oldHandlers, newHandlers, maxCleanupDuration)
+	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
@@ -130,24 +130,24 @@ var maxCleanupDuration = 10 * time.Second
 
 var cleanupSleepTime = 500 * time.Millisecond
 
-func cleanupHandlers(oldRoutes *routing.Table, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) error {
+func cleanupHandlers(oldContext *dispatcher.DispatchContext, oldHandlers *handler.Table, currentHandlers *handler.Table, timeout time.Duration) error {
 	start := time.Now()
 	for {
-		rc := oldRoutes.GetRefs()
+		rc := oldContext.GetRefs()
 		if rc > 0 {
 			// TODO: We should probably use finalizers.
 			if time.Since(start) > timeout {
 				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
 			}
 
-			log.Warnf("Waiting for resolver %d to finish %d remaining requests", oldRoutes.ID(), rc)
+			log.Warnf("Waiting for resolver %d to finish %d remaining requests", oldContext.Routes.ID(), rc)
 
 			time.Sleep(cleanupSleepTime)
 			continue
 		}
 	}
 
-	log.Infof("cleanupResolver[%d] handler table has %d entries", oldRoutes.ID())
+	log.Infof("cleanupResolver[%d] handler table has %d entries", oldContext.Routes.ID())
 
 	handler.Cleanup(currentHandlers, oldHandlers)
 	return nil

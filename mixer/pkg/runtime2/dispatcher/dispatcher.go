@@ -17,6 +17,7 @@ package dispatcher
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -31,14 +32,37 @@ import (
 type Dispatcher struct {
 	destinationServiceAttribute string
 
-	// the current, active table.
-	table *routing.Table
+	// Current dispatch context.
+	context *DispatchContext
 
-	// the reader-writer lock for accessing or changing the table.
+	// the reader-writer lock for accessing or changing the context.
 	routerLock sync.RWMutex
 
 	// execPool pool for executing the dispatches in a vectorized manner
 	execPool *executorPool
+}
+
+type DispatchContext struct {
+	// the current, active Routes.
+	Routes *routing.Table
+
+
+	// TODO: This should be moved out of the routing Routes.
+	// the current reference count. Indicates how-many calls are currently active.
+	refCount int32
+}
+
+// TODO: Refcount code should move out.
+func (t *DispatchContext) IncRef() {
+	atomic.AddInt32(&t.refCount, 1)
+}
+
+func (t *DispatchContext) DecRef() {
+	atomic.AddInt32(&t.refCount, -1)
+}
+
+func (t *DispatchContext) GetRefs() int32 {
+	return atomic.LoadInt32(&t.refCount)
 }
 
 var _ runtime.Dispatcher = &Dispatcher{}
@@ -47,27 +71,33 @@ func New(destinationServiceAttribute string, handlerGP *pool.GoroutinePool) *Dis
 	return &Dispatcher{
 		destinationServiceAttribute: destinationServiceAttribute,
 		execPool:                    newExecutorPool(handlerGP),
-		table:                       routing.Empty(),
+		context: &DispatchContext{
+			Routes: routing.Empty(),
+		},
 	}
 }
 
-func (d *Dispatcher) ChangeRoute(new *routing.Table) *routing.Table {
+func (d *Dispatcher) ChangeRoute(new *routing.Table) *DispatchContext {
 	d.routerLock.Lock()
 
-	old := d.table
-	d.table = new
+	old := d.context
+
+	newContext := &DispatchContext{
+		Routes: new,
+	}
+	d.context = newContext
 
 	d.routerLock.Unlock()
 
 	return old
 }
 
-func (d *Dispatcher) acquireRoutingTable() *routing.Table {
+func (d *Dispatcher) acquireContext() *DispatchContext {
 	d.routerLock.RLock()
-	r := d.table
-	r.IncRef()
+	context := d.context
+	context.IncRef()
 	d.routerLock.RUnlock()
-	return r
+	return context
 }
 
 func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) context.Context {
@@ -83,18 +113,18 @@ func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) conte
 }
 
 func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
-	r := d.acquireRoutingTable()
+	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
 
-	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK, bag)
+	destinations, err := c.Routes.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK, bag)
 	if err != nil {
-		r.DecRef()
+		c.DecRef()
 		return nil, err
 	}
 
 	if destinations.Count() == 0 {
 		// early return
-		r.DecRef()
+		c.DecRef()
 		return nil, err
 	}
 
@@ -120,23 +150,23 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 
 	res, err := executor.wait()
 
-	r.DecRef()
+	c.DecRef()
 	return res.(*adapter.CheckResult), err // TODO: Validate that the cast is correct.
 }
 
 func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
-	r := d.acquireRoutingTable()
+	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
 
-	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
+	destinations, err := c.Routes.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
 	if err != nil {
-		r.DecRef()
+		c.DecRef()
 		return err
 	}
 
 	if destinations.Count() == 0 {
 		// early return
-		r.DecRef()
+		c.DecRef()
 		return err
 	}
 
@@ -164,23 +194,23 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 
 	_, err = executor.wait()
 
-	r.DecRef()
+	c.DecRef()
 	return err
 }
 
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
-	r := d.acquireRoutingTable()
+	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
 
-	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA, bag)
+	destinations, err := c.Routes.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_QUOTA, bag)
 	if err != nil {
-		r.DecRef()
+		c.DecRef()
 		return nil, err
 	}
 
 	if destinations.Count() == 0 {
 		// early return
-		r.DecRef()
+		c.DecRef()
 		return nil, err
 	}
 
@@ -213,7 +243,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 
 	res, err := executor.wait()
 
-	r.DecRef()
+	c.DecRef()
 
 	if err != nil {
 		return nil, err
@@ -222,10 +252,10 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 }
 
 func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
-	r := d.acquireRoutingTable()
+	r := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
 
-	destinations, err := r.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
+	destinations, err := r.Routes.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR, bag)
 	if err != nil {
 		r.DecRef()
 		return err

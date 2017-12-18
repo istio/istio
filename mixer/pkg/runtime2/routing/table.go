@@ -15,8 +15,6 @@
 package routing
 
 import (
-	"sync/atomic"
-
 	"istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -42,10 +40,6 @@ type Table struct {
 	// default: target.service
 	// The value of this attribute is expected to be a hostname of form "svc.$ns.suffix"
 	identityAttribute string
-
-	// TODO: This should be moved out of the routing table.
-	// the current reference count. Indicates how-many calls are currently active.
-	refCount int32
 
 	debugInfo *tableDebugInfo
 }
@@ -170,18 +164,4 @@ func (s *InputSet) ShouldApply(bag attribute.Bag) bool {
 	}
 
 	return matches
-}
-
-
-// TODO: Refcount code should move out.
-func (t *Table) IncRef() {
-	atomic.AddInt32(&t.refCount, 1)
-}
-
-func (t *Table) DecRef() {
-	atomic.AddInt32(&t.refCount, -1)
-}
-
-func (t *Table) GetRefs() int32 {
-	return atomic.LoadInt32(&t.refCount)
 }
