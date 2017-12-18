@@ -30,7 +30,6 @@ go_library(
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_prometheus_client_golang//prometheus/promhttp:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
         "@io_k8s_client_go//kubernetes:go_default_library",

@@ -103,7 +103,8 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	s.adapterGP = pool.NewGoroutinePool(adapterPoolSize, a.SingleThreaded)
 	s.adapterGP.AddWorkers(adapterPoolSize)
 
-	adapterMap := config.InventoryMap(a.Adapters)
+	tmplRepo := template.NewRepository(a.Templates)
+	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	// construct the gRPC options
 
