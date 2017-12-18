@@ -21,7 +21,7 @@ docker: docker/mixs docker/ca-certificates.tgz
 
 # fetch debian ca-certs to package in the docker container.
 docker/ca-certificates.tgz:
-	./docker/fetch_cacerts.sh
+	cp ../docker/ca-certificates.tgz ./docker
 
 docker/mixs: check.prereqs
 	../bin/gobuild.sh $@ istio.io/istio/mixer/pkg/version ./cmd/mixs
