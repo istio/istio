@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"testing"
@@ -684,6 +683,3 @@ func TestController_KindMap(t *testing.T) {
 		t.Fatalf("Got %v\nwant %v", km, want)
 	}
 }
-
-var _ = flag.Lookup("v").Value.Set("99")
-var _ = flag.Lookup("logtostderr").Value.Set("true")

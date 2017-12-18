@@ -26,6 +26,16 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// ChangeType denotes the type of a change
+type ChangeType int
+
+const (
+	// Update - change was an update or a create to a key.
+	Update ChangeType = iota
+	// Delete - key was removed.
+	Delete
+)
+
 // ErrNotFound is the error to be returned when the given key does not exist in the storage.
 var ErrNotFound = errors.New("not found")
 
@@ -223,6 +233,12 @@ func NewRegistry2(inventory ...RegisterFunc2) *Registry2 {
 	}
 	return &Registry2{builders: b}
 }
+
+// URL types supported by the config store
+const (
+	// example fs:///tmp/testdata/configroot
+	FSUrl = "fs"
+)
 
 // NewStore2 creates a new Store2 instance with the specified backend.
 func (r *Registry2) NewStore2(configURL string) (Store2, error) {
