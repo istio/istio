@@ -17,7 +17,6 @@ package runtime
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"strings"
@@ -425,5 +424,3 @@ func (f *fakeProc) ProcessGenAttrs(ctx context.Context, instName string, instCfg
 	f.called++
 	return f.mutableBagResult, f.err
 }
-
-var _ = flag.Lookup("v").Value.Set("99")

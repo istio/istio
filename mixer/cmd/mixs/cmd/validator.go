@@ -41,7 +41,8 @@ type runtimeValidatorOptions struct {
 
 func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf, fatalf shared.FormatFn) *cobra.Command {
 	vc := crd.ControllerOptions{}
-	ainfo := config.InventoryMap(adapters)
+	tmplRepo := template.NewRepository(info)
+	ainfo := config.AdapterInfoMap(adapters, tmplRepo.SupportsTemplate)
 	rvc := runtimeValidatorOptions{adapters: ainfo, templates: info}
 	var kubeconfig string
 	kinds := runtime.KindMap(ainfo, info)

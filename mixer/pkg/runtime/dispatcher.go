@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Dispatcher dispatches incoming API calls to configured adapters.
@@ -152,7 +152,7 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 	genDispatchFn genDispatchFn) (adapter.Result, error) {
 	calls, err := m.Resolve(requestBag, variety)
 	if err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		return nil, err
 	}
 
@@ -161,9 +161,7 @@ func (m *dispatcher) dispatch(ctx context.Context, requestBag attribute.Bag, var
 	// Defer guarantees both.
 	defer calls.Done()
 
-	if glog.V(2) {
-		glog.Infof("Resolved (%v) %d actions", variety, len(calls.Get()))
-	}
+	log.Debugf("Resolved (%v) %d actions", variety, len(calls.Get()))
 
 	ra := make([]*runArg, 0, len(calls.Get()))
 	for _, call := range calls.Get() {
@@ -224,9 +222,7 @@ func (m *dispatcher) Check(ctx context.Context, requestBag attribute.Bag) (*adap
 		},
 	)
 	res, _ := cres.(*adapter.CheckResult)
-	if glog.V(3) {
-		glog.Infof("Check %v", res)
-	}
+	log.Debugf("Check %v", res)
 	return res, err
 }
 
@@ -250,7 +246,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 				// Until then Proxy always calls with exactly 1 quota request named
 				// "RequestCount" which is intended for rate limit.
 				if dispatched { // ensures only one call is dispatched.
-					glog.Warningf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
+					log.Warnf("Multiple dispatch: not dispatching %s to handler %s", inst.Name, call.handlerName)
 					return nil
 				}
 				dispatched = true
@@ -271,9 +267,7 @@ func (m *dispatcher) Quota(ctx context.Context, requestBag attribute.Bag,
 		},
 	)
 	res, _ := qres.(*adapter.QuotaResult)
-	if glog.V(3) {
-		glog.Infof("Quota %v", res)
-	}
+	log.Debugf("Quota %v", res)
 	return res, err
 }
 
@@ -300,7 +294,7 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 							err = responseBag.Merge(mBag)
 
 							if err != nil {
-								glog.Infof("Attributes merging failed %v", err)
+								log.Infof("Attributes merging failed %v", err)
 							}
 
 						}
@@ -311,9 +305,7 @@ func (m *dispatcher) Preprocess(ctx context.Context, requestBag attribute.Bag, r
 		},
 	)
 
-	if glog.V(3) {
-		glog.Infof("Attributes generated from preprocess phase are %v", responseBag.DebugString())
-	}
+	log.Debugf("Attributes generated from preprocess phase are %v", responseBag.DebugString())
 	return err
 }
 
@@ -398,7 +390,7 @@ func (m *dispatcher) run(ctx context.Context, runArgs []*runArg) (adapter.Result
 func safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
 	defer func() {
 		if r := recover(); r != nil {
-			glog.Errorf("Dispatch %s panic: %v", op, r)
+			log.Errorf("Dispatch %s panic: %v", op, r)
 			res = &result{
 				err: fmt.Errorf("dispatch %s panic: %v", op, r),
 			}
@@ -410,9 +402,7 @@ func safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
 
 // runAsync runs the dispatchFn using a scheduler. It also adds a new span and records prometheus metrics.
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
-	if glog.V(4) {
-		glog.Infof("runAsync %v", *callinfo)
-	}
+	log.Debugf("runAsync %v", *callinfo)
 
 	m.gp.ScheduleWork(func() {
 		// tracing
@@ -420,9 +410,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
 		start := time.Now()
 
-		if glog.V(4) {
-			glog.Infof("runAsync %s -> %v", op, *callinfo)
-		}
+		log.Debugf("runAsync %s -> %v", op, *callinfo)
 
 		out := safeDispatch(ctx, do, op)
 		st := status.OK
@@ -430,9 +418,7 @@ func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results cha
 			st = status.WithError(out.err)
 		}
 
-		if glog.V(4) {
-			glog.Infof("runAsync %s <- %v", op, out.res)
-		}
+		log.Debugf("runAsync %s <- %v", op, out.res)
 
 		duration := time.Since(start)
 		span.LogFields(

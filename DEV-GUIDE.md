@@ -390,10 +390,10 @@ passed both unit and integration tests. We only merge pull requests when
 * Unit tests should be fully hermetic
   - Only access resources in the test binary.
 * All packages and any significant files require unit tests.
+* Unit tests are written using the standard Go testing package.
 * The preferred method of testing multiple scenarios or input is
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
-
 
 ## Collection of scripts and notes for developing Istio
 

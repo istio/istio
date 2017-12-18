@@ -20,12 +20,17 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/pkg/log"
 )
 
 func TestEnv(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		gp := pool.NewGoroutinePool(128, i == 0)
 		gp.AddWorkers(32)
+
+		// set up the ambient logger so newEnv picks it up
+		o := log.NewOptions()
+		log.Configure(o)
 
 		env := newEnv("Foo", gp)
 		log := env.Logger()

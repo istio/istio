@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/cache"
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // This file contains code to create new objects that are
@@ -106,17 +106,17 @@ func KindMap(adapterInfo map[string]*adapter.Info,
 	// typed instances
 	for kind, info := range templateInfo {
 		kindMap[kind] = info.CtrCfg
-		glog.Infof("template Kind: %s, %v", kind, info.CtrCfg)
+		log.Infof("template Kind: %s, %v", kind, info.CtrCfg)
 	}
 	// typed handlers
 	for kind, info := range adapterInfo {
 		kindMap[kind] = info.DefaultConfig
-		glog.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
+		log.Infof("adapter Kind: %s, %v", kind, info.DefaultConfig)
 	}
 	kindMap[RulesKind] = &cpb.Rule{}
-	glog.Infof("template Kind: %s", RulesKind)
+	log.Infof("template Kind: %s", RulesKind)
 	kindMap[AttributeManifestKind] = &cpb.AttributeManifest{}
-	glog.Infof("template Kind: %s", AttributeManifestKind)
+	log.Infof("template Kind: %s", AttributeManifestKind)
 
 	return kindMap
 }
@@ -149,7 +149,7 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	}
 
 	c.publishSnapShot()
-	glog.Infof("Config controller has started with %d config elements", len(c.configState))
+	log.Infof("Config controller has started with %d config elements", len(c.configState))
 	go watchChanges(watchChan, watchFlushDuration, c.applyEvents)
 	return nil
 }

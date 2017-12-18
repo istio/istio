@@ -46,42 +46,59 @@ Others docs you should look at:
 
 ## Logging conventions
 
-We use [glog](http://godoc.org/github.com/golang/glog) for internal logging,
-with the following conventions around log level choices:
+Istio code is expected to use the standard [Istio logging package](https://godoc.org/istio.io/istio/pkg/log).
+When importing external package to Istio, if these packages send logs to the standard Go "log" package or
+to the global [zap logger](https://godoc.org/go.uber.org/zap), the log data will automatically be captured
+by the Istio log package and merged into the primary log stream(s) produced for the component. If
+other logging packages are used, their output will uncoordinated and unrelated to the primary log
+output, which isn't great for users of the component.
 
-- glog.Errorf() - Always an error
+The Istio logging package supports four logging levels:
 
-- glog.Warningf() - Something unexpected, but probably not an error
+- Error - Always an error.
+- Warn - Something unexpected, but probably not an error.
+- Info - Useful info about something happening.
+- Debug - Extra stuff useful during development.
 
-- glog.Infof() has multiple levels:
+By default, errors, warnings, and informational data is emitted, while debug is only enabled 
+when a component is started with particular options.
 
-  - glog.V(0) - Generally useful for this to ALWAYS be visible to an operator
-    - Programmer errors
-    - Logging extra info about a panic
-    - CLI argument handling
+The Istio logging package is built on top of the Zap logger and thus inherits its efficiency and
+flexibility. In any high performance paths, prefer to use the
+[Error](https://godoc.org/istio.io/istio/pkg/log#Error),
+[Warn](https://godoc.org/istio.io/istio/pkg/log#Warn),
+[Info](https://godoc.org/istio.io/istio/pkg/log#Info), and
+[Debug](https://godoc.org/istio.io/istio/pkg/log#Debug) methods,
+as these are the most efficient. All other varietions of these four calls end up triggering some memory allocations and have a 
+considerably higher execution time.
 
-  - glog.V(1) - A reasonable default log level if you don't want verbosity.
-    - Information about config (listening on X, watching Y)
-    - Errors that repeat frequently that relate to conditions that can be corrected
+If you need to do a fair bit of computation in order to produce data for logging, you should protect that code
+using the
+[ErrorEnabled](https://godoc.org/istio.io/istio/pkg/log#ErrorEnabled),
+[WarnEnabled](https://godoc.org/istio.io/istio/pkg/log#WarnEnabled), 
+[InfoEnabled](https://godoc.org/istio.io/istio/pkg/log#InfoEnabled), and
+[DebugEnabled](https://godoc.org/istio.io/istio/pkg/log#DebugEnabled) methods.
 
-  - glog.V(2) - Useful steady state information about the service and important
-  log messages that may correlate to significant changes in the system.  This is
-  the recommended default log level for most systems.
-    - Logging HTTP requests and their exit code
-    - System state changing
+Be careful not to introduce expensive computations as part of the evaluation of a log statement. For example:
 
-  - glog.V(3) - Extended information about changes
-    - More info about system state changes
+```golang
+log.Debug(fmt.Sprintf("%s %s %d", s1, s2, i1))
+```
 
-  - glog.V(4) - Debug level verbosity (for now)
-    - Logging in particularly thorny parts of code where you may want to come
-    back later and check it
+Even when debug-level logs are disabled, the fmt.Sprintf call will still execute. Instead, you should write:
 
-As per the comments, the practical production level at runtime is V(2). Developers and QE
-environments may wish to run at V(3) or V(4). If you wish to change the log
-level, you can pass in `-v=X` where X is the desired maximum level to log.
+```golang
+if log.DebugEnabled() {
+    log.Debug(fmt.Sprintf("%s %s %d", s1, s2, i1))
+}
+```
+
+Note that Mixer adapters don't use the standard Istio logging package. Instead, they are expected to use
+the [adapter logger interface](https://godoc.org/istio.io/istio/mixer/pkg/adapter#Logger).
 
 ## Testing conventions
+
+  - For Go code, unit tests are written using the standard Go testing package.
 
   - All new packages and most new significant functionality must come with unit tests
   with code coverage >98%
