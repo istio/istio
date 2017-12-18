@@ -30,6 +30,15 @@ type builder struct {
 	expb                   *compiled.ExpressionBuilder
 	defaultConfigNamespace string
 	nextIdCounter          uint32
+
+	// The handler names by the handler entry id.
+	handlerNamesByID        map[uint32]string
+
+	// match condition sets by the input set id.
+	matchesByID             map[uint32]string
+
+	// instanceName set of builders by the input set.
+	instanceNamesByID       map[uint32][]string
 }
 
 func BuildTable(
@@ -52,17 +61,21 @@ func BuildTable(
 		expb:     expb,
 		defaultConfigNamespace: defaultConfigNamespace,
 		nextIdCounter:          1,
-	}
 
-	if debugInfo {
-		b.table.debugInfo = &tableDebugInfo{
-			handlerEntries: make(map[uint32]string),
-			inputSets:      make(map[uint32]inputSetDebugInfo),
-		}
+		handlerNamesByID: make(map[uint32]string),
+		matchesByID: make(map[uint32]string),
+		instanceNamesByID: make(map[uint32][]string),
 	}
 
 	b.build(config)
 
+	if debugInfo {
+		b.table.debugInfo = &tableDebugInfo{
+			handlerNamesByID: b.handlerNamesByID,
+			matchesByID: b.matchesByID,
+			instanceNamesByID: b.instanceNamesByID,
+		}
+	}
 	return b.table
 }
 
@@ -73,7 +86,7 @@ func (b *builder) nextID() uint32 {
 }
 
 func (b *builder) build(config *config.Snapshot) {
-	// Go over the rules and find the right slot in the table to put entries in.
+	// Go over the rules and find the right slot in the table to put e in.
 	for _, rule := range config.Rules {
 
 		var condition compiled.Expression
@@ -138,6 +151,21 @@ func (b *builder) build(config *config.Snapshot) {
 			set.entries = append(defaultSet.entries, set.entries...)
 		}
 	}
+
+	// walk through and sortByHandlerName the entries for stable ordering.
+	for _, vDestinations := range b.table.entries {
+		for _, namespaces := range vDestinations.entries {
+			namespaces.sortByHandlerName(b.handlerNamesByID)
+
+			for _, entry := range namespaces.entries {
+				entry.sortByMatchText(b.matchesByID)
+
+				for _, i := range entry.Inputs {
+					i.sortByInstanceName(b.instanceNamesByID[i.ID])
+				}
+			}
+		}
+	}
 }
 
 func (b *builder) add(
@@ -187,9 +215,7 @@ func (b *builder) add(
 		}
 		byNamespace.entries = append(byNamespace.entries, byHandler)
 
-		if b.table.debugInfo != nil {
-			b.table.debugInfo.handlerEntries[byHandler.ID] = handlerName
-		}
+		b.handlerNamesByID[byHandler.ID] = handlerName
 	}
 
 	// Find or create the input set.
@@ -212,22 +238,26 @@ func (b *builder) add(
 		}
 		byHandler.Inputs = append(byHandler.Inputs, inputSet)
 
-		if b.table.debugInfo != nil {
-			b.table.debugInfo.inputSets[inputSet.ID] = inputSetDebugInfo{match: matchText, instanceNames: []string{}}
+		if matchText != "" {
+			b.matchesByID[inputSet.ID] = matchText
 		}
+
+		instanceNames, found := b.instanceNamesByID[inputSet.ID]
+		if !found {
+			instanceNames = make([]string, 0, 1)
+		}
+		b.instanceNamesByID[inputSet.ID] = instanceNames
 	}
 
 	// Append the builder & mapper.
 	inputSet.Builders = append(inputSet.Builders, builder)
 
-	// TODO: mapper should either be nil for all entries, or be present for all builders. We should validate.
+	// TODO: mapper should either be nil for all e, or be present for all builders. We should validate.
 	if mapper != nil {
 		inputSet.Mappers = append(inputSet.Mappers, mapper)
 	}
 
-	if b.table.debugInfo != nil {
-		debugInfo := b.table.debugInfo.inputSets[inputSet.ID]
-		debugInfo.instanceNames = append(debugInfo.instanceNames, instanceName)
-		b.table.debugInfo.inputSets[inputSet.ID] = debugInfo
-	}
+	instanceNames := b.instanceNamesByID[inputSet.ID]
+	instanceNames = append(instanceNames, instanceName)
+	b.instanceNamesByID[inputSet.ID] = instanceNames
 }

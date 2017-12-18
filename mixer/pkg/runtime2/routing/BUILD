@@ -5,9 +5,9 @@ go_library(
     srcs = [
         "builder.go",
         "debug.go",
-        "destination.go",
+        "sort.go",
+        "string.go",
         "table.go",
-        "tablestring.go",
         "util.go",
     ],
     visibility = ["//visibility:public"],

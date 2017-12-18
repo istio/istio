@@ -18,9 +18,13 @@ package routing
 type tableDebugInfo struct {
 
 	// mapping from the handler entry in the routing table to the name of the handler.
-	handlerEntries map[uint32]string
+	handlerNamesByID map[uint32]string
 
-	inputSets map[uint32]inputSetDebugInfo
+	// match condition sets by the input set id.
+	matchesByID             map[uint32]string
+
+	// instanceName set of builders by the input set.
+	instanceNamesByID       map[uint32][]string
 }
 
 type inputSetDebugInfo struct {

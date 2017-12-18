@@ -35,7 +35,7 @@ type Table struct {
 	// ID of the table. This is based on the config snapshot ID.
 	id int
 
-	// entries grouped by variety.
+	// e grouped by variety.
 	entries map[istio_mixer_v1_template.TemplateVariety]*namespaceTable
 
 	// identityAttribute defines which configuration scopes apply to a request.
@@ -61,7 +61,7 @@ type namespaceTable struct {
 	defaultSet *handlerEntries
 }
 
-// handlerEntries contains a list of destinations that should be targeted for a given namespace.
+// handlerNamesByID contains a list of destinations that should be targeted for a given namespace.
 type handlerEntries struct {
 	entries []*HandlerEntry
 }
@@ -138,7 +138,7 @@ func (t *Table) GetDestinations(variety istio_mixer_v1_template.TemplateVariety,
 	return destinationSet, nil
 }
 
-// Count returns the number of entries in the set.
+// Count returns the number of e in the set.
 func (e *handlerEntries) Count() int {
 	return len(e.entries)
 }
@@ -172,36 +172,6 @@ func (s *InputSet) ShouldApply(bag attribute.Bag) bool {
 	return matches
 }
 
-//
-//func (d *HandlerEntry) BuildInstances(bag attribute.Bag) []interface{} {
-//	// TODO: we should avoid this allocation, if possible.
-//	result := make([]interface{}, 0, d.MaxInstances())
-//
-//	for _, i := range d.Inputs {
-//		if i.Condition != nil {
-//			match, err := i.Condition.EvaluateBoolean(bag)
-//			if err != nil {
-//				// TODO: log
-//				continue
-//			}
-//
-//			if !match {
-//				continue
-//			}
-//		}
-//
-//		for _, b := range i.Builders {
-//			instance, err := b(bag)
-//			if err != nil {
-//				// TODO: log
-//				continue
-//			}
-//			result = append(result, instance)
-//		}
-//	}
-//
-//	return result
-//}
 
 // TODO: Refcount code should move out.
 func (t *Table) IncRef() {
