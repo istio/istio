@@ -15,10 +15,9 @@
 package framework
 
 // Status is interface to extend the ability of the framework.
+// It includes anything needed to be exposed outside to other components, environment.
 // Any item (component, environment can has a Config)
 // Actual implement can take this interface with its status field.
 // Implement is recommended to also take sync.Mutex to lock data while read/write
-
-// Config is a interface to accumulate config fields into one structure
 type Status interface {
 }

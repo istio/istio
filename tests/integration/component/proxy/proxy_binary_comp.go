@@ -25,7 +25,7 @@ import (
 
 var (
 	envoyStartScript = flag.String("envoy_start_script", "", "start_envoy script")
-	envoyBinary = flag.String("envoy_binary", "", "Envoy binary path.")
+	envoyBinary      = flag.String("envoy_binary", "", "Envoy binary path.")
 )
 
 // LocalComponent is a component of local proxy binary in process

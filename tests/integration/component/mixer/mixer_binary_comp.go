@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	testConfigPath = "mixer/testdata/config"
+	testConfigPath  = "mixer/testdata/config"
 	metricsEndpoint = "http://localhost:42422/metrics"
 )
 
@@ -40,7 +40,7 @@ type LocalComponent struct {
 	framework.Component
 	testProcess framework.TestProcess
 	config      LocalCompConfig
-	status		LocalCompStatus
+	status      LocalCompStatus
 	name        string
 }
 
@@ -48,9 +48,10 @@ type LocalComponent struct {
 type LocalCompConfig struct {
 	framework.Config
 	ConfigFileDir string
-	LogFile     string
+	LogFile       string
 }
 
+// LocalCompStatus contains status for LocalComponent
 type LocalCompStatus struct {
 	framework.Status
 	metricsEndpoint string
@@ -59,8 +60,8 @@ type LocalCompStatus struct {
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
 func NewLocalComponent(n string, config LocalCompConfig) *LocalComponent {
 	return &LocalComponent{
-		name:    n,
-		config:  config,
+		name:   n,
+		config: config,
 	}
 }
 
@@ -84,6 +85,7 @@ func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
 	return nil
 }
 
+// GetStatus return the status for outside use
 func (mixerComp *LocalComponent) GetStatus() framework.Status {
 	return mixerComp.status
 }
