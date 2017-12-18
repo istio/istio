@@ -44,6 +44,7 @@ go_test(
     deps = [
         "//mixer/pkg/config/store:go_default_library",
         "//pilot/platform/kube/admit/testcerts:go_default_library",  # for testing cert data
+        "//tests/k8s:go_default_library",
         "@io_k8s_api//admission/v1alpha1:go_default_library",
         "@io_k8s_api//admissionregistration/v1alpha1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",

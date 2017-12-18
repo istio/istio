@@ -35,6 +35,7 @@ go_test(
         "//pilot/platform/kube:go_default_library",
         "//pilot/platform/kube/admit/testcerts:go_default_library",
         "//pilot/test/mock:go_default_library",
+        "//tests/k8s:go_default_library",
         "@io_k8s_api//admission/v1alpha1:go_default_library",
         "@io_k8s_api//admissionregistration/v1alpha1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
