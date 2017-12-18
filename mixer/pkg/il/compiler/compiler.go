@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
-
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
+	"istio.io/istio/pkg/log"
 )
 
 // Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
@@ -70,7 +69,7 @@ func (c *Compiler) CompileExpression(text string) (uint32, error) {
 	returnType := g.toIlType(exprType)
 	g.generate(expression, 0, nmNone, "")
 	if g.err != nil {
-		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
 		return 0, g.err
 	}
 	g.builder.Ret()
@@ -150,7 +149,7 @@ func Compile(text string, finder expr.AttributeDescriptorFinder, functions map[s
 	returnType := g.toIlType(exprType)
 	g.generate(expression, 0, nmNone, "")
 	if g.err != nil {
-		glog.Warningf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
+		log.Warnf("compiler.Compile failed. expr:'%s', err:'%v'", text, g.err)
 		return nil, g.err
 	}
 
@@ -502,7 +501,7 @@ func (g *generator) generateConstant(c *expr.Constant, mode nilMode, valueJmpLab
 }
 
 func (g *generator) internalError(format string, args ...interface{}) {
-	glog.Warningf("internal compiler error -- "+format, args)
+	log.Warnf("internal compiler error -- "+format, args)
 	if g.err == nil {
 		g.err = fmt.Errorf("internal compiler error -- %s", fmt.Sprintf(format, args...))
 	}

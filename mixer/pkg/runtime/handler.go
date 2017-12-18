@@ -21,13 +21,13 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	pbd "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
 	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -94,7 +94,7 @@ func NewHandlerFactory(tmplRepo TemplateFinder, expr expr.TypeChecker, df expr.A
 func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, env adapter.Env) (adapter.Handler, error) {
 	infrdTypsByTmpl, err := h.inferTypesGrpdByTmpl(instances)
 	if err != nil {
-		glog.Error(err.Error())
+		log.Error(err.Error())
 		return nil, err
 	}
 
@@ -105,7 +105,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 
 	if bldr == nil {
 		msg := fmt.Sprintf("nil HandlerBuilder instantiated for adapter '%s' in handler config '%s'", handler.Adapter, handler.Name)
-		glog.Warning(msg)
+		log.Warn(msg)
 		return nil, errors.New(msg)
 	}
 
@@ -117,7 +117,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 			// adapter's builder is bad since it does not support the necessary interface
 			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
 				"Therefore, it cannot support template '%s'", ti.BldrInterfaceName, tmplName)
-			glog.Error(msg)
+			log.Error(msg)
 			return nil, fmt.Errorf(msg)
 		}
 	}
@@ -126,7 +126,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 	hndlr, err = h.build(bldr, infrdTypsByTmpl, handler.Params, env)
 	if err != nil {
 		msg := fmt.Sprintf("cannot configure adapter '%s' in handler config '%s': %v", handler.Adapter, handler.Name, err)
-		glog.Warning(msg)
+		log.Warn(msg)
 		return nil, errors.New(msg)
 	}
 	// validate if the handler supports all the necessary interfaces
@@ -137,7 +137,7 @@ func (h *handlerFactory) Build(handler *pb.Handler, instances []*pb.Instance, en
 			// adapter is bad since it does not support the necessary interface
 			msg := fmt.Sprintf("adapter is invalid because it does not implement interface '%s'. "+
 				"Therefore, it cannot support template '%s'", ti.HndlrInterfaceName, tmplName)
-			glog.Error(msg)
+			log.Error(msg)
 			return nil, fmt.Errorf(msg)
 		}
 	}
@@ -155,7 +155,7 @@ func (h *handlerFactory) build(bldr adapter.HandlerBuilder, infrdTypesByTmpl map
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("handler panicked with '%v' when trying to configure the associated adapter."+
 				" Please remove the handler or fix the configuration. %v\nti=%v\ntype=%v", r, adapterCnfg, ti, typs)
-			glog.Error(msg)
+			log.Error(msg)
 			hndlr = nil
 			err = errors.New(msg)
 			return
@@ -174,7 +174,7 @@ func (h *handlerFactory) build(bldr adapter.HandlerBuilder, infrdTypesByTmpl map
 	// validate and only construct if the validation passes.
 	if ce := bldr.Validate(); ce != nil {
 		msg := fmt.Sprintf("handler validation failed: %s", ce.Error())
-		glog.Error(msg)
+		log.Error(msg)
 		hndlr = nil
 		err = errors.New(msg)
 		return

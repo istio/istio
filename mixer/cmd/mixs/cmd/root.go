@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -43,13 +42,6 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	}
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-
-	// hack to make flag.Parsed return true such that glog is happy
-	// about the flags having been parsed
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	/* #nosec */
-	_ = fs.Parse([]string{})
-	flag.CommandLine = fs
 
 	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))

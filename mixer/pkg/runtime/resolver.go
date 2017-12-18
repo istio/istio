@@ -22,12 +22,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/pkg/log"
 )
 
 // Rule represents a runtime view of cpb.Rule.
@@ -151,8 +151,8 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 	// add those rules too
 	if r.defaultConfigNamespace != ns {
 		rulesArr = appendRules(rulesArr, r.rules, ns)
-	} else if glog.V(3) {
-		glog.Infof("Resolve: skipping duplicate namespace %s", ns)
+	} else {
+		log.Debugf("Resolve: skipping duplicate namespace %s", ns)
 	}
 
 	var res []*Action
@@ -170,8 +170,8 @@ func (r *resolver) Resolve(attrs attribute.Bag, variety adptTmpl.TemplateVariety
 func appendRules(rulesArr [][]*Rule, rules map[string][]*Rule, ns string) [][]*Rule {
 	if r := rules[ns]; r != nil {
 		rulesArr = append(rulesArr, r)
-	} else if glog.V(3) {
-		glog.Infof("Resolve: no namespace config for %s", ns)
+	} else {
+		log.Debugf("Resolve: no namespace config for %s", ns)
 	}
 	return rulesArr
 }
@@ -181,14 +181,14 @@ func destAndNamespace(attrs attribute.Bag, idAttr string) (dest string, ns strin
 	attr, _ := attrs.Get(idAttr)
 	if attr == nil {
 		msg := fmt.Sprintf("%s identity not found in attributes%v", idAttr, attrs.Names())
-		glog.Warningf(msg)
+		log.Warnf(msg)
 		return "", "", errors.New(msg)
 	}
 
 	var ok bool
 	if dest, ok = attr.(string); !ok {
 		msg := fmt.Sprintf("%s identity must be string: %v", idAttr, attr)
-		glog.Warningf(msg)
+		log.Warnf(msg)
 		return "", "", errors.New(msg)
 	}
 	splits := strings.SplitN(dest, ".", 3) // we only care about service and namespace.
@@ -216,9 +216,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 			}
 			// default rtype is HTTP + Check|Report|Preprocess
 			if tcp != rule.rtype.IsTCP() {
-				if glog.V(4) {
-					glog.Infof("filterActions: rule %s removed ctxProtocol=%s, type %s", rule.name, ctxProtocol, rule.rtype)
-				}
+				log.Debugf("filterActions: rule %s removed ctxProtocol=%s, type %s", rule.name, ctxProtocol, rule.rtype)
 				continue
 			}
 
@@ -231,9 +229,7 @@ func (r *resolver) filterActions(rulesArr [][]*Rule, attrs attribute.Bag,
 					continue
 				}
 			}
-			if glog.V(3) {
-				glog.Infof("filterActions: rule %s selected %v", rule.name, rule.rtype)
-			}
+			log.Debugf("filterActions: rule %s selected %v", rule.name, rule.rtype)
 			nselected++
 			res = append(res, act...)
 		}
