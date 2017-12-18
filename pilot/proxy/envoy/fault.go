@@ -60,25 +60,6 @@ func buildHTTPFaultFilter(cluster string, faultRule *routing.HTTPFaultInjection,
 	}
 }
 
-func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInjection, headers Headers) *HTTPFilter {
-	abort := buildAbortConfigV2(faultRule.Abort)
-	delay := buildDelayConfigV2(faultRule.Delay)
-	if abort == nil && delay == nil {
-		return nil
-	}
-
-	return &HTTPFilter{
-		Type: decoder,
-		Name: "fault",
-		Config: FilterFaultConfig{
-			UpstreamCluster: cluster,
-			Headers:         headers,
-			Abort:           abort,
-			Delay:           delay,
-		},
-	}
-}
-
 // buildAbortConfig builds the envoy config related to abort spec in a fault filter
 func buildAbortConfig(abortRule *routing.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
@@ -105,6 +86,25 @@ func buildDelayConfig(delayRule *routing.HTTPFaultInjection_Delay) *DelayFilter 
 	}
 }
 
+func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInjection, headers Headers) *HTTPFilter {
+	abort := buildAbortConfigV2(faultRule.Abort)
+	delay := buildDelayConfigV2(faultRule.Delay)
+	if abort == nil && delay == nil {
+		return nil
+	}
+
+	return &HTTPFilter{
+		Type: decoder,
+		Name: "fault",
+		Config: FilterFaultConfig{
+			UpstreamCluster: cluster,
+			Headers:         headers,
+			Abort:           abort,
+			Delay:           delay,
+		},
+	}
+}
+
 func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFilter {
 	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
 		return nil
@@ -117,14 +117,18 @@ func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFil
 }
 
 func buildDelayConfigV2(delayRule *routingv2.HTTPFaultInjection_Delay) *DelayFilter {
-	dur, err := ptypes.Duration(delayRule.GetFixedDelay())
-	if delayRule == nil || (err != nil && dur.Seconds() == 0 && dur.Nanoseconds() == 0) || delayRule.Percent == 0.0 {
+	if delayRule == nil {
+		return nil
+	}
+
+	ms := protoDurationToMS(delayRule.GetFixedDelay())
+	if ms == 0 || delayRule.Percent == 0.0 {
 		return nil
 	}
 
 	return &DelayFilter{
 		Type:     "fixed",
 		Percent:  int(delayRule.Percent),
-		Duration: protoDurationToMS(delayRule.GetFixedDelay()),
+		Duration: ms,
 	}
 }

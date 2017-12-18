@@ -551,7 +551,6 @@ func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 	}
 }
 
-// TODO: v1alpha1 + v1alpha2
 func TestListenerDiscoverySidecar(t *testing.T) {
 	testCases := []struct {
 		name string
