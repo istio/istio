@@ -87,6 +87,9 @@ rules:
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "watch", "list"]
 ---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
@@ -249,7 +252,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: statsd-to-prometheus
-        image: prom/statsd-exporter
+        image: prom/statsd-exporter:v0.5.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102
@@ -261,7 +264,7 @@ spec:
         - name: config-volume
           mountPath: /etc/statsd
       - name: mixer
-        image: gcr.io/istio-testing/mixer:5253b6b574a98b209c0ef3d0d6e90c1b8d6a5c2a
+        image: docker.io/istio/mixer:0.4.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9091
@@ -276,7 +279,7 @@ spec:
           - -v
           - "2"
       - name: istio-proxy
-        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        image: docker.io/istio/proxy_debug:0.4.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15004
@@ -982,6 +985,7 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetesenv
 metadata:
@@ -999,7 +1003,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: kubeattrgenrule
+  name: kubeattrgenrulerule
   namespace: istio-system
 spec:
   actions:
@@ -1198,7 +1202,7 @@ spec:
       serviceAccountName: istio-pilot-service-account
       containers:
       - name: discovery
-        image: gcr.io/istio-testing/pilot:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        image: docker.io/istio/pilot:0.4.0
         imagePullPolicy: IfNotPresent
         args: ["discovery", "-v", "2", "--admission-service", "istio-pilot"]
         ports:
@@ -1219,7 +1223,7 @@ spec:
         - name: config-volume
           mountPath: /etc/istio/config
       - name: istio-proxy
-        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        image: docker.io/istio/proxy_debug:0.4.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15003
@@ -1291,7 +1295,7 @@ spec:
       serviceAccountName: istio-ingress-service-account
       containers:
       - name: istio-ingress
-        image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
+        image: docker.io/istio/proxy_debug:0.4.0
         args:
         - proxy
         - ingress
@@ -1378,7 +1382,7 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca
-        image: gcr.io/istio-testing/istio-ca:d10e0c4aa05ca726cae71aa5d033dea4f7bc26e4
+        image: docker.io/istio/istio-ca:0.4.0
         imagePullPolicy: IfNotPresent
         command: ["/usr/local/bin/istio_ca"]
         args:
