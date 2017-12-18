@@ -64,10 +64,10 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
 		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "initializer".`)
 	cmd.PersistentFlags().StringVar(&install.Hub, "hub", "gcr.io/istio-testing", "The container registry to pull Istio images from")
-	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", "latest", "The tag to use to pull the `mixer` container")
-	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", "latest", "The tag to use to pull the `pilot-discovery` container")
-	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", "latest", "The tag to use to pull the `ca` container")
-	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", "latest", "The tag to use to pull the `proxy` container")
+	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", "0.3.0", "The tag to use to pull the `mixer` container")
+	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", "0.3.0", "The tag to use to pull the `pilot-discovery` container")
+	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", "0.3.0", "The tag to use to pull the `ca` container")
+	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", "0.3.0", "The tag to use to pull the `proxy` container")
 	cmd.PersistentFlags().BoolVar(&install.Debug, "debug", false, "If true, uses debug images instead of release images")
 	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", 0,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
@@ -96,14 +96,15 @@ type installation struct {
 	Initializer bool
 
 	Namespace string
+	Debug     bool
+	NodePort  uint16
+
 	// todo: support hub per component
-	Hub      string
+	Hub      string // hub to pull images from
 	MixerTag string
 	PilotTag string
 	CaTag    string
 	ProxyTag string
-	Debug    bool
-	NodePort uint16
 }
 
 func defaultInstall() *installation {
