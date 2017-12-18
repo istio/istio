@@ -36,11 +36,14 @@ import (
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 )
 
 const (
 	dns1123LabelMaxLength int    = 63
 	dns1123LabelFmt       string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+	// a wild-card prefix is an '*', a normal DNS1123 label with a leading '*' or '*-', or a normal DNS1123 label
+	wildcardPrefix string = `\*|(\*|\*-)?(` + dns1123LabelFmt + `)`
 
 	// TODO: there is a stricter regex for the labels from validation.go in k8s
 	qualifiedNameFmt string = "[-A-Za-z0-9_./]*"
@@ -59,8 +62,9 @@ const (
 )
 
 var (
-	dns1123LabelRex = regexp.MustCompile("^" + dns1123LabelFmt + "$")
-	tagRegexp       = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	dns1123LabelRegexp   = regexp.MustCompile("^" + dns1123LabelFmt + "$")
+	tagRegexp            = regexp.MustCompile("^" + qualifiedNameFmt + "$")
+	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
 // golang supported methods: https://golang.org/src/net/http/method.go
@@ -74,12 +78,6 @@ var supportedMethods = map[string]bool{
 	http.MethodConnect: true,
 	http.MethodOptions: true,
 	http.MethodTrace:   true,
-}
-
-// IsDNS1123Label tests for a string that conforms to the definition of a label in
-// DNS (RFC 1123).
-func IsDNS1123Label(value string) bool {
-	return len(value) <= dns1123LabelMaxLength && dns1123LabelRex.MatchString(value)
 }
 
 // ValidatePort checks that the network port is in range
@@ -234,20 +232,54 @@ func (t Labels) Validate() error {
 
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
-	if len(fqdn) > 255 {
-		return fmt.Errorf("domain name %q too long (max 255)", fqdn)
+	return appendErrors(checkDNS1123Preconditions(fqdn), validateDNS1123Labels(fqdn))
+}
+
+// ValidateWildcardDomain checks that a domain is a valid FQDN, but also allows wildcard prefixes.
+func ValidateWildcardDomain(domain string) error {
+	if err := checkDNS1123Preconditions(domain); err != nil {
+		return err
 	}
-	if len(fqdn) == 0 {
+	// We only allow wildcards in the first label; split off the first label (parts[0]) from the rest of the host (parts[1])
+	parts := strings.SplitN(domain, ".", 2)
+	if !IsWildcardDNS1123Label(parts[0]) {
+		return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, parts[0])
+	} else if len(parts) > 1 {
+		return validateDNS1123Labels(parts[1])
+	}
+	return nil
+}
+
+// encapsulates DNS 1123 checks common to both wildcarded hosts and FQDNs
+func checkDNS1123Preconditions(name string) error {
+	if len(name) > 255 {
+		return fmt.Errorf("domain name %q too long (max 255)", name)
+	}
+	if len(name) == 0 {
 		return fmt.Errorf("empty domain name not allowed")
 	}
+	return nil
+}
 
-	for _, label := range strings.Split(fqdn, ".") {
+func validateDNS1123Labels(domain string) error {
+	for _, label := range strings.Split(domain, ".") {
 		if !IsDNS1123Label(label) {
-			return fmt.Errorf("domain name %q invalid (label %q invalid)", fqdn, label)
+			return fmt.Errorf("domain name %q invalid (label %q invalid)", domain, label)
 		}
 	}
-
 	return nil
+}
+
+// IsDNS1123Label tests for a string that conforms to the definition of a label in
+// DNS (RFC 1123).
+func IsDNS1123Label(value string) bool {
+	return len(value) <= dns1123LabelMaxLength && dns1123LabelRegexp.MatchString(value)
+}
+
+// IsWildcardDNS1123Label tests for a string that conforms to the definition of a label in DNS (RFC 1123), but allows
+// the wildcard label (`*`), and typical labels with a leading astrisk instead of alphabetic character (e.g. "*-foo")
+func IsWildcardDNS1123Label(value string) bool {
+	return len(value) <= dns1123LabelMaxLength && wildcardPrefixRegexp.MatchString(value)
 }
 
 // ValidateIstioService checks for validity of a service reference
@@ -850,6 +882,76 @@ func ValidateIngressRule(msg proto.Message) error {
 
 	// TODO: complete validation for ingress
 	return errs
+}
+
+// ValidateGateway checks gateway specifications
+func ValidateGateway(msg proto.Message) (errs error) {
+	value, ok := msg.(*routingv2.Gateway)
+	if !ok {
+		errs = appendErrors(errs, fmt.Errorf("cannot cast to gateway: %#v", msg))
+		return
+	}
+
+	if len(value.Servers) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("gateway must have at least one server"))
+	} else {
+		for _, server := range value.Servers {
+			errs = appendErrors(errs, validateServer(server))
+		}
+	}
+	return errs
+}
+
+func validateServer(server *routingv2.Server) (errs error) {
+	if len(server.Domains) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one domain"))
+	} else {
+		for _, domain := range server.Domains {
+			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
+			// (including CIDR addresses). If it's neither, we report both errors.
+			if err := ValidateWildcardDomain(domain); err != nil {
+				if err2 := ValidateIPv4Subnet(domain); err2 != nil {
+					errs = appendErrors(errs, err, err2)
+				}
+			}
+		}
+	}
+	return appendErrors(errs, validateTLSOptions(server.Tls), validateServerPort(server.Port))
+}
+
+func validateServerPort(port *routingv2.Server_Port) (errs error) {
+	if port == nil {
+		return appendErrors(errs, fmt.Errorf("port is required"))
+	}
+	if ConvertCaseInsensitiveStringToProtocol(port.Protocol) == ProtocolUnsupported {
+		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, MONGO, REDIS, TCP", port.Protocol))
+	}
+	if port.Number > 0 {
+		errs = appendErrors(errs, ValidatePort(int(port.Number)))
+	} else if port.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("either port number or name must be set: %v", port))
+	}
+	return
+}
+
+func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
+	if tls == nil {
+		// no tls config at all is valid
+		return
+	}
+	if tls.Mode == routingv2.Server_TLSOptions_SIMPLE {
+		if tls.ServerCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+		}
+	} else if tls.Mode == routingv2.Server_TLSOptions_MUTUAL {
+		if tls.ServerCertificate == "" {
+			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+		}
+		if tls.ClientCaBundle == "" {
+			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+		}
+	}
+	return
 }
 
 // ValidateEgressRule checks egress rules
@@ -1520,4 +1622,22 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output
+// error is nil (allowing validation without branching).
+func appendErrors(err error, errs ...error) error {
+	appendError := func(err, err2 error) error {
+		if err == nil {
+			return err2
+		} else if err2 == nil {
+			return err
+		}
+		return multierror.Append(err, err2)
+	}
+
+	for _, err2 := range errs {
+		err = appendError(err, err2)
+	}
+	return err
 }

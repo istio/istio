@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 const defaultDuration = time.Second / 2
@@ -83,7 +84,7 @@ func parseFile(path string, data []byte) []*resource {
 	for i, chunk := range chunks {
 		r, err := parseChunk(chunk)
 		if err != nil {
-			glog.Errorf("Error processing %s[%d]: %v", path, i, err)
+			log.Errorf("Error processing %s[%d]: %v", path, i, err)
 			continue
 		}
 		if r == nil {
@@ -131,7 +132,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 		}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			glog.Warningf("Failed to read %s: %v", path, err)
+			log.Warnf("Failed to read %s: %v", path, err)
 			return err
 		}
 		for _, r := range parseFile(path, data) {
@@ -144,7 +145,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 		return nil
 	})
 	if err != nil {
-		glog.Errorf("failure during filepath.Walk: %v", err)
+		log.Errorf("failure during filepath.Walk: %v", err)
 	}
 	return result
 }

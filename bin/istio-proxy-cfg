@@ -69,7 +69,7 @@ function check_endof_cmdline {
 
 function get_pilot_url {
     if [[ -z $PILOT_URL ]]; then
-        pilot_ipport=(`kubectl get svc -n ${ISTIO_NAMESPACE} | grep ${ISTIO_PILOT} | awk '{print $2,$4}'`)
+        pilot_ipport=(`kubectl get svc -n ${ISTIO_NAMESPACE} | grep ${ISTIO_PILOT} | awk '{print $3,$5}'`)
         pilot_ip=${pilot_ipport[0]}
         pilot_port=${pilot_ipport[1]}
         pilot_port=${pilot_port/:/ }

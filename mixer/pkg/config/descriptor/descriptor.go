@@ -25,12 +25,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
 	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/pkg/log"
 )
 
 // Finder describes anything that can provide a view into the config's descriptors by name and type.
@@ -179,9 +179,7 @@ func Parse(cfg string) (dcfg *pb.GlobalConfig, ce *adapter.ConfigErrors) {
 		}
 		val = m[string(k)]
 		if val == nil {
-			if glog.V(2) {
-				glog.Warningf("%s missing", k)
-			}
+			log.Debugf("%s missing", k)
 			continue
 		}
 

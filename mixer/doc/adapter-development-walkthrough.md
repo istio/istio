@@ -505,13 +505,13 @@ inventory_library(
    packages = {
        # list of all adapters
        # "friendlyName" : "go_import_path"
-       "svcctrl": "istio.io/istio/mixer/adapter/svcctrl",
+       "servicecontrol": "istio.io/istio/mixer/adapter/servicecontrol",
        ...
        <b>"mysampleadapter": "istio.io/istio/mixer/adapter/mysampleadapter",</b>
    },
    deps = [
        # list of all go_default_library rule for adapters.
-       "//mixer/adapter/svcctrl:go_default_library",
+       "//mixer/adapter/servicecontrol:go_default_library",
        ...
        <b>"//mixer/adapter/mysampleadapter:go_default_library",</b>
    ],
@@ -593,7 +593,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/mixs/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
+cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/mixs/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests

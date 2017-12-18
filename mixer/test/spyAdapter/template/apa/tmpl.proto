@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package SampleApa;
+
+import "mixer/v1/config/descriptor/value_type.proto";
+import "mixer/v1/template/extensions.proto";
+
+option (istio.mixer.v1.template.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+
+message Template {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+}
+
+message OutputTemplate {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+
+    map<string, string> stringMap = 5;
+}
