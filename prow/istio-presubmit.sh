@@ -63,6 +63,8 @@ fetch_envoy() {
 source "${ROOT}/bin/use_bazel_go.sh"
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  export USER=Prow
+
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
