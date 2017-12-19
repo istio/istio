@@ -233,11 +233,34 @@ jobs:
           command: |
             bash <(curl -s https://codecov.io/bash) -F broker
 
+  gobuild:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            if [ ! -d vendor ]; then
+               dep ensure
+            fi
+            make go-test go-build KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-test go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-test go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+      - store_artifacts:
+        path: /go/bin
+
 workflows:
   version: 2
   all:
     jobs:
       - dependencies
+      - gobuild:
+          requires:
+            - dependencies
       - unittest-pilot:
           requires:
             - dependencies

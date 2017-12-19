@@ -190,6 +190,9 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 
 localTestEnv:
 	bin/testEnvLocalK8S.sh ensure
+	go install istio.io/istio/pilot/test/server
+	go install istio.io/istio/pilot/test/client
+	go install istio.io/istio/pilot/test/eurekamirror
 
 .PHONY: pilot-test
 pilot-test: pilot-agent localTestEnv
