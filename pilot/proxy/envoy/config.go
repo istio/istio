@@ -543,6 +543,8 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		useDefaultRoute := true
 		rules := config.RouteRules(instances, service.Hostname)
 		// sort for output uniqueness
+		// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+		// because v1alpha2 rules are unique per host.
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
@@ -753,6 +755,8 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 				// get all the route rules applicable to the instances
 				rules := config.RouteRulesByDestination(instances)
 				// sort for the output uniqueness
+				// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+				// because v1alpha2 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
 					switch config.Spec.(type) {
