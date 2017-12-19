@@ -5,7 +5,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 # standard checks
-set -e
+set -ex
 set -o errexit
 set -o nounset
 set -o pipefail
