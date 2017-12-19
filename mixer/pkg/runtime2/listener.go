@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/log"
 )

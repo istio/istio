@@ -10,7 +10,6 @@ go_library(
     deps = [
         # Only for the dispatcher interface.
         "//mixer/pkg/runtime:go_default_library",
-
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/aspect:go_default_library",
         "//mixer/pkg/runtime2/routing:go_default_library",
@@ -25,4 +24,3 @@ go_library(
         "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
-

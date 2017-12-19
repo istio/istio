@@ -19,13 +19,12 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	"istio.io/istio/mixer/pkg/runtime2/config"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/template"
-
+	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/testing/data"
 	"istio.io/istio/mixer/pkg/runtime2/testing/util"
+	"istio.io/istio/mixer/pkg/template"
 )
 
 func TestBasic(t *testing.T) {

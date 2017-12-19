@@ -21,8 +21,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
-	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/pkg/log"
 
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
@@ -30,6 +28,8 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/pkg/log"
 )
 
 type (

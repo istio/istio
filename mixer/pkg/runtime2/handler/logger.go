@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/pkg/log"
 )

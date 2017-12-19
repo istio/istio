@@ -16,11 +16,11 @@ package config
 
 import (
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/mixer/pkg/adapter"
+	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
-
-	configpb "istio.io/istio/mixer/pkg/config/proto"
 )
 
 // KindMap generates a map from object kind to its proto message.

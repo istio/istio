@@ -17,12 +17,11 @@ go_library(
         "//mixer/pkg/il/compiled:go_default_library",
         "//mixer/pkg/runtime2/config:go_default_library",
         "//mixer/pkg/runtime2/handler:go_default_library",
-        "//pkg/log:go_default_library",
         "//mixer/pkg/template:go_default_library",
+        "//pkg/log:go_default_library",
         "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
-
 
 go_test(
     name = "go_default_test",

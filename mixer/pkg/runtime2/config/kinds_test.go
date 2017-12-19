@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/template"

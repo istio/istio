@@ -104,7 +104,7 @@ func (t *target) work(v int) {
 
 func BenchmarkSelector(b *testing.B) {
 	s := &selector{}
-	s.targets = []*target{&target{}, &target{}}
+	s.targets = []*target{{}, {}}
 
 	done := false
 	go func() {

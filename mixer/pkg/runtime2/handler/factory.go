@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/expr"

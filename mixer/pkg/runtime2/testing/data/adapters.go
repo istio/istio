@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -50,10 +51,10 @@ type FakeEnv struct {
 }
 
 // Logger is an implementation of adapter.Env.Logger.
-func (f *FakeEnv) Logger() adapter.Logger               { panic("should not be called") }
+func (f *FakeEnv) Logger() adapter.Logger { panic("should not be called") }
 
 // ScheduleWork is an implementation of adapter.Env.ScheduleWork.
-func (f *FakeEnv) ScheduleWork(fn adapter.WorkFunc)     { panic("should not be called") }
+func (f *FakeEnv) ScheduleWork(fn adapter.WorkFunc) { panic("should not be called") }
 
 // ScheduleDaemon is an implementation of adapter.Env.ScheduleDaemon.
 func (f *FakeEnv) ScheduleDaemon(fn adapter.DaemonFunc) { panic("should not be called") }
