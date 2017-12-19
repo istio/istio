@@ -20,6 +20,7 @@ TAG=""
 
 while [[ $# -gt 0 ]]; do
   echo "$1"
+  echo "$2"
   case "$1" in
     --tag)
       TAG=$2
