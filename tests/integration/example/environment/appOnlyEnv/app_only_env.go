@@ -15,6 +15,7 @@
 package appOnlyEnv
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -54,8 +55,10 @@ func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
 func (appOnlyEnv *AppOnlyEnv) GetComponents() []framework.Component {
 	// Define what components this environment has
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", appOnlyEnv.TmpDir))
-
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server",
+		fortioServer.LocalCompConfig{
+			LogFile: fmt.Sprintf("%s/%s.log", appOnlyEnv.TmpDir, "my_local_fortio"),
+		}))
 	return comps
 }
 

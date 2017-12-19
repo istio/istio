@@ -29,7 +29,6 @@ import (
 const (
 	mixerEnvoyEnvName = "mixer_envoy_env"
 	sidecarEndpoint   = "http://localhost:9090/echo"
-	metricsEndpoint   = "http://localhost:42422/metrics"
 	testID            = "sample2_test"
 )
 
@@ -49,7 +48,11 @@ func TestSample2(t *testing.T) {
 		t.Fatalf("response code is not 200: %d", resp.StatusCode)
 	}
 
-	req, _ = http.NewRequest(http.MethodGet, metricsEndpoint, nil)
+	mixerStatus, ok := testEM.Components[2].GetStatus().(mixerComp.LocalCompStatus)
+	if !ok {
+		t.Fatalf("failed to get status of mixer component")
+	}
+	req, _ = http.NewRequest(http.MethodGet, mixerStatus.MetricsEndpoint, nil)
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatalf("error when do request: %s", err)

@@ -30,9 +30,6 @@ function process_result() {
 bazel build //mixer/cmd/mixs:mixs
 MIXER_BINARY=$(pwd)/bazel-bin/mixer/cmd/mixs/mixs
 
-# Get fortio
-go get -u istio.io/fortio
-
 # Download Proxy
 PROXY_SHA=$(awk '/ISTIO_PROXY_BUCKET = /{print $NF}' WORKSPACE)
 # Trim leading & tailing double quote
@@ -51,6 +48,9 @@ tar xvzf "${PROXY_TAR}"
 ENVOY_BINARY=$(pwd)/usr/local/bin/envoy
 START_ENVOY=$(pwd)/src/envoy/mixer/start_envoy
 cd ../istio
+
+# Install Fortio
+make -C vendor/istio.io/fortio install
 
 # Run Tests
 TESTSPATH='tests/integration/example/tests'

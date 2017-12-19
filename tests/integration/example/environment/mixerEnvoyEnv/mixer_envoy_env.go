@@ -62,8 +62,14 @@ func (mixerEnvoyEnv *MixerEnvoyEnv) GetComponents() []framework.Component {
 
 	// Define what components this environment has
 	comps := []framework.Component{}
-	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server", mixerEnvoyEnv.TmpDir))
-	comps = append(comps, proxy.NewLocalComponent("my_local_envoy", mixerEnvoyEnv.TmpDir))
+	comps = append(comps, fortioServer.NewLocalComponent("my_fortio_server",
+		fortioServer.LocalCompConfig{
+			LogFile:       fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.TmpDir, "my_local_fortio"),
+		}))
+	comps = append(comps, proxy.NewLocalComponent("my_local_envoy",
+		proxy.LocalCompConfig{
+			LogFile:       fmt.Sprintf("%s/%s.log", mixerEnvoyEnv.TmpDir, "my_local_proxy"),
+		}))
 
 	comps = append(comps, mixer.NewLocalComponent("my_local_mixer",
 		mixer.LocalCompConfig{

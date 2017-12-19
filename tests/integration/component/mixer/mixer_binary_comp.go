@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
+	"sync"
 )
 
 const (
@@ -35,18 +36,10 @@ var (
 	mixerBinary = flag.String("mixer_binary", "", "Mixer binary path.")
 )
 
-// LocalComponent is a component of local mixs binary in process
-type LocalComponent struct {
-	framework.Component
-	testProcess framework.TestProcess
-	config      LocalCompConfig
-	status      LocalCompStatus
-	name        string
-}
-
 // LocalCompConfig contains configs for LocalComponent
 type LocalCompConfig struct {
 	framework.Config
+	sync.Mutex
 	ConfigFileDir string
 	LogFile       string
 }
@@ -54,7 +47,17 @@ type LocalCompConfig struct {
 // LocalCompStatus contains status for LocalComponent
 type LocalCompStatus struct {
 	framework.Status
-	metricsEndpoint string
+	sync.Mutex
+	MetricsEndpoint string
+}
+
+// LocalComponent is a component of local mixs binary in process
+type LocalComponent struct {
+	framework.Component
+	testProcess framework.TestProcess
+	config      LocalCompConfig
+	status      LocalCompStatus
+	name        string
 }
 
 // NewLocalComponent create a LocalComponent with name, log dir and config dir
@@ -72,7 +75,10 @@ func (mixerComp *LocalComponent) GetName() string {
 
 // GetConfig return the config for outside use
 func (mixerComp *LocalComponent) GetConfig() framework.Config {
-	return mixerComp.config
+	mixerComp.config.Lock()
+	config := mixerComp.config
+	mixerComp.config.Unlock()
+	return config
 }
 
 // SetConfig set a config into this component
@@ -81,13 +87,18 @@ func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
 	if !ok {
 		return fmt.Errorf("cannot cast config into mixer local config")
 	}
+	mixerComp.config.Lock()
 	mixerComp.config = mixerConfig
+	mixerComp.config.Unlock()
 	return nil
 }
 
 // GetStatus return the status for outside use
 func (mixerComp *LocalComponent) GetStatus() framework.Status {
-	return mixerComp.status
+	mixerComp.status.Lock()
+	status := mixerComp.status
+	mixerComp.status.Unlock()
+	return status
 }
 
 // Start brings up a local mixs using test config files in local file system
@@ -126,7 +137,9 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
 
-	mixerComp.status.metricsEndpoint = metricsEndpoint
+	mixerComp.status.Lock()
+	mixerComp.status.MetricsEndpoint = metricsEndpoint
+	mixerComp.status.Unlock()
 
 	log.Printf("Started component %s", mixerComp.GetName())
 	return
