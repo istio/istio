@@ -207,9 +207,9 @@ type ProxyLogLevel string
 
 const (
 	// ProxyLogLevelNone environment flag
-	ProxyLogLevelNone   ProxyLogLevel = "none"
+	ProxyLogLevelNone ProxyLogLevel = "none"
 	// ProxyLogLevelDebug environment flag
-	ProxyLogLevelDebug  ProxyLogLevel = "debug"
+	ProxyLogLevelDebug ProxyLogLevel = "debug"
 	// ProxyLogsLevelTrace environment flag
 	ProxyLogsLevelTrace ProxyLogLevel = "trace"
 )

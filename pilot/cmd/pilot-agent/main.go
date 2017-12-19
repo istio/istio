@@ -272,7 +272,7 @@ func init() {
 		"Path to the generated configuration file directory")
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", string(envoy.ProxyLogLevelNone),
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s})",
-			envoy.ProxyLogLevelNone, envoy.ProxyLogLevelDebug, envoy.ProxyLogsLevelTrace));
+			envoy.ProxyLogLevelNone, envoy.ProxyLogLevelDebug, envoy.ProxyLogsLevelTrace))
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
