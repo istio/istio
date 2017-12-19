@@ -32,12 +32,15 @@ ReportBatch::ReportBatch(const ReportOptions& options,
     : options_(options),
       transport_(transport),
       timer_create_(timer_create),
-      compressor_(compressor) {}
+      compressor_(compressor),
+      total_report_calls_(0),
+      total_remote_report_calls_(0) {}
 
 ReportBatch::~ReportBatch() { Flush(); }
 
 void ReportBatch::Report(const Attributes& request) {
   std::lock_guard<std::mutex> lock(mutex_);
+  ++total_report_calls_;
   if (!batch_compressor_) {
     batch_compressor_ = compressor_.CreateBatchCompressor();
   }
@@ -66,6 +69,7 @@ void ReportBatch::FlushWithLock() {
     return;
   }
 
+  ++total_remote_report_calls_;
   std::unique_ptr<ReportRequest> request = batch_compressor_->Finish();
   batch_compressor_.reset();
   if (timer_) {

@@ -16,10 +16,11 @@
 #ifndef MIXERCLIENT_REPORT_BATCH_H
 #define MIXERCLIENT_REPORT_BATCH_H
 
-#include <mutex>
-
 #include "include/client.h"
 #include "src/attribute_compressor.h"
+
+#include <atomic>
+#include <mutex>
 
 namespace istio {
 namespace mixer_client {
@@ -32,11 +33,16 @@ class ReportBatch {
 
   virtual ~ReportBatch();
 
-  // Make batched report call
+  // Make batched report call.
   void Report(const ::istio::mixer::v1::Attributes& request);
 
   // Flush out batched reports.
   void Flush();
+
+  uint64_t total_report_calls() const { return total_report_calls_; }
+  uint64_t total_remote_report_calls() const {
+    return total_remote_report_calls_;
+  }
 
  private:
   void FlushWithLock();
@@ -61,6 +67,9 @@ class ReportBatch {
 
   // batched report compressor
   std::unique_ptr<BatchCompressor> batch_compressor_;
+
+  std::atomic_int_fast64_t total_report_calls_;
+  std::atomic_int_fast64_t total_remote_report_calls_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ReportBatch);
 };

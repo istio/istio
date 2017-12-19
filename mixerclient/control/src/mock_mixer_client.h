@@ -32,6 +32,8 @@ class MockMixerClient : public ::istio::mixer_client::MixerClient {
                    ::istio::mixer_client::TransportCheckFunc transport,
                    ::istio::mixer_client::DoneFunc on_done));
   MOCK_METHOD1(Report, void(const ::istio::mixer::v1::Attributes& attributes));
+  MOCK_CONST_METHOD1(GetStatistics,
+                     void(::istio::mixer_client::Statistics* stat));
 };
 
 }  // namespace mixer_control

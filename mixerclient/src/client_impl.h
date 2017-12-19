@@ -35,11 +35,12 @@ class MixerClientImpl : public MixerClient {
   // Destructor
   virtual ~MixerClientImpl();
 
-  virtual CancelFunc Check(
-      const ::istio::mixer::v1::Attributes& attributes,
-      const std::vector<::istio::quota::Requirement>& quotas,
-      TransportCheckFunc transport, DoneFunc on_done);
-  virtual void Report(const ::istio::mixer::v1::Attributes& attributes);
+  CancelFunc Check(const ::istio::mixer::v1::Attributes& attributes,
+                   const std::vector<::istio::quota::Requirement>& quotas,
+                   TransportCheckFunc transport, DoneFunc on_done) override;
+  void Report(const ::istio::mixer::v1::Attributes& attributes) override;
+
+  void GetStatistics(Statistics* stat) const override;
 
  private:
   // Store the options
@@ -58,6 +59,18 @@ class MixerClientImpl : public MixerClient {
   // for deduplication_id
   std::string deduplication_id_base_;
   std::atomic<std::uint64_t> deduplication_id_;
+
+  // Atomic objects for recording statistics.
+  // check cache miss rate:
+  // total_blocking_remote_check_calls_ / total_check_calls_.
+  // quota cache miss rate:
+  // total_blocking_remote_quota_calls_ / total_quota_calls_.
+  std::atomic_int_fast64_t total_check_calls_;
+  std::atomic_int_fast64_t total_remote_check_calls_;
+  std::atomic_int_fast64_t total_blocking_remote_check_calls_;
+  std::atomic_int_fast64_t total_quota_calls_;
+  std::atomic_int_fast64_t total_remote_quota_calls_;
+  std::atomic_int_fast64_t total_blocking_remote_quota_calls_;
 
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MixerClientImpl);
 };

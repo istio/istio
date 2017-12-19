@@ -48,6 +48,28 @@ struct MixerClientOptions {
   Environment env;
 };
 
+// The statistics recorded by mixerclient library.
+struct Statistics {
+  // Total number of check calls.
+  uint64_t total_check_calls;
+  // Total number of remote check calls.
+  uint64_t total_remote_check_calls;
+  // Total number of remote check calls that blocking origin requests.
+  uint64_t total_blocking_remote_check_calls;
+
+  // Total number of quota calls.
+  uint64_t total_quota_calls;
+  // Total number of remote quota calls.
+  uint64_t total_remote_quota_calls;
+  // Total number of remote quota calls that blocking origin requests.
+  uint64_t total_blocking_remote_quota_calls;
+
+  // Total number of report calls.
+  uint64_t total_report_calls;
+  // Total number of remote report calls.
+  uint64_t total_remote_report_calls;
+};
+
 class MixerClient {
  public:
   // Destructor
@@ -69,6 +91,9 @@ class MixerClient {
 
   // A report call.
   virtual void Report(const ::istio::mixer::v1::Attributes& attributes) = 0;
+
+  // Get statistics.
+  virtual void GetStatistics(Statistics* stat) const = 0;
 };
 
 // Creates a MixerClient object.

@@ -39,6 +39,13 @@ MixerClientImpl::MixerClientImpl(const MixerClientOptions &options)
   if (options_.env.uuid_generate_func) {
     deduplication_id_base_ = options_.env.uuid_generate_func();
   }
+
+  total_check_calls_ = 0;
+  total_remote_check_calls_ = 0;
+  total_blocking_remote_check_calls_ = 0;
+  total_quota_calls_ = 0;
+  total_remote_quota_calls_ = 0;
+  total_blocking_remote_quota_calls_ = 0;
 }
 
 MixerClientImpl::~MixerClientImpl() {}
@@ -47,6 +54,8 @@ CancelFunc MixerClientImpl::Check(
     const Attributes &attributes,
     const std::vector<::istio::quota::Requirement> &quotas,
     TransportCheckFunc transport, DoneFunc on_done) {
+  ++total_check_calls_;
+
   std::unique_ptr<CheckCache::CheckResult> check_result(
       new CheckCache::CheckResult);
   check_cache_->Check(attributes, check_result.get());
@@ -55,6 +64,9 @@ CancelFunc MixerClientImpl::Check(
     return nullptr;
   }
 
+  if (!quotas.empty()) {
+    ++total_quota_calls_;
+  }
   std::unique_ptr<QuotaCache::CheckResult> quota_result(
       new QuotaCache::CheckResult);
   // Only use quota cache if Check is using cache with OK status.
@@ -87,6 +99,18 @@ CancelFunc MixerClientImpl::Check(
   if (!transport) {
     transport = options_.env.check_transport;
   }
+  // We are going to make a remote call now.
+  ++total_remote_check_calls_;
+  if (!quotas.empty()) {
+    ++total_remote_quota_calls_;
+  }
+  if (on_done) {
+    ++total_blocking_remote_check_calls_;
+    if (!quotas.empty()) {
+      ++total_blocking_remote_quota_calls_;
+    }
+  }
+
   return transport(
       request, response, [this, request_copy, response, raw_check_result,
                           raw_quota_result, on_done](const Status &status) {
@@ -112,6 +136,17 @@ CancelFunc MixerClientImpl::Check(
 
 void MixerClientImpl::Report(const Attributes &attributes) {
   report_batch_->Report(attributes);
+}
+
+void MixerClientImpl::GetStatistics(Statistics *stat) const {
+  stat->total_check_calls = total_check_calls_;
+  stat->total_remote_check_calls = total_remote_check_calls_;
+  stat->total_blocking_remote_check_calls = total_blocking_remote_check_calls_;
+  stat->total_quota_calls = total_quota_calls_;
+  stat->total_remote_quota_calls = total_remote_quota_calls_;
+  stat->total_blocking_remote_quota_calls = total_blocking_remote_quota_calls_;
+  stat->total_report_calls = report_batch_->total_report_calls();
+  stat->total_remote_report_calls = report_batch_->total_remote_report_calls();
 }
 
 // Creates a MixerClient object.
