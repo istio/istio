@@ -23,6 +23,8 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
+// BuildTemplates builds a standard set of testing templates. The supplied override is used to override entries in the
+// 't1' templates.
 func BuildTemplates(override *template.Info) map[string]*template.Info {
 	var t = map[string]*template.Info{
 		"t1": {

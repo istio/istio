@@ -113,7 +113,7 @@ type (
 	// ProcessQuota2Fn invokes the handler with the given instance.
 	ProcessQuota2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
 
-	// ProcessGenAttrs22Fn invokes the handler with the given instance.
+	// ProcessGenAttrs2Fn invokes the handler with the given instance.
 	ProcessGenAttrs2Fn func(ctx context.Context, handler adapter.Handler, instance interface{},
 		attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
 

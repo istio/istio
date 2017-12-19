@@ -16,6 +16,7 @@ package data
 
 import "strings"
 
+// ServiceConfig is a standard service config.
 var ServiceConfig = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -41,6 +42,7 @@ spec:
 ---
 `
 
+// HandlerH1 is a standard testing handler config with name H1.
 var HandlerH1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: a1
@@ -49,6 +51,7 @@ metadata:
   namespace: istio-system
 `
 
+// InstanceI1 is a standard testing instance config with name I1.
 var InstanceI1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
@@ -58,6 +61,7 @@ metadata:
 spec:
 `
 
+// InstanceI1 is a standard testing instance config with name I2.
 var InstanceI2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
@@ -66,6 +70,8 @@ metadata:
   namespace: istio-system
 spec:
 `
+
+// InstanceI3 is a standard testing instance config with name I3.
 var InstanceI3 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
@@ -75,7 +81,8 @@ metadata:
 spec:
 `
 
-var RuleR1_I1 = `
+// RuleR1I1 is a standard testing rule config with name R1 which references I1.
+var RuleR1I1 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -88,7 +95,8 @@ spec:
     - i1.t1.istio-system
 `
 
-var RuleR2_I1_I2 = `
+// RuleR2I1I2 is a standard testing rule config with name R2 which references I1 and I2.
+var RuleR2I1I2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -102,7 +110,8 @@ spec:
     - i2.t1.istio-system
 `
 
-var RuleR3_I1_I2_Conditional = `
+// RuleR3I1I2 is a standard testing rule config with name R3 which references I1 and I2 and has a conditional.
+var RuleR3I1I2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
@@ -117,10 +126,13 @@ spec:
     - i2.t1.istio-system
 `
 
-var GlobalConfig = JoinConfigs(HandlerH1, InstanceI1, RuleR1_I1)
+// GlobalConfig is the default GlobalConfig that consists of combination of various default config entries.
+var GlobalConfig = JoinConfigs(HandlerH1, InstanceI1, RuleR1I1)
 
+// GlobalConfig2 is the an alternate GlobalConfig instance.
 var GlobalConfigI2 = JoinConfigs(HandlerH1, InstanceI1, InstanceI2, RuleR1a)
 
+// RuleR1a is a modification of the R1 rule.
 var RuleR1a = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
@@ -136,6 +148,7 @@ spec:
     - i2.t1.istio-system
 `
 
+// JoinConfigs is a utility for joining various pieces of config for consumption by store code.
 func JoinConfigs(configs ...string) string {
 	return strings.Join(configs, "\n---\n")
 }
