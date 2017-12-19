@@ -1,0 +1,24 @@
+# istio/api Gopkg.toml
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+
+[[constraint]]
+  name = "github.com/gogo/protobuf"
+  version = "=0.5.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/golang/protobuf"
+
+[[constraint]]
+  branch = "master"
+  name = "golang.org/x/net"
+
+[[constraint]]
+  name = "google.golang.org/grpc"
+  version = "1.8.2"
+
+[[constraint]]
+  branch = "master"
+  name = "istio.io/gogo-genproto"
