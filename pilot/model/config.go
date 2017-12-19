@@ -620,17 +620,18 @@ func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceIns
 		return nil
 	}
 
+	hosts := make(map[string]bool)
+	for _, instance := range instances {
+		hosts[instance.Service.Hostname] = true
+	}
+
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.RouteRule)
-		// TODO: optimize lookup
-	HostLoop:
 		for _, host := range rule.Hosts {
-			destination := ResolveFQDN(config.ConfigMeta, host)
-			for _, instance := range instances {
-				if destination == instance.Service.Hostname {
-					out = append(out, config)
-					break HostLoop
-				}
+			fqdn := ResolveFQDN(config.ConfigMeta, host)
+			if hosts[fqdn] {
+				out = append(out, config)
+				break
 			}
 		}
 	}
