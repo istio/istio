@@ -99,10 +99,10 @@ func (d *Dispatcher) ChangeRoute(new *routing.Table) *DispatchContext {
 
 func (d *Dispatcher) acquireContext() *DispatchContext {
 	d.routerLock.RLock()
-	context := d.context
-	context.IncRef()
+	ctx := d.context
+	ctx.IncRef()
 	d.routerLock.RUnlock()
-	return context
+	return ctx
 }
 
 func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) context.Context {

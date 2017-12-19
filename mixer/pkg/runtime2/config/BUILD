@@ -10,7 +10,7 @@ go_library(
         "queries.go",
         "resourceType.go",
         "snapshot.go",
-        "snapshotstring.go",
+        "strings.go",
         "util.go",
     ],
     visibility = ["//visibility:public"],

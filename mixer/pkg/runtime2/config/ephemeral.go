@@ -78,10 +78,18 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 // ApplyEvents to the internal ephemeral state. This gets called by an store event listener to relay store change
 // events to this ephemeral config object.
 func (e *Ephemeral) ApplyEvents(events []*store.Event) {
+
+	if log.DebugEnabled() {
+		log.Debugf("Incoming config change events: count:'%d'", len(events))
+	}
+
 	for _, ev := range events {
 
 		if ev.Kind == AttributeManifestKind {
 			e.attributesChanged = true
+			if log.DebugEnabled() {
+				log.Debug("Received attribute manifest change event.")
+			}
 		}
 
 		switch ev.Type {
@@ -120,6 +128,9 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	e.latest = s
 
+	if log.DebugEnabled() {
+		log.Debugf("Built new snapshot:\n%s", s.String())
+	}
 	return s
 }
 
@@ -139,6 +150,10 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 		}
 	}
 
+	if log.DebugEnabled() {
+		log.Debug("Started processing new attributes.")
+	}
+
 	// append all the well known attribute vocabulary from the templates.
 	//
 	// ATTRIBUTE_GENERATOR variety templates allows operators to write Attributes
@@ -148,11 +163,17 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
 				attrs[an] = at
+
+				if log.DebugEnabled() {
+					log.Debugf("Attribute: '%s' : '%v'", an, at.ValueType)
+				}
 			}
 		}
 	}
 
-	log.Debugf("%d known Attributes", len(attrs))
+	if log.DebugEnabled() {
+		log.Debugf("Completed processing new attributes: count:'%d'", len(attrs))
+	}
 
 	return attrs
 }
@@ -173,10 +194,12 @@ func (e *Ephemeral) processHandlerConfigs() map[string]*Handler {
 			Params:  resource.Spec,
 		}
 
+		if log.DebugEnabled() {
+			log.Debugf("Processed adapter configuration: '%s'", key.String())
+		}
+
 		configs[config.Name] = config
 	}
-
-	log.Debugf("Handler = %v", configs)
 
 	return configs
 }
@@ -191,11 +214,15 @@ func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
 			continue
 		}
 
+		instanceName := key.String()
+
 		config := &Instance{
-			Name:     key.String(),
+			Name:     instanceName,
 			Template: info,
 			Params:   resource.Spec,
 		}
+
+		log.Debugf("Processed template configuration: '%v'", instanceName)
 
 		configs[config.Name] = config
 	}
@@ -207,6 +234,8 @@ func (e *Ephemeral) processRuleConfigs(
 	handlers map[string]*Handler,
 	instances map[string]*Instance) []*Rule {
 
+	log.Debug("Begin processing rule configurations.")
+
 	var configs []*Rule
 
 	for ruleKey, resource := range e.entries {
@@ -214,17 +243,21 @@ func (e *Ephemeral) processRuleConfigs(
 			continue
 		}
 
+		ruleName := ruleKey.String()
+
 		cfg := resource.Spec.(*configpb.Rule)
 
 		var actions []*Action
 		for i, a := range cfg.Actions {
 
+		log.Debugf("Processing action: %s[%d]", ruleName, i)
+
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			handler, found := handlers[handlerName]
 			if !found {
-				log.Warnf("ConfigWarning unknown Handler: %s", handlerName)
+				log.Warnf("ConfigWarning handler not found: handler'%s', action: '%s[%d]'",
+					handlerName, ruleName, i)
 				continue
-
 			}
 
 			actionInstances := []*Instance{}
@@ -232,7 +265,8 @@ func (e *Ephemeral) processRuleConfigs(
 				instanceName := canonicalize(instanceName, ruleKey.Namespace)
 				instance, found := instances[instanceName]
 				if !found {
-					log.Warnf("ConfigWarning unknown instance: %s", instanceName)
+					log.Warnf("ConfigWarning instance not found: instance:'%s', action: '%s[%d]'",
+						instanceName, ruleName, i)
 					continue
 				}
 
@@ -240,7 +274,7 @@ func (e *Ephemeral) processRuleConfigs(
 			}
 
 			if len(actionInstances) == 0 {
-				log.Warnf("ConfigWarning no valid instances found in action: %s[%d]", ruleKey.String(), i)
+				log.Warnf("ConfigWarning no valid instances found in action: %s[%d]", ruleName, i)
 				continue
 			}
 
@@ -253,7 +287,7 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		if len(actions) == 0 {
-			log.Warnf("ConfigWarning no valid actions found in rule: %s", ruleKey.String())
+			log.Warnf("ConfigWarning no valid actions found in rule: %s", ruleName)
 			continue
 		}
 
@@ -261,7 +295,7 @@ func (e *Ephemeral) processRuleConfigs(
 		rt := resourceType(resource.Metadata.Labels)
 
 		rule := &Rule{
-			Name:         ruleKey.String(),
+			Name:         ruleName,
 			Namespace:    ruleKey.Namespace,
 			Actions:      actions,
 			ResourceType: rt,

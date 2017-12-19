@@ -19,6 +19,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"go.uber.org/zap/zapcore"
+	"istio.io/istio/pkg/log"
 
 	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/api/mixer/v1/template"
@@ -834,6 +836,16 @@ var testParam1 = &wrappers.StringValue{Value: "param1"}
 var testParam2 = &wrappers.StringValue{Value: "param2"}
 
 func TestConfigs(t *testing.T) {
+	runTests(t)
+
+	// enable debug logging and run again to ensure debug logging won't cause a crash.
+	o := log.NewOptions()
+	o.SetOutputLevel(zapcore.DebugLevel)
+	log.Configure(o)
+	runTests(t)
+}
+
+func runTests(t *testing.T) {
 	for _, test := range tests {
 
 		t.Run(test.Name, func(tt *testing.T) {
