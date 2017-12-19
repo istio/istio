@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"
+	"github.com/golang/protobuf/proto"
 )
 
 func TestConfigDescriptor(t *testing.T) {
@@ -269,7 +270,7 @@ func TestResolveFQDN(t *testing.T) {
 		name string
 		meta model.ConfigMeta
 		fqdn string
-	} {
+	}{
 		{
 			name: "hello",
 			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
@@ -288,9 +289,11 @@ func TestResolveFQDN(t *testing.T) {
 	}
 
 	for _, test := range cases {
-		if got := model.ResolveFQDN(test.meta, test.name); got != test.fqdn {
-			t.Errorf("ResolveFQDN(%+v, %v) => got %q, want %q", test.meta, test.name, got, test.fqdn)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			if got := model.ResolveFQDN(test.meta, test.name); got != test.fqdn {
+				t.Errorf("got %q, want %q", got, test.fqdn)
+			}
+		})
 	}
 }
 
@@ -388,121 +391,88 @@ func (errorStore) Delete(typ, name, namespace string) error {
 }
 
 func TestRouteRules(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
 	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
 
-	routerule1 := &routing.RouteRule{
-		Match: &routing.MatchCondition{
-			Source: &routing.IstioService{
-				Name:   "hello",
-				Labels: instance.Labels,
+	testCases := []struct {
+		configType string
+		spec       proto.Message
+	}{
+		{
+			configType: model.RouteRule.Type,
+			spec: &routing.RouteRule{
+				Match: &routing.MatchCondition{
+					Source: &routing.IstioService{
+						Name:   "hello",
+						Labels: instance.Labels,
+					},
+				},
+				Destination: &routing.IstioService{
+					Name: "world",
+				},
 			},
 		},
-		Destination: &routing.IstioService{
-			Name: "world",
-		},
-	}
-
-	config1 := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.RouteRule.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: routerule1,
-	}
-
-	if _, err := store.Create(config1); err != nil {
-		t.Error(err)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
-		!reflect.DeepEqual(routerule1, out[0].Spec) {
-		t.Errorf("RouteRules() => expected %#v but got %#v", routerule1, out)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for destination-matched rules")
-	}
-	if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for source-matched rules")
-	}
-
-	world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
-		!reflect.DeepEqual(routerule1, out[0].Spec) {
-		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, routerule1)
-	}
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
-		t.Error("RouteRulesByDestination() => expected no match")
-	}
-
-	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		mock.WorldService.Hostname); len(out) != 0 {
-		t.Errorf("RouteRules() => expected nil but got %v", out)
-	}
-	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
-		t.Errorf("RouteRulesByDestination() => expected nil but got %v", out)
-	}
-}
-
-func TestRouteRulesV2(t *testing.T) {
-	store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
-	instance := mock.MakeInstance(mock.HelloService, mock.PortHTTP, 0, "")
-
-	routerule1 := &routingv2.RouteRule{
-		Hosts: []string{"world"},
-		Http: []*routingv2.HTTPRoute{
-			{
-				Match: []*routingv2.HTTPMatchRequest{
+		{
+			configType: model.V1alpha2RouteRule.Type,
+			spec: &routingv2.RouteRule{
+				Hosts: []string{"world"},
+				Http: []*routingv2.HTTPRoute{
 					{
-						SourceLabels: instance.Labels,
+						Match: []*routingv2.HTTPMatchRequest{
+							{
+								SourceLabels: instance.Labels,
+							},
+						},
 					},
 				},
 			},
 		},
 	}
 
-	config1 := model.Config{
-		ConfigMeta: model.ConfigMeta{
-			Type:      model.V1alpha2RouteRule.Type,
-			Name:      "example",
-			Namespace: "default",
-			Domain:    "cluster.local",
-		},
-		Spec: routerule1,
-	}
+	for _, tc := range testCases {
+		t.Run(tc.configType, func(t *testing.T) {
+			store := model.MakeIstioStore(memory.Make(model.IstioConfigTypes))
+			config := model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Type:      tc.configType,
+					Name:      "example",
+					Namespace: "default",
+					Domain:    "cluster.local",
+				},
+				Spec: tc.spec,
+			}
 
-	if _, err := store.Create(config1); err != nil {
-		t.Error(err)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
-		!reflect.DeepEqual(routerule1, out[0].Spec) {
-		t.Errorf("RouteRules() => expected %#v but got %#v", routerule1, out)
-	}
-	if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for destination-matched rules")
-	}
-	if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
-		t.Error("RouteRules() => expected no match for source-matched rules")
-	}
+			if _, err := store.Create(config); err != nil {
+				t.Error(err)
+			}
+			if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.WorldService.Hostname); len(out) != 1 ||
+				!reflect.DeepEqual(tc.spec, out[0].Spec) {
+				t.Errorf("RouteRules() => expected %#v but got %#v", tc.spec, out)
+			}
+			if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname); len(out) != 0 {
+				t.Error("RouteRules() => expected no match for destination-matched rules")
+			}
+			if out := store.RouteRules(nil, mock.WorldService.Hostname); len(out) != 0 {
+				t.Error("RouteRules() => expected no match for source-matched rules")
+			}
 
-	world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
-		!reflect.DeepEqual(routerule1, out[0].Spec) {
-		t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, routerule1)
-	}
-	if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
-		t.Error("RouteRulesByDestination() => expected no match")
-	}
+			world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
+			if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 1 ||
+				!reflect.DeepEqual(tc.spec, out[0].Spec) {
+				t.Errorf("RouteRulesByDestination() => got %#v, want %#v", out, tc.spec)
+			}
+			if out := store.RouteRulesByDestination([]*model.ServiceInstance{instance}); len(out) != 0 {
+				t.Error("RouteRulesByDestination() => expected no match")
+			}
 
-	// erroring out list
-	if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
-		mock.WorldService.Hostname); len(out) != 0 {
-		t.Errorf("RouteRules() => expected nil but got %v", out)
-	}
-	if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
-		t.Errorf("RouteRulesByDestination() => expected nil but got %v", out)
+			// erroring out list
+			if out := model.MakeIstioStore(errorStore{}).RouteRules([]*model.ServiceInstance{instance},
+				mock.WorldService.Hostname); len(out) != 0 {
+				t.Errorf("RouteRules() => expected nil but got %v", out)
+			}
+			if out := model.MakeIstioStore(errorStore{}).RouteRulesByDestination([]*model.ServiceInstance{world}); len(out) != 0 {
+				t.Errorf("RouteRulesByDestination() => expected nil but got %v", out)
+			}
+		})
 	}
 }
 
