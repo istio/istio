@@ -101,7 +101,7 @@ func buildHTTPRouteMatches(matches []*routingv2.HTTPMatchRequest) []*HTTPRoute {
 		}
 
 		if match.Scheme != nil {
-			route.Headers = append(route.Headers, buildHeaderV2(headerScheme, match.Scheme)) // FIXME: ensure header name is valid for HTTP 1.1
+			route.Headers = append(route.Headers, buildHeaderV2(headerScheme, match.Scheme))
 		}
 
 		// TODO: match.DestinationPorts
