@@ -41,5 +41,6 @@ go_test(
         "//mixer/pkg/template:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
         "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@org_uber_go_zap//zapcore:go_default_library",
     ],
 )

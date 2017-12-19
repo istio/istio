@@ -130,7 +130,8 @@ func (b *builder) build(config *config.Snapshot) {
 					mapper = t.CreateOutputMapperFn(instance.Params, b.expb)
 				}
 
-				b.add(rule.Namespace, t, handlerInstance, condition, builder, mapper, handlerName, instance.Name, rule.Match)
+				b.add(rule.Namespace, t, handlerInstance, condition, builder, mapper,
+					handlerName, instance.Name, rule.Match, rule.ResourceType)
 			}
 		}
 	}
@@ -179,7 +180,8 @@ func (b *builder) add(
 	mapper template.OutputMapperFn,
 	handlerName string,
 	instanceName string,
-	matchText string) {
+	matchText string,
+	resourceType config.ResourceType) {
 
 	// Find or create variety entry.
 	byVariety, found := b.table.entries[t.Variety]
@@ -223,9 +225,9 @@ func (b *builder) add(
 	// Find or create the input set.
 	var inputSet *InputSet
 	for _, set := range byHandler.Inputs {
-		// TODO: This doesn't flatten across all conditions, only for actions coming from the same rule. We can
+		// TODO: This doesn't flatten across all actions, but only for actions coming from the same rule. We can
 		// single instance based on the expression text as well.
-		if set.Condition == condition {
+		if set.Condition == condition && set.ResourceType == resourceType {
 			inputSet = set
 			break
 		}
@@ -233,10 +235,11 @@ func (b *builder) add(
 
 	if inputSet == nil {
 		inputSet = &InputSet{
-			ID:        b.nextID(),
-			Condition: condition,
-			Builders:  []template.InstanceBuilderFn{},
-			Mappers:   []template.OutputMapperFn{},
+			ID:           b.nextID(),
+			Condition:    condition,
+			ResourceType: resourceType,
+			Builders:     []template.InstanceBuilderFn{},
+			Mappers:      []template.OutputMapperFn{},
 		}
 		byHandler.Inputs = append(byHandler.Inputs, inputSet)
 
