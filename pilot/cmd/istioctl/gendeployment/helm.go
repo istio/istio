@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controlplane
+package gendeployment
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ var valuesTemplate = template.Must(template.New("helm").Parse(
       nodeport_port: {{ .NodePort }}
 
 global:
-   auth_enabled: {{ .Ca }}
+   auth_enabled: {{ .CA }}
    namespace: {{ .Namespace }}
    ca_hub: {{ .Hub }}
    ca_tag: {{ .CaTag }}

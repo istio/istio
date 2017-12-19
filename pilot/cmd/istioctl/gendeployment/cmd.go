@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controlplane
+package gendeployment
 
 import (
 	"fmt"
@@ -75,13 +75,13 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 
 	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
 		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "initializer".`)
-	cmd.PersistentFlags().StringVar(&install.Hub, "hub", "gcr.io/istio-testing", "The container registry to pull Istio images from")
-	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", defaultTag, "The tag to use to pull the `mixer` container")
-	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", defaultTag, "The tag to use to pull the `pilot-discovery` container")
-	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", defaultTag, "The tag to use to pull the `ca` container")
-	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", defaultTag, "The tag to use to pull the `proxy` container")
-	cmd.PersistentFlags().BoolVar(&install.Debug, "debug", false, "If true, uses debug images instead of release images")
-	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", 0,
+	cmd.PersistentFlags().StringVar(&install.Hub, "hub", install.Hub, "The container registry to pull Istio images from")
+	cmd.PersistentFlags().StringVar(&install.MixerTag, "mixer-tag", install.MixerTag, "The tag to use to pull the `mixer` container")
+	cmd.PersistentFlags().StringVar(&install.PilotTag, "pilot-tag", install.PilotTag, "The tag to use to pull the `pilot-discovery` container")
+	cmd.PersistentFlags().StringVar(&install.CaTag, "ca-tag", install.CaTag, "The tag to use to pull the `ca` container")
+	cmd.PersistentFlags().StringVar(&install.ProxyTag, "proxy-tag", install.ProxyTag, "The tag to use to pull the `proxy` container")
+	cmd.PersistentFlags().BoolVar(&install.Debug, "debug", install.Debug, "If true, uses debug images instead of release images")
+	cmd.PersistentFlags().Uint16Var(&install.NodePort, "ingress-node-port", install.NodePort,
 		"If provided, Istio ingress proxies will run as a NodePort service mapped to the port provided by this flag. "+
 			"Note that this flag is ignored unless the \"ingress\" feature flag is provided too.")
 	cmd.PersistentFlags().StringVarP(&out, "out", "o", "helm", `Output format. Acceptable values are:
@@ -115,7 +115,7 @@ func getValues(path string, i *installation) (string, error) {
 type installation struct {
 	Mixer       bool
 	Pilot       bool
-	Ca          bool
+	CA          bool
 	Ingress     bool
 	Initializer bool
 
@@ -133,10 +133,21 @@ type installation struct {
 
 func defaultInstall() *installation {
 	return &installation{
-		Mixer:   true,
-		Pilot:   true,
-		Ca:      true,
-		Ingress: true,
+		Mixer:       true,
+		Pilot:       true,
+		CA:          true,
+		Ingress:     true,
+		Initializer: false,
+
+		Namespace: "istio-system",
+		Debug:     false,
+		NodePort:  0,
+
+		Hub:      "gcr.io/istio-testing",
+		MixerTag: defaultTag,
+		PilotTag: defaultTag,
+		CaTag:    defaultTag,
+		ProxyTag: defaultTag,
 	}
 }
 
@@ -147,7 +158,7 @@ func (i *installation) setFeatures(features []string) error {
 
 	i.Mixer = false
 	i.Pilot = false
-	i.Ca = false
+	i.CA = false
 	i.Ingress = false
 	i.Initializer = false
 	for _, f := range features {
@@ -158,7 +169,7 @@ func (i *installation) setFeatures(features []string) error {
 		case "routing":
 			i.Pilot = true
 		case "mtls":
-			i.Ca = true
+			i.CA = true
 			i.Pilot = true
 		case "ingress":
 			i.Ingress = true

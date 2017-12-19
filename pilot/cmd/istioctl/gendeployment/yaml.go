@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controlplane
+package gendeployment
 
 import (
 	"bytes"
@@ -24,6 +24,9 @@ import (
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/timeconv"
 )
+
+// TODO: add tests based on golden files. Need to fix up helm charts first, since they're not correct atm.
+// Today they spit out multiple auth deployments, we need to fix that then we can build golden outputs.
 
 func yamlFromInstallation(values, namespace, helmChartDirectory string) (string, error) {
 	c, err := chartutil.Load(helmChartDirectory)
