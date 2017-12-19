@@ -17,13 +17,14 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/template"
 )
 
-// String writes out contents of a snapshot, in a stable way. Useful for quickly writing out contents in a string for
+// String writes out contents of a snapshot in a stable way. Useful for quickly writing out contents in a string for
 // comparison testing.
 func (s *Snapshot) String() string {
 	var b bytes.Buffer
@@ -57,7 +58,7 @@ func (s *Snapshot) String() string {
 	return b.String()
 }
 
-func writeTemplates(b *bytes.Buffer, templates map[string]*template.Info) {
+func writeTemplates(w io.Writer, templates map[string]*template.Info) {
 	i := 0
 	names := make([]string, len(templates))
 	for n := range templates {
@@ -67,12 +68,12 @@ func writeTemplates(b *bytes.Buffer, templates map[string]*template.Info) {
 	sort.Strings(names)
 
 	for _, n := range names {
-		fmt.Fprintf(b, "  Name: %s", n)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Name: %s", n)
+		fmt.Fprintln(w)
 	}
 }
 
-func writeAdapters(b *bytes.Buffer, adapters map[string]*adapter.Info) {
+func writeAdapters(w io.Writer, adapters map[string]*adapter.Info) {
 	i := 0
 	names := make([]string, len(adapters))
 	for n := range adapters {
@@ -82,12 +83,12 @@ func writeAdapters(b *bytes.Buffer, adapters map[string]*adapter.Info) {
 	sort.Strings(names)
 
 	for _, n := range names {
-		fmt.Fprintf(b, "  Name: %s", n)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Name: %s", n)
+		fmt.Fprintln(w)
 	}
 }
 
-func writeHandlers(b *bytes.Buffer, handlers map[string]*Handler) {
+func writeHandlers(w io.Writer, handlers map[string]*Handler) {
 	i := 0
 	names := make([]string, len(handlers))
 	for n := range handlers {
@@ -98,18 +99,18 @@ func writeHandlers(b *bytes.Buffer, handlers map[string]*Handler) {
 
 	for _, n := range names {
 		h := handlers[n]
-		fmt.Fprintf(b, "  Name:    %s", h.Name)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Name:    %s", h.Name)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Adapter: %s", h.Adapter.Name)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Adapter: %s", h.Adapter.Name)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Params:  %+v", h.Params)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Params:  %+v", h.Params)
+		fmt.Fprintln(w)
 	}
 }
 
-func writeInstances(b *bytes.Buffer, instances map[string]*Instance) {
+func writeInstances(w io.Writer, instances map[string]*Instance) {
 	i := 0
 	names := make([]string, len(instances))
 	for n := range instances {
@@ -120,18 +121,18 @@ func writeInstances(b *bytes.Buffer, instances map[string]*Instance) {
 
 	for _, n := range names {
 		h := instances[n]
-		fmt.Fprintf(b, "  Name:     %s", h.Name)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Name:     %s", h.Name)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Template: %s", h.Template.Name)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Template: %s", h.Template.Name)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Params:   %+v", h.Params)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Params:   %+v", h.Params)
+		fmt.Fprintln(w)
 	}
 }
 
-func writeRules(b *bytes.Buffer, rules []*Rule) {
+func writeRules(w io.Writer, rules []*Rule) {
 	i := 0
 	names := make([]string, len(rules))
 	m := make(map[string]*Rule, len(rules))
@@ -145,40 +146,40 @@ func writeRules(b *bytes.Buffer, rules []*Rule) {
 	for _, n := range names {
 		r := m[n]
 
-		fmt.Fprintf(b, "  Name:      %s", r.Name)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Name:      %s", r.Name)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Namespace: %s", r.Namespace)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Namespace: %s", r.Namespace)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  Match:   %+v", r.Match)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  Match:   %+v", r.Match)
+		fmt.Fprintln(w)
 
-		fmt.Fprintf(b, "  ResourceType: %v", r.ResourceType)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  ResourceType: %v", r.ResourceType)
+		fmt.Fprintln(w)
 
-		fmt.Fprintln(b, "  Actions:")
-		writeActions(b, r.Actions)
+		fmt.Fprintln(w, "  Actions:")
+		writeActions(w, r.Actions)
 	}
 }
 
-func writeActions(b *bytes.Buffer, actions []*Action) {
+func writeActions(w io.Writer, actions []*Action) {
 	// write actions without sorting. This should be acceptable, as the action order within an order is
 	// based on the order on the original content. This is stricter than simple-equality, but should be good enough
 	// for testing purposes.
 	for _, a := range actions {
-		fmt.Fprintf(b, "    Handler: %s", a.Handler.Name)
-		fmt.Fprintln(b)
-		fmt.Fprintln(b, "    Instances:")
+		fmt.Fprintf(w, "    Handler: %s", a.Handler.Name)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "    Instances:")
 
 		for _, i := range a.Instances {
-			fmt.Fprintf(b, "      Name: %s", i.Name)
-			fmt.Fprintln(b)
+			fmt.Fprintf(w, "      Name: %s", i.Name)
+			fmt.Fprintln(w)
 		}
 	}
 }
 
-func writeAttributes(b *bytes.Buffer, attr *attributeFinder) {
+func writeAttributes(w io.Writer, attr *attributeFinder) {
 	i := 0
 	names := make([]string, len(attr.attrs))
 	for name := range attr.attrs {
@@ -188,7 +189,7 @@ func writeAttributes(b *bytes.Buffer, attr *attributeFinder) {
 	sort.Strings(names)
 
 	for _, n := range names {
-		fmt.Fprintf(b, "  %s: %s", n, attr.attrs[n].ValueType.String())
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "  %s: %s", n, attr.attrs[n].ValueType.String())
+		fmt.Fprintln(w)
 	}
 }

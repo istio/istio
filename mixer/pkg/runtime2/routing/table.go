@@ -34,7 +34,7 @@ type Table struct {
 	// ID of the table. This is based on the config snapshot ID.
 	id int
 
-	// e grouped by variety.
+	// namespaceTables grouped by variety.
 	entries map[istio_mixer_v1_template.TemplateVariety]*namespaceTable
 
 	// identityAttribute defines which configuration scopes apply to a request.
@@ -74,6 +74,9 @@ type HandlerEntry struct {
 
 	// Inputs that should be (conditionally) applied to the handler.
 	Inputs []*InputSet
+
+	// Maximum number of instances that can be created from this entry.
+	maxInstances int
 }
 
 // InputSet is a set of instances that needs to be sent to a handler, based on the result of a condition.
@@ -148,13 +151,16 @@ func (e *HandlerEntries) Entries() []*HandlerEntry {
 
 // MaxInstances returns the maximum number of instances that can be built from this HandlerEntry.
 func (e *HandlerEntry) MaxInstances() int {
-	// TODO: Precalculate this
+	return e.maxInstances
+}
+
+func (e *HandlerEntry) recalculateMaxInstances() {
 	c := 0
 	for _, input := range e.Inputs {
 		c += len(input.Builders)
 	}
 
-	return c
+	e.maxInstances = c
 }
 
 // ShouldApply returns true, if the instances from this input set should apply.
@@ -165,7 +171,7 @@ func (s *InputSet) ShouldApply(bag attribute.Bag) bool {
 
 	matches, err := s.Condition.EvaluateBoolean(bag)
 	if err != nil {
-		log.Warnf("input set condition evaluation error: InputSet(%d), error:'%v'", s.ID, err)
+		log.Warnf("input set condition evaluation error: InputSet ID='%d', error='%v'", s.ID, err)
 		return false
 	}
 

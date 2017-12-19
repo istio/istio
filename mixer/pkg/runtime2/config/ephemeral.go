@@ -72,6 +72,7 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 	for k := range state {
 		if k.Kind == AttributeManifestKind {
 			e.attributesChanged = true
+			break
 		}
 	}
 }
@@ -81,16 +82,14 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 func (e *Ephemeral) ApplyEvents(events []*store.Event) {
 
 	if log.DebugEnabled() {
-		log.Debugf("Incoming config change events: count:'%d'", len(events))
+		log.Debugf("Incoming config change events: count='%d'", len(events))
 	}
 
 	for _, ev := range events {
 
 		if ev.Kind == AttributeManifestKind {
 			e.attributesChanged = true
-			if log.DebugEnabled() {
-				log.Debug("Received attribute manifest change event.")
-			}
+			log.Debug("Received attribute manifest change event.")
 		}
 
 		switch ev.Type {
@@ -107,7 +106,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	id := e.nextID
 	e.nextID++
 
-	log.Debugf("Starting building of new snapshot with id: '%d'", id)
+	log.Debugf("Building new config.Snapshot: id='%d'", id)
 
 	attributes := e.processAttributeManifests()
 
@@ -131,8 +130,9 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	e.latest = s
 
+	log.Infof("Built new config.Snapshot: id='%d'", id)
 	if log.DebugEnabled() {
-		log.Debugf("Built new snapshot: id:'%d'\n%s", id, s.String())
+		log.Debugf("config.Snapshot contents:\n%s", s.String())
 	}
 	return s
 }
@@ -148,7 +148,7 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 			continue
 		}
 
-		log.Debug("Started processing incoming attribute manifest.")
+		log.Debug("Start processing attributes from changed manifest...")
 
 		cfg := obj.Spec
 		for an, at := range cfg.(*configpb.AttributeManifest).Attributes {
@@ -166,6 +166,8 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 	// using the $out.<field Name> convention, where $out refers to the output object from the attribute generating adapter.
 	// The list of valid names for a given Template is available in the Template.Info.AttributeManifests object.
 	for _, info := range e.templates {
+		log.Debugf("Processing attributes from template: '%s'", info.Name)
+
 		for _, v := range info.AttributeManifests {
 			for an, at := range v.Attributes {
 				attrs[an] = at
@@ -195,7 +197,7 @@ func (e *Ephemeral) processHandlerConfigs() map[string]*Handler {
 		adapterName := key.String()
 
 		if log.DebugEnabled() {
-			log.Debugf("Incoming handler config: key:'%s'\n%s", adapterName, resource.Spec.String())
+			log.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec.String())
 		}
 
 		config := &Handler{
@@ -223,7 +225,7 @@ func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
 		instanceName := key.String()
 
 		if log.DebugEnabled() {
-			log.Debugf("Incoming instance config: name:'%s'\n%s", instanceName, resource.Spec.String())
+			log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec.String())
 		}
 
 		config := &Instance{
@@ -256,7 +258,7 @@ func (e *Ephemeral) processRuleConfigs(
 		cfg := resource.Spec.(*configpb.Rule)
 
 		if log.DebugEnabled() {
-			log.Debugf("Incoming rule: name:'%s'\n%s", ruleName, cfg.String())
+			log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg.String())
 		}
 
 		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
@@ -264,7 +266,7 @@ func (e *Ephemeral) processRuleConfigs(
 		if cfg.Match != "" {
 			m, err := expr.ExtractEQMatches(cfg.Match)
 			if err != nil {
-				log.Warnf("ConfigWarning: Unable to extract resource type from rule: %s", ruleName)
+				log.Warnf("ConfigWarning: Unable to extract resource type from rule: name='%s'", ruleName)
 				continue
 			}
 
@@ -281,7 +283,7 @@ func (e *Ephemeral) processRuleConfigs(
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			handler, found := handlers[handlerName]
 			if !found {
-				log.Warnf("ConfigWarning handler not found: handler: '%s', action: '%s[%d]'",
+				log.Warnf("ConfigWarning handler not found: handler='%s', action='%s[%d]'",
 					handlerName, ruleName, i)
 				continue
 			}
@@ -291,7 +293,7 @@ func (e *Ephemeral) processRuleConfigs(
 				instanceName := canonicalize(instanceName, ruleKey.Namespace)
 				instance, found := instances[instanceName]
 				if !found {
-					log.Warnf("ConfigWarning instance not found: instance:'%s', action: '%s[%d]'",
+					log.Warnf("ConfigWarning instance not found: instance='%s', action='%s[%d]'",
 						instanceName, ruleName, i)
 					continue
 				}
@@ -300,7 +302,7 @@ func (e *Ephemeral) processRuleConfigs(
 			}
 
 			if len(actionInstances) == 0 {
-				log.Warnf("ConfigWarning no valid instances found in action: %s[%d]", ruleName, i)
+				log.Warnf("ConfigWarning no valid instances found: action='%s[%d]'", ruleName, i)
 				continue
 			}
 

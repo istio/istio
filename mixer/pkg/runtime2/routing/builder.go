@@ -25,11 +25,14 @@ import (
 )
 
 type builder struct {
+	// table that is being built.
 	table                  *Table
 	handlers               *handler.Table
 	expb                   *compiled.ExpressionBuilder
 	defaultConfigNamespace string
 	nextIDCounter          uint32
+
+	// Ephemeral data, that can also be used as debugging info.
 
 	// The handler names by the handler entry id.
 	handlerNamesByID map[uint32]string
@@ -96,7 +99,7 @@ func (b *builder) build(config *config.Snapshot) {
 		if rule.Match != "" {
 			condition, err = b.expb.Compile(rule.Match)
 			if err != nil {
-				log.Warnf("Unable to compile match condition expression: '%v', rule: '%s', expression: '%s'",
+				log.Warnf("Unable to compile match condition expression: '%v', rule='%s', expression='%s'",
 					err, rule.Name, rule.Match)
 				continue
 			}
@@ -106,7 +109,7 @@ func (b *builder) build(config *config.Snapshot) {
 			handlerName := action.Handler.Name
 			handlerInstance, found := b.handlers.GetHealthyHandler(handlerName)
 			if !found {
-				log.Warnf("Unable to find a handler for action. rule[action]: '%s[%d]', handler: '%s'",
+				log.Warnf("Unable to find a handler for action. rule[action]='%s[%d]', handler='%s'",
 					rule.Name, i, handlerName)
 				continue
 			}
@@ -118,7 +121,7 @@ func (b *builder) build(config *config.Snapshot) {
 
 				// TODO: Is this redundant?
 				if !t.HandlerSupportsTemplate(handlerInstance) {
-					log.Warnf("The handler doesn't support the template: handler:'%s', template:'%s'",
+					log.Warnf("The handler doesn't support the template: handler='%s', template='%s'",
 						handlerName, t.Name)
 					continue
 				}
@@ -136,6 +139,8 @@ func (b *builder) build(config *config.Snapshot) {
 		}
 	}
 
+	// Capture the default namespace rule set and flatten all default namespace rule into other namespace tables for
+	// faster processing.
 	for _, vDestinations := range b.table.entries {
 		defaultSet, found := vDestinations.entries[b.defaultConfigNamespace]
 		if !found {
@@ -259,6 +264,9 @@ func (b *builder) add(
 
 	// Append the builder & mapper.
 	inputSet.Builders = append(inputSet.Builders, builder)
+
+	// Recalculate the maximum number of instances that can be created
+	byHandler.recalculateMaxInstances()
 
 	// TODO: mapper should either be nil for all e, or be present for all builders. We should validate.
 	if mapper != nil {

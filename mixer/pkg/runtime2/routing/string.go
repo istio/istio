@@ -17,6 +17,7 @@ package routing
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -107,33 +108,33 @@ func (e *HandlerEntries) String() string {
 	return b.String()
 }
 
-func (s *InputSet) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (s *InputSet) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
-	fmt.Fprintf(b, "%sConditional: ", idnt)
+	fmt.Fprintf(w, "%sConditional: ", idnt)
 	if s.Condition != nil {
 		if debugInfo != nil {
-			fmt.Fprint(b, debugInfo.matchesByID[s.ID])
+			fmt.Fprint(w, debugInfo.matchesByID[s.ID])
 		} else {
-			fmt.Fprint(b, "...")
+			fmt.Fprint(w, "...")
 		}
 	} else {
-		fmt.Fprint(b, "<NONE>")
+		fmt.Fprint(w, "<NONE>")
 	}
-	fmt.Fprintln(b)
+	fmt.Fprintln(w)
 
 	if debugInfo != nil {
 		for j := range s.Builders {
-			fmt.Fprintf(b, "%s[#%d]", idnt, j)
+			fmt.Fprintf(w, "%s[#%d]", idnt, j)
 			if debugInfo != nil {
-				fmt.Fprintf(b, " %s {I}", debugInfo.instanceNamesByID[s.ID][j])
+				fmt.Fprintf(w, " %s {I}", debugInfo.instanceNamesByID[s.ID][j])
 			}
-			fmt.Fprintln(b)
+			fmt.Fprintln(w)
 		}
 	} else {
 		for i, bld := range s.Builders {
-			fmt.Fprintf(b, "%s[#%d] %v", idnt, i, bld)
-			fmt.Fprintln(b)
+			fmt.Fprintf(w, "%s[#%d] %v", idnt, i, bld)
+			fmt.Fprintln(w)
 		}
 	}
 }
