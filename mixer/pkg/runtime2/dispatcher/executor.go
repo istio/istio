@@ -149,9 +149,8 @@ func (v *executor) executePreprocess(
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from Processor. It has the most context.
 				log.Errorf("execute panic: %v", r)
-				r = &result{
-					err: fmt.Errorf("dispatch panic: %v", r),
-				}
+				err := fmt.Errorf("dispatch panic: %v", r)
+				v.results <- result{err: err}
 			}
 		}()
 

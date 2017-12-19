@@ -68,7 +68,7 @@ func New(
 		snapshot:               config.Empty(),
 		handlers:               handler.Empty(),
 		dispatcher:             dispatcher.New(identityAttribute, executorPool),
-		env:                    handler.NewEnv("???", handlerPool),
+		env:                    handler.NewEnv("???", handlerPool), // TODO: name
 
 		store: s,
 	}
@@ -156,6 +156,6 @@ func cleanupHandlers(oldContext *dispatcher.DispatchContext, oldHandlers *handle
 
 	log.Infof("cleanupResolver[%d] handler table has %d entries", oldContext.Routes.ID())
 
-	handler.Cleanup(currentHandlers, oldHandlers)
+	oldHandlers.Cleanup(currentHandlers)
 	return nil
 }

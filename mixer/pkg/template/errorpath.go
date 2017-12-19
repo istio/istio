@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package impl contains implementation specific code for templates. Specifically, this package is used within the
-// generated code as components.
 package template
 
 import "fmt"

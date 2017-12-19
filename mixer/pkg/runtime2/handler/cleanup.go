@@ -18,10 +18,11 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-func Cleanup(current *Table, old *Table) {
+// Cleanup the old table by selectively closing handlers that are not used in the given table.
+func (t *Table) Cleanup(current *Table) {
 	toCleanup := []entry{}
 
-	for name, oldEntry := range old.entries {
+	for name, oldEntry := range t.entries {
 		if currentEntry, found := current.entries[name]; found && currentEntry.signature.Equals(oldEntry.signature) {
 			// this entry is still in use. Skip it.
 			continue

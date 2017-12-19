@@ -185,7 +185,7 @@ func (b *builder) add(
 	byVariety, found := b.table.entries[t.Variety]
 	if !found {
 		byVariety = &namespaceTable{
-			entries: make(map[string]*handlerEntries),
+			entries: make(map[string]*HandlerEntries),
 		}
 		b.table.entries[t.Variety] = byVariety
 	}
@@ -193,7 +193,7 @@ func (b *builder) add(
 	// Find or create the namespace entry.
 	byNamespace, found := byVariety.entries[namespace]
 	if !found {
-		byNamespace = &handlerEntries{
+		byNamespace = &HandlerEntries{
 			entries: []*HandlerEntry{},
 		}
 		byVariety.entries[namespace] = byNamespace

@@ -77,7 +77,7 @@ func (v *namespaceTable) String() string {
 	return b.String()
 }
 
-func (e *handlerEntries) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (e *HandlerEntries) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	for i, entry := range e.entries {
@@ -101,7 +101,7 @@ func (e *handlerEntries) write(b *bytes.Buffer, indent int, debugInfo *tableDebu
 		}
 	}
 }
-func (e *handlerEntries) String() string {
+func (e *HandlerEntries) String() string {
 	var b bytes.Buffer
 	e.write(&b, 0, nil)
 	return b.String()

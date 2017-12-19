@@ -33,7 +33,7 @@ func (s signature) Equals(other signature) bool {
 	return bytes.Equal(s[:], other[:])
 }
 
-func CalculateHandlerSignature(handler *config.Handler, instances []*config.Instance) signature {
+func calculateSignature(handler *config.Handler, instances []*config.Instance) signature {
 
 	// sort the instances by name
 	instanceMap := make(map[string]*config.Instance)
