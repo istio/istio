@@ -623,7 +623,7 @@ func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceIns
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.RouteRule)
 		// TODO: optimize lookup
-		HostLoop:
+	HostLoop:
 		for _, host := range rule.Hosts {
 			destination := ResolveFQDN(config.ConfigMeta, host)
 			for _, instance := range instances {
@@ -637,7 +637,6 @@ func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceIns
 
 	return out
 }
-
 
 func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
 	out := make(map[string]*routing.EgressRule)

@@ -21,12 +21,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
+	"github.com/golang/protobuf/proto"
+
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/adapter/config/memory"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/mock"
-	"github.com/golang/protobuf/proto"
 )
 
 func TestConfigDescriptor(t *testing.T) {
