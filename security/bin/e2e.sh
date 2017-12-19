@@ -20,11 +20,11 @@ TAG=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --tag)
+    -tag)
       TAG=$2
       shift
       ;;
-    --hub)
+    -hub)
       HUB=$2
       shift
       ;;
