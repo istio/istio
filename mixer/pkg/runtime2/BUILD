@@ -4,11 +4,12 @@ go_library(
     name = "go_default_library",
     srcs = [
         "listener.go",
+        "monitor.go",
         "runtime.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        # Only for the dispatcher interface.
+        # pkg/runtime is needed only for the dispatcher interface.
         "//mixer/pkg/runtime:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
@@ -21,6 +22,7 @@ go_library(
         "//mixer/pkg/runtime2/dispatcher:go_default_library",
         "//mixer/pkg/runtime2/handler:go_default_library",
         "//mixer/pkg/runtime2/routing:go_default_library",
+        "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
     ],
 )
