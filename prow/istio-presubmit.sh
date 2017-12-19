@@ -150,5 +150,9 @@ fi
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"
+
+# run security e2e test
+${ROOT}/security/bin/e2e.sh --hub="${HUB}" --tag="${TAG}"
+
 # upload images
 time make push HUB="${HUB}" TAG="${TAG}"

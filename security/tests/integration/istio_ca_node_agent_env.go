@@ -45,7 +45,7 @@ const (
 )
 
 // NewNodeAgentTestEnv creates the environment instance
-func NewNodeAgentTestEnv(name string, kubeconfig string, hub string, tag string) *NodeAgentTestEnv {
+func NewNodeAgentTestEnv(name string, kubeconfig string) *NodeAgentTestEnv {
 	clientset, err := CreateClientset(kubeconfig)
 	if err != nil {
 		glog.Errorf("failed to initialize K8s client: %s\n", err)
@@ -61,8 +61,8 @@ func NewNodeAgentTestEnv(name string, kubeconfig string, hub string, tag string)
 		ClientSet: clientset,
 		name:      name,
 		NameSpace: namespace,
-		Hub:       hub,
-		Tag:       tag,
+		Hub:       *hub,
+		Tag:       *tag,
 	}
 }
 

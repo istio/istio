@@ -152,8 +152,6 @@ func TestNodeAgentTest(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
-	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
-	tag := flag.String("tag", "", "Tag for Istio CA image")
 	rootCert := flag.String("root-cert", "", "Path to the original root certificate")
 	certChain := flag.String("cert-chain", "", "Path to the original workload certificate chain")
 
@@ -166,7 +164,7 @@ func TestMain(m *testing.M) {
 
 	glog.Errorf("%v", config)
 
-	testEnv = integration.NewNodeAgentTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+	testEnv = integration.NewNodeAgentTestEnv(testEnvName, *kubeconfig)
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 

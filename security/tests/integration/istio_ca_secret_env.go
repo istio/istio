@@ -39,7 +39,7 @@ type (
 )
 
 // NewSecretTestEnv creates the environment instance
-func NewSecretTestEnv(name string, kubeconfig string, hub string, tag string) *SecretTestEnv {
+func NewSecretTestEnv(name string, kubeconfig string) *SecretTestEnv {
 	clientset, err := CreateClientset(kubeconfig)
 	if err != nil {
 		glog.Errorf("failed to initialize K8s client: %s\n", err)
@@ -55,8 +55,8 @@ func NewSecretTestEnv(name string, kubeconfig string, hub string, tag string) *S
 		ClientSet: clientset,
 		name:      name,
 		NameSpace: namespace,
-		Hub:       hub,
-		Tag:       tag,
+		Hub:       *hub,
+		Tag:       *tag,
 	}
 }
 

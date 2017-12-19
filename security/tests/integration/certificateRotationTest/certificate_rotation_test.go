@@ -90,12 +90,10 @@ func TestCertificateRotation(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	kubeconfig := flag.String("kube-config", "", "path to kubeconfig file")
-	hub := flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
-	tag := flag.String("tag", "", "Tag for Istio CA image")
 
 	flag.Parse()
 
-	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig, *hub, *tag)
+	testEnv = integration.NewCertRotationTestEnv(testEnvName, *kubeconfig)
 
 	res := framework.NewTestEnvManager(testEnv, testID).RunTest(m)
 
