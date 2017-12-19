@@ -192,7 +192,7 @@ func TestEnvoyArgs(t *testing.T) {
 	config.AvailabilityZone = "my-zone"
 
 	test := envoy{config: config, node: "my-node"}
-	testProxy := NewProxy(config, "my-node")
+	testProxy := NewProxy(config, "my-node", ProxyLogsLevelTrace)
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}

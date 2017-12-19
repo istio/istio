@@ -202,14 +202,29 @@ type envoy struct {
 	extraArgs []string
 }
 
+// ProxyLogLevel defines the value of the log level flag (-l) passed to the Envoy proxy upon creation.
+type ProxyLogLevel string
+
+const (
+	// ProxyLogLevelNone environment flag
+	ProxyLogLevelNone   ProxyLogLevel = "none"
+	// ProxyLogLevelDebug environment flag
+	ProxyLogLevelDebug  ProxyLogLevel = "debug"
+	// ProxyLogsLevelTrace environment flag
+	ProxyLogsLevelTrace ProxyLogLevel = "trace"
+)
+
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel ProxyLogLevel) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
-	if glog.V(4) {
-		args = append(args, "-l", "trace")
-	} else if glog.V(3) {
+	switch logLevel {
+	case ProxyLogLevelDebug:
 		args = append(args, "-l", "debug")
+	case ProxyLogsLevelTrace:
+		args = append(args, "-l", "trace")
+	case ProxyLogLevelNone:
+		// Do nothing.
 	}
 
 	return envoy{
@@ -295,9 +310,9 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 }
 
 func (proxy envoy) Cleanup(epoch int) {
-	path := configFile(proxy.config.ConfigPath, epoch)
-	if err := os.Remove(path); err != nil {
-		glog.Warningf("Failed to delete config file %s for %d, %v", path, epoch, err)
+	filePath := configFile(proxy.config.ConfigPath, epoch)
+	if err := os.Remove(filePath); err != nil {
+		glog.Warningf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}
 }
 
