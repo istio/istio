@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 
@@ -359,6 +360,109 @@ var (
 				return resultBag, nil
 
 			},
+
+			/* runtime2 bindings */
+
+			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
+				instance := inst.(*sampleapa.Instance)
+
+				out, err := handler.(sampleapa.Handler).GenerateSampleApaAttributes(ctx, instance)
+				if err != nil {
+					return nil, err
+				}
+
+				const fullOutName = "sampleapa.output."
+				abag := newWrapperAttrBag(
+					func(name string) (value interface{}, found bool) {
+						field := strings.TrimPrefix(name, fullOutName)
+						if len(field) != len(name) {
+							switch field {
+
+							case "int64Primitive":
+
+								return out.Int64Primitive, true
+
+							case "boolPrimitive":
+
+								return out.BoolPrimitive, true
+
+							case "doublePrimitive":
+
+								return out.DoublePrimitive, true
+
+							case "stringPrimitive":
+
+								return out.StringPrimitive, true
+
+							case "stringMap":
+
+								return out.StringMap, true
+
+							default:
+								return nil, false
+							}
+						}
+						return attrs.Get(name)
+					},
+					func() []string { return attrs.Names() },
+					func() { attrs.Done() },
+					func() string { return attrs.DebugString() },
+				)
+
+				return mapper(abag)
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_sampleapa_Template(expb, param.(*sampleapa.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
+
+			CreateOutputMapperFn: func(instanceParam interface{}, expb *compiled.ExpressionBuilder) template.OutputMapperFn {
+				var err error
+
+				param := instanceParam.(*sampleapa.InstanceParam)
+
+				expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
+
+				const fullOutName = "sampleapa.output."
+				for attrName, outExpr := range param.AttributeBindings {
+					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
+					if expressions[attrName], err = expb.Compile(ex); err != nil {
+						break
+					}
+				}
+
+				if err != nil {
+					return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
+						return nil, err
+					}
+				}
+
+				return template.NewOutputMapperFn(expressions)
+			},
 		},
 
 		samplereport.TemplateName: {
@@ -489,6 +593,211 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+				instances := make([]*samplereport.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*samplereport.Instance)
+				}
+				if err := handler.(samplereport.Handler).HandleSampleReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_samplereport_Template(expb, param.(*samplereport.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return err, nil
+					}
+
+					return e, nil
+				}
+			},
 		},
 	}
 )
+
+// builder_sampleapa_Template builds an instance of Template.
+type builder_sampleapa_Template struct {
+	bldInt64Primitive compiled.Expression
+
+	bldBoolPrimitive compiled.Expression
+
+	bldDoublePrimitive compiled.Expression
+
+	bldStringPrimitive compiled.Expression
+} // builder_sampleapa_Template
+
+func newBuilder_sampleapa_Template(
+	expb *compiled.ExpressionBuilder,
+	param *sampleapa.InstanceParam) (*builder_sampleapa_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_sampleapa_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldInt64Primitive, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_sampleapa_Template) build(
+	attrs attribute.Bag) (*sampleapa.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &sampleapa.Instance{}
+
+	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = iface.(int64)
+
+	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = iface.(bool)
+
+	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = iface.(float64)
+
+	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = iface.(string)
+
+	return r, template.ErrorPath{}
+}
+
+// builder_samplereport_Template builds an instance of Template.
+type builder_samplereport_Template struct {
+	bldValue compiled.Expression
+
+	bldDimensions map[string]compiled.Expression
+} // builder_samplereport_Template
+
+func newBuilder_samplereport_Template(
+	expb *compiled.ExpressionBuilder,
+	param *samplereport.InstanceParam) (*builder_samplereport_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_samplereport_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldValue, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+		b.bldDimensions[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_samplereport_Template) build(
+	attrs attribute.Bag) (*samplereport.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &samplereport.Instance{}
+
+	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+		}
+
+		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	}
+
+	return r, template.ErrorPath{}
+}

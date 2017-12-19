@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"text/template"
@@ -143,6 +144,35 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			},
 			"getBuildFnName": func(typeName string) string {
 				return "Build" + typeName
+			},
+
+			"getMessageBuilderName": func(m modelgen.Model, target interface{}) string {
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "builder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+
+				default:
+					panic("unknown type in getMessageBuilderName" + reflect.TypeOf(target).String())
+				}
+			},
+			"getNewMessageBuilderFnName": func(m modelgen.Model, target interface{}) string {
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				default:
+					panic("unknown type in getNewMessageBuilderFnName:" + reflect.TypeOf(target).String())
+				}
+			},
+			"builderFieldName": func(f modelgen.FieldInfo) string {
+				return "bld" + f.GoName
 			},
 		}).Parse(tmplPkg.InterfaceTemplate)
 
