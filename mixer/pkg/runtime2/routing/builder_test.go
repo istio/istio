@@ -37,7 +37,7 @@ var tests = []struct {
 		Configs: []string{
 			data.HandlerH1,
 			data.InstanceI1,
-			data.RuleR1_I1,
+			data.RuleR1I1,
 		},
 		E: `
 [Routing Table]
@@ -59,7 +59,7 @@ Identity Attr: destination.service
 			data.HandlerH1,
 			data.InstanceI1,
 			data.InstanceI2,
-			data.RuleR2_I1_I2,
+			data.RuleR2I1I2,
 		},
 		E: `
 [Routing Table]
@@ -83,7 +83,7 @@ Identity Attr: destination.service
 			data.InstanceI1,
 			data.InstanceI2,
 			data.InstanceI3,
-			data.RuleR3_I1_I2_Conditional,
+			data.RuleR3I1I2,
 		},
 		E: `
 [Routing Table]
@@ -107,8 +107,8 @@ Identity Attr: destination.service
 			data.InstanceI1,
 			data.InstanceI2,
 			data.InstanceI3,
-			data.RuleR1_I1,
-			data.RuleR2_I1_I2,
+			data.RuleR1I1,
+			data.RuleR2I1I2,
 		},
 		E: `
 [Routing Table]
@@ -133,8 +133,8 @@ Identity Attr: destination.service
 			data.InstanceI1,
 			data.InstanceI2,
 			data.InstanceI3,
-			data.RuleR1_I1,
-			data.RuleR3_I1_I2_Conditional,
+			data.RuleR1I1,
+			data.RuleR3I1I2,
 		},
 		E: `
 [Routing Table]

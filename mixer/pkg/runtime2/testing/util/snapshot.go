@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
+// GetSnapshot creates a config.Snapshot for testing purposes, based on the supplied configuration.
 func GetSnapshot(templates map[string]*template.Info, adapters map[string]*adapter.Info, serviceConfig string, globalConfig string) *config.Snapshot {
 	// TODO: This is a horrible hack, but it is the easiest way to get this up and running. We should avoid writing
 	// files to the file-system and simply have an in-memory store for this.
