@@ -50,6 +50,7 @@ docker-push:
 
 .PHONY: clean
 clean:
+	rm -f docker/pilot-discovery docker/pilot-agent docker/sidecar-initializer docker/client docker/server docker/eurekamirror
 	@bazel clean
 
 .PHONY: test

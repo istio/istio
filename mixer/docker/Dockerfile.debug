@@ -1,0 +1,8 @@
+FROM gcr.io/istio-testing/ubuntu_xenial_debug:3f57ae2aceef79e4000fb07ec850bbf4bce811e6f81dc8cfd970e16cdf33e622
+
+# obtained from debian ca-certs deb using fetch_cacerts.sh
+ADD ca-certificates.tgz /
+WORKDIR /tmp/
+ADD mixs /usr/local/bin/
+ENTRYPOINT ["/usr/local/bin/mixs", "server"]
+CMD ["--configStoreURL=fs:///etc/opt/mixer/configroot","--configStore2URL=k8s://","--logtostderr","--v=2"]

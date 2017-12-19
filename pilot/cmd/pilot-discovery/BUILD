@@ -8,8 +8,6 @@ go_library(
     deps = [
         "//pilot/cmd:go_default_library",
         "//pilot/cmd/pilot-discovery/server:go_default_library",
-        "//pilot/model:go_default_library",
-        "//pilot/platform/kube/admit:go_default_library",
         "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",

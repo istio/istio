@@ -23,11 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/pool"
+	"istio.io/istio/pkg/log"
 )
 
 // This private variable is an extract from go/token
@@ -427,9 +426,7 @@ func Parse(src string) (ex *Expression, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse expression '%s': %v", src, err)
 	}
-	if glog.V(6) {
-		glog.Infof("Parsed expression '%s' into '%v'", src, a)
-	}
+	log.Debugf("Parsed expression '%s' into '%v'", src, a)
 
 	ex = &Expression{}
 	if err = process(a, ex); err != nil {

@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/log"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 type server struct {
@@ -64,10 +64,8 @@ func (s *server) initialize(setup *Setup, env *Env) error {
 	var args = testEnv.NewArgs()
 	args.APIPort = 0
 	args.MonitoringPort = 0
-	args.ConfigAPIPort = 0
 	args.Templates = templates
 	args.Adapters = adapters
-	args.ConfigStoreURL = `fs://` + serverDir
 	args.ConfigStore2URL = `fs://` + serverDir
 	args.ConfigDefaultNamespace = "istio-system"
 	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute

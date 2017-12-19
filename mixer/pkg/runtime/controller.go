@@ -20,8 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
-
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
@@ -29,6 +27,7 @@ import (
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller is responsible for watching configuration using the Store2 API.
@@ -167,12 +166,12 @@ func (c *Controller) publishSnapShot() {
 	c.resolver = resolver
 	c.nrules = nrules
 
-	glog.Infof("Published snapshot[%d] with %d rules, %d handlers, previously %d rules", resolver.id, nrules, len(c.table), oldNrules)
+	log.Infof("Published snapshot[%d] with %d rules, %d handlers, previously %d rules", resolver.id, nrules, len(c.table), oldNrules)
 
 	// synchronous call to cleanup.
 	err := cleanupResolver(oldResolver, oldTable, maxCleanupDuration)
 	if err != nil {
-		glog.Warningf("Unable to perform cleanup: %v", err)
+		log.Warnf("Unable to perform cleanup: %v", err)
 	}
 }
 
@@ -207,7 +206,7 @@ func watchChanges(wch <-chan store.Event, applyEvents applyEventsFn) {
 		case <-timeChan:
 			timer.Stop()
 			timeChan = nil
-			glog.Infof("Publishing %d events", len(events))
+			log.Infof("Publishing %d events", len(events))
 			applyEvents(events)
 			events = events[:0]
 		}
@@ -265,9 +264,7 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 			Params:  cfg.Spec,
 		}
 	}
-	if glog.V(3) {
-		glog.Infof("handler = %v", handlerConfig)
-	}
+	log.Debugf("handler = %v", handlerConfig)
 	return handlerConfig
 }
 
@@ -301,9 +298,7 @@ func (c *Controller) processAttributeManifests() expr.AttributeDescriptorFinder 
 		}
 	}
 
-	if glog.V(2) {
-		glog.Infof("%d known attributes", len(attrs))
-	}
+	log.Debugf("%d known attributes", len(attrs))
 	c.df = &attributeFinder{attrs: attrs}
 	return c.df
 }
@@ -410,7 +405,7 @@ func (c *Controller) processRules(handlerConfig map[string]*cpb.Handler,
 		rt := resourceType(obj.Metadata.Labels)
 		rule, err := buildRule(k, rulec, rt)
 		if err != nil {
-			glog.Warningf("Unable to process match condition: %v", err)
+			log.Warnf("Unable to process match condition: %v", err)
 			continue
 		}
 		rule.actions = ruleActions
@@ -464,18 +459,14 @@ func (c *Controller) processActions(acts []*cpb.Action, handlerConfig map[string
 	for _, ic := range canonicalizeHandlerNames(acts, namespace) {
 		var hc *cpb.Handler
 		if hc = handlerConfig[ic.Handler]; hc == nil {
-			if glog.V(3) {
-				glog.Warningf("ConfigWarning unknown handler: %s", ic.Handler)
-			}
+			log.Debugf("ConfigWarning unknown handler: %s", ic.Handler)
 			continue
 		}
 
 		for _, instName := range canonicalizeInstanceNames(ic.Instances, namespace) {
 			inst := instanceConfig[instName]
 			if inst == nil {
-				if glog.V(3) {
-					glog.Warningf("ConfigWarning unknown instance: %s", instName)
-				}
+				log.Debugf("ConfigWarning unknown instance: %s", instName)
 				continue
 			}
 
@@ -520,11 +511,11 @@ func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[stri
 				for _, act := range vact {
 					he := handlerTable[act.handlerName]
 					if he == nil {
-						glog.Warningf("Internal error: Handler %s could not be found", act.handlerName)
+						log.Warnf("Internal error: Handler %s could not be found", act.handlerName)
 						continue
 					}
 					if he.Handler == nil {
-						glog.Warningf("Filtering action from rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
+						log.Warnf("Filtering action from rule %s/%s. Handler %s could not be initialized due to %s.", ns, rn, act.handlerName, he.HandlerCreateError)
 						continue
 					}
 					act.handler = he.Handler
@@ -537,7 +528,7 @@ func generateResolvedRules(ruleConfig rulesMapByNamespace, handlerTable map[stri
 				}
 			}
 			if len(rule.actions) == 0 {
-				glog.Warningf("Purging rule %v with no actions", rn)
+				log.Warnf("Purging rule %v with no actions", rn)
 				delete(nsmap, rn)
 			}
 		}
@@ -557,23 +548,19 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 			if time.Since(start) > timeout {
 				return fmt.Errorf("unable to cleanup resolver in %v time. %d requests remain", timeout, rc)
 			}
-			if glog.V(2) {
-				glog.Infof("Waiting for resolver %d to finish %d remaining requests", r.id, rc)
-			}
+			log.Debugf("Waiting for resolver %d to finish %d remaining requests", r.id, rc)
 			time.Sleep(cleanupSleepTime)
 			continue
 		}
-		if glog.V(2) {
-			glog.Infof("cleanupResolver[%d] handler table has %d entries", r.id, len(table))
-		}
+		log.Debugf("cleanupResolver[%d] handler table has %d entries", r.id, len(table))
 		for _, he := range table {
 			if he.closeOnCleanup && he.Handler != nil {
 				msg := fmt.Sprintf("closing %s/%v", he.Name, he.Handler)
 				err := he.Handler.Close()
 				if err != nil {
-					glog.Warningf("Error "+msg+": %s", err)
+					log.Warnf("Error "+msg+": %v", err)
 				} else {
-					glog.Info(msg)
+					log.Info(msg)
 				}
 			}
 		}

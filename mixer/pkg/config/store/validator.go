@@ -18,7 +18,8 @@ import (
 	"errors"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 type perKindValidateFunc func(br *BackEndResource) error
@@ -45,7 +46,7 @@ func validateRule(br *BackEndResource) error {
 		return errors.New("field 'selector' is deprecated, use 'match' instead")
 	}
 	if selectorExists {
-		glog.Warningf("Deprecated field 'selector' used in %s. Use 'match' instead.", br.Metadata.Name)
+		log.Warnf("Deprecated field 'selector' used in %s. Use 'match' instead.", br.Metadata.Name)
 	}
 	return nil
 }
@@ -78,7 +79,7 @@ func (v *validator) Validate(bev *BackendEvent) error {
 	pkv, ok := v.perKindValidators[bev.Key.Kind]
 	if !ok {
 		// Pass unrecognized kinds -- they should be validated by somewhere else.
-		glog.V(3).Infof("unrecognized kind %s is requested to validate", bev.Key.Kind)
+		log.Debugf("unrecognized kind %s is requested to validate", bev.Key.Kind)
 		return nil
 	}
 	ev := &Event{

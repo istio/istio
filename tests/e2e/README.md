@@ -54,8 +54,10 @@ gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --proje
 
 ## Step 3: Create Clusterrolebinding
 ```
-kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="myname@example.org"
+kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="<user_email>"
 ```
+* user_email should be the one you use to log in gcloud command. You can do `gcloud info` to find out current user info.
+
 
 ## Step 4: Export test script variables
 

@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"istio.io/istio/mixer/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // ClientServer is an RPC server that the Controller connects to remotely control a Mixer perf test client.

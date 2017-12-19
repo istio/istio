@@ -137,14 +137,17 @@ clean.bazel: ; $(info $(H) cleaning...)
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
 	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
+	$(MAKE) clean -C mixer
+	$(MAKE) clean -C pilot
+	$(MAKE) clean -C security
 
 test: setup
 	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
 
 docker:
 	$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
-	$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
 	$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
+	$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
 
 push: checkvars
 	$(TOP)/bin/push $(HUB) $(TAG)
