@@ -26,14 +26,14 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-type HandlerSignature [sha1.Size]byte
+type signature [sha1.Size]byte
 
-func (h HandlerSignature) Equals(other HandlerSignature) bool {
+func (s signature) Equals(other signature) bool {
 
-	return bytes.Equal(h[:], other[:])
+	return bytes.Equal(s[:], other[:])
 }
 
-func CalculateHandlerSignature(handler *config.Handler, instances []*config.Instance) HandlerSignature {
+func CalculateHandlerSignature(handler *config.Handler, instances []*config.Instance) signature {
 
 	// sort the instances by name
 	instanceMap := make(map[string]*config.Instance)

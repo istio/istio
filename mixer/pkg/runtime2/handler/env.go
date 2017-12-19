@@ -27,6 +27,7 @@ type env struct {
 	gp     *pool.GoroutinePool
 }
 
+// NewEnv returns a new environment instance.
 func NewEnv(name string, gp *pool.GoroutinePool) adapter.Env {
 	return env{
 		logger: newLogger(name),

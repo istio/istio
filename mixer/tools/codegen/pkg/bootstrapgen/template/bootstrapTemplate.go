@@ -502,9 +502,10 @@ var (
 		{{end}}
 
 		{{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-		ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
-			instance := inst.(*{{.GoPackageName}}.Instance)
+		ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+			mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 
+			instance := inst.(*{{.GoPackageName}}.Instance)
 
             out, err := handler.({{.GoPackageName}}.Handler).Generate{{.InterfaceName}}Attributes(ctx, instance)
             if err != nil {
@@ -639,7 +640,8 @@ var (
 
         {{/* newBuilder** method for the message type. */}}
         func {{$newBuilderFnName}}(
-            expb *compiled.ExpressionBuilder, param *{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}) (*{{$builderName}}, template.ErrorPath) {
+            expb *compiled.ExpressionBuilder,
+			param *{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}) (*{{$builderName}}, template.ErrorPath) {
 
             if param == nil {
                 return nil, template.ErrorPath{}

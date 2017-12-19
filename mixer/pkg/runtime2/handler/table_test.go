@@ -27,8 +27,8 @@ func TestTable_GetHealthyHandler(t *testing.T) {
 	}
 
 	table.entries["h1"] = entry{
-		Name:    "h1",
-		Handler: &data.FakeHandler{},
+		name:    "h1",
+		handler: &data.FakeHandler{},
 	}
 
 	h, found := table.GetHealthyHandler("h1")
@@ -58,9 +58,9 @@ func TestTable_GetHealthyHandler_Unhealthy(t *testing.T) {
 	}
 
 	table.entries["h1"] = entry{
-		Name:         "h1",
-		Handler:      &data.FakeHandler{},
-		StartupError: fmt.Errorf("cheese not found"),
+		name:         "h1",
+		handler:      &data.FakeHandler{},
+		startupError: fmt.Errorf("cheese not found"),
 	}
 
 	_, found := table.GetHealthyHandler("h1")

@@ -22,13 +22,13 @@ func Cleanup(current *Table, old *Table) {
 	toCleanup := []entry{}
 
 	for name, oldEntry := range old.entries {
-		if currentEntry, found := current.entries[name]; found && currentEntry.Signature.Equals(oldEntry.Signature) {
+		if currentEntry, found := current.entries[name]; found && currentEntry.signature.Equals(oldEntry.signature) {
 			// this entry is still in use. Skip it.
 			continue
 		}
 
-		if oldEntry.StartupError != nil {
-			log.Debugf("skipping cleanup of handler with startup error: %s: '%s'", oldEntry.Name, oldEntry.StartupError)
+		if oldEntry.startupError != nil {
+			log.Debugf("skipping cleanup of handler with startup error: %s: '%s'", oldEntry.name, oldEntry.startupError)
 			continue
 		}
 
@@ -37,10 +37,10 @@ func Cleanup(current *Table, old *Table) {
 	}
 
 	for _, entry := range toCleanup {
-		log.Debugf("closing adapter %s/%v", entry.Name, entry.Handler)
-		err := entry.Handler.Close()
+		log.Debugf("closing adapter %s/%v", entry.name, entry.handler)
+		err := entry.handler.Close()
 		if err != nil {
-			log.Warnf("error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
+			log.Warnf("error closing adapter: %s/%v: '%v'", entry.name, entry.handler, err)
 		}
 	}
 }

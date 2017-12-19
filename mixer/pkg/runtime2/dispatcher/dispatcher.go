@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// Dispatcher is the runtime2 implementation of the runtime.Dispatcher interface.
 type Dispatcher struct {
 	destinationServiceAttribute string
 
@@ -42,30 +43,34 @@ type Dispatcher struct {
 	execPool *executorPool
 }
 
+// DispatchContext is the current dispatching context, based on a config snapshot. As config changes, the current/live
+// DispatchContext also changes.
 type DispatchContext struct {
 	// the current, active Routes.
 	Routes *routing.Table
 
-	// TODO: This should be moved out of the routing Routes.
-	// the current reference count. Indicates how-many calls are currently active.
+	// the current reference count. Indicates how-many calls are currently using this DispatchContext.
 	refCount int32
 }
 
-// TODO: Refcount code should move out.
+// IncRef increases the reference count on the DispatchContext.
 func (t *DispatchContext) IncRef() {
 	atomic.AddInt32(&t.refCount, 1)
 }
 
+// DecRef decreases the reference count on the DispatchContext.
 func (t *DispatchContext) DecRef() {
 	atomic.AddInt32(&t.refCount, -1)
 }
 
+// GetRefs returns the current reference count on the dispatch context.
 func (t *DispatchContext) GetRefs() int32 {
 	return atomic.LoadInt32(&t.refCount)
 }
 
 var _ runtime.Dispatcher = &Dispatcher{}
 
+// New returns a new Dispatcher instance. The Dispatcher instance is initialized with an empty routing table.
 func New(destinationServiceAttribute string, handlerGP *pool.GoroutinePool) *Dispatcher {
 	return &Dispatcher{
 		destinationServiceAttribute: destinationServiceAttribute,
@@ -76,6 +81,7 @@ func New(destinationServiceAttribute string, handlerGP *pool.GoroutinePool) *Dis
 	}
 }
 
+// ChangeRoute changes the routing table on the Dispatcher which, in turn, ends up creating a new DispatchContext.
 func (d *Dispatcher) ChangeRoute(new *routing.Table) *DispatchContext {
 	d.routerLock.Lock()
 
@@ -111,6 +117,7 @@ func (d *Dispatcher) updateContext(ctx context.Context, bag attribute.Bag) conte
 	return adapter.NewContextWithRequestData(ctx, data)
 }
 
+// Check implementation of runtime.Dispatcher.
 func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.CheckResult, error) {
 	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
@@ -136,8 +143,8 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 			}
 
 			for _, input := range inputs.Builders {
-				instance, err := input(bag)
-				if err != nil {
+				var instance interface{}
+				if instance, err = input(bag); err != nil {
 					// TODO: Better logging.
 					log.Warnf("Unable to create instance: '%v'", err)
 					continue
@@ -153,6 +160,7 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 	return res.(*adapter.CheckResult), err // TODO: Validate that the cast is correct.
 }
 
+// Report implementation of runtime.Dispatcher.
 func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
@@ -179,8 +187,8 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 				continue
 			}
 			for _, input := range inputs.Builders {
-				instance, err := input(bag)
-				if err != nil {
+				var instance interface{}
+				if instance, err = input(bag); err != nil {
 					// TODO: Better logging.
 					log.Warnf("Unable to create instance: '%v'", err)
 					continue
@@ -197,6 +205,7 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	return err
 }
 
+// Quota implementation of runtime.Dispatcher.
 func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error) {
 	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
@@ -228,8 +237,8 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 			}
 
 			for _, input := range inputs.Builders {
-				instance, err := input(bag)
-				if err != nil {
+				var instance interface{}
+				if instance, err = input(bag); err != nil {
 					// TODO: Better logging.
 					log.Warnf("Unable to create instance: '%v'", err)
 					continue
@@ -250,6 +259,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 	return res.(*adapter.QuotaResult), err // TODO: Validate that the cast is correct.
 }
 
+// Preprocess implementation of runtime.Dispatcher.
 func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, responseBag *attribute.MutableBag) error {
 	r := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
@@ -275,7 +285,8 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 			}
 
 			for i, input := range inputs.Builders {
-				instance, err := input(bag)
+				var instance interface{}
+				instance, err = input(bag)
 				if err != nil {
 					// TODO: Better logging.
 					log.Warnf("Unable to create instance: '%v'", err)

@@ -107,7 +107,8 @@ type (
 	ProcessReport2Fn   func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
 	ProcessCheck2Fn    func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
 	ProcessQuota2Fn    func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
-	ProcessGenAttrs2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}, attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
+	ProcessGenAttrs2Fn func(ctx context.Context, handler adapter.Handler, instance interface{},
+		attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
 
 	// CreateInstanceBuilderFn builds and returns a function that will build Instances during runtime.
 	CreateInstanceBuilderFn func(instanceName string, instanceParam interface{}, builder *compiled.ExpressionBuilder) InstanceBuilderFn

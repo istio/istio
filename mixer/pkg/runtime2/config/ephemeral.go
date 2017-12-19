@@ -22,14 +22,15 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// Ephemeral configuration state that gets updated by incoming config change events.
+// Ephemeral configuration state that gets updated by incoming config change events. By itself, the data contained
+// is not meaningful. BuildSnapshot must be called to create a new snapshot instance.
 type Ephemeral struct {
 	// Static information
 	adapters  map[string]*adapter.Info // maps adapter shortName to Info.
 	templates map[string]*template.Info
 
 	// next snapshot id
-	nextId int
+	nextID int
 
 	// whether the Attributes have changed since last snapshot
 	attributesChanged bool
@@ -41,6 +42,7 @@ type Ephemeral struct {
 	latest *Snapshot
 }
 
+// NewEphemeral returns a new Ephemeral instance.
 func NewEphemeral(
 	templates map[string]*template.Info,
 	adapters map[string]*adapter.Info) *Ephemeral {
@@ -49,7 +51,7 @@ func NewEphemeral(
 		templates: templates,
 		adapters:  adapters,
 
-		nextId: 0,
+		nextID: 0,
 
 		attributesChanged: false,
 		entries:           make(map[store.Key]*store.Resource, 0),
@@ -62,6 +64,7 @@ func NewEphemeral(
 	return e
 }
 
+// SetState with the supplied state map. All existing ephemeral state is overrwritten.
 func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 	e.entries = state
 
@@ -72,6 +75,8 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 	}
 }
 
+// ApplyEvents to the internal ephemeral state. This gets called by an store event listener to relay store change
+// events to this ephemeral config object.
 func (e *Ephemeral) ApplyEvents(events []*store.Event) {
 	for _, ev := range events {
 
@@ -88,6 +93,7 @@ func (e *Ephemeral) ApplyEvents(events []*store.Event) {
 	}
 }
 
+// BuildSnapshot builds a stable, fully-resolved snapshot view of the configuration.
 func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	attributes := e.processAttributeManifests()
 
@@ -99,8 +105,8 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	e.attributesChanged = false
 
-	id := e.nextId
-	e.nextId++
+	id := e.nextID
+	e.nextID++
 
 	s := &Snapshot{
 		ID:         id,

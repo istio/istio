@@ -29,7 +29,7 @@ type builder struct {
 	handlers               *handler.Table
 	expb                   *compiled.ExpressionBuilder
 	defaultConfigNamespace string
-	nextIdCounter          uint32
+	nextIDCounter          uint32
 
 	// The handler names by the handler entry id.
 	handlerNamesByID map[uint32]string
@@ -41,6 +41,8 @@ type builder struct {
 	instanceNamesByID map[uint32][]string
 }
 
+// BuildTable builds and returns a routing table. If debugInfo is set, the returned table will have debugging information
+// attached, which will show up in String() call.
 func BuildTable(
 	handlers *handler.Table,
 	config *config.Snapshot,
@@ -60,7 +62,7 @@ func BuildTable(
 		handlers: handlers,
 		expb:     expb,
 		defaultConfigNamespace: defaultConfigNamespace,
-		nextIdCounter:          1,
+		nextIDCounter:          1,
 
 		handlerNamesByID:  make(map[uint32]string),
 		matchesByID:       make(map[uint32]string),
@@ -80,8 +82,8 @@ func BuildTable(
 }
 
 func (b *builder) nextID() uint32 {
-	id := b.nextIdCounter
-	b.nextIdCounter++
+	id := b.nextIDCounter
+	b.nextIDCounter++
 	return id
 }
 
@@ -221,7 +223,7 @@ func (b *builder) add(
 	// Find or create the input set.
 	var inputSet *InputSet
 	for _, set := range byHandler.Inputs {
-		// TODO: This doesn't flatten accross all conditions, only for actions coming from the same rule. We can
+		// TODO: This doesn't flatten across all conditions, only for actions coming from the same rule. We can
 		// single instance based on the expression text as well.
 		if set.Condition == condition {
 			inputSet = set

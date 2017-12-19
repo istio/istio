@@ -165,7 +165,7 @@ func TestGetInstancesGroupedByHandlers_Multiiple(t *testing.T) {
 	}
 
 	// h1 should be referenced by i1 and i2
-	if !((m[h1][0] == i1 && m[h1][1] == i2) || (m[h1][0] == i1 && m[h1][1] == i2)) {
+	if !((m[h1][0] == i1 && m[h1][1] == i2) || (m[h1][1] == i1 && m[h1][0] == i2)) {
 		t.Fail()
 	}
 
@@ -177,7 +177,7 @@ func TestGetInstancesGroupedByHandlers_Multiiple(t *testing.T) {
 	}
 
 	// h2 should be referenced by i2 and i3
-	if !((m[h2][0] == i2 && m[h2][1] == i3) || (m[h2][0] == i2 && m[h2][1] == i3)) {
+	if !((m[h2][0] == i2 && m[h2][1] == i3) || (m[h2][1] == i2 && m[h2][0] == i3)) {
 		t.Fail()
 	}
 }

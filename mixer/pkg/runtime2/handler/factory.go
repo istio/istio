@@ -57,7 +57,7 @@ func newFactory(snapshot *config.Snapshot, env adapter.Env) *factory {
 	}
 }
 
-// build instantiates a Handler object using the passed in handler and instances configuration.
+// build instantiates a handler object using the passed in handler and instances configuration.
 func (f *factory) build(
 	handler *config.Handler,
 	instances []*config.Instance) (adapter.Handler, error) {
@@ -153,12 +153,12 @@ func (f *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map
 	return builder.Build(context.Background(), f.env)
 }
 
-func (h *factory) inferTypes(instances []*config.Instance) (map[string]inferredTypesMap, error) {
+func (f *factory) inferTypes(instances []*config.Instance) (map[string]inferredTypesMap, error) {
 
 	typesByTemplate := make(map[string]inferredTypesMap)
 	for _, instance := range instances {
 
-		inferredType, err := h.inferType(instance)
+		inferredType, err := f.inferType(instance)
 		if err != nil {
 			return nil, err
 		}
