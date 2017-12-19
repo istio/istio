@@ -18,37 +18,40 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 )
 
+// Table contains a set of instantiated and configured of adapter handlers.
 type Table struct {
 	entries map[string]entry
 }
 
 type entry struct {
-	// Name of the handler
-	Name string
+	// name of the handler
+	name string
 
-	// Handler is the initialized handler object.
-	Handler adapter.Handler
+	// handler is the initialized handler object.
+	handler adapter.Handler
 
 	// sha is used to verify and update the handlerEntry.
-	Signature HandlerSignature
+	signature signature
 
 	// error that was received during startup.
-	StartupError error
+	startupError error
 }
 
+// GetHealthyHandler returns a healthy handler instance with the given name, if it exists.
 func (table *Table) GetHealthyHandler(handlerName string) (adapter.Handler, bool) {
 	e, found := table.entries[handlerName]
-	if !found || e.StartupError != nil {
+	if !found || e.startupError != nil {
 		return nil, false
 	}
 
-	return e.Handler, true
+	return e.handler, true
 }
 
 var emptyTable = &Table{
 	entries: make(map[string]entry, 0),
 }
 
+// Empty returns an empty table instance.
 func Empty() *Table {
 	return emptyTable
 }

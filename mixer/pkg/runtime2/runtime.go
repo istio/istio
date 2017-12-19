@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// Runtime is the main entry point to the Mixer runtime environment. It listens to configuration, instantiates handler
+// instances, creates the dispatch machinery and handles incoming requests.
 type Runtime struct {
 	identityAttribute string
 
@@ -49,6 +51,7 @@ type Runtime struct {
 	store store.Store2
 }
 
+// New returns a new instance of Runtime.
 func New(
 	s store.Store2,
 	templates map[string]*template.Info,
@@ -76,10 +79,13 @@ func New(
 	return runtime
 }
 
+// Dispatcher returns the runtime.Dispatcher that is implemented by this runtime package.
 func (c *Runtime) Dispatcher() runtime.Dispatcher {
 	return c.dispatcher
 }
 
+// StartListening directs Runtime to start listening to configuration changes. As config changes, runtime processes
+// the confguration and creates a dispatcher.
 func (c *Runtime) StartListening() error {
 
 	kinds := config.KindMap(c.snapshot.Adapters, c.snapshot.Templates)
@@ -145,6 +151,7 @@ func cleanupHandlers(oldContext *dispatcher.DispatchContext, oldHandlers *handle
 			time.Sleep(cleanupSleepTime)
 			continue
 		}
+		break
 	}
 
 	log.Infof("cleanupResolver[%d] handler table has %d entries", oldContext.Routes.ID())

@@ -363,7 +363,9 @@ var (
 
 			/* runtime2 bindings */
 
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
 				instance := inst.(*sampleapa.Instance)
 
 				out, err := handler.(sampleapa.Handler).GenerateSampleApaAttributes(ctx, instance)
@@ -646,7 +648,8 @@ type builder_sampleapa_Template struct {
 } // builder_sampleapa_Template
 
 func newBuilder_sampleapa_Template(
-	expb *compiled.ExpressionBuilder, param *sampleapa.InstanceParam) (*builder_sampleapa_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *sampleapa.InstanceParam) (*builder_sampleapa_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -731,7 +734,8 @@ type builder_samplereport_Template struct {
 } // builder_samplereport_Template
 
 func newBuilder_samplereport_Template(
-	expb *compiled.ExpressionBuilder, param *samplereport.InstanceParam) (*builder_samplereport_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *samplereport.InstanceParam) (*builder_samplereport_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}

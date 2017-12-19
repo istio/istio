@@ -32,7 +32,7 @@ func Instantiate(current *Table, snapshot *config.Snapshot, env adapter.Env) *Ta
 		signature := CalculateHandlerSignature(handler, instances)
 
 		currentEntry, found := current.entries[handler.Name]
-		if found && currentEntry.StartupError == nil && currentEntry.Signature.Equals(signature) {
+		if found && currentEntry.startupError == nil && currentEntry.signature.Equals(signature) {
 			// reuse the handler
 			t.entries[handler.Name] = currentEntry
 			continue
@@ -46,10 +46,10 @@ func Instantiate(current *Table, snapshot *config.Snapshot, env adapter.Env) *Ta
 		instantiatedHandler, err := f.build(handler, instances)
 
 		t.entries[handler.Name] = entry{
-			Name:         handler.Name,
-			Handler:      instantiatedHandler,
-			StartupError: err,
-			Signature:    signature,
+			name:         handler.Name,
+			handler:      instantiatedHandler,
+			startupError: err,
+			signature:    signature,
 		}
 	}
 

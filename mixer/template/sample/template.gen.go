@@ -868,7 +868,9 @@ var (
 
 			/* runtime2 bindings */
 
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
 				instance := inst.(*istio_mixer_adapter_sample_myapa.Instance)
 
 				out, err := handler.(istio_mixer_adapter_sample_myapa.Handler).GenerateMyApaAttributes(ctx, instance)
@@ -2935,7 +2937,8 @@ type builder_istio_mixer_adapter_sample_myapa_Template struct {
 } // builder_istio_mixer_adapter_sample_myapa_Template
 
 func newBuilder_istio_mixer_adapter_sample_myapa_Template(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_myapa.InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3098,7 +3101,8 @@ type builder_istio_mixer_adapter_sample_myapa_Resource1 struct {
 } // builder_istio_mixer_adapter_sample_myapa_Resource1
 
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource1(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_myapa.Resource1InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource1, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource1InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource1, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3171,7 +3175,8 @@ type builder_istio_mixer_adapter_sample_myapa_Resource2 struct {
 } // builder_istio_mixer_adapter_sample_myapa_Resource2
 
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource2(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_myapa.Resource2InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource2, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource2InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource2, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3260,7 +3265,8 @@ type builder_istio_mixer_adapter_sample_myapa_Resource3 struct {
 } // builder_istio_mixer_adapter_sample_myapa_Resource3
 
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource3(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_myapa.Resource3InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource3, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource3InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource3, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3387,7 +3393,8 @@ type builder_istio_mixer_adapter_sample_check_Template struct {
 } // builder_istio_mixer_adapter_sample_check_Template
 
 func newBuilder_istio_mixer_adapter_sample_check_Template(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_check.InstanceParam) (*builder_istio_mixer_adapter_sample_check_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.InstanceParam) (*builder_istio_mixer_adapter_sample_check_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3488,7 +3495,8 @@ type builder_istio_mixer_adapter_sample_check_Res1 struct {
 } // builder_istio_mixer_adapter_sample_check_Res1
 
 func newBuilder_istio_mixer_adapter_sample_check_Res1(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_check.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res1, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res1, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3669,7 +3677,8 @@ type builder_istio_mixer_adapter_sample_check_Res2 struct {
 } // builder_istio_mixer_adapter_sample_check_Res2
 
 func newBuilder_istio_mixer_adapter_sample_check_Res2(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_check.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res2, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res2, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3756,7 +3765,8 @@ type builder_istio_mixer_adapter_sample_quota_Template struct {
 } // builder_istio_mixer_adapter_sample_quota_Template
 
 func newBuilder_istio_mixer_adapter_sample_quota_Template(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_quota.InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3867,7 +3877,8 @@ type builder_istio_mixer_adapter_sample_quota_Res1 struct {
 } // builder_istio_mixer_adapter_sample_quota_Res1
 
 func newBuilder_istio_mixer_adapter_sample_quota_Res1(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_quota.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res1, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res1, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -4048,7 +4059,8 @@ type builder_istio_mixer_adapter_sample_quota_Res2 struct {
 } // builder_istio_mixer_adapter_sample_quota_Res2
 
 func newBuilder_istio_mixer_adapter_sample_quota_Res2(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_quota.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res2, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res2, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -4149,7 +4161,8 @@ type builder_istio_mixer_adapter_sample_report_Template struct {
 } // builder_istio_mixer_adapter_sample_report_Template
 
 func newBuilder_istio_mixer_adapter_sample_report_Template(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_report.InstanceParam) (*builder_istio_mixer_adapter_sample_report_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.InstanceParam) (*builder_istio_mixer_adapter_sample_report_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -4330,7 +4343,8 @@ type builder_istio_mixer_adapter_sample_report_Res1 struct {
 } // builder_istio_mixer_adapter_sample_report_Res1
 
 func newBuilder_istio_mixer_adapter_sample_report_Res1(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_report.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res1, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res1, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -4523,7 +4537,8 @@ type builder_istio_mixer_adapter_sample_report_Res2 struct {
 } // builder_istio_mixer_adapter_sample_report_Res2
 
 func newBuilder_istio_mixer_adapter_sample_report_Res2(
-	expb *compiled.ExpressionBuilder, param *istio_mixer_adapter_sample_report.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res2, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res2, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}

@@ -551,7 +551,9 @@ var (
 
 			/* runtime2 bindings */
 
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
 				instance := inst.(*adapter_template_kubernetes.Instance)
 
 				out, err := handler.(adapter_template_kubernetes.Handler).GenerateKubernetesAttributes(ctx, instance)
@@ -2983,7 +2985,8 @@ type builder_adapter_template_kubernetes_Template struct {
 } // builder_adapter_template_kubernetes_Template
 
 func newBuilder_adapter_template_kubernetes_Template(
-	expb *compiled.ExpressionBuilder, param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3110,7 +3113,8 @@ type builder_servicecontrolreport_Template struct {
 } // builder_servicecontrolreport_Template
 
 func newBuilder_servicecontrolreport_Template(
-	expb *compiled.ExpressionBuilder, param *servicecontrolreport.InstanceParam) (*builder_servicecontrolreport_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *servicecontrolreport.InstanceParam) (*builder_servicecontrolreport_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3291,7 +3295,8 @@ type builder_apikey_Template struct {
 } // builder_apikey_Template
 
 func newBuilder_apikey_Template(
-	expb *compiled.ExpressionBuilder, param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3383,7 +3388,8 @@ type builder_checknothing_Template struct {
 } // builder_checknothing_Template
 
 func newBuilder_checknothing_Template(
-	expb *compiled.ExpressionBuilder, param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3426,7 +3432,8 @@ type builder_listentry_Template struct {
 } // builder_listentry_Template
 
 func newBuilder_listentry_Template(
-	expb *compiled.ExpressionBuilder, param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3487,7 +3494,8 @@ type builder_logentry_Template struct {
 } // builder_logentry_Template
 
 func newBuilder_logentry_Template(
-	expb *compiled.ExpressionBuilder, param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3606,7 +3614,8 @@ type builder_metric_Template struct {
 } // builder_metric_Template
 
 func newBuilder_metric_Template(
-	expb *compiled.ExpressionBuilder, param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3709,7 +3718,8 @@ type builder_quota_Template struct {
 } // builder_quota_Template
 
 func newBuilder_quota_Template(
-	expb *compiled.ExpressionBuilder, param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3771,7 +3781,8 @@ type builder_reportnothing_Template struct {
 } // builder_reportnothing_Template
 
 func newBuilder_reportnothing_Template(
-	expb *compiled.ExpressionBuilder, param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}
@@ -3826,7 +3837,8 @@ type builder_tracespan_Template struct {
 } // builder_tracespan_Template
 
 func newBuilder_tracespan_Template(
-	expb *compiled.ExpressionBuilder, param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
+	expb *compiled.ExpressionBuilder,
+	param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
 
 	if param == nil {
 		return nil, template.ErrorPath{}

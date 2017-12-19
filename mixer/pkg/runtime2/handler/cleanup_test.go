@@ -80,7 +80,7 @@ func TestCleanup_WithStartupError(t *testing.T) {
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, data.GlobalConfig)
 	table := Instantiate(Empty(), s, &data.FakeEnv{})
 
-	if table.entries["h1.a1.istio-system"].StartupError == nil {
+	if table.entries["h1.a1.istio-system"].startupError == nil {
 		t.Fail()
 	}
 

@@ -26,11 +26,3 @@ type tableDebugInfo struct {
 	// instanceName set of builders by the input set.
 	instanceNamesByID map[uint32][]string
 }
-
-type inputSetDebugInfo struct {
-	// match condition text for the input set.
-	match string
-
-	// The name of instances used to create builders.
-	instanceNames []string
-}

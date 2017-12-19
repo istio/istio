@@ -40,7 +40,7 @@ type executor struct {
 	maxParallelism int
 
 	// channel for collecting results
-	results chan *result
+	results chan result
 
 	// The current number of outstanding operations
 	outstanding int
@@ -63,26 +63,16 @@ func (v *executor) executeQuota(
 	v.outstanding++
 
 	v.gp.ScheduleWork(func() {
-		var r *result
-
 		defer func() {
 			if r := recover(); r != nil {
-				// TODO: Obtain "op" from Processor. It has the most context.
 				log.Errorf("execute panic: %v", r)
-				r = &result{
-					err: fmt.Errorf("dispatch panic: %v", r),
-				}
+				err := fmt.Errorf("dispatch panic: %v", r)
+				v.results <- result{err: err}
 			}
 		}()
 
 		res, err := processFn(ctx, handler, instance, args)
-		if err != nil {
-			r = &result{err: err}
-		} else {
-			r = &result{res: res}
-		}
-
-		v.results <- r
+		v.results <- result{res: res, err: err}
 	})
 }
 
@@ -98,19 +88,18 @@ func (v *executor) executeReport(
 
 	v.outstanding++
 
+	var err error
 	v.gp.ScheduleWork(func() {
 		defer func() {
 			if r := recover(); r != nil {
-				// TODO: Obtain "op" from Processor. It has the most context.
 				log.Errorf("execute panic: %v", r)
-				r = &result{
-					err: fmt.Errorf("dispatch panic: %v", r),
-				}
+				err = fmt.Errorf("dispatch panic: %v", r)
+				v.results <- result{err: err}
 			}
 		}()
 
-		err := processFn(ctx, handler, instances)
-		v.results <- &result{err: err}
+		err = processFn(ctx, handler, instances)
+		v.results <- result{err: err}
 	})
 }
 
@@ -127,26 +116,17 @@ func (v *executor) executeCheck(
 	v.outstanding++
 
 	v.gp.ScheduleWork(func() {
-		var r *result
-
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from Processor. It has the most context.
 				log.Errorf("execute panic: %v", r)
-				r = &result{
-					err: fmt.Errorf("dispatch panic: %v", r),
-				}
+				err := fmt.Errorf("dispatch panic: %v", r)
+				v.results <- result{err: err}
 			}
 		}()
 
 		res, err := processFn(ctx, handler, instance)
-		if err != nil {
-			r = &result{err: err}
-		} else {
-			r = &result{res: res}
-		}
-
-		v.results <- r
+		v.results <- result{res: res, err: err}
 	})
 }
 
@@ -165,8 +145,6 @@ func (v *executor) executePreprocess(
 	v.outstanding++
 
 	v.gp.ScheduleWork(func() {
-		var r *result
-
 		defer func() {
 			if r := recover(); r != nil {
 				// TODO: Obtain "op" from Processor. It has the most context.
@@ -178,53 +156,9 @@ func (v *executor) executePreprocess(
 		}()
 
 		res, err := processFn(ctx, handler, instance, attrs, mapper)
-		if err != nil {
-			r = &result{err: err}
-		} else {
-			r = &result{res: res}
-		}
-
-		v.results <- r
+		v.results <- result{res: res, err: err}
 	})
 }
-
-//
-//func (v *executor) executeMultiInstance(
-//	ctx context.Context,
-//	handler adapter.Handler,
-//	processor template.MultiInstanceProcessorFn,
-//	param interface{},
-//	instances []interface{}, op string) {
-//
-//	if v.outstanding == v.maxParallelism {
-//		panic("Request to execute more parallel tasks than can be handled.")
-//	}
-//
-//	v.outstanding++
-//
-//	v.gp.ScheduleWork(func() {
-//		var r *result
-//
-//		defer func() {
-//			if r := recover(); r != nil {
-//				// TODO: Obtain "op" from Processor. It has the most context.
-//				log.Errorf("execute %s panic: %v", op, r)
-//				r = &result{
-//					err: fmt.Errorf("dispatch %s panic: %v", op, r),
-//				}
-//			}
-//		}()
-//
-//		res, err := processor(ctx, handler, param, instances)
-//		if err != nil {
-//			r = &result{err: err}
-//		} else {
-//			r = &result{res: res}
-//		}
-//
-//		v.results <- r
-//	})
-//}
 
 // wait for the completion of outstanding work and collect results.
 func (v *executor) wait() (interface{}, error) {
@@ -277,7 +211,7 @@ func newExecutorPool(gp *pool.GoroutinePool) *executorPool {
 		pool: sync.Pool{
 			New: func() interface{} {
 				return &executor{
-					results: make(chan *result, queueAllocSize),
+					results: make(chan result, queueAllocSize),
 					gp:      gp,
 				}
 			}},
@@ -298,7 +232,7 @@ func (p *executorPool) get(maxParallelism int) *executor {
 	// Resize the channel to accommodate the parallelism, if necessary.
 	if dispatcher.maxParallelism < maxParallelism {
 		allocSize := ((maxParallelism / queueAllocSize) + 1) * queueAllocSize
-		dispatcher.results = make(chan *result, allocSize)
+		dispatcher.results = make(chan result, allocSize)
 		dispatcher.maxParallelism = maxParallelism
 	}
 
