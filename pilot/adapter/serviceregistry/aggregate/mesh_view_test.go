@@ -164,13 +164,13 @@ func buildMockMeshResourceView() *MeshResourceView {
 	platform2 = platform.ServiceRegistry("mockAdapter2")
 
 	registry1 := Registry{
-		Name:             platform1,
-		Controller:       &MockController{platform1},
+		Name:       platform1,
+		Controller: &MockController{platform1},
 	}
 
 	registry2 := Registry{
-		Name:             platform2,
-		Controller:       &MockController{platform2},
+		Name:       platform2,
+		Controller: &MockController{platform2},
 	}
 
 	meshView := NewMeshResourceView()
@@ -401,30 +401,30 @@ func TestGetService(t *testing.T) {
 func TestManagementPorts(t *testing.T) {
 	meshView := buildMockMeshResourceView()
 	mockInstances = buildMockInstances()
-    triggerAddInstanceEvents()	
+	triggerAddInstanceEvents()
 	expected := buildMockManagementPorts()
-    t.Run("ExpectNone", func(t *testing.T) {
-    	ports := meshView.ManagementPorts(mock.MakeIP(mock.HelloService, 1))
-    	if len(ports) != 0 {
-    		t.Errorf("Returned wrong number of ports from MeshView. Expected '0' Found '%d'", len(ports))
-    	}
-    })
-    t.Run("ExpectTwo", func(t *testing.T) {
-    	ports := meshView.ManagementPorts(mock.MakeIP(mock.WorldService, 1))
-    	if len(ports) != len(expected) {
-    		t.Errorf("Returned wrong number of ports from MeshView. Expected '%d' Found '%d'", len(expected), len(ports))
-    	}
-    	for i := 0; i < len(ports); i++ {
-    		if ports[i].Name != expected[i].Name || ports[i].Port != expected[i].Port ||
-    			ports[i].Protocol != expected[i].Protocol {
-    			t.Errorf("Returned management ports result does not match expected one. Expected '%v' Found '%v'", expected[i], ports[i])
-    		}
-    	}
-    })
+	t.Run("ExpectNone", func(t *testing.T) {
+		ports := meshView.ManagementPorts(mock.MakeIP(mock.HelloService, 1))
+		if len(ports) != 0 {
+			t.Errorf("Returned wrong number of ports from MeshView. Expected '0' Found '%d'", len(ports))
+		}
+	})
+	t.Run("ExpectTwo", func(t *testing.T) {
+		ports := meshView.ManagementPorts(mock.MakeIP(mock.WorldService, 1))
+		if len(ports) != len(expected) {
+			t.Errorf("Returned wrong number of ports from MeshView. Expected '%d' Found '%d'", len(expected), len(ports))
+		}
+		for i := 0; i < len(ports); i++ {
+			if ports[i].Name != expected[i].Name || ports[i].Port != expected[i].Port ||
+				ports[i].Protocol != expected[i].Protocol {
+				t.Errorf("Returned management ports result does not match expected one. Expected '%v' Found '%v'", expected[i], ports[i])
+			}
+		}
+	})
 }
 
 func buildMockManagementPorts() model.PortList {
-    return model.PortList{{
+	return model.PortList{{
 		Name:     "http",
 		Port:     3333,
 		Protocol: model.ProtocolHTTP,
@@ -440,9 +440,9 @@ func buildMockInstancesFromService(svc *model.Service) []*model.ServiceInstance 
 	for pi, port := range svc.Ports {
 		inst := mock.MakeInstance(svc, port, 1, "")
 		if inst.Service.Hostname != mock.HelloService.Hostname {
-        	inst.ManagementPorts = buildMockManagementPorts()
+			inst.ManagementPorts = buildMockManagementPorts()
 		}
-    	out[pi] = inst	
+		out[pi] = inst
 	}
 	return out
 }

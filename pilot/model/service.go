@@ -214,7 +214,7 @@ type ServiceInstance struct {
 	Labels           Labels          `json:"labels,omitempty"`
 	AvailabilityZone string          `json:"az,omitempty"`
 	ServiceAccount   string          `json:"serviceaccount,omitempty"`
-    ManagementPorts  PortList  		 `json:"managementports,omitempty"`
+	ManagementPorts  PortList        `json:"managementports,omitempty"`
 }
 
 // ServiceDiscovery enumerates Istio service instances.

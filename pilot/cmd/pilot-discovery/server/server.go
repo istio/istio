@@ -395,13 +395,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				}, 2)
 
 			registry1 := aggregate.Registry{
-				Name:             platform.ServiceRegistry("mockAdapter1"),
-				Controller:       &mockController{mockDiscovery: discovery1},
+				Name:       platform.ServiceRegistry("mockAdapter1"),
+				Controller: &mockController{mockDiscovery: discovery1},
 			}
 
 			registry2 := aggregate.Registry{
-				Name:             platform.ServiceRegistry("mockAdapter2"),
-				Controller:       &mockController{mockDiscovery: discovery2},
+				Name:       platform.ServiceRegistry("mockAdapter2"),
+				Controller: &mockController{mockDiscovery: discovery2},
 			}
 			meshResourceView.AddRegistry(registry1)
 			meshResourceView.AddRegistry(registry2)
@@ -409,9 +409,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
 			meshResourceView.AddRegistry(
 				aggregate.Registry{
-					Name:             platform.ServiceRegistry(serviceRegistry),
-					Controller:       kubectl,
-
+					Name:       platform.ServiceRegistry(serviceRegistry),
+					Controller: kubectl,
 				})
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
@@ -446,8 +445,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			}
 			meshResourceView.AddRegistry(
 				aggregate.Registry{
-					Name:             platform.ServiceRegistry(r),
-					Controller:       conctl,
+					Name:       platform.ServiceRegistry(r),
+					Controller: conctl,
 				})
 		case EurekaRegistry:
 			glog.V(2).Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
@@ -456,7 +455,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				aggregate.Registry{
 					Name: platform.ServiceRegistry(r),
 					// TODO: Remove sync time hardcoding!
-					Controller:       eureka.NewController(eurekaClient, 2*time.Second),
+					Controller: eureka.NewController(eurekaClient, 2*time.Second),
 				})
 
 		case CloudFoundryRegistry:

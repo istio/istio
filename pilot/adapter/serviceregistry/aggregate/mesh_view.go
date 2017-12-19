@@ -205,26 +205,26 @@ func (v *MeshResourceView) GetService(hostname string) (*model.Service, error) {
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (v *MeshResourceView) ManagementPorts(addr string) model.PortList {
- 	lbls := labelsForIPSet(labelInstanceIP, map[string]bool{addr: true})
+	lbls := labelsForIPSet(labelInstanceIP, map[string]bool{addr: true})
 	instances := v.serviceInstancesByLabels(lbls)
-	if (len(instances) == 0) {
-	    return nil
-	} 
+	if len(instances) == 0 {
+		return nil
+	}
 	portMap := map[int]*model.Port{}
 	for _, inst := range instances {
-	    for _, mgmtPort := range inst.ManagementPorts {
-	        portMap[mgmtPort.Port] = mgmtPort
-	    }
-	}   
-	if (len(portMap) == 0) {
-	    return nil
-	} 
-    out := make(model.PortList, len(portMap))
-    pidx := 0
-    for _, port := range portMap {
-        out[pidx] = port
-        pidx++
-    }
+		for _, mgmtPort := range inst.ManagementPorts {
+			portMap[mgmtPort.Port] = mgmtPort
+		}
+	}
+	if len(portMap) == 0 {
+		return nil
+	}
+	out := make(model.PortList, len(portMap))
+	pidx := 0
+	for _, port := range portMap {
+		out[pidx] = port
+		pidx++
+	}
 	return out
 }
 
