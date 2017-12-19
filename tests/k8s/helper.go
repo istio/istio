@@ -1,9 +1,9 @@
 package k8s
 
 import (
+	"log"
 	"os"
 	"os/user"
-	"log"
 )
 
 // Kubeconfig returns the config to use for testing.
