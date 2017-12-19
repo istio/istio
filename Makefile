@@ -31,6 +31,10 @@ GO ?= go
 export GOOS ?= linux
 export GOARCH ?= amd64
 
+# Optional file including user-specific settings (HUB, TAG, etc)
+-include .istiorc
+
+
 # @todo allow user to run for a single $PKG only?
 PACKAGES := $(shell $(GO) list ./...)
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
@@ -51,6 +55,8 @@ ifneq ($(strip $(HUB)),)
 	hub =-hub ${HUB}
 endif
 
+# If tag not explicitly set in users' .istiorc or command line, default to the git sha.
+TAG ?= $(shell git rev-parse --verify HEAD)
 ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
@@ -306,3 +312,12 @@ ${OUT}/dist/Gopkg.lock:
 dist-bin: ${OUT}/dist/Gopkg.lock
 
 dist: dist-bin
+
+#-----------------------------------------------------------------------------
+# Target: e2e tests
+#-----------------------------------------------------------------------------
+
+# Run the e2e tests. Targets correspond to the prow environments/tests
+e2e: istioctl
+	./tests/e2e.sh ${E2E_ARGS} --istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}

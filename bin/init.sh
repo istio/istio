@@ -9,30 +9,50 @@ set -o nounset
 set -o pipefail
 set -x
 
+USE_BAZEL=${USE_BAZEL:-0}
+
+# Set GOPATH to match the expected layout
+export TOP=$(cd $(dirname $0)/../../../..; pwd)
+export GOPATH=$TOP
+
 # Ensure expected GOPATH setup
 if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        echo "Istio not found in GOPATH/src/istio.io/"
        exit 1
 fi
 
-# Clean up vendor dir
-rm -rf ${ROOT}/vendor
-mkdir -p ${ROOT}/vendor
-
 # This step is to fetch resources and create genfiles
-time bazel build //...
-time bazel build $(bazel query 'tests(//...)')
+if [ "$USE_BAZEL" == "1" ] ; then
+  time bazel build //...
+  time bazel build $(bazel query 'tests(//...)')
 
-source "${ROOT}/bin/use_bazel_go.sh"
+  source "${ROOT}/bin/use_bazel_go.sh"
+  # Clean up vendor dir
+  rm -rf ${ROOT}/vendor
+  mkdir -p ${ROOT}/vendor
 
-# Clean up vendor dir
-rm -rf ${ROOT}/vendor
-mkdir -p ${ROOT}/vendor
+  # Vendorize bazel dependencies
+  ${ROOT}/bin/bazel_to_go.py ${ROOT}
 
-# Vendorize bazel dependencies
-${ROOT}/bin/bazel_to_go.py ${ROOT}
-genfiles=$(bazel info bazel-genfiles)
-ln -sf "$genfiles/proxy/envoy/envoy" ${ROOT}/pilot/proxy/envoy/
+  genfiles=$(bazel info bazel-genfiles)
+  ln -sf "$genfiles/proxy/envoy/envoy" ${ROOT}/pilot/proxy/envoy/
 
-# Remove doubly-vendorized k8s dependencies
-rm -rf ${ROOT}/vendor/k8s.io/*/vendor
+  # Remove doubly-vendorized k8s dependencies
+  rm -rf ${ROOT}/vendor/k8s.io/*/vendor
+else
+  # Download dependencies
+  dep ensure
+
+  # Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
+  #ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' WORKSPACE))
+  #PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
+  PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
+  PROXY=debug-$PROXYVERSION
+  pushd $OUT
+  # TODO: Use circleci builds
+  curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
+  cp usr/local/bin/envoy $TOP/bin/envoy
+  ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy/
+fi
+
+

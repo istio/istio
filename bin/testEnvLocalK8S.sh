@@ -19,6 +19,9 @@ export MASTER_CLUSTER_IP=10.99.0.1
 # TODO: customize the ports and generate a local config
 export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
 
+export USE_BAZEL=0
+
+./init.sh
 
 CERTDIR=${CERTDIR:-${OUT}/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}
@@ -62,17 +65,8 @@ function getDeps() {
      go get github.com/coreos/etcd/cmd/etcd
    fi
    if [ ! -f $TOP/bin/envoy ] ; then
-    # Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
-    #ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' WORKSPACE))
-    #PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
-    PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
-    PROXY=debug-$PROXYVERSION
-    pushd $OUT
-    # TODO: Use circleci builds
-    curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-    cp usr/local/bin/envoy $TOP/bin/envoy
-    popd
-
+    # Init should be run after cloning the workspace
+    ./init.sh
    fi
 }
 
