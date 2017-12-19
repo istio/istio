@@ -37,6 +37,11 @@ type (
 	}
 )
 
+var (
+	hub = flag.String("hub", "", "Docker hub that the Istio CA image is hosted")
+	tag = flag.String("tag", "", "Tag for Istio CA image")
+)
+
 // NewKubernetesPod create a K8s pod instance
 func NewKubernetesPod(clientset *kubernetes.Clientset, namespace string, name string,
 	image string, cmds []string, args []string) *KubernetesPod {

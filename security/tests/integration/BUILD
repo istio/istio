@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "flags.go",
         "istio_ca_cert_rotation_env.go",
         "istio_ca_node_agent_env.go",
         "istio_ca_secret_env.go",
