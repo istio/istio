@@ -202,29 +202,12 @@ type envoy struct {
 	extraArgs []string
 }
 
-// ProxyLogLevel defines the value of the log level flag (-l) passed to the Envoy proxy upon creation.
-type ProxyLogLevel string
-
-const (
-	// ProxyLogLevelNone environment flag
-	ProxyLogLevelNone ProxyLogLevel = "none"
-	// ProxyLogLevelDebug environment flag
-	ProxyLogLevelDebug ProxyLogLevel = "debug"
-	// ProxyLogsLevelTrace environment flag
-	ProxyLogsLevelTrace ProxyLogLevel = "trace"
-)
-
 // NewProxy creates an instance of the proxy control commands
-func NewProxy(config meshconfig.ProxyConfig, node string, logLevel ProxyLogLevel) proxy.Proxy {
+func NewProxy(config meshconfig.ProxyConfig, node string, logLevel string) proxy.Proxy {
 	// inject tracing flag for higher levels
 	var args []string
-	switch logLevel {
-	case ProxyLogLevelDebug:
-		args = append(args, "-l", "debug")
-	case ProxyLogsLevelTrace:
-		args = append(args, "-l", "trace")
-	case ProxyLogLevelNone:
-		// Do nothing.
+	if logLevel != "" {
+		args = append(args, "-l", logLevel)
 	}
 
 	return envoy{

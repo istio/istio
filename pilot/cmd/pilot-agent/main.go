@@ -201,7 +201,7 @@ var (
 
 			glog.V(2).Infof("Monitored certs: %#v", certs)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), envoy.ProxyLogLevel(proxyLogLevel))
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -270,9 +270,10 @@ func init() {
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the generated configuration file directory")
-	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", string(envoy.ProxyLogLevelNone),
-		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s})",
-			envoy.ProxyLogLevelNone, envoy.ProxyLogLevelDebug, envoy.ProxyLogsLevelTrace))
+	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
+		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
+			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
