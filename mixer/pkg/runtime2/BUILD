@@ -10,7 +10,6 @@ go_library(
     deps = [
         # Only for the dispatcher interface.
         "//mixer/pkg/runtime:go_default_library",
-
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/config/store:go_default_library",
@@ -25,4 +24,3 @@ go_library(
         "@com_github_gogo_protobuf//proto:go_default_library",
     ],
 )
-

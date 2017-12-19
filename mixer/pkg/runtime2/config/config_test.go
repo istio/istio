@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
+
 	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -107,10 +108,10 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &configpb.AttributeManifest{
 						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": &configpb.AttributeManifest_AttributeInfo{
+							"foo": {
 								ValueType: descriptorpb.STRING,
 							},
-							"bar": &configpb.AttributeManifest_AttributeInfo{
+							"bar": {
 								ValueType: descriptorpb.INT64,
 							},
 						},
@@ -150,10 +151,10 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &configpb.AttributeManifest{
 						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": &configpb.AttributeManifest_AttributeInfo{
+							"foo": {
 								ValueType: descriptorpb.STRING,
 							},
-							"bar": &configpb.AttributeManifest_AttributeInfo{
+							"bar": {
 								ValueType: descriptorpb.INT64,
 							},
 						},
@@ -196,17 +197,17 @@ Attributes:
 	{
 		Name: "initial state attributes deleted",
 		Initial: map[store.Key]*store.Resource{
-			store.Key{
+			{
 				Name:      "attributes",
 				Namespace: "ns",
 				Kind:      "attributemanifest",
 			}: {
 				Spec: &configpb.AttributeManifest{
 					Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-						"foo": &configpb.AttributeManifest_AttributeInfo{
+						"foo": {
 							ValueType: descriptorpb.STRING,
 						},
-						"bar": &configpb.AttributeManifest_AttributeInfo{
+						"bar": {
 							ValueType: descriptorpb.INT64,
 						},
 					},
@@ -266,10 +267,10 @@ Attributes:
 				Value: &store.Resource{
 					Spec: &configpb.AttributeManifest{
 						Attributes: map[string]*configpb.AttributeManifest_AttributeInfo{
-							"foo": &configpb.AttributeManifest_AttributeInfo{
+							"foo": {
 								ValueType: descriptorpb.STRING,
 							},
-							"bar": &configpb.AttributeManifest_AttributeInfo{
+							"bar": {
 								ValueType: descriptorpb.INT64,
 							},
 						},

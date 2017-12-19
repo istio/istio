@@ -9,8 +9,8 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/il/compiled:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",

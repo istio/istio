@@ -17,6 +17,7 @@ package data
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
