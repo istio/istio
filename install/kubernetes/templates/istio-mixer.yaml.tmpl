@@ -57,7 +57,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: statsd-to-prometheus
-        image: prom/statsd-exporter
+        image: prom/statsd-exporter:v0.5.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102
@@ -184,6 +184,40 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
+  name: kuberneteses.config.istio.io
+  labels:
+    package: adapter.template.kubernetes
+    istio: mixer-instance
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetes
+    plural: kuberneteses
+    singular: kubernetes
+  scope: Namespaced
+  version: v1alpha2
+
+---
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: kubernetesenvs.config.istio.io
+  labels:
+    package: kubernetesenv
+    istio: mixer-adapter
+spec:
+  group: config.istio.io
+  names:
+    kind: kubernetesenv
+    plural: kubernetesenvs
+    singular: kubernetesenv
+  scope: Namespaced
+  version: v1alpha2
+---
+
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
   name: memquotas.config.istio.io
   labels:
     package: memquota
@@ -286,16 +320,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: svcctrls.config.istio.io
+  name: servicecontrols.config.istio.io
   labels:
-    package: svcctrl
+    package: servicecontrol
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: svcctrl
-    plural: svcctrls
-    singular: svcctrl
+    kind: servicecontrol
+    plural: servicecontrols
+    singular: servicecontrol
   scope: Namespaced
   version: v1alpha2
 ---
