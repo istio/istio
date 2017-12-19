@@ -72,3 +72,4 @@ echo buildHost          "$(hostname -f)"
 # used by mixer/broker version package
 echo "buildVersion ${VERSION}"
 echo "buildStatus ${tree_status}"
+echo "buildID $(TZ=UTC git log --pretty="%cd-%h" --date=short-local  -n 1)"

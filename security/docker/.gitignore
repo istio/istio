@@ -1,0 +1,4 @@
+*.key
+*.crt
+istio_ca
+node_agent
