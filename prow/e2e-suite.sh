@@ -27,6 +27,8 @@ set -u
 set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  export USER=Prow
+
   # Make sure we are in the right directory
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
