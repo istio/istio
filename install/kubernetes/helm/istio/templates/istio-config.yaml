@@ -1,7 +1,7 @@
-{{- if .Values.Istio.deploy_base_config }}
+{{- if .Values.istio.deploy_base_config }}
 {{- $istio_namespace := .Values.global.namespace }}
 ################################
-# Istio configMap cluster-wide
+# istio configMap cluster-wide
 ################################
 apiVersion: v1
 kind: ConfigMap
@@ -18,7 +18,7 @@ data:
     # authPolicy: MUTUAL_TLS
     #
     # Edit this list to avoid using mTLS to connect to these services.
-    # Typically, these are control services (e.g kubernetes API server) that don't have Istio sidecar
+    # Typically, these are control services (e.g kubernetes API server) that don't have istio sidecar
     # to transparently terminate mTLS authentication.
     # mtlsExcludedServices: ["kubernetes.default.svc.cluster.local"]
 
@@ -36,7 +36,7 @@ data:
     #
     # Along with discoveryRefreshDelay, this setting determines how
     # frequently should Envoy fetch and update its internal configuration
-    # from Istio Pilot. Lower refresh delay results in higher CPU
+    # from istio Pilot. Lower refresh delay results in higher CPU
     # utilization and potential performance loss in exchange for faster
     # convergence. Tweak this value according to your setup.
     rdsRefreshDelay: 1s
@@ -69,13 +69,13 @@ data:
       # for more details
       proxyAdminPort: 15000
       #
-      # Address where Istio Pilot service is running
+      # Address where istio Pilot service is running
       discoveryAddress: istio-pilot.{{ $istio_namespace }}:15003
       #
       # Zipkin trace collector
       zipkinAddress: zipkin.{{ $istio_namespace }}:9411
       #
-      # Statsd metrics collector. Istio mixer exposes a UDP endpoint
+      # Statsd metrics collector. istio mixer exposes a UDP endpoint
       # to collect and convert statsd metrics into Prometheus metrics.
       statsdUdpAddress: istio-mixer.{{ $istio_namespace }}:9125
       # Uncomment the following line to enable mutual TLS authentication between
