@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -82,6 +83,9 @@ type InputSet struct {
 
 	// Condition for applying this input set.
 	Condition compiled.Expression
+
+	// ResourceType is the resource type condition for this input set.
+	ResourceType config.ResourceType
 
 	// Builders for this input set for each instance that should be applied.
 	Builders []template.InstanceBuilderFn

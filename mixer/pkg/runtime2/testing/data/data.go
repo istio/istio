@@ -61,7 +61,7 @@ metadata:
 spec:
 `
 
-// InstanceI1 is a standard testing instance config with name I2.
+// InstanceI2 is a standard testing instance config with name I2.
 var InstanceI2 = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: t1
@@ -129,7 +129,7 @@ spec:
 // GlobalConfig is the default GlobalConfig that consists of combination of various default config entries.
 var GlobalConfig = JoinConfigs(HandlerH1, InstanceI1, RuleR1I1)
 
-// GlobalConfig2 is the an alternate GlobalConfig instance.
+// GlobalConfigI2 is the an alternate GlobalConfig instance.
 var GlobalConfigI2 = JoinConfigs(HandlerH1, InstanceI1, InstanceI2, RuleR1a)
 
 // RuleR1a is a modification of the R1 rule.

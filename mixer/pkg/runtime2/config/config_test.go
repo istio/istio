@@ -20,7 +20,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"go.uber.org/zap/zapcore"
-	"istio.io/istio/pkg/log"
 
 	descriptorpb "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/api/mixer/v1/template"
@@ -28,6 +27,7 @@ import (
 	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 )
 
 var tests = []struct {

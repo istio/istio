@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/runtime2/config"
 	"istio.io/istio/mixer/pkg/runtime2/routing"
 	"istio.io/istio/pkg/log"
 )
@@ -134,11 +135,14 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 		return nil, err
 	}
 
+	ctxProtocol, _ := bag.Get(config.ContextProtocolAttributeName)
+	tcp := ctxProtocol == config.ContextProtocolTCP
+
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
 		for _, inputs := range destination.Inputs {
-			if !inputs.ShouldApply(bag) {
+			if !inputs.ShouldApply(bag) || inputs.ResourceType.IsTCP() != tcp {
 				continue
 			}
 
@@ -165,6 +169,9 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 	c := d.acquireContext()
 	ctx = d.updateContext(ctx, bag)
 
+	ctxProtocol, _ := bag.Get(config.ContextProtocolAttributeName)
+	tcp := ctxProtocol == config.ContextProtocolTCP
+
 	destinations, err := c.Routes.GetDestinations(istio_mixer_v1_template.TEMPLATE_VARIETY_REPORT, bag)
 	if err != nil {
 		c.DecRef()
@@ -183,7 +190,7 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 		// TODO: We can create a pooled buffer to avoid this allocation
 		instances := make([]interface{}, 0, destination.MaxInstances())
 		for _, inputs := range destination.Inputs {
-			if !inputs.ShouldApply(bag) {
+			if !inputs.ShouldApply(bag) || inputs.ResourceType.IsTCP() != tcp {
 				continue
 			}
 			for _, input := range inputs.Builders {
@@ -222,6 +229,9 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 		return nil, err
 	}
 
+	ctxProtocol, _ := bag.Get(config.ContextProtocolAttributeName)
+	tcp := ctxProtocol == config.ContextProtocolTCP
+
 	quotaArgs := adapter.QuotaArgs{
 		DeduplicationID: qma.DeduplicationID,
 		QuotaAmount:     qma.Amount,
@@ -232,7 +242,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 
 	for _, destination := range destinations.Entries() {
 		for _, inputs := range destination.Inputs {
-			if !inputs.ShouldApply(bag) {
+			if !inputs.ShouldApply(bag) || inputs.ResourceType.IsTCP() != tcp {
 				continue
 			}
 
@@ -276,11 +286,14 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 		return nil
 	}
 
+	ctxProtocol, _ := bag.Get(config.ContextProtocolAttributeName)
+	tcp := ctxProtocol == config.ContextProtocolTCP
+
 	executor := d.execPool.get(destinations.Count())
 
 	for _, destination := range destinations.Entries() {
 		for _, inputs := range destination.Inputs {
-			if !inputs.ShouldApply(bag) {
+			if !inputs.ShouldApply(bag) || inputs.ResourceType.IsTCP() != tcp {
 				continue
 			}
 

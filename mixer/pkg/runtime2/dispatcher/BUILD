@@ -12,6 +12,7 @@ go_library(
         "//mixer/pkg/runtime:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/aspect:go_default_library",
+        "//mixer/pkg/runtime2/config:go_default_library",
         "//mixer/pkg/runtime2/routing:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
         "//mixer/pkg/il/compiled:go_default_library",

@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/mixer/pkg/adapter"
 	configpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -103,6 +104,11 @@ func (e *Ephemeral) ApplyEvents(events []*store.Event) {
 
 // BuildSnapshot builds a stable, fully-resolved snapshot view of the configuration.
 func (e *Ephemeral) BuildSnapshot() *Snapshot {
+	id := e.nextID
+	e.nextID++
+
+	log.Debugf("Starting building of new snapshot with id: '%d'", id)
+
 	attributes := e.processAttributeManifests()
 
 	handlers := e.processHandlerConfigs()
@@ -112,9 +118,6 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	rules := e.processRuleConfigs(handlers, instances)
 
 	e.attributesChanged = false
-
-	id := e.nextID
-	e.nextID++
 
 	s := &Snapshot{
 		ID:         id,
@@ -129,7 +132,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	e.latest = s
 
 	if log.DebugEnabled() {
-		log.Debugf("Built new snapshot:\n%s", s.String())
+		log.Debugf("Built new snapshot: id:'%d', \n%s", id, s.String())
 	}
 	return s
 }
@@ -247,10 +250,24 @@ func (e *Ephemeral) processRuleConfigs(
 
 		cfg := resource.Spec.(*configpb.Rule)
 
+		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
+		rt := resourceType(resource.Metadata.Labels)
+		if cfg.Match != "" {
+			m, err := expr.ExtractEQMatches(cfg.Match)
+			if err != nil {
+				log.Warnf("ConfigWarning: Unable to extract resource type from rule: %s", ruleName)
+				continue
+			}
+
+			if ContextProtocolTCP == m[ContextProtocolAttributeName] {
+				rt.protocol = protocolTCP
+			}
+		}
+
 		var actions []*Action
 		for i, a := range cfg.Actions {
 
-		log.Debugf("Processing action: %s[%d]", ruleName, i)
+			log.Debugf("Processing action: %s[%d]", ruleName, i)
 
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			handler, found := handlers[handlerName]
@@ -290,9 +307,6 @@ func (e *Ephemeral) processRuleConfigs(
 			log.Warnf("ConfigWarning no valid actions found in rule: %s", ruleName)
 			continue
 		}
-
-		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
-		rt := resourceType(resource.Metadata.Labels)
 
 		rule := &Rule{
 			Name:         ruleName,
