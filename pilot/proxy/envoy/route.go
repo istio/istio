@@ -345,7 +345,7 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 
 		routes = append(routes, matchRoutes...)
 	}
-	if len(rule.Http) == 0 { // TODO: how do we setup the default route?
+	if len(rule.Http) == 0 {
 		route := &HTTPRoute{
 			Prefix: "/",
 		}
