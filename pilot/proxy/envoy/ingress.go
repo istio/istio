@@ -167,7 +167,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig,
 
 	// TODO: not handling header match in ingress apart from uri and authority (uri must not be regex)
 	if len(ingressRoute.Headers) > 0 {
-		if len(ingressRoute.Headers) > 1 || ingressRoute.Headers[0].Name != model.HeaderAuthority {
+		if len(ingressRoute.Headers) > 1 || ingressRoute.Headers[0].Name != headerAuthority {
 			return nil, "", errors.New("header matches in ingress rule not supported")
 		}
 	}

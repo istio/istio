@@ -1,0 +1,10 @@
+dependencies:
+  - name: pilot
+    version: 0.3.0
+    condition: Istio.pilot_enabled
+  - name: mixer
+    version: 0.3.0
+    condition: Istio.mixer_enabled
+  - name: initializer
+    version: 0.3.0
+    condition: Istio.initializer_enabled

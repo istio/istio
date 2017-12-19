@@ -47,5 +47,6 @@ func TestString(t *testing.T) {
 	a := NewArgs()
 
 	// just make sure this doesn't crash
-	_ = a.String()
+	s := a.String()
+	t.Log(s)
 }

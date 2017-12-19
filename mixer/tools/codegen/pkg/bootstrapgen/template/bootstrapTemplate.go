@@ -43,9 +43,9 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/pkg/log"
 	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/template"
-	"github.com/golang/glog"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"errors"
@@ -62,9 +62,6 @@ var (
 	_ istio_mixer_v1_config.AttributeManifest
 	_ = strings.Reader{}
 )
-
-
-const emptyQuotes = "\"\""
 
 type (
 	getFn         func(name string) (value interface{}, found bool)
@@ -190,7 +187,7 @@ var (
 									}
 								}
 							{{else}}
-								if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+								if param.{{.GoName}} == "" {
 									return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
 								}
 								if infrdType.{{.GoName}}, err = tEvalFn(param.{{.GoName}}); err != nil {
@@ -211,7 +208,7 @@ var (
 								}
 							}
 						{{else}}
-							if param.{{.GoName}} == "" || param.{{.GoName}} == emptyQuotes {
+							if param.{{.GoName}} == "" {
 								return nil, fmt.Errorf("expression for field '%s' cannot be empty", path + "{{.GoName}}")
 							}
 							if t, e := tEvalFn(param.{{.GoName}}); e != nil || t != {{getValueType .GoType}} {
@@ -339,7 +336,7 @@ var (
 				{{end}}
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path + "{{.GoName}}", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 			{{end}}
@@ -409,8 +406,12 @@ var (
 					if err != nil {
 						return nil, err
 					}
+					abag := attrs
 					const fullOutName = "{{.GoPackageName}}.output."
-					abag := newWrapperAttrBag(
+					if out == nil {
+						log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
+					} else {
+					abag = newWrapperAttrBag(
 						func(name string) (value interface{}, found bool) {
 							field := strings.TrimPrefix(name, fullOutName)
 							if len(field) != len(name) {
@@ -434,7 +435,7 @@ var (
 						func() {attrs.Done()},
 						func() string {return attrs.DebugString()},
 					)
-
+					}
 					resultBag := attribute.GetMutableBag(nil)
 					for attrName, outExpr := range instParam.AttributeBindings {
 						ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
@@ -446,7 +447,6 @@ var (
 						case net.IP:
 							// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
 							// TODO: remove
-							glog.V(4).Info("converting net.IP to []byte")
 							if v4 := v.To4(); v4 != nil {
 								resultBag.Set(attrName, []byte(v4))
 								continue

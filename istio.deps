@@ -4,34 +4,34 @@
 		"repoName": "api",
 		"prodBranch": "master",
 		"file": "istio_api.bzl",
-		"lastStableSHA": "ecdcbe628b39330bb236a1d2a9f5ff228149cc3b"
+		"lastStableSHA": "04f0973b762a149fce02fd0a8331541fba992eb1"
 	},
 	{
 		"name": "ISTIO_PROXY_BUCKET",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "WORKSPACE",
-		"lastStableSHA": "a09fc9fc389333b888c3ab1ebf1f79c923a3d0e3"
+		"lastStableSHA": "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
 	},
 	{
 		"name": "/envoy",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy",
-		"lastStableSHA": "a09fc9fc389333b888c3ab1ebf1f79c923a3d0e3"
+		"lastStableSHA": "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
 	},
 	{
 		"name": "/envoy-debug",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "pilot/docker/Dockerfile.proxy_debug",
-		"lastStableSHA": "a09fc9fc389333b888c3ab1ebf1f79c923a3d0e3"
+		"lastStableSHA": "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
 	},
 	{
 		"name": "PROXY_TAG",
 		"repoName": "proxy",
 		"prodBranch": "master",
 		"file": "istio.VERSION",
-		"lastStableSHA": "a09fc9fc389333b888c3ab1ebf1f79c923a3d0e3"
+		"lastStableSHA": "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
 	}
 ]

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -63,10 +64,21 @@ var (
 )
 
 func init() {
+	cmd.AddFlags(rootCmd)
+
+	// hack to make flag.Parsed return true such that glog is happy
+	// about the flags having been parsed
+	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	/* #nosec */
+	_ = fs.Parse([]string{})
+	flag.CommandLine = fs
+
 	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
 		[]string{string(server.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s})",
-			server.KubernetesRegistry, server.ConsulRegistry, server.EurekaRegistry, server.MockRegistry))
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
+			server.KubernetesRegistry, server.ConsulRegistry, server.EurekaRegistry, server.CloudFoundryRegistry, server.MockRegistry))
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
+		"Cloud Foundry config file")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
@@ -87,6 +99,8 @@ func init() {
 
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.DiscoveryOptions.Port, "port", 8080,
 		"Discovery service port")
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.DiscoveryOptions.MonitoringPort, "monitoringPort", 9093,
+		"HTTP port to use for the exposing pilot self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discovery_cache", true,
@@ -113,7 +127,6 @@ func init() {
 		"admission-registration-delay", 0*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 
-	cmd.AddFlags(rootCmd)
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 }

@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/mixer/template/sample/apa"
 
@@ -52,8 +52,6 @@ var (
 	_ istio_mixer_v1_config.AttributeManifest
 	_ = strings.Reader{}
 )
-
-const emptyQuotes = "\"\""
 
 type (
 	getFn         func(name string) (value interface{}, found bool)
@@ -147,7 +145,7 @@ var (
 
 					var err error = nil
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -157,7 +155,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -167,7 +165,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -177,7 +175,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -197,7 +195,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -207,7 +205,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -217,7 +215,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Duration", t, istio_mixer_v1_config_descriptor.DURATION)
 					}
 
-					if param.OptionalIP == "" || param.OptionalIP == emptyQuotes {
+					if param.OptionalIP == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"OptionalIP")
 					}
 					if t, e := tEvalFn(param.OptionalIP); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
@@ -227,7 +225,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OptionalIP", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
 					}
 
-					if param.Email == "" || param.Email == emptyQuotes {
+					if param.Email == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Email")
 					}
 					if t, e := tEvalFn(param.Email); e != nil || t != istio_mixer_v1_config_descriptor.EMAIL_ADDRESS {
@@ -250,7 +248,7 @@ var (
 
 					var err error = nil
 
-					if param.Str == "" || param.Str == emptyQuotes {
+					if param.Str == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Str")
 					}
 					if t, e := tEvalFn(param.Str); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -273,7 +271,7 @@ var (
 
 					var err error = nil
 
-					if param.Str == "" || param.Str == emptyQuotes {
+					if param.Str == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Str")
 					}
 					if t, e := tEvalFn(param.Str); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -296,7 +294,7 @@ var (
 
 					var err error = nil
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -306,7 +304,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -316,7 +314,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -326,7 +324,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -346,7 +344,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -356,7 +354,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -472,7 +470,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -480,7 +478,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -488,7 +486,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -496,7 +494,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -504,7 +502,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DimensionsFixedInt64ValueDType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -512,7 +510,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -520,7 +518,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -533,7 +531,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -541,7 +539,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"OptionalIP", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -549,7 +547,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Email", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -601,7 +599,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Str", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -609,7 +607,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SelfRefRes1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -617,7 +615,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResRef2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -645,7 +643,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Str", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -653,7 +651,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -666,7 +664,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -694,7 +692,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -702,7 +700,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -710,7 +708,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -718,7 +716,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -726,7 +724,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DimensionsFixedInt64ValueDType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -734,7 +732,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -742,7 +740,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -784,61 +782,65 @@ var (
 				if err != nil {
 					return nil, err
 				}
+				abag := attrs
 				const fullOutName = "istio_mixer_adapter_sample_myapa.output."
-				abag := newWrapperAttrBag(
-					func(name string) (value interface{}, found bool) {
-						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) {
-							switch field {
+				if out == nil {
+					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
+				} else {
+					abag = newWrapperAttrBag(
+						func(name string) (value interface{}, found bool) {
+							field := strings.TrimPrefix(name, fullOutName)
+							if len(field) != len(name) {
+								switch field {
 
-							case "int64Primitive":
+								case "int64Primitive":
 
-								return out.Int64Primitive, true
+									return out.Int64Primitive, true
 
-							case "boolPrimitive":
+								case "boolPrimitive":
 
-								return out.BoolPrimitive, true
+									return out.BoolPrimitive, true
 
-							case "doublePrimitive":
+								case "doublePrimitive":
 
-								return out.DoublePrimitive, true
+									return out.DoublePrimitive, true
 
-							case "stringPrimitive":
+								case "stringPrimitive":
 
-								return out.StringPrimitive, true
+									return out.StringPrimitive, true
 
-							case "timeStamp":
+								case "timeStamp":
 
-								return out.TimeStamp, true
+									return out.TimeStamp, true
 
-							case "duration":
+								case "duration":
 
-								return out.Duration, true
+									return out.Duration, true
 
-							case "email":
+								case "email":
 
-								return string(out.Email), true
+									return string(out.Email), true
 
-							case "out_ip":
+								case "out_ip":
 
-								return []uint8(out.OutIp), true
+									return []uint8(out.OutIp), true
 
-							case "out_str_map":
+								case "out_str_map":
 
-								return out.OutStrMap, true
+									return out.OutStrMap, true
 
-							default:
-								return nil, false
+								default:
+									return nil, false
+								}
+
 							}
-
-						}
-						return attrs.Get(name)
-					},
-					func() []string { return attrs.Names() },
-					func() { attrs.Done() },
-					func() string { return attrs.DebugString() },
-				)
-
+							return attrs.Get(name)
+						},
+						func() []string { return attrs.Names() },
+						func() { attrs.Done() },
+						func() string { return attrs.DebugString() },
+					)
+				}
 				resultBag := attribute.GetMutableBag(nil)
 				for attrName, outExpr := range instParam.AttributeBindings {
 					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
@@ -850,7 +852,6 @@ var (
 					case net.IP:
 						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
 						// TODO: remove
-						glog.V(4).Info("converting net.IP to []byte")
 						if v4 := v.To4(); v4 != nil {
 							resultBag.Set(attrName, []byte(v4))
 							continue
@@ -908,7 +909,7 @@ var (
 
 					var err error = nil
 
-					if param.CheckExpression == "" || param.CheckExpression == emptyQuotes {
+					if param.CheckExpression == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"CheckExpression")
 					}
 					if t, e := tEvalFn(param.CheckExpression); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -950,7 +951,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -967,7 +968,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -977,7 +978,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -987,7 +988,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -997,7 +998,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1017,7 +1018,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -1027,7 +1028,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -1069,7 +1070,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -1086,7 +1087,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -1148,7 +1149,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"CheckExpression", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1156,7 +1157,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringMap", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1164,7 +1165,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1202,7 +1203,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1210,7 +1211,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1218,7 +1219,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1226,7 +1227,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1234,7 +1235,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1242,7 +1243,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1250,7 +1251,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1258,7 +1259,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1266,7 +1267,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1274,7 +1275,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1287,7 +1288,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1339,7 +1340,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1347,7 +1348,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1355,7 +1356,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1467,7 +1468,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -1484,7 +1485,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -1494,7 +1495,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -1504,7 +1505,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -1514,7 +1515,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -1534,7 +1535,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -1544,7 +1545,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -1586,7 +1587,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -1603,7 +1604,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -1665,7 +1666,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1673,7 +1674,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolMap", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1681,7 +1682,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1719,7 +1720,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1727,7 +1728,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1735,7 +1736,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1743,7 +1744,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1751,7 +1752,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1759,7 +1760,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1767,7 +1768,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1775,7 +1776,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1783,7 +1784,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1791,7 +1792,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1804,7 +1805,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1856,7 +1857,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1864,7 +1865,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1872,7 +1873,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1941,7 +1942,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -1958,7 +1959,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -1968,7 +1969,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -1978,7 +1979,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -1988,7 +1989,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -2008,7 +2009,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -2018,7 +2019,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -2050,7 +2051,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -2067,7 +2068,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -2077,7 +2078,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.BoolPrimitive == "" || param.BoolPrimitive == emptyQuotes {
+					if param.BoolPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"BoolPrimitive")
 					}
 					if t, e := tEvalFn(param.BoolPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.BOOL {
@@ -2087,7 +2088,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"BoolPrimitive", t, istio_mixer_v1_config_descriptor.BOOL)
 					}
 
-					if param.DoublePrimitive == "" || param.DoublePrimitive == emptyQuotes {
+					if param.DoublePrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DoublePrimitive")
 					}
 					if t, e := tEvalFn(param.DoublePrimitive); e != nil || t != istio_mixer_v1_config_descriptor.DOUBLE {
@@ -2097,7 +2098,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DoublePrimitive", t, istio_mixer_v1_config_descriptor.DOUBLE)
 					}
 
-					if param.StringPrimitive == "" || param.StringPrimitive == emptyQuotes {
+					if param.StringPrimitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"StringPrimitive")
 					}
 					if t, e := tEvalFn(param.StringPrimitive); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
@@ -2117,7 +2118,7 @@ var (
 						}
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -2127,7 +2128,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -2169,7 +2170,7 @@ var (
 
 					var err error = nil
 
-					if param.Value == "" || param.Value == emptyQuotes {
+					if param.Value == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Value")
 					}
 					if infrdType.Value, err = tEvalFn(param.Value); err != nil {
@@ -2186,7 +2187,7 @@ var (
 						}
 					}
 
-					if param.Int64Primitive == "" || param.Int64Primitive == emptyQuotes {
+					if param.Int64Primitive == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Int64Primitive")
 					}
 					if t, e := tEvalFn(param.Int64Primitive); e != nil || t != istio_mixer_v1_config_descriptor.INT64 {
@@ -2196,7 +2197,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Int64Primitive", t, istio_mixer_v1_config_descriptor.INT64)
 					}
 
-					if param.TimeStamp == "" || param.TimeStamp == emptyQuotes {
+					if param.TimeStamp == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"TimeStamp")
 					}
 					if t, e := tEvalFn(param.TimeStamp); e != nil || t != istio_mixer_v1_config_descriptor.TIMESTAMP {
@@ -2206,7 +2207,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"TimeStamp", t, istio_mixer_v1_config_descriptor.TIMESTAMP)
 					}
 
-					if param.Duration == "" || param.Duration == emptyQuotes {
+					if param.Duration == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Duration")
 					}
 					if t, e := tEvalFn(param.Duration); e != nil || t != istio_mixer_v1_config_descriptor.DURATION {
@@ -2216,7 +2217,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Duration", t, istio_mixer_v1_config_descriptor.DURATION)
 					}
 
-					if param.IpAddr == "" || param.IpAddr == emptyQuotes {
+					if param.IpAddr == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"IpAddr")
 					}
 					if t, e := tEvalFn(param.IpAddr); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
@@ -2226,7 +2227,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"IpAddr", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
 					}
 
-					if param.DnsName == "" || param.DnsName == emptyQuotes {
+					if param.DnsName == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DnsName")
 					}
 					if t, e := tEvalFn(param.DnsName); e != nil || t != istio_mixer_v1_config_descriptor.DNS_NAME {
@@ -2236,7 +2237,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DnsName", t, istio_mixer_v1_config_descriptor.DNS_NAME)
 					}
 
-					if param.EmailAddr == "" || param.EmailAddr == emptyQuotes {
+					if param.EmailAddr == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"EmailAddr")
 					}
 					if t, e := tEvalFn(param.EmailAddr); e != nil || t != istio_mixer_v1_config_descriptor.EMAIL_ADDRESS {
@@ -2246,7 +2247,7 @@ var (
 						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"EmailAddr", t, istio_mixer_v1_config_descriptor.EMAIL_ADDRESS)
 					}
 
-					if param.Uri == "" || param.Uri == emptyQuotes {
+					if param.Uri == "" {
 						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Uri")
 					}
 					if t, e := tEvalFn(param.Uri); e != nil || t != istio_mixer_v1_config_descriptor.URI {
@@ -2307,7 +2308,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2315,7 +2316,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2323,7 +2324,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2331,7 +2332,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2339,7 +2340,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2347,7 +2348,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2355,7 +2356,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2363,7 +2364,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2371,7 +2372,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2379,7 +2380,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2431,7 +2432,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2439,7 +2440,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2447,7 +2448,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2455,7 +2456,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2463,7 +2464,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2471,7 +2472,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2479,7 +2480,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2487,7 +2488,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2495,7 +2496,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2503,7 +2504,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2516,7 +2517,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2568,7 +2569,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2576,7 +2577,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2584,7 +2585,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2592,7 +2593,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2600,7 +2601,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2608,7 +2609,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"IpAddr", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2616,7 +2617,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DnsName", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2624,7 +2625,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"EmailAddr", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2632,7 +2633,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Uri", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 

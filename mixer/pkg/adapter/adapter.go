@@ -17,44 +17,12 @@
 package adapter
 
 import (
-	"io"
-
 	"github.com/gogo/protobuf/proto"
 )
 
 type (
-	// Aspect represents a type of end-user functionality with particular semantics. Adapters
-	// expose functionality to Mixer by implementing one or more aspects.
-	Aspect interface {
-		io.Closer
-	}
-
-	// Builder represents a factory of aspects. Adapters register builders with Mixer
-	// in order to allow Mixer to instantiate aspects on demand.
-	Builder interface {
-		io.Closer
-		ConfigValidator
-
-		// Name returns the official name of the aspects produced by this builder.
-		Name() string
-
-		// Description returns a user-friendly description of the aspects produced by this builder.
-		Description() string
-	}
-
 	// Config represents a chunk of adapter configuration state
 	Config proto.Message
-
-	// ConfigValidator handles adapter configuration defaults and validation.
-	ConfigValidator interface {
-		// DefaultConfig returns a default configuration struct for this
-		// adapter. This will be used by the configuration system to establish
-		// the shape of the block of configuration state passed to the NewAspect method.
-		DefaultConfig() (c Config)
-
-		// ValidateConfig determines whether the given configuration meets all correctness requirements.
-		ValidateConfig(c Config) *ConfigErrors
-	}
 
 	// WorkFunc represents a function to invoke.
 	WorkFunc func()
@@ -96,7 +64,7 @@ type (
 
 	// Logger defines where aspects should output their log state to.
 	//
-	// This log information is funneled to Mixer which augments it with
+	// This log is funneled to Mixer which augments it with
 	// desirable metadata and then routes it to the right place.
 	Logger interface {
 		// Used to determine if the supplied verbosity level is enabled.

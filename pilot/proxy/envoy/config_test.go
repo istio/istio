@@ -478,22 +478,26 @@ func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
 		in          string
 		wantAddress string
 		wantName    string
+		wantSSL     bool
 		wantError   bool
 	}{
 		{
 			in:          "https://www.googleapis.com/oauth2/v1/certs",
 			wantAddress: "www.googleapis.com:443",
 			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
 		},
 		{
 			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
 			wantAddress: "www.googleapis.com:443",
 			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
 		},
 		{
 			in:          "http://example.com/oauth2/v1/certs",
 			wantAddress: "example.com:80",
 			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
+			wantSSL:     false,
 		},
 		{
 			in:        ":foo",
@@ -501,7 +505,7 @@ func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		gotName, gotAddress, gotError := buildJWKSURIClusterNameAndAddress(c.in)
+		gotName, gotAddress, gotSSL, gotError := buildJWKSURIClusterNameAndAddress(c.in)
 		if c.wantError != (gotError != nil) {
 			t.Errorf("%s returned unexpected error: want %v got %v: %v",
 				c.in, c.wantError, gotError != nil, gotError)
@@ -511,6 +515,9 @@ func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
 			}
 			if gotName != c.wantName {
 				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
+			}
+			if gotSSL != c.wantSSL {
+				t.Errorf("%s: gotSsl %v wantSSL %v", c.in, gotSSL, c.wantSSL)
 			}
 		}
 	}

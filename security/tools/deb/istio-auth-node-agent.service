@@ -1,6 +1,6 @@
 [Unit]
 Description=istio-auth-node-agent: The Istio auth node agent
-Documentation=http://istio.io/
+Documentation=https://istio.io/
 
 [Service]
 ExecStart=/usr/local/istio/bin/node_agent --logtostderr

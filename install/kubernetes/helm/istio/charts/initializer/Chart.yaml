@@ -1,0 +1,10 @@
+name: initializer 
+version: 0.3.0
+description: Helm chart for initializer deployment
+keywords:
+  - Istio
+  - initializer
+sources:
+  - http://github.com/istio/istio
+engine: gotpl
+icon: https://istio.io/favicons/android-192x192.png

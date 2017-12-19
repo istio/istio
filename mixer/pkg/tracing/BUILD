@@ -7,7 +7,7 @@ go_library(
     srcs = ["tracing.go"],
     visibility = ["//visibility:public"],
     deps = [
-        "@com_github_golang_glog//:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_uber_jaeger_client_go//:go_default_library",
         "@com_github_uber_jaeger_client_go//log:go_default_library",

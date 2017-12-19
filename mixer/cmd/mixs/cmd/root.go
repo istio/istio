@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -28,7 +27,7 @@ import (
 
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter.InfoFn,
-	legacyAdapters []adapter.RegisterFn, printf, fatalf shared.FormatFn) *cobra.Command {
+	printf, fatalf shared.FormatFn) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "mixs",
 		Short: "Mixer is Istio's abstraction on top of infrastructure backends.",
@@ -44,16 +43,7 @@ func GetRootCmd(args []string, info map[string]template.Info, adapters []adapter
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	// hack to make flag.Parsed return true such that glog is happy
-	// about the flags having been parsed
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	/* #nosec */
-	_ = fs.Parse([]string{})
-	flag.CommandLine = fs
-
-	// template.NewRepository(info)
-	rootCmd.AddCommand(adapterCmd(legacyAdapters, printf))
-	rootCmd.AddCommand(serverCmd(info, adapters, legacyAdapters, printf, fatalf))
+	rootCmd.AddCommand(serverCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(crdCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(validatorCmd(info, adapters, printf, fatalf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
