@@ -38,7 +38,7 @@ func TestCleanup_Basic(t *testing.T) {
 
 	table2 := Instantiate(table, s, &data.FakeEnv{})
 
-	Cleanup(table2, table)
+	table.Cleanup(table2)
 
 	if !f.Handler.CloseCalled {
 		t.Fail()
@@ -59,7 +59,7 @@ func TestCleanup_NoChange(t *testing.T) {
 	// use same config again.
 	table2 := Instantiate(table, s, &data.FakeEnv{})
 
-	Cleanup(table2, table)
+	table.Cleanup(table2)
 
 	if f.Handler.CloseCalled {
 		t.Fail()
@@ -87,7 +87,7 @@ func TestCleanup_WithStartupError(t *testing.T) {
 	// use different config to force cleanup
 	table2 := Instantiate(table, config.Empty(), &data.FakeEnv{})
 
-	Cleanup(table2, table)
+	table.Cleanup(table2)
 
 	// Close shouldn't be called.
 	if len(table2.entries) != 0 {
@@ -110,7 +110,7 @@ func TestCleanup_CloseError(t *testing.T) {
 	// use different config to force cleanup
 	table2 := Instantiate(table, config.Empty(), &data.FakeEnv{})
 
-	Cleanup(table2, table)
+	table.Cleanup(table2)
 
 	// Close shouldn't be called.
 	if len(table2.entries) != 0 {

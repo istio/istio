@@ -104,9 +104,16 @@ type (
 		tmplToBuilderNames map[string]string
 	}
 
-	ProcessReport2Fn   func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
-	ProcessCheck2Fn    func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
-	ProcessQuota2Fn    func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
+	// ProcessReport2Fn invokes the handler with the given instances.
+	ProcessReport2Fn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
+
+	// ProcessCheck2Fn invokes the handler with the given instance.
+	ProcessCheck2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+
+	// ProcessQuota2Fn invokes the handler with the given instance.
+	ProcessQuota2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
+
+	// ProcessGenAttrs22Fn invokes the handler with the given instance.
 	ProcessGenAttrs2Fn func(ctx context.Context, handler adapter.Handler, instance interface{},
 		attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
 
@@ -184,6 +191,7 @@ func EvalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 	return labels, result.ErrorOrNil()
 }
 
+// NewOutputMapperFn creates and returns a function that creates new attributes, based on the supplied expression set.
 func NewOutputMapperFn(expressions map[string]compiled.Expression) OutputMapperFn {
 	return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
 		var val interface{}

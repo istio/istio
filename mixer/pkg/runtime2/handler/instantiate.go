@@ -19,6 +19,8 @@ import (
 	"istio.io/istio/mixer/pkg/runtime2/config"
 )
 
+// Instantiate a new table, based on the given config snapshot. The table will re-use existing handlers as much as
+// possible from the current table.
 func Instantiate(current *Table, snapshot *config.Snapshot, env adapter.Env) *Table {
 	t := &Table{
 		entries: make(map[string]entry),
@@ -29,7 +31,7 @@ func Instantiate(current *Table, snapshot *config.Snapshot, env adapter.Env) *Ta
 	// Find all handlers, as referenced by instances, and associate handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
 	for handler, instances := range instancesByHandler {
-		signature := CalculateHandlerSignature(handler, instances)
+		signature := calculateSignature(handler, instances)
 
 		currentEntry, found := current.entries[handler.Name]
 		if found && currentEntry.startupError == nil && currentEntry.signature.Equals(signature) {

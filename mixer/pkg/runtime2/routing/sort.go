@@ -17,7 +17,7 @@ package routing
 import "sort"
 
 // sortByHandlerName the contents of the handlerNamesByID for stable ordering.
-func (e *handlerEntries) sortByHandlerName(handlerNamesByID map[uint32]string) {
+func (e *HandlerEntries) sortByHandlerName(handlerNamesByID map[uint32]string) {
 	sorter := sortByHandlers{
 		e:                e,
 		handlerNamesByID: handlerNamesByID,
@@ -28,7 +28,7 @@ func (e *handlerEntries) sortByHandlerName(handlerNamesByID map[uint32]string) {
 
 // sorts handlerNamesByID.entries by handler names.
 type sortByHandlers struct {
-	e                *handlerEntries
+	e                *HandlerEntries
 	handlerNamesByID map[uint32]string
 }
 

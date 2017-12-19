@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-var emptySet = &handlerEntries{
+var emptySet = &HandlerEntries{
 	entries: []*HandlerEntry{},
 }
 
@@ -49,14 +49,14 @@ type Table struct {
 // destination entry is found.
 type namespaceTable struct {
 	// destinations grouped by namespace
-	entries map[string]*handlerEntries
+	entries map[string]*HandlerEntries
 
 	// destinations for default namespace
-	defaultSet *handlerEntries
+	defaultSet *HandlerEntries
 }
 
-// handlerNamesByID contains a list of destinations that should be targeted for a given namespace.
-type handlerEntries struct {
+// HandlerEntries contains a list of destinations that should be targeted for a given namespace.
+type HandlerEntries struct {
 	entries []*HandlerEntry
 }
 
@@ -104,7 +104,7 @@ func (t *Table) ID() int {
 }
 
 // GetDestinations returns the set of destinations (handlers) for the given template variety and the attributes.
-func (t *Table) GetDestinations(variety istio_mixer_v1_template.TemplateVariety, bag attribute.Bag) (*handlerEntries, error) {
+func (t *Table) GetDestinations(variety istio_mixer_v1_template.TemplateVariety, bag attribute.Bag) (*HandlerEntries, error) {
 	destinations, ok := t.entries[variety]
 	if !ok {
 		if log.DebugEnabled() {
@@ -133,15 +133,16 @@ func (t *Table) GetDestinations(variety istio_mixer_v1_template.TemplateVariety,
 }
 
 // Count returns the number of e in the set.
-func (e *handlerEntries) Count() int {
+func (e *HandlerEntries) Count() int {
 	return len(e.entries)
 }
 
 // Entries in the destination set.
-func (e *handlerEntries) Entries() []*HandlerEntry {
+func (e *HandlerEntries) Entries() []*HandlerEntry {
 	return e.entries
 }
 
+// MaxInstances returns the maximum number of instances that can be built from this HandlerEntry.
 func (e *HandlerEntry) MaxInstances() int {
 	// TODO: Precalculate this
 	c := 0
@@ -152,6 +153,7 @@ func (e *HandlerEntry) MaxInstances() int {
 	return c
 }
 
+// ShouldApply returns true, if the instances from this input set should apply.
 func (s *InputSet) ShouldApply(bag attribute.Bag) bool {
 	if s.Condition == nil {
 		return true

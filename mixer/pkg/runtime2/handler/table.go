@@ -38,8 +38,8 @@ type entry struct {
 }
 
 // GetHealthyHandler returns a healthy handler instance with the given name, if it exists.
-func (table *Table) GetHealthyHandler(handlerName string) (adapter.Handler, bool) {
-	e, found := table.entries[handlerName]
+func (t *Table) GetHealthyHandler(handlerName string) (adapter.Handler, bool) {
+	e, found := t.entries[handlerName]
 	if !found || e.startupError != nil {
 		return nil, false
 	}
