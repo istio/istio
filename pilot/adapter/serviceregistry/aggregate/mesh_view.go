@@ -54,8 +54,6 @@ const (
 type Registry struct {
 	Name platform.ServiceRegistry
 	model.Controller
-	model.ServiceDiscovery
-	model.ServiceAccounts
 	// The service mesh view that this registry belongs to
 	MeshView *MeshResourceView
 }
@@ -207,15 +205,27 @@ func (v *MeshResourceView) GetService(hostname string) (*model.Service, error) {
 // ManagementPorts retrieves set of health check ports by instance IP
 // Return on the first hit.
 func (v *MeshResourceView) ManagementPorts(addr string) model.PortList {
-	// TODO(gnirodi): management ports should either be an interface
-	// on Service or ServiceInstance or both. The registry should
-	// not have to care about the concept of management ports
-	for _, r := range v.registries {
-		if portList := r.ManagementPorts(addr); portList != nil {
-			return portList
-		}
-	}
-	return nil
+ 	lbls := labelsForIPSet(labelInstanceIP, map[string]bool{addr: true})
+	instances := v.serviceInstancesByLabels(lbls)
+	if (len(instances) == 0) {
+	    return nil
+	} 
+	portMap := map[int]*model.Port{}
+	for _, inst := range instances {
+	    for _, mgmtPort := range inst.ManagementPorts {
+	        portMap[mgmtPort.Port] = mgmtPort
+	    }
+	}   
+	if (len(portMap) == 0) {
+	    return nil
+	} 
+    out := make(model.PortList, len(portMap))
+    pidx := 0
+    for _, port := range portMap {
+        out[pidx] = port
+        pidx++
+    }
+	return out
 }
 
 // Instances retrieves instances for a service and its ports that match

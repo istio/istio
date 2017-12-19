@@ -396,15 +396,11 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 			registry1 := aggregate.Registry{
 				Name:             platform.ServiceRegistry("mockAdapter1"),
-				ServiceDiscovery: discovery1,
-				ServiceAccounts:  discovery1,
 				Controller:       &mockController{mockDiscovery: discovery1},
 			}
 
 			registry2 := aggregate.Registry{
 				Name:             platform.ServiceRegistry("mockAdapter2"),
-				ServiceDiscovery: discovery2,
-				ServiceAccounts:  discovery2,
 				Controller:       &mockController{mockDiscovery: discovery2},
 			}
 			meshResourceView.AddRegistry(registry1)
@@ -414,9 +410,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name:             platform.ServiceRegistry(serviceRegistry),
-					ServiceDiscovery: kubectl,
-					ServiceAccounts:  kubectl,
 					Controller:       kubectl,
+
 				})
 			if s.mesh.IngressControllerMode != meshconfig.MeshConfig_OFF {
 				// Wrap the config controller with a cache.
@@ -452,8 +447,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name:             platform.ServiceRegistry(r),
-					ServiceDiscovery: conctl,
-					ServiceAccounts:  conctl,
 					Controller:       conctl,
 				})
 		case EurekaRegistry:
@@ -464,8 +457,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Name: platform.ServiceRegistry(r),
 					// TODO: Remove sync time hardcoding!
 					Controller:       eureka.NewController(eurekaClient, 2*time.Second),
-					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
-					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
 
 		case CloudFoundryRegistry:
@@ -487,8 +478,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
 					Client: client,
 				},
-				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
-				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
 			})
 
 		default:
