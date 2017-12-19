@@ -25,18 +25,17 @@ import (
 	"k8s.io/helm/pkg/timeconv"
 )
 
-func yamlFromInstallation(m *installation, helmChartDirectory string) (string, error) {
+func yamlFromInstallation(values, namespace, helmChartDirectory string) (string, error) {
 	c, err := chartutil.Load(helmChartDirectory)
 	if err != nil {
 		return "", err
 	}
 
-	v := valuesFromInstallation(m)
-	config := &chart.Config{Raw: v, Values: map[string]*chart.Value{}}
+	config := &chart.Config{Raw: values, Values: map[string]*chart.Value{}}
 	options := chartutil.ReleaseOptions{
 		Name:      "istio",
 		Time:      timeconv.Now(),
-		Namespace: m.Namespace,
+		Namespace: namespace,
 	}
 
 	vals, err := chartutil.ToRenderValues(c, config, options)

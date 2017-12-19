@@ -16,6 +16,7 @@ package controlplane
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -26,22 +27,23 @@ const (
 	defaultTag = "0.4.0"
 )
 
-// Command returns the "control-plane" subcommand for istioctl.
+// Command returns the "gen-deploy" subcommand for istioctl.
 func Command(istioNamespaceFlag *string) *cobra.Command {
 	var (
 		features          *[]string
 		out               string
 		helmChartLocation string
+		valuesPath        string
 	)
 
 	install := defaultInstall()
 	cmd := &cobra.Command{
-		Use:   "control-plane",
+		Use:   "gen-deploy",
 		Short: "Generates the configuration for Istio's control plane.",
-		Long: "istioctl control-plane produces deployment files to run the minimum Istio control for the set of " +
+		Long: "istioctl gen-deploy produces deployment files to run the minimum Istio control for the set of " +
 			"features requested by the --feature flag. If no features are provided, we create deployments for the " +
 			"default control plane: Pilot, Mixer, CA, and Ingress Proxies, with mTLS enabled.",
-		Example: `istioctl control-plane --features routing,policy,initializer -o helm`,
+		Example: `istioctl gen-deploy --features routing,policy,initializer -o helm`,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := install.setFeatures(*features); err != nil {
 				return err
@@ -52,7 +54,11 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 				_, err := fmt.Fprint(os.Stdout, valuesFromInstallation(install))
 				return err
 			case "yaml":
-				rendered, err := yamlFromInstallation(install, helmChartLocation)
+				values, err := getValues(valuesPath, install)
+				if err != nil {
+					return err
+				}
+				rendered, err := yamlFromInstallation(values, *istioNamespaceFlag, helmChartLocation)
 				if err != nil {
 					return err
 				}
@@ -63,6 +69,9 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 			}
 		},
 	}
+
+	cmd.PersistentFlags().StringVar(&valuesPath, "values", "", "Path to the Helm values.yaml file used to render YAML "+
+		"deployments locally when --out=yaml. Flag values are ignored in favor of using the file directly.")
 
 	features = cmd.PersistentFlags().StringArrayP("features", "f", []string{},
 		`List of Istio features to enable. Accepts any combination of "mtls", "telemetry", "routing", "ingress", "policy", "initializer".`)
@@ -89,6 +98,18 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	_ = cmd.PersistentFlags().MarkHidden("ca-tag")
 	_ = cmd.PersistentFlags().MarkHidden("proxy-tag")
 	return cmd
+}
+
+func getValues(path string, i *installation) (string, error) {
+	if path == "" {
+		return valuesFromInstallation(i), nil
+	}
+
+	out, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 type installation struct {
