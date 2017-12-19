@@ -132,7 +132,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	e.latest = s
 
 	if log.DebugEnabled() {
-		log.Debugf("Built new snapshot: id:'%d', \n%s", id, s.String())
+		log.Debugf("Built new snapshot: id:'%d'\n%s", id, s.String())
 	}
 	return s
 }
@@ -147,14 +147,17 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 		if k.Kind != AttributeManifestKind {
 			continue
 		}
+
+		log.Debug("Started processing incoming attribute manifest.")
+
 		cfg := obj.Spec
 		for an, at := range cfg.(*configpb.AttributeManifest).Attributes {
 			attrs[an] = at
-		}
-	}
 
-	if log.DebugEnabled() {
-		log.Debug("Started processing new attributes.")
+			if log.DebugEnabled() {
+				log.Debugf("Attribute '%s': '%s'.", an, at.ValueType.String())
+			}
+		}
 	}
 
 	// append all the well known attribute vocabulary from the templates.
@@ -168,15 +171,13 @@ func (e *Ephemeral) processAttributeManifests() map[string]*configpb.AttributeMa
 				attrs[an] = at
 
 				if log.DebugEnabled() {
-					log.Debugf("Attribute: '%s' : '%v'", an, at.ValueType)
+					log.Debugf("Attribute '%s': '%s'", an, at.ValueType.String())
 				}
 			}
 		}
 	}
 
-	if log.DebugEnabled() {
-		log.Debugf("Completed processing new attributes: count:'%d'", len(attrs))
-	}
+	log.Debug("Completed processing attributes.")
 
 	return attrs
 }
@@ -191,14 +192,16 @@ func (e *Ephemeral) processHandlerConfigs() map[string]*Handler {
 			continue
 		}
 
-		config := &Handler{
-			Name:    key.String(),
-			Adapter: info,
-			Params:  resource.Spec,
-		}
+		adapterName := key.String()
 
 		if log.DebugEnabled() {
-			log.Debugf("Processed adapter configuration: '%s'", key.String())
+			log.Debugf("Incoming handler config: key:'%s'\n%s", adapterName, resource.Spec.String())
+		}
+
+		config := &Handler{
+			Name:    adapterName,
+			Adapter: info,
+			Params:  resource.Spec,
 		}
 
 		configs[config.Name] = config
@@ -219,13 +222,15 @@ func (e *Ephemeral) processInstanceConfigs() map[string]*Instance {
 
 		instanceName := key.String()
 
+		if log.DebugEnabled() {
+			log.Debugf("Incoming instance config: name:'%s'\n%s", instanceName, resource.Spec.String())
+		}
+
 		config := &Instance{
 			Name:     instanceName,
 			Template: info,
 			Params:   resource.Spec,
 		}
-
-		log.Debugf("Processed template configuration: '%v'", instanceName)
 
 		configs[config.Name] = config
 	}
@@ -250,6 +255,10 @@ func (e *Ephemeral) processRuleConfigs(
 
 		cfg := resource.Spec.(*configpb.Rule)
 
+		if log.DebugEnabled() {
+			log.Debugf("Incoming rule: name:'%s'\n%s", ruleName, cfg.String())
+		}
+
 		// resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
 		rt := resourceType(resource.Metadata.Labels)
 		if cfg.Match != "" {
@@ -272,7 +281,7 @@ func (e *Ephemeral) processRuleConfigs(
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			handler, found := handlers[handlerName]
 			if !found {
-				log.Warnf("ConfigWarning handler not found: handler'%s', action: '%s[%d]'",
+				log.Warnf("ConfigWarning handler not found: handler: '%s', action: '%s[%d]'",
 					handlerName, ruleName, i)
 				continue
 			}

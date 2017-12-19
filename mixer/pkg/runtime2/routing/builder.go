@@ -136,22 +136,25 @@ func (b *builder) build(config *config.Snapshot) {
 		}
 	}
 
-	// Prefix all namespace destinations with the destinations from the default namespace.
 	for _, vDestinations := range b.table.entries {
 		defaultSet, found := vDestinations.entries[b.defaultConfigNamespace]
 		if !found {
-			// Nothing to do here
-			// TODO: log
-			continue
+			log.Warnf("No destination sets found for the default namespace '%s'.", b.defaultConfigNamespace)
+			defaultSet = emptySet
 		}
+		// Set the default rule set for the variety.
+		vDestinations.defaultSet = defaultSet
 
-		for namespace, set := range vDestinations.entries {
-			if namespace == b.defaultConfigNamespace {
-				// Skip the default namespace itself
-				continue
+		if defaultSet.Count() != 0 {
+			// Prefix all namespace destinations with the destinations from the default namespace.
+			for namespace, set := range vDestinations.entries {
+				if namespace == b.defaultConfigNamespace {
+					// Skip the default namespace itself
+					continue
+				}
+
+				set.entries = append(defaultSet.entries, set.entries...)
 			}
-
-			set.entries = append(defaultSet.entries, set.entries...)
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/googleapis/googleapis/google/rpc"
@@ -67,13 +68,16 @@ func (v *executor) executeQuota(
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorf("execute panic: %v", r)
+				//if log.DebugEnabled() {
+				log.Errorf("panic stack: '%v'", debug.Stack())
+				//}
 				err := fmt.Errorf("dispatch panic: %v", r)
 				v.results <- result{err: err}
 			}
 		}()
 
 		res, err := processFn(ctx, handler, instance, args)
-		v.results <- result{res: res, err: err}
+		v.results <- result{res: &res, err: err}
 	})
 }
 
@@ -127,7 +131,7 @@ func (v *executor) executeCheck(
 		}()
 
 		res, err := processFn(ctx, handler, instance)
-		v.results <- result{res: res, err: err}
+		v.results <- result{res: &res, err: err}
 	})
 }
 
@@ -161,8 +165,8 @@ func (v *executor) executePreprocess(
 }
 
 // wait for the completion of outstanding work and collect results.
-func (v *executor) wait() (interface{}, error) {
-	var res adapter.Result
+func (v *executor) wait(responseBag *attribute.MutableBag) (interface{}, error) {
+	var res interface{}
 	var err *multierror.Error
 	var buf *bytes.Buffer
 	code := google_rpc.OK
@@ -176,30 +180,43 @@ func (v *executor) wait() (interface{}, error) {
 		if rs.res == nil { // When there is no return value like ProcessReport().
 			continue
 		}
-		if res == nil {
-			res = rs.res.(adapter.Result)
-		} else {
-			if rc, ok := res.(*adapter.CheckResult); ok { // only check is expected to supported combining.
-				rc.Combine(rs.res)
+
+		if responseBag != nil {
+			if bg, ok := rs.res.(*attribute.MutableBag); ok {
+				e := responseBag.Merge(bg)
+				if e != nil {
+					log.Infof("Attributes merging failed %v", e)
+				}
 			}
 		}
-		st := rs.res.(adapter.Result).GetStatus()
-		if !status.IsOK(st) {
-			if buf == nil {
-				buf = pool.GetBuffer()
-				// the first failure result's code becomes the result code for the output
-				code = google_rpc.Code(st.Code)
-			} else {
-				buf.WriteString(", ")
-			}
 
-			// TODO buf.WriteString(rs.callinfo.handlerName + ":" + st.Message)
+		if res == nil {
+			res = rs.res
+		} else if rc, ok := rs.res.(*adapter.CheckResult); ok { // only check is expected to supported combining.
+			rc.Combine(res)
+		}
+
+		if ar, ok := rs.res.(adapter.Result); ok {
+			st := ar.GetStatus()
+			if !status.IsOK(st) {
+				if buf == nil {
+					buf = pool.GetBuffer()
+					// the first failure result's code becomes the result code for the output
+					code = google_rpc.Code(st.Code)
+				} else {
+					buf.WriteString(", ")
+				}
+
+				// TODO buf.WriteString(rs.callinfo.handlerName + ":" + st.Message)
+			}
 		}
 	}
 
 	if buf != nil {
-		res.SetStatus(status.WithMessage(code, buf.String()))
-		pool.PutBuffer(buf)
+		if ar, ok := res.(adapter.Result); ok {
+			ar.SetStatus(status.WithMessage(code, buf.String()))
+			pool.PutBuffer(buf)
+		}
 	}
 
 	return res, err.ErrorOrNil()

@@ -676,7 +676,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -685,9 +685,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -1092,7 +1092,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -1101,9 +1101,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -1320,7 +1320,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -1329,9 +1329,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -1810,7 +1810,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -1819,9 +1819,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -1958,7 +1958,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -1967,9 +1967,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2190,7 +2190,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2199,9 +2199,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2399,7 +2399,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2408,9 +2408,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2546,7 +2546,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2555,9 +2555,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2678,7 +2678,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2687,9 +2687,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2950,7 +2950,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2959,9 +2959,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2969,21 +2969,37 @@ var (
 	}
 )
 
-// builder_adapter_template_kubernetes_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_adapter_template_kubernetes_Template struct {
+
+	// builder for field source_uid: string.
+
 	bldSourceUid compiled.Expression
+
+	// builder for field source_ip: net.IP.
 
 	bldSourceIp compiled.Expression
 
+	// builder for field destination_uid: string.
+
 	bldDestinationUid compiled.Expression
+
+	// builder for field destination_ip: net.IP.
 
 	bldDestinationIp compiled.Expression
 
+	// builder for field origin_uid: string.
+
 	bldOriginUid compiled.Expression
+
+	// builder for field origin_ip: net.IP.
 
 	bldOriginIp compiled.Expression
 } // builder_adapter_template_kubernetes_Template
 
+// Creates a new builder for Template.
 func newBuilder_adapter_template_kubernetes_Template(
 	expb *compiled.ExpressionBuilder,
 	param *adapter_template_kubernetes.InstanceParam) (*builder_adapter_template_kubernetes_Template, template.ErrorPath) {
@@ -3053,65 +3069,101 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 	if iface, err = b.bldSourceUid.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("SourceUid", err)
 	}
+
 	r.SourceUid = iface.(string)
 
 	if iface, err = b.bldSourceIp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("SourceIp", err)
 	}
+
 	r.SourceIp = iface.(net.IP)
 
 	if iface, err = b.bldDestinationUid.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DestinationUid", err)
 	}
+
 	r.DestinationUid = iface.(string)
 
 	if iface, err = b.bldDestinationIp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DestinationIp", err)
 	}
+
 	r.DestinationIp = iface.(net.IP)
 
 	if iface, err = b.bldOriginUid.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("OriginUid", err)
 	}
+
 	r.OriginUid = iface.(string)
 
 	if iface, err = b.bldOriginIp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("OriginIp", err)
 	}
+
 	r.OriginIp = iface.(net.IP)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_servicecontrolreport_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_servicecontrolreport_Template struct {
+
+	// builder for field api_version: string.
+
 	bldApiVersion compiled.Expression
+
+	// builder for field api_operation: string.
 
 	bldApiOperation compiled.Expression
 
+	// builder for field api_protocol: string.
+
 	bldApiProtocol compiled.Expression
+
+	// builder for field api_service: string.
 
 	bldApiService compiled.Expression
 
+	// builder for field api_key: string.
+
 	bldApiKey compiled.Expression
+
+	// builder for field request_time: time.Time.
 
 	bldRequestTime compiled.Expression
 
+	// builder for field request_method: string.
+
 	bldRequestMethod compiled.Expression
+
+	// builder for field request_path: string.
 
 	bldRequestPath compiled.Expression
 
+	// builder for field request_bytes: int64.
+
 	bldRequestBytes compiled.Expression
+
+	// builder for field response_time: time.Time.
 
 	bldResponseTime compiled.Expression
 
+	// builder for field response_code: int64.
+
 	bldResponseCode compiled.Expression
 
+	// builder for field response_bytes: int64.
+
 	bldResponseBytes compiled.Expression
+
+	// builder for field response_latency: time.Duration.
 
 	bldResponseLatency compiled.Expression
 } // builder_servicecontrolreport_Template
 
+// Creates a new builder for Template.
 func newBuilder_servicecontrolreport_Template(
 	expb *compiled.ExpressionBuilder,
 	param *servicecontrolreport.InstanceParam) (*builder_servicecontrolreport_Template, template.ErrorPath) {
@@ -3216,84 +3268,111 @@ func (b *builder_servicecontrolreport_Template) build(
 	if iface, err = b.bldApiVersion.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiVersion", err)
 	}
+
 	r.ApiVersion = iface.(string)
 
 	if iface, err = b.bldApiOperation.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiOperation", err)
 	}
+
 	r.ApiOperation = iface.(string)
 
 	if iface, err = b.bldApiProtocol.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiProtocol", err)
 	}
+
 	r.ApiProtocol = iface.(string)
 
 	if iface, err = b.bldApiService.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiService", err)
 	}
+
 	r.ApiService = iface.(string)
 
 	if iface, err = b.bldApiKey.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiKey", err)
 	}
+
 	r.ApiKey = iface.(string)
 
 	if iface, err = b.bldRequestTime.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("RequestTime", err)
 	}
+
 	r.RequestTime = iface.(time.Time)
 
 	if iface, err = b.bldRequestMethod.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("RequestMethod", err)
 	}
+
 	r.RequestMethod = iface.(string)
 
 	if iface, err = b.bldRequestPath.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("RequestPath", err)
 	}
+
 	r.RequestPath = iface.(string)
 
 	if iface, err = b.bldRequestBytes.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("RequestBytes", err)
 	}
+
 	r.RequestBytes = iface.(int64)
 
 	if iface, err = b.bldResponseTime.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ResponseTime", err)
 	}
+
 	r.ResponseTime = iface.(time.Time)
 
 	if iface, err = b.bldResponseCode.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ResponseCode", err)
 	}
+
 	r.ResponseCode = iface.(int64)
 
 	if iface, err = b.bldResponseBytes.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ResponseBytes", err)
 	}
+
 	r.ResponseBytes = iface.(int64)
 
 	if iface, err = b.bldResponseLatency.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ResponseLatency", err)
 	}
+
 	r.ResponseLatency = iface.(time.Duration)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_apikey_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_apikey_Template struct {
+
+	// builder for field api: string.
+
 	bldApi compiled.Expression
+
+	// builder for field api_version: string.
 
 	bldApiVersion compiled.Expression
 
+	// builder for field api_operation: string.
+
 	bldApiOperation compiled.Expression
 
+	// builder for field api_key: string.
+
 	bldApiKey compiled.Expression
+
+	// builder for field timestamp: time.Time.
 
 	bldTimestamp compiled.Expression
 } // builder_apikey_Template
 
+// Creates a new builder for Template.
 func newBuilder_apikey_Template(
 	expb *compiled.ExpressionBuilder,
 	param *apikey.InstanceParam) (*builder_apikey_Template, template.ErrorPath) {
@@ -3358,35 +3437,43 @@ func (b *builder_apikey_Template) build(
 	if iface, err = b.bldApi.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Api", err)
 	}
+
 	r.Api = iface.(string)
 
 	if iface, err = b.bldApiVersion.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiVersion", err)
 	}
+
 	r.ApiVersion = iface.(string)
 
 	if iface, err = b.bldApiOperation.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiOperation", err)
 	}
+
 	r.ApiOperation = iface.(string)
 
 	if iface, err = b.bldApiKey.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ApiKey", err)
 	}
+
 	r.ApiKey = iface.(string)
 
 	if iface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Timestamp", err)
 	}
+
 	r.Timestamp = iface.(time.Time)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_checknothing_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_checknothing_Template struct {
 } // builder_checknothing_Template
 
+// Creates a new builder for Template.
 func newBuilder_checknothing_Template(
 	expb *compiled.ExpressionBuilder,
 	param *checknothing.InstanceParam) (*builder_checknothing_Template, template.ErrorPath) {
@@ -3426,11 +3513,17 @@ func (b *builder_checknothing_Template) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_listentry_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_listentry_Template struct {
+
+	// builder for field value: string.
+
 	bldValue compiled.Expression
 } // builder_listentry_Template
 
+// Creates a new builder for Template.
 func newBuilder_listentry_Template(
 	expb *compiled.ExpressionBuilder,
 	param *listentry.InstanceParam) (*builder_listentry_Template, template.ErrorPath) {
@@ -3475,24 +3568,39 @@ func (b *builder_listentry_Template) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
+
 	r.Value = iface.(string)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_logentry_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_logentry_Template struct {
+
+	// builder for field variables: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
 	bldVariables map[string]compiled.Expression
+
+	// builder for field timestamp: time.Time.
 
 	bldTimestamp compiled.Expression
 
+	// builder for field severity: string.
+
 	bldSeverity compiled.Expression
 
+	// builder for field monitored_resource_type: string.
+
 	bldMonitoredResourceType compiled.Expression
+
+	// builder for field monitored_resource_dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldMonitoredResourceDimensions map[string]compiled.Expression
 } // builder_logentry_Template
 
+// Creates a new builder for Template.
 func newBuilder_logentry_Template(
 	expb *compiled.ExpressionBuilder,
 	param *logentry.InstanceParam) (*builder_logentry_Template, template.ErrorPath) {
@@ -3569,23 +3677,26 @@ func (b *builder_logentry_Template) build(
 			return nil, template.NewErrorPath("Variables["+k+"].", err)
 		}
 
-		r.Variables[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Variables[k] = iface
 
 	}
 
 	if iface, err = b.bldTimestamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Timestamp", err)
 	}
+
 	r.Timestamp = iface.(time.Time)
 
 	if iface, err = b.bldSeverity.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Severity", err)
 	}
+
 	r.Severity = iface.(string)
 
 	if iface, err = b.bldMonitoredResourceType.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("MonitoredResourceType", err)
 	}
+
 	r.MonitoredResourceType = iface.(string)
 
 	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
@@ -3595,24 +3706,36 @@ func (b *builder_logentry_Template) build(
 			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
 		}
 
-		r.MonitoredResourceDimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.MonitoredResourceDimensions[k] = iface
 
 	}
 
 	return r, template.ErrorPath{}
 }
 
-// builder_metric_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_metric_Template struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field monitored_resource_type: string.
+
 	bldMonitoredResourceType compiled.Expression
+
+	// builder for field monitored_resource_dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldMonitoredResourceDimensions map[string]compiled.Expression
 } // builder_metric_Template
 
+// Creates a new builder for Template.
 func newBuilder_metric_Template(
 	expb *compiled.ExpressionBuilder,
 	param *metric.InstanceParam) (*builder_metric_Template, template.ErrorPath) {
@@ -3680,7 +3803,8 @@ func (b *builder_metric_Template) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -3689,13 +3813,14 @@ func (b *builder_metric_Template) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldMonitoredResourceType.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("MonitoredResourceType", err)
 	}
+
 	r.MonitoredResourceType = iface.(string)
 
 	r.MonitoredResourceDimensions = make(map[string]interface{}, len(b.bldMonitoredResourceDimensions))
@@ -3705,18 +3830,24 @@ func (b *builder_metric_Template) build(
 			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
 		}
 
-		r.MonitoredResourceDimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.MonitoredResourceDimensions[k] = iface
 
 	}
 
 	return r, template.ErrorPath{}
 }
 
-// builder_quota_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_quota_Template struct {
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
 	bldDimensions map[string]compiled.Expression
 } // builder_quota_Template
 
+// Creates a new builder for Template.
 func newBuilder_quota_Template(
 	expb *compiled.ExpressionBuilder,
 	param *quota.InstanceParam) (*builder_quota_Template, template.ErrorPath) {
@@ -3769,17 +3900,20 @@ func (b *builder_quota_Template) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	return r, template.ErrorPath{}
 }
 
-// builder_reportnothing_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_reportnothing_Template struct {
 } // builder_reportnothing_Template
 
+// Creates a new builder for Template.
 func newBuilder_reportnothing_Template(
 	expb *compiled.ExpressionBuilder,
 	param *reportnothing.InstanceParam) (*builder_reportnothing_Template, template.ErrorPath) {
@@ -3819,23 +3953,41 @@ func (b *builder_reportnothing_Template) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_tracespan_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_tracespan_Template struct {
+
+	// builder for field trace_id: string.
+
 	bldTraceId compiled.Expression
+
+	// builder for field span_id: string.
 
 	bldSpanId compiled.Expression
 
+	// builder for field parent_span_id: string.
+
 	bldParentSpanId compiled.Expression
+
+	// builder for field span_name: string.
 
 	bldSpanName compiled.Expression
 
+	// builder for field start_time: time.Time.
+
 	bldStartTime compiled.Expression
 
+	// builder for field end_time: time.Time.
+
 	bldEndTime compiled.Expression
+
+	// builder for field span_tags: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldSpanTags map[string]compiled.Expression
 } // builder_tracespan_Template
 
+// Creates a new builder for Template.
 func newBuilder_tracespan_Template(
 	expb *compiled.ExpressionBuilder,
 	param *tracespan.InstanceParam) (*builder_tracespan_Template, template.ErrorPath) {
@@ -3914,31 +4066,37 @@ func (b *builder_tracespan_Template) build(
 	if iface, err = b.bldTraceId.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TraceId", err)
 	}
+
 	r.TraceId = iface.(string)
 
 	if iface, err = b.bldSpanId.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("SpanId", err)
 	}
+
 	r.SpanId = iface.(string)
 
 	if iface, err = b.bldParentSpanId.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("ParentSpanId", err)
 	}
+
 	r.ParentSpanId = iface.(string)
 
 	if iface, err = b.bldSpanName.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("SpanName", err)
 	}
+
 	r.SpanName = iface.(string)
 
 	if iface, err = b.bldStartTime.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StartTime", err)
 	}
+
 	r.StartTime = iface.(time.Time)
 
 	if iface, err = b.bldEndTime.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("EndTime", err)
 	}
+
 	r.EndTime = iface.(time.Time)
 
 	r.SpanTags = make(map[string]interface{}, len(b.bldSpanTags))
@@ -3948,7 +4106,7 @@ func (b *builder_tracespan_Template) build(
 			return nil, template.NewErrorPath("SpanTags["+k+"].", err)
 		}
 
-		r.SpanTags[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.SpanTags[k] = iface
 
 	}
 

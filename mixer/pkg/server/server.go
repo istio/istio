@@ -169,11 +169,12 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var dispatcher mixerRuntime.Dispatcher
 	if a.UseNewRuntime {
-		// TODO: Why do we store the template structs directly? Can't we simply have pointers?
 		templateMap := make(map[string]*template.Info, len(a.Templates))
 		for k, v := range a.Templates {
-			templateMap[k] = &v
+			t := v // Make a local copy, otherwise we end up capturing the location of the last entry
+			templateMap[k] = &t
 		}
+
 		runtime := p.newRuntime2(store2, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, s.gp, s.adapterGP)
 		if err = runtime.StartListening(); err != nil {
 			_ = s.Close()

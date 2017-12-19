@@ -50,7 +50,7 @@ func calculateSignature(handler *config.Handler, instances []*config.Instance) s
 	encode(buf, handler.Params)
 	for _, name := range instanceNames {
 		instance := instanceMap[name]
-		encode(buf, instance.Template)
+		encode(buf, instance.Template.Name)
 		encode(buf, instance.Params)
 	}
 
@@ -74,7 +74,7 @@ func encode(w io.Writer, v interface{}) {
 	}
 
 	if b == nil {
-		log.Warnf("Falling back to fmt.Fprintf()", v)
+		log.Warnf("Falling back to fmt.Fprintf(): '%v'", v)
 		b = []byte(fmt.Sprintf("%+v", v))
 	}
 

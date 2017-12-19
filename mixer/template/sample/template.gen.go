@@ -945,7 +945,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -954,9 +954,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -1524,7 +1524,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -1533,9 +1533,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2078,7 +2078,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2087,9 +2087,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2894,7 +2894,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -2903,9 +2903,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -2913,29 +2913,53 @@ var (
 	}
 )
 
-// builder_istio_mixer_adapter_sample_myapa_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_istio_mixer_adapter_sample_myapa_Template struct {
+
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field dimensionsFixedInt64ValueDType: map[string]int64.
+
 	bldDimensionsFixedInt64ValueDType map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
+
+	// builder for field res3_map: map[string]*Resource3.
 
 	bldRes3Map map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3
 
+	// builder for field optionalIP: net.IP.
+
 	bldOptionalIP compiled.Expression
+
+	// builder for field email: adapter.EmailAddress.
 
 	bldEmail compiled.Expression
 } // builder_istio_mixer_adapter_sample_myapa_Template
 
+// Creates a new builder for Template.
 func newBuilder_istio_mixer_adapter_sample_myapa_Template(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Template, template.ErrorPath) {
@@ -3033,21 +3057,25 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.DimensionsFixedInt64ValueDType = make(map[string]int64, len(b.bldDimensionsFixedInt64ValueDType))
@@ -3064,11 +3092,13 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	r.Res3Map = make(map[string]*istio_mixer_adapter_sample_myapa.Resource3, len(b.bldRes3Map))
@@ -3081,25 +3111,35 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 	if iface, err = b.bldOptionalIP.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("OptionalIP", err)
 	}
+
 	r.OptionalIP = iface.(net.IP)
 
 	if iface, err = b.bldEmail.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Email", err)
 	}
+
 	r.Email = iface.(adapter.EmailAddress)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_myapa_Resource1 builds an instance of Resource1.
+// builds an instance of Resource1.
 type builder_istio_mixer_adapter_sample_myapa_Resource1 struct {
+
+	// builder for field str: string.
+
 	bldStr compiled.Expression
 
+	// builder for field self_ref_res1: *Resource1.
+
 	bldSelfRefRes1 *builder_istio_mixer_adapter_sample_myapa_Resource1
+
+	// builder for field resRef2: *Resource2.
 
 	bldResRef2 *builder_istio_mixer_adapter_sample_myapa_Resource2
 } // builder_istio_mixer_adapter_sample_myapa_Resource1
 
+// Creates a new builder for Resource1.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource1(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource1InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource1, template.ErrorPath) {
@@ -3152,6 +3192,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource1) build(
 	if iface, err = b.bldStr.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Str", err)
 	}
+
 	r.Str = iface.(string)
 
 	if r.SelfRefRes1, errp = b.bldSelfRefRes1.build(attrs); errp.IsNil() {
@@ -3165,15 +3206,23 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource1) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_myapa_Resource2 builds an instance of Resource2.
+// builds an instance of Resource2.
 type builder_istio_mixer_adapter_sample_myapa_Resource2 struct {
+
+	// builder for field str: string.
+
 	bldStr compiled.Expression
 
+	// builder for field res3: *Resource3.
+
 	bldRes3 *builder_istio_mixer_adapter_sample_myapa_Resource3
+
+	// builder for field res3_map: map[string]*Resource3.
 
 	bldRes3Map map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3
 } // builder_istio_mixer_adapter_sample_myapa_Resource2
 
+// Creates a new builder for Resource2.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource2(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource2InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource2, template.ErrorPath) {
@@ -3231,6 +3280,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource2) build(
 	if iface, err = b.bldStr.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Str", err)
 	}
+
 	r.Str = iface.(string)
 
 	if r.Res3, errp = b.bldRes3.build(attrs); errp.IsNil() {
@@ -3247,23 +3297,39 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource2) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_myapa_Resource3 builds an instance of Resource3.
+// builds an instance of Resource3.
 type builder_istio_mixer_adapter_sample_myapa_Resource3 struct {
+
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field dimensionsFixedInt64ValueDType: map[string]int64.
+
 	bldDimensionsFixedInt64ValueDType map[string]compiled.Expression
 
+	// builder for field timeStamp: time.Time.
+
 	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
 
 	bldDuration compiled.Expression
 } // builder_istio_mixer_adapter_sample_myapa_Resource3
 
+// Creates a new builder for Resource3.
 func newBuilder_istio_mixer_adapter_sample_myapa_Resource3(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_myapa.Resource3InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource3, template.ErrorPath) {
@@ -3342,21 +3408,25 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource3) build(
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.DimensionsFixedInt64ValueDType = make(map[string]int64, len(b.bldDimensionsFixedInt64ValueDType))
@@ -3373,25 +3443,37 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource3) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_check_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_istio_mixer_adapter_sample_check_Template struct {
+
+	// builder for field check_expression: string.
+
 	bldCheckExpression compiled.Expression
 
+	// builder for field stringMap: map[string]string.
+
 	bldStringMap map[string]compiled.Expression
+
+	// builder for field res1: *Res1.
 
 	bldRes1 *builder_istio_mixer_adapter_sample_check_Res1
 } // builder_istio_mixer_adapter_sample_check_Template
 
+// Creates a new builder for Template.
 func newBuilder_istio_mixer_adapter_sample_check_Template(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.InstanceParam) (*builder_istio_mixer_adapter_sample_check_Template, template.ErrorPath) {
@@ -3449,6 +3531,7 @@ func (b *builder_istio_mixer_adapter_sample_check_Template) build(
 	if iface, err = b.bldCheckExpression.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("CheckExpression", err)
 	}
+
 	r.CheckExpression = iface.(string)
 
 	r.StringMap = make(map[string]string, len(b.bldStringMap))
@@ -3469,31 +3552,55 @@ func (b *builder_istio_mixer_adapter_sample_check_Template) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_check_Res1 builds an instance of Res1.
+// builds an instance of Res1.
 type builder_istio_mixer_adapter_sample_check_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field int64Map: map[string]int64.
+
 	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
 
+	// builder for field res2: *Res2.
+
 	bldRes2 *builder_istio_mixer_adapter_sample_check_Res2
+
+	// builder for field res2_map: map[string]*Res2.
 
 	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_check_Res2
 } // builder_istio_mixer_adapter_sample_check_Res1
 
+// Creates a new builder for Res1.
 func newBuilder_istio_mixer_adapter_sample_check_Res1(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res1, template.ErrorPath) {
@@ -3599,7 +3706,8 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -3608,28 +3716,32 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
@@ -3646,11 +3758,13 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); errp.IsNil() {
@@ -3667,15 +3781,23 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_check_Res2 builds an instance of Res2.
+// builds an instance of Res2.
 type builder_istio_mixer_adapter_sample_check_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
 
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
 	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
 
 	bldInt64Primitive compiled.Expression
 } // builder_istio_mixer_adapter_sample_check_Res2
 
+// Creates a new builder for Res2.
 func newBuilder_istio_mixer_adapter_sample_check_Res2(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_check.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res2, template.ErrorPath) {
@@ -3734,7 +3856,8 @@ func (b *builder_istio_mixer_adapter_sample_check_Res2) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -3743,27 +3866,38 @@ func (b *builder_istio_mixer_adapter_sample_check_Res2) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_quota_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_istio_mixer_adapter_sample_quota_Template struct {
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field boolMap: map[string]bool.
+
 	bldBoolMap map[string]compiled.Expression
+
+	// builder for field res1: *Res1.
 
 	bldRes1 *builder_istio_mixer_adapter_sample_quota_Res1
 } // builder_istio_mixer_adapter_sample_quota_Template
 
+// Creates a new builder for Template.
 func newBuilder_istio_mixer_adapter_sample_quota_Template(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Template, template.ErrorPath) {
@@ -3829,7 +3963,7 @@ func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
@@ -3851,31 +3985,55 @@ func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_quota_Res1 builds an instance of Res1.
+// builds an instance of Res1.
 type builder_istio_mixer_adapter_sample_quota_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field int64Map: map[string]int64.
+
 	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
 
+	// builder for field res2: *Res2.
+
 	bldRes2 *builder_istio_mixer_adapter_sample_quota_Res2
+
+	// builder for field res2_map: map[string]*Res2.
 
 	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_quota_Res2
 } // builder_istio_mixer_adapter_sample_quota_Res1
 
+// Creates a new builder for Res1.
 func newBuilder_istio_mixer_adapter_sample_quota_Res1(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res1, template.ErrorPath) {
@@ -3981,7 +4139,8 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -3990,28 +4149,32 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
@@ -4028,11 +4191,13 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); errp.IsNil() {
@@ -4049,15 +4214,23 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_quota_Res2 builds an instance of Res2.
+// builds an instance of Res2.
 type builder_istio_mixer_adapter_sample_quota_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
 
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
 	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
 
 	bldInt64Primitive compiled.Expression
 } // builder_istio_mixer_adapter_sample_quota_Res2
 
+// Creates a new builder for Res2.
 func newBuilder_istio_mixer_adapter_sample_quota_Res2(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_quota.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res2, template.ErrorPath) {
@@ -4116,7 +4289,8 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res2) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -4125,41 +4299,66 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res2) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_report_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_istio_mixer_adapter_sample_report_Template struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field int64Map: map[string]int64.
+
 	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
+
+	// builder for field res1: *Res1.
 
 	bldRes1 *builder_istio_mixer_adapter_sample_report_Res1
 } // builder_istio_mixer_adapter_sample_report_Template
 
+// Creates a new builder for Template.
 func newBuilder_istio_mixer_adapter_sample_report_Template(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.InstanceParam) (*builder_istio_mixer_adapter_sample_report_Template, template.ErrorPath) {
@@ -4256,7 +4455,8 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -4265,28 +4465,32 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
@@ -4303,11 +4507,13 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	if r.Res1, errp = b.bldRes1.build(attrs); errp.IsNil() {
@@ -4317,31 +4523,55 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_report_Res1 builds an instance of Res1.
+// builds an instance of Res1.
 type builder_istio_mixer_adapter_sample_report_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 
+	// builder for field int64Map: map[string]int64.
+
 	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
 
+	// builder for field res2: *Res2.
+
 	bldRes2 *builder_istio_mixer_adapter_sample_report_Res2
+
+	// builder for field res2_map: map[string]*Res2.
 
 	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_report_Res2
 } // builder_istio_mixer_adapter_sample_report_Res1
 
+// Creates a new builder for Res1.
 func newBuilder_istio_mixer_adapter_sample_report_Res1(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res1, template.ErrorPath) {
@@ -4447,7 +4677,8 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -4456,28 +4687,32 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
@@ -4494,11 +4729,13 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); errp.IsNil() {
@@ -4515,27 +4752,47 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 	return r, template.ErrorPath{}
 }
 
-// builder_istio_mixer_adapter_sample_report_Res2 builds an instance of Res2.
+// builds an instance of Res2.
 type builder_istio_mixer_adapter_sample_report_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field timeStamp: time.Time.
 
 	bldTimeStamp compiled.Expression
 
+	// builder for field duration: time.Duration.
+
 	bldDuration compiled.Expression
+
+	// builder for field ip_addr: net.IP.
 
 	bldIpAddr compiled.Expression
 
+	// builder for field dns_name: adapter.DNSName.
+
 	bldDnsName compiled.Expression
 
+	// builder for field email_addr: adapter.EmailAddress.
+
 	bldEmailAddr compiled.Expression
+
+	// builder for field uri: adapter.URI.
 
 	bldUri compiled.Expression
 } // builder_istio_mixer_adapter_sample_report_Res2
 
+// Creates a new builder for Res2.
 func newBuilder_istio_mixer_adapter_sample_report_Res2(
 	expb *compiled.ExpressionBuilder,
 	param *istio_mixer_adapter_sample_report.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res2, template.ErrorPath) {
@@ -4624,7 +4881,8 @@ func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -4633,43 +4891,50 @@ func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("TimeStamp", err)
 	}
+
 	r.TimeStamp = iface.(time.Time)
 
 	if iface, err = b.bldDuration.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Duration", err)
 	}
+
 	r.Duration = iface.(time.Duration)
 
 	if iface, err = b.bldIpAddr.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("IpAddr", err)
 	}
+
 	r.IpAddr = iface.(net.IP)
 
 	if iface, err = b.bldDnsName.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DnsName", err)
 	}
+
 	r.DnsName = iface.(adapter.DNSName)
 
 	if iface, err = b.bldEmailAddr.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("EmailAddr", err)
 	}
+
 	r.EmailAddr = iface.(adapter.EmailAddress)
 
 	if iface, err = b.bldUri.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Uri", err)
 	}
+
 	r.Uri = iface.(adapter.URI)
 
 	return r, template.ErrorPath{}

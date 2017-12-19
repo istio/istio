@@ -158,7 +158,7 @@ func (d *Dispatcher) Check(ctx context.Context, bag attribute.Bag) (*adapter.Che
 		}
 	}
 
-	res, err := executor.wait()
+	res, err := executor.wait(nil)
 
 	c.DecRef()
 	return res.(*adapter.CheckResult), err // TODO: Validate that the cast is correct.
@@ -206,7 +206,7 @@ func (d *Dispatcher) Report(ctx context.Context, bag attribute.Bag) error {
 		executor.executeReport(ctx, destination.Template.ProcessReport2, destination.Handler, instances)
 	}
 
-	_, err = executor.wait()
+	_, err = executor.wait(nil)
 
 	c.DecRef()
 	return err
@@ -259,7 +259,7 @@ func (d *Dispatcher) Quota(ctx context.Context, bag attribute.Bag, qma *aspect.Q
 		}
 	}
 
-	res, err := executor.wait()
+	res, err := executor.wait(nil)
 
 	c.DecRef()
 
@@ -310,7 +310,7 @@ func (d *Dispatcher) Preprocess(ctx context.Context, bag attribute.Bag, response
 		}
 	}
 
-	_, err = executor.wait()
+	_, err = executor.wait(responseBag)
 
 	r.DecRef()
 

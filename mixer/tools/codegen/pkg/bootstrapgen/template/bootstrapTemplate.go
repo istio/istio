@@ -556,7 +556,7 @@ var (
                 return func (_ attribute.Bag) (interface{}, error) {
                     err := errp.AsCompilationError(instanceName)
                     log.Error(err.Error())
-                    return err, nil
+                    return nil, err
                 }
             }
 
@@ -565,9 +565,9 @@ var (
                 if !errp.IsNil() {
                     err := errp.AsEvaluationError(instanceName)
                     log.Error(err.Error())
-                    return err, nil
+                    return nil, err
                 }
-
+				e.Name = instanceName
                 return e, nil
             }
         },
@@ -608,18 +608,19 @@ var (
 {{range .TemplateModels}}
     {{$t := .}}
 
-    {{/* Create builders for all known message types. */}}
+    // Builders for all known message types.
     {{range getAllMsgs .}}
         {{$m := . }}
         {{$builderName      := getMessageBuilderName $t $m}}
         {{$newBuilderFnName := getNewMessageBuilderFnName $t $m}}
 
-        // {{$builderName}} builds an instance of {{$m.Name}}.
+        // builds an instance of {{$m.Name}}.
         type {{$builderName}} struct {
 
         {{range $m.Fields}}
             {{$f := .}}
 
+			// builder for field {{$f.ProtoName}}: {{$f.GoType.Name}}.
             {{if $f.GoType.IsMap}}
                 {{if $f.GoType.MapValue.IsResourceMessage}}
                     {{builderFieldName $f}} map[string]*{{getMessageBuilderName $t $f.GoType.MapValue}}
@@ -638,7 +639,7 @@ var (
         } // {{$builderName}}
 
 
-        {{/* newBuilder** method for the message type. */}}
+        // Creates a new builder for {{$m.Name}}.
         func {{$newBuilderFnName}}(
             expb *compiled.ExpressionBuilder,
 			param *{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}) (*{{$builderName}}, template.ErrorPath) {
@@ -734,11 +735,15 @@ var (
                             if iface, err = v.Evaluate(attrs); err != nil {
                                 return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "].", err)
                             }
-                            {{if isAliasType $f.GoType.MapValue.Name}}
-                                    r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}(v.({{getAliasType $f.GoType.MapValue.Name}}))
-                                {{else}}
-                                    r.{{$f.GoName}}[k] = iface.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
-                                {{end}}
+	                        {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
+								r.{{$f.GoName}}[k] = iface
+							{{else}}
+	                            {{if isAliasType $f.GoType.MapValue.Name}}
+	                                r.{{$f.GoName}}[k] = {{$f.GoType.MapValue.Name}}(v.({{getAliasType $f.GoType.MapValue.Name}}))
+	                            {{else}}
+	                                r.{{$f.GoName}}[k] = iface.({{$f.GoType.MapValue.Name}}) {{reportTypeUsed $f.GoType.MapValue}}
+	                            {{end}}
+							{{end}}
                         }
                     {{end}}
                 {{else}}
@@ -750,7 +755,11 @@ var (
                         if iface, err = b.{{builderFieldName $f}}.Evaluate(attrs); err != nil {
                             return nil, template.NewErrorPath("{{$f.GoName}}", err)
                         }
-                        r.{{$f.GoName}} = iface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
+						{{if containsValueTypeOrResMsg $f.GoType}}
+                            r.{{$f.GoName}} = iface
+						{{else}}
+	                        r.{{$f.GoName}} = iface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
+						{{end}}
                     {{end}}
                 {{end}}
 

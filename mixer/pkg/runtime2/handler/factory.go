@@ -139,7 +139,9 @@ func (f *factory) buildHandler(builder adapter.HandlerBuilder, inferredTypes map
 		types = inferredTypes[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = f.snapshot.Templates[tmplName]
-		ti.SetType(types, builder)
+		if ti.SetType != nil { // for case like APA template that does not have SetType
+			ti.SetType(types, builder)
+		}
 	}
 	builder.SetAdapterConfig(adapterConfig.(proto.Message))
 	// validate and only construct if the validation passes.

@@ -424,7 +424,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -433,9 +433,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -617,7 +617,7 @@ var (
 					return func(_ attribute.Bag) (interface{}, error) {
 						err := errp.AsCompilationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
 				}
 
@@ -626,9 +626,9 @@ var (
 					if !errp.IsNil() {
 						err := errp.AsEvaluationError(instanceName)
 						log.Error(err.Error())
-						return err, nil
+						return nil, err
 					}
-
+					e.Name = instanceName
 					return e, nil
 				}
 			},
@@ -636,17 +636,29 @@ var (
 	}
 )
 
-// builder_sampleapa_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_sampleapa_Template struct {
+
+	// builder for field int64Primitive: int64.
+
 	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
 
 	bldBoolPrimitive compiled.Expression
 
+	// builder for field doublePrimitive: float64.
+
 	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
 
 	bldStringPrimitive compiled.Expression
 } // builder_sampleapa_Template
 
+// Creates a new builder for Template.
 func newBuilder_sampleapa_Template(
 	expb *compiled.ExpressionBuilder,
 	param *sampleapa.InstanceParam) (*builder_sampleapa_Template, template.ErrorPath) {
@@ -706,33 +718,45 @@ func (b *builder_sampleapa_Template) build(
 	if iface, err = b.bldInt64Primitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Int64Primitive", err)
 	}
+
 	r.Int64Primitive = iface.(int64)
 
 	if iface, err = b.bldBoolPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("BoolPrimitive", err)
 	}
+
 	r.BoolPrimitive = iface.(bool)
 
 	if iface, err = b.bldDoublePrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DoublePrimitive", err)
 	}
+
 	r.DoublePrimitive = iface.(float64)
 
 	if iface, err = b.bldStringPrimitive.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("StringPrimitive", err)
 	}
+
 	r.StringPrimitive = iface.(string)
 
 	return r, template.ErrorPath{}
 }
 
-// builder_samplereport_Template builds an instance of Template.
+// Builders for all known message types.
+
+// builds an instance of Template.
 type builder_samplereport_Template struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
 	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
 
 	bldDimensions map[string]compiled.Expression
 } // builder_samplereport_Template
 
+// Creates a new builder for Template.
 func newBuilder_samplereport_Template(
 	expb *compiled.ExpressionBuilder,
 	param *samplereport.InstanceParam) (*builder_samplereport_Template, template.ErrorPath) {
@@ -786,7 +810,8 @@ func (b *builder_samplereport_Template) build(
 	if iface, err = b.bldValue.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Value", err)
 	}
-	r.Value = iface.(istio_mixer_v1_config_descriptor.ValueType)
+
+	r.Value = iface
 
 	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
 
@@ -795,7 +820,7 @@ func (b *builder_samplereport_Template) build(
 			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
 		}
 
-		r.Dimensions[k] = iface.(istio_mixer_v1_config_descriptor.ValueType)
+		r.Dimensions[k] = iface
 
 	}
 

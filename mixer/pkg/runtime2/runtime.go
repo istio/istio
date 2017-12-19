@@ -119,12 +119,16 @@ func (c *Runtime) processNewConfig() {
 
 	builder := compiled.NewBuilder(newSnapshot.Attributes)
 	newRoutes := routing.BuildTable(
-		newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace, false)
+		newHandlers, newSnapshot, builder, c.identityAttribute, c.defaultConfigNamespace, log.DebugEnabled())
 
 	oldContext := c.dispatcher.ChangeRoute(newRoutes)
 
 	c.handlers = newHandlers
 	c.snapshot = newSnapshot
+
+	if log.DebugEnabled() {
+		log.Debugf("New routes in effect:\n%s", newRoutes.String())
+	}
 
 	cleanupHandlers(oldContext, oldHandlers, newHandlers, maxCleanupDuration)
 }
@@ -154,7 +158,7 @@ func cleanupHandlers(oldContext *dispatcher.DispatchContext, oldHandlers *handle
 		break
 	}
 
-	log.Infof("cleanupResolver[%d] handler table has %d entries", oldContext.Routes.ID())
+	log.Infof("Cleaning up handler table, ID:%d", oldContext.Routes.ID())
 
 	oldHandlers.Cleanup(currentHandlers)
 	return nil
