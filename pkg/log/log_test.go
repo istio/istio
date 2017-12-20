@@ -29,6 +29,8 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+const timePattern = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9]Z"
+
 func TestBasic(t *testing.T) {
 	cases := []struct {
 		f          func()
@@ -37,40 +39,44 @@ func TestBasic(t *testing.T) {
 		caller     bool
 		stackLevel zapcore.Level
 	}{
-		{func() { Debug("Hello") }, ".*Z\tdebug\tHello", false, false, None},
-		{func() { Debugf("Hello") }, ".*Z\tdebug\tHello", false, false, None},
-		{func() { Debugw("Hello") }, ".*Z\tdebug\tHello", false, false, None},
-		{func() { Debuga("Hello") }, ".*Z\tdebug\tHello", false, false, None},
+		{func() { Debug("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
+		{func() { Debugf("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
+		{func() { Debugw("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
+		{func() { Debuga("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
 
-		{func() { Info("Hello") }, ".*Z\tinfo\tHello", false, false, None},
-		{func() { Infof("Hello") }, ".*Z\tinfo\tHello", false, false, None},
-		{func() { Infow("Hello") }, ".*Z\tinfo\tHello", false, false, None},
-		{func() { Infoa("Hello") }, ".*Z\tinfo\tHello", false, false, None},
+		{func() { Info("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
+		{func() { Infof("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
+		{func() { Infow("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
+		{func() { Infoa("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
 
-		{func() { Warn("Hello") }, ".*Z\twarn\tHello", false, false, None},
-		{func() { Warnf("Hello") }, ".*Z\twarn\tHello", false, false, None},
-		{func() { Warnw("Hello") }, ".*Z\twarn\tHello", false, false, None},
-		{func() { Warna("Hello") }, ".*Z\twarn\tHello", false, false, None},
+		{func() { Warn("Hello") }, timePattern + "\twarn\tHello", false, false, None},
+		{func() { Warnf("Hello") }, timePattern + "\twarn\tHello", false, false, None},
+		{func() { Warnw("Hello") }, timePattern + "\twarn\tHello", false, false, None},
+		{func() { Warna("Hello") }, timePattern + "\twarn\tHello", false, false, None},
 
-		{func() { Error("Hello") }, ".*Z\terror\tHello", false, false, None},
-		{func() { Errorf("Hello") }, ".*Z\terror\tHello", false, false, None},
-		{func() { Errorw("Hello") }, ".*Z\terror\tHello", false, false, None},
-		{func() { Errora("Hello") }, ".*Z\terror\tHello", false, false, None},
+		{func() { Error("Hello") }, timePattern + "\terror\tHello", false, false, None},
+		{func() { Errorf("Hello") }, timePattern + "\terror\tHello", false, false, None},
+		{func() { Errorw("Hello") }, timePattern + "\terror\tHello", false, false, None},
+		{func() { Errora("Hello") }, timePattern + "\terror\tHello", false, false, None},
 
 		{func() {
 			l := With(zap.String("key", "value"))
 			l.Debug("Hello")
-		}, ".*Z\tdebug\tHello\t{\"key\": \"value\"}", false, false, None},
+		}, timePattern + "\tdebug\tHello\t{\"key\": \"value\"}", false, false, None},
 
-		{func() { Debug("Hello") }, ".*Z\tdebug\tlog/log_test.go:.*\tHello", false, true, None},
+		{func() { Debug("Hello") }, timePattern + "\tdebug\tlog/log_test.go:.*\tHello", false, true, None},
 
-		{func() { Debug("Hello") }, "{\"level\":\"debug\",\"time\":\".*T.*Z\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\",\"stack\":\".*\"}",
+		{func() { Debug("Hello") }, "{\"level\":\"debug\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
+			"\"stack\":\".*\"}",
 			true, true, zapcore.DebugLevel},
-		{func() { Info("Hello") }, "{\"level\":\"info\",\"time\":\".*T.*Z\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\",\"stack\":\".*\"}",
+		{func() { Info("Hello") }, "{\"level\":\"info\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
+			"\"stack\":\".*\"}",
 			true, true, zapcore.DebugLevel},
-		{func() { Warn("Hello") }, "{\"level\":\"warn\",\"time\":\".*T.*Z\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\",\"stack\":\".*\"}",
+		{func() { Warn("Hello") }, "{\"level\":\"warn\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
+			"\"stack\":\".*\"}",
 			true, true, zapcore.DebugLevel},
-		{func() { Error("Hello") }, "{\"level\":\"error\",\"time\":\".*T.*Z\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\",\"stack\":\".*\"}",
+		{func() { Error("Hello") }, "{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
+			"\"stack\":\".*\"}",
 			true, true, zapcore.DebugLevel},
 	}
 
@@ -190,9 +196,9 @@ func TestCapture(t *testing.T) {
 	})
 
 	patterns := []string{
-		".*Z\tinfo\tlog/log_test.go:.*\tHello",
-		".*Z\tinfo\tlog/log_test.go:.*\tThere",
-		".*Z\tinfo\tlog/log_test.go:.*\tGoodbye",
+		timePattern + "\tinfo\tlog/log_test.go:.*\tHello",
+		timePattern + "\tinfo\tlog/log_test.go:.*\tThere",
+		timePattern + "\tinfo\tlog/log_test.go:.*\tGoodbye",
 	}
 
 	for i, pat := range patterns {
