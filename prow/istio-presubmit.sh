@@ -73,7 +73,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istesttio.io/istio
+  cd ${GOPATH}/src/istio.io/istio
 
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
