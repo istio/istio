@@ -6,7 +6,7 @@
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
 export TOP=$(cd $(dirname $0)/../../../..; pwd)
-export ISTIO_GO=${TOP}/go/src/istio.io/istio
+export ISTIO_GO=${TOP}/src/istio.io/istio
 
 export GOPATH=${TOP}
 export PATH=${GOPATH}/bin:${PATH}
