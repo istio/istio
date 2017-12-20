@@ -17,6 +17,7 @@ package data
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"istio.io/api/mixer/v1/template"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -30,8 +31,8 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 	var t = map[string]*template.Info{
 		"t1": {
 			Name:   "t1",
+			Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK,
 			CtrCfg: &types.Empty{},
-
 			InferType: func(p proto.Message, evalFn template.TypeEvalFn) (proto.Message, error) {
 				_, _ = evalFn("source.name")
 				return &types.Empty{}, nil
@@ -40,6 +41,11 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 				return true
 			},
 			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				if h, ok := hndlr.(*FakeHandler); ok {
+					return !h.DoesNotSupportTemplate
+				}
+
+				// Always return true otherwise.
 				return true
 			},
 			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
@@ -47,10 +53,43 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 			},
 			CreateInstanceBuilder: func(instanceName string, instanceParam interface{}, builder *compiled.ExpressionBuilder) template.InstanceBuilderFn {
 				return func(bag attribute.Bag) (interface{}, error) {
-					//_ = instanceName + "AAA"
 					return &types.Empty{}, nil
 				}
 			},
+		},
+
+		"t2apa": {
+			Name:   "t2apa",
+			Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
+			CtrCfg: &types.Empty{},
+			InferType: func(p proto.Message, evalFn template.TypeEvalFn) (proto.Message, error) {
+				_, _ = evalFn("source.name")
+				return &types.Empty{}, nil
+			},
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				return true
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				if h, ok := hndlr.(*FakeHandler); ok {
+					return !h.DoesNotSupportTemplate
+				}
+
+				// Always return true otherwise.
+				return true
+			},
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+
+			},
+			CreateInstanceBuilder: func(instanceName string, instanceParam interface{}, builder *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+				return func(bag attribute.Bag) (interface{}, error) {
+					return &types.Empty{}, nil
+				}
+			},
+			CreateOutputMapperFn: func(instanceParam interface{}, builder *compiled.ExpressionBuilder) template.OutputMapperFn {
+				return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
+					return attribute.GetMutableBag(attrs), nil
+				}
+			} ,
 		},
 	}
 

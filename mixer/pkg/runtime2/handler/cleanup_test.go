@@ -97,7 +97,7 @@ func TestCleanup_WithStartupError(t *testing.T) {
 
 func TestCleanup_CloseError(t *testing.T) {
 	f := &data.FakeHandlerBuilder{
-		ErrorOnHandlerClose: true,
+		HandlerErrorOnClose: true,
 	}
 
 	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {

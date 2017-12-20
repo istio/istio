@@ -118,14 +118,6 @@ func (b *builder) build(config *config.Snapshot) {
 				// TODO: Should we single-instance instances? An instance config could be referenced multiple times.
 
 				t := instance.Template
-
-				// TODO: Is this redundant?
-				if !t.HandlerSupportsTemplate(handlerInstance) {
-					log.Warnf("The handler doesn't support the template: handler='%s', template='%s'",
-						handlerName, t.Name)
-					continue
-				}
-
 				builder := t.CreateInstanceBuilder(instance.Name, instance.Params, b.expb)
 
 				var mapper template.OutputMapperFn

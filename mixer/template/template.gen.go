@@ -3076,7 +3076,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 		return nil, template.NewErrorPath("SourceIp", err)
 	}
 
-	r.SourceIp = iface.(net.IP)
+	r.SourceIp = net.IP(iface.([]uint8))
 
 	if iface, err = b.bldDestinationUid.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DestinationUid", err)
@@ -3088,7 +3088,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 		return nil, template.NewErrorPath("DestinationIp", err)
 	}
 
-	r.DestinationIp = iface.(net.IP)
+	r.DestinationIp = net.IP(iface.([]uint8))
 
 	if iface, err = b.bldOriginUid.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("OriginUid", err)
@@ -3100,7 +3100,7 @@ func (b *builder_adapter_template_kubernetes_Template) build(
 		return nil, template.NewErrorPath("OriginIp", err)
 	}
 
-	r.OriginIp = iface.(net.IP)
+	r.OriginIp = net.IP(iface.([]uint8))
 
 	return r, template.ErrorPath{}
 }

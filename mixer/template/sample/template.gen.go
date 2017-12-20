@@ -3112,13 +3112,13 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 		return nil, template.NewErrorPath("OptionalIP", err)
 	}
 
-	r.OptionalIP = iface.(net.IP)
+	r.OptionalIP = net.IP(iface.([]uint8))
 
 	if iface, err = b.bldEmail.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Email", err)
 	}
 
-	r.Email = iface.(adapter.EmailAddress)
+	r.Email = adapter.EmailAddress(iface.(string))
 
 	return r, template.ErrorPath{}
 }
@@ -4917,25 +4917,25 @@ func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
 		return nil, template.NewErrorPath("IpAddr", err)
 	}
 
-	r.IpAddr = iface.(net.IP)
+	r.IpAddr = net.IP(iface.([]uint8))
 
 	if iface, err = b.bldDnsName.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("DnsName", err)
 	}
 
-	r.DnsName = iface.(adapter.DNSName)
+	r.DnsName = adapter.DNSName(iface.(string))
 
 	if iface, err = b.bldEmailAddr.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("EmailAddr", err)
 	}
 
-	r.EmailAddr = iface.(adapter.EmailAddress)
+	r.EmailAddr = adapter.EmailAddress(iface.(string))
 
 	if iface, err = b.bldUri.Evaluate(attrs); err != nil {
 		return nil, template.NewErrorPath("Uri", err)
 	}
 
-	r.Uri = iface.(adapter.URI)
+	r.Uri = adapter.URI(iface.(string))
 
 	return r, template.ErrorPath{}
 }

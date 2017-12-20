@@ -758,7 +758,11 @@ var (
 						{{if containsValueTypeOrResMsg $f.GoType}}
                             r.{{$f.GoName}} = iface
 						{{else}}
-	                        r.{{$f.GoName}} = iface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
+							{{if isAliasType $f.GoType.Name}}
+								r.{{$f.GoName}} = {{$f.GoType.Name}}(iface.({{getAliasType .GoType.Name}}))
+							{{else}}
+	                            r.{{$f.GoName}} = iface.({{$f.GoType.Name}}) {{reportTypeUsed $f.GoType}}
+							{{end}}
 						{{end}}
                     {{end}}
                 {{end}}

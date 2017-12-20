@@ -85,11 +85,9 @@ func (e *HandlerEntries) write(w io.Writer, indent int, debugInfo *tableDebugInf
 		fmt.Fprintf(w, "%s[#%d] ", idnt, i)
 
 		if debugInfo != nil {
-			fmt.Fprintf(w, "%s", debugInfo.handlerNamesByID[entry.ID])
-		} else {
-			fmt.Fprintf(w, "%v", entry.Handler)
+			fmt.Fprintf(w, "%s ", debugInfo.handlerNamesByID[entry.ID])
 		}
-		fmt.Fprintln(w, " {H}")
+		fmt.Fprintln(w, "{H}")
 
 		indent++
 		idnt := strings.Repeat("  ", indent)
@@ -111,12 +109,12 @@ func (e *HandlerEntries) String() string {
 func (s *InputSet) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
-	fmt.Fprintf(w, "%sConditional: ", idnt)
+	fmt.Fprintf(w, "%sCondition: ", idnt)
 	if s.Condition != nil {
 		if debugInfo != nil {
 			fmt.Fprint(w, debugInfo.matchesByID[s.ID])
 		} else {
-			fmt.Fprint(w, "...")
+			fmt.Fprint(w, "<PRESENT>")
 		}
 	} else {
 		fmt.Fprint(w, "<NONE>")
@@ -133,7 +131,7 @@ func (s *InputSet) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 		}
 	} else {
 		for i, bld := range s.Builders {
-			fmt.Fprintf(w, "%s[#%d] %v", idnt, i, bld)
+			fmt.Fprintf(w, "%s[#%d] %v {I}", idnt, i, bld)
 			fmt.Fprintln(w)
 		}
 	}

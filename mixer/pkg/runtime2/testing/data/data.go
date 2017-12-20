@@ -51,6 +51,43 @@ metadata:
   namespace: istio-system
 `
 
+// HandlerH1NS2 is a standard testing handler config with name H1, in namespace 'ns2'.
+var HandlerH1NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: a1
+metadata:
+  name: h1
+  namespace: ns2
+`
+
+// HandlerH2BadBuilder is a standard testing handler config with name h2-bad-builder. It's builder will always return error.
+var HandlerH2BadBuilder = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: a2-bad-builder
+metadata:
+  name: h2-bad-builder
+  namespace: istio-system
+`
+
+// HandlerH2BadBuilder is a standard testing handler config with name h3-handler-does-not-supports-template. It's handler
+// does not support the template.
+var HandlerH3HandlerDoesNotSupportTemplate = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: a3-handler-does-not-support-template
+metadata:
+  name: h3-handler-does-not-support-template
+  namespace: istio-system
+`
+
+// HandlerH4 is a standard testing handler config with name H4. It is just a different handler that is similar to H1.
+var HandlerH4AnotherHandler = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: a1
+metadata:
+  name: h4
+  namespace: istio-system
+`
+
 // InstanceI1 is a standard testing instance config with name I1.
 var InstanceI1 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -58,6 +95,16 @@ kind: t1
 metadata:
   name: i1
   namespace: istio-system
+spec:
+`
+
+// InstanceI1NS2 is a standard testing instance config with name I1, in namespace NS2.
+var InstanceI1NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: t1
+metadata:
+  name: i1
+  namespace: ns2
 spec:
 `
 
@@ -95,6 +142,20 @@ spec:
     - i1.t1.istio-system
 `
 
+// RuleR1I1NS2 is a standard testing rule config with name R1 which references I1 in namespace NS2.
+var RuleR1I1NS2 = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r1
+  namespace: ns2
+spec:
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.ns2
+`
+
 // RuleR2I1I2 is a standard testing rule config with name R2 which references I1 and I2.
 var RuleR2I1I2 = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -124,6 +185,95 @@ spec:
     instances:
     - i1.t1.istio-system
     - i2.t1.istio-system
+`
+
+// RuleR4I1BadCondition is a standard testing rule config with a bad match expression.
+var RuleR4I1BadCondition = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r4
+  namespace: istio-system
+spec:
+  selector: send-more-cheese
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.istio-system
+`
+
+// RuleR5I1BadHandlerName is a standard testing rule config with a bad handler name.
+var RuleR5I1BadHandlerName = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r5
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h1.inspector-gadget
+    instances:
+    - i1.t1.istio-system
+`
+
+// RuleR6I1BadHandlerBuilder is a standard testing rule config that references adapter a2-bad-builder.
+var RuleR6I1BadHandlerBuilder = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r6
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h2-bad-builder.a2-bad-builder
+    instances:
+    - i1.t1.istio-system
+`
+
+
+// RuleR7I1HandlerDoesNotSupportTemplate is a standard testing rule config that references adapter h3-handler-does-not-support-template.
+var RuleR7I1HandlerDoesNotSupportTemplate = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r6
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h3-handler-does-not-support-template.a3-handler-does-not-support-template
+    instances:
+    - i1.t1.istio-system
+`
+
+// RuleR8I1I2AnotherConditional is a standard testing rule config with name R8 which references I1 and I2 and has a conditional.
+// different version of RuleR3I1I2.
+var RuleR8I1I2AnotherConditional = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r8
+  namespace: istio-system
+spec:
+  selector: target.name.startsWith("foo")
+  actions:
+  - handler: h1.a1
+    instances:
+    - i1.t1.istio-system
+    - i2.t1.istio-system
+`
+
+// RuleR9H4AnotherHandler is a standard testing rule config with name R9 which references I1 and H4.
+var RuleR9H4AnotherHandler = `
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: r9
+  namespace: istio-system
+spec:
+  actions:
+  - handler: h4.a1
+    instances:
+    - i1.t1.istio-system
 `
 
 // GlobalConfig is the default GlobalConfig that consists of combination of various default config entries.

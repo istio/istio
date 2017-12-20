@@ -27,6 +27,7 @@ import (
 // 'a1' adapter.
 func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
 	var a = map[string]*adapter.Info{
+		// A healthy adapter. It's behavior is overridable.
 		"a1": {
 			Name:               "a1",
 			DefaultConfig:      &types.Empty{},
@@ -35,6 +36,30 @@ func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
 				return &FakeHandlerBuilder{}
 			},
 		},
+
+		// an adapter whose builders always fail.
+		"a2-bad-builder": {
+			Name: "a2-bad-builder",
+			DefaultConfig:      &types.Empty{},
+			SupportedTemplates: []string{"t1"},
+			NewBuilder: func() adapter.HandlerBuilder {
+				return &FakeHandlerBuilder{
+					ErrorAtBuild: true,
+				}
+			},
+		} ,
+
+		// an adapter whose handler doesn't actually support the template.
+		"a3-handler-does-not-support-template": {
+			Name: "a3-handler-does-not-support-template",
+			DefaultConfig:      &types.Empty{},
+			SupportedTemplates: []string{"t1"}, // it is a lie!
+			NewBuilder: func() adapter.HandlerBuilder {
+				return &FakeHandlerBuilder{
+					HandlerDoesNotSupportTemplate: true,
+				}
+			},
+		} ,
 	}
 
 	if override != nil {
@@ -63,10 +88,12 @@ var _ adapter.Env = &FakeEnv{}
 
 // FakeHandlerBuilder is a fake of HandlerBuilder.
 type FakeHandlerBuilder struct {
-	PanicAtSetAdapterConfig bool
-	ErrorAtValidate         bool
-	ErrorOnHandlerClose     bool
-	Handler                 *FakeHandler
+	PanicAtSetAdapterConfig       bool
+	ErrorAtBuild                  bool
+	ErrorAtValidate               bool
+	HandlerErrorOnClose           bool
+	Handler                       *FakeHandler
+	HandlerDoesNotSupportTemplate bool
 }
 
 // SetAdapterConfig is an implementation of HandlerBuilder.SetAdapterConfig.
@@ -88,8 +115,13 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 
 // Build is an implementation of HandlerBuilder.Build.
 func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+	if f.ErrorAtBuild {
+		return nil, fmt.Errorf("this adapter is not available at the moment. Please come back later.")
+	}
+
 	f.Handler = &FakeHandler{
-		ErrorOnHandlerClose: f.ErrorOnHandlerClose,
+		ErrorOnHandlerClose:    f.HandlerErrorOnClose,
+		DoesNotSupportTemplate: f.HandlerDoesNotSupportTemplate,
 	}
 	return f.Handler, nil
 }
@@ -98,8 +130,10 @@ var _ adapter.HandlerBuilder = &FakeHandlerBuilder{}
 
 // FakeHandler is a fake implementation of adapter.Handler.
 type FakeHandler struct {
-	CloseCalled         bool
-	ErrorOnHandlerClose bool
+	CloseCalled             bool
+
+	ErrorOnHandlerClose     bool
+	DoesNotSupportTemplate  bool
 }
 
 // Close is an implementation of adapter.Handler.Close.
