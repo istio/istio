@@ -17,6 +17,7 @@
 #include "request_handler_impl.h"
 
 using ::istio::mixer::v1::config::client::TcpClientConfig;
+using ::istio::mixer_client::Statistics;
 
 namespace istio {
 namespace mixer_control {
@@ -33,6 +34,10 @@ std::unique_ptr<RequestHandler> ControllerImpl::CreateRequestHandler() {
 
 std::unique_ptr<Controller> Controller::Create(const Options& data) {
   return std::unique_ptr<Controller>(new ControllerImpl(data));
+}
+
+void ControllerImpl::GetStatistics(Statistics* stat) const {
+  client_context_->GetStatistics(stat);
 }
 
 }  // namespace tcp

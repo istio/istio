@@ -36,6 +36,9 @@ class ControllerImpl : public Controller {
   // Creates a TCP request handler
   std::unique_ptr<RequestHandler> CreateRequestHandler() override;
 
+  // Get statistics.
+  void GetStatistics(::istio::mixer_client::Statistics* stat) const override;
+
  private:
   // The client context object to hold client config and client cache.
   std::shared_ptr<ClientContext> client_context_;

@@ -51,6 +51,9 @@ class Controller {
 
   // The factory function to create a new instance of the controller.
   static std::unique_ptr<Controller> Create(const Options& options);
+
+  // Get statistics.
+  virtual void GetStatistics(::istio::mixer_client::Statistics* stat) const = 0;
 };
 
 }  // namespace tcp

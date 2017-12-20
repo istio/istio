@@ -39,6 +39,9 @@ class ControllerImpl : public Controller {
   std::unique_ptr<RequestHandler> CreateRequestHandler(
       const PerRouteConfig& per_route_config) override;
 
+  // Get statistics.
+  void GetStatistics(::istio::mixer_client::Statistics* stat) const override;
+
  private:
   // Create service config context for HTTP.
   std::shared_ptr<ServiceContext> GetServiceContext(

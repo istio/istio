@@ -46,6 +46,9 @@ class ClientContextBase {
   // Use mixer client object to make a Report call.
   void SendReport(const RequestContext& request);
 
+  // Get statistics.
+  void GetStatistics(::istio::mixer_client::Statistics* stat) const;
+
  private:
   // The mixer client object with check cache and report batch features.
   std::unique_ptr<::istio::mixer_client::MixerClient> mixer_client_;

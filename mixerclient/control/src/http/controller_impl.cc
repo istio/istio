@@ -17,6 +17,7 @@
 #include "request_handler_impl.h"
 
 using ::istio::mixer::v1::config::client::ServiceConfig;
+using ::istio::mixer_client::Statistics;
 
 namespace istio {
 namespace mixer_control {
@@ -30,6 +31,10 @@ std::unique_ptr<RequestHandler> ControllerImpl::CreateRequestHandler(
     const PerRouteConfig& per_route_config) {
   return std::unique_ptr<RequestHandler>(
       new RequestHandlerImpl(GetServiceContext(per_route_config)));
+}
+
+void ControllerImpl::GetStatistics(Statistics* stat) const {
+  client_context_->GetStatistics(stat);
 }
 
 std::shared_ptr<ServiceContext> ControllerImpl::GetServiceContext(

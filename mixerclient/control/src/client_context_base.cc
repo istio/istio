@@ -22,8 +22,9 @@ using ::istio::mixer_client::CheckOptions;
 using ::istio::mixer_client::DoneFunc;
 using ::istio::mixer_client::Environment;
 using ::istio::mixer_client::MixerClientOptions;
-using ::istio::mixer_client::ReportOptions;
 using ::istio::mixer_client::QuotaOptions;
+using ::istio::mixer_client::ReportOptions;
+using ::istio::mixer_client::Statistics;
 using ::istio::mixer_client::TransportCheckFunc;
 
 namespace istio {
@@ -91,6 +92,10 @@ void ClientContextBase::SendReport(const RequestContext& request) {
   // GOOGLE_LOG(INFO) << "Report attributes: " <<
   // request.attributes.DebugString();
   mixer_client_->Report(request.attributes);
+}
+
+void ClientContextBase::GetStatistics(Statistics* stat) const {
+  mixer_client_->GetStatistics(stat);
 }
 
 }  // namespace mixer_control
