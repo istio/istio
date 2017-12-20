@@ -17,6 +17,7 @@ package template
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
@@ -27,6 +28,8 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -83,6 +86,14 @@ type (
 		ProcessGenAttrs         ProcessGenerateAttributesFn
 
 		AttributeManifests []*istio_mixer_v1_config.AttributeManifest
+
+		ProcessReport2   ProcessReport2Fn
+		ProcessCheck2    ProcessCheck2Fn
+		ProcessQuota2    ProcessQuota2Fn
+		ProcessGenAttrs2 ProcessGenAttrs2Fn
+
+		CreateInstanceBuilder CreateInstanceBuilderFn
+		CreateOutputMapperFn  CreateOutputMapperFn
 	}
 
 	// templateRepo implements Repository
@@ -92,6 +103,36 @@ type (
 		allSupportedTmpls  []string
 		tmplToBuilderNames map[string]string
 	}
+
+	// ProcessReport2Fn invokes the handler with the given instances.
+	ProcessReport2Fn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
+
+	// ProcessCheck2Fn invokes the handler with the given instance.
+	ProcessCheck2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+
+	// ProcessQuota2Fn invokes the handler with the given instance.
+	ProcessQuota2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
+
+	// ProcessGenAttrs2Fn invokes the handler with the given instance.
+	ProcessGenAttrs2Fn func(ctx context.Context, handler adapter.Handler, instance interface{},
+		attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
+
+	// CreateInstanceBuilderFn builds and returns a function that will build Instances during runtime.
+	CreateInstanceBuilderFn func(instanceName string, instanceParam interface{}, builder *compiled.ExpressionBuilder) InstanceBuilderFn
+
+	// InstanceBuilderFn builds returns an Instance, based on the attributes supplied.
+	// It closes over the current configuration and the instanceParam supplied during
+	// its creation.
+	InstanceBuilderFn func(attrs attribute.Bag) (interface{}, error)
+
+	// CreateOutputMapperFn builds and returns a function that will map APA output values to attributes.
+	CreateOutputMapperFn func(instanceParam interface{}, builder *compiled.ExpressionBuilder) OutputMapperFn
+
+	// OutputMapperFn maps the results of an APA output bag (with $out)s by processing it through
+	// AttributeBindings
+	// It closes over the current configuration and the instanceParam supplied during
+	// its creation.
+	OutputMapperFn func(attrs attribute.Bag) (*attribute.MutableBag, error)
 )
 
 func (t repo) GetTemplateInfo(template string) (Info, bool) {
@@ -148,4 +189,35 @@ func EvalAll(expressions map[string]string, attrs attribute.Bag, eval expr.Evalu
 		labels[label] = val
 	}
 	return labels, result.ErrorOrNil()
+}
+
+// NewOutputMapperFn creates and returns a function that creates new attributes, based on the supplied expression set.
+func NewOutputMapperFn(expressions map[string]compiled.Expression) OutputMapperFn {
+	return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
+		var val interface{}
+		var err error
+
+		resultBag := attribute.GetMutableBag(nil)
+		for attrName, expr := range expressions {
+			if val, err = expr.Evaluate(attrs); err != nil {
+				return nil, err
+			}
+
+			switch v := val.(type) {
+			case net.IP:
+				// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
+				// TODO: remove
+				log.Info("converting net.IP to []byte")
+				if v4 := v.To4(); v4 != nil {
+					resultBag.Set(attrName, []byte(v4))
+					continue
+				}
+				resultBag.Set(attrName, []byte(v.To16()))
+			default:
+				resultBag.Set(attrName, val)
+			}
+		}
+
+		return resultBag, nil
+	}
 }

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/mixer/pkg/il/evaluator"
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
+	mixerRuntime2 "istio.io/istio/mixer/pkg/runtime2"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
 )
@@ -58,6 +59,11 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
+
+	newRuntime2 func(s store.Store2, templates map[string]*template.Info, adapters map[string]*adapter.Info,
+		identityAttribute string, defaultConfigNamespace string, executorPool *pool.GoroutinePool,
+		handlerPool *pool.GoroutinePool) *mixerRuntime2.Runtime
+
 	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
 	startMonitor func(port uint16) (*monitor, error)
 	listen       func(network string, address string) (net.Listener, error)
@@ -73,6 +79,7 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
 		newRuntime:     mixerRuntime.New,
+		newRuntime2:    mixerRuntime2.New,
 		startTracer:    startTracer,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
@@ -161,10 +168,25 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	}
 
 	var dispatcher mixerRuntime.Dispatcher
-	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
-		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+	if a.UseNewRuntime {
+		templateMap := make(map[string]*template.Info, len(a.Templates))
+		for k, v := range a.Templates {
+			t := v // Make a local copy, otherwise we end up capturing the location of the last entry
+			templateMap[k] = &t
+		}
+
+		runtime := p.newRuntime2(store2, templateMap, adapterMap, a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, s.gp, s.adapterGP)
+		if err = runtime.StartListening(); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime2 dispatcher: %v", err)
+		}
+		dispatcher = runtime.Dispatcher()
+	} else {
+		if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
+			a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		}
 	}
 
 	// get the grpc server wired up
