@@ -9,7 +9,6 @@
 # Bazel
 /bazel-*
 vendor
-*.descriptor_set
 # vi backups
 *.bak
 # python artifacts
