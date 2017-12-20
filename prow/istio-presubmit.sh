@@ -28,6 +28,8 @@ set -u
 set -x
 set -e
 
+# For the transition period (until generate is moved) we may need to run presubmit with
+# bazel in separate prow.
 USE_BAZEL=${USE_BAZEL:-0}
 
 die () {
@@ -56,7 +58,7 @@ fetch_envoy() {
     #       ISTIO_PROXY_BUCKET = "76ed00adea006e25878f20daa58c456848243999"
     # we pull it out, grab the SHA, and trim the quotes
     local PROXY_SHA=$(grep "ISTIO_PROXY_BUCKET =" ${ROOT}/WORKSPACE | cut -d' ' -f3 | tr -d '"')
-    wget -qO- https:/test/storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
+    wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
     ln -sf ${DIR}/usr/local/bin/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
 }
@@ -99,10 +101,11 @@ else
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
-echo 'Pulling down pre-built Envoy'
-fetch_envoy
 
 if [ "$USE_BAZEL" == "1" ] ; then
+    echo 'Pulling down pre-built Envoy'
+    fetch_envoy
+
     echo 'Building everything'
     ${ROOT}/bin/init.sh
 
@@ -116,7 +119,6 @@ else
     ${ROOT}/bin/init.sh
     echo 'Build'
     (cd ${ROOT}; make go-build)
-
     (cd ${ROOT}; make localTestEnv go-test)
 fi
 
