@@ -14,25 +14,23 @@
 
 package runtime
 
-// TODO this file is copied from pkg/adapterManager.
-// Remove the adapterManager package once adapters2 switch is complete.
-
 import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
-
+	"go.uber.org/zap"
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/pkg/log"
 )
 
 type logger struct {
-	name string
+	l *zap.Logger
+	s *zap.SugaredLogger
 }
 
 var _ adapter.Logger = &logger{}
 
-// stackDepth is used by glog / runtime.Caller
+// stackDepth is used
 // to determine how many levels of stack to skip
 // it should be 1 if logging through a struct and
 // it should be 2 if logging through an interface
@@ -41,24 +39,43 @@ var _ adapter.Logger = &logger{}
 const stackDepth = 2
 
 func newLogger(name string) logger {
-	return logger{name: name}
+	l := log.With(zap.String("adapter", name)).WithOptions(zap.AddCallerSkip(stackDepth))
+	s := l.Sugar()
+
+	return logger{
+		l: l,
+		s: s,
+	}
 }
 
 func (l logger) VerbosityLevel(level adapter.VerbosityLevel) bool {
-	v := glog.V(glog.Level(level))
-	return bool(v)
+	switch level {
+	case 0:
+		return l.l.Core().Enabled(zap.ErrorLevel)
+	case 1:
+		return l.l.Core().Enabled(zap.WarnLevel)
+	case 2:
+		return l.l.Core().Enabled(zap.InfoLevel)
+	}
+
+	if level >= 3 {
+		return l.l.Core().Enabled(zap.DebugLevel)
+	}
+
+	// < 0
+	return false
 }
 
 func (l logger) Infof(format string, args ...interface{}) {
-	glog.InfoDepth(stackDepth, l.name+":"+fmt.Sprintf(format, args...))
+	l.s.Infof(format, args...)
 }
 
 func (l logger) Warningf(format string, args ...interface{}) {
-	glog.WarningDepth(stackDepth, l.name+":"+fmt.Sprintf(format, args...))
+	l.s.Warnf(format, args...)
 }
 
 func (l logger) Errorf(format string, args ...interface{}) error {
 	s := fmt.Sprintf(format, args...)
-	glog.ErrorDepth(stackDepth, l.name+":"+s)
+	l.s.Error(format)
 	return errors.New(s)
 }

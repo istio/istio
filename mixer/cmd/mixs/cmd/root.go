@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	_ "google.golang.org/grpc/grpclog/glogger" // needed to initialize glog
 
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/adapter"

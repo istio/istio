@@ -52,6 +52,8 @@
 package log
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapgrpc"
@@ -112,8 +114,11 @@ func configure(options *Options, b builder) error {
 			LineEnding:     zapcore.DefaultLineEnding,
 			EncodeLevel:    zapcore.LowercaseLevelEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
 			EncodeDuration: zapcore.StringDurationEncoder,
+
+			EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+				enc.AppendString(t.UTC().Format("2006-01-02T15:04:05.000Z0700"))
+			},
 		},
 
 		OutputPaths:       options.OutputPaths,
