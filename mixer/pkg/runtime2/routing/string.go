@@ -53,7 +53,7 @@ func (t *Table) String() string {
 	return b.String()
 }
 
-func (v *namespaceTable) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (v *namespaceTable) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	keys := make([]string, 0, len(v.entries))
@@ -65,10 +65,10 @@ func (v *namespaceTable) write(b *bytes.Buffer, indent int, debugInfo *tableDebu
 	for i, k := range keys {
 		sets := v.entries[k]
 
-		fmt.Fprintf(b, "%s[#%d] %s {NS}", idnt, i, k)
-		fmt.Fprintln(b)
+		fmt.Fprintf(w, "%s[#%d] %s {NS}", idnt, i, k)
+		fmt.Fprintln(w)
 
-		sets.write(b, indent+1, debugInfo)
+		sets.write(w, indent+1, debugInfo)
 	}
 }
 
