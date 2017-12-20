@@ -318,6 +318,28 @@ dist: dist-bin
 #-----------------------------------------------------------------------------
 
 # Run the e2e tests. Targets correspond to the prow environments/tests
+# The tests take > 10 m
+# This uses the script (deprecated ?)
 e2e: istioctl
 	./tests/e2e.sh ${E2E_ARGS} --istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
 		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
+
+# TODO: use env variables for all parameters.
+
+# Simple e2e test using fortio, approx 2 min
+e2e_simple: istioctl
+	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args \
+		--istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB} $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
+
+e2e_mixer: istioctl
+	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args \
+		--istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB} $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
+
+e2e_bookinfo: istioctl
+	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/bookinfo -args \
+		--istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB} $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
+
+e2e_all: e2e_simple e2e_mixer e2e_bookinfo

@@ -4,11 +4,11 @@
 
 # Source the file with: ". envsetup.sh"
 
-export TOP=`pwd`
+export TOP=$(cd $(dirname $0)/../../..; pwd)
 
 # Used in the shell scripts.
 export ISTIO_SRC=$TOP
-export GOPATH=$ISTIO_SRC/go
+export GOPATH=$TOP
 export ISTIO_GO=$GOPATH/src/istio.io/istio
 
 # hub used to push images.

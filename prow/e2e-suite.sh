@@ -70,4 +70,4 @@ echo 'Running Integration Tests'
   --pilot_hub "${HUB}"\
   --ca_tag "${GIT_SHA}"\
   --ca_hub "${HUB}"\
-  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
+  --istioctl ${GOPATH}/bin/istioctl
