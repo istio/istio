@@ -15,10 +15,9 @@
 package runtime
 
 import (
-	"github.com/golang/glog"
-
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/template/authorization"
+	"istio.io/istio/pkg/log"
 )
 
 // RBAC interface
@@ -85,25 +84,25 @@ func (rs *RbacStore) changeRoles(roles rolesMapByNamespace) {
 func (rs *RbacStore) CheckPermission(inst *authorization.Instance) (bool, error) {
 	namespace := inst.Action.Namespace
 	if namespace == "" {
-		glog.Warningf("Missing namespace")
+		log.Warnf("Missing namespace")
 		return false, nil
 	}
 
 	serviceName := inst.Action.Service
 	if serviceName == "" {
-		glog.Warningf("Missing service")
+		log.Warnf("Missing service")
 		return false, nil
 	}
 
 	path := inst.Action.Path
 	if path == "" {
-		glog.Warningf("Missing path")
+		log.Warnf("Missing path")
 		return false, nil
 	}
 
 	method := inst.Action.Method
 	if method == "" {
-		glog.Warningf("Missing method")
+		log.Warnf("Missing method")
 		return false, nil
 	}
 
@@ -121,14 +120,14 @@ func (rs *RbacStore) CheckPermission(inst *authorization.Instance) (bool, error)
 
 	for rolename, roleInfo := range rn {
 		eligibleRole := false
-		glog.Infof("Checking role: %s", rolename)
+		log.Infof("Checking role: %s", rolename)
 		rules := roleInfo.info.GetRules()
 		for _, rule := range rules {
 			services := rule.GetServices()
 			paths := rule.GetPaths()
 			methods := rule.GetMethods()
 			constraints := rule.GetConstraints()
-			glog.Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
+			log.Infof("Checking rule: services %v, path %v, method %v, constraints %v", services, paths, methods, constraints)
 
 			if stringMatch(serviceName, services) &&
 				(paths == nil || stringMatch(path, paths)) &&
@@ -139,10 +138,10 @@ func (rs *RbacStore) CheckPermission(inst *authorization.Instance) (bool, error)
 			}
 		}
 		if !eligibleRole {
-			glog.Infof("role %s is not eligible", rolename)
+			log.Infof("role %s is not eligible", rolename)
 			continue
 		}
-		glog.Infof("role %s is eligible", rolename)
+		log.Infof("role %s is eligible", rolename)
 		bindings := roleInfo.bindings
 		for _, binding := range bindings {
 			subjects := binding.GetSubjects()
@@ -173,7 +172,7 @@ func valueInList(value interface{}, list []string) bool {
 	case string:
 		return stringMatch(value.(string), list)
 	default:
-		glog.Error("Invalid data type for contraints: only string is supported.")
+		log.Error("Invalid data type for contraints: only string is supported.")
 	}
 	return false
 }
@@ -202,14 +201,14 @@ func valueMatch(a interface{}, b string) bool {
 	case string:
 		return a.(string) == b
 	default:
-		glog.Error("Invalid data type for contraints: only string is supported.")
+		log.Error("Invalid data type for contraints: only string is supported.")
 	}
 	return false
 }
 
 // Check if all properties defined for the subject are satisfied by the properties from the request.
 func checkSubject(user string, groups string, properties map[string]interface{}, subject map[string]string) bool {
-	glog.Infof("checking subjects: %s, %s, subject %v", user, groups, subject)
+	log.Infof("checking subjects: %s, %s, subject %v", user, groups, subject)
 	for sn, sv := range subject {
 		if sn == "user" && sv == user {
 			continue

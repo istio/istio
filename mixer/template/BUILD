@@ -20,7 +20,6 @@ mixer_supported_template_library(
         "//mixer/template/quota:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/quota",
         "//mixer/template/reportnothing:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/reportnothing",
         "//mixer/template/tracespan:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/tracespan",
-        "//mixer/template/authorization:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/authorization",
     },
     deps = [
         "//mixer/adapter/kubernetesenv/template:go_default_library",

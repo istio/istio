@@ -268,7 +268,7 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 	handlerConfig := make(map[string]*cpb.Handler)
 	for k, cfg := range c.configState {
-		glog.Infof("validHandlerConfigs: name %s, kind: %s, params: %v", k.String(), k.Kind, cfg.Spec)
+		log.Infof("validHandlerConfigs: name %s, kind: %s, params: %v", k.String(), k.Kind, cfg.Spec)
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
@@ -589,9 +589,9 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 // processRbacRoles processes ServiceRole and ServiceRoleBinding CRDs and save them to
 // RBAC store data structure.
 func (c *Controller) processRbacRoles() {
-	glog.Infof("ProcessRbacRoles")
+	log.Infof("ProcessRbacRoles")
 	if !c.changedKinds[ServiceRoleKind] && !c.changedKinds[ServiceRoleBindingKind] && c.rbacInitialized {
-		glog.Infof("No change to servicerole and servicerolebinding")
+		log.Infof("No change to servicerole and servicerolebinding")
 		return
 	}
 
@@ -611,7 +611,7 @@ func (c *Controller) processRbacRoles() {
 				roles[k.Namespace] = rn
 			}
 			rn[k.Name] = newRoleInfo(roleSpec)
-			glog.Infof("Role namespace: %s, name: %s, spec: %v", k.Namespace, k.Name, roleSpec)
+			log.Infof("Role namespace: %s, name: %s, spec: %v", k.Namespace, k.Name, roleSpec)
 		}
 	}
 
@@ -623,25 +623,25 @@ func (c *Controller) processRbacRoles() {
 			roleName := bindingSpec.GetRoleRef().GetName()
 
 			if roleKind != "ServiceRole" {
-				glog.Warningf("Error: RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
+				log.Warnf("Error: RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
 			}
 			if roleName == "" {
-				glog.Warningf("Error: RoleBinding %s does not refer to a valid role name", k.Name)
+				log.Warnf("Error: RoleBinding %s does not refer to a valid role name", k.Name)
 				continue
 			}
 
 			rn := roles[k.Namespace]
 			if rn == nil {
-				glog.Warningf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Namespace)
+				log.Warnf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Namespace)
 				continue
 			}
 			role := rn[roleName]
 			if role == nil {
-				glog.Warningf("Error: RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
+				log.Warnf("Error: RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
 				continue
 			}
 			role.setBinding(k.Name, bindingSpec)
-			glog.Infof("RoleBinding: %s for role %s, Spec: %v", k.Name, roleName, bindingSpec)
+			log.Infof("RoleBinding: %s for role %s, Spec: %v", k.Name, roleName, bindingSpec)
 		}
 	}
 
