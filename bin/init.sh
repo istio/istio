@@ -46,7 +46,7 @@ else
     if which dep; then
         echo "Using $(which dep)"
     else
-        go install github.com/golang/dep/cmd/dep
+        go get -u github.com/golang/dep/cmd/dep
     fi
     dep ensure
   fi
