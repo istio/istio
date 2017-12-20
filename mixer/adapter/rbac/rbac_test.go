@@ -20,8 +20,8 @@ import (
 
 	rpc "github.com/googleapis/googleapis/google/rpc"
 
-	"istio.io/istio/mixer/template/authorization"
 	"istio.io/istio/mixer/pkg/adapter/test"
+	"istio.io/istio/mixer/template/authorization"
 )
 
 type fakedAllowRbacstore struct {
