@@ -42,7 +42,7 @@ if [ "$USE_BAZEL" == "1" ] ; then
   rm -rf ${ROOT}/vendor/k8s.io/*/vendor
 else
   # Download dependencies
-  if [ ! -d vendor ]; then
+  if [ ! -d vendor/github.com ]; then
     dep ensure
   fi
 

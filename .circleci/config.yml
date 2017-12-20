@@ -296,6 +296,9 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
+            cp -a /usr/local/go /go
+            export PATH=/go/go/bin:$PATH
+            export GOROOT=/go/go
             cd /go/src/istio.io/istio
             make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
             make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
@@ -315,6 +318,9 @@ workflows:
           requires:
             - dependencies
       - gotest:
+          requires:
+            - gobuild
+      - goxbuild:
           requires:
             - gobuild
       # TODO: remove, gobuild incorporates all 3 unit tests (or split)

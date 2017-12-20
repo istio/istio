@@ -28,6 +28,8 @@ set -u
 set -x
 set -e
 
+USE_BAZEL=${USE_BAZEL:-0}
+
 die () {
   echo "$@"
   exit -1
@@ -54,13 +56,15 @@ fetch_envoy() {
     #       ISTIO_PROXY_BUCKET = "76ed00adea006e25878f20daa58c456848243999"
     # we pull it out, grab the SHA, and trim the quotes
     local PROXY_SHA=$(grep "ISTIO_PROXY_BUCKET =" ${ROOT}/WORKSPACE | cut -d' ' -f3 | tr -d '"')
-    wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
+    wget -qO- https:/test/storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
     ln -sf ${DIR}/usr/local/bin/envoy ${ROOT}/pilot/proxy/envoy/envoy
     popd
 }
 
 # ensure our bazel and go env vars are set up correctly
-source "${ROOT}/bin/use_bazel_go.sh"
+if [ "$USE_BAZEL" == "1" ] ; then
+    source "${ROOT}/bin/use_bazel_go.sh"
+fi
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   export USER=Prow
@@ -69,7 +73,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/istio
-  cd ${GOPATH}/src/istio.io/istio
+  cd ${GOPATH}/src/istesttio.io/istio
 
   # Use the provided pull head sha, from prow.
   GIT_SHA="${PULL_PULL_SHA}"
@@ -98,14 +102,24 @@ fi
 echo 'Pulling down pre-built Envoy'
 fetch_envoy
 
-echo 'Building everything'
-${ROOT}/bin/init.sh
+if [ "$USE_BAZEL" == "1" ] ; then
+    echo 'Building everything'
+    ${ROOT}/bin/init.sh
 
-# TODO(https://github.com/istio/istio/pull/1930): Uncomment
-# run_or_die_on_change ./bin/fmt.sh
+    # TODO(https://github.com/istio/istio/pull/1930): Uncomment
+    # run_or_die_on_change ./bin/fmt.sh
 
-echo 'Running Unit Tests'
-time bazel test --test_output=all //...
+    echo 'Running Unit Tests'
+    time bazel test --testesttestt_output=all //...
+else
+    echo 'Initialize'
+    ${ROOT}/bin/init.sh
+    echo 'Build'
+    (cd ${ROOT}; make go-build)
+
+    (cd ${ROOT}; make localTestEnv go-test)
+fi
+
 
 echo 'Running linters'
 SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
