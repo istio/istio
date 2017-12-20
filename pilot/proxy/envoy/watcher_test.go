@@ -191,8 +191,8 @@ func TestEnvoyArgs(t *testing.T) {
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
 
-	test := envoy{config: config, node: "my-node"}
-	testProxy := NewProxy(config, "my-node")
+	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
+	testProxy := NewProxy(config, "my-node", "trace")
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
@@ -206,6 +206,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"-l", "trace",
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {
