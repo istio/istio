@@ -11,6 +11,7 @@
 #   PROJECT=istio-perf
 #   source tools/setup_perf_cluster.sh
 #   setup_all
+# (inside google you may need to rerun setup_vm_firewall multiple times)
 #
 # This can be used as a script or sourced and functions called interactively
 #
