@@ -116,7 +116,7 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 // Build is an implementation of HandlerBuilder.Build.
 func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
 	if f.ErrorAtBuild {
-		return nil, fmt.Errorf("this adapter is not available at the moment. Please come back later.")
+		return nil, fmt.Errorf("this adapter is not available at the moment, please come back later")
 	}
 
 	f.Handler = &FakeHandler{

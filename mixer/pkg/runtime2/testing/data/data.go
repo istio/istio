@@ -69,7 +69,7 @@ metadata:
   namespace: istio-system
 `
 
-// HandlerH2BadBuilder is a standard testing handler config with name h3-handler-does-not-supports-template. It's handler
+// HandlerH3HandlerDoesNotSupportTemplate is a standard testing handler config with name h3-handler-does-not-supports-template. It's handler
 // does not support the template.
 var HandlerH3HandlerDoesNotSupportTemplate = `
 apiVersion: "config.istio.io/v1alpha2"
@@ -79,7 +79,7 @@ metadata:
   namespace: istio-system
 `
 
-// HandlerH4 is a standard testing handler config with name H4. It is just a different handler that is similar to H1.
+// HandlerH4AnotherHandler is a standard testing handler config with name H4. It is just a different handler that is similar to H1.
 var HandlerH4AnotherHandler = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: a1
