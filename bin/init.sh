@@ -53,13 +53,14 @@ else
   PROXY=debug-$PROXYVERSION
 
   if [ ! -f $GOPATH/bin/envoy-$PROXYVERSION ] ; then
-
+    mkdir $OUT
     pushd $OUT
     # TODO: Use circleci builds
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
     cp usr/local/bin/envoy $TOP/bin/envoy
     cp usr/local/bin/envoy $TOP/bin/envoy-$PROXYVERSION
     ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy/
+    popd
   fi
 fi
 
