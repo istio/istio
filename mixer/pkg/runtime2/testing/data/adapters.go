@@ -39,7 +39,7 @@ func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
 
 		// an adapter whose builders always fail.
 		"a2-bad-builder": {
-			Name: "a2-bad-builder",
+			Name:               "a2-bad-builder",
 			DefaultConfig:      &types.Empty{},
 			SupportedTemplates: []string{"t1"},
 			NewBuilder: func() adapter.HandlerBuilder {
@@ -47,11 +47,11 @@ func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
 					ErrorAtBuild: true,
 				}
 			},
-		} ,
+		},
 
 		// an adapter whose handler doesn't actually support the template.
 		"a3-handler-does-not-support-template": {
-			Name: "a3-handler-does-not-support-template",
+			Name:               "a3-handler-does-not-support-template",
 			DefaultConfig:      &types.Empty{},
 			SupportedTemplates: []string{"t1"}, // it is a lie!
 			NewBuilder: func() adapter.HandlerBuilder {
@@ -59,7 +59,7 @@ func BuildAdapters(override *adapter.Info) map[string]*adapter.Info {
 					HandlerDoesNotSupportTemplate: true,
 				}
 			},
-		} ,
+		},
 	}
 
 	if override != nil {
@@ -130,10 +130,10 @@ var _ adapter.HandlerBuilder = &FakeHandlerBuilder{}
 
 // FakeHandler is a fake implementation of adapter.Handler.
 type FakeHandler struct {
-	CloseCalled             bool
+	CloseCalled bool
 
-	ErrorOnHandlerClose     bool
-	DoesNotSupportTemplate  bool
+	ErrorOnHandlerClose    bool
+	DoesNotSupportTemplate bool
 }
 
 // Close is an implementation of adapter.Handler.Close.

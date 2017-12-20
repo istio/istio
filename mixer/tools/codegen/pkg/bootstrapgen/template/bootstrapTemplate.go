@@ -567,6 +567,7 @@ var (
                     log.Error(err.Error())
                     return nil, err
                 }
+
 				e.Name = instanceName
                 return e, nil
             }
@@ -748,7 +749,7 @@ var (
                     {{end}}
                 {{else}}
                     {{if $f.GoType.IsResourceMessage}}
-                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); errp.IsNil() {
+                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
                             return nil, errp.WithPrefix("{{$f.GoName}}.")
                         }
                     {{else}}

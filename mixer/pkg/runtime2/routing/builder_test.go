@@ -26,16 +26,16 @@ import (
 
 var tests = []struct {
 	// Name of the test
-	Name          string
+	Name string
 
 	//ServiceConfig to use
 	ServiceConfig string
 
 	// Configs is the collection of all runtime configs to use.
-	Configs       []string
+	Configs []string
 
 	// E is the expected routing table output w/ debug info.
-	E             string
+	E string
 }{
 	{
 		Name:          "basic",
@@ -188,7 +188,6 @@ Identity Attr: destination.service
 `,
 	},
 
-
 	{
 		Name:          "multi-rule-to-multiple-target",
 		ServiceConfig: data.ServiceConfig,
@@ -219,7 +218,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "bad-condition",
+		Name:          "bad-condition",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			data.HandlerH1,
@@ -235,7 +234,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "bad-handler-name",
+		Name:          "bad-handler-name",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			data.HandlerH1,
@@ -251,7 +250,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "bad-handler-builder",
+		Name:          "bad-handler-builder",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			data.HandlerH2BadBuilder,
@@ -267,7 +266,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "handler-does-not-support-template",
+		Name:          "handler-does-not-support-template",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			data.HandlerH3HandlerDoesNotSupportTemplate,
@@ -283,7 +282,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "different-namespace",
+		Name:          "different-namespace",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			data.HandlerH1NS2,
@@ -304,7 +303,7 @@ Identity Attr: destination.service
 	},
 
 	{
-		Name: "non-default-namespace-rules-subsume-default-namespace-rules",
+		Name:          "non-default-namespace-rules-subsume-default-namespace-rules",
 		ServiceConfig: data.ServiceConfig,
 		Configs: []string{
 			// default

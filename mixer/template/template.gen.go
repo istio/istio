@@ -687,6 +687,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -1103,6 +1104,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -1331,6 +1333,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -1697,6 +1700,45 @@ var (
 				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
 
 			},
+
+			/* runtime2 bindings */
+
+			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+				instance := inst.(*authorization.Instance)
+
+				result, err := handler.(authorization.Handler).HandleAuthorization(ctx, instance)
+				if err != nil {
+					return adapter.CheckResult{}, fmt.Errorf("failed to report all values: %v", err)
+				}
+				return result, nil
+			},
+
+			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) template.InstanceBuilderFn {
+
+				b, errp := newBuilder_authorization_Template(expb, param.(*authorization.InstanceParam))
+				if !errp.IsNil() {
+					// TODO: This preserves the current semantics of the evaluator, where compilation happens
+					// in the evaluation path. Ideally this method should return an error, and we should simply
+					// not create an instance builder, in the presence broken config.
+					return func(_ attribute.Bag) (interface{}, error) {
+						err := errp.AsCompilationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					e, errp := b.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}
+			},
 		},
 
 		checknothing.TemplateName: {
@@ -1821,6 +1863,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -1969,6 +2012,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -2201,6 +2245,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -2410,6 +2455,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -2557,6 +2603,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -2689,6 +2736,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -2961,6 +3009,7 @@ var (
 						log.Error(err.Error())
 						return nil, err
 					}
+
 					e.Name = instanceName
 					return e, nil
 				}
@@ -3463,6 +3512,302 @@ func (b *builder_apikey_Template) build(
 	}
 
 	r.Timestamp = iface.(time.Time)
+
+	return r, template.ErrorPath{}
+}
+
+// Builders for all known message types.
+
+// builds an instance of Template.
+type builder_authorization_Template struct {
+
+	// builder for field subject: *Subject.
+
+	bldSubject *builder_authorization_Subject
+
+	// builder for field action: *Action.
+
+	bldAction *builder_authorization_Action
+} // builder_authorization_Template
+
+// Creates a new builder for Template.
+func newBuilder_authorization_Template(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.InstanceParam) (*builder_authorization_Template, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	if b.bldSubject, errp = newBuilder_authorization_Subject(expb, param.Subject); !errp.IsNil() {
+		return nil, errp.WithPrefix("Subject.")
+	}
+
+	if b.bldAction, errp = newBuilder_authorization_Action(expb, param.Action); !errp.IsNil() {
+		return nil, errp.WithPrefix("Action.")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_authorization_Template) build(
+	attrs attribute.Bag) (*authorization.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &authorization.Instance{}
+
+	if r.Subject, errp = b.bldSubject.build(attrs); errp.IsNil() {
+		return nil, errp.WithPrefix("Subject.")
+	}
+
+	if r.Action, errp = b.bldAction.build(attrs); errp.IsNil() {
+		return nil, errp.WithPrefix("Action.")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builds an instance of Subject.
+type builder_authorization_Subject struct {
+
+	// builder for field user: string.
+
+	bldUser compiled.Expression
+
+	// builder for field groups: string.
+
+	bldGroups compiled.Expression
+
+	// builder for field properties: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldProperties map[string]compiled.Expression
+} // builder_authorization_Subject
+
+// Creates a new builder for Subject.
+func newBuilder_authorization_Subject(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.SubjectInstanceParam) (*builder_authorization_Subject, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Subject{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldUser, err = expb.Compile(param.User)
+	if err != nil {
+		return nil, template.NewErrorPath("User", err)
+	}
+
+	b.bldGroups, err = expb.Compile(param.Groups)
+	if err != nil {
+		return nil, template.NewErrorPath("Groups", err)
+	}
+
+	b.bldProperties = make(map[string]compiled.Expression, len(param.Properties))
+	for k, v := range param.Properties {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"].", err)
+		}
+		b.bldProperties[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_authorization_Subject) build(
+	attrs attribute.Bag) (*authorization.Subject, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &authorization.Subject{}
+
+	if iface, err = b.bldUser.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("User", err)
+	}
+
+	r.User = iface.(string)
+
+	if iface, err = b.bldGroups.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Groups", err)
+	}
+
+	r.Groups = iface.(string)
+
+	r.Properties = make(map[string]interface{}, len(b.bldProperties))
+
+	for k, v := range b.bldProperties {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"].", err)
+		}
+
+		r.Properties[k] = iface
+
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builds an instance of Action.
+type builder_authorization_Action struct {
+
+	// builder for field namespace: string.
+
+	bldNamespace compiled.Expression
+
+	// builder for field service: string.
+
+	bldService compiled.Expression
+
+	// builder for field method: string.
+
+	bldMethod compiled.Expression
+
+	// builder for field path: string.
+
+	bldPath compiled.Expression
+
+	// builder for field properties: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldProperties map[string]compiled.Expression
+} // builder_authorization_Action
+
+// Creates a new builder for Action.
+func newBuilder_authorization_Action(
+	expb *compiled.ExpressionBuilder,
+	param *authorization.ActionInstanceParam) (*builder_authorization_Action, template.ErrorPath) {
+
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_authorization_Action{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+
+	b.bldNamespace, err = expb.Compile(param.Namespace)
+	if err != nil {
+		return nil, template.NewErrorPath("Namespace", err)
+	}
+
+	b.bldService, err = expb.Compile(param.Service)
+	if err != nil {
+		return nil, template.NewErrorPath("Service", err)
+	}
+
+	b.bldMethod, err = expb.Compile(param.Method)
+	if err != nil {
+		return nil, template.NewErrorPath("Method", err)
+	}
+
+	b.bldPath, err = expb.Compile(param.Path)
+	if err != nil {
+		return nil, template.NewErrorPath("Path", err)
+	}
+
+	b.bldProperties = make(map[string]compiled.Expression, len(param.Properties))
+	for k, v := range param.Properties {
+		var exp compiled.Expression
+		if exp, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"].", err)
+		}
+		b.bldProperties[k] = exp
+	}
+
+	return b, template.ErrorPath{}
+}
+
+func (b *builder_authorization_Action) build(
+	attrs attribute.Bag) (*authorization.Action, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var iface interface{}
+	_ = iface
+
+	r := &authorization.Action{}
+
+	if iface, err = b.bldNamespace.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Namespace", err)
+	}
+
+	r.Namespace = iface.(string)
+
+	if iface, err = b.bldService.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Service", err)
+	}
+
+	r.Service = iface.(string)
+
+	if iface, err = b.bldMethod.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Method", err)
+	}
+
+	r.Method = iface.(string)
+
+	if iface, err = b.bldPath.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Path", err)
+	}
+
+	r.Path = iface.(string)
+
+	r.Properties = make(map[string]interface{}, len(b.bldProperties))
+
+	for k, v := range b.bldProperties {
+		if iface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Properties["+k+"].", err)
+		}
+
+		r.Properties[k] = iface
+
+	}
 
 	return r, template.ErrorPath{}
 }

@@ -17,8 +17,8 @@ package data
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"istio.io/api/mixer/v1/template"
 
+	"istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/il/compiled"
@@ -30,9 +30,9 @@ import (
 func BuildTemplates(override *template.Info) map[string]*template.Info {
 	var t = map[string]*template.Info{
 		"t1": {
-			Name:   "t1",
+			Name:    "t1",
 			Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_CHECK,
-			CtrCfg: &types.Empty{},
+			CtrCfg:  &types.Empty{},
 			InferType: func(p proto.Message, evalFn template.TypeEvalFn) (proto.Message, error) {
 				_, _ = evalFn("source.name")
 				return &types.Empty{}, nil
@@ -59,9 +59,9 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 		},
 
 		"t2apa": {
-			Name:   "t2apa",
+			Name:    "t2apa",
 			Variety: istio_mixer_v1_template.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
-			CtrCfg: &types.Empty{},
+			CtrCfg:  &types.Empty{},
 			InferType: func(p proto.Message, evalFn template.TypeEvalFn) (proto.Message, error) {
 				_, _ = evalFn("source.name")
 				return &types.Empty{}, nil
@@ -89,7 +89,7 @@ func BuildTemplates(override *template.Info) map[string]*template.Info {
 				return func(attrs attribute.Bag) (*attribute.MutableBag, error) {
 					return attribute.GetMutableBag(attrs), nil
 				}
-			} ,
+			},
 		},
 	}
 

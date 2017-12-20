@@ -230,7 +230,6 @@ spec:
     - i1.t1.istio-system
 `
 
-
 // RuleR7I1HandlerDoesNotSupportTemplate is a standard testing rule config that references adapter h3-handler-does-not-support-template.
 var RuleR7I1HandlerDoesNotSupportTemplate = `
 apiVersion: "config.istio.io/v1alpha2"
