@@ -50,8 +50,11 @@ script/check-license-headers
 script/check-style
 
 
-echo 'Running Unit Tests'
-time bazel test --test_output=all //...
+echo 'Running release Tests'
+time bazel test --config=release --test_output=all //...
 
-echo 'Running Asan Tests'
+echo 'Running asan Tests'
 time bazel test --config=asan --test_output=all //...
+
+echo 'Running tsan Tests'
+time bazel test --config=tsan_nopie --test_output=all //...
