@@ -277,12 +277,11 @@ jobs:
             make go-build
       - run:
           command: |
-            make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-            make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-      - run:
-          command: |
-            docker login -u $DOCKER_USER -p $DOCKER_PASS
-            make docker push
+            if [ ! -z "$DOCKER_USER" ] ; then
+              echo "Pushing docker images"
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              make docker push
+            fi
       - store_artifacts:
           path: /go/bin
 
