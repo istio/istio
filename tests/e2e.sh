@@ -36,7 +36,7 @@ function error_exit() {
     exit ${2:-1}
 }
 
-TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)"))|| error_exit 'Could not find tests targets'
+TESTS_TARGETS=//tests/e2e/tests/simple:go_default_test //tests/e2e/tests/mixer:go_default_test //tests/e2e/tests/bookinfo:go_default_test
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 

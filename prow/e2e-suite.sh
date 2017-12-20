@@ -26,6 +26,10 @@ set -u
 # Print commands
 set -x
 
+if [ -f $ROOT/.istiorc ] ; then
+  . $ROOT/.istiorc
+fi
+
 if [ "${CI:-}" == 'bootstrap' ]; then
   # Make sure we are in the right directory
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
@@ -48,10 +52,13 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 else
   # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
+  GIT_SHA=${GIT_SHA:-"$(git rev-parse --verify HEAD)"}
 fi
 
-HUB="gcr.io/istio-testing"
+HUB=${HUB:-"gcr.io/istio-testing"}
+
+# Build istioctl, used by  the test.
+make istioctl
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \

@@ -4,7 +4,8 @@
 
 set -e
 SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
-USE_BAZEL=${USE_BAZEL:-1}
+USE_BAZEL=${USE_BAZEL:-0}
+
 if [ "$USE_BAZEL" == "1" ] ; then
   source $SCRIPTPATH/use_bazel_go.sh
 fi
@@ -46,8 +47,10 @@ for fl in ${GO_FILES}; do
     sed -i -e "/^import[[:space:]]*(/,/)/{ /^\s*$/d;}" $fl
 fi
 done
+
 gofmt -s -w ${GO_FILES}
 $goimports -w -local istio.io ${GO_FILES}
+
 if [ "$USE_BAZEL" == "1" ] ; then
   $buildifier -mode=fix $(git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl')
 fi

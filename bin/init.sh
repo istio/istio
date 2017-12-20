@@ -14,6 +14,7 @@ USE_BAZEL=${USE_BAZEL:-0}
 # Set GOPATH to match the expected layout
 export TOP=$(cd $(dirname $0)/../../../..; pwd)
 export GOPATH=$TOP
+export OUT=${TOP}/out
 
 # Ensure expected GOPATH setup
 if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
@@ -41,18 +42,25 @@ if [ "$USE_BAZEL" == "1" ] ; then
   rm -rf ${ROOT}/vendor/k8s.io/*/vendor
 else
   # Download dependencies
-  dep ensure
+  if [ ! -d vendor ]; then
+    dep ensure
+  fi
 
   # Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
   #ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' WORKSPACE))
   #PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
   PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
   PROXY=debug-$PROXYVERSION
-  pushd $OUT
-  # TODO: Use circleci builds
-  curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-  cp usr/local/bin/envoy $TOP/bin/envoy
-  ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy/
+
+  if [ ! -f $GOPATH/bin/envoy-$PROXYVERSION ] ; then
+
+    pushd $OUT
+    # TODO: Use circleci builds
+    curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
+    cp usr/local/bin/envoy $TOP/bin/envoy
+    cp usr/local/bin/envoy $TOP/bin/envoy-$PROXYVERSION
+    ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy/
+  fi
 fi
 
 

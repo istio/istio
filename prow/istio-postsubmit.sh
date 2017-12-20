@@ -18,6 +18,8 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
 
+USE_BAZEL=${USE_BAZEL:-0}
+
 #######################################
 # Presubmit script triggered by Prow. #
 #######################################
@@ -52,7 +54,11 @@ cd $ROOT
 ${ROOT}/bin/init.sh
 
 echo 'Running Unit Tests'
-time bazel test --test_output=all //...
+if [ "$USE_BAZEL" == "1" ] ; then
+  time bazel test --test_output=all //...
+else
+  time make go-test
+fi
 
 # run linters in advisory mode
 SKIP_INIT=1 ${ROOT}/bin/linters.sh
