@@ -109,7 +109,6 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 func TestBasic(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
-	a.ConfigAPIPort = 0
 	a.MonitoringPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
@@ -129,7 +128,6 @@ func TestClient(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigAPIPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
 
@@ -172,7 +170,6 @@ func TestErrors(t *testing.T) {
 	a = NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigAPIPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
 
@@ -205,10 +202,6 @@ func TestErrors(t *testing.T) {
 				}
 			case 5:
 				pt.listen = func(network string, address string) (net.Listener, error) {
-					return nil, errors.New("BAD")
-				}
-			case 6:
-				pt.newStore = func(r *store.Registry, configURL string) (store.KeyValueStore, error) {
 					return nil, errors.New("BAD")
 				}
 			default:

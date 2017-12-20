@@ -75,6 +75,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_google_go_github",
+    commit = "fbfee053c26dab3772adfc7799d995eed379133e",  # Dec 2, 2017 (no releases)
+    importpath = "github.com/google/go-github",
+)
+
+go_repository(
+    name = "com_github_google_go_querystring",
+    commit = "53e6ce116135b80d037921a7fdd5138cf32d7a8a",  # Jan 11, 2017 (no releases)
+    importpath = "github.com/google/go-querystring",
+)
+
+go_repository(
     name = "com_github_hashicorp_errwrap",
     commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",  # Oct 27, 2014 (no releases)
     importpath = "github.com/hashicorp/errwrap",
@@ -557,6 +569,30 @@ go_repository(
     name = "com_github_stretchr_testify",
     commit = "69483b4bd14f5845b5a1e55bca19e954e827f1d0",  # September 24, 2016 (1.1.4)
     importpath = "github.com/stretchr/testify",
+)
+
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
+)
+
+go_repository(
+    name = "com_github_open_policy_agent_opa",
+    commit = "d9f7f5f00f24e4fc4f9ef15c8afaf44b5b8612f9",  # Aug 15, 2017 (no releases)
+    importpath = "github.com/open-policy-agent/opa",
+)
+
+go_repository(
+    name = "com_github_dchest_siphash",
+    commit = "4ebf1de738443ea7f45f02dc394c4df1942a126d",  # Aug 31, 2016 (no releases)
+    importpath = "github.com/dchest/siphash",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "c605e284fe17294bda444b34710735b29d1a9d90",  # May 4, 2017 (no releases)
+    importpath = "github.com/pkg/errors",
 )
 
 go_repository(
@@ -1076,7 +1112,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "a09fc9fc389333b888c3ab1ebf1f79c923a3d0e3"
+ISTIO_PROXY_BUCKET = "a7e4ff4e3ee3fefde0159436713c2a0777be31de"
 
 http_file(
     name = "envoy_binary",
@@ -1099,7 +1135,7 @@ go_repository(
 
 git_repository(
     name = "com_github_istio_test_infra",
-    commit = "67e73ad01f9d1074a7d787a91201d41938ad4310",  # Aug 25, 2017
+    commit = "470646bb988771c3bac655b1acf9aa70d68db5e4",  # Dec 5, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
 
@@ -1185,4 +1221,36 @@ go_repository(
     name = "com_github_codahale_hdrhistogram",
     commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
     importpath = "github.com/codahale/hdrhistogram",
+)
+
+go_repository(
+    name = "org_cloudfoundry_code_copilot",
+    commit = "03646eb993243c330f30e3053523da4e8c0850ab",
+    importpath = "code.cloudfoundry.org/copilot",
+)
+
+go_repository(
+    name = "com_github_onsi_ginkgo",
+    commit = "cb73bd0f14eb8d91a9801647edbebe6ddb5b4cb4",
+    importpath = "github.com/onsi/ginkgo",
+)
+
+go_repository(
+    name = "com_github_onsi_gomega",
+    commit = "c1fb6682134d162f37c13f42e7157653a7de7d2b",
+    importpath = "github.com/onsi/gomega",
+)
+
+go_repository(
+    name = "in_gopkg_validator_v2",
+    commit = "460c83432a98c35224a6fe352acf8b23e067ad06",
+    importpath = "gopkg.in/validator.v2",
+)
+
+go_repository(
+    name = "com_github_square_certstrap",
+    commit = "ae69f1c8301cc4d140d281998e9cac1c9df78c61",
+    importpath = "github.com/square/certstrap",
+    remote = "https://github.com/cf-routing/certstrap",
+    vcs = "git",
 )

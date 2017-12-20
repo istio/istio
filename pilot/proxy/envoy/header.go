@@ -42,6 +42,10 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 					headers = append(headers, buildHeader(name, match))
 				}
 			} else {
+				switch name {
+				case model.HeaderAuthority, model.HeaderScheme, model.HeaderMethod:
+					name = ":" + name // convert to Envoy header name
+				}
 				headers = append(headers, buildHeader(name, match))
 			}
 		}

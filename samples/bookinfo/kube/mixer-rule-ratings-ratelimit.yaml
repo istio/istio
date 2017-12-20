@@ -49,3 +49,32 @@ spec:
   - handler: handler.memquota
     instances:
     - requestcount.quota
+---
+apiVersion: config.istio.io/v1alpha2
+kind: QuotaSpec
+metadata:
+  creationTimestamp: null
+  name: request-count
+  namespace: istio-system
+spec:
+  rules:
+  - quotas:
+    - charge: 1
+      quota: RequestCount
+---
+apiVersion: config.istio.io/v1alpha2
+kind: QuotaSpecBinding
+metadata:
+  creationTimestamp: null
+  name: request-count
+  namespace: istio-system
+spec:
+  quotaSpecs:
+  - name: request-count
+    namespace: istio-system
+  services:
+  - name: ratings
+  - name: reviews
+  - name: details
+  - name: productpage
+

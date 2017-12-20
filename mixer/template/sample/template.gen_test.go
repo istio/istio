@@ -516,41 +516,11 @@ dimensions:
   source: source.string
   target: source.string
 `,
-			cstrParam:     &sample_report.InstanceParam{},
-			typeEvalError: nil,
-			wantErr:       "expression for field 'StringPrimitive' cannot be empty",
-			willPanic:     false,
-		},
-
-		{
-			name: "EmptyStringSubMsg",
-			instYamlCfg: `
-value: source.int64
-int64Primitive: source.int64
-boolPrimitive: source.bool
-doublePrimitive: source.double
-stringPrimitive: source.string
-timeStamp: source.timestamp
-duration: source.duration
-dimensions:
-  source: source.string
-  target: source.string
-res1:
-  value: source.int64
-  int64Primitive: source.int64
-  boolPrimitive: source.bool
-  doublePrimitive: source.double
-  stringPrimitive: '""'
-  timeStamp: source.timestamp
-  duration: source.duration
-  dimensions:
-    source: source.string
-    target: source.string
-`,
-			cstrParam:     &sample_report.InstanceParam{},
-			typeEvalError: nil,
-			wantErr:       "expression for field 'Res1.StringPrimitive' cannot be empty",
-			willPanic:     false,
+			cstrParam: &sample_report.InstanceParam{},
+			wantType: &sample_report.Type{
+				Value:      pb.INT64,
+				Dimensions: map[string]pb.ValueType{"source": pb.STRING, "target": pb.STRING},
+			},
 		},
 		{
 			name:        "NotValidInstanceParam",
