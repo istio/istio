@@ -40,6 +40,8 @@ import (
 
 	"istio.io/istio/mixer/template/apikey"
 
+	"istio.io/istio/mixer/template/authorization"
+
 	"istio.io/istio/mixer/template/checknothing"
 
 	"istio.io/istio/mixer/template/listentry"
@@ -1086,6 +1088,368 @@ var (
 
 				}
 				return handler.(apikey.Handler).HandleApiKey(ctx, instance)
+
+			},
+		},
+
+		authorization.TemplateName: {
+			Name:               authorization.TemplateName,
+			Impl:               "authorization",
+			CtrCfg:             &authorization.InstanceParam{},
+			Variety:            adptTmpl.TEMPLATE_VARIETY_CHECK,
+			BldrInterfaceName:  authorization.TemplateName + "." + "HandlerBuilder",
+			HndlrInterfaceName: authorization.TemplateName + "." + "Handler",
+			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
+				_, ok := hndlrBuilder.(authorization.HandlerBuilder)
+				return ok
+			},
+			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
+				_, ok := hndlr.(authorization.Handler)
+				return ok
+			},
+			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
+
+				var BuildTemplate func(param *authorization.InstanceParam,
+					path string) (*authorization.Type, error)
+
+				_ = BuildTemplate
+
+				var BuildSubject func(param *authorization.SubjectInstanceParam,
+					path string) (*authorization.SubjectType, error)
+
+				_ = BuildSubject
+
+				var BuildAction func(param *authorization.ActionInstanceParam,
+					path string) (*authorization.ActionType, error)
+
+				_ = BuildAction
+
+				BuildTemplate = func(param *authorization.InstanceParam,
+					path string) (*authorization.Type, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &authorization.Type{}
+
+					var err error = nil
+
+					if param.Subject != nil {
+
+						if infrdType.Subject, err = BuildSubject(param.Subject, path+"Subject."); err != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Subject", err)
+						}
+					}
+
+					if param.Action != nil {
+
+						if infrdType.Action, err = BuildAction(param.Action, path+"Action."); err != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Action", err)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				BuildSubject = func(param *authorization.SubjectInstanceParam,
+					path string) (*authorization.SubjectType, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &authorization.SubjectType{}
+
+					var err error = nil
+
+					if param.User == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"User")
+					}
+					if t, e := tEvalFn(param.User); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"User", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"User", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					if param.Groups == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Groups")
+					}
+					if t, e := tEvalFn(param.Groups); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Groups", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Groups", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					infrdType.Properties = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(param.Properties))
+
+					for k, v := range param.Properties {
+
+						if infrdType.Properties[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Properties", err)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				BuildAction = func(param *authorization.ActionInstanceParam,
+					path string) (*authorization.ActionType, error) {
+
+					if param == nil {
+						return nil, nil
+					}
+
+					infrdType := &authorization.ActionType{}
+
+					var err error = nil
+
+					if param.Namespace == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Namespace")
+					}
+					if t, e := tEvalFn(param.Namespace); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Namespace", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Namespace", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					if param.Service == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Service")
+					}
+					if t, e := tEvalFn(param.Service); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Service", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Service", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					if param.Method == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Method")
+					}
+					if t, e := tEvalFn(param.Method); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Method", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Method", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					if param.Path == "" {
+						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"Path")
+					}
+					if t, e := tEvalFn(param.Path); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
+						if e != nil {
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"Path", e)
+						}
+						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"Path", t, istio_mixer_v1_config_descriptor.STRING)
+					}
+
+					infrdType.Properties = make(map[string]istio_mixer_v1_config_descriptor.ValueType, len(param.Properties))
+
+					for k, v := range param.Properties {
+
+						if infrdType.Properties[k], err = tEvalFn(v); err != nil {
+
+							return nil, fmt.Errorf("failed to evaluate expression for field '%s'; %v", path+"Properties", err)
+						}
+					}
+
+					return infrdType, err
+
+				}
+
+				instParam := cp.(*authorization.InstanceParam)
+
+				return BuildTemplate(instParam, "")
+			},
+
+			SetType: func(types map[string]proto.Message, builder adapter.HandlerBuilder) {
+				// Mixer framework should have ensured the type safety.
+				castedBuilder := builder.(authorization.HandlerBuilder)
+				castedTypes := make(map[string]*authorization.Type, len(types))
+				for k, v := range types {
+					// Mixer framework should have ensured the type safety.
+					v1 := v.(*authorization.Type)
+					castedTypes[k] = v1
+				}
+				castedBuilder.SetAuthorizationTypes(castedTypes)
+			},
+
+			ProcessCheck: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
+				mapper expr.Evaluator, handler adapter.Handler) (adapter.CheckResult, error) {
+
+				var BuildTemplate func(instName string,
+					param *authorization.InstanceParam, path string) (
+					*authorization.Instance, error)
+				_ = BuildTemplate
+
+				var BuildSubject func(instName string,
+					param *authorization.SubjectInstanceParam, path string) (
+					*authorization.Subject, error)
+				_ = BuildSubject
+
+				var BuildAction func(instName string,
+					param *authorization.ActionInstanceParam, path string) (
+					*authorization.Action, error)
+				_ = BuildAction
+
+				BuildTemplate = func(instName string,
+					param *authorization.InstanceParam, path string) (
+					*authorization.Instance, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Subject, err := BuildSubject(instName, param.Subject, path+"Subject.")
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Subject", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Action, err := BuildAction(instName, param.Action, path+"Action.")
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Action", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &authorization.Instance{
+
+						Name: instName,
+
+						Subject: Subject,
+
+						Action: Action,
+					}, nil
+				}
+
+				BuildSubject = func(instName string,
+					param *authorization.SubjectInstanceParam, path string) (
+					*authorization.Subject, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					User, err := mapper.Eval(param.User, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"User", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Groups, err := mapper.Eval(param.Groups, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Groups", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Properties, err := template.EvalAll(param.Properties, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Properties", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &authorization.Subject{
+
+						User: User.(string),
+
+						Groups: Groups.(string),
+
+						Properties: Properties,
+					}, nil
+				}
+
+				BuildAction = func(instName string,
+					param *authorization.ActionInstanceParam, path string) (
+					*authorization.Action, error) {
+					if param == nil {
+						return nil, nil
+					}
+					var err error
+					_ = err
+
+					Namespace, err := mapper.Eval(param.Namespace, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Namespace", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Service, err := mapper.Eval(param.Service, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Service", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Method, err := mapper.Eval(param.Method, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Method", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Path, err := mapper.Eval(param.Path, attrs)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Path", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					Properties, err := template.EvalAll(param.Properties, attrs, mapper)
+
+					if err != nil {
+						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Properties", instName, err)
+						log.Error(msg)
+						return nil, errors.New(msg)
+					}
+
+					_ = param
+					return &authorization.Action{
+
+						Namespace: Namespace.(string),
+
+						Service: Service.(string),
+
+						Method: Method.(string),
+
+						Path: Path.(string),
+
+						Properties: Properties,
+					}, nil
+				}
+
+				instParam := inst.(*authorization.InstanceParam)
+				instance, err := BuildTemplate(instName, instParam, "")
+				if err != nil {
+
+					return adapter.CheckResult{}, err
+
+				}
+				return handler.(authorization.Handler).HandleAuthorization(ctx, instance)
 
 			},
 		},
