@@ -286,6 +286,27 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
+  # Not working currently - need write permission to GOROOT
+  goxbuild:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+      - run:
+          command: |
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            make docker push
+      - store_artifacts:
+          path: /go/bin
+
 workflows:
   version: 2
   all:
