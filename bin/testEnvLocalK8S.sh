@@ -6,6 +6,7 @@
 
 # expect istio scripts to be under $GOPATH/src/istio.io/istio/bin/...
 export TOP=$(cd $(dirname $0)/../../../..; pwd)
+export ISTIO_GO=${TOP}/go/src/istio.io/istio
 
 export GOPATH=${TOP}
 export PATH=${GOPATH}/bin:${PATH}
@@ -21,7 +22,7 @@ export KUBECONFIG=${TOP}/src/istio.io/istio/.circleci/config
 
 export USE_BAZEL=0
 
-./init.sh
+${ISTIO_GO}/bin/init.sh
 
 CERTDIR=${CERTDIR:-${OUT}/istio-certs}
 LOG_DIR=${LOG_DIR:-${OUT}/log}

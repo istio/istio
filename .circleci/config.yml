@@ -244,10 +244,12 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
-            make go-build go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-build
+      - run:
+          command: |
+            make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+      - run:
+          command: |
             make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
             make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
       - store_artifacts:

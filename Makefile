@@ -201,7 +201,7 @@ localTestEnv:
 	go install istio.io/istio/pilot/test/eurekamirror
 
 .PHONY: pilot-test
-pilot-test: pilot-agent localTestEnv
+pilot-test: pilot-agent
 	go test ${T} ${GOTEST_PARALLEL} ./pilot/...
 
 .PHONY: mixer-test
