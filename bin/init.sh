@@ -43,6 +43,11 @@ if [ "$USE_BAZEL" == "1" ] ; then
 else
   # Download dependencies
   if [ ! -d vendor/github.com ]; then
+    if which dep; then
+        echo "Using $(which dep)"
+    else
+        go install github.com/golang/dep/cmd/dep
+    fi
     dep ensure
   fi
 
