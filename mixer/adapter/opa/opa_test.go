@@ -125,7 +125,9 @@ func TestValidateError(t *testing.T) {
 				CheckMethod: "test",
 			},
 			expected: []string{
-				"Policy: 1 error occurred: opa_policy.0:3: rego_parse_error: no match found, unexpected '+'",
+				"Policy: 1 error occurred: opa_policy.0:2: rego_parse_error: no match found, expected: \"#\", " +
+					"\"-\", \".\", \"0\", \"[\", \"\\\"\", \"`\", \"default\", \"false\", \"import\", \"not\", " +
+					"\"null\", \"package\", \"set(\", \"true\", \"{\", [ \\t\\r\\n], [ \\t], [1-9], [A-Za-z_] or EOF",
 			},
 		},
 		"Empty policy": {
@@ -158,7 +160,7 @@ func TestValidateError(t *testing.T) {
 
 		for idx, msg := range c.expected {
 			if msg != err.Multi.Errors[idx].Error() {
-				t.Errorf("%v: expected: %v, |||received: %v", id, msg, err.Multi.Errors[idx])
+				t.Errorf("%v: expected: %v, received: %v", id, msg, err.Multi.Errors[idx])
 			}
 		}
 	}
