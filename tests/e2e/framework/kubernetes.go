@@ -43,12 +43,12 @@ const (
 
 var (
 	namespace       = flag.String("namespace", "", "Namespace to use for testing (empty to create/delete temporary one)")
-	mixerHub        = flag.String("mixer_hub", "", "Mixer hub, if different from istio.Version")
-	mixerTag        = flag.String("mixer_tag", "", "Mixer tag, if different from istio.Version")
-	pilotHub        = flag.String("pilot_hub", "", "pilot hub, if different from istio.Version")
-	pilotTag        = flag.String("pilot_tag", "", "pilot tag, if different from istio.Version")
-	caHub           = flag.String("ca_hub", "", "Ca hub")
-	caTag           = flag.String("ca_tag", "", "Ca tag")
+	mixerHub        = flag.String("mixer_hub", os.Getenv("HUB"), "Mixer hub, if different from istio.Version")
+	mixerTag        = flag.String("mixer_tag", os.Getenv("TAG"), "Mixer tag, if different from istio.Version")
+	pilotHub        = flag.String("pilot_hub", os.Getenv("HUB"), "pilot hub, if different from istio.Version")
+	pilotTag        = flag.String("pilot_tag", os.Getenv("TAG"), "pilot tag, if different from istio.Version")
+	caHub           = flag.String("ca_hub", os.Getenv("HUB"), "Ca hub")
+	caTag           = flag.String("ca_tag", os.Getenv("TAG"), "Ca tag")
 	authEnable      = flag.Bool("auth_enable", false, "Enable auth")
 	localCluster    = flag.Bool("use_local_cluster", false, "Whether the cluster is local or not")
 	skipSetup       = flag.Bool("skip_setup", false, "Skip namespace creation and istio cluster setup")
