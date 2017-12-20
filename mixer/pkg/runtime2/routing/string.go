@@ -78,27 +78,27 @@ func (v *namespaceTable) String() string {
 	return b.String()
 }
 
-func (e *HandlerEntries) write(b *bytes.Buffer, indent int, debugInfo *tableDebugInfo) {
+func (e *HandlerEntries) write(w io.Writer, indent int, debugInfo *tableDebugInfo) {
 	idnt := strings.Repeat("  ", indent)
 
 	for i, entry := range e.entries {
-		fmt.Fprintf(b, "%s[#%d] ", idnt, i)
+		fmt.Fprintf(w, "%s[#%d] ", idnt, i)
 
 		if debugInfo != nil {
-			fmt.Fprintf(b, "%s", debugInfo.handlerNamesByID[entry.ID])
+			fmt.Fprintf(w, "%s", debugInfo.handlerNamesByID[entry.ID])
 		} else {
-			fmt.Fprintf(b, "%v", entry.Handler)
+			fmt.Fprintf(w, "%v", entry.Handler)
 		}
-		fmt.Fprintln(b, " {H}")
+		fmt.Fprintln(w, " {H}")
 
 		indent++
 		idnt := strings.Repeat("  ", indent)
 
 		inputs := entry.Inputs
 		for i, input := range inputs {
-			fmt.Fprintf(b, "%s[#%d]", idnt, i)
-			fmt.Fprintln(b)
-			input.write(b, indent+1, debugInfo)
+			fmt.Fprintf(w, "%s[#%d]", idnt, i)
+			fmt.Fprintln(w)
+			input.write(w, indent+1, debugInfo)
 		}
 	}
 }
