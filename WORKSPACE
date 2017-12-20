@@ -577,6 +577,30 @@ go_repository(
     importpath = "golang.org/x/sync",
 )
 
+go_repository(
+    name = "com_github_open_policy_agent_opa",
+    commit = "d9f7f5f00f24e4fc4f9ef15c8afaf44b5b8612f9",  # Aug 15, 2017 (no releases)
+    importpath = "github.com/open-policy-agent/opa",
+)
+
+go_repository(
+    name = "com_github_dchest_siphash",
+    commit = "4ebf1de738443ea7f45f02dc394c4df1942a126d",  # Aug 31, 2016 (no releases)
+    importpath = "github.com/dchest/siphash",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "c605e284fe17294bda444b34710735b29d1a9d90",  # May 4, 2017 (no releases)
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
+)
+
 ##
 ## Docker image build deps
 ##
