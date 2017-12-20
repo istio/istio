@@ -247,11 +247,11 @@ jobs:
             if [ ! -d vendor ]; then
                dep ensure
             fi
-            make go-test go-build KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-            make go-test go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
-            make go-test go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-build go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
       - store_artifacts:
-        path: /go/bin
+          path: /go/bin
 
 workflows:
   version: 2
