@@ -42,8 +42,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "combined.go",
-        "@io_istio_api//mixer/v1/config:config_fixed",  # keep
         "rbac_fixed",
+        "@io_istio_api//mixer/v1/config:config_fixed",  # keep
     ],
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
@@ -52,4 +52,3 @@ go_library(
         "@io_istio_api//mixer/v1/config/descriptor:descriptor",  # keep
     ],
 )
-

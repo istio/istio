@@ -12,9 +12,9 @@ go_library(
         "init.go",
         "logger.go",
         "monitor.go",
+        "rbacStore.go",
         "resolver.go",
         "resourceType.go",
-        "rbacStore.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -50,6 +50,7 @@ go_test(
         "dispatcher_test.go",
         "env_test.go",
         "handler_test.go",
+        "rbacStore_test.go",
         "resolver_test.go",
         "resourceType_test.go",
     ],

@@ -93,7 +93,7 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 	templateInfo map[string]template.Info, eval expr.Evaluator, checker expr.TypeChecker,
 	vocabularyChangeListener VocabularyChangeListener, resolverChangeListener ResolverChangeListener,
 	identityAttribute string, defaultConfigNamespace string, handlerPool *pool.GoroutinePool,
-        rbac *RbacStore) error {
+	rbac *RbacStore) error {
 	data, watchChan, err := startWatch(s, adapterInfo, templateInfo)
 	if err != nil {
 		return err
@@ -113,7 +113,9 @@ func startController(s store.Store2, adapterInfo map[string]*adapter.Info,
 		handlerGoRoutinePool:     handlerPool,
 		table:                    make(map[string]*HandlerEntry),
 		createHandlerFactory:     newHandlerFactory,
-		rbacStore:		  rbac,
+		rbacStore:                rbac,
+		rbacInitialized:          false,
+		rbacEnabled:              false,
 	}
 
 	c.publishSnapShot()

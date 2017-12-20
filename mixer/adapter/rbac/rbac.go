@@ -15,32 +15,33 @@
 package rbac
 
 import (
-  "context"
+	"context"
 
-  "github.com/gogo/protobuf/types"
-  rpc "github.com/googleapis/googleapis/google/rpc"
-  "github.com/golang/glog"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/glog"
+	rpc "github.com/googleapis/googleapis/google/rpc"
 
-  "istio.io/istio/mixer/pkg/adapter"
-  "istio.io/istio/mixer/template/authorization"
-  "istio.io/istio/mixer/pkg/runtime"
-  "istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/runtime"
+	"istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/mixer/template/authorization"
 )
 
 type (
-  builder struct {
-  }
-  handler struct {
-    env adapter.Env
-  }
+	builder struct {
+	}
+	handler struct {
+		rbac runtime.Rbac
+		env  adapter.Env
+	}
 )
 
 ///////////////// Configuration-time Methods ///////////////
 
 // adapter.HandlerBuilder#Build
 func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, error) {
-  // Fetch all the ServiceRole/ServiceRoleBinding CRD objects, and
-  return &handler{env: env}, nil
+	// Fetch all the ServiceRole/ServiceRoleBinding CRD objects, and
+	return &handler{rbac: &runtime.RbacInstance, env: env}, nil
 }
 
 // adapter.HandlerBuilder#SetAdapterConfig
@@ -49,27 +50,26 @@ func (b *builder) SetAdapterConfig(cfg adapter.Config) {
 
 // adapter.HandlerBuilder#Validate
 func (b *builder) Validate() (ce *adapter.ConfigErrors) {
-  glog.Infof("Validate RBAC adapter")
-  return
+	glog.Infof("Validate RBAC adapter")
+	return
 }
 
-// metric.HandlerBuilder#SetMetricTypes
+// authorization.HandlerBuilder#SetAuthorizationTypes
 func (b *builder) SetAuthorizationTypes(types map[string]*authorization.Type) {
 }
 
 ////////////////// Request-time Methods //////////////////////////
 // authorization.Handler#HandleAuthorization
 func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.Instance) (adapter.CheckResult, error) {
-  glog.Infof("Handle request in RBAC adapter")
-  s := rpc.Status{Code: int32(rpc.OK)}
-  rbac := runtime.RbacInstance
-  result, err := rbac.CheckPermission(inst)
-  if !result || err != nil {
-    s = status.WithPermissionDenied("RBAC: permission denied.")
-  }
-  return adapter.CheckResult{
-    Status: s,
-  }, nil
+	glog.Infof("Handle request in RBAC adapter")
+	s := rpc.Status{Code: int32(rpc.OK)}
+	result, err := h.rbac.CheckPermission(inst)
+	if !result || err != nil {
+		s = status.WithPermissionDenied("RBAC: permission denied.")
+	}
+	return adapter.CheckResult{
+		Status: s,
+	}, nil
 }
 
 // adapter.Handler#Close
@@ -78,14 +78,14 @@ func (h *handler) Close() error { return nil }
 ////////////////// Bootstrap //////////////////////////
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
-  return adapter.Info{
-    Name:        "rbac",
-    Impl:        "istio.io/istio/mixer/adapter/rbac",
-    Description: "Istio RBAC adapter",
-    SupportedTemplates: []string{
-      authorization.TemplateName,
-    },
-    NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
-    DefaultConfig: &types.Empty{},
-  }
+	return adapter.Info{
+		Name:        "rbac",
+		Impl:        "istio.io/istio/mixer/adapter/rbac",
+		Description: "Istio RBAC adapter",
+		SupportedTemplates: []string{
+			authorization.TemplateName,
+		},
+		NewBuilder:    func() adapter.HandlerBuilder { return &builder{} },
+		DefaultConfig: &types.Empty{},
+	}
 }

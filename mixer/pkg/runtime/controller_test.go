@@ -42,6 +42,7 @@ func (f *fakedispatcher) ChangeResolver(rt Resolver) {
 
 func TestControllerEmpty(t *testing.T) {
 	d := &fakedispatcher{}
+	r := &RbacStore{}
 	c := &Controller{
 		adapterInfo:            make(map[string]*adapter.Info),
 		templateInfo:           make(map[string]template.Info),
@@ -56,6 +57,9 @@ func TestControllerEmpty(t *testing.T) {
 			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 			return &fhbuilder{}
 		},
+		rbacStore:       r,
+		rbacInitialized: false,
+		rbacEnabled:     false,
 	}
 	c.publishSnapShot()
 	if d.called != 1 {
@@ -203,6 +207,7 @@ func TestController_workflow(t *testing.T) {
 	hndlr := &fhandler{name: "aa"}
 	fb := &fhbuilder{a: hndlr}
 	res := &resolver{refCount: 1}
+	r := &RbacStore{}
 	c := &Controller{
 		adapterInfo:            adapterInfo,
 		templateInfo:           templateInfo,
@@ -217,6 +222,9 @@ func TestController_workflow(t *testing.T) {
 			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
 			return fb
 		},
+		rbacStore:       r,
+		rbacInitialized: false,
+		rbacEnabled:     false,
 	}
 
 	go func() {
@@ -673,13 +681,133 @@ func TestController_KindMap(t *testing.T) {
 	km := KindMap(ai, ti)
 
 	want := map[string]proto.Message{
-		"t1":                  &cpb.Instance{},
-		"a1":                  &cpb.Handler{},
-		RulesKind:             &cpb.Rule{},
-		AttributeManifestKind: &cpb.AttributeManifest{},
+		"t1":                   &cpb.Instance{},
+		"a1":                   &cpb.Handler{},
+		RulesKind:              &cpb.Rule{},
+		AttributeManifestKind:  &cpb.AttributeManifest{},
+		ServiceRoleKind:        &cpb.ServiceRole{},
+		ServiceRoleBindingKind: &cpb.ServiceRoleBinding{},
 	}
 
 	if !reflect.DeepEqual(km, want) {
 		t.Fatalf("Got %v\nwant %v", km, want)
+	}
+}
+
+func TestController_processRbacRoles(t *testing.T) {
+	adapterInfo := map[string]*adapter.Info{
+		"rbac": {
+			Name: "rbac",
+		},
+	}
+	templateInfo := map[string]template.Info{
+		"authorization": {
+			Name: "authorization",
+		},
+	}
+	configState := map[store.Key]*store.Resource{
+		{RulesKind, DefaultConfigNamespace, "r1"}: {Spec: &cpb.Rule{
+			Actions: []*cpb.Action{
+				{
+					Handler:   "a1.rbac." + DefaultConfigNamespace,
+					Instances: []string{"m1.authorization." + DefaultConfigNamespace},
+				},
+			},
+		}},
+		{ServiceRoleKind, "ns1", "role1"}: {Spec: &cpb.ServiceRole{
+			Rules: []*cpb.AccessRule{
+				{
+					Services:    []string{"bookstore"},
+					Paths:       []string{"/books"},
+					Methods:     []string{"GET"},
+					Constraints: []*cpb.AccessRule_Constraint{},
+				},
+			},
+		}},
+		{ServiceRoleBindingKind, "ns1", "binding1"}: {Spec: &cpb.ServiceRoleBinding{
+			Subjects: []*cpb.Subject{
+				{
+					Properties: map[string]string{
+						"user": "alice@yahoo.com",
+					},
+				},
+			},
+			RoleRef: &cpb.RoleRef{
+				Kind: "ServiceRole",
+				Name: "role1",
+			},
+		}},
+	}
+
+	d := &fakedispatcher{}
+	res := &resolver{}
+	r := &RbacStore{}
+	c := &Controller{
+		adapterInfo:            adapterInfo,
+		templateInfo:           templateInfo,
+		evaluator:              nil,
+		typeChecker:            nil,
+		configState:            configState,
+		resolverChangeListener: d,
+		resolver:               res, // get an empty resolver
+		identityAttribute:      DefaultIdentityAttribute,
+		defaultConfigNamespace: DefaultConfigNamespace,
+		createHandlerFactory: func(templateInfo map[string]template.Info, expr expr.TypeChecker,
+			df expr.AttributeDescriptorFinder, builderInfo map[string]*adapter.Info) HandlerFactory {
+			return &fhbuilder{}
+		},
+		rbacStore:       r,
+		rbacInitialized: false,
+		rbacEnabled:     true,
+	}
+
+	c.publishSnapShot()
+
+	wantRole := &cpb.ServiceRole{
+		Rules: []*cpb.AccessRule{
+			{
+				Services:    []string{"bookstore"},
+				Paths:       []string{"/books"},
+				Methods:     []string{"GET"},
+				Constraints: []*cpb.AccessRule_Constraint{},
+			},
+		},
+	}
+
+	wantRoleBinding := &cpb.ServiceRoleBinding{
+		Subjects: []*cpb.Subject{
+			{
+				Properties: map[string]string{
+					"user": "alice@yahoo.com",
+				},
+			},
+		},
+		RoleRef: &cpb.RoleRef{
+			Kind: "ServiceRole",
+			Name: "role1",
+		},
+	}
+
+	if len(r.roles) != 1 {
+		t.Fatalf("got %d, want 1 instnace", len(r.roles))
+	}
+
+	roles := r.roles["ns1"]
+	if roles == nil || roles["role1"] == nil {
+		t.Fatalf("role1 is not populated.")
+	}
+
+	info := roles["role1"].info
+	if !reflect.DeepEqual(info, wantRole) {
+		t.Fatalf("Got %v, want %v", info, wantRole)
+	}
+
+	bindings := roles["role1"].bindings
+	if len(bindings) != 1 {
+		t.Fatalf("got %d, want 1 binding associated with role1", len(bindings))
+	}
+	binding := bindings["binding1"]
+	if !reflect.DeepEqual(binding, wantRoleBinding) {
+		t.Fatalf("Got %v, Want %v", binding, wantRoleBinding)
 	}
 }

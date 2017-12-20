@@ -34,6 +34,5 @@ mixer_supported_template_library(
         "//mixer/template/quota:go_default_library",
         "//mixer/template/reportnothing:go_default_library",
         "//mixer/template/tracespan:go_default_library",
-        "//mixer/template/authorization:go_default_library",
     ],
 )
