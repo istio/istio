@@ -35,7 +35,7 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-    ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+    mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/istio
   fi
 
