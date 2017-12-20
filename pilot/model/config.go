@@ -435,6 +435,7 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	return out
 }
 
+// ResolveFQDN constructs a FQDN given a service name and metadata.
 // TODO: support IP addresses (?)
 // TODO: support non-FQDN names in Consul/Eureka
 // support 3 forms

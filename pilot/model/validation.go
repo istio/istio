@@ -427,7 +427,7 @@ func ValidatePercent(val int32) error {
 // ValidateFloatPercent checks that percent is in range
 func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("percentage value %q is not in range 0..100", val)
+		return fmt.Errorf("percentage value \"%v\" is not in range 0..100", val)
 	}
 	return nil
 }
@@ -1622,6 +1622,7 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 	return errs
 }
 
+// ValidateRouteRuleV2 checks that a v1alpha2 route rule is well-formed.
 func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 	routeRule, ok := msg.(*routingv2.RouteRule)
 	if !ok {
@@ -1650,7 +1651,7 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 			}
 
 			if http.WebsocketUpgrade {
-				errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules"))
+				errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
 			}
 		}
 
