@@ -34,7 +34,6 @@ func getRootCmd() *cobra.Command {
 		meshconfig   string
 		injectConfig string
 		namespace    string
-		port         int
 	}{}
 
 	rootCmd := &cobra.Command{
