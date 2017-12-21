@@ -32,3 +32,8 @@
 
 # Bazel
 /bazel-*
+
+# protoc
+/protoc-tmp
+
+/vendor

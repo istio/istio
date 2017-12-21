@@ -55,7 +55,7 @@ def  mixer_api_dependencies():
     )
 
     go_repository(
-        name = "io_istio_istio_gogo_genproto",
+        name = "io_istio_gogo_genproto",
         commit = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd",  # Dec 14, 2017 (initial generation of status protos)
         importpath = "istio.io/gogo-genproto",
     )

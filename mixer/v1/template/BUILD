@@ -1,30 +1,24 @@
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-gogoslick_proto_library(
+go_library(
     name = "go_default_library",
-    importmap = {
-        "google/protobuf/descriptor.proto": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
-    },
-    imports = [
-        "external/com_github_google_protobuf/src",
+    srcs = [
+        "extensions.pb.go",
+        "standard_types.pb.go",
     ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    protos = ["extensions.proto", "standard_types.proto"],
-    verbose = 0,
-    with_grpc = False,
+    visibility = ["//visibility:public"],
     deps = [
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
-        "@com_github_gogo_protobuf//sortkeys:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
     ],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
-    name = "template_protos",
-    srcs = ["extensions.proto", "standard_types.proto"],
+    name = "go_default_library_protos",
+    srcs = [
+        "extensions.proto",
+        "standard_types.proto",
+    ],
     visibility = ["//visibility:public"],
 )

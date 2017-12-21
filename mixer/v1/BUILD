@@ -1,42 +1,35 @@
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-gogoslick_proto_library(
+go_library(
     name = "go_default_library",
-    importmap = {
-        "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
-        "google/protobuf/timestamp.proto": "github.com/gogo/protobuf/types",
-        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
-        "google/rpc/status.proto": "istio.io/gogo-genproto/googleapis/google/rpc",
-        "google/rpc/code.proto": "istio.io/gogo-genproto/googleapis/google/rpc",
-        "google/rpc/error_details.proto": "istio.io/gogo-genproto/googleapis/google/rpc",
-    },
-    imports = [
-        "external/com_github_gogo_protobuf",
-        "external/com_github_google_protobuf/src",
-        "external/com_github_googleapis_googleapis",
+    srcs = [
+        "attributes.pb.go",
+        "check.pb.go",
+        "report.pb.go",
+        "service.pb.go",
     ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
-        "@com_github_googleapis_googleapis//:status_proto",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_gogo_protobuf//gogoproto:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@com_github_gogo_protobuf//types:go_default_library",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
     ],
-    protos = [
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = [
         "attributes.proto",
         "check.proto",
         "report.proto",
         "service.proto",
     ],
-    verbose = 0,
     visibility = ["//visibility:public"],
-    with_grpc = True,
-    deps = [
-        "@com_github_gogo_protobuf//gogoproto:go_default_library",
-        "@com_github_gogo_protobuf//sortkeys:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc", # needed for proto file import by protoc
-        "@io_istio_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
-    ],
 )
 
 filegroup(

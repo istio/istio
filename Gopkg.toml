@@ -3,6 +3,13 @@
 # Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
 # for detailed Gopkg.toml documentation.
 
+# Require gogoslick and gogoreplace for proto manipulation
+required = [ 
+  "github.com/gogo/protobuf/protoc-gen-gogo",
+  "github.com/gogo/protobuf/protoc-gen-gogoslick",
+  "github.com/gogo/protobuf/protoc-min-version"
+]
+
 [[constraint]]
   name = "github.com/gogo/protobuf"
   version = "=0.5.0"

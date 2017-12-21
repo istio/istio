@@ -3,6 +3,8 @@
 set -o errexit
 set -o nounset
 
+make clean generate
+
 bazel build //...
 
 genfiles=$(bazel info bazel-genfiles)
@@ -15,4 +17,6 @@ for src in ${files}; do
     fi
 done
 
-rm mixer/v1/config/cfg.pb.go
+if [ -e mixer/v1/config/cfg.pb.go ]; then
+    rm mixer/v1/config/cfg.pb.go
+fi 
