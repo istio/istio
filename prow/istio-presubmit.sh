@@ -114,17 +114,21 @@ if [ "$USE_BAZEL" == "1" ] ; then
 
     echo 'Running Unit Tests'
     time bazel test --testesttestt_output=all //...
+
+    echo 'Running linters'
+    SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
 else
     echo 'Initialize'
     ${ROOT}/bin/init.sh
     echo 'Build'
     (cd ${ROOT}; make go-build)
     (cd ${ROOT}; make localTestEnv go-test)
+
+    echo 'Running linters'
+    SKIP_INIT=1 ${ROOT}/bin/linters.sh || echo "Error: linters.sh failed"
 fi
 
 
-echo 'Running linters'
-SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
