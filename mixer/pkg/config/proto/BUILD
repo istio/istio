@@ -25,24 +25,11 @@ gogo_proto_compile(
     with_grpc = False,
 )
 
-genrule(
-    name = "rbac_fixed",
-    srcs = [":rbac_gen"],
-    outs = ["fixed_rbac.pb.go"],
-    cmd = "sed " +
-          "-e 's/*google_protobuf.Struct/interface{}/g' " +
-          "-e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' " +
-          "$(location :rbac_gen) | $(location @org_golang_x_tools_imports//:goimports) > $@",
-    message = "Applying overrides to rbac proto",
-    tools = ["@org_golang_x_tools_imports//:goimports"],
-    visibility = ["//visibility:public"],
-)
-
 go_library(
     name = "go_default_library",
     srcs = [
         "combined.go",
-        "rbac_fixed",
+        "rbac_gen",
         "@io_istio_api//mixer/v1/config:config_fixed",  # keep
     ],
     deps = [

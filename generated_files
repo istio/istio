@@ -20,7 +20,6 @@ mixer/adapter/stackdriver/config/config.pb.go
 mixer/adapter/statsd/config/config.pb.go
 mixer/adapter/stdio/config/config.pb.go
 mixer/pkg/attribute/list.gen.go
-mixer/pkg/config/proto/fixed_rbac.pb.go
 mixer/pkg/config/proto/rbac.pb.go
 mixer/template/apikey/go_default_library_handler.gen.go
 mixer/template/apikey/go_default_library_tmpl.pb.go
