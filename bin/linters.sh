@@ -36,11 +36,12 @@ docker run\
   --config=./lintconfig.gen.json \
   ./...
 else
+#TODO: after the new generation script is in, make sure we generate the exclude
 docker run\
   -v $(pwd):/go/src/istio.io/istio\
   -w /go/src/istio.io/istio\
   gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10\
-  --config=./lintconfig.gen.json \
+  --config=./lintconfig_base.json \
   ./...
 
 fi
