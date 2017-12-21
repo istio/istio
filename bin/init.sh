@@ -20,6 +20,7 @@ rm -rf ${ROOT}/vendor
 mkdir -p ${ROOT}/vendor
 
 # This step is to fetch resources and create genfiles
+time bazel clean
 time bazel build //...
 time bazel build $(bazel query 'tests(//...)')
 
