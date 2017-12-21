@@ -76,6 +76,7 @@ func (h *handler) HandleAuthorization(ctx context.Context, inst *authorization.I
 func (h *handler) Close() error { return nil }
 
 ////////////////// Bootstrap //////////////////////////
+
 // GetInfo returns the adapter.Info specific to this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{

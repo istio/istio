@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// RBAC interface
+// Rbac interface
 type Rbac interface {
 	CheckPermission(inst *authorization.Instance) (bool, error)
 }
@@ -53,7 +53,7 @@ type RbacStore struct {
 	roles rolesMapByNamespace
 }
 
-// The single instance of RBAC store. It is initialized when runtime is initiated.
+// RbacInstance is the single instance of RbacStore. It is initialized when runtime is initiated.
 var RbacInstance RbacStore
 
 // Create a RoleInfo object.
@@ -79,7 +79,7 @@ func (rs *RbacStore) changeRoles(roles rolesMapByNamespace) {
 	rs.roles = roles
 }
 
-// Check permission for a given request. This is the main API called
+// CheckPermission checks permission for a given request. This is the main API called
 // by RBAC adapter at runtime to authorize requests.
 func (rs *RbacStore) CheckPermission(inst *authorization.Instance) (bool, error) {
 	namespace := inst.Action.Namespace
