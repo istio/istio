@@ -499,7 +499,7 @@ func TestRateLimit(t *testing.T) {
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
 		},
-		HTTPOptions: fhttp.HTTPOptions {
+		HTTPOptions: fhttp.HTTPOptions{
 			URL: url,
 		},
 	}
