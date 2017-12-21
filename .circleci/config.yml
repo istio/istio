@@ -266,6 +266,7 @@ jobs:
   gobuild:
     <<: *defaults
     resource_class: xlarge
+    context: org-global
     steps:
       - checkout
       - restore_cache:

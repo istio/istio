@@ -78,7 +78,7 @@ function startLocalApiserver() {
 
     mkdir -p ${LOG_DIR}
 
-    ${TOP}/bin/etcd > ${LOG_DIR}/etcd.log &
+    ${TOP}/bin/etcd > ${LOG_DIR}/etcd.log 2>&1 &
     echo $! > $LOG_DIR/etcd.pid
 
     ${TOP}/bin/kube-apiserver --etcd-servers http://127.0.0.1:2379 \
@@ -88,8 +88,10 @@ function startLocalApiserver() {
         --tls-private-key-file ${CERTDIR}/apiserver.key \
         --service-cluster-ip-range 10.99.0.0/16 \
         --port 8080 -v 2 --insecure-bind-address 0.0.0.0 \
-        2> ${LOG_DIR}/apiserver.log &
+        2> ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
+
+    echo "Started local etcd and apiserver !"
 }
 
 function stopLocalApiserver() {

@@ -177,7 +177,8 @@ spec:
 `
 )
 
-func TestServer(t *testing.T) {
+//https://github.com/istio/istio/issues/2300
+func xTestServer(t *testing.T) {
 	args := server.NewArgs()
 
 	args.APIPort = 0
