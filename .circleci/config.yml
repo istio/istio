@@ -14,6 +14,36 @@ integrationDefaults: &integrationDefaults
     GOPATH: /go
 
 jobs:
+  e2e:
+    <<: *integrationDefaults
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+      - checkout
+      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+      - run:
+          command: |
+            sudo -E minikube start \
+            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+            --kubernetes-version=v1.7.5 --vm-driver=none
+      - run: sudo -E minikube update-context
+      - run: bin/install-go.sh
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run: mkdir /home/circleci/logs
+      - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
+      - run: sudo -E kubectl cluster-info
+      - run: make kubelink
+      - run: make e2e_simple TEST_ENV=minikube
+      - store_artifacts:
+          path: /home/circleci/logs
+
   pilot-integration-auth:
     <<: *integrationDefaults
     steps:
@@ -49,7 +79,6 @@ jobs:
       - run: sudo -E kubectl cluster-info
       - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
-      - run: make e2e_simple
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -340,3 +369,6 @@ workflows:
       - pilot-integration-auth:
           requires:
             - unittest-pilot
+      - e2e:
+          requires:
+            - pilot-integration-noauth
