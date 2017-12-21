@@ -15,16 +15,17 @@
 ################################################################################
 #
 
-ISTIO_API_SHA = "d59de23cb53edd57f5cc36e9c7e98fe92b110f01"
+ISTIO_API_SHA = "b08011c721e03edd61c721e4943607c97b7a9879"
 
-def go_istio_api_repositories(use_local=True):
+def go_istio_api_repositories(use_local=False):
     if use_local:
         native.local_repository(
             name = "io_istio_api",
             path = "../api",
         )
     else:
-      native.local_repository(
-            name = "io_istio_api",
-            path = "../api",
+        native.git_repository(
+          name = "io_istio_api",
+          commit = ISTIO_API_SHA,
+          remote = "https://github.com/istio/api.git",
         )
