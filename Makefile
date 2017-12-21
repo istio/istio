@@ -182,7 +182,7 @@ mixs: vendor
 
 .PHONY: mixc
 mixc: vendor
-	go install istio.io/istio/mixer/cmd/mixs
+	go install istio.io/istio/mixer/cmd/mixc
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc
 
