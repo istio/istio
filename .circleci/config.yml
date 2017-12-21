@@ -17,6 +17,9 @@ jobs:
   e2e:
     <<: *integrationDefaults
     steps:
+      - environment:
+        - KUBECONFIG: /go/out/minikube.conf
+        - TEST_ENV: minikube
       - type: shell
         name: Initialize Working Directory
         pwd: /
@@ -28,19 +31,21 @@ jobs:
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
+            mkdir -p /go/out
+            mkdir /home/circleci/logs
             sudo -E minikube start \
             --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
             --kubernetes-version=v1.7.5 --vm-driver=none
-      - run: sudo -E minikube update-context
-      - run: bin/install-go.sh
+
+            sudo -E minikube update-context
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - run: mkdir /home/circleci/logs
       - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
       - run: sudo -E kubectl cluster-info
-      - run: make kubelink
-      - run: make e2e_simple TEST_ENV=minikube
+      - run:
+          command: |
+            make e2e_simple
       - store_artifacts:
           path: /home/circleci/logs
 
