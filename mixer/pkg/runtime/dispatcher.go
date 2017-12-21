@@ -28,8 +28,8 @@ import (
 	tracelog "github.com/opentracing/opentracing-go/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	adptTmpl "istio.io/api/mixer/v1/template"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"

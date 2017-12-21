@@ -14,7 +14,7 @@
 
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/kubernetesenv/config/config.proto
 
-// Package kubernetes provides functionality to adapt mixer behavior to the
+// Package kubernetesenv provides functionality to adapt mixer behavior to the
 // kubernetes environment. Primarily, it is used to generate values as part
 // of Mixer's attribute generation preprocessing phase. These values will be
 // transformed into attributes that can be used for subsequent config
