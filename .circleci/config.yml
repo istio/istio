@@ -295,7 +295,6 @@ jobs:
   gobuild:
     <<: *defaults
     resource_class: xlarge
-    context: org-global
     steps:
       - checkout
       - restore_cache:
@@ -342,6 +341,7 @@ workflows:
     jobs:
       - dependencies
       - gobuild:
+          context: org-global
           requires:
             - dependencies
       - gotest:
