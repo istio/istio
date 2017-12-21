@@ -233,3 +233,7 @@
 
 # api key
 - request.api_key
+
+# check.error_code and error_message
+- check.error_code
+- check.error_message
