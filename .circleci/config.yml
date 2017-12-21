@@ -16,10 +16,10 @@ integrationDefaults: &integrationDefaults
 jobs:
   e2e:
     <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube
     steps:
-      - environment:
-        - KUBECONFIG: /go/out/minikube.conf
-        - TEST_ENV: minikube
       - type: shell
         name: Initialize Working Directory
         pwd: /
