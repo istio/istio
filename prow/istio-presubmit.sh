@@ -124,8 +124,6 @@ else
     (cd ${ROOT}; make go-build)
     (cd ${ROOT}; make localTestEnv go-test)
 
-    echo 'Running linters'
-    SKIP_INIT=1 ${ROOT}/bin/linters.sh || echo "Error: linters.sh failed"
 fi
 
 
