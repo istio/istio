@@ -1,5 +1,5 @@
 filegroup (
-   name = "mixer_protoc",
+   name = "mixer_codegen",
    srcs = [ "mixer_codegen.sh" ],
    visibility = ["//visibility:public"],
 )
