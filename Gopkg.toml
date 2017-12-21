@@ -40,7 +40,7 @@ required = [
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
+  version = "^1.8.2" # match istio/api
 
 [[constraint]]
   name = "k8s.io/client-go"
@@ -86,7 +86,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "d59de23cb53edd57f5cc36e9c7e98fe92b110f01"
+  revision = "b08011c721e03edd61c721e4943607c97b7a9879"
 
 [[constraint]]
   name = "istio.io/fortio"
@@ -100,3 +100,7 @@ required = [
   version = "=0.5"
 
 ### End Mixer codegen dep pinning
+
+[[constraint]]
+  name = "github.com/open-policy-agent/opa"
+  version = "0.5.13"

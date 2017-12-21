@@ -33,7 +33,7 @@ go_library(
         "@com_github_opentracing_opentracing_go//log:go_default_library",
         "@com_github_prometheus_client_golang//prometheus:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
         "@io_istio_api//mixer/v1/template:go_default_library",
         "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
         "@org_uber_go_zap//:go_default_library",

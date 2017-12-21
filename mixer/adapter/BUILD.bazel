@@ -13,6 +13,7 @@ go_library(
         "//mixer/adapter/kubernetesenv:go_default_library",
         "//mixer/adapter/list:go_default_library",
         "//mixer/adapter/memquota:go_default_library",
+        "//mixer/adapter/opa:go_default_library",
         "//mixer/adapter/noop:go_default_library",
         "//mixer/adapter/prometheus:go_default_library",
         "//mixer/adapter/servicecontrol:go_default_library",
