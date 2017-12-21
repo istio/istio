@@ -240,11 +240,22 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - setup_remote_docker
       - run:
           command: |
             cd /go/src/istio.io/istio
             make go-build
+      - store_artifacts:
+          path: /go/bin
+
+  docker-push:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - setup_remote_docker
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -255,7 +266,6 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
-  # Not working currently - need write permission to GOROOT
   goxbuild:
     <<: *defaults
     resource_class: xlarge
@@ -281,7 +291,6 @@ workflows:
     jobs:
       - dependencies
       - gobuild:
-          context: org-global
           requires:
             - dependencies
       - gotest:
@@ -299,6 +308,10 @@ workflows:
       - pilot-integration-auth:
           requires:
             - gotest
+      - docker-push:
+          context: org-global
+          requires:
+            - pilot-integration-noauth
       - e2e:
           requires:
             - pilot-integration-noauth
