@@ -419,7 +419,7 @@ func ValidateL4MatchAttributes(ma *routing.L4MatchAttributes) (errs error) {
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
-		return fmt.Errorf("percentage value %q is not in range 0..100", val)
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
 	}
 	return nil
 }
@@ -427,7 +427,7 @@ func ValidatePercent(val int32) error {
 // ValidateFloatPercent checks that percent is in range
 func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("percentage value \"%v\" is not in range 0..100", val)
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
 	}
 	return nil
 }
@@ -1675,7 +1675,7 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 		}
 		errs = appendErrors(errs, validateDestination(http.Mirror))
 		errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
-		errs = appendErrors(errs, validateHTTPRetries(http.Retries))
+		errs = appendErrors(errs, validateHTTPRetry(http.Retries))
 		errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
 		for _, route := range http.Route {
 			if route.Destination == nil {
@@ -1801,18 +1801,21 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 	errs = appendErrors(errs, Labels(destination.Labels).Validate())
 	// TODO: Name
 	// TODO: Port
+
 	return
 }
 
-func validateHTTPRetries(retries *routingv2.HTTPRetry) (errs error) {
+func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
 	if retries == nil {
-		return // no retry policy is valid
+		return
 	}
 
 	if retries.Attempts <= 0 {
 		errs = multierror.Append(errs, errors.New("attempts must be positive"))
 	}
-	errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	if retries.PerTryTimeout != nil {
+		errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	}
 	return
 }
 
