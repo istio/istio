@@ -1,6 +1,7 @@
 GO_MINOR_VERSION = $(shell go version | cut -d . -f 2)
 
-.PHONY: docker
+# note: docker/mixs to be phony to make sure rebuilding always.
+.PHONY: docker docker/mixs
 .INTERMEDIATE: check.prereqs
 
 default: docker
@@ -20,7 +21,7 @@ docker: docker/mixs docker/ca-certificates.tgz
 	$(MAKE) docker -C example/servicegraph
 
 # fetch debian ca-certs to package in the docker container.
-docker/ca-certificates.tgz:
+docker/ca-certificates.tgz: ../docker/ca-certificates.tgz
 	cp ../docker/ca-certificates.tgz ./docker
 
 docker/mixs: check.prereqs
