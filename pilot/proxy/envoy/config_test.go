@@ -298,6 +298,11 @@ var (
 		file: "testdata/redirect-route-v1alpha2.yaml.golden",
 	}
 
+	redirectRouteToEgressRule = fileConfig{
+		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "redirect-to-egress"},
+		file: "testdata/redirect-route-to-egress.yaml.golden",
+	}
+
 	rewriteRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "rewrite"},
 		file: "testdata/rewrite-route.yaml.golden",
