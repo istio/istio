@@ -308,9 +308,9 @@ jobs:
             make go-build
       - run:
           command: |
-            if [ ! -z "$DOCKER_USER" ] ; then
+            if [ ! -z "${DOCKER_USER}" ] ; then
               echo "Pushing docker images"
-              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               make docker push
             fi
       - store_artifacts:
