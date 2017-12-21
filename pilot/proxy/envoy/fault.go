@@ -106,12 +106,17 @@ func buildHTTPFaultFilterV2(cluster string, faultRule *routingv2.HTTPFaultInject
 }
 
 func buildAbortConfigV2(abortRule *routingv2.HTTPFaultInjection_Abort) *AbortFilter {
-	if abortRule == nil || abortRule.GetHttpStatus() == 0 || abortRule.Percent == 0.0 {
+	if abortRule == nil || abortRule.GetHttpStatus() == 0 {
 		return nil
 	}
 
+	percent := int(abortRule.Percent)
+	if percent == 0 {
+		percent = 100 // default to 100 percent
+	}
+
 	return &AbortFilter{
-		Percent:    int(abortRule.Percent),
+		Percent:    percent,
 		HTTPStatus: int(abortRule.GetHttpStatus()),
 	}
 }
@@ -122,13 +127,18 @@ func buildDelayConfigV2(delayRule *routingv2.HTTPFaultInjection_Delay) *DelayFil
 	}
 
 	ms := protoDurationToMS(delayRule.GetFixedDelay())
-	if ms == 0 || delayRule.Percent == 0.0 {
+	if ms == 0 {
 		return nil
+	}
+
+	percent := int(delayRule.Percent)
+	if percent == 0 {
+		percent = 100 // default to 100 percent
 	}
 
 	return &DelayFilter{
 		Type:     "fixed",
-		Percent:  int(delayRule.Percent),
+		Percent:  percent,
 		Duration: ms,
 	}
 }
