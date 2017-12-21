@@ -21,7 +21,7 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -221,7 +221,7 @@ func (this *Params) String() string {
 	for k, _ := range this.SeverityLevels {
 		keysForSeverityLevels = append(keysForSeverityLevels, k)
 	}
-	sortkeys.Strings(keysForSeverityLevels)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForSeverityLevels)
 	mapStringForSeverityLevels := "map[string]Params_Level{"
 	for _, k := range keysForSeverityLevels {
 		mapStringForSeverityLevels += fmt.Sprintf("%v: %v,", k, this.SeverityLevels[k])

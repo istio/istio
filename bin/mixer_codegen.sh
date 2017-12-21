@@ -8,7 +8,7 @@ set -e
 
 outdir=$ROOT
 file=$ROOT
-protoc=`which protoc`
+protoc="protoc-min-version -version=3.5.0"
 optimport=$ROOT
 
 while getopts 'f:o:p:i:' flag; do
@@ -33,6 +33,14 @@ if [ ! -e $GOPATH/bin/protoc-gen-gogoslick ]; then
 echo "Installing protoc-gen-gogoslick..."
 pushd $ROOT
 go install "./vendor/github.com/gogo/protobuf/protoc-gen-gogoslick"
+popd
+echo "Done."
+fi
+
+if [ ! -e $GOPATH/bin/protoc-min-version ]; then
+echo "Installing protoc-min-version..."
+pushd $ROOT
+go install "./vendor/github.com/gogo/protobuf/protoc-min-version"
 popd
 echo "Done."
 fi
@@ -70,12 +78,12 @@ done
 IMPORTS+="--proto_path=$optimport "
 
 mappings=(
-  "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto",
-  "google/protobuf/duration.proto=github.com/gogo/protobuf/types",
-  "google/protobuf/any.proto=github.com/gogo/protobuf/types",
-  "google/rpc/status.proto=istio.io/gogo-genproto/googleapis/google/rpc",
-  "google/rpc/code.proto=istio.io/gogo-genproto/googleapis/google/rpc",
-  "google/rpc/error_details.proto=istio.io/gogo-genproto/googleapis/google/rpc",
+  "gogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto"
+  "google/protobuf/any.proto=github.com/gogo/protobuf/types"
+  "google/protobuf/duration.proto=github.com/gogo/protobuf/types"
+  "google/rpc/status.proto=istio.io/gogo-genproto/googleapis/google/rpc"
+  "google/rpc/code.proto=istio.io/gogo-genproto/googleapis/google/rpc"
+  "google/rpc/error_details.proto=istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 MAPPINGS=""
@@ -88,8 +96,6 @@ done
 
 PLUGIN="--gogoslick_out=$MAPPINGS:"
 PLUGIN+=$outdir
-
-# echo "Generating code for: ${file}"
 
 # echo $protoc $IMPORTS $PLUGIN $file
 $protoc $IMPORTS $PLUGIN $file
