@@ -1,56 +1,48 @@
-test --test_output=errors
-test --test_size_filters=-large,-enormous
+# Copied from https://github.com/envoyproxy/envoy/blob/master/tools/bazel.rc
+# Envoy specific Bazel build/test options.
 
-# Address sanitizer
-build:asan --strip=never
-build:asan --copt -fsanitize=address
-build:asan --copt -g
-build:asan --copt -O1
-build:asan --copt -fno-omit-frame-pointer
-build:asan --copt -Wno-error=maybe-uninitialized
-build:asan --linkopt -fsanitize=address
-test:asan --test_tag_filters=-no_asan
+#build --workspace_status_command=bazel/get_workspace_status
 
-# Thread sanitizer
-build:tsan --strip=never
-build:tsan --copt -fsanitize=thread
-build:tsan --copt -fPIE
-build:tsan --copt -O2
-build:tsan --copt -g
-build:tsan --copt -fno-omit-frame-pointer
-build:tsan --copt -DGRPC_TSAN
-build:tsan --linkopt -fsanitize=thread
-build:tsan --linkopt -pie
-# Use -Wl,-ltsan instead of -ltsan to make Bazel link libtsan before all other
-# libs in particularly before -lpthread. This allows TSAN to pull in it's own
-# version of -lpthread.
-build:tsan --linkopt -Wl,-ltsan
-test:tsan --test_tag_filters=-no_tsan
+# Basic ASAN/UBSAN that works for gcc
+build:asan --define ENVOY_CONFIG_ASAN=1
+build:asan --copt -fsanitize=address,undefined
+build:asan --linkopt -fsanitize=address,undefined
+build:asan --copt -fno-sanitize=vptr
+build:asan --linkopt -fno-sanitize=vptr
+build:asan --linkopt -ldl
+build:asan --define tcmalloc=disabled
+build:asan --build_tag_filters=-no_asan
+build:asan --test_tag_filters=-no_asan
+build:asan --define signal_trace=disabled
 
-# Our default TSAN setup with -pie does not work with some linux versions (e.g.,
-# on Travis's trusty). See https://github.com/google/sanitizers/issues/503
-# So for TSAN on Travis we use gcc-5, which supports TSAN for non-pie binaries.
-build:tsan_nopie --strip=never
-build:tsan_nopie --copt -fsanitize=thread
-build:tsan_nopie --copt -O2
-build:tsan_nopie --copt -g
-build:tsan_nopie --copt -fno-omit-frame-pointer
-build:tsan_nopie --copt -DGRPC_TSAN
-build:tsan_nopie --linkopt -fsanitize=thread
-build:tsan_nopie --linkopt -Wl,-ltsan
+# Clang 5.0 ASAN
+build:clang-asan --define ENVOY_CONFIG_ASAN=1
+build:clang-asan --copt -D__SANITIZE_ADDRESS__
+build:clang-asan --copt -fsanitize=address,undefined
+build:clang-asan --linkopt -fsanitize=address,undefined
+build:clang-asan --copt -fno-sanitize=vptr
+build:clang-asan --linkopt -fno-sanitize=vptr
+build:clang-asan --copt -fno-sanitize-recover=all
+build:clang-asan --linkopt -ldl
+build:clang-asan --define tcmalloc=disabled
+build:clang-asan --build_tag_filters=-no_asan
+build:clang-asan --test_tag_filters=-no_asan
+build:clang-asan --define signal_trace=disabled
+build:clang-asan --test_env=ASAN_SYMBOLIZER_PATH
 
-# Explicitly instruct the compiler to use the gold linker. TSAN uses linker
-# options (e.g., --push-state) that are only available in gold linker. On some
-# linux versions (e.g., Travis's latest trusty), specifying -fsanitize=thread
-# doesn't automatically use the gold linker.
-build:tsan_nopie --linkopt -fuse-ld=gold
-test:tsan_nopie --test_tag_filters=-no_tsan
+# Clang 5.0 TSAN
+build:clang-tsan --define ENVOY_CONFIG_TSAN=1
+build:clang-tsan --copt -fsanitize=thread
+build:clang-tsan --linkopt -fsanitize=thread
+build:clang-tsan --define tcmalloc=disabled
 
-# Release builds
-build:release -c opt
+# Clang 5.0 MSAN - broken today since we need to rebuild lib[std]c++ and external deps with MSAN
+# support (see https://github.com/envoyproxy/envoy/issues/443).
+build:clang-msan --define ENVOY_CONFIG_MSAN=1
+build:clang-msan --copt -fsanitize=memory
+build:clang-msan --linkopt -fsanitize=memory
+build:clang-msan --define tcmalloc=disabled
+build:clang-msan --copt -fsanitize-memory-track-origins=2
 
-# Add compile option for all C++ files
-build --cxxopt -Wnon-virtual-dtor
-build --cxxopt -Wformat
-build --cxxopt -Wformat-security
-
+# Test options
+test --test_env=HEAPCHECK=normal --test_env=PPROF_PATH

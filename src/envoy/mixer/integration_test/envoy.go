@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 func getTestBinRootPath() string {
@@ -87,6 +88,11 @@ func (s *Envoy) Start() error {
 	if err == nil {
 		url := fmt.Sprintf("http://localhost:%v/server_info", AdminPort)
 		WaitForHttpServer(url)
+		// TODO: need a better way to detect listen ports are up.
+		// In tsan case, even admin port is up, other ports may not.
+		// Test program will crash with connection is refused error.
+		// Wait 2 seconds more for tsan
+		time.Sleep(time.Second * 5)
 	}
 	return err
 }
