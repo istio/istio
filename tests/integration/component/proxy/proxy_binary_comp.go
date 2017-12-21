@@ -31,19 +31,18 @@ const (
 var (
 	envoyStartScript = flag.String("envoy_start_script", "", "start_envoy script")
 	envoyBinary      = flag.String("envoy_binary", "", "Envoy binary path.")
+	lock             sync.Mutex
 )
 
 // LocalCompConfig contains configs for LocalComponent
 type LocalCompConfig struct {
 	framework.Config
-	sync.Mutex
 	LogFile string
 }
 
 // LocalCompStatus contains status for LocalComponent
 type LocalCompStatus struct {
 	framework.Status
-	sync.Mutex
 	SideCarEndpoint string
 }
 
@@ -71,9 +70,9 @@ func (proxyComp *LocalComponent) GetName() string {
 
 // GetConfig return the config for outside use
 func (proxyComp *LocalComponent) GetConfig() framework.Config {
-	proxyComp.config.Lock()
+	lock.Lock()
 	config := proxyComp.config
-	proxyComp.config.Unlock()
+	lock.Unlock()
 	return config
 }
 
@@ -83,17 +82,17 @@ func (proxyComp *LocalComponent) SetConfig(config framework.Config) error {
 	if !ok {
 		return fmt.Errorf("cannot cast config into proxy local config")
 	}
-	proxyComp.config.Lock()
+	lock.Lock()
 	proxyComp.config = proxyConfig
-	proxyComp.config.Unlock()
+	lock.Unlock()
 	return nil
 }
 
 // GetStatus return the status for outside use
 func (proxyComp *LocalComponent) GetStatus() framework.Status {
-	proxyComp.status.Lock()
+	lock.Lock()
 	status := proxyComp.status
-	proxyComp.status.Unlock()
+	lock.Unlock()
 	return status
 }
 
@@ -104,9 +103,9 @@ func (proxyComp *LocalComponent) Start() (err error) {
 		return
 	}
 
-	proxyComp.status.Lock()
+	lock.Lock()
 	proxyComp.status.SideCarEndpoint = sideCarEndpoint
-	proxyComp.status.Unlock()
+	lock.Unlock()
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)

@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/tests/integration/component/fortio_server"
+	"istio.io/istio/tests/integration/component/proxy"
 	appOnlyEnv "istio.io/istio/tests/integration/example/environment/appOnlyEnv"
 	mixerEnvoyEnv "istio.io/istio/tests/integration/example/environment/mixerEnvoyEnv"
 	"istio.io/istio/tests/integration/framework"
-	"istio.io/istio/tests/integration/component/fortio_server"
-	"istio.io/istio/tests/integration/component/proxy"
 )
 
 const (

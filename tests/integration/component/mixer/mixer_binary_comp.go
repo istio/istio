@@ -22,9 +22,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"sync"
+
 	"istio.io/istio/tests/integration/framework"
 	"istio.io/istio/tests/util"
-	"sync"
 )
 
 const (
@@ -34,12 +35,12 @@ const (
 
 var (
 	mixerBinary = flag.String("mixer_binary", "", "Mixer binary path.")
+	lock        sync.Mutex
 )
 
 // LocalCompConfig contains configs for LocalComponent
 type LocalCompConfig struct {
 	framework.Config
-	sync.Mutex
 	ConfigFileDir string
 	LogFile       string
 }
@@ -47,7 +48,6 @@ type LocalCompConfig struct {
 // LocalCompStatus contains status for LocalComponent
 type LocalCompStatus struct {
 	framework.Status
-	sync.Mutex
 	MetricsEndpoint string
 }
 
@@ -75,9 +75,9 @@ func (mixerComp *LocalComponent) GetName() string {
 
 // GetConfig return the config for outside use
 func (mixerComp *LocalComponent) GetConfig() framework.Config {
-	mixerComp.config.Lock()
+	lock.Lock()
 	config := mixerComp.config
-	mixerComp.config.Unlock()
+	lock.Unlock()
 	return config
 }
 
@@ -87,17 +87,17 @@ func (mixerComp *LocalComponent) SetConfig(config framework.Config) error {
 	if !ok {
 		return fmt.Errorf("cannot cast config into mixer local config")
 	}
-	mixerComp.config.Lock()
+	lock.Lock()
 	mixerComp.config = mixerConfig
-	mixerComp.config.Unlock()
+	lock.Unlock()
 	return nil
 }
 
 // GetStatus return the status for outside use
 func (mixerComp *LocalComponent) GetStatus() framework.Status {
-	mixerComp.status.Lock()
+	lock.Lock()
 	status := mixerComp.status
-	mixerComp.status.Unlock()
+	lock.Unlock()
 	return status
 }
 
@@ -137,9 +137,9 @@ func (mixerComp *LocalComponent) Start() (err error) {
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(3 * time.Second)
 
-	mixerComp.status.Lock()
+	lock.Lock()
 	mixerComp.status.MetricsEndpoint = metricsEndpoint
-	mixerComp.status.Unlock()
+	lock.Unlock()
 
 	log.Printf("Started component %s", mixerComp.GetName())
 	return

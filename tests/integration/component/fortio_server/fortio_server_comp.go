@@ -30,19 +30,18 @@ const (
 
 var (
 	fortioBinary = flag.String("fortio_binary", "", "Fortio binary path.")
+	lock         sync.Mutex
 )
 
 // LocalCompConfig contains configs for LocalComponent
 type LocalCompConfig struct {
 	framework.Config
-	sync.Mutex
 	LogFile string
 }
 
 // LocalCompStatus contains status for LocalComponent
 type LocalCompStatus struct {
 	framework.Status
-	sync.Mutex
 	EchoEndpoint string
 }
 
@@ -70,9 +69,9 @@ func (fortioServerComp *LocalComponent) GetName() string {
 
 // GetConfig return the config for outside use
 func (fortioServerComp *LocalComponent) GetConfig() framework.Config {
-	fortioServerComp.config.Lock()
+	lock.Lock()
 	config := fortioServerComp.config
-	fortioServerComp.config.Unlock()
+	lock.Unlock()
 	return config
 }
 
@@ -82,17 +81,17 @@ func (fortioServerComp *LocalComponent) SetConfig(config framework.Config) error
 	if !ok {
 		return fmt.Errorf("cannot cast config into fortio local config")
 	}
-	fortioServerComp.config.Lock()
+	lock.Lock()
 	fortioServerComp.config = fortioConfig
-	fortioServerComp.config.Unlock()
+	lock.Unlock()
 	return nil
 }
 
 // GetStatus return the status for outside use
 func (fortioServerComp *LocalComponent) GetStatus() framework.Status {
-	fortioServerComp.status.Lock()
+	lock.Lock()
 	status := fortioServerComp.status
-	fortioServerComp.status.Unlock()
+	lock.Unlock()
 	return status
 }
 
@@ -103,9 +102,9 @@ func (fortioServerComp *LocalComponent) Start() (err error) {
 		return
 	}
 
-	fortioServerComp.status.Lock()
+	lock.Lock()
 	fortioServerComp.status.EchoEndpoint = serverEndpoint
-	fortioServerComp.status.Unlock()
+	lock.Unlock()
 
 	// TODO: Find more reliable way to tell if local components are ready to serve
 	time.Sleep(2 * time.Second)
