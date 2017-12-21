@@ -83,6 +83,15 @@ type Controller struct {
 
 	// number of rules in the resolver.
 	nrules int
+
+	// Poniter to rbac store instance.
+	rbacStore *RbacStore
+
+	// Whether or not RBAC store is initiated.
+	rbacInitialized bool
+
+	// rbac is enabled only if rbac handler is configured.
+	rbacEnabled bool
 }
 
 // RulesKind defines the config kind name of mixer rules.
@@ -173,6 +182,11 @@ func (c *Controller) publishSnapShot() {
 	if err != nil {
 		log.Warnf("Unable to perform cleanup: %v", err)
 	}
+
+	// Process RBAC roles and bindings.
+	if c.rbacEnabled {
+		c.processRbacRoles()
+	}
 }
 
 // maxCleanupDuration is the maximum amount of time cleanup operation will wait
@@ -254,6 +268,7 @@ func (c *Controller) validInstanceConfigs() map[string]*cpb.Instance {
 func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 	handlerConfig := make(map[string]*cpb.Handler)
 	for k, cfg := range c.configState {
+		log.Infof("validHandlerConfigs: name %s, kind: %s, params: %v", k.String(), k.Kind, cfg.Spec)
 		if _, found := c.adapterInfo[k.Kind]; !found {
 			continue
 		}
@@ -262,6 +277,9 @@ func (c *Controller) validHandlerConfigs() map[string]*cpb.Handler {
 			Name:    k.String(),
 			Adapter: k.Kind,
 			Params:  cfg.Spec,
+		}
+		if k.Kind == "rbac" {
+			c.rbacEnabled = true
 		}
 	}
 	log.Debugf("handler = %v", handlerConfig)
@@ -566,4 +584,66 @@ func cleanupResolver(r *resolver, table map[string]*HandlerEntry, timeout time.D
 		}
 		return nil
 	}
+}
+
+// processRbacRoles processes ServiceRole and ServiceRoleBinding CRDs and save them to
+// RBAC store data structure.
+func (c *Controller) processRbacRoles() {
+	log.Infof("ProcessRbacRoles")
+	if !c.changedKinds[ServiceRoleKind] && !c.changedKinds[ServiceRoleBindingKind] && c.rbacInitialized {
+		log.Infof("No change to servicerole and servicerolebinding")
+		return
+	}
+
+	if !c.rbacInitialized {
+		c.rbacInitialized = true
+	}
+
+	roles := make(rolesMapByNamespace)
+
+	for k, obj := range c.configState {
+		if k.Kind == ServiceRoleKind {
+			cfg := obj.Spec
+			roleSpec := cfg.(*cpb.ServiceRole)
+			rn := roles[k.Namespace]
+			if rn == nil {
+				rn = make(rolesByName)
+				roles[k.Namespace] = rn
+			}
+			rn[k.Name] = newRoleInfo(roleSpec)
+			log.Infof("Role namespace: %s, name: %s, spec: %v", k.Namespace, k.Name, roleSpec)
+		}
+	}
+
+	for k, obj := range c.configState {
+		if k.Kind == ServiceRoleBindingKind {
+			cfg := obj.Spec
+			bindingSpec := cfg.(*cpb.ServiceRoleBinding)
+			roleKind := bindingSpec.GetRoleRef().GetKind()
+			roleName := bindingSpec.GetRoleRef().GetName()
+
+			if roleKind != "ServiceRole" {
+				log.Warnf("Error: RoleBinding %s has role kind %s, expected ServiceRole", k.Name, roleKind)
+			}
+			if roleName == "" {
+				log.Warnf("Error: RoleBinding %s does not refer to a valid role name", k.Name)
+				continue
+			}
+
+			rn := roles[k.Namespace]
+			if rn == nil {
+				log.Warnf("Error: RoleBinding %s is in a namespace (%s) that no valid role is defined", k.Namespace)
+				continue
+			}
+			role := rn[roleName]
+			if role == nil {
+				log.Warnf("Error: RoleBinding %s is bound to a role that does not exist %s", k.Name, roleName)
+				continue
+			}
+			role.setBinding(k.Name, bindingSpec)
+			log.Infof("RoleBinding: %s for role %s, Spec: %v", k.Name, roleName, bindingSpec)
+		}
+	}
+
+	c.rbacStore.changeRoles(roles)
 }

@@ -2,11 +2,34 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library", "gogo_proto_compile")
+
+gogo_proto_compile(
+    name = "rbac_gen",
+    importmap = {
+        "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
+    },
+    imports = [
+        "external/com_github_google_protobuf/src",
+        "external/io_istio_api",
+    ],
+    inputs = [
+        "@io_istio_api//mixer/v1/config/descriptor:protos",
+        "@com_github_google_protobuf//:well_known_protos",
+    ],
+    protos = [
+        "rbac.proto",
+    ],
+    verbose = 0,
+    visibility = ["//visibility:public"],
+    with_grpc = False,
+)
 
 go_library(
     name = "go_default_library",
     srcs = [
         "combined.go",
+        "rbac_gen",
         "@io_istio_api//mixer/v1/config:config_fixed",  # keep
     ],
     deps = [

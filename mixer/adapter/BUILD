@@ -19,6 +19,7 @@ inventory_library(
         "stdio": "istio.io/istio/mixer/adapter/stdio",
         "memquota": "istio.io/istio/mixer/adapter/memquota",
         "circonus": "istio.io/istio/mixer/adapter/circonus",
+        "rbac": "istio.io/istio/mixer/adapter/rbac",
     },
     deps = [
         "//mixer/adapter/circonus:go_default_library",
@@ -29,6 +30,7 @@ inventory_library(
         "//mixer/adapter/noop:go_default_library",
         "//mixer/adapter/opa:go_default_library",
         "//mixer/adapter/prometheus:go_default_library",
+        "//mixer/adapter/rbac:go_default_library",
         "//mixer/adapter/servicecontrol:go_default_library",
         "//mixer/adapter/stackdriver:go_default_library",
         "//mixer/adapter/statsd:go_default_library",
