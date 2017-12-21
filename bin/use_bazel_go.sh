@@ -3,8 +3,6 @@
 
 BAZEL_DIR="$(bazel info execution_root)"
 
-bazel clean
-
 GOROOT="$(find ${BAZEL_DIR}/external -type d -name 'go_sdk')"
 if [[ -z $GOROOT ]];then
   GOROOT="$(find ${BAZEL_DIR}/external -type d -name 'go1_*')"
