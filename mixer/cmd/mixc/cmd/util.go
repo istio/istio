@@ -46,7 +46,7 @@ func createAPIClient(port string, enableTracing bool) (*clientState, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 	if enableTracing {
-		t, _, err := tracing.NewTracer("mixer-client", tracing.WithLogger())
+		t, _, err := tracing.NewTracer("mixer-client", tracing.WithConsoleLogging())
 		if err != nil {
 			return nil, fmt.Errorf("could not build tracer: %v", err)
 		}
