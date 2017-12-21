@@ -13,6 +13,13 @@ def should_copy(src, dest):
         return False
     if not os.path.exists(dest):
         return True
+
+    # don't copy old cached bazel files over new 
+    src_mod_time = round(os.stat(src).st_mtime)
+    dst_mod_time = round(os.stat(dest).st_mtime)
+    if (dst_mod_time > src_mod_time):
+        return False
+
     p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
     (stdout, _) = p.communicate()
     if src.endswith('.pb.go'):
