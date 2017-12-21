@@ -36,8 +36,7 @@ jobs:
             sudo -E minikube start \
             --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
             --kubernetes-version=v1.7.5 --vm-driver=none
-
-            sudo -E minikube update-context
+            ls /go/out
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
