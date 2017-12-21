@@ -579,7 +579,7 @@ go_repository(
 
 go_repository(
     name = "com_github_open_policy_agent_opa",
-    commit = "d9f7f5f00f24e4fc4f9ef15c8afaf44b5b8612f9",  # Aug 15, 2017 (no releases)
+    commit = "4b934006914c7964e89563d54bbfc63167922aa0",  # Dec 7, 2017 (0.5.13)
     importpath = "github.com/open-policy-agent/opa",
 )
 
