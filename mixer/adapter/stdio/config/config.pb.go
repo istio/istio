@@ -77,7 +77,6 @@ var Params_Level_value = map[string]int32{
 
 func (Params_Level) EnumDescriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0, 1} }
 
-// TODO: provide documentation
 type Params struct {
 	// Selects which standard stream to write to for log entries.
 	// STDERR is the default Stream.

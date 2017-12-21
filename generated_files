@@ -2,7 +2,6 @@
 broker/pkg/model/config/mock_store.go
 broker/pkg/platform/kube/crd/types.go
 broker/pkg/testing/mock/proto/fake_config.pb.go
-external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go
 mixer/adapter/circonus/config/config.pb.go
 mixer/adapter/denier/config/config.pb.go
 mixer/adapter/inventory.gen.go
@@ -20,6 +19,7 @@ mixer/adapter/stackdriver/config/config.pb.go
 mixer/adapter/statsd/config/config.pb.go
 mixer/adapter/stdio/config/config.pb.go
 mixer/pkg/attribute/list.gen.go
+mixer/pkg/config/proto/fixed_cfg.pb.go
 mixer/template/apikey/go_default_library_handler.gen.go
 mixer/template/apikey/go_default_library_tmpl.pb.go
 mixer/template/authorization/go_default_library_handler.gen.go
@@ -72,5 +72,6 @@ mixer/tools/codegen/pkg/interfacegen/testdata/quota_tmpl.pb.go
 mixer/tools/codegen/pkg/interfacegen/testdata/report_handler.gen.go
 mixer/tools/codegen/pkg/interfacegen/testdata/report_tmpl.pb.go
 pilot/adapter/config/crd/types.go
+pilot/model/test/mock_config.pb.go
 pilot/test/grpcecho/echo.pb.go
 security/proto/ca_service.pb.go
