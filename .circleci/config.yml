@@ -138,7 +138,7 @@ jobs:
           paths:
             - /go/src/istio.io/istio/vendor
 
-  unittest-pilot:
+  codecov:
     <<: *defaults
     resource_class: xlarge
     steps:
@@ -175,55 +175,6 @@ jobs:
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F pilot
-
-  unittest-mixer:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run: mkdir -p /tmp/coverage
-      - run:
-          name: Running Kubernetes API Server standalone
-          command: /tmp/apiserver/start-test-server.sh
-          background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
-      - run:
-          command: |
-            mkdir ~/.kube
-            cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
-            ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
-      - run:
-          command: |
-            bash <(curl -s https://codecov.io/bash) -F mixer
-
-  unittest-security:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run: mkdir -p /tmp/coverage
-      - run:
-          name: Running Kubernetes API Server standalone
-          command: /tmp/apiserver/start-test-server.sh
-          background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
       - run:
           command: |
             mkdir ~/.kube
@@ -233,35 +184,19 @@ jobs:
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F security
-
-  unittest-broker:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run: mkdir -p /tmp/coverage
-      - run:
-          name: Running Kubernetes API Server standalone
-          command: /tmp/apiserver/start-test-server.sh
-          background: true
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
       - run:
           command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
+            bash <(curl -s https://codecov.io/bash) -F broker
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh broker
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh mixer
       - run:
           command: |
-            bash <(curl -s https://codecov.io/bash) -F broker
+            bash <(curl -s https://codecov.io/bash) -F mixer
 
   docker:
     <<: *defaults
@@ -350,25 +285,15 @@ workflows:
       - goxbuild:
           requires:
             - gobuild
-      # TODO: remove, gobuild incorporates all 3 unit tests (or split)
-      - unittest-pilot:
+      - codecov:
           requires:
-            - gobuild
-      - unittest-mixer:
-          requires:
-            - gobuild
-      - unittest-security:
-          requires:
-            - gobuild
-      - unittest-broker:
-          requires:
-            - gobuild
+            - gotest
       - pilot-integration-noauth:
           requires:
-            - unittest-pilot
+            - gotest
       - pilot-integration-auth:
           requires:
-            - unittest-pilot
+            - gotest
       - e2e:
           requires:
             - pilot-integration-noauth
