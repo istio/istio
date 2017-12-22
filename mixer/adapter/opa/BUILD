@@ -12,12 +12,12 @@ go_library(
         "//mixer/pkg/status:go_default_library",
         "//mixer/template/authorization:go_default_library",
         "@com_github_golang_glog//:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
         "@com_github_open_policy_agent_opa//ast:go_default_library",
         "@com_github_open_policy_agent_opa//rego:go_default_library",
         "@com_github_open_policy_agent_opa//storage:go_default_library",
         "@com_github_open_policy_agent_opa//storage/inmem:go_default_library",
         "@com_github_open_policy_agent_opa//util:go_default_library",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
     ],
 )
 
