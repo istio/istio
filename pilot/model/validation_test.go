@@ -2197,7 +2197,7 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 	testCases := []struct {
 		name  string
 		valid bool
-	} {
+	}{
 		{name: "header1", valid: true},
 		{name: "HEADER2", valid: false},
 	}
