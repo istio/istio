@@ -39,7 +39,7 @@ jobs:
             sudo chown -R $USER $KUBECONFIG
             sudo chown -R $USER $HOME/.minikube
             cat $KUBECONFIG
-            
+
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
@@ -59,9 +59,10 @@ jobs:
 
       - run:
           command: |
-            make e2e_simple
+            make docker e2e_simple
       - store_artifacts:
           path: /home/circleci/logs
+          path: /tmp
 
   pilot-integration-auth:
     <<: *integrationDefaults
