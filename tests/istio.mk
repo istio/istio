@@ -57,6 +57,7 @@ e2e: istioctl
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl
+	echo "=== E2E testing with ${TAG} and ${HUB}"
 	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS}
 
 e2e_mixer: istioctl

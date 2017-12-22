@@ -65,7 +65,10 @@ jobs:
 
       - run:
           command: |
-            make docker e2e_simple
+            make docker
+            # Show created images
+            docker images
+            make e2e_simple
       - store_artifacts:
           path: /home/circleci/logs
           path: /tmp

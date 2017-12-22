@@ -51,12 +51,15 @@ export ISTIO_BIN=${GOPATH}/bin
 hub = ""
 tag = ""
 
+HUB?=istio
 ifneq ($(strip $(HUB)),)
 	hub =-hub ${HUB}
 endif
 
 # If tag not explicitly set in users' .istiorc or command line, default to the git sha.
 TAG ?= $(shell git rev-parse --verify HEAD)
+export TAG
+export HUB
 ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
