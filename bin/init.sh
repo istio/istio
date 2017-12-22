@@ -39,7 +39,7 @@ PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f
 PROXY=debug-$PROXYVERSION
 
 if [ ! -f $GOPATH/bin/envoy-$PROXYVERSION ] ; then
-    mkdir $OUT
+    mkdir -p $OUT
     pushd $OUT
     # TODO: Use circleci builds
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
