@@ -80,3 +80,7 @@
 [[constraint]]
   name = "istio.io/fortio"
   revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
+
+[[constraint]]
+  name = "github.com/open-policy-agent/opa"
+  version = "0.5.13"
