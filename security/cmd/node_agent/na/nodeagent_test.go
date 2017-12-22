@@ -221,6 +221,9 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		}
 	}()
 
+	// The goroutine starting the server may not be ready, results in flakiness.
+	time.Sleep(1 * time.Second)
+
 	defaultServerResponse := pb.Response{
 		IsApproved:      true,
 		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
