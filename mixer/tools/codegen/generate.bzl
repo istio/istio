@@ -5,12 +5,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 MIXER_DEPS = [
     "@io_istio_istio//mixer/pkg/adapter:go_default_library",
     "@io_istio_api//mixer/v1/template:go_default_library",
-    "@io_istio_api//mixer/v1/config/descriptor:descriptor",  # keep
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
 ]
 
 MIXER_INPUTS = [
-    "@io_istio_api//mixer/v1/template:template_protos",
-    "@io_istio_api//mixer/v1/config/descriptor:protos",  # keep
+    "@io_istio_api//mixer/v1/template:go_default_library_protos",
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library_protos", 
 ]
 
 MIXER_IMPORT_MAP = {
@@ -152,7 +152,7 @@ DEPS_FOR_ALL_TMPLS = [
     "@io_istio_istio//mixer/pkg/template:go_default_library",
     "@io_istio_istio//pkg/log:go_default_library",
     "@com_github_gogo_protobuf//proto:go_default_library",
-    "@io_istio_api//mixer/v1/config/descriptor:descriptor",  # keep
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     "@io_istio_api//mixer/v1/template:go_default_library",
 ]
 

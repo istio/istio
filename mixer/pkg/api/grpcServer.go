@@ -19,14 +19,14 @@ import (
 	"strings"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	opentracing "github.com/opentracing/opentracing-go"
 	otlog "github.com/opentracing/opentracing-go/log"
 	legacyContext "golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	grpc "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"

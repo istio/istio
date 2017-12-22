@@ -23,13 +23,24 @@
 # TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
 # This repo includes only istio-generated files.
 
+### BEGIN Mixer codegen deps
+
+required = [
+  "github.com/gogo/protobuf/proto",
+  "github.com/gogo/protobuf/jsonpb",
+  "github.com/gogo/protobuf/protoc-gen-gogoslick",
+  "github.com/gogo/protobuf/gogoproto",
+]
+
+### END Mixer codegen deps
+
 [[constraint]]
   name = "github.com/googleapis/googleapis"
   source = "https://github.com/costinm/googleapis.git"
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
+  version = "^1.8.2" # match istio/api
 
 [[constraint]]
   name = "k8s.io/client-go"
@@ -75,8 +86,21 @@
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "7eada3328902f774d1bb27c01ded291ce544aeeb"
+  revision = "b08011c721e03edd61c721e4943607c97b7a9879"
 
 [[constraint]]
   name = "istio.io/fortio"
   revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
+
+
+### Begin Mixer codegen dep pinning
+
+[[override]]
+  name = "github.com/gogo/protobuf"
+  version = "=0.5"
+
+### End Mixer codegen dep pinning
+
+[[constraint]]
+  name = "github.com/open-policy-agent/opa"
+  version = "0.5.13"
