@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/mixer/template/metric"
 	"istio.io/istio/mixer/template/quota"
 	"istio.io/istio/mixer/template/reportnothing"
+	"istio.io/istio/pkg/log"
 )
 
 type handler struct{}
@@ -41,27 +42,48 @@ var checkResult = adapter.CheckResult{
 	ValidUseCount: 1000000000,
 }
 
-func (*handler) HandleCheckNothing(context.Context, *checknothing.Instance) (adapter.CheckResult, error) {
+func (*handler) HandleCheckNothing(ctx context.Context, instance *checknothing.Instance) (adapter.CheckResult, error) {
+	if log.DebugEnabled() {
+		log.Debugf("NOOP Check: instance: %s", instance.Name)
+	}
 	return checkResult, nil
 }
 
-func (*handler) HandleReportNothing(context.Context, []*reportnothing.Instance) error {
+func (*handler) HandleReportNothing(ctx context.Context, instances []*reportnothing.Instance) error {
+	if log.DebugEnabled() {
+		// Assuming instances will never be empty!
+		log.Debugf("NOOP Report: instances: count:%d i[0]:%s", len(instances), instances[0].Name)
+	}
 	return nil
 }
 
-func (*handler) HandleListEntry(context.Context, *listentry.Instance) (adapter.CheckResult, error) {
+func (*handler) HandleListEntry(ctx context.Context, instance *listentry.Instance) (adapter.CheckResult, error) {
+	if log.DebugEnabled() {
+		log.Debugf("NOOP ListEntry: instance: %s => %v", instance.Name, instance)
+	}
 	return checkResult, nil
 }
 
-func (*handler) HandleLogEntry(context.Context, []*logentry.Instance) error {
+func (*handler) HandleLogEntry(ctx context.Context, instances []*logentry.Instance) error {
+	if log.DebugEnabled() {
+		log.Debugf("NOOP LogEntry: instances: count:%d i[0]:%s => %v", len(instances), instances[0].Name, instances[0])
+	}
 	return nil
 }
 
-func (*handler) HandleMetric(context.Context, []*metric.Instance) error {
+func (*handler) HandleMetric(ctx context.Context, instances []*metric.Instance) error {
+	if log.DebugEnabled() {
+		// Assuming instances will never be empty!
+		log.Debugf("NOOP HandleMetric: instances: count:%d i[0]:%s => %v", len(instances), instances[0].Name, instances[0])
+	}
 	return nil
 }
 
-func (*handler) HandleQuota(ctx context.Context, _ *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+func (*handler) HandleQuota(ctx context.Context, instance *quota.Instance, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+	if log.DebugEnabled() {
+		log.Debugf("NOOP Quota: instance: %s => %v, args:'%v'", instance.Name, instance, args)
+	}
+
 	return adapter.QuotaResult{
 			ValidDuration: 1000000000 * time.Second,
 			Amount:        args.QuotaAmount,
