@@ -52,6 +52,7 @@ jobs:
       - run:
           command: |
             kubectl cluster-info
+            set -ne
             for i in {1..150}; do # timeout for 5 minutes
                kubectl get po &> /dev/null
                if [ $? -ne 1 ]; then
@@ -110,6 +111,7 @@ jobs:
       - run: go build -i ./pilot/test/integration
       - run:
           command: |
+            set -ne
             kubectl cluster-info
             for i in {1..150}; do # timeout for 5 minutes
                kubectl get po &> /dev/null
@@ -118,8 +120,6 @@ jobs:
               fi
               sleep 2
             done
-            kubectl cluster-info
-            kubectl get po
       - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
