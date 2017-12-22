@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
+# Presubmit script triggered by Prow.
+# - run the unit tests, in local environment
+# - push docker images to grc.io for the integration tests.
+
+# Separate (and parallel) jobs are doing lint, coverage, etc.
 
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
@@ -47,6 +49,7 @@ run_or_die_on_change() {
 }
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  # Handle prow environment and checkout
   export USER=Prow
 
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
@@ -78,7 +81,6 @@ else
   # Use the current commit.
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
-
 
 echo 'Initialize'
 ${ROOT}/bin/init.sh

@@ -203,9 +203,11 @@ localTestEnv:
 	go install istio.io/istio/pilot/test/client
 	go install istio.io/istio/pilot/test/eurekamirror
 
+# Temp. disable parallel test - flaky consul test.
+# https://github.com/istio/istio/issues/2318
 .PHONY: pilot-test
 pilot-test: pilot-agent
-	go test ${T} ${GOTEST_PARALLEL} ./pilot/...
+	go test ${T} ./pilot/...
 
 .PHONY: mixer-test
 mixer-test: mixs
