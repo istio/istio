@@ -45,6 +45,7 @@ endif
 E2E_ARGS ?=
 E2E_ARGS += $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
 E2E_ARGS += ${MINIKUBE_FLAGS}
+E2E_ARGS += --istioctl ${GOPATH}/bin/istioctl 
 
 
 # Run the e2e tests. Targets correspond to the prow environments/tests
@@ -58,7 +59,9 @@ e2e: istioctl
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl
 	echo "=== E2E testing with ${TAG} and ${HUB}"
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS}
+	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+             --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
+
 
 e2e_mixer: istioctl
 	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args ${E2E_ARGS}
