@@ -59,3 +59,33 @@ def mixer_test_repositories(use_local_api=False):
         commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",  # Oct 27, 2014 (no releases)
         importpath = "github.com/hashicorp/errwrap",
     )
+
+    go_repository(
+        name = "io_istio_gogo_genproto",
+        commit = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd",  # Dec 14, 2017 (initial generation of status protos)
+        importpath = "istio.io/gogo-genproto",
+    )
+
+    go_repository(
+        name = "org_uber_go_zap",
+        commit = "9cabc84638b70e564c3dab2766efcb1ded2aac9f",  # Jun 8, 2017 (v1.4.1)
+        importpath = "go.uber.org/zap",
+    )
+
+    go_repository(
+        name = "org_uber_go_atomic",
+        commit = "4e336646b2ef9fc6e47be8e21594178f98e5ebcf",  # Apr 12, 2017 (v1.2.0)
+        importpath = "go.uber.org/atomic",
+    )
+
+    go_repository(
+        name = "com_github_spf13_pflag",
+        commit = "e57e3eeb33f795204c1ca35f56c44f83227c6e66",
+        importpath = "github.com/spf13/pflag",
+    )
+
+    go_repository(
+        name = "com_github_spf13_cobra",
+        commit = "2df9a531813370438a4d79bfc33e21f58063ed87",
+        importpath = "github.com/spf13/cobra",
+    )

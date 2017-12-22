@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // Check attributes from a good POST request

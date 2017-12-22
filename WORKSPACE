@@ -63,7 +63,7 @@ git_repository(
 load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
 mixer_api_for_proxy_dependencies()
 
-ISTIO_SHA = "d0142e1afe41c18917018e2fa85ab37254f7e0ca"
+ISTIO_SHA = "cdbdb153fb673cf444649c520ba7ed1b0dc99972"
 
 git_repository(
     name = "io_istio_istio",

@@ -34,9 +34,9 @@ go_library(
     deps = [
         "@com_github_golang_protobuf//jsonpb:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
         "@io_istio_api//mixer/v1:go_default_library",
         "@io_istio_api//mixer/v1/config/client:go_default_library",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
         "@io_istio_istio//mixer/pkg/attribute:go_default_library",
         "@io_istio_istio//mixer/pkg/mockapi:go_default_library",
         "@io_istio_istio//mixer/pkg/pool:go_default_library",
