@@ -44,17 +44,20 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - run: |
-        kubectl cluster-info
-        for i in {1..150}; do # timeout for 5 minutes
-           kubectl get po &> /dev/null
-           if [ $? -ne 1 ]; then
-              break
-          fi
-          sleep 2
-        done
-        kubectl cluster-info
-        kubectl get po
+      - run:
+          command: |
+
+            kubectl cluster-info
+            for i in {1..150}; do # timeout for 5 minutes
+               kubectl get po &> /dev/null
+               if [ $? -ne 1 ]; then
+                  break
+              fi
+              sleep 2
+            done
+            kubectl cluster-info
+            kubectl get po
+
       - run:
           command: |
             make e2e_simple
