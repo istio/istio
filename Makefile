@@ -40,10 +40,6 @@ PACKAGES := $(shell $(GO) list ./...)
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
 GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 
-BAZEL_STARTUP_ARGS ?=
-BAZEL_BUILD_ARGS ?=
-BAZEL_TEST_ARGS ?=
-
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GOPATH}/bin
@@ -78,14 +74,7 @@ checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-verify.preconditions:
-	@if [ -d "vendor" ]; then echo "You have directory 'vendor' in the top-level directory, please remove it."\
-	" Otherwise it will confuse Bazel." ; exit 1; fi
-
-.PHONY: verify.preconditions
-
-setup: pilot/platform/kube/config verify.preconditions
-
+setup: pilot/platform/kube/config
 
 #-----------------------------------------------------------------------------
 # Target: depend
@@ -125,12 +114,12 @@ vendor:
 # Target: precommit
 #-----------------------------------------------------------------------------
 .PHONY: precommit format check
-.PHONY: fmt format.gofmt format.goimports format.bazel
+.PHONY: fmt format.gofmt format.goimports
 .PHONY: check.vet check.lint
 
 precommit: format check
 format: format.goimports
-fmt: format.gofmt format.goimports format.bazel # backward compatible with ./bin/fmt.sh
+fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
@@ -138,10 +127,6 @@ format.gofmt: ; $(info $(H) formatting files with go fmt...)
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
 	$(Q) goimports -w -local istio.io $(GO_FILES)
-
-format.bazel: ; $(info $(H) formatting bazel files...)
-	$(eval BAZEL_FILES = $(shell git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl'))
-	$(Q) buildifier -mode=fix $(BAZEL_FILES)
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
@@ -157,8 +142,7 @@ check.lint: ; $(info $(H) running golint on packages...)
 
 # @todo gometalinter targets?
 
-build: setup
-	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+build: setup go-build
 
 #-----------------------------------------------------------------------------
 # Target: go build
@@ -256,12 +240,9 @@ cov: pilot-cov mixer-cov security-cov broker-cov
 # Target: precommit
 #-----------------------------------------------------------------------------
 .PHONY: clean
-.PHONY: clean.bazel clean.go
+.PHONY: clean.go
 
-clean: clean.bazel
-
-clean.bazel: ; $(info $(H) cleaning...)
-	$(Q) bazel clean
+clean: clean.go
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
@@ -270,8 +251,7 @@ clean.go: ; $(info $(H) cleaning...)
 	$(MAKE) clean -C pilot
 	$(MAKE) clean -C security
 
-test: setup
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+test: setup go-test
 
 docker:
 	$(ISTIO_GO)/security/bin/push-docker ${hub} ${tag} -build-only
