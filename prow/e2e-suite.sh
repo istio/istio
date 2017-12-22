@@ -55,14 +55,8 @@ fi
 
 HUB=${HUB:-"gcr.io/istio-testing"}
 
-if which dep; then
-    echo "Using $(which dep)"
-else
-    go get -u github.com/golang/dep/cmd/dep
-fi
-
 # Build istioctl, used by  the test.
-make istioctl
+make depend.ensure istioctl
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
