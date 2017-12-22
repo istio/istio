@@ -26,10 +26,6 @@ set -u
 # Print commands
 set -x
 
-if [ -f $ROOT/.istiorc ] ; then
-  . $ROOT/.istiorc
-fi
-
 if [ "${CI:-}" == 'bootstrap' ]; then
   export USER=Prow
 
