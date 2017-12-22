@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -30,6 +31,65 @@ import (
 )
 
 const timePattern = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9]Z"
+
+type testDateEncoder struct {
+	zapcore.PrimitiveArrayEncoder
+	output string
+}
+
+func (tde *testDateEncoder) AppendString(s string) {
+	tde.output = s
+}
+
+func TestTimestampProperYear(t *testing.T) {
+	testEnc := &testDateEncoder{}
+	cases := []struct {
+		name  string
+		input time.Time
+		want  string
+	}{
+		{"1", time.Date(1, time.April, 1, 1, 1, 1, 1, time.UTC), "0001"},
+		{"1989", time.Date(1989, time.February, 1, 1, 1, 1, 1, time.UTC), "1989"},
+		{"2017", time.Date(2017, time.January, 1, 1, 1, 1, 1, time.UTC), "2017"},
+		{"2083", time.Date(2083, time.March, 1, 1, 1, 1, 1, time.UTC), "2083"},
+		{"2573", time.Date(2573, time.June, 1, 1, 1, 1, 1, time.UTC), "2573"},
+		{"9999", time.Date(9999, time.May, 1, 1, 1, 1, 1, time.UTC), "9999"},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			formatDate(v.input, testEnc)
+			if !strings.HasPrefix(testEnc.output, v.want) {
+				t.Errorf("formatDate(%v) => %s, want year: %s", v.input, testEnc.output, v.want)
+			}
+		})
+	}
+}
+
+func TestTimestampProperMicros(t *testing.T) {
+	testEnc := &testDateEncoder{}
+	cases := []struct {
+		name  string
+		input time.Time
+		want  string
+	}{
+		{"1", time.Date(2017, time.April, 1, 1, 1, 1, 1000, time.UTC), "1"},
+		{"99", time.Date(1989, time.February, 1, 1, 1, 1, 99000, time.UTC), "99"},
+		{"999", time.Date(2017, time.January, 1, 1, 1, 1, 999000, time.UTC), "999"},
+		{"9999", time.Date(2083, time.March, 1, 1, 1, 1, 9999000, time.UTC), "9999"},
+		{"99999", time.Date(2083, time.March, 1, 1, 1, 1, 99999000, time.UTC), "99999"},
+		{"999999", time.Date(2083, time.March, 1, 1, 1, 1, 999999000, time.UTC), "999999"},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			formatDate(v.input, testEnc)
+			if !strings.HasSuffix(testEnc.output, v.want+"Z") {
+				t.Errorf("formatDate(%v) => %s, want micros: %s", v.input, testEnc.output, v.want)
+			}
+		})
+	}
+}
 
 func TestBasic(t *testing.T) {
 	cases := []struct {
