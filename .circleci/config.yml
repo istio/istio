@@ -240,7 +240,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
-            make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            make localTestEnv go-test T=-v KUBECONFIG=/go/src/istio.io/istio/.circleci/config
       - store_artifacts:
           path: /go/bin
 

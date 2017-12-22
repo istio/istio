@@ -42,9 +42,9 @@ function ensureK8SCerts() {
     tar xzf easy-rsa.tar.gz
     cd easy-rsa-master/easyrsa3
 
-    ./easyrsa init-pki
-    ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass
-    ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass
+    ./easyrsa init-pki > /dev/null
+    ./easyrsa --batch "--req-cn=${MASTER_IP}@`date +%s`" build-ca nopass > /dev/null
+    ./easyrsa --subject-alt-name="IP:${MASTER_IP},""IP:${MASTER_CLUSTER_IP},""DNS:kubernetes,""DNS:kubernetes.default,""DNS:kubernetes.default.svc,""DNS:kubernetes.default.svc.cluster,""DNS:kubernetes.default.svc.cluster.local" --days=10000 build-server-full server nopass > /dev/null
 
     cp pki/ca.crt ${CERTDIR}/k8sca.crt
     cp pki/issued/server.crt ${CERTDIR}/apiserver.crt
@@ -88,7 +88,7 @@ function startLocalApiserver() {
         --tls-private-key-file ${CERTDIR}/apiserver.key \
         --service-cluster-ip-range 10.99.0.0/16 \
         --port 8080 -v 2 --insecure-bind-address 0.0.0.0 \
-        2> ${LOG_DIR}/apiserver.log 2>&1 &
+        > ${LOG_DIR}/apiserver.log 2>&1 &
     echo $! > $LOG_DIR/apiserver.pid
 
     echo "Started local etcd and apiserver !"
