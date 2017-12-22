@@ -264,6 +264,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - setup_remote_docker
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
