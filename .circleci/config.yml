@@ -76,6 +76,8 @@ jobs:
             - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
     steps:
       - type: shell
         name: Initialize Working Directory
