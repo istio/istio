@@ -25,7 +25,6 @@ set -e
 set -u
 # Print commands
 set -x
-ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   export USER=Prow
@@ -53,6 +52,8 @@ else
   # Use the current commit.
   GIT_SHA=${GIT_SHA:-"$(git rev-parse --verify HEAD)"}
 fi
+
+ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 HUB=${HUB:-"gcr.io/istio-testing"}
 
