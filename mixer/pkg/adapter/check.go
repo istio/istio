@@ -18,8 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
-
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/status"
 )
 

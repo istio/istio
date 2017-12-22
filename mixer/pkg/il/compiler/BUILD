@@ -8,7 +8,7 @@ go_library(
         "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/il:go_default_library",
         "//pkg/log:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
 

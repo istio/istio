@@ -20,7 +20,7 @@ go_library(
         "//mixer/pkg/il/runtime:go_default_library",
         "//pkg/log:go_default_library",
         "@com_github_hashicorp_golang_lru//:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
 
@@ -38,6 +38,6 @@ go_test(
         "//mixer/pkg/config/descriptor:go_default_library",
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/il/testing:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
