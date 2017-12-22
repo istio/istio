@@ -100,19 +100,10 @@ jobs:
               --kubernetes-version=v1.7.5 --vm-driver=none
             sudo chown -R $USER $KUBECONFIG
             sudo chown -R $USER $HOME/.minikube
-            cat $KUBECONFIG
-      - run: bin/install-go.sh
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
-      - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
       - run:
           command: |
@@ -125,7 +116,6 @@ jobs:
               fi
               sleep 2
             done
-      - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
