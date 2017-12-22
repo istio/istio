@@ -55,6 +55,9 @@ fi
 
 HUB=${HUB:-"gcr.io/istio-testing"}
 
+# Build
+${ROOT}/bin/init.sh
+
 # Build istioctl, used by  the test.
 make depend.ensure istioctl
 
