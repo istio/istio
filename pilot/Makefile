@@ -62,7 +62,8 @@ test:
 .PHONY: e2etest
 e2etest:
 	go install ./test/integration
-	integration --logtostderr ${TESTOPTS} ${hub} ${tag}
+	# Pilot integration assumes it is running in ISTIO_GO.
+	(cd ..; integration --logtostderr ${TESTOPTS} ${hub} ${tag})
 
 .PHONY: coverage
 coverage:

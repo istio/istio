@@ -22,6 +22,8 @@ SHELL := /bin/bash
 # GOPATH from the env.
 export GOPATH= $(shell cd ../../..; pwd)
 
+export CGO_ENABLE=0
+
 # OUT is the directory where dist artifacts and temp files will be created.
 OUT=${GOPATH}/out
 
@@ -150,25 +152,28 @@ build: setup go-build
 
 .PHONY: go-build
 
+# gobuild script uses custom linker flag to set the variables.
+# Params: OUT VERSION_PKG SRC
+
 .PHONY: pilot
 pilot: vendor
-	go install istio.io/istio/pilot/cmd/pilot-discovery
+	bin/gobuild.sh ${GOPATH}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
 
 .PHONY: pilot-agent
 pilot-agent: vendor
-	go install istio.io/istio/pilot/cmd/pilot-agent
+	bin/gobuild.sh ${GOPATH}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
 
 .PHONY: istioctl
 istioctl: vendor
-	go install istio.io/istio/pilot/cmd/istioctl
+	bin/gobuild.sh ${GOPATH}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
 
 .PHONY: sidecar-initializer
 sidecar-initializer: vendor
-	go install istio.io/istio/pilot/cmd/sidecar-initializer
+	bin/gobuild.sh ${GOPATH}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
 
 .PHONY: mixs
 mixs: vendor
-	go install istio.io/istio/mixer/cmd/mixs
+	bin/gobuild.sh ${GOPATH}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
 mixc: vendor
@@ -176,11 +181,11 @@ mixc: vendor
 
 .PHONY: node-agent
 node-agent: vendor
-	go install istio.io/istio/security/cmd/node_agent
+	bin/gobuild.sh ${GOPATH}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
 
 .PHONY: istio-ca
 istio-ca: vendor
-	go install istio.io/istio/security/cmd/istio_ca
+	bin/gobuild.sh ${GOPATH}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
 

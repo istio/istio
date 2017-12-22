@@ -272,7 +272,7 @@ jobs:
           path: /go/bin
 
   lint:
-    <<: *defaults
+    <<: *integrationDefaults
     resource_class: xlarge
     steps:
       - checkout
