@@ -116,7 +116,6 @@ spec:
           trim(input.action.path, "/", trimmed)
           split(trimmed, "/", p)
       }
-      user = parsed_path[1]
 
       employees = {
           "bob": {"manager": "janet", "roles": ["engineering"]},
@@ -143,6 +142,7 @@ spec:
           parsed_path = ["reviews", user]
           input.subject.user = employees[user].manager
       }
+
       # Allow HR to access all APIs.
       allow {
           is_hr
@@ -162,7 +162,6 @@ spec:
       default allow = false
 
       allow {
-          input.action.external = true
           input.action.properties.target = "landing_page"
       }
 
@@ -211,8 +210,8 @@ func TestServer(t *testing.T) {
 				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/detail/alice",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"target.service":      "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
@@ -221,8 +220,8 @@ func TestServer(t *testing.T) {
 				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/detail/janet",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"target.service":      "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
@@ -231,8 +230,8 @@ func TestServer(t *testing.T) {
 				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
 				"request.path":        "/reviews/alice",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"target.service":      "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
@@ -241,8 +240,8 @@ func TestServer(t *testing.T) {
 				"destination.service": "svc.cluster.local",
 				"source.uid":          "ken",
 				"request.path":        "/reviews/janet",
-				"target.service":      "details",
-				"source.service":      "landing_page",
+				"target.service":      "landing_page",
+				"source.service":      "details",
 			},
 			expectedStatusCode: 0,
 		},
@@ -250,9 +249,9 @@ func TestServer(t *testing.T) {
 			attrs: map[string]interface{}{
 				"destination.service": "svc.cluster.local",
 				"source.uid":          "janet",
-				"request.path":        "/detail/janet",
-				"target.service":      "invalid",
-				"source.service":      "landing_page",
+				"request.path":        "/detail/ken",
+				"target.service":      "landing_pages",
+				"source.service":      "invalid",
 			},
 			expectedStatusCode: 7,
 		},
