@@ -379,9 +379,5 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 func updateIstioYaml(module, hub, tag string, content []byte) []byte {
 	image := []byte(fmt.Sprintf("image: %s/%s:%s", hub, module, tag))
 	r := regexp.MustCompile(fmt.Sprintf("image: .*(\\/%s):.*", module))
-	content = r.ReplaceAllLiteral(content, image)
-
-	image := []byte(fmt.Sprintf("image: gcr.io/%s/%s:%s", hub, module, tag))
-	r := regexp.MustCompile(fmt.Sprintf("image: .*(\\/%s):.*", module))
 	return r.ReplaceAllLiteral(content, image)
 }
