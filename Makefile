@@ -174,7 +174,15 @@ mixs: vendor
 mixc: vendor
 	go install istio.io/istio/mixer/cmd/mixc
 
-go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc
+.PHONY: node-agent
+node-agent: vendor
+	go install istio.io/istio/security/cmd/node_agent
+
+.PHONY: istio-ca
+istio-ca: vendor
+	go install istio.io/istio/security/cmd/istio_ca
+
+go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
 
 #-----------------------------------------------------------------------------
 # Target: go test
