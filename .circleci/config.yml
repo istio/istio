@@ -37,9 +37,7 @@ jobs:
               --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
               --kubernetes-version=v1.7.5 --vm-driver=none
             sudo chown -R $USER $KUBECONFIG
-            sudo mv /root/.minikube $HOME/.minikube # this will write over any previous configuration
-            sudo chown -R $USER $HOME/.minikube
-
+            
             cat $KUBECONFIG
       - restore_cache:
           keys:
