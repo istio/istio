@@ -22,12 +22,6 @@ ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 ARGS=(-alsologtostderr -test.v -v 2)
 TESTSPATH='tests/e2e/tests'
 
-if which dep; then
-    echo "Using $(which dep)"
-else
-    go get -u github.com/golang/dep/cmd/dep
-fi
-
 function print_block() {
     line='--------------------------------------------------'
 
