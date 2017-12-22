@@ -1,8 +1,9 @@
 #!/bin/bash
 
-WD=$(dirname $0)
-WD=$(cd $WD; pwd)
-ROOT=$(dirname $WD)
+# Init script downloads or updates envoy and the go dependencies.
+
+ROOT=$(cd $(dirname $0)/..; pwd)
+ISTIO_GO=$ROOT
 
 set -o errexit
 set -o nounset
@@ -10,12 +11,13 @@ set -o pipefail
 set -x
 
 # Set GOPATH to match the expected layout
-export TOP=$(cd $(dirname $0)/../../../..; pwd)
+TOP=$(cd $(dirname $0)/../../../..; pwd)
+OUT=${TOP}/out
+
 export GOPATH=$TOP
-export OUT=${TOP}/out
 
 # Ensure expected GOPATH setup
-if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        echo "Istio not found in GOPATH/src/istio.io/"
        exit 1
 fi

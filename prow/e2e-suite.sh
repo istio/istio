@@ -25,6 +25,7 @@ set -e
 set -u
 # Print commands
 set -x
+ISTIO_GO=$(cd $(dirname $0)/..; pwd)
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   export USER=Prow
@@ -55,8 +56,8 @@ fi
 
 HUB=${HUB:-"gcr.io/istio-testing"}
 
-# Build
-${ROOT}/bin/init.sh
+# Download envoy and go deps
+${ISTIO_GO}/bin/init.sh
 
 # Build istioctl, used by  the test.
 make depend.ensure istioctl
