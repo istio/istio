@@ -110,19 +110,29 @@ var setup = perf.Setup{
 
 const executableSearchSuffix = "bazel-bin/mixer/test/perf/perfclient/perfclient"
 
-var env = perf.NewEnv(
-	generatedTmplRepo.SupportedTmplInfo,
-	adapter.Inventory(),
-)
+var baseSettings = perf.Settings{
+	Templates: generatedTmplRepo.SupportedTmplInfo,
+	Adapters: adapter.Inventory(),
+	ExecutablePathSuffix: executableSearchSuffix,
+}
 
 // Benchmark_Minimal_ExternalProcess is a proof of concept test, and is not meant as a real perf test case.
 func Benchmark_Minimal_ExternalProcess(b *testing.B) {
-	perf.RunCoprocess(b, &setup, env, executableSearchSuffix)
+	settings := baseSettings
+	settings.RunMode = perf.CoProcess
+	perf.Run(b, &setup, settings)
 }
 
-// TODO: Currently, the mixer service does multiple registrations for its /metrics path. Once we can reliable create/close
-// mixer instances, we can run more than one benchmark side-by-side. Until then, commenting out the test below.
+// Benchmark_Minimal_ExternalProcess is a proof of concept test, and is not meant as a real perf test case.
+func Benchmark_Minimal_InternallProcess(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.InProcess
+	perf.Run(b, &setup, settings)
+}
 
-//func Benchmark_Minimal_InternallProcess(b *testing.B) {
-//	perf.RunInprocess(b, &setup)
-//}
+// Benchmark_Minimal_DispatcherOnly is a proof of concept test, and is not meant as a real perf test case.
+func Benchmark_Minimal_DispatcherOnly(b *testing.B) {
+	settings := baseSettings
+	settings.RunMode = perf.DispatcherOnly
+	perf.Run(b, &setup, settings)
+}
