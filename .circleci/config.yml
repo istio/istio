@@ -275,6 +275,12 @@ jobs:
     <<: *integrationDefaults
     resource_class: xlarge
     steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
       - checkout
       - restore_cache:
           keys:
