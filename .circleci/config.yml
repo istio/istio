@@ -259,6 +259,21 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
+  lint:
+    <<: *defaults
+    resource_class: xlarge
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run:
+          command: |
+            cd /go/src/istio.io/istio
+            SKIP_INIT=1 bin/linters.sh
+      - store_artifacts:
+          path: /go/bin
+
   docker-push:
     <<: *defaults
     resource_class: xlarge
@@ -283,6 +298,7 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - restore_cache:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
@@ -341,6 +357,9 @@ workflows:
           requires:
             - gobuild
       - codecov:
+          requires:
+            - gotest
+      - lint:
           requires:
             - gotest
       - pilot-integration-noauth:

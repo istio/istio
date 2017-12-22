@@ -28,10 +28,6 @@ set -u
 set -x
 set -e
 
-# For the transition period (until generate is moved) we may need to run presubmit with
-# bazel in separate prow.
-USE_BAZEL=${USE_BAZEL:-0}
-
 die () {
   echo "$@"
   exit -1
@@ -49,24 +45,6 @@ run_or_die_on_change() {
     die "Repo has unstaged changes. Re-run ${script}"
   fi
 }
-
-fetch_envoy() {
-    local DIR=~/envoy
-    mkdir -p ${DIR}
-    pushd ${DIR}
-    # In WORKSPACE, the string looks like:
-    #       ISTIO_PROXY_BUCKET = "76ed00adea006e25878f20daa58c456848243999"
-    # we pull it out, grab the SHA, and trim the quotes
-    local PROXY_SHA=$(grep "ISTIO_PROXY_BUCKET =" ${ROOT}/WORKSPACE | cut -d' ' -f3 | tr -d '"')
-    wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
-    ln -sf ${DIR}/usr/local/bin/envoy ${ROOT}/pilot/proxy/envoy/envoy
-    popd
-}
-
-# ensure our bazel and go env vars are set up correctly
-if [ "$USE_BAZEL" == "1" ] ; then
-    source "${ROOT}/bin/use_bazel_go.sh"
-fi
 
 if [ "${CI:-}" == 'bootstrap' ]; then
   export USER=Prow
@@ -102,36 +80,19 @@ else
 fi
 
 
-if [ "$USE_BAZEL" == "1" ] ; then
-    echo 'Pulling down pre-built Envoy'
-    fetch_envoy
+echo 'Initialize'
+${ROOT}/bin/init.sh
+echo 'Build'
+(cd ${ROOT}; make go-build)
 
-    echo 'Building everything'
-    ${ROOT}/bin/init.sh
-
-    # TODO(https://github.com/istio/istio/pull/1930): Uncomment
-    # run_or_die_on_change ./bin/fmt.sh
-
-    echo 'Running Unit Tests'
-    time bazel test --testesttestt_output=all //...
-
-    echo 'Running linters'
-    SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
-else
-    echo 'Initialize'
-    ${ROOT}/bin/init.sh
-    echo 'Build'
-    (cd ${ROOT}; make go-build)
-    (cd ${ROOT}; make localTestEnv go-test)
-
-fi
-
-
+# Unit tests are run against a local apiserver and etcd.
+# Integration/e2e tests in the other scripts are run against GKE or real clusters.
+(cd ${ROOT}; make localTestEnv go-test)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
   git diff
 fi
 
-# upload images
+# upload images - needed by the subsequent tests
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
