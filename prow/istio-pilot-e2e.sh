@@ -53,4 +53,7 @@ create_cluster 'e2e-pilot'
 
 ln -sf "${HOME}/.kube/config" ${ROOT}/pilot/platform/kube/config
 HUB="gcr.io/istio-testing"
+
+cd ${GOPATH}/src/istio.io/istio
+./bin/init.sh
 make -C "${ROOT}/pilot" e2etest HUB="${HUB}" TAG="${GIT_SHA}" TESTOPTS="-mixer=false -use-initializer -use-admission-webhook"
