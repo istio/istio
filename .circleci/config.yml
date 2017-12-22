@@ -74,6 +74,7 @@ jobs:
   pilot-integration-auth:
     <<: *integrationDefaults
     environment:
+            - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
     steps:
