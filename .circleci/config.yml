@@ -59,8 +59,6 @@ jobs:
               fi
               sleep 2
             done
-            kubectl cluster-info
-            kubectl get po
       - run:
           command: |
             make docker
