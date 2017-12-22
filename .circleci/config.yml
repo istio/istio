@@ -293,6 +293,30 @@ jobs:
 
 workflows:
   version: 2
+  nightly:
+    triggers:
+       - schedule:
+           cron: "0 0 * * *"
+           filters:
+             branches:
+               only:
+                 - gobuild
+    jobs:
+      - dependencies
+      - gobuild:
+          requires:
+            - dependencies
+      - gotest:
+          requires:
+            - gobuild
+      - pilot-integration-auth:
+          requires:
+            - gotest
+      - docker-push:
+          context: org-global
+          requires:
+            - pilot-integration-auth
+
   all:
     jobs:
       - dependencies
@@ -314,10 +338,6 @@ workflows:
       - pilot-integration-auth:
           requires:
             - gotest
-      - docker-push:
-          context: org-global
-          requires:
-            - pilot-integration-noauth
       - e2e:
           requires:
             - pilot-integration-noauth
