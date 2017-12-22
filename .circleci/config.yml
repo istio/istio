@@ -109,19 +109,18 @@ jobs:
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: mkdir /home/circleci/logs
       - run: go build -i ./pilot/test/integration
-            - run:
-                command: |
-                  kubectl cluster-info
-                  for i in {1..150}; do # timeout for 5 minutes
-                     kubectl get po &> /dev/null
-                     if [ $? -ne 1 ]; then
-                        break
-                    fi
-                    sleep 2
-                  done
-                  kubectl cluster-info
-                  kubectl get po
-      - run: sudo -E kubectl cluster-info
+      - run:
+          command: |
+            kubectl cluster-info
+            for i in {1..150}; do # timeout for 5 minutes
+               kubectl get po &> /dev/null
+               if [ $? -ne 1 ]; then
+                  break
+              fi
+              sleep 2
+            done
+            kubectl cluster-info
+            kubectl get po
       - run: make kubelink
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
