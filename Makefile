@@ -144,6 +144,10 @@ clean.go: ; $(info $(H) cleaning...)
 test: setup
 	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
 
+coverage: pilot/platform/kube/config
+	./bin/init.sh
+	./bin/codecov.sh
+
 docker:
 	$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
 	$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only

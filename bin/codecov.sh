@@ -10,7 +10,7 @@ echo "Code coverage test"
 OUT=coverage.txt
 PROF=profile.out
 
-echo "" > ${OUT}
+echo "mode: set" > ${OUT}
 for d in $(go list ./... | grep -v vendor); do
     #FIXME remove mixer tools exclusions after tests can be run without bazel
     if [[ $d == "istio.io/istio/tests"* || \
@@ -19,11 +19,11 @@ for d in $(go list ./... | grep -v vendor); do
       continue
     fi
 
-    go test -coverprofile=${PROF} $d
+    # do not stop even when a test fails
+    go test -coverprofile=${PROF} $d || true
 
     if [ -f ${PROF} ]; then
-        cat ${PROF} >> ${OUT}
+        grep -v 'mode: ' ${PROF} >> ${OUT}
         rm ${PROF}
     fi
 done
-
