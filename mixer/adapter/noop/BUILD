@@ -14,6 +14,7 @@ go_library(
         "//mixer/template/metric:go_default_library",
         "//mixer/template/quota:go_default_library",
         "//mixer/template/reportnothing:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
         "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
