@@ -389,4 +389,6 @@ workflows:
             - gotest
       - e2e:
           requires:
-            - pilot-integration-noauth
+            # Temp - start immediately, to speed up debugging this.
+            # : - pilot-integration-noauth
+            - dependencies
