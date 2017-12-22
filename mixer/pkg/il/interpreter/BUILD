@@ -34,6 +34,6 @@ go_test(
         "//mixer/pkg/il:go_default_library",
         "//mixer/pkg/il/testing:go_default_library",
         "//mixer/pkg/il/text:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

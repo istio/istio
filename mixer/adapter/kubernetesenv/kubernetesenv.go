@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package kubernetes provides functionality to adapt mixer behavior to the
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/kubernetesenv/config/config.proto
+
+// Package kubernetesenv provides functionality to adapt mixer behavior to the
 // kubernetes environment. Primarily, it is used to generate values as part
 // of Mixer's attribute generation preprocessing phase. These values will be
 // transformed into attributes that can be used for subsequent config
 // resolution and adapter dispatch and execution.
-package kubernetes
+package kubernetesenv
 
 import (
 	"context"
@@ -92,7 +94,7 @@ var _ ktmpl.HandlerBuilder = &builder{}
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "kubernetesenv",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
+		Impl:        "istio.io/istio/mixer/adapter/kubernetesenv",
 		Description: "Provides platform specific functionality for the kubernetes environment",
 		SupportedTemplates: []string{
 			ktmpl.TemplateName,

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/opa/config/config.proto
+
 package opa // import "istio.io/istio/mixer/adapter/opa"
 
 import (

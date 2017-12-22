@@ -16,10 +16,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/mixer/tools/codegen/pkg/inventory"
 )
@@ -27,6 +29,7 @@ import (
 func withArgs(args []string, errorf func(format string, a ...interface{})) {
 	var mappings []string
 	var output string
+	var mappingFile string
 
 	rootCmd := cobra.Command{
 		Use:   "mixgeninventory",
@@ -35,9 +38,23 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 			"Example: mixgeninventory -p prometheus:istio.io/istio/mixer/adapter/prometheus -p stdio:istio.io/istio/mixer/adapter/stdio",
 		Run: func(cmd *cobra.Command, args []string) {
 			packageMap := make(map[string]string)
-			for _, maps := range mappings {
-				m := strings.Split(maps, ":")
-				packageMap[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+
+			if mappingFile != "" {
+				yamlFile, err := ioutil.ReadFile(mappingFile)
+				if err != nil {
+					errorf("could not read mapping file: %v", err)
+					return
+				}
+				err = yaml.Unmarshal(yamlFile, &packageMap)
+				if err != nil {
+					errorf("could not unmarshal mapping file: %v", err)
+					return
+				}
+			} else {
+				for _, maps := range mappings {
+					m := strings.Split(maps, ":")
+					packageMap[strings.TrimSpace(m[0])] = strings.TrimSpace(m[1])
+				}
 			}
 
 			out := os.Stdout
@@ -60,6 +77,8 @@ func withArgs(args []string, errorf func(format string, a ...interface{})) {
 
 	rootCmd.PersistentFlags().StringArrayVarP(&mappings, "packages", "p", []string{},
 		"colon-separated mapping of Go packages to their full import paths. Example: -p prometheus:istio.io/istio/mixer/adapter/prometheus")
+
+	rootCmd.PersistentFlags().StringVarP(&mappingFile, "file", "f", "", "TODO")
 
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "", "name of file to generate")
 

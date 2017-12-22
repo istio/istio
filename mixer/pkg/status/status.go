@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package status provides utility functions for RPC status objects.
+// Package status provides utility functions for google_rpc status objects.
 package status
 
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	me "github.com/hashicorp/go-multierror"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 // OK represents a status with a code of rpc.OK
