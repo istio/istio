@@ -4,6 +4,12 @@ defaults: &defaults
   docker:
     - image: istio/ci:go1.9-k8s1.7.4
 
+# org context settings. If developing on a clone, please configure:
+
+# DOCKER_USER
+# DOCKER_PASS
+# HUB: ex istio, costinm (it is not the hub, but the dockerhub org or user)
+
 integrationDefaults: &integrationDefaults
   machine: true
   working_directory: /go/src/istio.io/istio #same as docker
@@ -18,7 +24,7 @@ jobs:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
-            - TEST_ENV: minikube
+            - TEST_ENV: minikube-none
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -303,15 +309,23 @@ workflows:
                  - gobuild
     jobs:
       - dependencies
+      # Build
       - gobuild:
           requires:
             - dependencies
+      # Unit tests
       - gotest:
           requires:
             - gobuild
+      # Compile for mac and arm
+      - goxbuild:
+          requires:
+            - gotest
+      # Integration tests
       - pilot-integration-auth:
           requires:
             - gotest
+      # Push to dockerhub
       - docker-push:
           context: org-global
           requires:
@@ -324,9 +338,6 @@ workflows:
           requires:
             - dependencies
       - gotest:
-          requires:
-            - gobuild
-      - goxbuild:
           requires:
             - gobuild
       - codecov:
