@@ -35,10 +35,9 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
-          cat /etc/resolv.conf
+          cat /etc/resolv.conf | sed 's/search \(.*\)/search cluster.local \1/ ' > /tmp/resolv.conf
           cp /etc/resolv.conf /tmp
-
-          echo "search cluster.local" >> /tmp/resolv.conf
+          cat /etc/resolv.conf
           sudo cp /tmp/resolv.conf /etc/resolv.conf
       - checkout
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
