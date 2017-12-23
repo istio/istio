@@ -118,6 +118,11 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Unable to create server: %v", err)
 	}
 
+	d := s.GetDispatcherForTesting()
+	if d != s.dispatcherForTesting {
+		t.Fatalf("returned dispatcher is incorrect")
+	}
+
 	err = s.Close()
 	if err != nil {
 		t.Errorf("Got error during Close: %v", err)
@@ -172,6 +177,7 @@ func TestErrors(t *testing.T) {
 	a.MonitoringPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
+	a.LogTraceSpans = true
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -208,7 +214,7 @@ func TestErrors(t *testing.T) {
 				return
 			}
 
-			s, err := new(a, pt)
+			s, err := newServer(a, pt)
 			if s != nil || err == nil {
 				t.Errorf("Got success, expecting error")
 			}

@@ -95,6 +95,11 @@ type Args struct {
 	LoggingOptions *log.Options
 }
 
+// EnableTracing detects whether tracing should be enabled by introspecting tracing related argument values.
+func (a *Args) EnableTracing() bool {
+	return len(a.ZipkinURL) > 0 || len(a.JaegerURL) > 0 || a.LogTraceSpans
+}
+
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
 func NewArgs() *Args {
 	return &Args{
