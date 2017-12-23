@@ -61,14 +61,31 @@ kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=
 
 ## Step 4: Export test script variables
 
-**Option 1:** Already committed changes to istio/istio master branch
+**Option 1:** Build your own images.
+
+```
+# Customize .istiorc with your HUB and optional TAG (example: HUB=costinm TAG=mybranch)
+
+# Build images on the local docker. 
+make docker
+
+# Push images to docker registry
+# If you use minikube and its docker environment, images will be  available in minikube for use, 
+# you can skip this step.
+make push
+
+# the hub/tag set in your .istiorc will be used by the test.
+
+```
+
+**Option 2:** Already committed changes to istio/istio master branch
 NOTE: SHA used for GIT_SHA is one that is already committed on istio/istio. You can pick any SHA you want.
 ```
 export HUB="gcr.io/istio-testing"
 export GIT_SHA="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
 ```
 
-**Option 2:** Testing local changes
+**Option 3:** Testing local changes
 
 If you want to test on uncommitted changes to master istio:
 * Create a PR with your change.
@@ -89,12 +106,7 @@ export GIT_SHA="<sha copied from the logs of istio-presubmit.sh>"
 From the repo checkout root directory
 
 ```bash
-./tests/e2e.sh \
---mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}" \
---pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}" \
---ca_tag "${GIT_SHA}"  --ca_hub "${HUB}" \
---istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
---skip_cleanup
+make e2e E2E_ARGS="--skip_cleanup"
 ```
 
 Tests are driven by the [e2e.sh](../e2e.sh) script. Each test has its own directory and can be run independently as a
@@ -106,7 +118,6 @@ go_test target. The script has a number of options:
 * `--istioctl <local istioctl path>`: Use local istioctl binary. 
 * `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location. 
 * `--use_local_cluster`
-* `--parallel` - to run tests in parallel (alpha feature)
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
 * `--use_initializer` - if you want to do transparent sidecar injection

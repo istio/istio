@@ -32,6 +32,7 @@ import (
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
+	"strings"
 )
 
 const (
@@ -221,6 +222,9 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		}
 	}()
 
+	// The goroutine starting the server may not be ready, results in flakiness.
+	time.Sleep(1 * time.Second)
+
 	defaultServerResponse := pb.Response{
 		IsApproved:      true,
 		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
@@ -258,7 +262,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
+			expectedErr: "CSR request failed rpc error: code = Unavailable",
 		},
 		"Without Insecure option": {
 			config: &Config{
@@ -321,7 +325,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
-			} else if err.Error() != c.expectedErr {
+			} else if ! strings.Contains(err.Error(), c.expectedErr) {
 				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
 			}
 		} else {

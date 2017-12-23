@@ -1,0 +1,88 @@
+
+ì
+`bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata/report1_tmpl.protoistio.mixer.template.log"mixer/v1/template/extensions.proto+mixer/v1/config/descriptor/value_type.proto"ñ
+TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalueN
+
+dimensions (2..istio.mixer.template.log.Type.DimensionsEntryR
+dimensionsW
+anotherValueType (2+.istio.mixer.v1.config.descriptor.ValueTypeRanotherValueType6
+res1 (2".istio.mixer.template.log.Res1TypeRres1j
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8"Ò
+Res1TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalueR
+
+dimensions (22.istio.mixer.template.log.Res1Type.DimensionsEntryR
+dimensions6
+res2 (2".istio.mixer.template.log.Res2TypeRres2J
+res2_map (2/.istio.mixer.template.log.Res1Type.Res2MapEntryRres2Mapj
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8^
+Res2MapEntry
+key (	Rkey8
+value (2".istio.mixer.template.log.Res2TypeRvalue:8"ç
+Res2TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalueR
+
+dimensions (22.istio.mixer.template.log.Res2Type.DimensionsEntryR
+dimensionsj
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8"Ô
+InstanceParam
+value (	RvalueW
+
+dimensions (27.istio.mixer.template.log.InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive*
+anotherValueType (	RanotherValueTypeì
+dimensionsFixedInt64ValueDType (2K.istio.mixer.template.log.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp	 (	R	timeStamp
+duration
+ (	Rduration?
+res1 (2+.istio.mixer.template.log.Res1InstanceParamRres1=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8Q
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8"¥
+Res1InstanceParam
+value (	Rvalue[
+
+dimensions (2;.istio.mixer.template.log.Res1InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitiveU
+int64Map (29.istio.mixer.template.log.Res1InstanceParam.Int64MapEntryRint64Map
+	timeStamp	 (	R	timeStamp
+duration
+ (	Rduration?
+res2 (2+.istio.mixer.template.log.Res2InstanceParamRres2S
+res2_map (28.istio.mixer.template.log.Res1InstanceParam.Res2MapEntryRres2Map=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8;
+Int64MapEntry
+key (	Rkey
+value (	Rvalue:8g
+Res2MapEntry
+key (	RkeyA
+value (2+.istio.mixer.template.log.Res2InstanceParamRvalue:8"Ì
+Res2InstanceParam
+value (	Rvalue[
+
+dimensions (2;.istio.mixer.template.log.Res2InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8B¯“‰ìbproto3
