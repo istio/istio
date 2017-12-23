@@ -50,3 +50,29 @@ func TestString(t *testing.T) {
 	s := a.String()
 	t.Log(s)
 }
+
+func TestEnableTracing(t *testing.T) {
+	a := NewArgs()
+
+	if a.EnableTracing() {
+		t.Fatal("default arg values should not have enabled tracing")
+	}
+
+	a = NewArgs()
+	a.LogTraceSpans = true
+	if !a.EnableTracing() {
+		t.Fatal("logTraceSpans should have trigged tracing")
+	}
+
+	a = NewArgs()
+	a.ZipkinURL = "http://foo.bar.com"
+	if !a.EnableTracing() {
+		t.Fatal("zipkinURL should have trigged tracing")
+	}
+
+	a = NewArgs()
+	a.JaegerURL = "http://foo.bar.com"
+	if !a.EnableTracing() {
+		t.Fatal("jaegerURL should have trigged tracing")
+	}
+}
