@@ -69,7 +69,7 @@ func Run(b *testing.B, setup *Setup, settings Settings) {
 		run(&testingBWrapper{b}, setup, &settings, false)
 	case CoProcess:
 		run(&testingBWrapper{b}, setup, &settings, true)
-	case DispatcherOnly:
+	case InProcessBypassGrpc:
 		runDispatcherOnly(&testingBWrapper{b}, setup, &settings)
 	default:
 		b.Fatalf("Unknown run mode: %v", settings.RunMode)
@@ -156,7 +156,7 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 	}
 	defer s.Close()
 
-	dispatcher := s.GetDispatcher()
+	dispatcher := s.Dispatcher()
 
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
@@ -167,21 +167,36 @@ func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
 	requests := setup.Load.createRequestProtos(setup.Config)
 	bags := make([]attribute.Bag, len(requests)) // precreate bags to avoid polluting allocation data.
 	for i, r := range requests {
-		switch r.(type) {
+		switch req := r.(type) {
 		case *istio_mixer_v1.ReportRequest:
-			rrep := r.(*istio_mixer_v1.ReportRequest)
-			bags[i] = attribute.NewProtoBag(&rrep.Attributes[0], globalDict, attribute.GlobalList())
+			bags[i] = attribute.NewProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
 
 		case *istio_mixer_v1.CheckRequest:
-			crep := r.(*istio_mixer_v1.CheckRequest)
-			bags[i] = attribute.NewProtoBag(&crep.Attributes, globalDict, attribute.GlobalList())
+			bags[i] = attribute.NewProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
 
 		default:
 			b.fatalf("unknown request type: %v", r)
 		}
 	}
 
-	b.run("DispatcherOnly", func(bb benchmark) {
+	// Run through once to detect if there are any errors
+	for j, r := range requests {
+		bag := bags[j]
+
+		switch r.(type) {
+		case *istio_mixer_v1.ReportRequest:
+			err = dispatcher.Report(context.Background(), bag)
+
+		case *istio_mixer_v1.CheckRequest:
+			_, err = dispatcher.Check(context.Background(), bag)
+		}
+
+		if err != nil {
+			b.fatalf("Error detected during run: %v", err)
+		}
+	}
+
+	b.run("InProcessBypassGrpc", func(bb benchmark) {
 		for i := 0; i < bb.n(); i++ {
 			for j, r := range requests {
 				bag := bags[j]

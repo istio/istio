@@ -31,10 +31,10 @@ const (
 	// as the communication overhead between the client and server is counted in timings.
 	CoProcess
 
-	// DispatcherOnly run mode indicates that the test should be run against the runtime.DispatcherOnly interface
+	// InProcessBypassGrpc run mode indicates that the test should be run against the runtime.Dispatcher interface
 	// directly. This is useful to reduce the scope that needs to be profiled, and allows discounting gRpc
 	// and attribute preprocessing related overhead.
-	DispatcherOnly
+	InProcessBypassGrpc
 )
 
 // Settings is the perf test settings.
@@ -43,7 +43,7 @@ type Settings struct {
 	Templates map[string]template.Info
 	Adapters  []adapter.InfoFn
 
-	// ExecutableSearchSuffix indicates the search prefix to use when trying to locate the co-process
+	// ExecutableSearchSuffix indicates the search suffix to use when trying to locate the co-process
 	// executable for perf testing. The process is located through an iterative search, starting with the
 	// current working directory, and using the executablePathSuffix as the
 	// search suffix for executable (e.g. "bazel-bin/mixer/test/perf/perfclient/perfclient").

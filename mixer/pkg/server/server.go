@@ -261,8 +261,8 @@ func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-// GetDispatcher returns the dispatcher that was created during server creation. This should only
+// Dispatcher returns the dispatcher that was created during server creation. This should only
 // be used for testing purposes only.
-func (s *Server) GetDispatcher() mixerRuntime.Dispatcher {
+func (s *Server) Dispatcher() mixerRuntime.Dispatcher {
 	return s.dispatcher
 }

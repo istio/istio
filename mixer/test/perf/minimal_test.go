@@ -133,6 +133,6 @@ func Benchmark_Minimal_InternallProcess(b *testing.B) {
 // Benchmark_Minimal_DispatcherOnly is a proof of concept test, and is not meant as a real perf test case.
 func Benchmark_Minimal_DispatcherOnly(b *testing.B) {
 	settings := baseSettings
-	settings.RunMode = perf.DispatcherOnly
+	settings.RunMode = perf.InProcessBypassGrpc
 	perf.Run(b, &setup, settings)
 }
