@@ -17,13 +17,15 @@ outdir=$ROOT
 file=$ROOT
 protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
 optimport=$ROOT
+template=
 
-while getopts 'f:o:p:i:' flag; do
+while getopts 'f:o:p:i:t' flag; do
   case "${flag}" in
     f) file+="/${OPTARG}" ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
     i) optimport+=/"${OPTARG}" ;;
+    t) template="template" ;;
     *) error "Unexpected option ${flag}" ;;
   esac
 done
@@ -107,9 +109,68 @@ do
   MAPPINGS+="M$i,"
 done
 
-
 PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick_out=$MAPPINGS:"
 PLUGIN+=$outdir
 
-# echo $protoc $IMPORTS $PLUGIN $file
-$protoc $IMPORTS $PLUGIN $file
+# handle template code generation 
+if [ ! -z "$template" ]; then
+
+  template_mappings=(
+    "mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor"
+    "mixer/v1/template/extensions.proto:istio.io/api/mixer/v1/template"
+    "mixer/v1/template/standard_types.proto:istio.io/api/mixer/v1/template"
+    "gogoproto/gogo.proto:github.com/gogo/protobuf/gogoproto"
+    "google/protobuf/duration.proto:github.com/gogo/protobuf/types"
+  )
+
+  TMPL_GEN_MAP=""
+  TMPL_PROTOC_MAPPING=""
+
+  for i in "${template_mappings[@]}"
+  do
+    TMPL_GEN_MAP+="-m $i "
+    TMPL_PROTOC_MAPPING+="M${i/:/=},"
+  done
+
+  TMPL_PLUGIN="--gogoslick_out=$TMPL_PROTOC_MAPPING:"
+  TMPL_PLUGIN+=$outdir
+
+  descriptor_set="_proto.descriptor_set"
+  handler_gen_go="_handler.gen.go"
+  instance_proto="_instance.proto"
+  pb_go=".pb.go"
+
+  fileDS="${file/.proto/$descriptor_set}"
+  fileHG="${file/.proto/$handler_gen_go}"
+  fileIP="${file/.proto/$instance_proto}"
+  filePG="${file/.proto/$pb_go}"
+
+  # generate the descriptor set for the intermediate artifacts
+  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$fileDS"
+  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $file`
+  if [ ! -z "$err" ]; then 
+    echo "template generation failure: $err"; 
+    exit 1;
+  fi
+  
+  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $fileDS -o $fileHG -t $fileIP $TMPL_GEN_MAP  
+
+  err=`$protoc $IMPORTS $TMPL_PLUGIN $fileIP`
+  if [ ! -z "$err" ]; then 
+    echo "template generation failure: $err"; 
+    exit 1;
+  fi  
+
+  rm $fileDS
+  rm $fileIP
+  rm $filePG
+
+  exit 0
+fi
+
+# handle simple protoc-based generation
+err=`$protoc $IMPORTS $PLUGIN $file`
+if [ ! -z "$err" ]; then 
+  echo "generation failure: $err"; 
+  exit 1;
+fi
