@@ -216,11 +216,16 @@ func TestEnvoyArgs(t *testing.T) {
 
 func TestEnvoyRun(t *testing.T) {
 	config := proxy.DefaultProxyConfig()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
+	dir := os.Getenv("ISTIO_BIN")
+	var err error
+	if len(dir) == 0 {
+		dir, err = os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	config.BinaryPath = path.Join(dir, "envoy")
+
 	config.ConfigPath = "tmp"
 
 	envoyConfig := buildConfig(config, nil)

@@ -169,7 +169,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
 	s.dispatcher = dispatcher
 
