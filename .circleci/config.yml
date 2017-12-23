@@ -35,6 +35,11 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          cat /etc/resolv.conf
+          cp /etc/resolv.conf /tmp
+
+          echo "search cluster.local" >> /tmp/resolv.conf
+          sudo cp /tmp/resolv.conf /etc/resolv.conf
       - checkout
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
@@ -287,9 +292,10 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
+          no_output_timeout: 900
           command: |
-            cd /go/src/istio.io/istio
             SKIP_INIT=1 bin/linters.sh
+
       - store_artifacts:
           path: /go/bin
 
@@ -301,7 +307,8 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -370,6 +377,9 @@ workflows:
     jobs:
       - dependencies
       - gobuild:
+          requires:
+            - dependencies
+      - e2e:
           requires:
             - dependencies
       - gotest:
