@@ -499,7 +499,9 @@ func TestRateLimit(t *testing.T) {
 			Duration:   1 * time.Minute,
 			NumThreads: 8,
 		},
-		URL: url,
+		HTTPOptions: fhttp.HTTPOptions {
+			URL: url,
+		},
 	}
 
 	// productpage should still return 200s when ratings is rate-limited.

@@ -28,7 +28,7 @@ set -u
 # Print commands
 set -x
 
-ROOT="$(bazel info workspace)"
+ROOT=$(cd $(dirname $0)/..; pwd)
 source "${ROOT}/prow/cluster_lib.sh"
 
 trap delete_cluster EXIT

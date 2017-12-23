@@ -1,0 +1,30 @@
+
+˜	
+^bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/interfacegen/testdata/quota_tmpl.protoistio.mixer.adapter.quota"mixer/v1/template/extensions.proto+mixer/v1/config/descriptor/value_type.proto"œ
+TypeO
+
+dimensions (2/.istio.mixer.adapter.quota.Type.DimensionsEntryR
+dimensionsW
+anotherValueType (2+.istio.mixer.v1.config.descriptor.ValueTypeRanotherValueTypej
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8"š
+InstanceParamX
+
+dimensions (28.istio.mixer.adapter.quota.InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive*
+anotherValueType (	RanotherValueType”
+dimensionsFixedInt64ValueDType (2L.istio.mixer.adapter.quota.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp	 (	R	timeStamp
+duration
+ (	Rduration=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8Q
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8BøÒä“bproto3

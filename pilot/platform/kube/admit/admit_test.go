@@ -23,8 +23,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
-	"os/user"
 	"strconv"
 	"testing"
 	"time"
@@ -43,6 +41,7 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/admit/testcerts"
 	"istio.io/istio/pilot/test/mock"
+	"istio.io/istio/tests/k8s"
 )
 
 const (
@@ -461,19 +460,9 @@ func TestRegister(t *testing.T) {
 }
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	kubeconfig := usr.HomeDir + "/.kube/config"
-
-	// For Bazel sandbox we search a different location:
-	if _, err = os.Stat(kubeconfig); err != nil {
-		kubeconfig, _ = os.Getwd()
-		kubeconfig = kubeconfig + "/config"
-	}
-
+	// Not clear how it worked before - probably some fake-hermetic script copying or
+	// mapping the real users' config
+	kubeconfig := k8s.Kubeconfig("/../config")
 	_, cl, err := kube.CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)
