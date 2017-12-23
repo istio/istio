@@ -120,10 +120,10 @@ void AttributesBuilder::ExtractCheckAttributes(CheckData *check_data) {
 }
 
 void AttributesBuilder::ForwardAttributes(const Attributes &forward_attributes,
-                                          CheckData *check_data) {
+                                          HeaderUpdate *header_update) {
   std::string str;
   forward_attributes.SerializeToString(&str);
-  check_data->AddIstioAttributes(str);
+  header_update->AddIstioAttributes(str);
 }
 
 void AttributesBuilder::ExtractReportAttributes(ReportData *report_data) {

@@ -30,9 +30,7 @@ RequestHandlerImpl::RequestHandlerImpl(
     std::shared_ptr<ServiceContext> service_context)
     : service_context_(service_context) {}
 
-CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
-                                     TransportCheckFunc transport,
-                                     DoneFunc on_done) {
+void RequestHandlerImpl::ExtractRequestAttributes(CheckData* check_data) {
   if (service_context_->enable_mixer_check() ||
       service_context_->enable_mixer_report()) {
     service_context_->AddStaticAttributes(&request_context_);
@@ -43,11 +41,20 @@ CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
 
     service_context_->AddApiAttributes(check_data, &request_context_);
   }
+}
+
+CancelFunc RequestHandlerImpl::Check(CheckData* check_data,
+                                     HeaderUpdate* header_update,
+                                     TransportCheckFunc transport,
+                                     DoneFunc on_done) {
+  ExtractRequestAttributes(check_data);
 
   if (service_context_->client_context()->config().has_forward_attributes()) {
     AttributesBuilder::ForwardAttributes(
         service_context_->client_context()->config().forward_attributes(),
-        check_data);
+        header_update);
+  } else {
+    header_update->RemoveIstioAttributes();
   }
 
   if (!service_context_->enable_mixer_check()) {

@@ -32,12 +32,14 @@ class RequestHandlerImpl : public RequestHandler {
 
   // Makes a Check call.
   ::istio::mixer_client::CancelFunc Check(
-      CheckData* check_data,
+      CheckData* check_data, HeaderUpdate* header_update,
       ::istio::mixer_client::TransportCheckFunc transport,
       ::istio::mixer_client::DoneFunc on_done) override;
 
   // Make a Report call.
   void Report(ReportData* report_data) override;
+
+  void ExtractRequestAttributes(CheckData* check_data) override;
 
  private:
   // The request context object.

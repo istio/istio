@@ -111,6 +111,7 @@ class RequestHandlerImplTest : public ::testing::Test {
 
 TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Not to extract attributes since both Check and Report are disabled.
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(0);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(0);
@@ -125,12 +126,13 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheckReport) {
   config.legacy_config = &legacy;
 
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr,
+  handler->Check(&mock_data, &mock_header, nullptr,
                  [](const Status& status) { EXPECT_TRUE(status.ok()); });
 }
 
 TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Report is enabled so Attributes are extracted.
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
@@ -144,12 +146,13 @@ TEST_F(RequestHandlerImplTest, TestHandlerDisabledCheck) {
   config.legacy_config = &legacy;
 
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr,
+  handler->Check(&mock_data, &mock_header, nullptr,
                  [](const Status& status) { EXPECT_TRUE(status.ok()); });
 }
 
 TEST_F(RequestHandlerImplTest, TestLegacyRoute) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
@@ -176,11 +179,12 @@ TEST_F(RequestHandlerImplTest, TestLegacyRoute) {
   (*map2)["legacy-key"].set_string_value("legacy-value");
 
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
@@ -199,11 +203,12 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteAttributes) {
   // destionation.server is empty, will use default one
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
@@ -228,11 +233,12 @@ TEST_F(RequestHandlerImplTest, TestRouteAttributes) {
   Controller::PerRouteConfig config;
   config.destination_service = "route1";
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestDefaultRouteQuota) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
 
   ServiceConfig route_config;
   auto quota = route_config.add_quota_spec()->add_rules()->add_quotas();
@@ -259,11 +265,12 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteQuota) {
   // destionation.server is empty, will use default one
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestDefaultRouteApiSpec) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, FindHeaderByType(_, _))
       .WillRepeatedly(
           Invoke([](CheckData::HeaderType type, std::string* value) -> bool {
@@ -305,11 +312,12 @@ TEST_F(RequestHandlerImplTest, TestDefaultRouteApiSpec) {
   // destionation.server is empty, will use default one
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, GetSourceIpPort(_, _)).Times(1);
   EXPECT_CALL(mock_data, GetSourceUser(_)).Times(1);
 
@@ -321,11 +329,12 @@ TEST_F(RequestHandlerImplTest, TestHandlerCheck) {
   config.legacy_config = &legacy;
 
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestDefaultApiKey) {
   ::testing::NiceMock<MockCheckData> mock_data;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   EXPECT_CALL(mock_data, FindQueryParameter(_, _))
       .WillRepeatedly(
           Invoke([](const std::string& name, std::string* value) -> bool {
@@ -351,7 +360,7 @@ TEST_F(RequestHandlerImplTest, TestDefaultApiKey) {
   // destionation.server is empty, will use default one
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_data, nullptr, nullptr);
+  handler->Check(&mock_data, &mock_header, nullptr, nullptr);
 }
 
 TEST_F(RequestHandlerImplTest, TestHandlerReport) {
@@ -391,12 +400,13 @@ TEST_F(RequestHandlerImplTest, TestEmptyConfig) {
   SetUpMockController(kEmptyClientConfig);
 
   ::testing::NiceMock<MockCheckData> mock_check;
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
   // Not to extract attributes since both Check and Report are disabled.
   EXPECT_CALL(mock_check, GetSourceIpPort(_, _)).Times(0);
   EXPECT_CALL(mock_check, GetSourceUser(_)).Times(0);
 
   // Attributes is forwarded.
-  EXPECT_CALL(mock_check, AddIstioAttributes(_))
+  EXPECT_CALL(mock_header, AddIstioAttributes(_))
       .WillOnce(Invoke([](const std::string& data) {
         Attributes forwarded_attr;
         EXPECT_TRUE(forwarded_attr.ParseFromString(data));
@@ -416,7 +426,7 @@ TEST_F(RequestHandlerImplTest, TestEmptyConfig) {
 
   Controller::PerRouteConfig config;
   auto handler = controller_->CreateRequestHandler(config);
-  handler->Check(&mock_check, nullptr,
+  handler->Check(&mock_check, &mock_header, nullptr,
                  [](const Status& status) { EXPECT_TRUE(status.ok()); });
   handler->Report(&mock_report);
 }

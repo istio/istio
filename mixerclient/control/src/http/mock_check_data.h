@@ -26,8 +26,7 @@ namespace http {
 // The mock object for CheckData interface.
 class MockCheckData : public CheckData {
  public:
-  MOCK_METHOD1(ExtractIstioAttributes, bool(std::string *data));
-  MOCK_METHOD1(AddIstioAttributes, void(const std::string &data));
+  MOCK_CONST_METHOD1(ExtractIstioAttributes, bool(std::string *data));
 
   MOCK_CONST_METHOD2(GetSourceIpPort, bool(std::string *ip, int *port));
   MOCK_CONST_METHOD1(GetSourceUser, bool(std::string *user));
@@ -42,6 +41,13 @@ class MockCheckData : public CheckData {
                      bool(const std::string &name, std::string *value));
   MOCK_CONST_METHOD1(GetJWTPayload,
                      bool(std::map<std::string, std::string> *payload));
+};
+
+// The mock object for HeaderUpdate interface.
+class MockHeaderUpdate : public HeaderUpdate {
+ public:
+  MOCK_METHOD0(RemoveIstioAttributes, void());
+  MOCK_METHOD1(AddIstioAttributes, void(const std::string &data));
 };
 
 }  // namespace http

@@ -253,8 +253,8 @@ TEST(AttributesBuilderTest, TestExtractV2ForwardedAttributes) {
 
 TEST(AttributesBuilderTest, TestForwardAttributes) {
   Attributes forwarded_attr;
-  ::testing::NiceMock<MockCheckData> mock_data;
-  EXPECT_CALL(mock_data, AddIstioAttributes(_))
+  ::testing::NiceMock<MockHeaderUpdate> mock_header;
+  EXPECT_CALL(mock_header, AddIstioAttributes(_))
       .WillOnce(Invoke([&forwarded_attr](const std::string &data) {
         EXPECT_TRUE(forwarded_attr.ParseFromString(data));
       }));
@@ -263,7 +263,7 @@ TEST(AttributesBuilderTest, TestForwardAttributes) {
   (*origin_attr.mutable_attributes())["test_key"].set_string_value(
       "test_value");
 
-  AttributesBuilder::ForwardAttributes(origin_attr, &mock_data);
+  AttributesBuilder::ForwardAttributes(origin_attr, &mock_header);
   EXPECT_TRUE(MessageDifferencer::Equals(origin_attr, forwarded_attr));
 }
 

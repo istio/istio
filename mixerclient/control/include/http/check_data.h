@@ -31,11 +31,7 @@ class CheckData {
 
   // Find "x-istio-attributes" HTTP header.
   // If found, base64 decode its value,  pass it out
-  // and remove the HTTP header from the request.
-  virtual bool ExtractIstioAttributes(std::string *data) = 0;
-
-  // Base64 encode data, and add it as "x-istio-attributes" HTTP header.
-  virtual void AddIstioAttributes(const std::string &data) = 0;
+  virtual bool ExtractIstioAttributes(std::string *data) const = 0;
 
   // Get downstream tcp connection ip and port.
   virtual bool GetSourceIpPort(std::string *ip, int *port) const = 0;
@@ -80,6 +76,18 @@ class CheckData {
   // string map, and return true. Otherwise return false.
   virtual bool GetJWTPayload(
       std::map<std::string, std::string> *payload) const = 0;
+};
+
+// An interfact to update request HTTP headers with Istio attributes.
+class HeaderUpdate {
+ public:
+  virtual ~HeaderUpdate() {}
+
+  // Remove "x-istio-attributes" HTTP header.
+  virtual void RemoveIstioAttributes() = 0;
+
+  // Base64 encode data, and add it as "x-istio-attributes" HTTP header.
+  virtual void AddIstioAttributes(const std::string &data) = 0;
 };
 
 }  // namespace http
