@@ -48,6 +48,7 @@ func (appOnlyEnv *AppOnlyEnv) GetName() string {
 func (appOnlyEnv *AppOnlyEnv) Bringup() (err error) {
 	log.Printf("Bringing up %s", appOnlyEnv.EnvID)
 	appOnlyEnv.TmpDir, err = ioutil.TempDir("", appOnlyEnv.GetName())
+	log.Println(appOnlyEnv.TmpDir)
 	return
 }
 

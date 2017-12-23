@@ -6,6 +6,7 @@ go_test(
     tags = ["manual"],
     deps = [
         "//tests/integration/component/mixer:go_default_library",
+        "//tests/integration/component/proxy:go_default_library",
         "//tests/integration/example/environment/mixerEnvoyEnv:go_default_library",
         "//tests/integration/framework:go_default_library",
     ],
