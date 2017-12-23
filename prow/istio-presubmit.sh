@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
+# Presubmit script triggered by Prow.
+# - run the unit tests, in local environment
+# - push docker images to grc.io for the integration tests.
+
+# Separate (and parallel) jobs are doing lint, coverage, etc.
 
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
@@ -46,23 +48,8 @@ run_or_die_on_change() {
   fi
 }
 
-fetch_envoy() {
-    local DIR=~/envoy
-    mkdir -p ${DIR}
-    pushd ${DIR}
-    # In WORKSPACE, the string looks like:
-    #       ISTIO_PROXY_BUCKET = "76ed00adea006e25878f20daa58c456848243999"
-    # we pull it out, grab the SHA, and trim the quotes
-    local PROXY_SHA=$(grep "ISTIO_PROXY_BUCKET =" ${ROOT}/WORKSPACE | cut -d' ' -f3 | tr -d '"')
-    wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-debug-${PROXY_SHA}.tar.gz | tar xvz
-    ln -sf ${DIR}/usr/local/bin/envoy ${ROOT}/pilot/proxy/envoy/envoy
-    popd
-}
-
-# ensure our bazel and go env vars are set up correctly
-source "${ROOT}/bin/use_bazel_go.sh"
-
 if [ "${CI:-}" == 'bootstrap' ]; then
+  # Handle prow environment and checkout
   export USER=Prow
 
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
@@ -95,25 +82,19 @@ else
   GIT_SHA="$(git rev-parse --verify HEAD)"
 fi
 
-echo 'Pulling down pre-built Envoy'
-fetch_envoy
-
-echo 'Building everything'
+echo 'Initialize'
 ${ROOT}/bin/init.sh
+echo 'Build'
+(cd ${ROOT}; make go-build)
 
-# TODO(https://github.com/istio/istio/pull/1930): Uncomment
-# run_or_die_on_change ./bin/fmt.sh
-
-echo 'Running Unit Tests'
-time bazel test --test_output=all //...
-
-echo 'Running linters'
-SKIP_INIT=1 ${ROOT}/bin/linters.sh || die "Error: linters.sh failed"
+# Unit tests are run against a local apiserver and etcd.
+# Integration/e2e tests in the other scripts are run against GKE or real clusters.
+(cd ${ROOT}; make localTestEnv go-test)
 
 if [[ -n $(git diff) ]]; then
   echo "Uncommitted changes found:"
   git diff
 fi
 
-# upload images
+# upload images - needed by the subsequent tests
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"

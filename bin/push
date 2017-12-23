@@ -26,8 +26,6 @@ security/bin/push-docker -hub ${HUB} -tag ${TAG} &
 # Permit $HUB overrides to suppress errors during push
 if [[ "${HUB}" =~ ^gcr\.io ]]; then
     pilot/bin/upload-istioctl -p "gs://istio-artifacts/pilot/${TAG}/artifacts/istioctl" &
-    pilot/bin/push-debian.sh -c opt -p "gs://istio-artifacts/pilot/${TAG}/artifacts/debs" &
-    security/bin/push-debian.sh -c opt -p "gs://istio-artifacts/auth/${TAG}/artifacts/debs" &
 fi
 
 FAIL=0
