@@ -28,6 +28,7 @@ jobs:
     environment:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
+            - GOPATH: /go
     steps:
       - type: shell
         name: Initialize Working Directory
