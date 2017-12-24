@@ -19,9 +19,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"fmt"
 )
 
 func TestCloudFoundry(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cloud Foundry Suite")
+	fmt.Print("\n\n")
 }
