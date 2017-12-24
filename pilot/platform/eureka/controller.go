@@ -15,7 +15,7 @@
 package eureka
 
 import (
-	"reflect"
+    "fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -23,65 +23,77 @@ import (
 	"istio.io/istio/pilot/model"
 )
 
-type serviceHandler func(*model.Service, model.Event)
-type instanceHandler func(*model.ServiceInstance, model.Event)
-
 type controller struct {
-	interval         time.Duration
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
 	client           Client
+	ticker           time.Ticker
+    controllerPath 	string
+    handler 		*model.ControllerViewHandler	
 }
 
 // NewController instantiates a new Eureka controller
-func NewController(client Client, interval time.Duration) model.Controller {
-	return &controller{
-		interval:         interval,
-		serviceHandlers:  make([]serviceHandler, 0),
-		instanceHandlers: make([]instanceHandler, 0),
-		client:           client,
-	}
+func NewController(client Client, ticker time.Ticker) *controller {
+    return &controller {
+        client: client,
+        ticker: ticker,
+    }
 }
 
-func (c *controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.serviceHandlers = append(c.serviceHandlers, f)
-	return nil
-}
+// Implements Mesh View Controller interface 
+func (c *controller) Handle(path string, handler *model.ControllerViewHandler) error {
+    if c.handler != nil {
+        err := fmt.Errorf("Eureka registry already setup to handle Mesh View at controller path '%s'",
+            c.controllerPath)
+        glog.Error(err.Error())
+        return err
+    }
+    c.controllerPath = path
+    c.handler = handler
+    return nil
+}    
 
-func (c *controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
-	return nil
-}
-
+// Implements Mesh View Controller interface 
 func (c *controller) Run(stop <-chan struct{}) {
-	cachedApps := make([]*application, 0)
-	ticker := time.NewTicker(c.interval)
-	for {
-		select {
-		case <-ticker.C:
-			apps, err := c.client.Applications()
-			if err != nil {
-				glog.Warningf("periodic Eureka poll failed: %v", err)
-				continue
-			}
-			sortApplications(apps)
+    glog.Infof("Starting Eureka registry controller for controller path '%s'", c.controllerPath)
+    for {
+        // Block until tick
+        <- c.ticker.C
+        c.doReconcile()        
+        select {
+        case <- stop:
+            return  
+        }        
+    }
+    glog.Infof("Stopping Eureka registry controller for controller path '%s'", c.controllerPath)
+}
 
-			if !reflect.DeepEqual(apps, cachedApps) {
-				cachedApps = apps
-				// TODO: feed with real events.
-				// The handlers are being fed dummy events. This is sufficient with simplistic
-				// handlers that invalidate the cache on any event but will not work with smarter
-				// handlers.
-				for _, h := range c.serviceHandlers {
-					go h(&model.Service{}, model.EventAdd)
-				}
-				for _, h := range c.instanceHandlers {
-					go h(&model.ServiceInstance{}, model.EventAdd)
-				}
-			}
-		case <-stop:
-			ticker.Stop()
-			return
-		}
+func (c *controller) getControllerView() (*model.ControllerView, error) {
+	apps, err := c.client.Applications()
+	if err != nil {
+    	controllerErr := fmt.Errorf("Eureka registry controller '%s' failed to list Eureka instances with: %s", 
+    	    c.controllerPath, err)
+    	glog.Warning(controllerErr)
+		return nil, controllerErr
 	}
+    controllerView := model.ControllerView {
+        Path: 				c.controllerPath,
+        Services:			make([]*model.Service, 0),
+        ServiceInstances: 	make([]*model.ServiceInstance, 0),
+    }
+    hostSvcMap := convertServices(apps, nil)
+    for _, svc := range hostSvcMap {
+		controllerView.Services = append(controllerView.Services, svc)
+    }
+	for _, instance := range convertServiceInstances(hostSvcMap, apps) {
+		controllerView.ServiceInstances = append(controllerView.ServiceInstances, instance)
+	}
+	return &controllerView, nil
+}
+
+
+func (c *controller) doReconcile() {
+	controllerView, err := c.getControllerView()
+	if err != nil {
+	    return
+	}
+    (*c.handler).Reconcile(controllerView)
 }

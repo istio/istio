@@ -312,6 +312,10 @@ type mockController struct {
 	instHandler   func(*model.ServiceInstance, model.Event)
 }
 
+func (c *mockController) AppendMeshHandler(model.MeshHandler) error {
+    return nil
+} 
+
 func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	// TODO: Last call wins. This may work, but may need refactoring down the line
 	c.svcHandler = f

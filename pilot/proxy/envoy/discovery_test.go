@@ -38,6 +38,10 @@ type mockController struct {
 	handlers int
 }
 
+func (ctl *mockController) AppendMeshHandler(model.MeshHandler) error {
+    return nil
+} 
+
 func (ctl *mockController) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
 	ctl.handlers++
 	return nil

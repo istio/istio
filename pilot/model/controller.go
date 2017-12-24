@@ -14,33 +14,84 @@
 
 package model
 
-// Controller defines an event controller loop.  Proxy agent registers itself
-// with the controller loop and receives notifications on changes to the
-// service topology or changes to the configuration artifacts.
+// The model Controller provides a platform independent means to rationalize
+// naming and discovery of mesh entities within the Pilot. The Controller is 
+// intended to be an event control loop for a variety of mesh entities like
+// services and service instances. The  Proxy agent registers itself
+// with the controller loop and receives periodic notifications on the
+// view of mesh resources as seen from the native platform's point of view
+// and allows the Pilot to maintain an aggregate view across various
+// platforms and environments.
 //
-// The controller guarantees the following consistency requirement: registry
-// view in the controller is as AT LEAST as fresh as the moment notification
-// arrives, but MAY BE more fresh (e.g. "delete" cancels an "add" event).  For
-// example, an event for a service creation will see a service registry without
-// the service if the event is immediately followed by the service deletion
-// event.
-//
-// Handlers execute on the single worker queue in the order they are appended.
-// Handlers receive the notification event and the associated object.  Note
-// that all handlers must be appended before starting the controller.
+// The controller guarantees the following consistency requirement:
+// Notifications from each controller must be serialized such that a notification
+// representing the controller's native view it constructed at T0 preceeds the 
+// notification of one constructed by that controller at T1. 
 type Controller interface {
-	// AppendServiceHandler notifies about changes to the service catalog.
-	AppendServiceHandler(f func(*Service, Event)) error
 
-	// AppendInstanceHandler notifies about changes to the service instances
-	// for a service.
-	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
-
-	// Run until a signal is received
+    // Invoked by the aggregated MeshView for setting up
+    // a handler for listening on notifications to
+    // reconcile the controller's view with the aggregated view.
+    // This method must be called before Run(). Path is the
+    // a unique identity for this controller from the aggregated
+    // mesh point of view. The root of the path is the platform
+    // ex: /kube/. Upcoming PRs will introduce clusters ex:
+    // /kube/cluster-a/ 
+    Handle(path string, handler *ControllerViewHandler) error    
+    
+	// Run until a signal is received. Constructing the
+	// native view of a platforms resources must commence
+	// after Run has been called.
+	// The supplied channel stop, is expected to be reused across
+	// multiple sub-components of the Controller. The caller must
+	// call close(stop) to ensure that this Controller is
+	// properly shutdown.
 	Run(stop <-chan struct{})
 }
 
-// Event represents a registry update event
+// The native view as seen by the controller for mesh entities
+// involved with naming and discovery. The ControllerView
+// must be complete for the path specified by the view. 
+// i.e. Entities of all types must be fully populated if 
+// they have native representation.
+type ControllerView struct {
+    
+    // The path must always start with the root passed via
+    // handle(). However controllers may choose to shard
+    // updates as long as entities under each shard are
+    // distinct. For ex: entities under /kube/cluster-a/abc
+    // would be considered exclusive from /kube/cluster-a/def.
+    // The controller must keep track of shard lifecycles
+    // meaning, if a shard is no longer needed, there must
+    // be a call with an empty list of resources to clear
+    // the aggregated view. The aggregated view does not
+    // do anything special with shards.
+    Path string 
+    
+    // Service entities specific to this controller and path
+    // Note: services can have the same name across 
+    Services []*Service
+    ServiceInstances []*ServiceInstance
+}
+
+// A handler for synchronizing the aggregated mesh view with
+// the native view of resources under a controller's influence.
+type ControllerViewHandler interface {
+
+    // Reconcile's the controller's view of entities
+    // There should be no expectations on ordering of how 
+    // various mesh entities get reconciled with the 
+    // aggregated view. This is true between entity types
+    // and within each type. For example, Services may get
+    // reconciled after instances. Instances may get reconciled
+    // in batches. The only guarantee is that by the time to
+    // Handle() returns, all entities are fully reconciled
+    // with the aggregated mesh view.
+    Reconcile(*ControllerView)
+}
+
+// Event represents a registry update event, mostly for
+// cache handling.
 type Event int
 
 const (

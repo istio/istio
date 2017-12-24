@@ -144,6 +144,10 @@ func (ev *eventVerifier) verifyInstanceEvents(t *testing.T) {
 	ev.instTracked = []instanceEvent{}
 }
 
+func (v *MockController) AppendMeshHandler(model.MeshHandler) error {
+    return nil
+} 
+
 func (v *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	evVerifier.mockSvcHandlerMap[v.registry] = f
 	return nil

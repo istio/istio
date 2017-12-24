@@ -31,6 +31,9 @@ const (
 	// See labelsFromModel() for more on why we need
 	// internal / external representations
 	labelXdsPrefix     = "config.istio.io/xds"
+
+	labelControllerPath = labelXdsPrefix + "ControllerPath"
+
 	labelServicePrefix = labelXdsPrefix + "Service."
 	// xDS external interface for host / service name
 	labelServiceName = labelServicePrefix + "name"
@@ -62,7 +65,7 @@ type Registry struct {
 type MeshResourceView struct {
 	registries []Registry
 
-	// Mutex guards services, serviceInstances and serviceInstanceLabels
+	// Mutex guards services, serviceInstances and corresponding labels
 	mu sync.RWMutex
 
 	// Canonical map of mesh service key to service references
@@ -105,12 +108,28 @@ func buildServiceKey(r *Registry, s *model.Service) resourceKey {
 	return resourceKey("[" + s.Hostname + "][" + string(r.Name) + "]")
 }
 
+func buildServiceKeyMap(r *Registry, services []*model.Service) map[resourceKey]*model.Service {
+    out := map[resourceKey]*model.Service{}
+    for _, svc := range services {
+        out[buildServiceKey(r, svc)] = svc
+    }
+    return out
+}
+
 // buildServiceInstanceKey builds a key to a service instance for a specific registry
 // Format for service instance: [service name][hex value of IP address][hex value of port number]
 // Within the mesh there can be exactly one endpoint for a service with the combination of
 // IP address and port.
 func buildServiceInstanceKey(i *model.ServiceInstance) resourceKey {
 	return resourceKey("[" + i.Service.Hostname + "][" + getIPHex(i.Endpoint.Address) + "][" + getPortHex(i.Endpoint.Port) + "]")
+}
+
+func buildServiceInstanceKeyMap(serviceInstances []*model.ServiceInstance) map[resourceKey]*model.ServiceInstance {
+    out := map[resourceKey]*model.ServiceInstance{}
+    for _, inst := range serviceInstances {
+        out[buildServiceInstanceKey(inst)] = inst
+    }
+    return out
 }
 
 func getIPHex(address string) string {
@@ -168,14 +187,10 @@ func labelsForNameValues(label string, values []string) resourceLabels {
 	return rl
 }
 
-func (r *Registry) handleService(s *model.Service, e model.Event) {
-	k := buildServiceKey(r, s)
-	r.MeshView.handleService(k, s, e)
-}
-
-func (r *Registry) handleServiceInstance(i *model.ServiceInstance, e model.Event) {
-	k := buildServiceInstanceKey(i)
-	r.MeshView.handleServiceInstance(k, i, e)
+// Implements ControllerViewHandler interface
+func (r *Registry) Reconcile(cv *model.ControllerView) {
+    // Delegate directly to the MeshView
+    r.MeshView.reconcile(r, cv)
 }
 
 // AddRegistry adds registries into the aggregated MeshResourceView
@@ -184,6 +199,8 @@ func (v *MeshResourceView) AddRegistry(registry Registry) {
 	// the registry being added
 	registry.MeshView = v
 	v.registries = append(v.registries, registry)
+	cvHandler := model.ControllerViewHandler(&registry)
+	registry.Controller.Handle("/" + string(registry.Name) + "/", &cvHandler)
 }
 
 // Services lists services from all platforms
@@ -277,6 +294,7 @@ func (v *MeshResourceView) Run(stop <-chan struct{}) {
 	glog.V(2).Info("Registry Aggregator terminated")
 }
 
+
 // AppendServiceHandler implements a service catalog operation, but limits to only one handler
 func (v *MeshResourceView) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	if v.serviceHandler != nil {
@@ -285,13 +303,6 @@ func (v *MeshResourceView) AppendServiceHandler(f func(*model.Service, model.Eve
 		return errors.New(logMsg)
 	}
 	v.serviceHandler = f
-	for idx := range v.registries {
-		r := &v.registries[idx]
-		if err := r.AppendServiceHandler(r.handleService); err != nil {
-			glog.V(2).Infof("Fail to append service handler to adapter %s", r.Name)
-			return err
-		}
-	}
 	return nil
 }
 
@@ -303,13 +314,6 @@ func (v *MeshResourceView) AppendInstanceHandler(f func(*model.ServiceInstance, 
 		return errors.New(logMsg)
 	}
 	v.serviceInstanceHandler = f
-	for idx := range v.registries {
-		r := &v.registries[idx]
-		if err := r.AppendInstanceHandler(r.handleServiceInstance); err != nil {
-			glog.V(2).Infof("Fail to append instance handler to adapter %s", r.Name)
-			return err
-		}
-	}
 	return nil
 }
 
@@ -338,11 +342,146 @@ func (v *MeshResourceView) GetIstioServiceAccounts(hostname string, ports []stri
 	return saArray
 }
 
-func (v *MeshResourceView) handleService(k resourceKey, s *model.Service, e model.Event) {
+// Delegated implementation for ControllerViewHandler scoped to the registry
+func (v *MeshResourceView) reconcile(r *Registry, cv *model.ControllerView) {
+    rl := resourceLabels{}
+    rl.appendNameValue(labelControllerPath, cv.Path)
+    v.reconcileServices(r, cv.Path, rl, cv.Services)
+    v.reconcileServiceInstances(cv.Path, rl, cv.ServiceInstances)
+}
+
+func (v *MeshResourceView) reconcileServices(r *Registry, cvp string, rl resourceLabels, expectedServices []*model.Service) {
+    actualServices := v.serviceByLabels(rl)
+    actualKeySvcMap := buildServiceKeyMap(r, actualServices)
+    expectedKeySvcMap := buildServiceKeyMap(r, expectedServices)
+    updateSet := map[resourceKey]*model.Service{}
+    for k, expSvc := range expectedKeySvcMap {
+        actSvc, found := actualKeySvcMap[k]
+        if !found {
+            continue  // Needs to be added to MeshView
+        }
+        if isServiceModified(expSvc, actSvc) {
+            updateSet[k] = expSvc
+        }
+        // Remaining would be ones that need adding
+        delete(expectedKeySvcMap, k)
+        // Remaining would be ones that need deleting
+        delete(actualKeySvcMap, k)
+    }
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	for k, delSvc := range actualKeySvcMap {
+        v.reconcileService(cvp, k, delSvc, model.EventDelete)
+	}    
+	for k, addSvc := range expectedKeySvcMap {
+        v.reconcileService(cvp, k, addSvc, model.EventAdd)
+	}    
+	for k, updSvc := range updateSet {
+        v.reconcileService(cvp, k, updSvc, model.EventUpdate)
+	}    
+}
+
+func (v *MeshResourceView) reconcileServiceInstances(cvp string, rl resourceLabels, expectedInstances []*model.ServiceInstance) {
+    actualInstances := v.serviceInstancesByLabels(rl)
+    actualKeyInstMap := buildServiceInstanceKeyMap(actualInstances)
+    expectedKeyInstMap := buildServiceInstanceKeyMap(expectedInstances)
+    updateSet := map[resourceKey]*model.ServiceInstance{}
+    for k, expInst := range expectedKeyInstMap {
+        actInst, found := actualKeyInstMap[k]
+        if !found {
+            continue  // Needs to be added to MeshView
+        }
+        if isServiceInstanceModified(expInst, actInst) {
+            updateSet[k] = expInst
+        }
+        // Remaining would be ones that need adding
+        delete(expectedKeyInstMap, k)
+        // Remaining would be ones that need deleting
+        delete(actualKeyInstMap, k)
+    }
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	for k, delInst := range actualKeyInstMap {
+        v.reconcileServiceInstance(cvp, k, delInst, model.EventDelete)
+	}    
+	for k, addInst := range expectedKeyInstMap {
+        v.reconcileServiceInstance(cvp, k, addInst, model.EventAdd)
+	}    
+	for k, updInst := range updateSet {
+        v.reconcileServiceInstance(cvp, k, updInst, model.EventUpdate)
+	}    
+}
+
+func getUniqueSet(values []string) map[string]bool {  
+    out := map[string]bool{}
+    for _, val := range values {
+        out[val] = true
+    }
+    return out
+}
+
+func isSetModified(first, second map[string]bool) bool {
+    for firstVal := range first {
+        _, found := second[firstVal]
+        if !found {
+            return true
+        }
+    }
+    return false
+}
+
+func isPortListModified(first, second model.PortList) bool {
+    for idx, portFirst := range first {
+        portSecond := second[idx]
+        if portFirst.Name == portSecond.Name ||
+            portFirst.Port == portSecond.Port ||
+            portFirst.Protocol == portSecond.Protocol ||
+            portFirst.AuthenticationPolicy == portSecond.AuthenticationPolicy {
+                return true
+            }
+    }
+    return false
+}
+
+
+// Compares services based on only what's needed for xDS to work.
+func isServiceModified(expected, actual *model.Service) bool {
+    // Skip checking host name, cause that would result a different resourceKey and this
+    // function would never be invoked.
+    if expected.Address != actual.Address ||
+        expected.External() != actual.External() ||
+        expected.ExternalName != actual.ExternalName ||
+        expected.LoadBalancingDisabled != actual.LoadBalancingDisabled ||
+        len(expected.ServiceAccounts) != len(actual.ServiceAccounts) ||
+        len(expected.Ports) != len(actual.Ports) ||
+        isPortListModified(expected.Ports, actual.Ports) ||
+        isSetModified(getUniqueSet(expected.ServiceAccounts), getUniqueSet(actual.ServiceAccounts)) { 
+        return true
+    }
+    return false
+} 
+
+// Compares services based on only what's needed for xDS to work.
+func isServiceInstanceModified(expected, actual *model.ServiceInstance) bool {
+    // Skip Endpoint and Service, cause that would result in a different resourceKey and this
+    // function would never be invoked.
+    if expected.AvailabilityZone != actual.AvailabilityZone ||
+      expected.ServiceAccount != actual.ServiceAccount ||
+      len(expected.Labels) != len(actual.Labels) ||
+      len(expected.ManagementPorts) != len(actual.ManagementPorts) ||
+      isPortListModified(expected.ManagementPorts, actual.ManagementPorts) ||
+      !expected.Labels.Equals(actual.Labels) {
+          return true
+    }
+    return false
+}
+
+func (v *MeshResourceView) reconcileService(cp string, k resourceKey, s *model.Service, e model.Event) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	old, found := v.services[k]
 	if found {
+		v.serviceLabels.deleteLabel(k, labelControllerPath, cp)
 		v.serviceLabels.deleteLabel(k, labelServiceName, old.Hostname)
 		if old.ExternalName != "" {
 			v.serviceLabels.deleteLabel(k, labelServiceExternalName, old.ExternalName)
@@ -354,6 +493,7 @@ func (v *MeshResourceView) handleService(k resourceKey, s *model.Service, e mode
 	}
 	if e != model.EventDelete {
 		// Treat as upsert
+		v.serviceLabels.deleteLabel(k, labelControllerPath, cp)
 		v.serviceLabels.addLabel(k, labelServiceName, s.Hostname)
 		if s.ExternalName != "" {
 			v.serviceLabels.addLabel(k, labelServiceExternalName, s.ExternalName)
@@ -366,11 +506,12 @@ func (v *MeshResourceView) handleService(k resourceKey, s *model.Service, e mode
 	v.serviceHandler(s, e)
 }
 
-func (v *MeshResourceView) handleServiceInstance(k resourceKey, i *model.ServiceInstance, e model.Event) {
+func (v *MeshResourceView) reconcileServiceInstance(cp string, k resourceKey, i *model.ServiceInstance, e model.Event) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	old, found := v.serviceInstances[k]
 	if found {
+		v.serviceInstanceLabels.deleteLabel(k, labelControllerPath, cp)
 		v.serviceInstanceLabels.deleteLabel(k, labelServiceName, old.Service.Hostname)
 		v.serviceInstanceLabels.deleteLabel(k, labelInstanceIP, getIPHex(old.Endpoint.Address))
 		v.serviceInstanceLabels.deleteLabel(k, labelInstancePort, getPortHex(old.Endpoint.Port))
@@ -382,8 +523,9 @@ func (v *MeshResourceView) handleServiceInstance(k resourceKey, i *model.Service
 		}
 		delete(v.serviceInstances, k)
 	}
-	if e != model.EventDelete {
+	if e != model.EventDelete  {
 		// Treat as upsert
+		v.serviceInstanceLabels.addLabel(k, labelControllerPath, cp)
 		v.serviceInstanceLabels.addLabel(k, labelServiceName, i.Service.Hostname)
 		v.serviceInstanceLabels.addLabel(k, labelInstanceIP, getIPHex(i.Endpoint.Address))
 		v.serviceInstanceLabels.addLabel(k, labelInstancePort, getPortHex(i.Endpoint.Port))

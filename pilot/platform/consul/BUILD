@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "controller.go",
         "conversion.go",
-        "monitor.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -21,7 +20,6 @@ go_test(
     srcs = [
         "controller_test.go",
         "conversion_test.go",
-        "monitor_test.go",
     ],
     library = ":go_default_library",
     deps = [

@@ -15,7 +15,7 @@
 package cloudfoundry
 
 import (
-	"reflect"
+    "fmt"
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
@@ -25,73 +25,103 @@ import (
 	"istio.io/istio/pilot/model"
 )
 
-type serviceHandler func(*model.Service, model.Event)
-type instanceHandler func(*model.ServiceInstance, model.Event)
-
-// Ticker acts like time.Ticker but is mockable for testing
-type Ticker interface {
-	Chan() <-chan time.Time
-	Stop()
-}
-
-type realTicker struct {
-	*time.Ticker
-}
-
-func (r realTicker) Chan() <-chan time.Time {
-	return r.C
-}
-
-// NewTicker returns a Ticker used to instantiate a Controller
-func NewTicker(d time.Duration) Ticker {
-	return realTicker{time.NewTicker(d)}
-}
+// AppPort is the container-side port on which Cloud Foundry Diego applications listen
+const AppPort = 8080
 
 // Controller communicates with Cloud Foundry and monitors for changes
 type Controller struct {
-	Client           copilotapi.IstioCopilotClient
-	Ticker           Ticker
-	serviceHandlers  []serviceHandler
-	instanceHandlers []instanceHandler
+	client           copilotapi.IstioCopilotClient
+	ticker           time.Ticker
+    controllerPath 	string
+    handler 		*model.ControllerViewHandler	
 }
 
-// AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.serviceHandlers = append(c.serviceHandlers, f)
-	return nil
+func NewController(client copilotapi.IstioCopilotClient, ticker time.Ticker) *Controller {
+    return &Controller {
+        client: client,
+        ticker: ticker,
+    }
 }
 
-// AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
-	return nil
-}
+// Implements Mesh View Controller interface 
+func (c *Controller) Handle(path string, handler *model.ControllerViewHandler) error {
+    if c.handler != nil {
+        err := fmt.Errorf("Cloud Foundry registry already setup to handle Mesh View at controller path '%s'",
+            c.controllerPath)
+        glog.Error(err.Error())
+        return err
+    }
+    c.controllerPath = path
+    c.handler = handler
+    return nil
+}    
 
-// Run will loop, calling handlers in response to changes, until a signal is received
+// Implements Mesh View Controller interface 
 func (c *Controller) Run(stop <-chan struct{}) {
-	cache := &copilotapi.RoutesResponse{}
-	for {
-		select {
-		case <-c.Ticker.Chan():
-			backendSets, err := c.Client.Routes(context.Background(), &copilotapi.RoutesRequest{})
-			if err != nil {
-				glog.Warningf("periodic copilot routes poll failed: %s", err)
-				continue
-			}
+    glog.Infof("Starting Cloud Foundry registry controller for controller path '%s'", c.controllerPath)
+    for {
+        // Block until tick
+        <- c.ticker.C
+        c.doReconcile()        
+        select {
+        case <- stop:
+            return  
+        }        
+    }
+    glog.Infof("Stopping Cloud Foundry registry controller for controller path '%s'", c.controllerPath)
+}
 
-			if !reflect.DeepEqual(backendSets, cache) {
-				cache = backendSets
-				// Clear service discovery cache
-				for _, h := range c.serviceHandlers {
-					go h(&model.Service{}, model.EventAdd)
-				}
-				for _, h := range c.instanceHandlers {
-					go h(&model.ServiceInstance{}, model.EventAdd)
-				}
-			}
-		case <-stop:
-			c.Ticker.Stop()
-			return
-		}
+func newService(hostname string) *model.Service {
+	return &model.Service{
+		Hostname: hostname,
+		Ports: []*model.Port{
+			{
+				Port:     AppPort,
+				Protocol: model.ProtocolTCP,
+			},
+		},
 	}
+}
+
+func (c *Controller) getControllerView() (*model.ControllerView, error) {
+	resp, err := c.client.Routes(context.Background(), new(copilotapi.RoutesRequest))
+	if err != nil {
+    	controllerErr := fmt.Errorf("Cloud Foundry registry controller '%s' failed periodic copilot routes poll with: %s", 
+    	    c.controllerPath, err)
+    	glog.Warning(controllerErr)
+		return nil, controllerErr
+	}
+    controllerView := model.ControllerView {
+        Path: 				c.controllerPath,
+        Services:			make([]*model.Service, 0, len(resp.GetBackends())),
+        ServiceInstances: 	make([]*model.ServiceInstance, 0, len(resp.GetBackends())),
+    }
+	for hostname := range resp.Backends {
+	    service := newService(hostname)
+		controllerView.Services = append(controllerView.Services, service)
+    	backendSet, ok := resp.Backends[hostname]
+    	if !ok {
+    		continue
+    	}
+    	for _, backend := range backendSet.GetBackends() {
+    		controllerView.ServiceInstances = append(controllerView.ServiceInstances, &model.ServiceInstance{
+    			Endpoint: model.NetworkEndpoint{
+    				Address:     backend.Address,
+    				Port:        int(backend.Port),
+    				ServicePort: service.Ports[0],
+    			},
+    			Service: service,
+    		})
+    	}
+	}
+	return &controllerView, nil
+}
+
+
+func (c *Controller) doReconcile() {
+	controllerView, err := c.getControllerView()
+	if err != nil {
+	    return
+	}
+    (*c.handler).Reconcile(controllerView)
 }
