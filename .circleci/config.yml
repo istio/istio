@@ -36,13 +36,11 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
-          cat /etc/resolv.conf | sed 's/search \(.*\)/search cluster.local \1/ ' > /tmp/resolv.conf
-          sudo cp /tmp/resolv.conf /etc/resolv.conf
-          cat /etc/resolv.conf
       - checkout
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
+          name: "Start minikube"
           command: |
             mkdir -p /go/out
             mkdir /home/circleci/logs
@@ -56,7 +54,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run: make docker
       - run:
+          name: "Wait for minikube"
           command: |
             kubectl cluster-info
             set -ne
@@ -67,12 +67,12 @@ jobs:
               fi
               sleep 2
             done
+            kubectl get svc --all-namespaces
+
+      - run: docker images
       - run:
-          command: |
-            make docker
-            # Show created images
-            docker images
-            make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+            command: |
+                  make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
           path: /tmp
