@@ -26,4 +26,16 @@ type Expression interface {
 	// EvaluateBoolean evaluates this compiled expression against the attribute bag and returns the result as boolean.
 	// panics if the expression does not return a boolean.
 	EvaluateBoolean(attributes attribute.Bag) (bool, error)
+
+	// EvaluateString evaluates this compiled expression against the attribute bag and returns the result as string.
+	// panics if the expression does not return a string.
+	EvaluateString(attributes attribute.Bag) (string, error)
+
+	// EvaluateDouble evaluates this compiled expression against the attribute bag and returns the result as float64.
+	// panics if the expression does not return a float64.
+	EvaluateDouble(attribute attribute.Bag) (float64, error)
+
+	// EvaluateInteger evaluates this compiled expression against the attribute bag and returns the result as int64.
+	// panics if the expression does not return a int64.
+	EvaluateInteger(attribute attribute.Bag) (int64, error)
 }

@@ -35,7 +35,7 @@ func BenchmarkCompiled(b *testing.B) {
 		finder := descriptor.NewFinder(test.Conf())
 
 		builder := NewBuilder(finder)
-		expression, err := builder.Compile(test.E)
+		expression, _, err := builder.Compile(test.E)
 		if err != nil {
 			b.Fatalf("compilation of benchmark expression failed: '%v'", err)
 			return
