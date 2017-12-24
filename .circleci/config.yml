@@ -71,7 +71,7 @@ jobs:
             make docker
             # Show created images
             docker images
-            make e2e_simple
+            make e2e_simple E2E_ARGS="--namespace test --skip_delete"
       - store_artifacts:
           path: /home/circleci/logs
           path: /tmp
