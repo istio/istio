@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"strings"
 )
 
 const (
@@ -325,7 +325,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
-			} else if ! strings.Contains(err.Error(), c.expectedErr) {
+			} else if !strings.Contains(err.Error(), c.expectedErr) {
 				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
 			}
 		} else {

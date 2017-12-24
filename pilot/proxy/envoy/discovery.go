@@ -25,10 +25,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"github.com/golang/glog"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
