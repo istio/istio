@@ -16,6 +16,7 @@ package perf
 
 import (
 	"testing"
+
 	"istio.io/api/mixer/v1"
 )
 

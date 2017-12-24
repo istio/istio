@@ -17,9 +17,9 @@ package perf
 import (
 	"encoding/json"
 
-	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/api/mixer/v1"
- )
+	"istio.io/istio/mixer/pkg/attribute"
+)
 
 // Request interface is the common interface for all different types of requests.
 type Request interface {
