@@ -167,11 +167,11 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 
 // buildHTTPRoutes translates a route rule to an Envoy route
 func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
-	port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+	port *model.Port, instances []*model.ServiceInstance, domain string, defaultCluster *Cluster) []*HTTPRoute {
 
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
-		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
+		return []*HTTPRoute{buildHTTPRouteV1(config, service, port, defaultCluster)}
 	case *routingv2.RouteRule:
 		return buildHTTPRoutesV2(store, config, service, port, instances, domain)
 	default:
@@ -179,7 +179,7 @@ func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service 
 	}
 }
 
-func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port, defaultCluster *Cluster) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -228,9 +228,8 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 		}
 	} else {
 		// default route for the destination
-		cluster := buildOutboundCluster(destination, port, nil)
-		route.Cluster = cluster.Name
-		route.clusters = append(route.clusters, cluster)
+		route.Cluster = defaultCluster.Name
+		route.clusters = append(route.clusters, defaultCluster)
 	}
 
 	if rule.Redirect != nil {

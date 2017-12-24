@@ -536,6 +536,16 @@ func buildDestinationHTTPRoutes(sidecar proxy.Node, service *model.Service,
 	servicePort *model.Port,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore) []*HTTPRoute {
+	defaultCluster := buildOutboundCluster(service.Hostname, servicePort, nil)
+	return buildDestinationHTTPRoutesWithDefaultCluster(sidecar, service, servicePort, instances, config, defaultCluster)
+}
+
+// buildDestinationHTTPRoutesWithDefaultCluster creates HTTP route for a service and a port from rules
+func buildDestinationHTTPRoutesWithDefaultCluster(sidecar proxy.Node, service *model.Service,
+	servicePort *model.Port,
+	instances []*model.ServiceInstance,
+	config model.IstioConfigStore,
+	defaultCluster *Cluster) []*HTTPRoute {
 	protocol := servicePort.Protocol
 	switch protocol {
 	case model.ProtocolHTTP, model.ProtocolHTTP2, model.ProtocolGRPC:
@@ -550,7 +560,7 @@ func buildDestinationHTTPRoutes(sidecar proxy.Node, service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := buildHTTPRoutes(config, rule, service, servicePort, instances, sidecar.Domain)
+			httpRoutes := buildHTTPRoutes(config, rule, service, servicePort, instances, sidecar.Domain, defaultCluster)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
@@ -574,8 +584,7 @@ func buildDestinationHTTPRoutes(sidecar proxy.Node, service *model.Service,
 
 		if useDefaultRoute {
 			// default route for the destination is always the lowest priority route
-			cluster := buildOutboundCluster(service.Hostname, servicePort, nil)
-			routes = append(routes, buildDefaultRoute(cluster))
+			routes = append(routes, buildDefaultRoute(defaultCluster))
 		}
 
 		return routes
@@ -887,18 +896,9 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
+	routes := buildDestinationHTTPRoutesWithDefaultCluster(sidecar, &model.Service{Hostname: destination}, port, instances, config, externalTrafficCluster)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
-
-	if len(routes) > 0 {
-		// Set the destination clusters to the cluster we computed above.
-		// Services defined via egress rules do not have labels and hence no weighted clusters
-		for _, route := range routes {
-			route.Cluster = externalTrafficCluster.Name
-			route.clusters = []*Cluster{externalTrafficCluster}
-		}
-	}
 
 	virtualHostName := destination + ":" + strconv.Itoa(port.Port)
 	return &VirtualHost{
