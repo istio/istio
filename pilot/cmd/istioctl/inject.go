@@ -97,6 +97,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				defer func() {
 					if errClose := in.Close(); errClose != nil {
 						glog.Errorf("Error: close file from %s, %s", inFilename, errClose)
+
 						// don't overwrite the previous error
 						if err == nil {
 							err = errClose
