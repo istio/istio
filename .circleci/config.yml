@@ -37,11 +37,11 @@ jobs:
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
       - checkout
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           name: "Start minikube"
           command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             mkdir -p /go/out
             mkdir /home/circleci/logs
             sudo -E minikube start \
@@ -74,7 +74,15 @@ jobs:
             timeout: 20m
             command: |
                   make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
-      - store_artifacts:
+      - run:
+            timeout: 20m
+            command: |
+                  make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run:
+            timeout: 20m
+            command: |
+                  make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+       - store_artifacts:
           path: /home/circleci/logs
           path: /tmp
 
