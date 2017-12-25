@@ -307,26 +307,11 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 }
 
 type mockController struct {
-	mockDiscovery model.ServiceDiscovery
-	svcHandler    func(*model.Service, model.Event)
-	instHandler   func(*model.ServiceInstance, model.Event)
+	mockDiscovery 	model.ServiceDiscovery
+	controllerPath	string
+	handler 	 	*model.ControllerViewHandler
 }
 
-func (c *mockController) AppendMeshHandler(model.MeshHandler) error {
-    return nil
-} 
-
-func (c *mockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	// TODO: Last call wins. This may work, but may need refactoring down the line
-	c.svcHandler = f
-	return nil
-}
-
-func (c *mockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	// TODO: Last call wins. This may work, but may need refactoring down the line
-	c.instHandler = f
-	return nil
-}
 
 func (c *mockController) Run(<-chan struct{}) {
 	svcs, err := c.mockDiscovery.Services()
@@ -334,10 +319,23 @@ func (c *mockController) Run(<-chan struct{}) {
 		glog.Errorf("mockDiscovery failed to return services: '%v'", err)
 		return
 	}
-	for _, svc := range svcs {
-		c.svcHandler(svc, model.EventAdd)
+	mockView := model.ControllerView {
+	    Path: c.controllerPath,
+	    Services: []*model.Service{},
+	    ServiceInstances: []*model.ServiceInstance{},
 	}
+	for _, svc := range svcs {
+	    mockView.Services = append(mockView.Services, svc)
+	}
+    (*c.handler).Reconcile(&mockView)
 }
+
+func (c *mockController) Handle(path string, handler *model.ControllerViewHandler) error {
+    c.controllerPath = path
+    c.handler = handler
+    return nil
+}    
+
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
@@ -410,7 +408,8 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			meshResourceView.AddRegistry(registry1)
 			meshResourceView.AddRegistry(registry2)
 		case KubernetesRegistry:
-			kubectl := kube.NewController(s.kubeClient, args.Config.ControllerOptions)
+		    viewRefreshTicker := time.NewTicker(args.Config.ControllerOptions.ResyncPeriod)
+			kubectl := kube.NewController(s.kubeClient, *viewRefreshTicker, args.Config.ControllerOptions)
 			meshResourceView.AddRegistry(
 				aggregate.Registry{
 					Name:       platform.ServiceRegistry(serviceRegistry),
@@ -443,7 +442,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			glog.V(2).Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
 				// TODO: Remove this hardcoding!
-				args.Service.Consul.ServerURL, "dc1", 2*time.Second)
+				args.Service.Consul.ServerURL, "dc1", *time.NewTicker(2*time.Second))
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
@@ -459,7 +458,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				aggregate.Registry{
 					Name: platform.ServiceRegistry(r),
 					// TODO: Remove sync time hardcoding!
-					Controller: eureka.NewController(eurekaClient, 2*time.Second),
+					Controller: eureka.NewController(eurekaClient, *time.NewTicker(2*time.Second)),
 				})
 
 		case CloudFoundryRegistry:
@@ -477,10 +476,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			}
 			meshResourceView.AddRegistry(aggregate.Registry{
 				Name: platform.ServiceRegistry(r),
-				Controller: &cloudfoundry.Controller{
-					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
-					Client: client,
-				},
+				Controller: cloudfoundry.NewController(
+					client,
+					*time.NewTicker(cfConfig.Copilot.PollInterval)),
 			})
 
 		default:

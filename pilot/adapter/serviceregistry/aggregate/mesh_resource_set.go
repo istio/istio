@@ -38,6 +38,10 @@ type resourceLabel struct {
 
 type resourceLabels []resourceLabel
 
+func(k *resourceKey) String() string {
+    return string(*k)
+}
+
 func resourceLabelsForName(name string) resourceLabels {
 	rl := make(resourceLabels, 1)
 	rl[0] = resourceLabel{name, nil}

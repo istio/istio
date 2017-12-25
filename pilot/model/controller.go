@@ -74,11 +74,12 @@ type ControllerView struct {
     ServiceInstances []*ServiceInstance
 }
 
-// A handler for synchronizing the aggregated mesh view with
-// the native view of resources under a controller's influence.
+// ControllerViewHandler is an interface for synchronizing the 
+// aggregated mesh view with the native view of resources under
+// a platform controller's influence.
 type ControllerViewHandler interface {
 
-    // Reconcile's the controller's view of entities
+    // Reconciles the controller's view of entities.
     // There should be no expectations on ordering of how 
     // various mesh entities get reconciled with the 
     // aggregated view. This is true between entity types
@@ -88,6 +89,49 @@ type ControllerViewHandler interface {
     // Handle() returns, all entities are fully reconciled
     // with the aggregated mesh view.
     Reconcile(*ControllerView)
+}
+
+
+// CacheEvictionHandler allows implementors to properly clear
+// caches of model.* objects.
+type CacheEvictionHandler interface {
+    // Called by the model when the underlying model.* objects
+    // of the kind specified in CacheReferences has changed.
+    EvictCache(CacheReferences)
+}
+
+// CacheReferences are references maintained by the model for the 
+// explicit purpose of maintaining caches of model.* objects. 
+// Cache maintainers must recieve CacheReferences along with 
+// query results so that they can map model keys to the key
+// representing the query. Cache maintainers must also implement
+// CacheEvictionHandler. This allows cache maintainers to invalidate
+// caches for relevant query keys.
+type CacheReferences struct {
+    // The kind of model.* object that is intended for caching
+    // Examples could be: config.istio.io/Service or 
+    // config.istio.io/ServiceInstance  
+    Kind string
+    
+    // The keyset of model.* object keys. Cache handlers should
+    // expect the key format to be an implementation detail of
+    // the model. However the key value must be unique for
+    // each of the model.* object it respresents. Model implementors
+    // must guarantee uniqueness across the mesh. The keys in this
+    // keyset are distinct from cache keys but may be asssociated
+    // with cache keys. Events from CacheEvictionHandler would then
+    // use these keys to find the associated cache keys and remove
+    // them from relevant caches.
+    Keyset map[string]bool
+}
+
+// UpdateNotifier is an interface intended for implementors of
+// queries that return model.* objects for the purpose of managing
+// cache evictions.
+type UpdateNotifier interface {
+    // Sets the cache eviction handler for notifying
+    // the caller on changes to model objects.
+    SetCacheEvictionHandler(CacheEvictionHandler) error
 }
 
 // Event represents a registry update event, mostly for

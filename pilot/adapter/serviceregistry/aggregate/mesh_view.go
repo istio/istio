@@ -51,6 +51,9 @@ const (
 	// Internally stored format is a hex representation
 	labelInstancePort      = labelInstancePrefix + "port"
 	labelInstanceNamedPort = labelInstancePrefix + "namedPort"
+	
+	// Value is Service Name + ip + port
+	labelInstanceRef 	   = labelInstancePrefix + "reference"
 )
 
 // Registry specifies the collection of service registry related interfaces
@@ -80,11 +83,8 @@ type MeshResourceView struct {
 	// A reverse map that associates label names to label values and their associated service instance resource keys
 	serviceInstanceLabels nameValueKeysMap
 
-	// Cache notifier for Service resources
-	serviceHandler func(*model.Service, model.Event)
-
-	// Cache notifier for Service Instance resources
-	serviceInstanceHandler func(*model.ServiceInstance, model.Event)
+	// Cache eviction handler for notifying changes to model objects
+	cacheEvictionHandler model.CacheEvictionHandler
 }
 
 // NewMeshResourceView creates an aggregated store for resources sourced from various registries
@@ -294,27 +294,15 @@ func (v *MeshResourceView) Run(stop <-chan struct{}) {
 	glog.V(2).Info("Registry Aggregator terminated")
 }
 
-
-// AppendServiceHandler implements a service catalog operation, but limits to only one handler
-func (v *MeshResourceView) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	if v.serviceHandler != nil {
-		logMsg := "Fail to append service handler to aggregated mesh view. Maximum number of handlers '1' already added."
+// Implements model.UpdateNotifier
+func (v *MeshResourceView) SetCacheEvictionHandler(h model.CacheEvictionHandler) error {
+    if v.cacheEvictionHandler != nil {
+		logMsg := "Fail to set cache eviction handler to aggregated mesh view. Maximum number of handlers '1' already added."
 		glog.V(2).Info(logMsg)
 		return errors.New(logMsg)
-	}
-	v.serviceHandler = f
-	return nil
-}
-
-// AppendInstanceHandler implements a service instance catalog operation, but limits to only one handler
-func (v *MeshResourceView) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	if v.serviceInstanceHandler != nil {
-		logMsg := "Fail to append service instance handler to aggregated mesh view. Maximum number of handlers '1' already added."
-		glog.V(2).Info(logMsg)
-		return errors.New(logMsg)
-	}
-	v.serviceInstanceHandler = f
-	return nil
+    }
+    v.cacheEvictionHandler = h
+    return nil
 }
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
@@ -368,17 +356,29 @@ func (v *MeshResourceView) reconcileServices(r *Registry, cvp string, rl resourc
         // Remaining would be ones that need deleting
         delete(actualKeySvcMap, k)
     }
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	for k, delSvc := range actualKeySvcMap {
-        v.reconcileService(cvp, k, delSvc, model.EventDelete)
-	}    
-	for k, addSvc := range expectedKeySvcMap {
-        v.reconcileService(cvp, k, addSvc, model.EventAdd)
-	}    
-	for k, updSvc := range updateSet {
-        v.reconcileService(cvp, k, updSvc, model.EventUpdate)
-	}    
+    cacheReferences := model.CacheReferences{
+        Kind: labelServiceName,
+        Keyset: map[string]bool{}, 
+    } 
+    // Scope locks to performing actual changes.
+    func () {
+        v.mu.Lock()
+        defer v.mu.Unlock()
+        for k, delSvc := range actualKeySvcMap {
+            v.reconcileService(cvp, k, delSvc, model.EventDelete)
+            cacheReferences.Keyset[delSvc.Hostname] = true
+        }    
+        for k, addSvc := range expectedKeySvcMap {
+            v.reconcileService(cvp, k, addSvc, model.EventAdd)
+            cacheReferences.Keyset[addSvc.Hostname] = true
+        }    
+        for k, updSvc := range updateSet {
+            v.reconcileService(cvp, k, updSvc, model.EventUpdate)
+            cacheReferences.Keyset[updSvc.Hostname] = true
+        }
+    }()
+    // Caches must be updated outside scope of locks
+    v.cacheEvictionHandler.EvictCache(cacheReferences)
 }
 
 func (v *MeshResourceView) reconcileServiceInstances(cvp string, rl resourceLabels, expectedInstances []*model.ServiceInstance) {
@@ -399,17 +399,29 @@ func (v *MeshResourceView) reconcileServiceInstances(cvp string, rl resourceLabe
         // Remaining would be ones that need deleting
         delete(actualKeyInstMap, k)
     }
-	v.mu.Lock()
-	defer v.mu.Unlock()
-	for k, delInst := range actualKeyInstMap {
-        v.reconcileServiceInstance(cvp, k, delInst, model.EventDelete)
-	}    
-	for k, addInst := range expectedKeyInstMap {
-        v.reconcileServiceInstance(cvp, k, addInst, model.EventAdd)
-	}    
-	for k, updInst := range updateSet {
-        v.reconcileServiceInstance(cvp, k, updInst, model.EventUpdate)
-	}    
+    cacheReferences := model.CacheReferences{
+        Kind: labelInstanceRef,
+        Keyset: map[string]bool{}, 
+    } 
+    // Scope locks to performing actual changes.
+    func () {
+    	v.mu.Lock()
+    	defer v.mu.Unlock()
+    	for k, delInst := range actualKeyInstMap {
+            v.reconcileServiceInstance(cvp, k, delInst, model.EventDelete)
+            cacheReferences.Keyset[k.String()] = true
+    	}    
+    	for k, addInst := range expectedKeyInstMap {
+            v.reconcileServiceInstance(cvp, k, addInst, model.EventAdd)
+            cacheReferences.Keyset[k.String()] = true
+    	}    
+    	for k, updInst := range updateSet {
+            v.reconcileServiceInstance(cvp, k, updInst, model.EventUpdate)
+            cacheReferences.Keyset[k.String()] = true
+    	}    
+    }()
+    // Caches must be updated outside scope of locks
+    v.cacheEvictionHandler.EvictCache(cacheReferences)
 }
 
 func getUniqueSet(values []string) map[string]bool {  
@@ -503,7 +515,6 @@ func (v *MeshResourceView) reconcileService(cp string, k resourceKey, s *model.S
 		}
 		v.services[k] = s
 	}
-	v.serviceHandler(s, e)
 }
 
 func (v *MeshResourceView) reconcileServiceInstance(cp string, k resourceKey, i *model.ServiceInstance, e model.Event) {
@@ -537,7 +548,6 @@ func (v *MeshResourceView) reconcileServiceInstance(cp string, k resourceKey, i 
 		}
 		v.serviceInstances[k] = i
 	}
-	v.serviceInstanceHandler(i, e)
 }
 
 func (v *MeshResourceView) serviceByLabels(labels resourceLabels) []*model.Service {
