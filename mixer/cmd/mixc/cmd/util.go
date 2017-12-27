@@ -23,12 +23,13 @@ import (
 	"text/tabwriter"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/tracing"
@@ -218,9 +219,13 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, error) 
 }
 
 func decodeError(err error) string {
-	result := grpc.Code(err).String()
+	st, ok := status.FromError(err)
+	if !ok {
+		return "unknown"
+	}
+	result := st.Code().String()
 
-	msg := grpc.ErrorDesc(err)
+	msg := st.Message()
 	if msg != "" {
 		result = result + " (" + msg + ")"
 	}

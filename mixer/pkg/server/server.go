@@ -48,6 +48,8 @@ type Server struct {
 	monitor   *monitor
 	tracer    *mixerTracer
 	configDir string
+
+	dispatcherForTesting mixerRuntime.Dispatcher
 }
 
 // replaceable set of functions for fault injection
@@ -65,7 +67,7 @@ type patchTable struct {
 
 // New instantiates a fully functional Mixer server, ready for traffic.
 func New(a *Args) (*Server, error) {
-	return new(a, newPatchTable())
+	return newServer(a, newPatchTable())
 }
 
 func newPatchTable() *patchTable {
@@ -79,7 +81,7 @@ func newPatchTable() *patchTable {
 	}
 }
 
-func new(a *Args, p *patchTable) (*Server, error) {
+func newServer(a *Args, p *patchTable) (*Server, error) {
 	if err := a.validate(); err != nil {
 		return nil, err
 	}
@@ -114,14 +116,17 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	var interceptor grpc.UnaryServerInterceptor
+	if a.EnableTracing() {
+		var interceptor grpc.UnaryServerInterceptor
 
-	if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
-	}
-	if interceptor != nil {
-		interceptors = append(interceptors, interceptor)
+		if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
+		}
+
+		if interceptor != nil {
+			interceptors = append(interceptors, interceptor)
+		}
 	}
 
 	// setup server prometheus monitoring (as final interceptor in chain)
@@ -164,8 +169,9 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
+	s.dispatcherForTesting = dispatcher
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
@@ -253,4 +259,10 @@ func (s *Server) Close() error {
 // Addr returns the address of the server's API port, where gRPC requests can be sent.
 func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
+}
+
+// GetDispatcherForTesting returns the dispatcherForTesting that was created during server creation. This should only
+// be used for testing purposes only.
+func (s *Server) GetDispatcherForTesting() mixerRuntime.Dispatcher {
+	return s.dispatcherForTesting
 }

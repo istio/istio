@@ -577,6 +577,30 @@ go_repository(
     importpath = "golang.org/x/sync",
 )
 
+go_repository(
+    name = "com_github_open_policy_agent_opa",
+    commit = "4b934006914c7964e89563d54bbfc63167922aa0",  # Dec 7, 2017 (0.5.13)
+    importpath = "github.com/open-policy-agent/opa",
+)
+
+go_repository(
+    name = "com_github_dchest_siphash",
+    commit = "4ebf1de738443ea7f45f02dc394c4df1942a126d",  # Aug 31, 2016 (no releases)
+    importpath = "github.com/dchest/siphash",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "c605e284fe17294bda444b34710735b29d1a9d90",  # May 4, 2017 (no releases)
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
+)
+
 ##
 ## Docker image build deps
 ##
@@ -1088,7 +1112,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "f1b698b1c35d2a5433e0675e5e762171e15c64b3"
+ISTIO_PROXY_BUCKET = "a7e4ff4e3ee3fefde0159436713c2a0777be31de"
 
 http_file(
     name = "envoy_binary",

@@ -1,0 +1,29 @@
+
+Á	
+`bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata/report2_tmpl.protoistio.mixer.template.metric"mixer/v1/template/extensions.proto+mixer/v1/config/descriptor/value_type.proto"á
+TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalueQ
+
+dimensions (21.istio.mixer.template.metric.Type.DimensionsEntryR
+dimensionsW
+anotherValueType (2+.istio.mixer.v1.config.descriptor.ValueTypeRanotherValueTypej
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8"ú
+InstanceParam
+value (	RvalueZ
+
+dimensions (2:.istio.mixer.template.metric.InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive*
+anotherValueType (	RanotherValueType–
+dimensionsFixedInt64ValueDType (2N.istio.mixer.template.metric.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8Q
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8BøÒä“bproto3

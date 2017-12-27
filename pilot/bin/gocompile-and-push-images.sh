@@ -24,6 +24,9 @@ set -ex
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
+export GOPATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)"
+
+cd $ROOT
 export GOOS=linux
 export GOARCH=amd64
 

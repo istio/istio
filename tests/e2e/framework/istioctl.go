@@ -94,6 +94,13 @@ func (i *Istioctl) Teardown() error {
 // Install downloads Istioctl binary.
 func (i *Istioctl) Install() error {
 	if *localPath == "" {
+		if i.remotePath == "" {
+			// If a remote URL or env variable is not set, default to the locally built istioctl
+			gopath := os.Getenv("GOPATH")
+			*localPath = filepath.Join(gopath, "/bin/istioctl")
+			i.binaryPath = *localPath
+			return nil
+		}
 		var usr, err = user.Current()
 		if err != nil {
 			glog.Error("Failed to get current user")
