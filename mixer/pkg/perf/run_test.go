@@ -43,10 +43,10 @@ func (b *mockB) fatalf(format string, args ...interface{}) {
 	b.fatalLog = append(b.fatalLog, fmt.Sprintf(format, args...))
 }
 
-var settings = Settings {
-	RunMode: InProcess,
-	Templates:make(map[string]template.Info),
-	Adapters: []adapter.InfoFn{},
+var settings = Settings{
+	RunMode:   InProcess,
+	Templates: make(map[string]template.Info),
+	Adapters:  []adapter.InfoFn{},
 }
 
 // TestBasic smoke-tests the basic run infrastructure. It is not a real benchmark.

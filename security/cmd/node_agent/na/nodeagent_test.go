@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,7 +33,6 @@ import (
 	mockutil "istio.io/istio/security/pkg/util/mock"
 	"istio.io/istio/security/pkg/workload"
 	pb "istio.io/istio/security/proto"
-	"strings"
 )
 
 const (
