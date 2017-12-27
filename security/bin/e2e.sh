@@ -49,9 +49,6 @@ if [[ "$HUB" =~ ^gcr\.io ]]; then
   gcloud docker --authorize-only
 fi
 
-# Build and push docker images
-${SECURITY_ROOT}/bin/push-docker -i $DOCKER_IMAGE -h $HUB -t $TAG
-
 # Run integration tests
 go test istio.io/istio/security/tests/integration/certificateRotationTest $ARGS  \
 -kube-config=$HOME/.kube/config \
