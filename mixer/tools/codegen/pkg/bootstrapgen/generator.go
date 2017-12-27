@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"text/template"
@@ -143,6 +144,83 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			},
 			"getBuildFnName": func(typeName string) string {
 				return "Build" + typeName
+			},
+			"getMessageBuilderName": func(m modelgen.Model, target interface{}) string {
+				// Generate and return the name that will be used as the name of the struct that will be used
+				// to build an instance and/or sub-message of an instance.
+				// The struct will be initialized based on an instance parameter, and can be used to
+				// efficiently construct instances during runtime.
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "builder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "builder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				default:
+					panic("unknown type in getMessageBuilderName" + reflect.TypeOf(target).String())
+				}
+			},
+			"getNewMessageBuilderFnName": func(m modelgen.Model, target interface{}) string {
+				// Generate and return the name of the function that will return a new builder struct
+				// for this particular message. The function initializes the builder struct based on the
+				// instance parameters and returns.
+				switch t := target.(type) {
+				case modelgen.MessageInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + t.Name
+				case modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				case *modelgen.TypeInfo:
+					return "newBuilder_" + m.GoPackageName + "_" + strings.Trim(t.Name, "*")
+				default:
+					panic("unknown type in getNewMessageBuilderFnName:" + reflect.TypeOf(target).String())
+				}
+			},
+			"builderFieldName": func(f modelgen.FieldInfo) string {
+				// Returns the name of the field on the builder struct that will hold compiled.Expressions
+				// or sub-builders for this particular field of the of the instance.
+				return "bld" + f.GoName
+			},
+			"isPrimitiveType": func(goType modelgen.TypeInfo) bool {
+				// Returns whether the given type is a primitive value, for evaluation purposes.
+				// Primitives are: bool, int64, float64, and string.
+				switch goType.Name {
+				case "string", "bool", "int64", "float64":
+					return true
+				default:
+					return false
+				}
+			},
+			"getEvalMethod": func(goType modelgen.TypeInfo) string {
+				// Returns the name of the evaluation method that should be called on a compiled expression
+				// for a given target type.
+				switch goType.Name {
+				case "string":
+					return "EvaluateString"
+				case "bool":
+					return "EvaluateBoolean"
+				case "int64":
+					return "EvaluateInteger"
+				case "float64":
+					return "EvaluateDouble"
+				default:
+					return "Evaluate"
+				}
+			},
+			"getLocalVar": func(goType modelgen.TypeInfo) string {
+				// Returns the name of the local variable to assign to when evaluating a compiled expression.
+				switch goType.Name {
+				case "string":
+					return "vString"
+				case "bool":
+					return "vBool"
+				case "int64":
+					return "vInt"
+				case "float64":
+					return "vDouble"
+				default:
+					return "vIface"
+				}
 			},
 		}).Parse(tmplPkg.InterfaceTemplate)
 
