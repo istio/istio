@@ -71,7 +71,7 @@ func (c *Config) Save(path string) error {
 func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 	clientCert, err := tls.LoadX509KeyPair(c.Copilot.ClientCertPath, c.Copilot.ClientKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("parsing client cert/key: %s", err)
+		return nil, fmt.Errorf("loading client cert/key: %s", err)
 	}
 
 	serverCABytes, err := ioutil.ReadFile(c.Copilot.ServerCACertPath)
@@ -80,7 +80,7 @@ func (c *Config) ClientTLSConfig() (*tls.Config, error) {
 	}
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		return nil, errors.New("parsing server CAs: invalid pem block")
+		return nil, errors.New("loading server CAs: failed to find any PEM data")
 	}
 
 	return &tls.Config{
