@@ -220,7 +220,8 @@ broker-test: vendor
 
 .PHONY: security-test
 security-test:
-	go test ${T} ./security/...
+	go test ${T} ./security/pkg/...
+	go test ${T} ./security/cmd/...
 
 # Run coverage tests
 go-test: pilot-test mixer-test security-test broker-test
@@ -243,7 +244,8 @@ broker-cov:
 
 .PHONY: security-cov
 security-cov:
-	bin/parallel-codecov.sh security
+	bin/parallel-codecov.sh security/pkg
+	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
 cov: pilot-cov mixer-cov security-cov broker-cov
