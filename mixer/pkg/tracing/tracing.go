@@ -24,10 +24,10 @@ import (
 
 	opentracing "github.com/opentracing/opentracing-go"
 	jaeger "github.com/uber/jaeger-client-go"
-	"github.com/uber/jaeger-client-go/log"
 	"github.com/uber/jaeger-client-go/transport"
 	"github.com/uber/jaeger-client-go/transport/zipkin"
 
+	"go.uber.org/zap"
 	ilog "istio.io/istio/pkg/log"
 )
 
@@ -38,10 +38,10 @@ var (
 )
 
 type tracingOpts struct {
-	serviceName string
-	jaegerURL   string
-	zipkinURL   string
-	logger      log.Logger
+	serviceName     string
+	jaegerURL       string
+	zipkinURL       string
+	consoleReporter jaeger.Reporter
 }
 
 // Option is a function that configures Mixer self-tracing options.
@@ -74,19 +74,20 @@ func WithJaegerHTTPCollector(addr string) Option {
 	}
 }
 
-// WithLogger configures Mixer tracing to log span data to the console.
-func WithLogger() Option {
-	return withLogger(gLogger)
+// WithConsoleLogging configures Mixer tracing to log span data to the console.
+func WithConsoleLogging() Option {
+	return withReporter(conrep)
 }
 
-func withLogger(logger log.Logger) Option {
+func withReporter(reporter jaeger.Reporter) Option {
 	return func(opts *tracingOpts) {
-		opts.logger = logger
+		opts.consoleReporter = reporter
 	}
 }
 
 func newJaegerTracer(opts tracingOpts) (opentracing.Tracer, io.Closer, error) {
 	reporters := make([]jaeger.Reporter, 0, 3)
+
 	if len(opts.zipkinURL) > 0 {
 		rep, err := newZipkinReporter(opts.zipkinURL)
 		if err != nil {
@@ -94,57 +95,54 @@ func newJaegerTracer(opts tracingOpts) (opentracing.Tracer, io.Closer, error) {
 		}
 		reporters = append(reporters, rep)
 	}
+
 	if len(opts.jaegerURL) > 0 {
-		reporters = append(reporters, newJaegerReporter(opts.jaegerURL))
+		reporters = append(reporters, jaeger.NewRemoteReporter(transport.NewHTTPTransport(opts.jaegerURL, transport.HTTPTimeout(httpTimeout))))
 	}
-	if opts.logger != nil {
-		reporters = append(reporters, newLoggingReporter(opts.logger))
+
+	if opts.consoleReporter != nil {
+		reporters = append(reporters, opts.consoleReporter)
 	}
-	rep := jaeger.NewCompositeReporter(reporters...)
+
+	var rep jaeger.Reporter
+	if len(reporters) == 1 {
+		rep = reporters[0]
+	} else {
+		rep = jaeger.NewCompositeReporter(reporters...)
+	}
+
 	tracer, closer := jaeger.NewTracer(opts.serviceName, sampler, rep, poolSpans)
 	return tracer, closer, nil
 }
 
 func newZipkinReporter(addr string) (jaeger.Reporter, error) {
-	opts := []zipkin.HTTPOption{zipkin.HTTPLogger(gLogger), zipkin.HTTPTimeout(httpTimeout)}
-	trans, err := zipkin.NewHTTPTransport(addr, opts...)
+	trans, err := zipkin.NewHTTPTransport(addr, zipkin.HTTPLogger(conrep), zipkin.HTTPTimeout(httpTimeout))
 	if err != nil {
 		return nil, fmt.Errorf("could not build zipkin reporter: %v", err)
 	}
 	return jaeger.NewRemoteReporter(trans), nil
 }
 
-func newJaegerReporter(addr string) jaeger.Reporter {
-	opts := []transport.HTTPOption{transport.HTTPTimeout(httpTimeout)}
-	return jaeger.NewRemoteReporter(transport.NewHTTPTransport(addr, opts...))
+type consoleReporter struct{}
+
+var conrep = consoleReporter{}
+
+// Report implements the Report() method of jaeger.Reporter
+func (consoleReporter) Report(span *jaeger.Span) {
+	ilog.Info("Reporting span",
+		zap.String("operation", span.OperationName()),
+		zap.String("span", span.String()))
 }
 
-type logReporter struct {
-	logger log.Logger
-}
-
-func newLoggingReporter(logger log.Logger) jaeger.Reporter {
-	return &logReporter{logger}
-}
-
-// Report implements Report() method of Reporter by logging the span to the logger.
-func (l *logReporter) Report(span *jaeger.Span) {
-	l.logger.Infof("Reporting span for operation '%s': %+v", span.OperationName(), span)
-}
-
-// Close implements Close() method of jaeger.Reporter.
-func (l *logReporter) Close() {}
-
-var gLogger = &glogLogger{}
-
-type glogLogger struct{}
+// Close implements the Close() method of jaeger.Reporter.
+func (consoleReporter) Close() {}
 
 // Error implements the Error() method of log.Logger.
-func (g *glogLogger) Error(msg string) {
+func (consoleReporter) Error(msg string) {
 	ilog.Error(msg)
 }
 
 // Infof implements the Infof() method of log.Logger.
-func (g *glogLogger) Infof(msg string, args ...interface{}) {
+func (consoleReporter) Infof(msg string, args ...interface{}) {
 	ilog.Infof(msg, args...)
 }
