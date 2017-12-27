@@ -738,6 +738,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_natefinch_lumberjack",
+    commit = "aee4629129445bbdfb69aa565537dcfa16544311",
+    importpath = "github.com/natefinch/lumberjack",
+)
+
+go_repository(
     name = "com_github_go_openapi_jsonpointer",
     commit = "46af16f9f7b149af66e5d1bd010e3574dc06de98",
     importpath = "github.com/go-openapi/jsonpointer",

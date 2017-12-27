@@ -56,97 +56,11 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zapgrpc"
-	"google.golang.org/grpc/grpclog"
 )
 
 // Global variables against which all our logging occurs.
 var logger *zap.Logger = zap.NewNop()
 var sugar *zap.SugaredLogger = logger.Sugar()
-
-// Configure initializes Istio's logging subsystem.
-//
-// You typically call this once at process startup.
-// Once this call returns, the logging system is ready to accept data.
-func Configure(options *Options) error {
-	return configure(options, func(c *zap.Config) (*zap.Logger, error) { return c.Build() })
-}
-
-type builder func(c *zap.Config) (*zap.Logger, error)
-
-func configure(options *Options, b builder) error {
-	outputLevel, err := options.GetOutputLevel()
-	if err != nil {
-		return err
-	}
-
-	stackTraceLevel, err := options.GetStackTraceLevel()
-	if err != nil {
-		return err
-	}
-
-	if outputLevel == None {
-		// stick with the Nop default
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		return nil
-	}
-
-	zapConfig := zap.Config{
-		Level:       zap.NewAtomicLevelAt(outputLevel),
-		Development: false,
-
-		Sampling: &zap.SamplingConfig{
-			Initial:    100,
-			Thereafter: 100,
-		},
-
-		Encoding: "console",
-		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "time",
-			LevelKey:       "level",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			MessageKey:     "msg",
-			StacktraceKey:  "stack",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.LowercaseLevelEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeTime:     formatDate,
-		},
-
-		OutputPaths:       options.OutputPaths,
-		ErrorOutputPaths:  []string{"stderr"},
-		DisableCaller:     !options.IncludeCallerSourceLocation,
-		DisableStacktrace: stackTraceLevel == None,
-	}
-
-	if options.JSONEncoding {
-		zapConfig.Encoding = "json"
-	}
-
-	l, err := b(&zapConfig)
-	if err != nil {
-		return err
-	}
-
-	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(stackTraceLevel))
-	sugar = logger.Sugar()
-
-	// capture global zap logging and force it through our logger
-	_ = zap.ReplaceGlobals(l)
-
-	// capture standard golang "log" package output and force it through our logger
-	_ = zap.RedirectStdLog(logger)
-
-	// capture gRPC logging
-	grpclog.SetLogger(zapgrpc.NewLogger(logger.WithOptions(zap.AddCallerSkip(2))))
-
-	return nil
-}
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
