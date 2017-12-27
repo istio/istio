@@ -200,7 +200,7 @@ func createIstioCARole(clientset kubernetes.Interface, namespace string) error {
 			{
 				Verbs:     []string{"get", "watch", "list"},
 				APIGroups: []string{"core", ""},
-				Resources: []string{"serviceaccounts"},
+				Resources: []string{"serviceaccounts", "services", "pods"},
 			},
 		},
 	}
