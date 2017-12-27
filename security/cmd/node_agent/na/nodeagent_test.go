@@ -325,7 +325,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
-			} else if ! strings.Contains(err.Error(), c.expectedErr) {
+			} else if !strings.Contains(err.Error(), c.expectedErr) {
 				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
 			}
 		} else {
