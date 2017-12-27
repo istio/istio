@@ -23,6 +23,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 // Args contains the startup arguments to instantiate Mixer.
@@ -57,15 +58,6 @@ type Args struct {
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
 
-	// URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.
-	ZipkinURL string
-
-	// URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.
-	JaegerURL string
-
-	// Whether or not to log Mixer trace spans to stdio. This enables tracing for Mixer itself.
-	LogTraceSpans bool
-
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	ConfigStore2URL string
 
@@ -93,11 +85,9 @@ type Args struct {
 
 	// The logging options to use
 	LoggingOptions *log.Options
-}
 
-// EnableTracing detects whether tracing should be enabled by introspecting tracing related argument values.
-func (a *Args) EnableTracing() bool {
-	return len(a.ZipkinURL) > 0 || len(a.JaegerURL) > 0 || a.LogTraceSpans
+	// The tracing options to use
+	TracingOptions *tracing.Options
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -114,6 +104,7 @@ func NewArgs() *Args {
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 		LoggingOptions:                log.NewOptions(),
+		TracingOptions:                tracing.NewOptions(),
 	}
 }
 
@@ -145,13 +136,11 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ZipkinURL: ", a.ZipkinURL, "\n"))
-	b.WriteString(fmt.Sprint("JaegerURL: ", a.JaegerURL, "\n"))
-	b.WriteString(fmt.Sprint("LogTraceSpans: ", a.LogTraceSpans, "\n"))
 	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
+	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()
 }

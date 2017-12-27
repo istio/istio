@@ -83,7 +83,7 @@ func check(rootArgs *rootArgs, printf, fatalf shared.FormatFn, quotas map[string
 	}
 
 	var cs *clientState
-	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
+	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.tracingOptions); err != nil {
 		fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
 	}
 	defer deleteAPIClient(cs)

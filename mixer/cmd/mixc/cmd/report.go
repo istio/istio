@@ -48,7 +48,7 @@ func report(rootArgs *rootArgs, printf, fatalf shared.FormatFn) {
 	}
 
 	var cs *clientState
-	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.enableTracing); err != nil {
+	if cs, err = createAPIClient(rootArgs.mixerAddress, rootArgs.tracingOptions); err != nil {
 		fatalf("Unable to establish connection to %s: %v", rootArgs.mixerAddress, err)
 	}
 	defer deleteAPIClient(cs)
