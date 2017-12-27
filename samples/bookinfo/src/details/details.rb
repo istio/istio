@@ -16,6 +16,7 @@
 
 require 'webrick'
 require 'json'
+require 'net/http'
 
 if ARGV.length < 1 then
     puts "usage: #{$PROGRAM_NAME} port"
@@ -37,12 +38,16 @@ end
 server.mount_proc '/details' do |req, res|
     pathParts = req.path.split('/')
     begin
-        id = Integer(pathParts[-1])
+        begin
+          id = Integer(pathParts[-1])
+        rescue
+          raise 'please provide numeric product id'
+        end
         details = get_book_details(id)
         res.body = details.to_json
         res['Content-Type'] = 'application/json'
-    rescue
-        res.body = {'error' => 'please provide numeric product id'}.to_json
+    rescue => error
+        res.body = {'error' => error}.to_json
         res['Content-Type'] = 'application/json'
         res.status = 400
     end
@@ -50,6 +55,12 @@ end
 
 # TODO: provide details on different books.
 def get_book_details(id)
+    if ENV['ENABLE_EXTERNAL_BOOK_SERVICE'] === 'true' then
+        # the ISBN of the first book Comedy Of Errors that appears in Amazon.com search
+        isbn = '1420955551'
+        return fetch_details_from_external_service(isbn, id)
+    end
+
     return {
         'id' => id,
         'author': 'William Shakespeare',
@@ -61,6 +72,31 @@ def get_book_details(id)
         'ISBN-10' => '1234567890',
         'ISBN-13' => '123-1234567890'
     }
+end
+
+def fetch_details_from_external_service(isbn, id)
+    uri = URI.parse('http://api.bookmooch.com')
+
+    response = Net::HTTP.start(uri.host, uri.port) do |http|
+        http.read_timeout = 5 # seconds
+        http.get('/api/asin?asins=' + isbn  + '&o=json')
+    end
+
+    json = JSON.parse(response.body)
+    book = json[0]
+
+    return {
+        'id' => id,
+        'author': book['Author'],
+        'year': book['PublicationDate'],
+        'type' => book['Binding'],
+        'pages' => book['NumberOfPages'],
+        'publisher' => book['Publisher'],
+        'language' => 'English', # hardcoded, not returned by bookmooch.com
+        'ISBN-10' => book['ISBN'],
+        'ISBN-13' => '978-1420955552' # hardcoded, not returned by bookmooch.com
+  }
+
 end
 
 server.start
