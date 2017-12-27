@@ -17,6 +17,7 @@ package compiled
 import (
 	"testing"
 
+	"istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	"istio.io/istio/mixer/pkg/il/testing"
 )
@@ -39,7 +40,7 @@ func TestCompiledExpressions(t *testing.T) {
 			finder := descriptor.NewFinder(test.Conf())
 
 			builder := NewBuilder(finder)
-			compiled, err := builder.Compile(test.E)
+			compiled, exprType, err := builder.Compile(test.E)
 			if test.CompileErr != "" {
 				if err == nil {
 					tt.Fatalf("expected compile error not found: '%v'", test.CompileErr)
@@ -54,6 +55,10 @@ func TestCompiledExpressions(t *testing.T) {
 				return
 			}
 
+			if exprType != test.Type {
+				tt.Fatalf("expression type mismatch: '%v' != '%v'", exprType, test.Type)
+			}
+
 			bag := ilt.NewFakeBag(test.I)
 			r, err := compiled.Evaluate(bag)
 			if e := test.CheckEvaluationResult(r, err); e != nil {
@@ -62,9 +67,34 @@ func TestCompiledExpressions(t *testing.T) {
 			}
 
 			// Depending on the type, try testing specialized methods as well.
-			switch test.R.(type) {
-			case bool:
+			if test.CompileErr != "" {
+				return
+			}
+
+			switch exprType {
+			case istio_mixer_v1_config_descriptor.BOOL:
 				actual, err := compiled.EvaluateBoolean(bag)
+				if e := test.CheckEvaluationResult(actual, err); e != nil {
+					tt.Fatalf(e.Error())
+					return
+				}
+
+			case istio_mixer_v1_config_descriptor.STRING:
+				actual, err := compiled.EvaluateString(bag)
+				if e := test.CheckEvaluationResult(actual, err); e != nil {
+					tt.Fatalf(e.Error())
+					return
+				}
+
+			case istio_mixer_v1_config_descriptor.DOUBLE:
+				actual, err := compiled.EvaluateDouble(bag)
+				if e := test.CheckEvaluationResult(actual, err); e != nil {
+					tt.Fatalf(e.Error())
+					return
+				}
+
+			case istio_mixer_v1_config_descriptor.INT64:
+				actual, err := compiled.EvaluateInteger(bag)
 				if e := test.CheckEvaluationResult(actual, err); e != nil {
 					tt.Fatalf(e.Error())
 					return
