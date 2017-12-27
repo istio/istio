@@ -43,14 +43,24 @@ func (b *mockB) fatalf(format string, args ...interface{}) {
 	b.fatalLog = append(b.fatalLog, fmt.Sprintf(format, args...))
 }
 
-var env = NewEnv(make(map[string]template.Info), []adapter.InfoFn{})
+var settings = Settings {
+	RunMode: InProcess,
+	Templates:make(map[string]template.Info),
+	Adapters: []adapter.InfoFn{},
+}
 
-// BenchmarkRun smoke-tests the basic run infrastructure. It is not a real benchmark.
+// TestBasic smoke-tests the basic run infrastructure. It is not a real benchmark.
 func TestBasic(t *testing.T) {
 	b := mockB{}
-	run(&b, &MinimalSetup, env, "", false)
+	run(&b, &MinimalSetup, &settings, false)
 
 	if b.fatalLog != nil {
 		t.Fatalf("error encountered during test: %v", b.fatalLog)
 	}
+}
+
+// TestRunDispatcher smoke-tests the basic runDispatcherOnly infrastructure. It is not a real benchmark.
+func TestRunDispatcher(t *testing.T) {
+	b := mockB{}
+	runDispatcherOnly(&b, &MinimalSetup, &settings)
 }

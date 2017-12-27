@@ -118,8 +118,8 @@ func TestBasic(t *testing.T) {
 		t.Fatalf("Unable to create server: %v", err)
 	}
 
-	d := s.GetDispatcherForTesting()
-	if d != s.dispatcherForTesting {
+	d := s.Dispatcher()
+	if d != s.dispatcher {
 		t.Fatalf("returned dispatcher is incorrect")
 	}
 
