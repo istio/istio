@@ -147,8 +147,9 @@ def _mixer_supported_template_gen(name, packages, out):
 DEPS_FOR_ALL_TMPLS = [
     "@io_istio_istio//mixer/pkg/adapter:go_default_library",
     "@io_istio_istio//mixer/pkg/attribute:go_default_library",
-    "@io_istio_istio//mixer/pkg/expr:go_default_library",
     "@io_istio_istio//mixer/pkg/config/proto:go_default_library",
+    "@io_istio_istio//mixer/pkg/expr:go_default_library",
+    "@io_istio_istio//mixer/pkg/il/compiled:go_default_library",
     "@io_istio_istio//mixer/pkg/template:go_default_library",
     "@io_istio_istio//pkg/log:go_default_library",
     "@com_github_gogo_protobuf//proto:go_default_library",
