@@ -232,6 +232,9 @@ func CopyFile(src, dst string) error {
 
 // GetResourcePath give "path from WORKSPACE", return absolute path at runtime
 func GetResourcePath(p string) string {
+	if dir, exists := os.LookupEnv("GOPATH"); exists {
+		return filepath.Join(dir, "src/istio.io/istio", p)
+	}
 	if dir, exists := os.LookupEnv(testSrcDir); exists {
 		return filepath.Join(dir, "workspace", p)
 	}

@@ -15,9 +15,14 @@
 package perf
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"testing"
+
+	"istio.io/api/mixer/v1"
+	"istio.io/istio/mixer/pkg/attribute"
+	mixer "istio.io/istio/mixer/pkg/server"
 )
 
 // benchmark is an interface that behaves similar to testing.B. It allows tests to mock testing.B.
@@ -57,22 +62,24 @@ func (b *testingBWrapper) n() int {
 	return b.b.N
 }
 
-// RunInprocess executes the benchmark by launching the mixer within the same process.
-func RunInprocess(b *testing.B, setup *Setup, env *Env) {
-	run(&testingBWrapper{b: b}, setup, env, "", false)
+// Run executes the benchmark using specified setup and settings.
+func Run(b *testing.B, setup *Setup, settings Settings) {
+	switch settings.RunMode {
+	case InProcess:
+		run(&testingBWrapper{b}, setup, &settings, false)
+	case CoProcess:
+		run(&testingBWrapper{b}, setup, &settings, true)
+	case InProcessBypassGrpc:
+		runDispatcherOnly(&testingBWrapper{b}, setup, &settings)
+	default:
+		b.Fatalf("Unknown run mode: %v", settings.RunMode)
+	}
 }
 
-// RunCoprocess executes the benchmark by launching the Mixer through another process. The process is located
-// through an iterative search, starting with the current working directory, and using the executablePathSuffix as the
-// search suffix for executable (e.g. "bazel-bin/mixer/test/perf/perfclient/perfclient").
-func RunCoprocess(b *testing.B, setup *Setup, env *Env, executablePathSuffix string) {
-	run(&testingBWrapper{b: b}, setup, env, executablePathSuffix, true)
-}
-
-func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, coprocess bool) {
+func run(b benchmark, setup *Setup, settings *Settings, coprocess bool) {
 
 	server := &server{}
-	if err := server.initialize(setup, env); err != nil {
+	if err := server.initialize(setup, settings); err != nil {
 		b.fatalf("error: %v\n", err)
 		return
 	}
@@ -87,7 +94,7 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 
 	if coprocess {
 		var exeName string
-		if exeName, err = locatePerfClientProcess(executablePathSuffix); err != nil {
+		if exeName, err = locatePerfClientProcess(settings.ExecutablePathSuffix); err != nil {
 			b.fatalf("Unable to locate perf mixer")
 			return
 		}
@@ -121,7 +128,11 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 		b.fatalf("error during test client run: '%v'", err)
 	}
 
-	b.run(b.name(), func(bb benchmark) {
+	name := "InProc"
+	if coprocess {
+		name = "CoProc"
+	}
+	b.run(name, func(bb benchmark) {
 		_ = controller.runClients(bb.n())
 	})
 	b.logf("completed running test: %s", b.name())
@@ -129,4 +140,75 @@ func run(b benchmark, setup *Setup, env *Env, executablePathSuffix string, copro
 	// Even though we have a deferred close for controller, do it explicitly before leaving control to perform
 	// graceful close of clients during teardown.
 	controller.close()
+}
+
+func runDispatcherOnly(b benchmark, setup *Setup, settings *Settings) {
+	a, err := initializeArgs(settings, setup)
+	if err != nil {
+		b.fatalf("error initializing args: '%s'", err.Error())
+		return
+	}
+
+	s, err := mixer.New(a)
+	if err != nil {
+		b.fatalf("error creating Mixer server: '%s'", err.Error())
+		return
+	}
+	defer s.Close()
+
+	dispatcher := s.Dispatcher()
+
+	list := attribute.GlobalList()
+	globalDict := make(map[string]int32, len(list))
+	for i := 0; i < len(list); i++ {
+		globalDict[list[i]] = int32(i)
+	}
+
+	requests := setup.Load.createRequestProtos(setup.Config)
+	bags := make([]attribute.Bag, len(requests)) // precreate bags to avoid polluting allocation data.
+	for i, r := range requests {
+		switch req := r.(type) {
+		case *istio_mixer_v1.ReportRequest:
+			bags[i] = attribute.NewProtoBag(&req.Attributes[0], globalDict, attribute.GlobalList())
+
+		case *istio_mixer_v1.CheckRequest:
+			bags[i] = attribute.NewProtoBag(&req.Attributes, globalDict, attribute.GlobalList())
+
+		default:
+			b.fatalf("unknown request type: %v", r)
+		}
+	}
+
+	// Run through once to detect if there are any errors
+	for j, r := range requests {
+		bag := bags[j]
+
+		switch r.(type) {
+		case *istio_mixer_v1.ReportRequest:
+			err = dispatcher.Report(context.Background(), bag)
+
+		case *istio_mixer_v1.CheckRequest:
+			_, err = dispatcher.Check(context.Background(), bag)
+		}
+
+		if err != nil {
+			b.fatalf("Error detected during run: %v", err)
+		}
+	}
+
+	b.run("InProcessBypassGrpc", func(bb benchmark) {
+		for i := 0; i < bb.n(); i++ {
+			for j, r := range requests {
+				bag := bags[j]
+
+				switch r.(type) {
+				case *istio_mixer_v1.ReportRequest:
+					_ = dispatcher.Report(context.Background(), bag)
+
+				case *istio_mixer_v1.CheckRequest:
+					_, _ = dispatcher.Check(context.Background(), bag)
+				}
+			}
+		}
+	})
 }

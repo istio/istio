@@ -101,7 +101,8 @@ func TestConvertSubjectObjectToMap(t *testing.T) {
 	}
 }
 
-func TestValidateError(t *testing.T) {
+//https://github.com/istio/istio/issues/2300
+func xTestValidateError(t *testing.T) {
 	cases := map[string]struct {
 		cfg      adapter.Config
 		expected []string
@@ -241,7 +242,8 @@ func TestSinglePolicy(t *testing.T) {
 	}
 }
 
-func TestMultiplePolicy(t *testing.T) {
+//https://github.com/istio/istio/issues/2300
+func xTestMultiplePolicy(t *testing.T) {
 	info := GetInfo()
 
 	if !contains(info.SupportedTemplates, authorization.TemplateName) {

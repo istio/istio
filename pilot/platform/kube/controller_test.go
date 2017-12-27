@@ -16,8 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"os"
-	"os/user"
 	"reflect"
 	"sort"
 	"testing"
@@ -31,22 +29,11 @@ import (
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/tests/k8s"
 )
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	kubeconfig := usr.HomeDir + "/.kube/config"
-
-	// For Bazel sandbox we search a different location:
-	if _, err = os.Stat(kubeconfig); err != nil {
-		kubeconfig, _ = os.Getwd()
-		kubeconfig = kubeconfig + "/config"
-	}
-
+	kubeconfig := k8s.Kubeconfig("/config")
 	_, cl, err := CreateInterface(kubeconfig)
 	if err != nil {
 		t.Fatal(err)

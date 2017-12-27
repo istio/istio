@@ -9,11 +9,11 @@ go_library(
         "common.go",
         "config.go",
         "controller.go",
-        "env.go",
         "load.go",
         "request.go",
         "run.go",
         "server.go",
+        "settings.go",
         "setup.go",
         "standard.go",
     ],
@@ -21,12 +21,14 @@ go_library(
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
+        "//mixer/pkg/runtime:go_default_library",
         "//mixer/pkg/server:go_default_library",
         "//mixer/pkg/template:go_default_library",
         "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
     ],
 )
 

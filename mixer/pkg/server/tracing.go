@@ -36,26 +36,24 @@ func startTracer(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixer
 	var err error
 	var interceptor grpc.UnaryServerInterceptor
 
-	if len(zipkinURL) > 0 || len(jaegerURL) > 0 || logTraceSpans {
-		opts := make([]tracing.Option, 0, 3)
-		if len(zipkinURL) > 0 {
-			opts = append(opts, tracing.WithZipkinCollector(zipkinURL))
-		}
-		if len(jaegerURL) > 0 {
-			opts = append(opts, tracing.WithJaegerHTTPCollector(jaegerURL))
-		}
-		if logTraceSpans {
-			opts = append(opts, tracing.WithLogger())
-		}
-		tracer, closer, err = tracing.NewTracer("istio-mixer", opts...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("could not create tracer: %v", err)
-		}
-
-		// NOTE: global side effect!
-		ot.SetGlobalTracer(tracer)
-		interceptor = otgrpc.OpenTracingServerInterceptor(tracer)
+	opts := make([]tracing.Option, 0, 3)
+	if len(zipkinURL) > 0 {
+		opts = append(opts, tracing.WithZipkinCollector(zipkinURL))
 	}
+	if len(jaegerURL) > 0 {
+		opts = append(opts, tracing.WithJaegerHTTPCollector(jaegerURL))
+	}
+	if logTraceSpans {
+		opts = append(opts, tracing.WithLogger())
+	}
+	tracer, closer, err = tracing.NewTracer("istio-mixer", opts...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create tracer: %v", err)
+	}
+
+	// NOTE: global side effect!
+	ot.SetGlobalTracer(tracer)
+	interceptor = otgrpc.OpenTracingServerInterceptor(tracer)
 
 	return &mixerTracer{
 		closer: closer,
