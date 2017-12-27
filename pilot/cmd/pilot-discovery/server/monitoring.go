@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"istio.io/istio/pilot/tools/version"
 )
 

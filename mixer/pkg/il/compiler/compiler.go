@@ -18,11 +18,12 @@ package compiler
 
 import (
 	"fmt"
+	"time"
+
 	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il"
 	"istio.io/istio/pkg/log"
-	"time"
 )
 
 // Compiler is a stateful compiler that can be used to gradually build an il.Program out of multiple independent
