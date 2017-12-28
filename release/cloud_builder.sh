@@ -148,3 +148,5 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
+
+git status
