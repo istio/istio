@@ -76,6 +76,13 @@ fi
 
 export ISTIO_VERSION="${TAG_NAME}"
 
+pushd pilot
+mkdir -p "${OUTPUT_PATH}/istioctl"
+./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
+popd
+
+exit 0
+
 # Proxy has some specific requirements for Bazel's
 # config (plus it's nicely places bazel in batch
 # mode) so this component gets built first.
