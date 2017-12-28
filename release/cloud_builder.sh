@@ -77,6 +77,9 @@ fi
 export ISTIO_VERSION="${TAG_NAME}"
 
 # XXX BEGIN temporary workaround for broken areas
+
+touch pilot/platform/kube/config
+
 bazel build //pilot/...
 
 # bazel_to_go likes to run from dir with WORKSPACE file
