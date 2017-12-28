@@ -76,12 +76,26 @@ fi
 
 export ISTIO_VERSION="${TAG_NAME}"
 
+# XXX BEGIN temporary workaround for broken areas
+bazel build //pilot/...
+
+# bazel_to_go likes to run from dir with WORKSPACE file
+./bin/bazel_to_go.py
+# Remove doubly-vendorized k8s dependencies that confuse go
+rm -rf vendor/k8s.io/*/vendor
+
+# bazel_to_go.py dirties generated_files and lintconfig.json
+# it's easier to ask git to restore files than add
+# an option to bazel_to_go to not touch them
+git checkout generated_files
+
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 popd
 
 exit 0
+# XXX END temporary workaround for broken areas
 
 # Proxy has some specific requirements for Bazel's
 # config (plus it's nicely places bazel in batch
