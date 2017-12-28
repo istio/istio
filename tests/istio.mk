@@ -1,5 +1,4 @@
 # Test-specific targets, included from top Makefile
-
 ifeq (${TEST_ENV},minikube)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,

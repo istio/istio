@@ -37,6 +37,8 @@ jobs:
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
       - checkout
+      - attach_workspace:
+          at:  /go
       - run:
           name: "Start minikube"
           command: |
@@ -76,10 +78,13 @@ jobs:
                   make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
             timeout: 20m
+            # Run the test even if previous failed
+            when: alwyas
             command: |
                   make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
             timeout: 20m
+            when: always
             command: |
               make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
 
@@ -267,7 +272,7 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
-  gotest:
+  test:
     <<: *defaults
     resource_class: xlarge
     steps:
@@ -287,7 +292,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  gobuild:
+  build:
     <<: *defaults
     resource_class: xlarge
     steps:
@@ -301,6 +306,11 @@ jobs:
             make go-build
       - store_artifacts:
           path: /go/bin
+      - persist_to_workspace:
+          root: /go
+          paths:
+            - pkg
+            - bin
 
   lint:
     <<: *integrationDefaults
@@ -401,24 +411,24 @@ workflows:
   all:
     jobs:
       - dependencies
-      - gobuild:
+      - build:
           requires:
             - dependencies
       - e2e:
           requires:
-            - dependencies
-      - gotest:
+            - build
+      - test:
           requires:
             - dependencies
       - codecov:
           requires:
-            - gotest
+            - build
       - lint:
           requires:
             - dependencies
       - pilot-integration-noauth:
           requires:
-            - gotest
+            - test
       - pilot-integration-auth:
           requires:
-            - gotest
+            - test
