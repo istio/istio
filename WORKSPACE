@@ -1118,7 +1118,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "a7e4ff4e3ee3fefde0159436713c2a0777be31de"
+ISTIO_PROXY_BUCKET = "8d0f43253231542bb8b1c5c1865b96e0473856be"
 
 http_file(
     name = "envoy_binary",
