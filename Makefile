@@ -305,6 +305,7 @@ show.%: ; $(info $* $(H) $($*))
 # Target: artifacts and distribution
 #-----------------------------------------------------------------------------
 
+
 ${OUT}/dist/Gopkg.lock:
 	mkdir -p ${OUT}/dist
 	cp Gopkg.lock ${OUT}/dist/
@@ -313,6 +314,41 @@ ${OUT}/dist/Gopkg.lock:
 dist-bin: ${OUT}/dist/Gopkg.lock
 
 dist: dist-bin
+
+include .circleci/Makefile
+
+.PHONY: docker.sidecar.deb sidecar.deb
+
+# Make the deb image using the CI/CD image, where fpm is installed.
+docker.sidecar.deb:
+	(cd $TOP; docker run --rm -u $(shell id -u) -it \
+        -v ${GOPATH}:${GOPATH} \
+        -w ${PWD} \
+        -e USER=${USER} \
+		--entrypoint /bin/bash ${CI_HUB}/ci:${CI_VERSION} \
+		make sidecar.deb
+		)
+
+sidecar.deb:
+	fpm -s dir -t deb -n istio-sidecar --version 0.5.0 --iteration 1 -C ${TOP} \
+	   --url http://istio.io  \
+	   --licence Apache \
+	   --vendor istio.io \
+	   --maintainer istio@istio.io \
+	   --after-install tools/deb/postinst.sh \
+	   --config-files /var/lib/istio/envoy/sidecar.env \
+	   --config-files /var/lib/istio/envoy/envoy.json \
+	   --description "Istio" \
+	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
+	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
+	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   bin/envoy=/usr/local/bin/envoy \
+	   bin/pilot-agent=/usr/local/bin/pilot-agent \
+	   bin/node_agent=/usr/local/bin/node_agent \
+	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests

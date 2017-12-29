@@ -1,21 +1,20 @@
 # Builder version
-VERSION ?= go1.9-k8s1.7.4
-PROJECT ?= istio
-HUB ?=
+CI_VERSION ?= go1.9-k8s1.7.4
+CI_HUB ?= istio
 
-image:
-	docker build -t ${HUB}${PROJECT}/ci:$(VERSION) -f Dockerfile .
+ci.image:
+	docker build -t ${CI_HUB}/ci:$(CI_VERSION) -f Dockerfile .
 
-push:
-	docker push "${HUB}${PROJECT}/ci:$(VERSION)"
+ci.push:
+	docker push "${CI_HUB}/ci:$(CI_VERSION)"
 
-run:
+ci.run:
 	docker run --rm -u $(shell id -u) -it \
         -v ${GOPATH}:${GOPATH} \
         -w ${PWD} \
         -e USER=${USER} \
 		--entrypoint /bin/bash \
-        ${HUB}${PROJECT}/ci:$(VERSION)
+        ${CI_HUB}/ci:$(CI_VERSION)
 
 
 .PHONY: image push
