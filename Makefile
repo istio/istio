@@ -321,18 +321,17 @@ include .circleci/Makefile
 
 # Make the deb image using the CI/CD image, where fpm is installed.
 docker.sidecar.deb:
-	(cd $TOP; docker run --rm -u $(shell id -u) -it \
+	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
         -v ${GOPATH}:${GOPATH} \
         -w ${PWD} \
         -e USER=${USER} \
-		--entrypoint /bin/bash ${CI_HUB}/ci:${CI_VERSION} \
-		make sidecar.deb
-		)
+		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
+		sidecar.deb )
 
 sidecar.deb:
-	fpm -s dir -t deb -n istio-sidecar --version 0.5.0 --iteration 1 -C ${TOP} \
+	/usr/local/bin/fpm -s dir -t deb -n istio-sidecar --version 0.5.0 --iteration 1 -C ${GOPATH} -f \
 	   --url http://istio.io  \
-	   --licence Apache \
+	   --license Apache \
 	   --vendor istio.io \
 	   --maintainer istio@istio.io \
 	   --after-install tools/deb/postinst.sh \
