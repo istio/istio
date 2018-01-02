@@ -115,5 +115,4 @@ The integration tests use a test mixer server that implements Mixer protocol but
 
 ## Test logging
 
-Istio Pilot uses [glog](https://godoc.org/github.com/golang/glog) library for all its logging. We encourage extensive logging at the appropriate log levels. As a hint to the log level selection, level 10 is the most verbose (Kubernetes will show all its HTTP requests), level 2 is used by default in the integration tests, level 4 turns on extensive logging in the proxy.
-
+Istio Pilot uses the [Istio logging package](https://godoc.org/istio.io/istio/pkg/log) for all its logging. We encourage extensive logging at the appropriate log levels. Refer to [Istio Developer Conventions](../../DEV-CONVENTIONS.md#logging-conventions) for details on logging.

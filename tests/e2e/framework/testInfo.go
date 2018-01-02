@@ -30,10 +30,12 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
@@ -58,7 +60,7 @@ type testInfo struct {
 	TestID        string
 	Bucket        string
 	LogBucketPath string
-	LogsPath      string
+	TempDir       string
 }
 
 // Test information
@@ -86,16 +88,12 @@ func newTestInfo(testID string) (*testInfo, error) {
 			return nil, err
 		}
 	} else {
-		f := flag.Lookup("log_dir")
-		tmpDir = f.Value.String()
-		if tmpDir == "" {
-			tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
-			if err != nil {
-				return nil, err
-			}
+		tmpDir, err = ioutil.TempDir(os.TempDir(), tmpPrefix)
+		if err != nil {
+			return nil, err
 		}
 	}
-	glog.Infof("Using log dir %s", tmpDir)
+	log.Infof("Using temp dir %s", tmpDir)
 
 	if *logsBucketPath != "" {
 		r := regexp.MustCompile(`gs://(?P<bucket>[^\/]+)/(?P<path>.+)`)
@@ -116,7 +114,7 @@ func newTestInfo(testID string) (*testInfo, error) {
 		RunID:         id,
 		Bucket:        bucket,
 		LogBucketPath: filepath.Join(logsPath, id),
-		LogsPath:      tmpDir,
+		TempDir:       tmpDir,
 	}, nil
 }
 
@@ -140,14 +138,14 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		}
 		containers := strings.Split(containersString, " ")
 		for _, container := range containers {
-			path := filepath.Join(t.LogsPath, fmt.Sprintf("%s_container:%s.log", pod, container))
-			f, err := os.Create(path)
+			filePath := filepath.Join(t.TempDir, fmt.Sprintf("%s_container:%s.log", pod, container))
+			f, err := os.Create(filePath)
 			if err != nil {
 				return err
 			}
 			defer func() {
 				if err = f.Close(); err != nil {
-					glog.Warningf("Error during closing file: %v\n", err)
+					log.Warnf("Error during closing file: %v\n", err)
 				}
 			}()
 			dump, err := util.ShellMuteOutput(
@@ -171,7 +169,7 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 		for _, line := range pods[1:] {
 			if idxEndOfPodName := strings.Index(line, " "); idxEndOfPodName > 0 {
 				pod := line[:idxEndOfPodName]
-				glog.Infof("Fetching logs on %s", pod)
+				log.Infof("Fetching logs on %s", pod)
 				if err := fetchAndWrite(pod); err != nil {
 					multiErr = multierror.Append(multiErr, err)
 				}
@@ -180,13 +178,13 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 	}
 
 	for _, resrc := range resources {
-		glog.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
-		path := filepath.Join(t.LogsPath, fmt.Sprintf("%s.yaml", resrc))
+		log.Info(fmt.Sprintf("Fetching deployment info on %s\n", resrc))
+		filePath := filepath.Join(t.TempDir, fmt.Sprintf("%s.yaml", resrc))
 		if yaml, err0 := util.ShellMuteOutput(
 			fmt.Sprintf("kubectl get %s -n %s -o yaml", resrc, namespace)); err0 != nil {
 			multiErr = multierror.Append(multiErr, err0)
 		} else {
-			if f, err1 := os.Create(path); err1 != nil {
+			if f, err1 := os.Create(filePath); err1 != nil {
 				multiErr = multierror.Append(multiErr, err1)
 			} else {
 				if _, err2 := f.WriteString(fmt.Sprintf("%s\n", yaml)); err2 != nil {
@@ -199,17 +197,17 @@ func (t testInfo) FetchAndSaveClusterLogs(namespace string) error {
 }
 
 func (t testInfo) createStatusFile(r int) error {
-	glog.Info("Creating status file")
+	log.Info("Creating status file")
 	ts := testStatus{
 		Status: r,
 		Date:   time.Now(),
 		TestID: t.TestID,
 		RunID:  t.RunID,
 	}
-	fp := filepath.Join(t.LogsPath, fmt.Sprintf("%s.json", t.TestID))
+	fp := filepath.Join(t.TempDir, fmt.Sprintf("%s.json", t.TestID))
 	f, err := os.Create(fp)
 	if err != nil {
-		glog.Errorf("Could not create %s. Error %s", fp, err)
+		log.Errorf("Could not create %s. Error %s", fp, err)
 		return err
 	}
 	w := bufio.NewWriter(f)
@@ -218,7 +216,7 @@ func (t testInfo) createStatusFile(r int) error {
 	if err = e.Encode(ts); err == nil {
 		if err = w.Flush(); err == nil {
 			if err = f.Close(); err == nil {
-				glog.Infof("Created Status file %s", fp)
+				log.Infof("Created Status file %s", fp)
 			}
 		}
 	}
@@ -229,52 +227,52 @@ func (t testInfo) uploadDir() error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		glog.Errorf("Could not set Storage client. Error %s", err)
+		log.Errorf("Could not set Storage client. Error %s", err)
 		return err
 	}
 	bkt := client.Bucket(t.Bucket)
 
 	uploadFileFn := func(p string) error {
 		// Relative Path
-		rp, err := filepath.Rel(t.LogsPath, p)
+		rp, err := filepath.Rel(t.TempDir, p)
 		if err != nil {
 			return err
 		}
 		rp = filepath.Join(t.LogBucketPath, rp)
-		glog.Infof("Uploading %s to gs://%s/%s", p, rp, t.Bucket)
+		log.Infof("Uploading %s to gs://%s/%s", p, rp, t.Bucket)
 		o := bkt.Object(rp)
 		w := o.NewWriter(ctx)
 		var b []byte
 		if b, err = ioutil.ReadFile(p); err == nil {
 			if _, err = w.Write(b); err == nil {
 				if err = w.Close(); err == nil {
-					glog.Infof("Uploaded %s to gs://%s/%s", p, rp, t.Bucket)
+					log.Infof("Uploaded %s to gs://%s/%s", p, rp, t.Bucket)
 				}
 			}
 		}
 		return err
 	}
 
-	walkFn := func(path string, info os.FileInfo, err error) error {
+	walkFn := func(filePath string, info os.FileInfo, err error) error {
 		// We are filtering all errors here as we want filepath.Walk to go over all the files.
 		if err != nil {
-			glog.Warningf("Skipping %s", path, err)
+			log.Warnf("Skipping %s", filePath, err)
 			return filepath.SkipDir
 		}
 		if !info.IsDir() {
-			if uploadFileFn(path) != nil {
-				glog.Warningf("An error occurred when upload %s %s", path, err)
+			if uploadFileFn(filePath) != nil {
+				log.Warnf("An error occurred when upload %s %s", filePath, err)
 			}
 		}
 		return nil
 	}
-	return filepath.Walk(t.LogsPath, walkFn)
+	return filepath.Walk(t.TempDir, walkFn)
 }
 
 func (t testInfo) Teardown() error {
 	if t.Bucket != "" {
-		glog.Info("Uploading logs remotely")
-		glog.Flush()
+		log.Info("Uploading logs remotely")
+		log.Sync()
 		return t.uploadDir()
 	}
 	return nil

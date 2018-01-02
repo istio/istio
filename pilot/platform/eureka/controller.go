@@ -18,9 +18,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 type serviceHandler func(*model.Service, model.Event)
@@ -61,7 +63,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 		case <-ticker.C:
 			apps, err := c.client.Applications()
 			if err != nil {
-				glog.Warningf("periodic Eureka poll failed: %v", err)
+				log.Warnf("periodic Eureka poll failed: %v", err)
 				continue
 			}
 			sortApplications(apps)

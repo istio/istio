@@ -4,7 +4,12 @@ go_library(
     name = "go_default_library",
     srcs = ["version.go"],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_golang_glog//:go_default_library"],
+    deps = [
+        "//pkg/log:go_default_library",
+
+        // TODO(nmittler): Remove this
+        "@com_github_golang_glog//:go_default_library",
+    ],
 )
 
 go_test(

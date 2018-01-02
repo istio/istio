@@ -24,8 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
@@ -110,7 +112,7 @@ func newKubeInfo(tmpDir, runID string) (*KubeInfo, error) {
 
 // Setup set up Kubernetes prerequest for tests
 func (k *KubeInfo) Setup() error {
-	glog.Info("Setting up kubeInfo")
+	log.Info("Setting up kubeInfo")
 	var err error
 	if err = os.Mkdir(k.yamlDir, os.ModeDir|os.ModePerm); err != nil {
 		return err
@@ -118,12 +120,12 @@ func (k *KubeInfo) Setup() error {
 
 	if !*skipSetup {
 		if err = k.deployIstio(); err != nil {
-			glog.Error("Failed to deploy Istio.")
+			log.Error("Failed to deploy Istio.")
 			return err
 		}
 
 		if err = k.deployAddons(); err != nil {
-			glog.Error("Failed to deploy istio addons")
+			log.Error("Failed to deploy istio addons")
 			return err
 		}
 	}
@@ -143,7 +145,7 @@ func (k *KubeInfo) Setup() error {
 
 // Teardown clean up everything created by setup
 func (k *KubeInfo) Teardown() error {
-	glog.Info("Cleaning up kubeInfo")
+	log.Info("Cleaning up kubeInfo")
 
 	if *skipSetup {
 		return nil
@@ -153,7 +155,7 @@ func (k *KubeInfo) Teardown() error {
 		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
 
 		if err := util.KubeDelete(k.Namespace, testInitializerYAML); err != nil {
-			glog.Errorf("Istio initializer %s deletion failed", testInitializerYAML)
+			log.Errorf("Istio initializer %s deletion failed", testInitializerYAML)
 			return err
 		}
 	}
@@ -168,11 +170,11 @@ func (k *KubeInfo) Teardown() error {
 		testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
 		if err := util.KubeDelete(k.Namespace, testIstioYaml); err != nil {
-			glog.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
+			log.Infof("Safe to ignore resource not found errors in kubectl delete -f %s", testIstioYaml)
 		}
 	} else {
 		if err := util.DeleteNamespace(k.Namespace); err != nil {
-			glog.Errorf("Failed to delete namespace %s", k.Namespace)
+			log.Errorf("Failed to delete namespace %s", k.Namespace)
 			return err
 		}
 
@@ -180,7 +182,7 @@ func (k *KubeInfo) Teardown() error {
 		if _, err := util.Shell("kubectl get clusterrolebinding -o jsonpath={.items[*].metadata.name}"+
 			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrolebinding",
 			k.Namespace); err != nil {
-			glog.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
+			log.Errorf("Failed to delete clusterrolebindings associated with namespace %s", k.Namespace)
 			return err
 		}
 
@@ -188,7 +190,7 @@ func (k *KubeInfo) Teardown() error {
 		if _, err := util.Shell("kubectl get clusterrole -o jsonpath={.items[*].metadata.name}"+
 			"|xargs -n 1|fgrep %s|xargs kubectl delete clusterrole",
 			k.Namespace); err != nil {
-			glog.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
+			log.Errorf("Failed to delete clusterroles associated with namespace %s", k.Namespace)
 			return err
 		}
 	}
@@ -205,11 +207,11 @@ func (k *KubeInfo) Teardown() error {
 	}
 
 	if !namespaceDeleted {
-		glog.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
+		log.Errorf("Failed to delete namespace %s after %v seconds", k.Namespace, maxAttempts*4)
 		return nil
 	}
 
-	glog.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
+	log.Infof("Namespace %s deletion status: %v", k.Namespace, namespaceDeleted)
 
 	return nil
 }
@@ -221,7 +223,7 @@ func (k *KubeInfo) deployAddons() error {
 
 		content, err := ioutil.ReadFile(baseYamlFile)
 		if err != nil {
-			glog.Errorf("Cannot read file %s", baseYamlFile)
+			log.Errorf("Cannot read file %s", baseYamlFile)
 			return err
 		}
 
@@ -232,11 +234,11 @@ func (k *KubeInfo) deployAddons() error {
 		yamlFile := filepath.Join(k.TmpDir, "yaml", addon+".yaml")
 		err = ioutil.WriteFile(yamlFile, content, 0600)
 		if err != nil {
-			glog.Errorf("Cannot write into file %s", yamlFile)
+			log.Errorf("Cannot write into file %s", yamlFile)
 		}
 
 		if err := util.KubeApply(k.Namespace, yamlFile); err != nil {
-			glog.Errorf("Kubectl apply %s failed", yamlFile)
+			log.Errorf("Kubectl apply %s failed", yamlFile)
 			return err
 		}
 	}
@@ -260,11 +262,11 @@ func (k *KubeInfo) deployIstio() error {
 	testIstioYaml := filepath.Join(k.TmpDir, "yaml", istioYaml)
 
 	if err := k.generateIstio(baseIstioYaml, testIstioYaml); err != nil {
-		glog.Errorf("Generating yaml %s failed", testIstioYaml)
+		log.Errorf("Generating yaml %s failed", testIstioYaml)
 		return err
 	}
 	if err := util.KubeApply(k.Namespace, testIstioYaml); err != nil {
-		glog.Errorf("Istio core %s deployment failed", testIstioYaml)
+		log.Errorf("Istio core %s deployment failed", testIstioYaml)
 		return err
 	}
 
@@ -272,11 +274,11 @@ func (k *KubeInfo) deployIstio() error {
 		baseInitializerYAML := util.GetResourcePath(filepath.Join(istioInstallDir, *initializerFile))
 		testInitializerYAML := filepath.Join(k.TmpDir, "yaml", *initializerFile)
 		if err := k.generateInitializer(baseInitializerYAML, testInitializerYAML); err != nil {
-			glog.Errorf("Generating initializer yaml failed")
+			log.Errorf("Generating initializer yaml failed")
 			return err
 		}
 		if err := util.KubeApply(k.Namespace, testInitializerYAML); err != nil {
-			glog.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
+			log.Errorf("Istio initializer %s deployment failed", testInitializerYAML)
 			return err
 		}
 
@@ -302,7 +304,7 @@ func updateInjectVersion(version string, content []byte) []byte {
 func (k *KubeInfo) generateInitializer(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
-		glog.Errorf("Cannot read original yaml file %s", src)
+		log.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
 
@@ -319,7 +321,7 @@ func (k *KubeInfo) generateInitializer(src, dst string) error {
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		glog.Errorf("Cannot write into generate initializer file %s", dst)
+		log.Errorf("Cannot write into generate initializer file %s", dst)
 	}
 	return err
 }
@@ -334,7 +336,7 @@ func replacePattern(k *KubeInfo, content []byte, src, dest string) []byte {
 func (k *KubeInfo) generateIstio(src, dst string) error {
 	content, err := ioutil.ReadFile(src)
 	if err != nil {
-		glog.Errorf("Cannot read original yaml file %s", src)
+		log.Errorf("Cannot read original yaml file %s", src)
 		return err
 	}
 
@@ -371,7 +373,7 @@ func (k *KubeInfo) generateIstio(src, dst string) error {
 
 	err = ioutil.WriteFile(dst, content, 0600)
 	if err != nil {
-		glog.Errorf("Cannot write into generated yaml file %s", dst)
+		log.Errorf("Cannot write into generated yaml file %s", dst)
 	}
 	return err
 }

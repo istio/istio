@@ -12,8 +12,11 @@ go_library(
         "//pilot/platform/kube:go_default_library",
         "//pilot/proxy:go_default_library",
         "//pilot/tools/version:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
