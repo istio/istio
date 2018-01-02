@@ -136,17 +136,17 @@ make depend
 # mixer/template/apikey/go_default_library_handler.gen.go
 # mixer/template/apikey/go_default_library_tmpl.pb.go
 # mixer/template/template.gen.go
-bazel build //pilot/...
+# bazel build //pilot/...
 
 # bazel_to_go likes to run from dir with WORKSPACE file
-./bin/bazel_to_go.py
+#./bin/bazel_to_go.py
 # Remove doubly-vendorized k8s dependencies that confuse go
-rm -rf vendor/k8s.io/*/vendor
+#rm -rf vendor/k8s.io/*/vendor
 
 # bazel_to_go.py dirties generated_files and lintconfig.json
 # it's easier to ask git to restore files than add
 # an option to bazel_to_go to not touch them
-git checkout generated_files
+# git checkout generated_files
 
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
