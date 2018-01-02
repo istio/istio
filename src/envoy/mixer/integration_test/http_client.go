@@ -15,8 +15,10 @@
 package test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -25,6 +27,9 @@ import (
 
 // HTTP client time out in second.
 const HttpTimeOut = 5
+
+// Maximum number of ping the server to wait.
+const maxAttempts = 30
 
 // Issue fast request, only care about network error.
 // Don't care about server response.
@@ -115,16 +120,30 @@ func HTTPGetWithHeaders(l string, headers map[string]string) (code int, resp_bod
 }
 
 func WaitForHttpServer(url string) {
-	const maxAttempts = 30
 	for i := 0; i < maxAttempts; i++ {
-		time.Sleep(time.Second)
-		log.Println("Pinging HTTP server...")
+		log.Println("Pinging URL: ", url)
 		code, _, err := HTTPGet(url)
 		if err == nil && code == http.StatusOK {
 			log.Println("Server is up and running...")
 			return
 		}
 		log.Println("Will wait a second and try again.")
+		time.Sleep(time.Second)
+	}
+	log.Println("Give up the wait, continue the test...")
+}
+
+func WaitForPort(port int) {
+	server_port := fmt.Sprintf("localhost:%v", port)
+	for i := 0; i < maxAttempts; i++ {
+		log.Println("Pinging port: ", server_port)
+		_, err := net.Dial("tcp", server_port)
+		if err == nil {
+			log.Println("The port is up and running...")
+			return
+		}
+		log.Println("Wait a second and try again.")
+		time.Sleep(time.Second)
 	}
 	log.Println("Give up the wait, continue the test...")
 }

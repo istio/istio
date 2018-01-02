@@ -36,7 +36,7 @@ EOF
   exit 2
 }
 
-ENVOY="$ROOT/bazel-bin/src/envoy/mixer/envoy"
+ENVOY="$ROOT/bazel-bin/src/envoy/envoy"
 TEMPLATE="$ROOT/src/envoy/mixer/envoy.conf.template"
 CONFIG="$ROOT/src/envoy/mixer/envoy.conf"
 DEBUG=''
