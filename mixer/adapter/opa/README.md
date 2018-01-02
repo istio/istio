@@ -12,7 +12,7 @@ The adapter is responsible for (1) instantiating an [Open Policy Agent](http://w
 
 ## Configuration flow (1 and 2 in the above figure):
 
-  1. Service producer sets authorization rules via istioctl. The rules are saved in Istio Configuration server.
+  1. Service producer sets Open Policy Agent policies (written in REGO) as the adapter parameter.
   1. The authorization adapter fetches the rules and passes to [Open Policy Agent](http://www.openpolicyagent.org/).
 
 ## Runtime flow (3 and 4 in the above figure):
@@ -25,6 +25,7 @@ The adapter is responsible for (1) instantiating an [Open Policy Agent](http://w
 To activate an OPA adapter, operators need to configure the
 [authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto) and the
 [opa adapter](https://github.com/istio/istio/blob/master/mixer/adapter/opa/config/config.proto).
+The OPA policies are passed to the adapter as the "policy" parameter (shown below).
 
 ```protobuf
 message Params {
