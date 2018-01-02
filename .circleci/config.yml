@@ -383,7 +383,7 @@ workflows:
              branches:
                only:
                  - master
-                 - gobuild
+                 - gobuild3
     jobs:
       - dependencies
       # Build
