@@ -18,6 +18,9 @@
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
+# Current version, updated after a release.
+VERSION ?= "0.5.0"
+
 # Make sure GOPATH is set based on the executing Makefile and workspace. Will override
 # GOPATH from the env.
 export GOPATH= $(shell cd ../../..; pwd)
@@ -319,7 +322,7 @@ include .circleci/Makefile
 
 .PHONY: docker.sidecar.deb sidecar.deb
 
-# Make the deb image using the CI/CD image, where fpm is installed.
+# Make the deb image using the CI/CD image and docker.
 docker.sidecar.deb:
 	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
         -v ${GOPATH}:${GOPATH} \
@@ -328,8 +331,13 @@ docker.sidecar.deb:
 		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
 		sidecar.deb )
 
+
+# Create the 'sidecar' deb, including envoy and istio agents and configs.
+# This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
+# the builder image.
+# TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb:
-	/usr/local/bin/fpm -s dir -t deb -n istio-sidecar --version 0.5.0 --iteration 1 -C ${GOPATH} -f \
+	fpm -s dir -t deb -n istio-sidecar --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
 	   --url http://istio.io  \
 	   --license Apache \
 	   --vendor istio.io \
@@ -344,7 +352,7 @@ sidecar.deb:
 	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
 	   bin/envoy=/usr/local/bin/envoy \
 	   bin/pilot-agent=/usr/local/bin/pilot-agent \
-	   bin/node_agent=/usr/local/bin/node_agent \
+	   bin/node_agent=/usr/local/istio/bin/node_agent \
 	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
 	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
 
