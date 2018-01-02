@@ -9,8 +9,17 @@ import re
 import bazel_util
 
 def should_copy(src, dest):
+    if not os.path.exists(src):
+        return False
     if not os.path.exists(dest):
         return True
+
+    # don't copy old cached bazel files over new 
+    src_mod_time = round(os.stat(src).st_mtime)
+    dst_mod_time = round(os.stat(dest).st_mtime)
+    if (dst_mod_time > src_mod_time):
+        return False
+
     p = subprocess.Popen(['diff', '-u', src, dest], stdout=subprocess.PIPE)
     (stdout, _) = p.communicate()
     if src.endswith('.pb.go'):
@@ -50,29 +59,37 @@ def should_copy(src, dest):
 
 def get_generated_files(WKSPC, genfiles):
     lst = []
-    proto_libraries = 'kind("go_proto_library", "//...")'
-    proto_compiles = 'attr("langs", "go", kind("proto_compile", "//..."))'
-    genrules = 'attr("outs", ".go", kind("genrule", "//..."))'
+    found = set()
+    proto_libraries = 'kind("go_proto_library", "//broker/..." + "//mixer/..." + "//security/..." + "//pilot/...")'
+    proto_compiles = 'attr("langs", "go", kind("proto_compile", "//broker/..." + "//mixer/..." + "//security/..." + "//pilot/..."))'
+    genrules = 'attr("outs", ".go", kind("genrule", "//broker/..." + "//mixer/..." + "//security/..." + "//pilot/..."))'
     bazel_util.bazel_build(bazel_util.bazel_query('+'.join([proto_libraries, proto_compiles, genrules])))
 
     for proto in bazel_util.bazel_query('filter("\.proto$", labels("srcs", %s))' % proto_libraries):
         proto = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', proto)
         pbgo = proto[:len(proto)-len('.proto')] + '.pb.go'
         lst.append((os.path.join(genfiles, pbgo), os.path.join(WKSPC, pbgo)))
+        found.add(os.path.join(WKSPC, pbgo))
     for proto in bazel_util.bazel_query('filter("\.proto$", labels("protos", %s))' % proto_compiles):
         proto = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', proto)
         pbgo = proto[:len(proto)-len('.proto')] + '.pb.go'
         src = os.path.join(genfiles, pbgo)
         lst.append((src, os.path.join(WKSPC, pbgo)))
+        found.add(os.path.join(WKSPC, pbgo))
     for genout in bazel_util.bazel_query('filter("\.go$", labels("outs", %s))' % genrules):
         genout = re.sub(r'//(.*):([^/]*)', '\\g<1>/\\g<2>', genout)
         lst.append((os.path.join(genfiles, genout), os.path.join(WKSPC, genout)))
+        found.add(os.path.join(WKSPC, genout))
+    for dirpath, dirnames, filenames in os.walk(WKSPC):
+        for filename in [f for f in filenames if f.endswith(".pb.go") or f.endswith(".gen.go")]:
+            if os.path.join(dirpath, filename) not in found:
+                fullpath = os.path.join(dirpath, filename)
+                fakegen = genfiles + fullpath[len(WKSPC):]
+                lst.append((fakegen, os.path.join(dirpath, filename)))
     return lst
 
 def regenerate(WKSPC, genfiles):
     generated_files = get_generated_files(WKSPC, genfiles)
-    bazel_util.bazel_build(['@io_istio_api//mixer/v1/config:config_fixed'])
-    generated_files.append((genfiles + "/external/io_istio_api/mixer/v1/config/fixed_cfg.pb.go", WKSPC + "/mixer/pkg/config/proto/fixed_cfg.pb.go"))
 
     # generate manifest of generated files
     manifest = sorted([src[len(genfiles)+1:] for (src, _) in generated_files])

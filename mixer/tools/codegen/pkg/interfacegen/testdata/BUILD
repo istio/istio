@@ -80,7 +80,7 @@ proto_compile(
         "external/io_istio_api",
     ],
     inputs = [
-        "@io_istio_api//mixer/v1/template:template_protos",
+        "@io_istio_api//mixer/v1/template:go_default_library_protos",
         "@com_github_google_protobuf//:well_known_protos",
     ],
     protos = ["ErrorTemplate.proto"],

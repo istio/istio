@@ -129,16 +129,20 @@ $('#login-modal').on('shown.bs.modal', function () {
             <p>{{ review.text }}</p>
             <small>{{ review.reviewer }}</small>
             {% if review.rating: %}
-              <font color="{{ review.rating.color }}">
-                <!-- full stars: -->
-                {% for n in range(review.rating.stars)  %}
-                  <span class="glyphicon glyphicon-star"></span>
-                {% endfor %}
-                <!-- empty stars: -->
-                {% for n in range(5 - review.rating.stars) %}
-                  <span class="glyphicon glyphicon-star-empty"></span>
-                {% endfor %}
-              </font>
+              {% if review.rating.stars: %}
+                <font color="{{ review.rating.color }}">
+                  <!-- full stars: -->
+                  {% for n in range(review.rating.stars)  %}
+                    <span class="glyphicon glyphicon-star"></span>
+                  {% endfor %}
+                  <!-- empty stars: -->
+                  {% for n in range(5 - review.rating.stars) %}
+                    <span class="glyphicon glyphicon-star-empty"></span>
+                  {% endfor %}
+                </font>
+              {% elif review.rating.error: %}
+                <p><i>{{ review.rating.error }}</i></p>
+              {% endif %}
             {% endif %}
           </blockquote>
         {% endfor %}

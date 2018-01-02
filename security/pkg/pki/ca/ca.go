@@ -22,11 +22,13 @@ import (
 	"errors"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 )
 
@@ -81,7 +83,7 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, org string, namespac
 		CertTTL: certTTL,
 	}
 	if err != nil {
-		glog.Infof("Failed to get secret (error: %s), will create one", err)
+		log.Infof("Failed to get secret (error: %s), will create one", err)
 
 		now := time.Now()
 		options := CertOptions{
@@ -112,7 +114,7 @@ func NewSelfSignedIstioCA(caCertTTL, certTTL time.Duration, org string, namespac
 		}
 		_, err := core.Secrets(namespace).Create(secret)
 		if err != nil {
-			glog.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
+			log.Errorf("Failed to write secret to CA (error: %s). This CA will not persist when restart.", err)
 		}
 	} else {
 		// Reuse existing key/cert in secrets.

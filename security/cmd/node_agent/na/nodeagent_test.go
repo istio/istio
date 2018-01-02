@@ -18,15 +18,18 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 	mockpc "istio.io/istio/security/pkg/platform/mock"
 	mockutil "istio.io/istio/security/pkg/util/mock"
@@ -89,7 +92,15 @@ func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, gracePeriodPe
 func TestStartWithArgs(t *testing.T) {
 	generalPcConfig := platform.ClientConfig{OnPremConfig: platform.OnPremConfig{"ca_file", "pkey", "cert_file"}}
 	generalConfig := Config{
-		"ca_addr", "Google Inc.", 512, "onprem", time.Millisecond, 3, 50, generalPcConfig,
+		IstioCAAddress:     "ca_addr",
+		ServiceIdentityOrg: "Google Inc.",
+		RSAKeySize:         512,
+		Env:                "onprem",
+		CSRInitialRetrialInterval: time.Millisecond,
+		CSRMaxRetries:             3,
+		CSRGracePeriodPercentage:  50,
+		PlatformConfig:            generalPcConfig,
+		LoggingOptions:            log.NewOptions(),
 	}
 	testCases := map[string]struct {
 		config      *Config
@@ -124,8 +135,17 @@ func TestStartWithArgs(t *testing.T) {
 		},
 		"Create CSR error": {
 			// 128 is too small for a RSA private key. GenCSR will return error.
+
 			config: &Config{
-				"ca_addr", "Google Inc.", 128, "onprem", time.Millisecond, 3, 50, generalPcConfig,
+				IstioCAAddress:     "ca_addr",
+				ServiceIdentityOrg: "Google Inc.",
+				RSAKeySize:         128,
+				Env:                "onprem",
+				CSRInitialRetrialInterval: time.Millisecond,
+				CSRMaxRetries:             3,
+				CSRGracePeriodPercentage:  50,
+				PlatformConfig:            generalPcConfig,
+				LoggingOptions:            log.NewOptions(),
 			},
 			pc:       mockpc.FakeClient{nil, "", "service1", "", []byte{}, "", true},
 			cAClient: &FakeCAClient{0, nil, nil},
@@ -172,7 +192,7 @@ func TestStartWithArgs(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		glog.Errorf("Start to test %s", id)
+		log.Errorf("Start to test %s", id)
 		fakeFileUtil := mockutil.FakeFileUtil{
 			ReadContent:  make(map[string][]byte),
 			WriteContent: make(map[string][]byte),
@@ -221,6 +241,9 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		}
 	}()
 
+	// The goroutine starting the server may not be ready, results in flakiness.
+	time.Sleep(1 * time.Second)
+
 	defaultServerResponse := pb.Response{
 		IsApproved:      true,
 		Status:          &rpc.Status{Code: int32(rpc.OK), Message: "OK"},
@@ -258,7 +281,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 			}, "", "service1", "", []byte{}, "", true},
 			res:         defaultServerResponse,
 			cAClient:    &cAGrpcClientImpl{},
-			expectedErr: "CSR request failed rpc error: code = Unavailable desc = grpc: the connection is unavailable",
+			expectedErr: "CSR request failed rpc error: code = Unavailable",
 		},
 		"Without Insecure option": {
 			config: &Config{
@@ -321,7 +344,7 @@ func TestSendCSRAgainstLocalInstance(t *testing.T) {
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("Error expected: %v", c.expectedErr)
-			} else if err.Error() != c.expectedErr {
+			} else if !strings.Contains(err.Error(), c.expectedErr) {
 				t.Errorf("%s: incorrect error message: got [%s] VS want [%s]", id, err.Error(), c.expectedErr)
 			}
 		} else {

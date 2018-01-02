@@ -1,0 +1,49 @@
+
+ª
+\bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/bootstrapgen/testdata/apa_tmpl.proto istio.mixer.adapter.sample.myapa"mixer/v1/template/extensions.proto"Ð
+InstanceParam&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive›
+dimensionsFixedInt64ValueDType (2S.istio.mixer.adapter.sample.myapa.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp (	R	timeStamp
+duration (	RdurationW
+res3_map (2<.istio.mixer.adapter.sample.myapa.InstanceParam.Res3MapEntryRres3Map
+ip_addr (	RipAddr
+dns_name (	RdnsName
+
+email_addr (	R	emailAddr
+uri (	Rurix
+attribute_bindings°Ê¼" (2F.istio.mixer.adapter.sample.myapa.InstanceParam.AttributeBindingsEntryRattributeBindingsQ
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8t
+Res3MapEntry
+key (	RkeyN
+value (28.istio.mixer.adapter.sample.myapa.Resource3InstanceParamRvalue:8D
+AttributeBindingsEntry
+key (	Rkey
+value (	Rvalue:8"Ü
+Resource1InstanceParam
+str (	Rstr\
+self_ref_res1 (28.istio.mixer.adapter.sample.myapa.Resource1InstanceParamRselfRefRes1R
+resRef2 (28.istio.mixer.adapter.sample.myapa.Resource2InstanceParamRresRef2"Ð
+Resource2InstanceParam
+str (	RstrL
+res3 (28.istio.mixer.adapter.sample.myapa.Resource3InstanceParamRres3`
+res3_map (2E.istio.mixer.adapter.sample.myapa.Resource2InstanceParam.Res3MapEntryRres3Mapt
+Res3MapEntry
+key (	RkeyN
+value (28.istio.mixer.adapter.sample.myapa.Resource3InstanceParamRvalue:8"î
+Resource3InstanceParam&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive¤
+dimensionsFixedInt64ValueDType (2\.istio.mixer.adapter.sample.myapa.Resource3InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp (	R	timeStamp
+duration (	RdurationQ
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8BøÒä“bproto3

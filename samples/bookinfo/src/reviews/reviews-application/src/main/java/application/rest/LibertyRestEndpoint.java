@@ -56,6 +56,9 @@ public class LibertyRestEndpoint extends Application {
     	if (starsReviewer1 != -1) {
     		result += ", \"rating\": {\"stars\": " + starsReviewer1 + ", \"color\": \"" + star_color + "\"}";
     	}
+      else {
+        result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+      }
     	result += "},";
     	
     	// reviewer 2:
@@ -65,6 +68,9 @@ public class LibertyRestEndpoint extends Application {
     	if (starsReviewer1 != -1) {
     		result += ", \"rating\": {\"stars\": " + starsReviewer2 + ", \"color\": \"" + star_color + "\"}";
     	}
+      else {
+        result += ", \"rating\": {\"error\": \"Ratings service is currently unavailable\"}";
+      }
     	result += "}";
     	
     	result += "]";

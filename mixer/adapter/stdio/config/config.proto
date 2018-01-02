@@ -23,6 +23,7 @@ option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.equal_all) = false;
 option (gogoproto.gostring_all) = false;
 
+// TODO: provide documentation
 message Params {
     // Stream is used to select between different log output sinks.
     enum Stream {

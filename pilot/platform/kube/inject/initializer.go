@@ -18,11 +18,12 @@ import (
 	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
-	v2alpha1 "k8s.io/api/batch/v2alpha1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/batch/v2alpha1"
+	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 var ignoredNamespaces = []string{
@@ -150,7 +152,7 @@ func NewInitializer(restConfig *rest.Config, config *Config, cl kubernetes.Inter
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
 					if err := i.initialize(obj, patcher); err != nil {
-						glog.Error(err.Error())
+						log.Error(err.Error())
 					}
 				},
 			},
@@ -171,7 +173,7 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 		return err
 	}
 
-	glog.V(2).Infof("ObjectMeta initializer info %v %v/%v policy:%q status:%q %v",
+	log.Infof("ObjectMeta initializer info %v %v/%v policy:%q status:%q %v",
 		gvk, obj.GetNamespace(), obj.GetName(),
 		obj.GetAnnotations()[istioSidecarAnnotationPolicyKey],
 		obj.GetAnnotations()[istioSidecarAnnotationStatusKey],
@@ -226,16 +228,16 @@ func (i *Initializer) initialize(in interface{}, patcher patcherFunc) error {
 
 // Run runs the Initializer controller.
 func (i *Initializer) Run(stopCh <-chan struct{}) {
-	glog.Info("Starting Istio sidecar initializer...")
-	glog.Infof("Initializer name set to: %s", i.config.InitializerName)
-	glog.Infof("Options: %v", spew.Sdump(i.config))
+	log.Info("Starting Istio sidecar initializer...")
+	log.Infof("Initializer name set to: %s", i.config.InitializerName)
+	log.Infof("Options: %v", spew.Sdump(i.config))
 
-	glog.Infof("Supported kinds:")
+	log.Infof("Supported kinds:")
 	for _, kind := range kinds {
 		if gvk, _, err := injectScheme.ObjectKind(kind.obj); err != nil {
-			glog.Warningf("Could not determine object kind: ", err)
+			log.Warnf("Could not determine object kind: ", err)
 		} else {
-			glog.Infof("\t%v/%v %v", gvk.Group, gvk.Version, gvk.Kind)
+			log.Infof("\t%v/%v %v", gvk.Group, gvk.Version, gvk.Kind)
 		}
 	}
 

@@ -32,10 +32,10 @@ import (
 	"fmt"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"github.com/pborman/uuid"
 	sc "google.golang.org/api/servicecontrol/v1"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/adapter/servicecontrol/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"

@@ -22,7 +22,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -91,7 +94,7 @@ func resolveConfig(kubeconfig string) (string, error) {
 
 		// if it's an empty file, switch to in-cluster config
 		if info.Size() == 0 {
-			glog.Info("using in-cluster configuration")
+			log.Info("using in-cluster configuration")
 			return "", nil
 		}
 	}
@@ -192,7 +195,7 @@ func (cl *Client) RegisterResources() error {
 				},
 			},
 		}
-		glog.V(2).Infof("registering CRD %q", rd)
+		log.Infof("registering CRD %q", rd)
 		_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(rd)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -212,7 +215,7 @@ func (cl *Client) RegisterResources() error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						glog.V(2).Infof("established CRD %q", name)
+						log.Infof("established CRD %q", name)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
@@ -275,13 +278,13 @@ func (cl *Client) Get(typ, name, namespace string) (*config.Entry, bool) {
 		Do().Into(entry)
 
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 		return nil, false
 	}
 
 	out, err := convertObject(schema, entry)
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 		return nil, false
 	}
 	return out, true
