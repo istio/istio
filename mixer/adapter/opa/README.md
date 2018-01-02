@@ -7,27 +7,28 @@ Opa adapter embedded the [Open Policy Agent](http://www.openpolicyagent.org/) as
 
 ![mixer adapter opa](https://github.com/mangchiandjjoe/istio/blob/authorization_opa_adapter_fix/mixer/adapter/opa/mixer_adapter_opa.png?raw=true)
 
-The adapter is responsible for (1) instantiating an OPA instance, (2) passing the parameters to OPA and getting the evaluation results from OPA at runtime
+The adapter is responsible for (1) instantiating an [Open Policy Agent](http://www.openpolicyagent.org/) instance,
+(2) passing the parameters to [Open Policy Agent](http://www.openpolicyagent.org/) and getting the evaluation results from OPA at runtime
 
 #### Configuration flow (1 and 2 in the above figure):
 
   1. Service producer sets authorization rules via istioctl. The rules are saved in Istio Configuration server.
-  1. The authorization adapter fetches the rules and passes to OPA.
+  1. The authorization adapter fetches the rules and passes to [Open Policy Agent](http://www.openpolicyagent.org/).
 
 #### Runtime flow (3 and 4 in the above figure):
 
-  1. When a request reaches the authorization handler, the request context is passed to OPA module. The request context can include the following:
+  1. When a request reaches the authorization handler, the request context is passed to OPA adapter. The request context can include the following:
      * Client identity (e.g., service account email, user ID, JWT claims).
      * Service name.
      * Request path.
      * Request method.
      * Other request attributes (e.g., query parameters, request headers, pod labels).
-  1. OPA evaluates the request context against the rules, and returns the result.
+  1. [Open Policy Agent](http://www.openpolicyagent.org/) evaluates the request context against the rules, and returns the result.
 
 #### Configuration
 
-To activate OPA adapter, operator need to configure the
-[authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto) and
+To activate an OPA adapter, operators need to configure the
+[authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto) and the
 [opa adapter](https://github.com/istio/istio/blob/master/mixer/adapter/opa/config/config.proto).
 
 ```protobuf
