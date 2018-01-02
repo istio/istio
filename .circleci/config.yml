@@ -79,7 +79,7 @@ jobs:
       - run:
             timeout: 20m
             # Run the test even if previous failed
-            when: alwyas
+            when: always
             command: |
                   make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
@@ -329,10 +329,7 @@ jobs:
       - run:
           no_output_timeout: 900
           command: |
-            SKIP_INIT=1 bin/linters.sh
-
-      - store_artifacts:
-          path: /go/bin
+            make lint
 
   docker-push:
     <<: *defaults

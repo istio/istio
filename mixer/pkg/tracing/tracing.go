@@ -26,8 +26,8 @@ import (
 	jaeger "github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/transport"
 	"github.com/uber/jaeger-client-go/transport/zipkin"
-
 	"go.uber.org/zap"
+
 	ilog "istio.io/istio/pkg/log"
 )
 

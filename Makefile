@@ -117,6 +117,10 @@ vendor:
 lint:
 	SKIP_INIT=1 bin/linters.sh
 
+# Target run by the pre-commit script, to automate formatting and lint
+# If pre-commit script is not used, please run this manually.
+pre-commit: fmt lint
+
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
