@@ -18,6 +18,9 @@
 ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
+# Current version, updated after a release.
+VERSION ?= "0.5.0"
+
 # Make sure GOPATH is set based on the executing Makefile and workspace. Will override
 # GOPATH from the env.
 export GOPATH= $(shell cd ../../..; pwd)
@@ -111,6 +114,12 @@ depend.vendor: vendor
 vendor:
 	dep ensure -update
 
+lint:
+	SKIP_INIT=1 bin/linters.sh
+
+# Target run by the pre-commit script, to automate formatting and lint
+# If pre-commit script is not used, please run this manually.
+pre-commit: fmt lint
 
 #-----------------------------------------------------------------------------
 # Target: precommit
@@ -305,6 +314,7 @@ show.%: ; $(info $* $(H) $($*))
 # Target: artifacts and distribution
 #-----------------------------------------------------------------------------
 
+
 ${OUT}/dist/Gopkg.lock:
 	mkdir -p ${OUT}/dist
 	cp Gopkg.lock ${OUT}/dist/
@@ -313,6 +323,45 @@ ${OUT}/dist/Gopkg.lock:
 dist-bin: ${OUT}/dist/Gopkg.lock
 
 dist: dist-bin
+
+include .circleci/Makefile
+
+.PHONY: docker.sidecar.deb sidecar.deb
+
+# Make the deb image using the CI/CD image and docker.
+docker.sidecar.deb:
+	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
+        -v ${GOPATH}:${GOPATH} \
+        -w ${PWD} \
+        -e USER=${USER} \
+		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
+		sidecar.deb )
+
+
+# Create the 'sidecar' deb, including envoy and istio agents and configs.
+# This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
+# the builder image.
+# TODO: consistent layout, possibly /opt/istio-VER/...
+sidecar.deb:
+	fpm -s dir -t deb -n istio-sidecar --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
+	   --url http://istio.io  \
+	   --license Apache \
+	   --vendor istio.io \
+	   --maintainer istio@istio.io \
+	   --after-install tools/deb/postinst.sh \
+	   --config-files /var/lib/istio/envoy/sidecar.env \
+	   --config-files /var/lib/istio/envoy/envoy.json \
+	   --description "Istio" \
+	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
+	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
+	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   bin/envoy=/usr/local/bin/envoy \
+	   bin/pilot-agent=/usr/local/bin/pilot-agent \
+	   bin/node_agent=/usr/local/istio/bin/node_agent \
+	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests
