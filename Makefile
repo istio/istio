@@ -114,6 +114,8 @@ depend.vendor: vendor
 vendor:
 	dep ensure -update
 
+lint:
+	SKIP_INIT=1 bin/linters.sh
 
 #-----------------------------------------------------------------------------
 # Target: precommit
