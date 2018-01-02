@@ -28,6 +28,7 @@ jobs:
     environment:
             - KUBECONFIG: /go/out/minikube.conf
             - TEST_ENV: minikube-none
+            - GOPATH: /go
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -36,10 +37,13 @@ jobs:
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
       - checkout
-      - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-      - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+      - attach_workspace:
+          at:  /go
       - run:
+          name: "Start minikube"
           command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             mkdir -p /go/out
             mkdir /home/circleci/logs
             sudo -E minikube start \
@@ -52,7 +56,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run: make docker
       - run:
+          name: "Wait for minikube"
           command: |
             kubectl cluster-info
             set -ne
@@ -63,12 +69,25 @@ jobs:
               fi
               sleep 2
             done
+            kubectl get svc --all-namespaces
+
+      - run: docker images
       - run:
-          command: |
-            make docker
-            # Show created images
-            docker images
-            make e2e_simple
+            timeout: 20m
+            command: |
+                  make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run:
+            timeout: 20m
+            # Run the test even if previous failed
+            when: always
+            command: |
+                  make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run:
+            timeout: 20m
+            when: always
+            command: |
+              make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+
       - store_artifacts:
           path: /home/circleci/logs
           path: /tmp
@@ -123,6 +142,12 @@ jobs:
 
   pilot-integration-noauth:
     <<: *integrationDefaults
+    environment:
+            - GOPATH: /go
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - HUB: docker.io/dnerepo
+            - TAG: dontpush
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -130,31 +155,35 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          sudo chown -R circleci /usr/local/go
       - checkout
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
           command: |
+            mkdir -p /go/out
+            mkdir /home/circleci/logs
             sudo -E minikube start \
-            --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
-            --kubernetes-version=v1.7.5 --vm-driver=none
-      - run: sudo -E minikube update-context
-      - run: bin/install-go.sh
+              --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+              --kubernetes-version=v1.7.5 --vm-driver=none
+            sudo chown -R $USER $KUBECONFIG
+            sudo chown -R $USER $HOME/.minikube
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+      - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
+      - run: go build -i ./pilot/test/integration
       - run:
           command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
-      - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
-      - run: mkdir /home/circleci/logs
-      - run: go build -i ./pilot/test/integration
-      - run: JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'; until sudo kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do sleep 1; done
-      - run: sudo -E kubectl cluster-info
-      - run: make kubelink
+            set -ne
+            kubectl cluster-info
+            for i in {1..150}; do # timeout for 5 minutes
+               kubectl get po &> /dev/null
+               if [ $? -ne 1 ]; then
+                  break
+              fi
+              sleep 2
+            done
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
@@ -243,7 +272,7 @@ jobs:
       - store_artifacts:
           path: /go/bin
 
-  gotest:
+  test:
     <<: *defaults
     resource_class: xlarge
     steps:
@@ -253,11 +282,17 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
           command: |
-            make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config
+            mkdir -p /go/out/tests
+            go get github.com/jstemmer/go-junit-report
+            trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config T=-v | tee /go/out/tests/go-test-report.out
       - store_artifacts:
           path: /go/bin
+          path: /go/out
+      - store_test_results:
+          path: /go/out/tests
 
-  gobuild:
+  build:
     <<: *defaults
     resource_class: xlarge
     steps:
@@ -271,6 +306,11 @@ jobs:
             make go-build
       - store_artifacts:
           path: /go/bin
+      - persist_to_workspace:
+          root: /go
+          paths:
+            - pkg
+            - bin
 
   lint:
     <<: *integrationDefaults
@@ -287,11 +327,9 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
       - run:
+          no_output_timeout: 900
           command: |
-            cd /go/src/istio.io/istio
-            SKIP_INIT=1 bin/linters.sh
-      - store_artifacts:
-          path: /go/bin
+            make lint
 
   docker-push:
     <<: *defaults
@@ -301,7 +339,8 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
-      - setup_remote_docker
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           command: |
             if [ ! -z "${DOCKER_USER}" ] ; then
@@ -317,7 +356,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - restore_cache:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
@@ -341,7 +379,7 @@ workflows:
            filters:
              branches:
                only:
-                 - gobuild
+                 - master
     jobs:
       - dependencies
       # Build
@@ -369,21 +407,24 @@ workflows:
   all:
     jobs:
       - dependencies
-      - gobuild:
+      - build:
           requires:
             - dependencies
-      - gotest:
+      - e2e:
+          requires:
+            - build
+      - test:
           requires:
             - dependencies
       - codecov:
           requires:
-            - gotest
+            - build
       - lint:
           requires:
             - dependencies
       - pilot-integration-noauth:
           requires:
-            - gotest
+            - test
       - pilot-integration-auth:
           requires:
-            - gotest
+            - test

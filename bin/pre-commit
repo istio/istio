@@ -37,9 +37,5 @@ BRANCH_NAME=$(git branch | grep '*' | sed 's/* //')
 if [ $BRANCH_NAME != '(no branch)' ]; then
     cd $ROOT
 
-    #echo "updating autogen files..."
-    #bin/regenerate_files.py
-
-    echo "formatting..."
-    bin/fmt.sh
+    make pre-commit
 fi

@@ -127,6 +127,6 @@ the [adapter logger interface](https://godoc.org/istio.io/istio/mixer/pkg/adapte
 
   - Third-party code
 
-    - Go code for normal third-party dependencies is managed by the [Bazel](http://bazel.build) build system.
+    - Go code for normal third-party dependencies is managed by the Go [Dep](https://github.com/golang/dep).
 
     - Third-party code must carry licenses. This includes modified third-party code and excerpts.
