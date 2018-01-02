@@ -28,6 +28,7 @@ func TestBasicReportRequest(t *testing.T) {
 	report := BasicReport{
 		Attributes: map[string]interface{}{
 			"foo": "bar",
+			"baz": int64(42),
 		},
 	}
 
@@ -44,11 +45,19 @@ func TestBasicReportRequest(t *testing.T) {
 	if len(actual.Attributes) != 1 {
 		t.Fatalf("should have 1 set of attributes")
 	}
-	if len(actual.Attributes[0].Words) != 4 {
-		t.Fatalf("should have 4 words")
+	if len(actual.Attributes[0].Words) != 5 {
+		t.Fatalf("should have 5 words")
 	}
 	if len(actual.Attributes[0].Strings) != 2 {
 		t.Fatalf("should have two strings")
+	}
+	if len(actual.Attributes[0].Int64S) != 1 {
+		t.Fatalf("should have 1 integers")
+	}
+	for _, v := range actual.Attributes[0].Int64S {
+		if v != int64(42) {
+			t.Fatal("The single int64 attribute should have been 42")
+		}
 	}
 	actualMap := make(map[string]string)
 	for k, v := range actual.Attributes[0].Strings {

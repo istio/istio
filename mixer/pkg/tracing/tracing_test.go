@@ -21,6 +21,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	jaeger "github.com/uber/jaeger-client-go"
 )
 
 var (
@@ -38,7 +40,7 @@ func TestNewTracer(t *testing.T) {
 	jaegerOpt := WithJaegerHTTPCollector(jaegerServer.URL)
 
 	var spanOut bytes.Buffer
-	loggingOpt := withLogger(&testLogger{&spanOut})
+	loggingOpt := withReporter(&testReporter{&spanOut})
 
 	cases := []struct {
 		name       string
@@ -113,14 +115,20 @@ func handler(fn http.HandlerFunc) http.Handler {
 	return &testHandler{fn}
 }
 
-type testLogger struct {
+type testReporter struct {
 	out io.Writer
 }
 
-func (t *testLogger) Error(msg string) {
+func (t testReporter) Report(span *jaeger.Span) {
+	fmt.Fprintf(t.out, "Reporting span: %v, %v", span.OperationName(), span.String())
+}
+
+func (testReporter) Close() {}
+
+func (t testReporter) Error(msg string) {
 	fmt.Fprintf(t.out, msg)
 }
 
-func (t *testLogger) Infof(msg string, args ...interface{}) {
+func (t testReporter) Infof(msg string, args ...interface{}) {
 	fmt.Fprintf(t.out, msg, args)
 }

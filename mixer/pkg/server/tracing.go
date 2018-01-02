@@ -44,7 +44,7 @@ func startTracer(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixer
 		opts = append(opts, tracing.WithJaegerHTTPCollector(jaegerURL))
 	}
 	if logTraceSpans {
-		opts = append(opts, tracing.WithLogger())
+		opts = append(opts, tracing.WithConsoleLogging())
 	}
 	tracer, closer, err = tracing.NewTracer("istio-mixer", opts...)
 	if err != nil {

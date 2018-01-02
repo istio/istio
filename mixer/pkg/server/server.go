@@ -49,7 +49,7 @@ type Server struct {
 	tracer    *mixerTracer
 	configDir string
 
-	dispatcherForTesting mixerRuntime.Dispatcher
+	dispatcher mixerRuntime.Dispatcher
 }
 
 // replaceable set of functions for fault injection
@@ -171,7 +171,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		_ = s.Close()
 		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
-	s.dispatcherForTesting = dispatcher
+	s.dispatcher = dispatcher
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
@@ -261,8 +261,8 @@ func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-// GetDispatcherForTesting returns the dispatcherForTesting that was created during server creation. This should only
+// Dispatcher returns the dispatcher that was created during server creation. This should only
 // be used for testing purposes only.
-func (s *Server) GetDispatcherForTesting() mixerRuntime.Dispatcher {
-	return s.dispatcherForTesting
+func (s *Server) Dispatcher() mixerRuntime.Dispatcher {
+	return s.dispatcher
 }
