@@ -22,14 +22,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/integration/utils"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca/controller"
@@ -83,16 +86,18 @@ func main() {
 	// HACKHACK: let `flag.Parsed()` return true to prevent glog from emitting errors
 	flag.CommandLine = flag.NewFlagSet("", flag.ContinueOnError)
 	if err := flag.CommandLine.Parse([]string{}); err != nil {
-		glog.Fatal(err)
+		log.Errora(err)
+		os.Exit(-1)
 	}
 
 	if err := rootCmd.Execute(); err != nil {
 		if opts.clientset != nil && len(opts.namespace) > 0 {
 			if errCleanup := utils.DeleteTestNamespace(opts.clientset, opts.namespace); errCleanup != nil {
-				glog.Errorf("Failed to delete namespace %v : %v", opts.namespace, errCleanup)
+				log.Errorf("Failed to delete namespace %v : %v", opts.namespace, errCleanup)
 			}
 		}
-		glog.Fatal(err)
+		log.Errora(err)
+		os.Exit(-1)
 	}
 }
 
@@ -155,7 +160,7 @@ func runSelfSignedCATests() error {
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA (error: %v)", err)
 	}
-	glog.Infof("Successfully created Istio CA pod(%v) with the self-signed-ca option",
+	log.Infof("Successfully created Istio CA pod(%v) with the self-signed-ca option",
 		selfSignedCaPod.GetName())
 
 	// Test the existence of istio.default secret.
@@ -165,7 +170,7 @@ func runSelfSignedCATests() error {
 		return err
 	}
 
-	glog.Info(`Secret "istio.default" is correctly created`)
+	log.Info(`Secret "istio.default" is correctly created`)
 	if err := examineSecret(s); err != nil {
 		return err
 	}
@@ -175,24 +180,24 @@ func runSelfSignedCATests() error {
 	if err := opts.clientset.CoreV1().Secrets(opts.namespace).Delete("istio.default", do); err != nil {
 		return err
 	}
-	glog.Info(`Secret "istio.default" has been deleted`)
+	log.Info(`Secret "istio.default" has been deleted`)
 
 	// Test that the deleted secret is re-created properly.
 	if _, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
 		secretWaitTime); err != nil {
 		return err
 	}
-	glog.Info(`Secret "istio.default" is correctly re-created`)
+	log.Info(`Secret "istio.default" is correctly re-created`)
 
 	return nil
 }
 
 func cleanUpSelfSignedCATests() {
-	glog.Info("Removing pods: istio-ca-self")
+	log.Info("Removing pods: istio-ca-self")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-self")
-	glog.Info("Removing secrets: istio.default")
+	log.Info("Removing secrets: istio.default")
 	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
-	glog.Info("Removing secrets: istio-ca-secret")
+	log.Info("Removing secrets: istio-ca-secret")
 	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio-ca-secret")
 }
 
@@ -210,7 +215,7 @@ func runCertificatesRotationTests() error {
 	if err != nil {
 		return fmt.Errorf("failed to deploy Istio CA istio-ca-short")
 	}
-	glog.Infof("Successfully created Istio CA pod(istio-ca-short) with the short lifetime certificates")
+	log.Infof("Successfully created Istio CA pod(istio-ca-short) with the short lifetime certificates")
 
 	initialSecret, err := utils.WaitForSecretExist(opts.clientset, opts.namespace, "istio.default",
 		secretWaitTime)
@@ -227,7 +232,7 @@ func runCertificatesRotationTests() error {
 
 	for i := 0; i < maxRetry; i++ {
 		if i > 0 {
-			glog.Infof("Checking certificate rotation in %v seconds", term)
+			log.Infof("Checking certificate rotation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
 			term = term * 2
 		}
@@ -248,7 +253,7 @@ func runCertificatesRotationTests() error {
 
 		if !bytes.Equal(initialSecret.Data[controller.PrivateKeyID], secret.Data[controller.PrivateKeyID]) &&
 			!bytes.Equal(initialSecret.Data[controller.CertChainID], secret.Data[controller.CertChainID]) {
-			glog.Infof("Certificates were successfully rotated")
+			log.Infof("Certificates were successfully rotated")
 			return nil
 		}
 	}
@@ -256,11 +261,11 @@ func runCertificatesRotationTests() error {
 }
 
 func cleanUpCertificatesRotationTests() {
-	glog.Info("Removing pods: istio-ca-self")
+	log.Info("Removing pods: istio-ca-self")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-short")
-	glog.Info("Removing secrets: istio.default")
+	log.Info("Removing secrets: istio.default")
 	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
-	glog.Info("Removing secrets: istio-ca-secret")
+	log.Info("Removing secrets: istio-ca-secret")
 	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio-ca-secret")
 }
 
@@ -307,19 +312,19 @@ func runCAForNodeAgentTests() error {
 		return fmt.Errorf("failed to check certificate update node-agent (err: %v)", err)
 	}
 
-	glog.Info("Certificate of NodeAgent was updated and verified successfully")
+	log.Info("Certificate of NodeAgent was updated and verified successfully")
 
 	return nil
 }
 
 func cleanUpCAForNodeAgentTests() {
-	glog.Info("Removing services: istio-ca, node-agent")
+	log.Info("Removing services: istio-ca, node-agent")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "node-agent")
-	glog.Info("Removing pods: istio-ca-cert, node-agent-cert")
+	log.Info("Removing pods: istio-ca-cert, node-agent-cert")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "istio-ca-cert")
 	_ = utils.DeletePod(opts.clientset, opts.namespace, "node-agent-cert")
-	glog.Info("Removing secrets: istio.default")
+	log.Info("Removing secrets: istio.default")
 	_ = utils.DeleteSecret(opts.clientset, opts.namespace, "istio.default")
 }
 
@@ -396,20 +401,20 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 
 	for i := 0; i < certValidateRetry; i++ {
 		if i > 0 {
-			glog.Infof("Retry checking certificate update and validation in %v seconds", term)
+			log.Infof("Retry checking certificate update and validation in %v seconds", term)
 			time.Sleep(time.Duration(term) * time.Second)
 			term = term * 2
 		}
 
 		certPEM, err := readURI(fmt.Sprintf("%v/cert", appurl))
 		if err != nil {
-			glog.Errorf("Failed to read the certificate of NodeAgent: %v", err)
+			log.Errorf("Failed to read the certificate of NodeAgent: %v", err)
 			continue
 		}
 
 		rootPEM, err := readURI(fmt.Sprintf("%v/root", appurl))
 		if err != nil {
-			glog.Errorf("Failed to read the root certificate of NodeAgent: %v", err)
+			log.Errorf("Failed to read the root certificate of NodeAgent: %v", err)
 			continue
 		}
 
@@ -418,7 +423,7 @@ func waitForNodeAgentCertificateUpdate(appurl string) error {
 		}
 
 		if orgCertChain == certPEM {
-			glog.Error("Certificate chain was not updated yet")
+			log.Error("Certificate chain was not updated yet")
 			continue
 		}
 

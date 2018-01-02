@@ -229,24 +229,24 @@ func TestEnvoyRun(t *testing.T) {
 	config.ConfigPath = "tmp"
 
 	envoyConfig := buildConfig(config, nil)
-	proxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
+	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
 	abortCh := make(chan error, 1)
 
-	if err = proxy.Run(nil, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(nil, 0, abortCh); err == nil {
 		t.Error("expected error on nil config")
 	}
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err != nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err != nil {
 		t.Error(err)
 	}
 
-	proxy.Cleanup(0)
+	envoyProxy.Cleanup(0)
 
 	badConfig := config
 	badConfig.ConfigPath = ""
-	proxy.config = badConfig
+	envoyProxy.config = badConfig
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err == nil {
 		t.Errorf("expected error on bad config path")
 	}
 }

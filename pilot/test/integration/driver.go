@@ -29,7 +29,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -116,8 +118,11 @@ type test interface {
 
 func main() {
 	flag.Parse()
+	log.Configure(log.NewOptions())
+
 	if params.Tag == "" {
-		glog.Fatal("No docker tag specified")
+		log.Error("No docker tag specified")
+		os.Exit(-1)
 	}
 
 	if verbose {
@@ -134,7 +139,7 @@ func main() {
 	params.PilotCustomConfigFile = pilotConfigFile
 
 	if len(params.Namespace) != 0 && authmode == "both" {
-		glog.Infof("When namespace(=%s) is specified, auth mode(=%s) must be one of enable or disable.",
+		log.Infof("When namespace(=%s) is specified, auth mode(=%s) must be one of enable or disable.",
 			params.Namespace, authmode)
 		return
 	}
@@ -142,7 +147,8 @@ func main() {
 	var err error
 	_, client, err = kube.CreateInterface(kubeconfig)
 	if err != nil {
-		glog.Fatal(err)
+		log.Errora(err)
+		os.Exit(-1)
 	}
 
 	switch authmode {
@@ -153,7 +159,7 @@ func main() {
 	case "both":
 		runTests(params, setAuth(params))
 	default:
-		glog.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", authmode)
+		log.Infof("Invald auth flag: %s. Please choose from: enable/disable/both.", authmode)
 	}
 }
 
@@ -167,19 +173,24 @@ func setAuth(params infra) infra {
 	return out
 }
 
-func log(header, s string) {
-	glog.Infof("\n\n=================== %s =====================\n%s\n\n", header, s)
+func tlog(header, s string) {
+	log.Infof("\n\n=================== %s =====================\n%s\n\n", header, s)
 }
 
-func logError(header, s string) {
-	glog.Errorf("\n\n=================== %s =====================\n%s\n\n", header, s)
+func tlogError(header, s string) {
+	log.Errorf("\n\n=================== %s =====================\n%s\n\n", header, s)
+}
+
+func tlogFatal(header, s string) {
+	tlogError(header, s)
+	os.Exit(-1)
 }
 
 func runTests(envs ...infra) {
 	var result error
 	for _, istio := range envs {
 		var errs error
-		log("Deploying infrastructure", spew.Sdump(istio))
+		tlog("Deploying infrastructure", spew.Sdump(istio))
 		if err := istio.setup(); err != nil {
 			result = multierror.Append(result, err)
 			continue
@@ -216,18 +227,18 @@ func runTests(envs ...infra) {
 			}
 
 			for i := 0; i < count; i++ {
-				log("Test run", strconv.Itoa(i))
+				tlog("Test run", strconv.Itoa(i))
 				if err := test.setup(); err != nil {
 					errs = multierror.Append(errs, multierror.Prefix(err, test.String()))
 				} else {
-					log("Running test", test.String())
+					tlog("Running test", test.String())
 					if err := test.run(); err != nil {
 						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
 					} else {
-						log("Success!", test.String())
+						tlog("Success!", test.String())
 					}
 				}
-				log("Tearing down test", test.String())
+				tlog("Tearing down test", test.String())
 				test.teardown()
 			}
 		}
@@ -237,51 +248,50 @@ func runTests(envs ...infra) {
 			for _, pod := range util.GetPods(client, istio.Namespace) {
 				var filename, content string
 				if strings.HasPrefix(pod, "istio-pilot") {
-					log("Discovery log", pod)
+					tlog("Discovery log", pod)
 					filename = "istio-pilot"
 					content = util.FetchLogs(client, pod, istio.IstioNamespace, "discovery")
 				} else if strings.HasPrefix(pod, "istio-mixer") {
-					log("Mixer log", pod)
+					tlog("Mixer log", pod)
 					filename = "istio-mixer"
 					content = util.FetchLogs(client, pod, istio.IstioNamespace, "mixer")
 				} else if strings.HasPrefix(pod, "istio-ingress") {
-					log("Ingress log", pod)
+					tlog("Ingress log", pod)
 					filename = "istio-ingress"
 					content = util.FetchLogs(client, pod, istio.IstioNamespace, inject.ProxyContainerName)
 				} else {
-					log("Proxy log", pod)
+					tlog("Proxy log", pod)
 					filename = pod
 					content = util.FetchLogs(client, pod, istio.Namespace, inject.ProxyContainerName)
 				}
 
 				if len(istio.errorLogsDir) > 0 {
 					if err := ioutil.WriteFile(istio.errorLogsDir+"/"+filename+".txt", []byte(content), 0644); err != nil {
-						glog.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
-						glog.Info(content)
+						log.Errorf("Failed to save logs to %s:%s. Dumping on stderr\n", filename, err)
+						log.Info(content)
 					}
 				} else {
-					glog.Info(content)
+					log.Info(content)
 				}
 			}
 		}
 
 		// always remove infra even if the tests fail
-		log("Tearing down infrastructure", istio.Name)
+		tlog("Tearing down infrastructure", istio.Name)
 		istio.teardown()
 
 		if errs == nil {
-			log("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
+			tlog("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
 		} else {
-			logError("Failed tests!", errs.Error())
+			tlogError("Failed tests!", errs.Error())
 			result = multierror.Append(result, multierror.Prefix(errs, istio.Name))
 		}
 	}
 
 	if result == nil {
-		log("Passed infrastructure tests!", spew.Sdump(envs))
+		tlog("Passed infrastructure tests!", spew.Sdump(envs))
 	} else {
-		logError("Failed infrastructure tests!", result.Error())
-		os.Exit(1)
+		tlogFatal("Failed infrastructure tests!", result.Error())
 	}
 }
 
@@ -318,7 +328,7 @@ func parallel(fs map[string]func() status) error {
 	repeat := func(name string, f func() status) func() error {
 		return func() error {
 			for n := 0; n < budget; n++ {
-				glog.Infof("%s (attempt %d)", name, n)
+				log.Infof("%s (attempt %d)", name, n)
 				err := f()
 				switch err {
 				case nil:
@@ -354,7 +364,7 @@ func repeat(f func() error, budget int, delay time.Duration) error {
 			return nil
 		}
 		errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("attempt %d", i)))
-		glog.Infof("attempt #%d failed with %v", i, err)
+		log.Infof("attempt #%d failed with %v", i, err)
 		time.Sleep(delay)
 	}
 	return errs

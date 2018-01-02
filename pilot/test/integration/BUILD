@@ -25,7 +25,9 @@ go_library(
         "//pilot/platform/kube:go_default_library",
         "//pilot/platform/kube/inject:go_default_library",
         "//pilot/test/util:go_default_library",
+        "//pkg/log:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_sync//errgroup:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",

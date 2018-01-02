@@ -18,10 +18,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/client-go/util/flowcontrol"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Queue of work tickets processed using a rate-limiting loop
@@ -99,7 +101,7 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 			for {
 				err := item.handler(item.obj, item.event)
 				if err != nil {
-					glog.V(2).Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
+					log.Infof("Work item failed (%v), repeating after delay %v", err, q.delay)
 					time.Sleep(q.delay)
 				} else {
 					break

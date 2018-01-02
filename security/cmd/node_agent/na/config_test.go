@@ -19,9 +19,7 @@ import (
 )
 
 func TestInitializeConfig(t *testing.T) {
-	config := Config{}
-
-	InitializeConfig(&config)
+	config := NewConfig()
 
 	if config.CSRInitialRetrialInterval != defaultCSRInitialRetrialInterval {
 		t.Errorf("Unexpected config.CSRInitialRetrialInterval: %v", config.CSRInitialRetrialInterval)

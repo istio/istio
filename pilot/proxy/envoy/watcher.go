@@ -25,12 +25,14 @@ import (
 	"path"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/howeyc/fsnotify"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 // Watcher triggers reloads on changes to the proxy config
@@ -120,7 +122,7 @@ func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDel
 	for {
 		select {
 		case ev := <-wch:
-			glog.Infof("watchFileEvents: %s", ev.String())
+			log.Infof("watchFileEvents: %s", ev.String())
 			if timer != nil {
 				continue
 			}
@@ -133,10 +135,10 @@ func watchFileEvents(ctx context.Context, wch <-chan *fsnotify.FileEvent, minDel
 			timer.Stop()
 			timer = nil
 
-			glog.Info("watchFileEvents: notifying")
+			log.Info("watchFileEvents: notifying")
 			notifyFn()
 		case <-ctx.Done():
-			glog.V(2).Info("watchFileEvents has terminated")
+			log.Info("watchFileEvents has terminated")
 			return
 		}
 	}
@@ -150,19 +152,19 @@ func watchCerts(ctx context.Context, certsDirs []string, watchFileEventsFn watch
 	minDelay time.Duration, updateFunc func()) {
 	fw, err := fsnotify.NewWatcher()
 	if err != nil {
-		glog.Warningf("failed to create a watcher for certificate files: %v", err)
+		log.Warnf("failed to create a watcher for certificate files: %v", err)
 		return
 	}
 	defer func() {
 		if err := fw.Close(); err != nil {
-			glog.Warningf("closing watcher encounters an error %v", err)
+			log.Warnf("closing watcher encounters an error %v", err)
 		}
 	}()
 
 	// watch all directories
 	for _, d := range certsDirs {
 		if err := fw.Watch(d); err != nil {
-			glog.Warningf("watching %s encounters an error %v", d, err)
+			log.Warnf("watching %s encounters an error %v", d, err)
 			return
 		}
 	}
@@ -178,11 +180,11 @@ func generateCertHash(h hash.Hash, certsDir string, files []string) {
 		filename := path.Join(certsDir, file)
 		bs, err := ioutil.ReadFile(filename)
 		if err != nil {
-			// glog.Warningf("failed to read file %q", filename)
+			// log.Warnf("failed to read file %q", filename)
 			continue
 		}
 		if _, err := h.Write(bs); err != nil {
-			glog.Warning(err)
+			log.Warna(err)
 		}
 	}
 }
@@ -265,7 +267,7 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 	// spin up a new Envoy process
 	args := proxy.args(fname, epoch)
 
-	glog.V(2).Infof("Envoy command: %v", args)
+	log.Infof("Envoy command: %v", args)
 
 	/* #nosec */
 	cmd := exec.Command(proxy.config.BinaryPath, args...)
@@ -282,9 +284,9 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 
 	select {
 	case err := <-abort:
-		glog.Warningf("Aborting epoch %d", epoch)
+		log.Warnf("Aborting epoch %d", epoch)
 		if errKill := cmd.Process.Kill(); errKill != nil {
-			glog.Warningf("killing epoch %d caused an error %v", epoch, errKill)
+			log.Warnf("killing epoch %d caused an error %v", epoch, errKill)
 		}
 		return err
 	case err := <-done:
@@ -295,10 +297,11 @@ func (proxy envoy) Run(config interface{}, epoch int, abort <-chan error) error 
 func (proxy envoy) Cleanup(epoch int) {
 	filePath := configFile(proxy.config.ConfigPath, epoch)
 	if err := os.Remove(filePath); err != nil {
-		glog.Warningf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
+		log.Warnf("Failed to delete config file %s for %d, %v", filePath, epoch, err)
 	}
 }
 
 func (proxy envoy) Panic(_ interface{}) {
-	glog.Fatal("cannot start the proxy with the desired configuration")
+	log.Error("cannot start the proxy with the desired configuration")
+	os.Exit(-1)
 }
