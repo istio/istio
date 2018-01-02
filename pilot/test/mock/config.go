@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	mpb "istio.io/api/mixer/v1"

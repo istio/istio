@@ -273,8 +273,8 @@ spec:
           - --configDefaultNamespace=istio-system
           - --zipkinURL=http://zipkin:9411/api/v1/spans
           - --logtostderr
-          - -v
-          - "2"
+          - -log_output_level
+          - "info"
       - name: istio-proxy
         image: gcr.io/istio-testing/proxy_debug:3101ea9d82a5f83b699c2d3245b371a19fa6bef4
         imagePullPolicy: IfNotPresent
@@ -283,8 +283,8 @@ spec:
         args:
         - proxy
         - mixer
-        - -v
-        - "2"
+        - -log_output_level
+        - "info"
         - --controlPlaneAuthPolicy
         - NONE #--controlPlaneAuthPolicy
         - --customConfigFile
@@ -1226,8 +1226,8 @@ spec:
         args:
         - proxy
         - pilot
-        - -v
-        - "2"
+        - -log_output_level
+        - "info"
         - --discoveryAddress
         - istio-pilot:15003
         - --controlPlaneAuthPolicy
@@ -1295,8 +1295,8 @@ spec:
         args:
         - proxy
         - ingress
-        - -v
-        - "2"
+        - -log_output_level
+        - "info"
         - --discoveryAddress
         - istio-pilot:15003
         - --discoveryRefreshDelay

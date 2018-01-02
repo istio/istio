@@ -133,4 +133,3 @@ func (envManager *TestEnvManager) RunTest(m runnable) (ret int) {
 	return ret
 }
 
-// TODO: USE glog instead of log

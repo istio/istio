@@ -31,7 +31,7 @@ mixer_docker_build(
     cmd = [
         "--configStore2URL=k8s://",
         "--logtostderr",
-        "--v=2",
+        "--log_output_level=info",
         "--zipkinURL=http://zipkin:9411/api/v1/spans",
     ],
     debs = [

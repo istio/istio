@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

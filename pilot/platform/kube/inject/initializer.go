@@ -18,8 +18,6 @@ import (
 	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v2alpha1"

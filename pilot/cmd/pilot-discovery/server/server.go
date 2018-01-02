@@ -23,8 +23,6 @@ import (
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"

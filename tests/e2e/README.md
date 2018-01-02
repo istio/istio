@@ -162,7 +162,7 @@ go_test target. The script has a number of options:
 
   Then you can run the go_test binary and specific a test case use flag `--test.run`:
   ```bash
-  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2 \
+  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -log_output_level info \
   --test.run TestSimpleIngress \
   --mixer_tag "${GIT_SHA}" --mixer_hub "${HUB}" \
   --pilot_tag "${GIT_SHA}" --pilot_hub "${HUB}" \
@@ -174,9 +174,9 @@ go_test target. The script has a number of options:
 * For **simple test** specific, you can run test multiple time against the same environement setup by `skip_setup`:
   ```bash
   # First time you want to run: deploy in namespace e2e and leave it running:
-  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable
+  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -log_output_level info  --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable
   # Subsequent runs if only the TestSimpleIngress (for instance) changes:
-  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2  --skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress
+  ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -log_output_level info  --skip_setup --skip_cleanup --namespace=e2e -istioctl ~/istioctl-osx --auth_enable --test.run TestSimpleIngress
   ```
   
 

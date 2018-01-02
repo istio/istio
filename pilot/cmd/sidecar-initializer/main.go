@@ -17,8 +17,6 @@ package main
 import (
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"

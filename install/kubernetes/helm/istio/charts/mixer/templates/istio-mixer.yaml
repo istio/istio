@@ -86,8 +86,8 @@ spec:
           - --configDefaultNamespace={{$istio_namespace}}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
           - --logtostderr
-          - -v
-          - "2"
+          - -log_output_level
+          - "info"
       - name: istio-proxy
         image: {{$proxy_hub}}/proxy_debug:{{$proxy_tag}}
         imagePullPolicy: IfNotPresent
@@ -96,8 +96,8 @@ spec:
         args:
         - proxy
         - mixer
-        - -v
-        - "2"
+        - -log_output_level
+        - "info"
         - --controlPlaneAuthPolicy
 {{- if .Values.global.auth_enabled }}
         - MUTUAL_TLSN

@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/platform"

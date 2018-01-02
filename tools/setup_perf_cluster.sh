@@ -95,8 +95,8 @@ function get_vm_ip() {
 
 # assumes run from istio/ (or release) directory
 function install_istio() {
-  # Use the non debug ingress and remove the -v "2"
-  Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-v|\"2\")" | kubectl apply -f -'
+  # Use the non debug ingress and remove the -log_output_level "info"
+  Execute sh -c 'sed -e "s/_debug//g" install/kubernetes/istio-auth.yaml | egrep -v -e "- (-log_output_level|\"info\")" | kubectl apply -f -'
 }
 
 function kubectl_setup() {

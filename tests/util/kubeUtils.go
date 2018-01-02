@@ -26,9 +26,6 @@ import (
 	"text/template"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pkg/log"
 )
 

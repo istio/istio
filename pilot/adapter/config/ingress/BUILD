@@ -12,9 +12,6 @@ go_library(
         "//pilot/model:go_default_library",
         "//pilot/platform/kube:go_default_library",
         "//pkg/log:go_default_library",
-
-        # TODO(nmittler): Remove this
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",

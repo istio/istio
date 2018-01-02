@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/google/go-github/github"
 
 	"istio.io/istio/pkg/log"

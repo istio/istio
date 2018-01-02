@@ -16,8 +16,6 @@ go_library(
         "//security/pkg/platform:go_default_library",
         "//security/pkg/workload:go_default_library",
         "//security/proto:go_default_library",
-        # TODO(nmittler): Remove this
-        "@com_github_golang_glog//:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_x_net//context:go_default_library",
     ],

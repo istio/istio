@@ -19,8 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"

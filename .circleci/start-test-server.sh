@@ -8,4 +8,4 @@ ${GOPATH}/bin/etcd &
     --tls-cert-file /tmp/apiserver/server.crt \
     --tls-private-key-file /tmp/apiserver/server.key \
     --service-cluster-ip-range 10.99.0.0/16 \
-    --port 8080 -v 2 --insecure-bind-address 0.0.0.0
+    --port 8080 -log_output_level info --insecure-bind-address 0.0.0.0

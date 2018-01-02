@@ -27,8 +27,6 @@ import (
 	"testing"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/log"

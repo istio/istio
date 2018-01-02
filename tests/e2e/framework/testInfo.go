@@ -30,8 +30,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/google/uuid"
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -81,7 +79,7 @@ func newTestInfo(testID string) (*testInfo, error) {
 	logsPath := ""
 	var tmpDir string
 	// testLogsPath will be used when called by Prow.
-	// Bootstrap already gather stdout and stdin so we don't need to keep the logs from glog.
+	// Bootstrap already gather stdout and stdin so we don't need to keep the logs.
 	if *testLogsPath != "" {
 		tmpDir = path.Join(*testLogsPath, id)
 		if err = os.MkdirAll(tmpDir, 0777); err != nil {

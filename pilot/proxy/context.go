@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 

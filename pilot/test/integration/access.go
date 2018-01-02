@@ -19,9 +19,6 @@ import (
 	"strings"
 	"sync"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/log"

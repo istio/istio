@@ -6,9 +6,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/log:go_default_library",
-
-        # TODO(nmittler): Remove this
-        "@com_github_golang_glog//:go_default_library",
     ],
 )
 
