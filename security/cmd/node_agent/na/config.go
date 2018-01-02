@@ -17,6 +17,7 @@ package na
 import (
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 )
 
@@ -54,12 +55,18 @@ type Config struct {
 
 	// The Configuration for talking to the platform metadata server.
 	PlatformConfig platform.ClientConfig
+
+	// LoggingOptions is the options for Istio logging.
+	LoggingOptions *log.Options
 }
 
-// InitializeConfig initializes Config with default values.
-func InitializeConfig(config *Config) {
-	config.CSRInitialRetrialInterval = defaultCSRInitialRetrialInterval
-	config.CSRMaxRetries = defaultCSRMaxRetries
-	config.CSRGracePeriodPercentage = defaultCSRGracePeriodPercentage
-	config.PlatformConfig = platform.ClientConfig{}
+// NewConfig creates a new Config instance with default values.
+func NewConfig() *Config {
+	return &Config{
+		CSRInitialRetrialInterval: defaultCSRInitialRetrialInterval,
+		CSRMaxRetries:             defaultCSRMaxRetries,
+		CSRGracePeriodPercentage:  defaultCSRGracePeriodPercentage,
+		PlatformConfig:            platform.ClientConfig{},
+		LoggingOptions:            log.NewOptions(),
+	}
 }

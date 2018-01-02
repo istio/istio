@@ -10,6 +10,9 @@ go_library(
     deps = [
         "//broker/pkg/model/config:go_default_library",
         "//broker/pkg/model/osb:go_default_library",
+        "//pkg/log:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
     ],
 )

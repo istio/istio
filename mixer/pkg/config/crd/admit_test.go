@@ -94,10 +94,13 @@ func TestAdmissionController(t *testing.T) {
 			name: "valid create",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
 					Object: runtime.RawExtension{
 						Raw: valid,
 					},
+					Namespace: watchedNamespace,
 					Operation: admission.Create,
 				},
 			},
@@ -111,10 +114,13 @@ func TestAdmissionController(t *testing.T) {
 			name: "valid update",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
 					Object: runtime.RawExtension{
 						Raw: valid,
 					},
+					Namespace: watchedNamespace,
 					Operation: admission.Update,
 				},
 			},
@@ -128,10 +134,11 @@ func TestAdmissionController(t *testing.T) {
 			name: "valid delete",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
 					},
+					Namespace: watchedNamespace,
+					Name:      "to-be-deleted",
 					Operation: admission.Delete,
 				},
 			},
@@ -145,10 +152,13 @@ func TestAdmissionController(t *testing.T) {
 			name: "validation failure",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
 					Object: runtime.RawExtension{
 						Raw: valid,
 					},
+					Namespace: watchedNamespace,
 					Operation: admission.Update,
 				},
 			},
@@ -162,10 +172,11 @@ func TestAdmissionController(t *testing.T) {
 			name: "validation failure on delete",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
 					},
+					Namespace: watchedNamespace,
+					Name:      "to-be-deleted",
 					Operation: admission.Delete,
 				},
 			},
@@ -179,10 +190,13 @@ func TestAdmissionController(t *testing.T) {
 			name: "valid in NamespaceAll",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{},
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
 					Object: runtime.RawExtension{
 						Raw: nonWatchedInvalid,
 					},
+					Namespace: nonWatchedNamespace,
 					Operation: admission.Create,
 				},
 			},
@@ -196,10 +210,13 @@ func TestAdmissionController(t *testing.T) {
 			name: "invalid in NamespaceAll",
 			in: &v1alpha1.AdmissionReview{
 				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{},
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
 					Object: runtime.RawExtension{
 						Raw: nonWatchedInvalid,
 					},
+					Namespace: nonWatchedNamespace,
 					Operation: admission.Create,
 				},
 			},
@@ -208,6 +225,36 @@ func TestAdmissionController(t *testing.T) {
 			},
 			useNamespaceAll: true,
 			v:               &fakeValidator{errors.New("fail")},
+		},
+		{
+			name: "invalid create",
+			in: &v1alpha1.AdmissionReview{
+				Spec: v1alpha1.AdmissionReviewSpec{
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
+					Namespace: watchedNamespace,
+					Operation: admission.Create,
+				},
+			},
+			want: &v1alpha1.AdmissionReviewStatus{
+				Allowed: false,
+			},
+		},
+		{
+			name: "invalid delete",
+			in: &v1alpha1.AdmissionReview{
+				Spec: v1alpha1.AdmissionReviewSpec{
+					Kind: metav1.GroupVersionKind{
+						Kind: "mock",
+					},
+					Namespace: watchedNamespace,
+					Operation: admission.Delete,
+				},
+			},
+			want: &v1alpha1.AdmissionReviewStatus{
+				Allowed: false,
+			},
 		},
 	}
 
@@ -238,10 +285,13 @@ func TestAdmissionController(t *testing.T) {
 func makeTestData(t *testing.T) []byte {
 	review := v1alpha1.AdmissionReview{
 		Spec: v1alpha1.AdmissionReviewSpec{
-			Kind: metav1.GroupVersionKind{},
+			Kind: metav1.GroupVersionKind{
+				Kind: "mock",
+			},
 			Object: runtime.RawExtension{
 				Raw: makeConfig(t, watchedNamespace, 0),
 			},
+			Namespace: watchedNamespace,
 			Operation: admission.Create,
 		},
 	}

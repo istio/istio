@@ -23,7 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/proxy/envoy"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -58,6 +60,8 @@ var (
 	customConfigFile       string
 	proxyLogLevel          string
 
+	loggingOptions = log.NewOptions()
+
 	rootCmd = &cobra.Command{
 		Use:   "agent",
 		Short: "Istio Pilot agent",
@@ -68,7 +72,10 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			glog.V(2).Infof("Version %s", version.Line())
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
+			log.Infof("Version %s", version.Line())
 			role.Type = proxy.Sidecar
 			if len(args) > 0 {
 				role.Type = proxy.NodeType(args[0])
@@ -82,7 +89,7 @@ var (
 					ipAddr := "127.0.0.1"
 					if ok := proxy.WaitForPrivateNetwork(); ok {
 						ipAddr = proxy.GetPrivateIP().String()
-						glog.V(2).Infof("Obtained private IP %v", ipAddr)
+						log.Infof("Obtained private IP %v", ipAddr)
 					}
 
 					role.IPAddress = ipAddr
@@ -112,17 +119,17 @@ var (
 			// Get AZ for proxy
 			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
 			if err != nil {
-				glog.V(2).Infof("Error retrieving availability zone from pilot: %v", err)
+				log.Infof("Error retrieving availability zone from pilot: %v", err)
 			} else {
 				body, err := ioutil.ReadAll(azResp.Body)
 				if err != nil {
-					glog.V(2).Infof("Error reading availability zone response from pilot: %v", err)
+					log.Infof("Error reading availability zone response from pilot: %v", err)
 				}
 				availabilityZone = string(body)
-				glog.V(2).Infof("Proxy availability zone: %v", availabilityZone)
+				log.Infof("Proxy availability zone: %v", availabilityZone)
 			}
 
-			glog.V(2).Infof("Proxy role: %#v", role)
+			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := meshconfig.ProxyConfig{}
 
@@ -180,9 +187,9 @@ var (
 			}
 
 			if out, err := model.ToYAML(&proxyConfig); err != nil {
-				glog.V(2).Infof("Failed to serialize to YAML: %v", err)
+				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
-				glog.V(2).Infof("Effective config: %s", out)
+				log.Infof("Effective config: %s", out)
 			}
 
 			certs := []envoy.CertSource{
@@ -199,7 +206,7 @@ var (
 				})
 			}
 
-			glog.V(2).Infof("Monitored certs: %#v", certs)
+			log.Infof("Monitored certs: %#v", certs)
 
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
@@ -219,7 +226,7 @@ var (
 func timeDuration(dur *duration.Duration) time.Duration {
 	out, err := ptypes.Duration(dur)
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 	return out
 }
@@ -274,6 +281,10 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
 			"trace", "debug", "info", "warn", "err", "critical", "off"))
+
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
+
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
@@ -281,8 +292,11 @@ func init() {
 }
 
 func main() {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
 	if err := rootCmd.Execute(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		os.Exit(-1)
 	}
 }

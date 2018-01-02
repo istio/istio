@@ -11,7 +11,10 @@ go_library(
         "store.go",
     ],
     deps = [
+        "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
+
+        # TODO(nmittler) Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_golang_mock//gomock:go_default_library",
         "@com_github_golang_protobuf//jsonpb:go_default_library",

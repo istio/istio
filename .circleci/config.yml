@@ -380,7 +380,6 @@ workflows:
              branches:
                only:
                  - master
-                 - gobuild3
     jobs:
       - dependencies
       # Build

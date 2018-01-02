@@ -21,8 +21,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/log"
 )
 
 type routingToEgress struct {
@@ -56,7 +58,7 @@ func (t *routingToEgress) run() error {
 
 	var errs error
 	for _, cs := range cases {
-		log("Checking routing rule to egress rule test", cs.description)
+		tlog("Checking routing rule to egress rule test", cs.description)
 		if err := t.applyConfig(cs.configEgress, nil); err != nil {
 			return err
 		}
@@ -65,24 +67,24 @@ func (t *routingToEgress) run() error {
 		}
 
 		if err := repeat(cs.check, 3, time.Second); err != nil {
-			glog.Infof("Failed the test with %v", err)
+			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
-			glog.Info("Success!")
+			log.Info("Success!")
 		}
 	}
 	return errs
 }
 
 func (t *routingToEgress) teardown() {
-	glog.Info("Cleaning up route rules to egress rules...")
+	log.Info("Cleaning up route rules to egress rules...")
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }
 
 func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, respCode int) error {
-	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
+	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	resp := t.clientRequest(src, url, 1, "")
 

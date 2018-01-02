@@ -19,6 +19,7 @@ package version
 import (
 	"fmt"
 
+	// TODO(nmittler): Is this still needed?
 	_ "github.com/golang/glog" // import glog flags
 )
 

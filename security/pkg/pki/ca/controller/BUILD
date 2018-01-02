@@ -7,8 +7,10 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/log:go_default_library",
         "//security/pkg/pki:go_default_library",
         "//security/pkg/pki/ca:go_default_library",
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",

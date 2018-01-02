@@ -21,11 +21,13 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
@@ -155,7 +157,7 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 
 		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
 		if !exists {
-			glog.V(7).Infof("unrecognized type %v", obj.Kind)
+			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
 			continue
 		}

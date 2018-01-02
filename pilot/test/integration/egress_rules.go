@@ -21,8 +21,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/log"
 )
 
 type egressRules struct {
@@ -82,25 +84,25 @@ func (t *egressRules) run() error {
 	}
 	var errs error
 	for _, cs := range cases {
-		log("Checking egressRules test", cs.description)
+		tlog("Checking egressRules test", cs.description)
 		if err := t.applyConfig(cs.config, nil); err != nil {
 			return err
 		}
 
 		if err := repeat(cs.check, 3, time.Second); err != nil {
-			glog.Infof("Failed the test with %v", err)
+			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
-			glog.Info("Success!")
+			log.Info("Success!")
 		}
 	}
 	return errs
 }
 
 func (t *egressRules) teardown() {
-	glog.Info("Cleaning up egress rules...")
+	log.Info("Cleaning up egress rules...")
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }
 

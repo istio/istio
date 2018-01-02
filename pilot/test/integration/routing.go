@@ -23,8 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/log"
 )
 
 type routing struct {
@@ -127,25 +129,25 @@ func (t *routing) run() error {
 
 	var errs error
 	for _, cs := range cases {
-		log("Checking routing test", cs.description)
+		tlog("Checking routing test", cs.description)
 		if err := t.applyConfig(cs.config, nil); err != nil {
 			return err
 		}
 
 		if err := repeat(cs.check, 3, time.Second); err != nil {
-			glog.Infof("Failed the test with %v", err)
+			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
-			glog.Info("Success!")
+			log.Info("Success!")
 		}
 	}
 	return errs
 }
 
 func (t *routing) teardown() {
-	glog.Info("Cleaning up route rules...")
+	log.Info("Cleaning up route rules...")
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }
 
@@ -161,11 +163,11 @@ func counts(elts []string) map[string]int {
 func (t *routing) verifyRouting(scheme, src, dst, headerKey, headerVal string,
 	samples int, expectedCount map[string]int, operation string) error {
 	url := fmt.Sprintf("%s://%s/%s", scheme, dst, src)
-	glog.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
+	log.Infof("Making %d requests (%s) from %s...\n", samples, url, src)
 
 	resp := t.clientRequest(src, url, samples, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	count := counts(resp.version)
-	glog.Infof("request counts %v", count)
+	log.Infof("request counts %v", count)
 	epsilon := 5
 
 	var errs error
@@ -208,7 +210,7 @@ func (t *routing) verifyDecorator(operation string) error {
 func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 	respTime time.Duration, respCode int) error {
 	url := fmt.Sprintf("http://%s/%s", dst, src)
-	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
+	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	start := time.Now()
 	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
@@ -232,7 +234,7 @@ func (t *routing) verifyFaultInjection(src, dst, headerKey, headerVal string,
 // verifyRedirect verifies if the http redirect was setup properly
 func (t *routing) verifyRedirect(src, dst, targetHost, targetPath, headerKey, headerVal string, respCode int) error {
 	url := fmt.Sprintf("http://%s/%s", dst, src)
-	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
+	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	resp := t.clientRequest(src, url, 1, fmt.Sprintf("-key %s -val %s", headerKey, headerVal))
 	if len(resp.code) == 0 || resp.code[0] != fmt.Sprint(respCode) {
