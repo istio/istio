@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"text/tabwriter"
 
@@ -36,6 +37,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/cmd"
@@ -494,7 +496,7 @@ and destination policies.
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
-	defaultKubeconfig := os.Getenv("HOME") + "/.kube/config"
+	defaultKubeconfig := path.Join(homedir.HomeDir(), ".kube/config")
 	if v := os.Getenv("KUBECONFIG"); v != "" {
 		defaultKubeconfig = v
 	}
