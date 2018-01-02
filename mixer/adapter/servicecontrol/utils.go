@@ -21,7 +21,8 @@ import (
 	"time"
 
 	pbtypes "github.com/gogo/protobuf/types"
-	rpc "github.com/googleapis/googleapis/google/rpc"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 const (

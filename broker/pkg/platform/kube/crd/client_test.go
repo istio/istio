@@ -15,8 +15,6 @@
 package crd
 
 import (
-	"os"
-	"os/user"
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
@@ -26,23 +24,11 @@ import (
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/testing/mock"
 	"istio.io/istio/broker/pkg/testing/util"
+	"istio.io/istio/tests/k8s"
 )
 
 func kubeconfig(t *testing.T) string {
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-	f := usr.HomeDir + "/.kube/config"
-
-	// For Bazel sandbox, the config is mounted in a different location
-	// as specified in prow/broker-presubmit.sh
-	if _, err = os.Stat(f); err != nil {
-		wd, _ := os.Getwd()
-		f = wd + "/../config"
-	}
-
-	return f
+	return k8s.Kubeconfig("/../../../../../pilot/platform/kube/config")
 }
 
 func makeClient(t *testing.T) *Client {

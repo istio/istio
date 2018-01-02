@@ -79,7 +79,7 @@ type Subject struct {
 	// "groups" are normally populated from JWT claim or client certificate.
 	// The operator can define how it is populated when creating an instance of
 	// the template.
-	Groups []string
+	Groups string
 
 	// Additional attributes about the subject.
 	Properties map[string]interface{}

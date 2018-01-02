@@ -13,6 +13,7 @@ go_library(
         "@com_github_uber_jaeger_client_go//log:go_default_library",
         "@com_github_uber_jaeger_client_go//transport:go_default_library",
         "@com_github_uber_jaeger_client_go//transport/zipkin:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
     ],
 )
 

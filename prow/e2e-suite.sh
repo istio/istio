@@ -27,13 +27,15 @@ set -u
 set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  export USER=Prow
+
   # Make sure we are in the right directory
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
   if [[ ! $PWD = ${GOPATH}/src/istio.io/istio ]]; then
     # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
     # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-    ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+    mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
     cd ${GOPATH}/src/istio.io/istio
   fi
 
@@ -48,10 +50,18 @@ if [ "${CI:-}" == 'bootstrap' ]; then
   E2E_ARGS+=(--test_logs_path="${ARTIFACTS_DIR}")
 else
   # Use the current commit.
-  GIT_SHA="$(git rev-parse --verify HEAD)"
+  GIT_SHA=${GIT_SHA:-"$(git rev-parse --verify HEAD)"}
 fi
 
-HUB="gcr.io/istio-testing"
+ISTIO_GO=$(cd $(dirname $0)/..; pwd)
+
+HUB=${HUB:-"gcr.io/istio-testing"}
+
+# Download envoy and go deps
+${ISTIO_GO}/bin/init.sh
+
+# Build istioctl, used by  the test.
+make depend.ensure istioctl
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
@@ -61,4 +71,4 @@ echo 'Running Integration Tests'
   --pilot_hub "${HUB}"\
   --ca_tag "${GIT_SHA}"\
   --ca_hub "${HUB}"\
-  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl"
+  --istioctl ${GOPATH}/bin/istioctl

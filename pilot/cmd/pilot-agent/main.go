@@ -56,6 +56,7 @@ var (
 	proxyAdminPort         int
 	controlPlaneAuthPolicy string
 	customConfigFile       string
+	proxyLogLevel          string
 
 	rootCmd = &cobra.Command{
 		Use:   "agent",
@@ -167,11 +168,11 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err != nil {
-					return err
+				if err == nil {
+					proxyConfig.StatsdUdpAddress = addr
 				}
-
-				proxyConfig.StatsdUdpAddress = addr
+				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+				// (instead of crashing). Mixer is optional.
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -200,7 +201,7 @@ var (
 
 			glog.V(2).Infof("Monitored certs: %#v", certs)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode())
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -227,8 +228,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
 		string(platform.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			string(platform.KubernetesRegistry), string(platform.ConsulRegistry),
-			string(platform.EurekaRegistry)))
+			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -270,7 +270,10 @@ func init() {
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the generated configuration file directory")
-
+	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
+		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
+			"trace", "debug", "info", "warn", "err", "critical", "off"))
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(proxyCmd)
