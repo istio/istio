@@ -14,19 +14,13 @@ limitations under the License.
 """
 
 from airflow import DAG
-from airflow.models import Variable
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.subdag_operator import SubDagOperator
 
 import istio_common_dag
 
 dag, copy_files = istio_common_dag.MakeCommonDag(
-    'istio_monthly_release',
-    schedule_interval='15 4 20 * *',
-    monthly=True)
-
-"""
-subdag_task_id = 'build_and_varify'
+    'istio_monthly_release', schedule_interval='15 4 20 * *', monthly=True)
+"""subdag_task_id = 'build_and_varify'
 
 build_dag, copy_files = istio_common_dag.MakeCommonDag(
     name='{}.{}'.format(dag.dag_id, subdag_task_id),
@@ -34,11 +28,7 @@ build_dag, copy_files = istio_common_dag.MakeCommonDag(
     monthly=True)
 """
 
-#daily_subdag = SubDagOperator(
-#    task_id=subdag_task_id, subdag=build_dag, dag=dag)
-
-
-monthly_release_template="""
+monthly_release_template = """
 chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
@@ -46,7 +36,7 @@ chmod +x /home/airflow/gcs/data/release/*
 echo /home/airflow/gcs/data/release/start_gcb_publish.sh \
 -p "{{ settings.PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}" -s "{{ settings.GCS_SOURCE }}" \
--b "{{ settings.GCS_DEST }}" -r "{{ settings.GCR_DEST }}" \
+-b "{{ settings.GCS_MONTHLY_RELEASE_PATH }}" -r "{{ settings.GCR_RELEASE_DEST }}" \
 -g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
 -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
 -h "{{ settings.GITHUB_ORG }}" -i "{{ settings.GITHUB_REPO }}" \
@@ -58,7 +48,7 @@ push_release_to_github = BashOperator(
     bash_command=monthly_release_template,
     dag=dag)
 
-daily_release_tag_github_template="""
+daily_release_tag_github_template = """
 chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}

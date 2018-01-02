@@ -47,10 +47,10 @@ def GetSettingPython(ti, setting):
   Args:
     ti: (task_instance) This is provided by the environment
     setting: (string) The name of the setting.
-  Return:
+  Returns:
     The item saved in xcom.
   """
-  return ti.xcom_pull(task_id=generate_flow_args.task_id)[setting]
+  return ti.xcom_pull(task_id='generate_workflow_args'.task_id)[setting]
 
 
 def GetSettingTemplate(setting):
@@ -58,16 +58,18 @@ def GetSettingTemplate(setting):
 
   Args:
     setting: (string) The name of the setting.
-  Return:
+  Returns:
     A templated string that resolves to a setting from xcom.
   """
   return ('{{ task_instance.xcom_pull(task_ids="generate_workflow_args"'
-          ').%s }}') % (setting)
+          ').%s }}') % (
+              setting)
 
 
 def MakeCommonDag(name='istio_daily_flow_test',
                   schedule_interval='15 3 * * *',
                   monthly=False):
+  """Creates the shared part of the daily/monthly dags."""
   common_dag = DAG(
       name,
       default_args=default_args,
@@ -81,6 +83,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
       return base
 
   def GenerateTestArgs(**kwargs):
+    """Loads the configuration that will be used for this Iteration."""
     conf = kwargs['dag_run'].conf
     if conf is None:
       conf = dict()
@@ -114,19 +117,43 @@ def MakeCommonDag(name='istio_daily_flow_test',
         patch=patch,
         date=date.strftime('%Y%m%d'),
         rc=date.strftime('%H-%M-%S'))
-    config_settings = dict(VERSION = default_conf['VERSION'])
-    config_settings_name = ['PROJECT_ID','MFEST_URL','MFEST_FILE','GCR_BUCKET','GCS_BUCKET','GCS_PATH','GCR_DEST','SVC_ACCT','GITHUB_ORG','GITHUB_REPO','GCS_GITHUB_PATH','TOKEN_FILE','GCR_DEST','GCS_DEST','DOCKER_HUB','BUILD_GCS_BUCKET',]
+    config_settings = dict(VERSION=default_conf['VERSION'])
+    config_settings_name = [
+        'PROJECT_ID',
+        'MFEST_URL',
+        'MFEST_FILE',
+        'GCR_BUCKET',
+        'GCS_STAGING_BUCKET',
+        'SVC_ACCT',
+        'GITHUB_ORG',
+        'GITHUB_REPO',
+        'GCS_GITHUB_PATH',
+        'TOKEN_FILE',
+        'GCR_STAGING_DEST',
+        'GCR_RELEASE_DEST',
+        'GCS_MONTHLY_RELEASE_PATH',
+        'DOCKER_HUB',
+        'GCS_BUILD_BUCKET',
+    ]
 
     for name in config_settings_name:
       config_settings[name] = conf.get(name) or default_conf[name]
 
     if monthly:
-      MFEST_COMMIT = conf.get('MFEST_COMMIT') or Variable.get('last_daily')
+      config_settings['MFEST_COMMIT'] = conf.get(
+          'MFEST_COMMIT') or Variable.get('last_daily')
+      gcs_path = conf.get('GCS_MONTHLY_STAGE_PATH') or Variable.get(
+          'GCS_MONTHLY_STAGE_PATH')
     else:
-      MFEST_COMMIT = conf.get('MFEST_COMMIT') or default_conf['MFEST_COMMIT']
+      config_settings['MFEST_COMMIT'] = conf.get(
+          'MFEST_COMMIT') or default_conf['MFEST_COMMIT']
+      gcs_path = conf.get('GCS_DAILY_PATH') or Variable.get('GCS_DAILY_PATH')
 
-    config_settings['BUILD_GCS_PATH'] = '{}/{}'.format(config_settings['BUILD_GCS_BUCKET'], config_settings['GCS_PATH'])
-    config_settings['GCS_SOURCE'] =  '{}/{}'.format(config_settings['GCS_BUCKET'], config_settings['GCS_PATH'])
+    config_settings['GCS_STAGING_PATH'] = gcs_path
+    config_settings['GCS_BUILD_PATH'] = '{}/{}'.format(
+        config_settings['GCS_BUILD_BUCKET'], gcs_path)
+    config_settings['GCS_FULL_STAGING_PATH'] = '{}/{}'.format(
+        config_settings['GCS_STAGING_BUCKET'], gcs_path)
 
     return config_settings
 
@@ -158,7 +185,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
     /home/airflow/gcs/data/release/start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
-    }} -r {{ settings.GCR_BUCKET }} -s {{ settings.BUILD_GCS_PATH }} \
+    }} -r {{ settings.GCR_BUCKET }} -s {{ settings.GCS_BUILD_PATH }} \
     -v "{{ settings.VERSION }}" \
     -u "{{ settings.MFEST_URL }}" \
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
@@ -177,7 +204,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     --token_file="{{ settings.TOKEN_FILE }}" \
     --op=dailyRelQual \
     --hub=gcr.io/{{ settings.GCR_BUCKET }} \
-    --gcs_path="{{ settings.BUILD_GCS_PATH }}" \
+    --gcs_path="{{ settings.GCS_BUILD_PATH }}" \
     --tag="{{ settings.VERSION }}"
     """
 
@@ -189,10 +216,10 @@ def MakeCommonDag(name='istio_daily_flow_test',
       dag=common_dag)
   copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
-      source_bucket=GetSettingTemplate('BUILD_GCS_BUCKET'),
-      source_object=GetSettingTemplate('GCS_PATH'),
-      destination_bucket=GetSettingTemplate('GCS_BUCKET'),
-      destination_object=GetSettingTemplate('GCS_PATH'),
+      source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
+      source_object=GetSettingTemplate('GCS_STAGING_PATH'),
+      destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
+      destination_object=GetSettingTemplate('GCS_STAGING_PATH'),
       dag=common_dag,
   )
   generate_flow_args >> get_git_commit >> build
