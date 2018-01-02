@@ -92,27 +92,24 @@ depend: depend.ensure
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
-Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
-	$(Q) dep ensure -update
+Gopkg.lock: Gopkg.toml | ${GOPATH}/bin/dep ; $(info $(H) generating) @
+	$(Q) ${GOPATH}/bin/dep ensure -update
 
-depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
-	$(Q) dep status
+depend.status: Gopkg.lock | ${GOPATH}/bin/dep ; $(info $(H) reporting dependencies status...)
+	$(Q) ${GOPATH}/bin/dep status
 
 # @todo only run if there are changes (e.g., create a checksum file?) 
 # Update the vendor dir, pulling latest compatible dependencies from the
 # defined branches.
-depend.ensure: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
-	$(Q) dep ensure
+depend.ensure: | ${GOPATH}/bin/dep ; $(info $(H) ensuring dependencies are up to date...)
+	$(Q) ${GOPATH}/bin/dep ensure
 
-depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
-	$(Q) dep status -dot | dot -T png | display
+depend.graph: Gopkg.lock | ${GOPATH}/bin/dep ; $(info $(H) visualizing dependency graph...)
+	$(Q) ${GOPATH}/bin/dep status -dot | dot -T png | display
 
 # Re-create the vendor directory, if it doesn't exist, using the checked in lock file
-depend.vendor: vendor
-	$(Q) dep ensure -vendor-only
-
-vendor:
-	dep ensure -update
+depend.vendor: vendor | ${GOPATH}/bin/dep
+	$(Q) ${GOPATH}/bin/dep ensure -vendor-only
 
 lint:
 	SKIP_INIT=1 bin/linters.sh
@@ -120,6 +117,9 @@ lint:
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
 pre-commit: fmt lint
+
+vendor: | ${GOPATH}/bin/dep
+	${GOPATH}/bin/dep ensure -update
 
 #-----------------------------------------------------------------------------
 # Target: precommit
