@@ -127,6 +127,9 @@ popd
 # doesn't help when the user doesn't have one.
 touch pilot/platform/kube/config
 
+# pull in outside dependencies
+make depend
+
 # building //... results in dirtied files:
 # broker/pkg/model/config/mock_store.go
 # broker/pkg/platform/kube/crd/types.go
