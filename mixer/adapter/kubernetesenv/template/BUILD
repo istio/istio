@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_prefix")
 
 go_library(
     name = "go_default_library",
@@ -13,4 +13,17 @@ go_library(
         "@com_github_gogo_protobuf//sortkeys:go_default_library",
         "@io_istio_api//mixer/v1/template:go_default_library",
     ],
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = ["template.proto"],
+    visibility = ["//visibility:public"],
+)
+
+# TODO remove when template codegen is complete.
+filegroup(
+    name = "descriptor_set",
+    srcs = ["template_proto.descriptor_set"],
+    visibility = ["//visibility:public"],
 )

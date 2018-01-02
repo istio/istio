@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+die () {
+  echo "ERROR: $*. Aborting." >&2
+  exit 1
+}
+
 WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
@@ -17,16 +22,25 @@ outdir=$ROOT
 file=$ROOT
 protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
 optimport=$ROOT
-template=
+template=$ROOT
 
-while getopts 'f:o:p:i:t' flag; do
+optproto=false
+opttemplate=false
+
+while getopts ':f:o:p:i:t:' flag; do
   case "${flag}" in
-    f) file+="/${OPTARG}" ;;
+    f) $opttemplate && die "Cannot use proto file option (-f) with template file option (-t)"
+       optproto=true
+       file+="/${OPTARG}" 
+       ;;
     o) outdir="${OPTARG}" ;;
     p) protoc="${OPTARG}" ;;
     i) optimport+=/"${OPTARG}" ;;
-    t) template="template" ;;
-    *) error "Unexpected option ${flag}" ;;
+    t) $optproto && die "Cannot use template file option (-t) with proto file option (-f)"
+       opttemplate=true
+       template+="/${OPTARG}"
+       ;;
+    *) die "Unexpected option ${flag}" ;;
   esac
 done
 
@@ -34,8 +48,7 @@ done
 
 # Ensure expected GOPATH setup
 if [ $ROOT != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
-       echo "Istio not found in GOPATH/src/istio.io/"
-       exit 1
+  die "Istio not found in GOPATH/src/istio.io/"
 fi
 
 GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
@@ -113,7 +126,7 @@ PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick_out=$M
 PLUGIN+=$outdir
 
 # handle template code generation 
-if [ ! -z "$template" ]; then
+if [ "$opttemplate" = true ]; then
 
   template_mappings=(
     "mixer/v1/config/descriptor/value_type.proto:istio.io/api/mixer/v1/config/descriptor"
@@ -140,30 +153,28 @@ if [ ! -z "$template" ]; then
   instance_proto="_instance.proto"
   pb_go=".pb.go"
 
-  fileDS="${file/.proto/$descriptor_set}"
-  fileHG="${file/.proto/$handler_gen_go}"
-  fileIP="${file/.proto/$instance_proto}"
-  filePG="${file/.proto/$pb_go}"
+  templateDS=${template/.proto/$descriptor_set}
+  templateHG=${template/.proto/$handler_gen_go}
+  templateIP=${template/.proto/$instance_proto}
+  templatePG=${template/.proto/$pb_go}
 
   # generate the descriptor set for the intermediate artifacts
-  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$fileDS"
-  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $file`
-  if [ ! -z "$err" ]; then 
-    echo "template generation failure: $err"; 
-    exit 1;
+  DESCRIPTOR="--include_imports --include_source_info --descriptor_set_out=$templateDS"
+  err=`$protoc $DESCRIPTOR $IMPORTS $PLUGIN $template`
+  if [ ! -z "$err" ]; then
+    die "template generation failure: $err"; 
   fi
   
-  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $fileDS -o $fileHG -t $fileIP $TMPL_GEN_MAP  
+  go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenproc/main.go $templateDS -o $templateHG -t $templateIP $TMPL_GEN_MAP  
 
-  err=`$protoc $IMPORTS $TMPL_PLUGIN $fileIP`
+  err=`$protoc $IMPORTS $TMPL_PLUGIN $templateIP`
   if [ ! -z "$err" ]; then 
-    echo "template generation failure: $err"; 
-    exit 1;
-  fi  
+    die "template generation failure: $err"; 
+  fi
 
-  rm $fileDS
-  rm $fileIP
-  rm $filePG
+  #rm $templateDS
+  rm $templateIP
+  rm $templatePG
 
   exit 0
 fi
@@ -171,6 +182,5 @@ fi
 # handle simple protoc-based generation
 err=`$protoc $IMPORTS $PLUGIN $file`
 if [ ! -z "$err" ]; then 
-  echo "generation failure: $err"; 
-  exit 1;
+  die "generation failure: $err"; 
 fi
