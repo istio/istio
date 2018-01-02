@@ -19,6 +19,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -52,7 +53,7 @@ func validatorCmd(info map[string]template.Info, adapters []adapter.InfoFn, prin
 		"the name of the external admission webhook registration. Needs to be a domain with at least three segments separated by dots.")
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceNamespace, "namespace", "istio-system", "the namespace where this webhook is deployed")
 	validatorCmd.PersistentFlags().StringVar(&vc.ServiceName, "webhook-name", "istio-mixer-webhook", "the name of the webhook")
-	validatorCmd.PersistentFlags().StringArrayVar(&vc.ValidateNamespaces, "target-namespaces", []string{},
+	validatorCmd.PersistentFlags().StringArrayVar(&vc.ValidateNamespaces, "target-namespaces", []string{metav1.NamespaceAll},
 		"the list of namespaces where changes should be validated. Empty means to validate everything. Used for test only.")
 	validatorCmd.PersistentFlags().IntVarP(&vc.Port, "port", "p", 9099, "the port number of the webhook")
 	validatorCmd.PersistentFlags().StringVar(&vc.SecretName, "secret-name", "", "The name of k8s secret where the certificates are stored")
