@@ -26,6 +26,8 @@ source ${ROOT}/../bin/docker_lib.sh
 cd ${ROOT}; make docker.artifacts
 
 echo "Generate certificate and private key for Istio CA"
+unset GOOS && \
+unset GOARCH && \
 go run ./cmd/generate_cert/main.go \
 --key-size=2048 \
 --out-cert=${ROOT}/docker/istio_ca.crt \
@@ -35,6 +37,8 @@ go run ./cmd/generate_cert/main.go \
 --ca=true
 
 echo "Generate certificate and private key for node agent"
+unset GOOS && \
+unset GOARCH && \
 go run ./cmd/generate_cert/main.go \
 --key-size=2048 \
 --out-cert=${ROOT}/docker/node_agent.crt \
