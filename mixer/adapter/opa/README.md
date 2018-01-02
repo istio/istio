@@ -1,6 +1,6 @@
 # Opa adapter
 
-The OPA authorization [mixer adapter](https://istio.io/docs/concepts/policy-and-control/mixer.html#adapters) is an implementation of [authorization template](https://github.com/istio/istio/tree/master/mixer/template/authorization)
+The OPA [mixer adapter](https://istio.io/docs/concepts/policy-and-control/mixer.html#adapters) is an implementation of [authorization template](https://github.com/istio/istio/tree/master/mixer/template/authorization)
 that evaluates the client request using the [Open Policy Agent](http://www.openpolicyagent.org/) engine.
 
 Opa adapter embedded the [Open Policy Agent](http://www.openpolicyagent.org/) as a library inside a Mixer adapter.
