@@ -11,9 +11,9 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
-import binary "encoding/binary"
+import encoding_binary "encoding/binary"
 
 import io "io"
 
@@ -483,7 +483,10 @@ func (x MetricDescriptor_MetricKind) String() string {
 }
 func (this *MetricDescriptor) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor)
@@ -496,7 +499,10 @@ func (this *MetricDescriptor) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -530,7 +536,10 @@ func (this *MetricDescriptor) Equal(that interface{}) bool {
 }
 func (this *MetricDescriptor_BucketsDefinition) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition)
@@ -543,7 +552,10 @@ func (this *MetricDescriptor_BucketsDefinition) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -560,7 +572,10 @@ func (this *MetricDescriptor_BucketsDefinition) Equal(that interface{}) bool {
 }
 func (this *MetricDescriptor_BucketsDefinition_LinearBuckets) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_LinearBuckets)
@@ -573,7 +588,10 @@ func (this *MetricDescriptor_BucketsDefinition_LinearBuckets) Equal(that interfa
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -584,7 +602,10 @@ func (this *MetricDescriptor_BucketsDefinition_LinearBuckets) Equal(that interfa
 }
 func (this *MetricDescriptor_BucketsDefinition_ExponentialBuckets) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_ExponentialBuckets)
@@ -597,7 +618,10 @@ func (this *MetricDescriptor_BucketsDefinition_ExponentialBuckets) Equal(that in
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -608,7 +632,10 @@ func (this *MetricDescriptor_BucketsDefinition_ExponentialBuckets) Equal(that in
 }
 func (this *MetricDescriptor_BucketsDefinition_ExplicitBuckets) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_ExplicitBuckets)
@@ -621,7 +648,10 @@ func (this *MetricDescriptor_BucketsDefinition_ExplicitBuckets) Equal(that inter
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -632,7 +662,10 @@ func (this *MetricDescriptor_BucketsDefinition_ExplicitBuckets) Equal(that inter
 }
 func (this *MetricDescriptor_BucketsDefinition_Linear) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_Linear)
@@ -645,7 +678,10 @@ func (this *MetricDescriptor_BucketsDefinition_Linear) Equal(that interface{}) b
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -662,7 +698,10 @@ func (this *MetricDescriptor_BucketsDefinition_Linear) Equal(that interface{}) b
 }
 func (this *MetricDescriptor_BucketsDefinition_Exponential) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_Exponential)
@@ -675,7 +714,10 @@ func (this *MetricDescriptor_BucketsDefinition_Exponential) Equal(that interface
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -692,7 +734,10 @@ func (this *MetricDescriptor_BucketsDefinition_Exponential) Equal(that interface
 }
 func (this *MetricDescriptor_BucketsDefinition_Explicit) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*MetricDescriptor_BucketsDefinition_Explicit)
@@ -705,7 +750,10 @@ func (this *MetricDescriptor_BucketsDefinition_Explicit) Equal(that interface{})
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -734,7 +782,7 @@ func (this *MetricDescriptor) GoString() string {
 	for k, _ := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
-	sortkeys.Strings(keysForLabels)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
 	mapStringForLabels := "map[string]ValueType{"
 	for _, k := range keysForLabels {
 		mapStringForLabels += fmt.Sprintf("%#v: %#v,", k, this.Labels[k])
@@ -989,13 +1037,13 @@ func (m *MetricDescriptor_BucketsDefinition_Linear) MarshalTo(dAtA []byte) (int,
 	if m.Width != 0 {
 		dAtA[i] = 0x11
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Width))))
 		i += 8
 	}
 	if m.Offset != 0 {
 		dAtA[i] = 0x19
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Offset))))
 		i += 8
 	}
 	return i, nil
@@ -1024,13 +1072,13 @@ func (m *MetricDescriptor_BucketsDefinition_Exponential) MarshalTo(dAtA []byte) 
 	if m.GrowthFactor != 0 {
 		dAtA[i] = 0x11
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.GrowthFactor))))
 		i += 8
 	}
 	if m.Scale != 0 {
 		dAtA[i] = 0x19
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Scale))))
 		i += 8
 	}
 	return i, nil
@@ -1057,7 +1105,7 @@ func (m *MetricDescriptor_BucketsDefinition_Explicit) MarshalTo(dAtA []byte) (in
 		i = encodeVarintMetricDescriptor(dAtA, i, uint64(len(m.Bounds)*8))
 		for _, num := range m.Bounds {
 			f6 := math.Float64bits(float64(num))
-			binary.LittleEndian.PutUint64(dAtA[i:], uint64(f6))
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(f6))
 			i += 8
 		}
 	}
@@ -1205,7 +1253,7 @@ func (this *MetricDescriptor) String() string {
 	for k, _ := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
-	sortkeys.Strings(keysForLabels)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
 	mapStringForLabels := "map[string]ValueType{"
 	for _, k := range keysForLabels {
 		mapStringForLabels += fmt.Sprintf("%v: %v,", k, this.Labels[k])
@@ -1822,7 +1870,7 @@ func (m *MetricDescriptor_BucketsDefinition_Linear) Unmarshal(dAtA []byte) error
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Width = float64(math.Float64frombits(v))
 		case 3:
@@ -1833,7 +1881,7 @@ func (m *MetricDescriptor_BucketsDefinition_Linear) Unmarshal(dAtA []byte) error
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Offset = float64(math.Float64frombits(v))
 		default:
@@ -1913,7 +1961,7 @@ func (m *MetricDescriptor_BucketsDefinition_Exponential) Unmarshal(dAtA []byte) 
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.GrowthFactor = float64(math.Float64frombits(v))
 		case 3:
@@ -1924,7 +1972,7 @@ func (m *MetricDescriptor_BucketsDefinition_Exponential) Unmarshal(dAtA []byte) 
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Scale = float64(math.Float64frombits(v))
 		default:
@@ -1983,7 +2031,7 @@ func (m *MetricDescriptor_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) err
 				if (iNdEx + 8) > l {
 					return io.ErrUnexpectedEOF
 				}
-				v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+				v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 				iNdEx += 8
 				v2 := float64(math.Float64frombits(v))
 				m.Bounds = append(m.Bounds, v2)
@@ -2015,7 +2063,7 @@ func (m *MetricDescriptor_BucketsDefinition_Explicit) Unmarshal(dAtA []byte) err
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					v2 := float64(math.Float64frombits(v))
 					m.Bounds = append(m.Bounds, v2)

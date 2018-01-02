@@ -29,7 +29,7 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -158,7 +158,10 @@ func (x LogEntryDescriptor_PayloadFormat) String() string {
 }
 func (this *LogEntryDescriptor) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*LogEntryDescriptor)
@@ -171,7 +174,10 @@ func (this *LogEntryDescriptor) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -215,7 +221,7 @@ func (this *LogEntryDescriptor) GoString() string {
 	for k, _ := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
-	sortkeys.Strings(keysForLabels)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
 	mapStringForLabels := "map[string]ValueType{"
 	for _, k := range keysForLabels {
 		mapStringForLabels += fmt.Sprintf("%#v: %#v,", k, this.Labels[k])
@@ -361,7 +367,7 @@ func (this *LogEntryDescriptor) String() string {
 	for k, _ := range this.Labels {
 		keysForLabels = append(keysForLabels, k)
 	}
-	sortkeys.Strings(keysForLabels)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForLabels)
 	mapStringForLabels := "map[string]ValueType{"
 	for _, k := range keysForLabels {
 		mapStringForLabels += fmt.Sprintf("%v: %v,", k, this.Labels[k])

@@ -13,7 +13,7 @@ import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -592,7 +592,7 @@ func (this *HttpClientConfig) String() string {
 	for k, _ := range this.ServiceConfigs {
 		keysForServiceConfigs = append(keysForServiceConfigs, k)
 	}
-	sortkeys.Strings(keysForServiceConfigs)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForServiceConfigs)
 	mapStringForServiceConfigs := "map[string]*ServiceConfig{"
 	for _, k := range keysForServiceConfigs {
 		mapStringForServiceConfigs += fmt.Sprintf("%v: %v,", k, this.ServiceConfigs[k])

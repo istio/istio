@@ -44,6 +44,7 @@ cd ${ROOT}
 
 if [[ -n $(git status --porcelain) ]]; then
     git status
+    git diff
     die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
 fi
 

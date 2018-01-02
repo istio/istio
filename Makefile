@@ -111,6 +111,34 @@ MIXER_PLUGIN := $(GOGOSLICK_PLUGIN_PREFIX)$(MIXER_MAPPING)$(PLUGIN_SUFFIX)
 ALT_MIXER_PLUGIN := $(GOGO_PLUGIN_PREFIX)$(MIXER_MAPPING)$(PLUGIN_SUFFIX)
 
 #####################
+# Install protoc
+#####################
+
+PROTOC_BIN := $(shell which protoc)
+# If protoc isn't on the path, set it to a target that's never up to date, so
+# the install command always runs.
+ifeq ($(PROTOC_BIN),)
+	PROTOC_BIN = must-rebuild
+endif
+
+# Figure out which machine we're running on.
+UNAME := $(shell uname)
+
+# TODO add instructions for other operating systems here
+$(PROTOC_BIN):
+ifeq ($(UNAME), Darwin)
+	brew install protobuf
+endif
+ifeq ($(UNAME), Linux)
+	curl -OL https://github.com/google/protobuf/releases/download/v3.5.0/protoc-3.5.0-linux-x86_64.zip
+	unzip protoc-3.5.0-linux-x86_64.zip -d protoc3
+	sudo mv protoc3/bin/* /usr/local/bin/
+	sudo mv protoc3/include/* /usr/local/include/
+	rm -f protoc-3.5.0-linux-x86_64.zip
+	rm -rf protoc3
+endif
+
+#####################
 # Generation Rule
 #####################
 generate: generate-mixer-go
@@ -118,17 +146,15 @@ generate: generate-mixer-go
 $(GOPATH)/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep	
 
-$(GOPATH)/bin/protoc-gen-gogo:
-
 install-deps: $(GOPATH)/bin/dep
 	# Installing generation deps
 	$(GOPATH)/bin/dep ensure -vendor-only
 	go install ./vendor/github.com/gogo/protobuf/protoc-gen-gogo
-	go install ./vendor/github.com/gogo/protobuf/protoc-gen-gogoslick	
+	go install ./vendor/github.com/gogo/protobuf/protoc-gen-gogoslick
 	go install ./vendor/github.com/gogo/protobuf/protoc-min-version
 
 protoc.version:
-	@echo `protoc --version` > protoc.version
+    @echo "Using protoc version:" `protoc --version`
 
 protoc-tmp:
 	mkdir -p protoc-tmp
@@ -151,7 +177,7 @@ $(ERR_PROTO): protoc-tmp/$(RPC_PATH)
 	curl -sS $(GOOGLEAPIS_URL)/google/rpc/error_details.proto -o $(ERR_PROTO)
 
 # TODO: expand to support the other protos in this repo
-generate-mixer-go: install-deps download-googleapis-protos generate-mixer-v1-go generate-mixer-v1-config-go generate-mixer-v1-template-go
+generate-mixer-go: install-deps download-googleapis-protos protoc.version generate-mixer-v1-go generate-mixer-v1-config-go generate-mixer-v1-template-go
 
 generate-mixer-v1-go: $(MIXER_V1_PB_GOS)
 
@@ -159,23 +185,23 @@ generate-mixer-v1-config-go: $(MIXER_CONFIG_CLIENT_PB_GOS) $(MIXER_CONFIG_DESCRI
 
 generate-mixer-v1-template-go: $(MIXER_TEMPLATE_PB_GOS)
 
-$(MIXER_V1_PB_GOS): $(MIXER_V1_PROTOS)
+$(MIXER_V1_PB_GOS): $(MIXER_V1_PROTOS) | $(PROTOC_BIN)
 	## Generate mixer/v1/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
 
-$(MIXER_CONFIG_CLIENT_PB_GOS) : $(MIXER_CONFIG_CLIENT_PROTOS)
+$(MIXER_CONFIG_CLIENT_PB_GOS) : $(MIXER_CONFIG_CLIENT_PROTOS) | $(PROTOC_BIN)
 	## Generate mixer/v1/config/client/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
 
-$(MIXER_CONFIG_DESCRIPTOR_PB_GOS) : $(MIXER_CONFIG_DESCRIPTOR_PROTOS)
+$(MIXER_CONFIG_DESCRIPTOR_PB_GOS) : $(MIXER_CONFIG_DESCRIPTOR_PROTOS) | $(PROTOC_BIN)
 	## Generate mixer/v1/config/descriptor/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
 
-$(MIXER_TEMPLATE_PB_GOS) : $(MIXER_TEMPLATE_PROTOS)
+$(MIXER_TEMPLATE_PB_GOS) : $(MIXER_TEMPLATE_PROTOS) | $(PROTOC_BIN)
 	## Generate mixer/v1/template/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
 
-mixer/v1/config/fixed_cfg.pb.go : mixer/v1/config/cfg.proto
+mixer/v1/config/fixed_cfg.pb.go : mixer/v1/config/cfg.proto | $(PROTOC_BIN)
 	# Generate mixer/v1/config/fixed_cfg.pb.go (requires alternate plugin and sed scripting due to issues with google.protobuf.Struct)
 	$(PROTOC) $(PROTO_PATH) $(ALT_MIXER_PLUGIN) $^
 	sed -e 's/*google_protobuf.Struct/interface{}/g' -e 's/ValueType_VALUE_TYPE_UNSPECIFIED/VALUE_TYPE_UNSPECIFIED/g' mixer/v1/config/cfg.pb.go | goimports > mixer/v1/config/fixed_cfg.pb.go

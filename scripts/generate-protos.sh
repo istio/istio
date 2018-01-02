@@ -12,6 +12,10 @@ files=$(find -L ${genfiles} -name "*.pb.go")
 
 for src in ${files}; do
     dst=${src##${genfiles}/}
+    if [[ "${dst}" == "mixer*" ]]; then
+        continue
+    fi
+    echo "copying $src to $dst ..."
     if [ -d "$(dirname ${dst})" ]; then
         install -m 0640 ${src} ${dst}
     fi

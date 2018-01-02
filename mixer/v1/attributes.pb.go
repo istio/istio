@@ -31,12 +31,12 @@ import google_protobuf2 "github.com/gogo/protobuf/types"
 
 import time "time"
 
-import binary "encoding/binary"
-import types "github.com/gogo/protobuf/types"
+import encoding_binary "encoding/binary"
+import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import sortkeys "github.com/gogo/protobuf/sortkeys"
+import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
 
@@ -536,7 +536,7 @@ func (m *Attributes_AttributeValue_DoubleValue) MarshalTo(dAtA []byte) (int, err
 	i := 0
 	dAtA[i] = 0x21
 	i++
-	binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoubleValue))))
+	encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.DoubleValue))))
 	i += 8
 	return i, nil
 }
@@ -711,7 +711,7 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintAttributes(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
 			dAtA[i] = 0x11
 			i++
-			binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
+			encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(v))))
 			i += 8
 		}
 	}
@@ -742,7 +742,7 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			v := m.Timestamps[k]
 			msgSize := 0
 			if (&v) != nil {
-				msgSize = types.SizeOfStdTime(*(&v))
+				msgSize = github_com_gogo_protobuf_types.SizeOfStdTime(*(&v))
 				msgSize += 1 + sovAttributes(uint64(msgSize))
 			}
 			mapSize := 1 + sozAttributes(uint64(k)) + msgSize
@@ -752,8 +752,8 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintAttributes(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
 			dAtA[i] = 0x12
 			i++
-			i = encodeVarintAttributes(dAtA, i, uint64(types.SizeOfStdTime(*(&v))))
-			n6, err := types.StdTimeMarshalTo(*(&v), dAtA[i:])
+			i = encodeVarintAttributes(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdTime(*(&v))))
+			n6, err := github_com_gogo_protobuf_types.StdTimeMarshalTo(*(&v), dAtA[i:])
 			if err != nil {
 				return 0, err
 			}
@@ -767,7 +767,7 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			v := m.Durations[k]
 			msgSize := 0
 			if (&v) != nil {
-				msgSize = types.SizeOfStdDuration(*(&v))
+				msgSize = github_com_gogo_protobuf_types.SizeOfStdDuration(*(&v))
 				msgSize += 1 + sovAttributes(uint64(msgSize))
 			}
 			mapSize := 1 + sozAttributes(uint64(k)) + msgSize
@@ -777,8 +777,8 @@ func (m *CompressedAttributes) MarshalTo(dAtA []byte) (int, error) {
 			i = encodeVarintAttributes(dAtA, i, uint64((uint32(k)<<1)^uint32((k>>31))))
 			dAtA[i] = 0x12
 			i++
-			i = encodeVarintAttributes(dAtA, i, uint64(types.SizeOfStdDuration(*(&v))))
-			n7, err := types.StdDurationMarshalTo(*(&v), dAtA[i:])
+			i = encodeVarintAttributes(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*(&v))))
+			n7, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*(&v), dAtA[i:])
 			if err != nil {
 				return 0, err
 			}
@@ -1025,7 +1025,7 @@ func (m *CompressedAttributes) Size() (n int) {
 		for k, v := range m.Timestamps {
 			_ = k
 			_ = v
-			l = types.SizeOfStdTime(v)
+			l = github_com_gogo_protobuf_types.SizeOfStdTime(v)
 			mapEntrySize := 1 + sozAttributes(uint64(k)) + 1 + l + sovAttributes(uint64(l))
 			n += mapEntrySize + 1 + sovAttributes(uint64(mapEntrySize))
 		}
@@ -1034,7 +1034,7 @@ func (m *CompressedAttributes) Size() (n int) {
 		for k, v := range m.Durations {
 			_ = k
 			_ = v
-			l = types.SizeOfStdDuration(v)
+			l = github_com_gogo_protobuf_types.SizeOfStdDuration(v)
 			mapEntrySize := 1 + sozAttributes(uint64(k)) + 1 + l + sovAttributes(uint64(l))
 			n += mapEntrySize + 1 + sovAttributes(uint64(mapEntrySize))
 		}
@@ -1098,7 +1098,7 @@ func (this *Attributes) String() string {
 	for k, _ := range this.Attributes {
 		keysForAttributes = append(keysForAttributes, k)
 	}
-	sortkeys.Strings(keysForAttributes)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForAttributes)
 	mapStringForAttributes := "map[string]*Attributes_AttributeValue{"
 	for _, k := range keysForAttributes {
 		mapStringForAttributes += fmt.Sprintf("%v: %v,", k, this.Attributes[k])
@@ -1208,7 +1208,7 @@ func (this *Attributes_StringMap) String() string {
 	for k, _ := range this.Entries {
 		keysForEntries = append(keysForEntries, k)
 	}
-	sortkeys.Strings(keysForEntries)
+	github_com_gogo_protobuf_sortkeys.Strings(keysForEntries)
 	mapStringForEntries := "map[string]string{"
 	for _, k := range keysForEntries {
 		mapStringForEntries += fmt.Sprintf("%v: %v,", k, this.Entries[k])
@@ -1228,7 +1228,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Strings {
 		keysForStrings = append(keysForStrings, k)
 	}
-	sortkeys.Int32s(keysForStrings)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForStrings)
 	mapStringForStrings := "map[int32]int32{"
 	for _, k := range keysForStrings {
 		mapStringForStrings += fmt.Sprintf("%v: %v,", k, this.Strings[k])
@@ -1238,7 +1238,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Int64S {
 		keysForInt64S = append(keysForInt64S, k)
 	}
-	sortkeys.Int32s(keysForInt64S)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForInt64S)
 	mapStringForInt64S := "map[int32]int64{"
 	for _, k := range keysForInt64S {
 		mapStringForInt64S += fmt.Sprintf("%v: %v,", k, this.Int64S[k])
@@ -1248,7 +1248,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Doubles {
 		keysForDoubles = append(keysForDoubles, k)
 	}
-	sortkeys.Int32s(keysForDoubles)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForDoubles)
 	mapStringForDoubles := "map[int32]float64{"
 	for _, k := range keysForDoubles {
 		mapStringForDoubles += fmt.Sprintf("%v: %v,", k, this.Doubles[k])
@@ -1258,7 +1258,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Bools {
 		keysForBools = append(keysForBools, k)
 	}
-	sortkeys.Int32s(keysForBools)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForBools)
 	mapStringForBools := "map[int32]bool{"
 	for _, k := range keysForBools {
 		mapStringForBools += fmt.Sprintf("%v: %v,", k, this.Bools[k])
@@ -1268,7 +1268,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Timestamps {
 		keysForTimestamps = append(keysForTimestamps, k)
 	}
-	sortkeys.Int32s(keysForTimestamps)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForTimestamps)
 	mapStringForTimestamps := "map[int32]time.Time{"
 	for _, k := range keysForTimestamps {
 		mapStringForTimestamps += fmt.Sprintf("%v: %v,", k, this.Timestamps[k])
@@ -1278,7 +1278,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Durations {
 		keysForDurations = append(keysForDurations, k)
 	}
-	sortkeys.Int32s(keysForDurations)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForDurations)
 	mapStringForDurations := "map[int32]time.Duration{"
 	for _, k := range keysForDurations {
 		mapStringForDurations += fmt.Sprintf("%v: %v,", k, this.Durations[k])
@@ -1288,7 +1288,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.Bytes {
 		keysForBytes = append(keysForBytes, k)
 	}
-	sortkeys.Int32s(keysForBytes)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForBytes)
 	mapStringForBytes := "map[int32][]byte{"
 	for _, k := range keysForBytes {
 		mapStringForBytes += fmt.Sprintf("%v: %v,", k, this.Bytes[k])
@@ -1298,7 +1298,7 @@ func (this *CompressedAttributes) String() string {
 	for k, _ := range this.StringMaps {
 		keysForStringMaps = append(keysForStringMaps, k)
 	}
-	sortkeys.Int32s(keysForStringMaps)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForStringMaps)
 	mapStringForStringMaps := "map[int32]StringMap{"
 	for _, k := range keysForStringMaps {
 		mapStringForStringMaps += fmt.Sprintf("%v: %v,", k, this.StringMaps[k])
@@ -1326,7 +1326,7 @@ func (this *StringMap) String() string {
 	for k, _ := range this.Entries {
 		keysForEntries = append(keysForEntries, k)
 	}
-	sortkeys.Int32s(keysForEntries)
+	github_com_gogo_protobuf_sortkeys.Int32s(keysForEntries)
 	mapStringForEntries := "map[int32]int32{"
 	for _, k := range keysForEntries {
 		mapStringForEntries += fmt.Sprintf("%v: %v,", k, this.Entries[k])
@@ -1605,7 +1605,7 @@ func (m *Attributes_AttributeValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Value = &Attributes_AttributeValue_DoubleValue{float64(math.Float64frombits(v))}
 		case 5:
@@ -2275,7 +2275,7 @@ func (m *CompressedAttributes) Unmarshal(dAtA []byte) error {
 					if (iNdEx + 8) > l {
 						return io.ErrUnexpectedEOF
 					}
-					mapvaluetemp = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					mapvaluetemp = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 					iNdEx += 8
 					mapvalue = math.Float64frombits(mapvaluetemp)
 				} else {
@@ -2489,7 +2489,7 @@ func (m *CompressedAttributes) Unmarshal(dAtA []byte) error {
 					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					if err := types.StdTimeUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
+					if err := github_com_gogo_protobuf_types.StdTimeUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
 						return err
 					}
 					iNdEx = postmsgIndex
@@ -2603,7 +2603,7 @@ func (m *CompressedAttributes) Unmarshal(dAtA []byte) error {
 					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					if err := types.StdDurationUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
+					if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
 						return err
 					}
 					iNdEx = postmsgIndex
