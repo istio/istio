@@ -17,12 +17,7 @@ The adapter is responsible for (1) instantiating an [Open Policy Agent](http://w
 
 ## Runtime flow (3 and 4 in the above figure):
 
-  1. When a request reaches the authorization handler, the request context is passed to OPA adapter. The request context can include the following:
-     * Client identity (e.g., service account email, user ID, JWT claims).
-     * Service name.
-     * Request path.
-     * Request method.
-     * Other request attributes (e.g., query parameters, request headers, pod labels).
+  1. The request context is defined by the [authorization template](https://github.com/istio/istio/blob/master/mixer/template/authorization/template.proto), which has two parts, "subject" defines the client identity, and "action" defines how the resource is accessed.
   1. [Open Policy Agent](http://www.openpolicyagent.org/) evaluates the request context against the rules, and returns the result.
 
 ## Configuration
