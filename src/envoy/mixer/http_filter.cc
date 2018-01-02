@@ -36,6 +36,7 @@
 
 using ::google::protobuf::util::Status;
 using HttpCheckData = ::istio::mixer_control::http::CheckData;
+using HttpHeaderUpdate = ::istio::mixer_control::http::HeaderUpdate;
 using HttpReportData = ::istio::mixer_control::http::ReportData;
 using ::istio::mixer::v1::config::client::JWT;
 using ::istio::mixer::v1::config::client::ServiceConfig;
@@ -67,6 +68,14 @@ const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
 
 // Referer header
 const LowerCaseString kRefererHeaderKey("referer");
+
+// Set of headers excluded from request.headers attribute.
+const std::set<std::string> RequestHeaderExclusives = {
+    kIstioAttributeHeader.get(),
+};
+
+// Set of headers excluded from response.headers attribute.
+const std::set<std::string> ResponseHeaderExclusives = {};
 
 std::shared_ptr<Auth::IssuerInfo> CreateIssuer(const JWT& jwt) {
   std::vector<std::string> audiences;
@@ -130,14 +139,33 @@ class Config {
 
 typedef std::shared_ptr<Config> ConfigPtr;
 
+class HeaderUpdate : public HttpHeaderUpdate,
+                     public Logger::Loggable<Logger::Id::http> {
+  HeaderMap* headers_;
+
+ public:
+  HeaderUpdate(HeaderMap* headers) : headers_(headers) {}
+
+  void RemoveIstioAttributes() override {
+    headers_->remove(kIstioAttributeHeader);
+  }
+
+  // base64 encode data, and add it to the HTTP header.
+  void AddIstioAttributes(const std::string& data) override {
+    std::string base64 = Base64::encode(data.c_str(), data.size());
+    ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
+    headers_->addReferenceKey(kIstioAttributeHeader, base64);
+  }
+};
+
 class CheckData : public HttpCheckData,
                   public Logger::Loggable<Logger::Id::http> {
-  HeaderMap& headers_;
+  const HeaderMap& headers_;
   const Network::Connection* connection_;
   Utility::QueryParams query_params_;
 
  public:
-  CheckData(HeaderMap& headers, const Network::Connection* connection)
+  CheckData(const HeaderMap& headers, const Network::Connection* connection)
       : headers_(headers), connection_(connection) {
     if (headers_.Path()) {
       query_params_ = Utility::parseQueryString(std::string(
@@ -147,22 +175,15 @@ class CheckData : public HttpCheckData,
 
   // Find "x-istio-attributes" headers, if found base64 decode
   // its value and remove it from the headers.
-  bool ExtractIstioAttributes(std::string* data) override {
+  bool ExtractIstioAttributes(std::string* data) const override {
     // Extract attributes from x-istio-attributes header
     const HeaderEntry* entry = headers_.get(kIstioAttributeHeader);
     if (entry) {
       *data = Base64::decode(
           std::string(entry->value().c_str(), entry->value().size()));
-      headers_.remove(kIstioAttributeHeader);
       return true;
     }
     return false;
-  }
-  // base64 encode data, and add it to the HTTP header.
-  void AddIstioAttributes(const std::string& data) override {
-    std::string base64 = Base64::encode(data.c_str(), data.size());
-    ENVOY_LOG(debug, "Mixer forward attributes set: {}", base64);
-    headers_.addReferenceKey(kIstioAttributeHeader, base64);
   }
 
   bool GetSourceIpPort(std::string* ip, int* port) const override {
@@ -177,7 +198,7 @@ class CheckData : public HttpCheckData,
   }
 
   std::map<std::string, std::string> GetRequestHeaders() const override {
-    return Utils::ExtractHeaders(headers_);
+    return Utils::ExtractHeaders(headers_, RequestHeaderExclusives);
   }
 
   bool FindHeaderByType(HttpCheckData::HeaderType header_type,
@@ -292,7 +313,7 @@ class ReportData : public HttpReportData {
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
     if (headers_) {
-      return Utils::ExtractHeaders(*headers_);
+      return Utils::ExtractHeaders(*headers_, ResponseHeaderExclusives);
     }
     return std::map<std::string, std::string>();
   }
@@ -420,8 +441,10 @@ class Instance : public Http::StreamDecoderFilter,
     state_ = Calling;
     initiating_call_ = true;
     CheckData check_data(headers, decoder_callbacks_->connection());
+    HeaderUpdate header_update(&headers);
     cancel_check_ = handler_->Check(
-        &check_data, CheckTransport::GetFunc(mixer_control_.cm(), &headers),
+        &check_data, &header_update,
+        CheckTransport::GetFunc(mixer_control_.cm(), &headers),
         [this](const Status& status) { completeCheck(status); });
     initiating_call_ = false;
 
@@ -491,10 +514,26 @@ class Instance : public Http::StreamDecoderFilter,
     }
   }
 
-  virtual void log(const HeaderMap*, const HeaderMap* response_headers,
+  virtual void log(const HeaderMap* request_headers,
+                   const HeaderMap* response_headers,
                    const AccessLog::RequestInfo& request_info) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
-    if (!handler_) return;
+    if (!handler_) {
+      if (request_headers == nullptr) {
+        return;
+      }
+
+      // Here Request is rejected by other filters, Mixer filter is not called.
+      // TODO: get downstream connection related attributes such as source.ip
+      // But at this stage, not sure if callback_->connection is safe to call.
+      // Similarly, it is better to get per-route attributes, but not sure if
+      // it is safe to call callback_->route().
+      ::istio::mixer_control::http::Controller::PerRouteConfig config;
+      handler_ = mixer_control_.controller()->CreateRequestHandler(config);
+
+      CheckData check_data(*request_headers, nullptr);
+      handler_->ExtractRequestAttributes(&check_data);
+    }
     ReportData report_data(response_headers, request_info);
     handler_->Report(&report_data);
   }

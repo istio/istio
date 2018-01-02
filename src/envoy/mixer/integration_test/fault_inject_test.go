@@ -19,38 +19,6 @@ import (
 	"testing"
 )
 
-// Check attributes from a fault injected GET request
-const checkAttributes = `
-{
-  "context.protocol": "http",
-  "mesh1.ip": "[1 1 1 1]",
-  "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
-  "mesh3.ip": "[0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 8]",
-  "request.host": "localhost:27070",
-  "request.path": "/echo",
-  "request.time": "*",
-  "request.useragent": "Go-http-client/1.1",
-  "request.method": "GET",
-  "request.scheme": "http",
-  "source.uid": "POD11",
-  "source.namespace": "XYZ11",
-  "source.ip": "*",
-  "source.port": "*",
-  "target.name": "target-name",
-  "target.user": "target-user",
-  "target.uid": "POD222",
-  "target.namespace": "XYZ222",
-  "request.headers": {
-     ":method": "GET",
-     ":path": "/echo",
-     ":authority": "localhost:27070",
-     "x-forwarded-proto": "http",
-     "x-istio-attributes": "-",
-     "x-request-id": "*"
-  }
-}
-`
-
 // Report attributes from a fault inject GET request
 const reportAttributes = `
 {
@@ -66,8 +34,6 @@ const reportAttributes = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.ip": "*",
-  "source.port": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -116,6 +82,6 @@ func TestFaultInject(t *testing.T) {
 	if code != 503 {
 		t.Errorf("Status code 503 is expected, got %d.", code)
 	}
-	s.VerifyCheck(tag, checkAttributes)
+	// Fault filter is before Mixer, Check is not called.
 	s.VerifyReport(tag, reportAttributes)
 }

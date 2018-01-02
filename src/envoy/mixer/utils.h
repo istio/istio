@@ -26,7 +26,8 @@ namespace Http {
 namespace Utils {
 
 // Extract HTTP headers into a string map
-std::map<std::string, std::string> ExtractHeaders(const HeaderMap& header_map);
+std::map<std::string, std::string> ExtractHeaders(
+    const HeaderMap& header_map, const std::set<std::string>& exclusives);
 
 // Get ip and port from Envoy ip.
 bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port);

@@ -40,13 +40,28 @@
                 "type": "decoder",
                 "name": "mixer",
                 "config": {
-                  "mixer_attributes": {
-                      "destination.uid": "POD222",
-                      "destination.service": "foo.svc.cluster.local"
-                  },
-                  "quota_name": "RequestCount",
-                  "quota_amount": "1"
-                }
+                  "v2": {
+                     "defaultDestinationService": "hello.default.svc.cluster.local",
+                     "mixerAttributes": {
+                        "attributes": {
+                           "destination.uid": {
+                              "stringValue": "kubernetes://v1.default"
+                           }
+                        }
+                     },
+                     "serviceConfigs": {
+                       "hello.default.svc.cluster.local": {
+                          "mixerAttributes": {
+                             "attributes": {
+                                 "destination.service": {
+                                     "stringValue": "hello.default.svc.cluster.local"
+                                 }
+                             }
+                          }
+                       }
+                     }
+                  }
+		}
               },
               {
                 "type": "decoder",

@@ -26,16 +26,26 @@ const std::string kSPIFFEPrefix("spiffe://");
 
 }  // namespace
 
-std::map<std::string, std::string> ExtractHeaders(const HeaderMap& header_map) {
+std::map<std::string, std::string> ExtractHeaders(
+    const HeaderMap& header_map, const std::set<std::string>& exclusives) {
   std::map<std::string, std::string> headers;
+  struct Context {
+    Context(const std::set<std::string>& exclusives,
+            std::map<std::string, std::string>& headers)
+        : exclusives(exclusives), headers(headers) {}
+    const std::set<std::string>& exclusives;
+    std::map<std::string, std::string>& headers;
+  };
+  Context ctx(exclusives, headers);
   header_map.iterate(
       [](const HeaderEntry& header, void* context) -> HeaderMap::Iterate {
-        std::map<std::string, std::string>* header_map =
-            static_cast<std::map<std::string, std::string>*>(context);
-        (*header_map)[header.key().c_str()] = header.value().c_str();
+        Context* ctx = static_cast<Context*>(context);
+        if (ctx->exclusives.count(header.key().c_str()) == 0) {
+          ctx->headers[header.key().c_str()] = header.value().c_str();
+        }
         return HeaderMap::Iterate::Continue;
       },
-      &headers);
+      &ctx);
   return headers;
 }
 
