@@ -1,5 +1,6 @@
-"""Airfow DAG used is the daily release pipline."""
-"""Copyright 2017 Istio Authors. All Rights Reserved.
+"""Airfow DAG used is the daily release pipline.
+
+Copyright 2017 Istio Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,12 +16,13 @@ limitations under the License.
 """
 
 from airflow import DAG
-
 import istio_common_dag
 
-dag = istio_common_dag.common_dag
-dag.dag_id = "istio_daily_release"
+dag, copy_files = istio_common_dag.MakeCommonDag(
+    name='istio_daily_release', schedule_interval='15 3 * * *')
 
 mark_complete = istio_common_dag.MakeMarkComplete(dag)
 
-istio_common_dag.copy_files >> mark_complete
+copy_files >> mark_complete
+
+dag

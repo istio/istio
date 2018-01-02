@@ -43,8 +43,10 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
              destination_object=None):
         """
         Copies an object from a bucket to another, with renaming if requested.
+
         destination_bucket or destination_object can be omitted, in which case
         source bucket/object is used, but not both.
+
         :param source_bucket: The bucket of the object to copy from.
         :type source_bucket: string
         :param source_object: The object to copy.
@@ -85,6 +87,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def download(self, bucket, object, filename=None):
         """
         Get a file from Google Cloud Storage.
+
         :param bucket: The bucket to fetch from.
         :type bucket: string
         :param object: The object to fetch.
@@ -110,6 +113,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def upload(self, bucket, object, filename, mime_type='application/octet-stream'):
         """
         Uploads a local file to Google Cloud Storage.
+
         :param bucket: The bucket to upload to.
         :type bucket: string
         :param object: The object name to set when uploading the local file.
@@ -130,6 +134,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def exists(self, bucket, object):
         """
         Checks for the existence of a file in Google Cloud Storage.
+
         :param bucket: The Google cloud storage bucket where the object is.
         :type bucket: string
         :param object: The name of the object to check in the Google cloud
@@ -152,6 +157,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def is_updated_after(self, bucket, object, ts):
         """
         Checks if an object is updated in Google Cloud Storage.
+
         :param bucket: The Google cloud storage bucket where the object is.
         :type bucket: string
         :param object: The name of the object to check in the Google cloud
@@ -190,6 +196,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
         """
         Delete an object if versioning is not enabled for the bucket, or if generation
         parameter is used.
+
         :param bucket: name of the bucket, where the object resides
         :type bucket: string
         :param object: name of the object to delete
@@ -214,6 +221,7 @@ class GoogleCloudStorageHook(GoogleCloudBaseHook):
     def list(self, bucket, versions=None, maxResults=None, prefix=None, delimiter=None):
         """
         List all objects from the bucket with the give string prefix in name
+
         :param bucket: bucket name
         :type bucket: string
         :param versions: if true, list all versions of the objects

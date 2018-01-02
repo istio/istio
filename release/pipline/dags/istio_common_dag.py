@@ -1,5 +1,4 @@
 """Airfow DAG and helpers used in one or more istio release pipline."""
-
 """Copyright 2017 Istio Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,12 +19,10 @@ import time
 from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.bash_operator import BashOperator
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.python_operator import PythonOperator
 
 import environment_config
-from gcs_to_gcs import GoogleCloudStorageToGoogleCloudStorageOperator
+from gcs_copy_operator import GoogleCloudStorageCopyOperator
 
 YESTERDAY = datetime.datetime.combine(
     datetime.datetime.today() - datetime.timedelta(days=1),
@@ -34,6 +31,7 @@ YESTERDAY = datetime.datetime.combine(
 default_args = {
     'owner': 'laane',
     'depends_on_past': False,
+    # This is the date to when the airlfow pipline tryes to backfil to.
     'start_date': YESTERDAY,
     'email': ['laane@google.com'],
     'email_on_failure': False,
@@ -41,6 +39,30 @@ default_args = {
     'retries': 1,
     'retry_delay': datetime.timedelta(minutes=5),
 }
+
+
+def GetSettingPython(ti, setting):
+  """Get setting form the generate_flow_args task.
+
+  Args:
+    ti: (task_instance) This is provided by the environment
+    setting: (string) The name of the setting.
+  Return:
+    The item saved in xcom.
+  """
+  return ti.xcom_pull(task_id=generate_flow_args.task_id)[setting]
+
+
+def GetSettingTemplate(setting):
+  """Create the template that will resolve to a setting from xcom.
+
+  Args:
+    setting: (string) The name of the setting.
+  Return:
+    A templated string that resolves to a setting from xcom.
+  """
+  return ('{{ task_instance.xcom_pull(task_ids="generate_workflow_args"'
+          ').%s }}') % (setting)
 
 
 def MakeCommonDag(name='istio_daily_flow_test',
@@ -58,7 +80,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
     except KeyError:
       return base
 
-
   def GenerateTestArgs(**kwargs):
     conf = kwargs['dag_run'].conf
     if conf is None:
@@ -68,11 +89,14 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
     timestamp = time.mktime(date.timetuple())
 
-    days_since_zero = (date - datetime.datetime(2017, 8, 1, 0, 0, 0, 0)).days
-    minor_version = days_since_zero / 30
+    minor_version = (date.year - 2017) * 12 + (date.month - 1) - 7
     major_version = AirflowGetVariableOrBaseCase('major_version', 0)
+    # This code gets information about the last released version so we know
+    # What version number to use for this round.
     r_minor = int(AirflowGetVariableOrBaseCase('released_version_minor', 0))
     r_patch = int(AirflowGetVariableOrBaseCase('released_version_patch', 0))
+    # If  we have already released a monthy for this mounth then bump
+    # The patch number for the remander of the month.
     if r_minor == minor_version:
       patch = r_patch + 1
     else:
@@ -90,62 +114,21 @@ def MakeCommonDag(name='istio_daily_flow_test',
         patch=patch,
         date=date.strftime('%Y%m%d'),
         rc=date.strftime('%H-%M-%S'))
+    config_settings = dict(VERSION = default_conf['VERSION'])
+    config_settings_name = ['PROJECT_ID','MFEST_URL','MFEST_FILE','GCR_BUCKET','GCS_BUCKET','GCS_PATH','GCR_DEST','SVC_ACCT','GITHUB_ORG','GITHUB_REPO','GCS_GITHUB_PATH','TOKEN_FILE','GCR_DEST','GCS_DEST','DOCKER_HUB','BUILD_GCS_BUCKET',]
 
-    VERSION = default_conf['VERSION']
-    PROJECT_ID = conf.get('PROJECT_ID') or default_conf['PROJECT_ID']
+    for name in config_settings_name:
+      config_settings[name] = conf.get(name) or default_conf[name]
 
-    MFEST_URL = conf.get('MFEST_URL') or default_conf['MFEST_URL']
-    MFEST_FILE = conf.get('MFEST_FILE') or default_conf['MFEST_FILE']
     if monthly:
-      MFEST_COMMIT = conf.get('MFEST_COMMIT') or Variable.get(last_daily)
+      MFEST_COMMIT = conf.get('MFEST_COMMIT') or Variable.get('last_daily')
     else:
       MFEST_COMMIT = conf.get('MFEST_COMMIT') or default_conf['MFEST_COMMIT']
-    GCR_BUCKET = conf.get('GCR_BUCKET') or default_conf['GCR_BUCKET']
-    GCS_BUCKET = conf.get('GCS_BUCKET') or default_conf['GCS_BUCKET']
-    GCS_PATH = conf.get('GCS_PATH') or default_conf['GCS_PATH']
-    GCS_DEST = conf.get('GCR_DEST') or default_conf['GCR_DEST']
 
-    SVC_ACCT = conf.get('SVC_ACCT') or default_conf['SVC_ACCT']
-    GITHUB_ORG = conf.get('GITHUB_ORG') or default_conf['GITHUB_ORG']
-    GITHUB_REPO = conf.get('GITHUB_REPO') or default_conf['GITHUB_REPO']
-    GCS_GITHUB_PATH = conf.get(
-        'GCS_GITHUB_PATH') or default_conf['GCS_GITHUB_PATH']
+    config_settings['BUILD_GCS_PATH'] = '{}/{}'.format(config_settings['BUILD_GCS_BUCKET'], config_settings['GCS_PATH'])
+    config_settings['GCS_SOURCE'] =  '{}/{}'.format(config_settings['GCS_BUCKET'], config_settings['GCS_PATH'])
 
-    TOKEN_FILE = conf.get('TOKEN_FILE') or default_conf['TOKEN_FILE']
-    GCR_DEST = conf.get('GCR_DEST') or default_conf['GCR_DEST']
-    GCS_DEST = conf.get('GCS_DEST') or default_conf['GCS_DEST']
-    DOCKER_HUB = conf.get('DOCKER_HUB') or default_conf['DOCKER_HUB']
-    BUILD_GCS_BUCKET = conf.get(
-        'BUILD_GCS_BUCKET') or default_conf['BUILD_GCS_BUCKET']
-    return {
-        'PROJECT_ID': PROJECT_ID,
-        'MFEST_URL': MFEST_URL,
-        'MFEST_FILE': MFEST_FILE,
-        'MFEST_COMMIT': MFEST_COMMIT,
-        'execution_date': date,
-        'VERSION': VERSION,
-        'VERSION_TUPLE': (major_version, minor_version, patch, date),
-        'GCR_BUCKET': GCR_BUCKET,
-        'GCS_BUCKET': GCS_BUCKET,
-        'GCS_PATH': GCS_PATH,
-        'BUILD_GCS_BUCKET': BUILD_GCS_BUCKET,
-        'BUILD_GCS_PATH': '{}/{}'.format(BUILD_GCS_BUCKET, GCS_PATH),
-        'GCS_SOURCE': '{}/{}'.format(BUILD_GCS_BUCKET, GCS_PATH),
-        'GCR_DEST': GCR_DEST,
-        'GCS_DEST': GCS_DEST,
-        'SVC_ACCT': SVC_ACCT,
-        'GITHUB_ORG': GITHUB_ORG,
-        'GITHUB_REPO': GITHUB_REPO,
-        'GCS_GITHUB_PATH': GCS_GITHUB_PATH,
-        'TOKEN_FILE': TOKEN_FILE,
-        'Docker_HUB': DOCKER_HUB,
-    }
-
-
-
-  def GetSettingTemplate(setting):
-    return "{{ task_instance.xcom_pull(task_ids='generate_workflow_args').%s }}" % (
-        setting)
+    return config_settings
 
   generate_flow_args = PythonOperator(
       task_id='generate_workflow_args',
@@ -154,13 +137,10 @@ def MakeCommonDag(name='istio_daily_flow_test',
       dag=common_dag,
   )
 
-  def GetSettingPython(ti, setting):
-    return it.xcom_pull(task_id=generate_flow_args.task_id)[setting]
-
   get_git_commit_cmd = """
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     git config --global user.name "TestRunnerBot"
-    git config --global user.email "testrunner@example.com"
+    git config --global user.email "testrunner@istio.io"
     git clone {{ settings.MFEST_URL }} green-builds || exit 2
     cd green-builds
     git checkout {{ settings.MFEST_COMMIT }} || exit 3
@@ -192,7 +172,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     chmod +x /home/airflow/gcs/data/githubctl
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     git config --global user.name "TestRunnerBot"
-    git config --global user.email "testrunner@example.com"
+    git config --global user.email "testrunner@istio.io"
     /home/airflow/gcs/data/githubctl \
     --token_file="{{ settings.TOKEN_FILE }}" \
     --op=dailyRelQual \
@@ -207,8 +187,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
       params={'tests': 5},
       retries=2,
       dag=common_dag)
-
-  copy_files = GoogleCloudStorageToGoogleCloudStorageOperator(
+  copy_files = GoogleCloudStorageCopyOperator(
       task_id='copy_files_for_release',
       source_bucket=GetSettingTemplate('BUILD_GCS_BUCKET'),
       source_object=GetSettingTemplate('GCS_PATH'),
@@ -222,9 +201,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
   return common_dag, copy_files
 
 
-common_dag, copy_files = MakeCommonDag()
-
-
 def ReportDailySuccessful(task_instance, **kwargs):
   date = kwargs['execution_date']
   last_run = float(Variable.get('last_daily_timestamp'))
@@ -232,7 +208,7 @@ def ReportDailySuccessful(task_instance, **kwargs):
   timestamp = time.mktime(date.timetuple())
   if timestamp > last_run:
     Variable.set('last_daily_timestamp', timestamp)
-    run_sha = task_instance.xcom_pull(task_id=get_git_commit)
+    run_sha = task_instance.xcom_pull(task_id='get_git_commit')
     last_version = GetSettingPython(task_instance, 'VERSTION')
     print 'setting last green daily to: {}'.format(run_sha)
     Variable.set('last_sha', run_sha)
@@ -246,6 +222,3 @@ def MakeMarkComplete(dag):
       provide_context=True,
       dag=dag,
   )
-
-
-common_dag
