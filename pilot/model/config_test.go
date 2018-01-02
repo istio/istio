@@ -336,7 +336,7 @@ func TestMatchSource(t *testing.T) {
 
 	for _, test := range cases {
 		if got := model.MatchSource(test.meta, test.svc, test.instances); got != test.want {
-			t.Errorf("MatchSource(%v) => got %q, want %q", test, got, test.want)
+			t.Errorf("MatchSource(%v) => got %v, want %v", test, got, test.want)
 		}
 	}
 }
