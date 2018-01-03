@@ -32,6 +32,7 @@ go_library(
         "@io_k8s_client_go//rest:go_default_library",
         "@io_k8s_client_go//tools/clientcmd:go_default_library",
         "@io_k8s_client_go//tools/clientcmd/api:go_default_library",
+        "@io_k8s_client_go//util/homedir:go_default_library",
     ],
 )
 

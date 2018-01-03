@@ -13,12 +13,6 @@ source ${ROOT}/../bin/docker_lib.sh
 BAZEL_IMAGES=('mixer' 'mixer_debug')
 IMAGES=()
 
-# Building grafana image
-pushd "${ROOT}/deploy/kube/conf"
-docker build . -t grafana
-IMAGES+=(grafana)
-popd
-
 BAZEL_STARTUP_ARGS=${BAZEL_STARTUP_ARGS:-}
 BAZEL_ARGS=${BAZEL_ARGS:-}
 

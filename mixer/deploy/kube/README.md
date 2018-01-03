@@ -46,9 +46,10 @@ The Grafana UI is exposed on port `3000`. This configuration stores Grafana's da
 configure to be an ephemeral directory. To persist your Grafana configuration for longer than the lifetime of the `grafana`
 pod, map this directory to a real volume. Note that it is possible to export your Grafana config and re-import it later.
 
-An example grafana dashboard is provided in `conf/grafana-dashboard.json`. It can
-be imported into a running grafana instance that has a `prometheus` datasource
-configured at `http://prometheus:9090/`.
+An example grafana dashboard is provided
+[here](/install/kubernetes/templates/addons/grafana-config/istio-dashboard.json). It
+can be imported into a running grafana instance that has a
+`Prometheus` datasource configured at `http://prometheus:9090/`.
 
 
 If you're using minikube to test these deployments locally, get to the UI by running:

@@ -32,7 +32,7 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/tracing"
+	"istio.io/istio/pkg/tracing"
 )
 
 type clientState struct {
@@ -40,18 +40,19 @@ type clientState struct {
 	connection *grpc.ClientConn
 }
 
-func createAPIClient(port string, enableTracing bool) (*clientState, error) {
+func createAPIClient(port string, tracingOptions *tracing.Options) (*clientState, error) {
 	cs := clientState{}
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
-	if enableTracing {
-		t, _, err := tracing.NewTracer("mixer-client", tracing.WithConsoleLogging())
+
+	if tracingOptions.TracingEnabled() {
+		_, err := tracing.Configure("mixer-client", tracingOptions)
 		if err != nil {
 			return nil, fmt.Errorf("could not build tracer: %v", err)
 		}
-		ot.InitGlobalTracer(t)
-		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)))
+		ot.InitGlobalTracer(ot.GlobalTracer())
+		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(ot.GlobalTracer())))
 	}
 
 	var err error

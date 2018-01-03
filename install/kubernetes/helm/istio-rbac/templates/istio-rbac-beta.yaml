@@ -1,7 +1,6 @@
-{{- if .Values.Istio.deploy_base_config }}
 {{- $istio_namespace := .Values.global.namespace }}
 ################################
-# Istio RBAC
+# istio RBAC
 ################################
 # Permissions and roles for istio
 # To debug: start the cluster with -vmodule=rbac,3 to enable verbose logging on RBAC DENY
@@ -55,7 +54,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-mixer-{{$istio_namespace}}
 rules:
-- apiGroups: ["config.istio.io"] # Istio CRD watcher
+- apiGroups: ["config.istio.io"] # istio CRD watcher
   resources: ["*"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apiextensions.k8s.io"]
@@ -176,4 +175,3 @@ roleRef:
   name: istio-mixer-{{$istio_namespace}}
   apiGroup: rbac.authorization.k8s.io
 ---
-{{- end }}

@@ -12,43 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package log provides the canonical logging functionality used by Go-based
-// Istio components.
-//
-// Istio's logging subsystem is built on top of the [Zap](https://godoc.org/go.uber.org/zap) package.
-// High performance scenarios should use the Error, Warn, Info, and Debug methods. Lower perf
-// scenarios can use the more expensive convenience methods such as Debugf and Warnw.
-//
-// The package provides direct integration with the Cobra command-line processor which makes it
-// easy to build programs that use a consistent interface for logging. Here's an example
-// of a simple Cobra-based program using this log package:
-//
-//		func main() {
-//			// get the default logging options
-//			options := log.NewOptions()
-//
-//			rootCmd := &cobra.Command{
-//				Run: func(cmd *cobra.Command, args []string) {
-//
-//					// configure the logging system
-//					if err := log.Configure(options); err != nil {
-//                      // print an error and quit
-//                  }
-//
-//					// output some logs
-//					log.Info("Hello")
-//					log.Sync()
-//				},
-//			}
-//
-//			// add logging-specific flags to the cobra command
-//			options.AttachCobraFlags(rootCmd)
-//			rootCmd.SetArgs(os.Args[1:])
-//			rootCmd.Execute()
-//		}
-//
-// Once configured, this package intercepts the output of the standard golang "log" package as well as anything
-// sent to the global zap logger (zap.L()).
 package log
 
 import (

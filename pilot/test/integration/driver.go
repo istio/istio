@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/golang/glog"
 	// TODO(nmittler): Remove this
 	_ "github.com/golang/glog"
 	"github.com/golang/sync/errgroup"
@@ -84,7 +85,7 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "Debug level noise from proxies")
 	flag.BoolVar(&params.checkLogs, "logs", true, "Validate pod logs (expensive in long-running tests)")
 
-	flag.StringVar(&kubeconfig, "kubeconfig", "pilot/platform/kube/config",
+	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"),
 		"kube config file (missing or empty file makes the test use in-cluster kube config instead)")
 	flag.IntVar(&count, "count", 1, "Number of times to run the tests after deploying")
 	flag.StringVar(&authmode, "auth", "both", "Enable / disable auth, or test both.")
@@ -144,6 +145,10 @@ func main() {
 		return
 	}
 
+	if len(kubeconfig) == 0 {
+		kubeconfig = "pilot/platform/kube/config"
+		glog.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
+	}
 	var err error
 	_, client, err = kube.CreateInterface(kubeconfig)
 	if err != nil {
