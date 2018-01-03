@@ -110,6 +110,8 @@ jobs:
           sudo chown -R circleci /go
           sudo chown -R circleci /usr/local/go
       - checkout
+      - attach_workspace:
+          at:  /go
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
@@ -158,6 +160,8 @@ jobs:
           sudo chown -R circleci /go
           sudo chown -R circleci /usr/local/go
       - checkout
+      - attach_workspace:
+          at:  /go
       - run: curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
       - run: curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
       - run:
@@ -222,12 +226,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
+      - run: make depend
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
@@ -290,6 +289,8 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - attach_workspace:
+          at: /go/
       - run:
           command: |
             mkdir -p /go/out/tests
