@@ -142,10 +142,6 @@ jobs:
               sleep 2
             done
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
-      - run:  make sidecar.deb
-      - store_artifacts:
-          path: /go/out/istio-sidecar.deb
-
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -244,8 +240,6 @@ jobs:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
-      - attach_workspace:
-          at:  /go
       - run: mkdir -p /tmp/coverage
       - run:
           name: Running Kubernetes API Server standalone
@@ -254,6 +248,8 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - attach_workspace:
+          at:  /go
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -339,6 +335,9 @@ jobs:
             # pkg may include 'dep'
             - pkg/linux_amd64
             - bin
+      - run:  make sidecar.deb
+      - store_artifacts:
+          path: /go/out/istio-sidecar.deb
 
   lint:
     <<: *integrationDefaults
