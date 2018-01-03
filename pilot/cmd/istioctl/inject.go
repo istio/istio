@@ -98,7 +98,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				reader = in
 				defer func() {
 					if errClose := in.Close(); errClose != nil {
-						glog.Errorf("Error: close file from %s, %s", inFilename, errClose)
+						log.Errorf("Error: close file from %s, %s", inFilename, errClose)
 
 						// don't overwrite the previous error
 						if err == nil {
@@ -119,7 +119,7 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				writer = out
 				defer func() {
 					if errClose := out.Close(); errClose != nil {
-						glog.Errorf("Error: close file from %s, %s", outFilename, errClose)
+						log.Errorf("Error: close file from %s, %s", outFilename, errClose)
 
 						// don't overwrite the previous error
 						if err == nil {
