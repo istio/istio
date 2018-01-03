@@ -1,4 +1,4 @@
-GO_MINOR_VERSION = $(shell go version | cut -d . -f 2)
+GO_VERSION=$(shell go version | sed "s/[a-z| ]*\([0-9]*\)\.\([0-9]*\).*/\1 \2/" | awk '{print $$1*100+$$2}')
 
 # note: docker/mixs to be phony to make sure rebuilding always.
 .PHONY: docker docker/mixs
@@ -7,7 +7,7 @@ GO_MINOR_VERSION = $(shell go version | cut -d . -f 2)
 default: docker
 
 check.prereqs:
-	@if test $(GO_MINOR_VERSION) -lt 9; then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
+	@if test $(GO_VERSION) -lt 109; then echo -n "go version 1.9+ required, found: "; go version; exit 1; fi
 
 clean:
 	rm -f docker/mixs
