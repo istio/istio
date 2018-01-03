@@ -292,6 +292,8 @@ jobs:
 
   test:
     <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
     steps:
       - checkout
@@ -304,8 +306,12 @@ jobs:
           command: |
             mkdir -p /go/out/tests
             go get github.com/jstemmer/go-junit-report
+            free
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
-            make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config T=-v | tee /go/out/tests/go-test-report.out
+            go test -c istio.io/istio/pilot/adapter/config/ingress
+            make localTestEnv pilot-test T=-v | tee /go/out/tests/go-test-report.out
+            free
+            make mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_artifacts:
           path: /go/bin
       - store_artifacts:
@@ -441,7 +447,6 @@ workflows:
   all:
     jobs:
       - dependencies
-      - depupdate
       - build:
           requires:
             - dependencies
