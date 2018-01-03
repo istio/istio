@@ -110,11 +110,11 @@ func TestParsePemEncodedCertificate(t *testing.T) {
 		publicKeyAlgo x509.PublicKeyAlgorithm
 	}{
 		"Invalid PEM string": {
-			errMsg: "Invalid PEM encoded certificate",
+			errMsg: "invalid PEM encoded certificate",
 			pem:    "invalid pem string",
 		},
 		"Invalid certificate string": {
-			errMsg: "Failed to parse X.509 certificate",
+			errMsg: "failed to parse X.509 certificate",
 			pem:    keyECDSA,
 		},
 		"Parse RSA certificate": {
@@ -148,11 +148,11 @@ func TestParsePemEncodedCSR(t *testing.T) {
 		pem    string
 	}{
 		"Invalid PEM string": {
-			errMsg: "Certificate signing request is not properly encoded",
+			errMsg: "certificate signing request is not properly encoded",
 			pem:    "bad pem string",
 		},
 		"Invalid CSR string": {
-			errMsg: "Failed to parse X.509 certificate signing request",
+			errMsg: "failed to parse X.509 certificate signing request",
 			pem:    certECDSA,
 		},
 		"Parse CSR": {
@@ -180,11 +180,11 @@ func TestParsePemEncodedKey(t *testing.T) {
 		keyType reflect.Type
 	}{
 		"Invalid PEM string": {
-			errMsg: "Invalid PEM-encoded key",
+			errMsg: "invalid PEM-encoded key",
 			pem:    "Invalid PEM string",
 		},
 		"Invalid PEM block type": {
-			errMsg: "Unsupported PEM block type for a private key: CERTIFICATE",
+			errMsg: "unsupported PEM block type for a private key: CERTIFICATE",
 			pem:    certRSA,
 		},
 		"Parse RSA key": {
@@ -195,7 +195,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 			pem: `
 -----BEGIN RSA PRIVATE KEY-----
 -----END RSA PRIVATE KEY-----`,
-			errMsg: "Failed to parse the RSA private key",
+			errMsg: "failed to parse the RSA private key",
 		},
 		"Parse ECDSA key": {
 			pem:     keyECDSA,
@@ -205,7 +205,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 			pem: `
 -----BEGIN EC PARAMETERS-----
 -----END EC PARAMETERS-----`,
-			errMsg: "Failed to parse the ECDSA private key",
+			errMsg: "failed to parse the ECDSA private key",
 		},
 	}
 

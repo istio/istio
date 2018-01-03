@@ -21,11 +21,13 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // ConvertObject converts an IstioObject k8s-style object to the
@@ -79,30 +81,49 @@ func ResourceName(s string) string {
 	return strings.Replace(s, "-", "", -1)
 }
 
+// TODO - add special cases for type-to-kind and kind-to-type
+// conversions with initial-isms. Consider adding additional type
+// information to the abstract model and/or elevating k8s
+// representation to first-class type to avoid extra conversions.
+
 // KabobCaseToCamelCase converts "my-name" to "MyName"
 func KabobCaseToCamelCase(s string) string {
-	words := strings.Split(s, "-")
-	out := ""
-	for _, word := range words {
-		out = out + strings.Title(word)
+	switch s {
+	case "http-api-spec":
+		return "HTTPAPISpec"
+	case "http-api-spec-binding":
+		return "HTTPAPISpecBinding"
+	default:
+		words := strings.Split(s, "-")
+		out := ""
+		for _, word := range words {
+			out = out + strings.Title(word)
+		}
+		return out
 	}
-	return out
 }
 
 // CamelCaseToKabobCase converts "MyName" to "my-name"
 func CamelCaseToKabobCase(s string) string {
-	var out bytes.Buffer
-	for i := range s {
-		if 'A' <= s[i] && s[i] <= 'Z' {
-			if i > 0 {
-				out.WriteByte('-')
+	switch s {
+	case "HTTPAPISpec":
+		return "http-api-spec"
+	case "HTTPAPISpecBinding":
+		return "http-api-spec-binding"
+	default:
+		var out bytes.Buffer
+		for i := range s {
+			if 'A' <= s[i] && s[i] <= 'Z' {
+				if i > 0 {
+					out.WriteByte('-')
+				}
+				out.WriteByte(s[i] - 'A' + 'a')
+			} else {
+				out.WriteByte(s[i])
 			}
-			out.WriteByte(s[i] - 'A' + 'a')
-		} else {
-			out.WriteByte(s[i])
 		}
+		return out.String()
 	}
-	return out.String()
 }
 
 // ParseInputs reads multiple documents from `kubectl` output and checks with
@@ -136,7 +157,7 @@ func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 
 		schema, exists := model.IstioConfigTypes.GetByType(CamelCaseToKabobCase(obj.Kind))
 		if !exists {
-			glog.V(7).Infof("unrecognized type %v", obj.Kind)
+			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
 			continue
 		}

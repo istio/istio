@@ -4,18 +4,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 MIXER_DEPS = [
     "@io_istio_istio//mixer/pkg/adapter:go_default_library",
-    "@io_istio_api//:mixer/v1/template",
-    "@io_istio_api//:mixer/v1/config/descriptor",  # keep
+    "@io_istio_api//mixer/v1/template:go_default_library",
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
 ]
 
 MIXER_INPUTS = [
-    "@io_istio_api//:mixer/v1/template_protos",
-    "@io_istio_api//:mixer/v1/config/descriptor_protos",  # keep
+    "@io_istio_api//mixer/v1/template:go_default_library_protos",
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library_protos", 
 ]
 
 MIXER_IMPORT_MAP = {
     "mixer/v1/config/descriptor/value_type.proto": "istio.io/api/mixer/v1/config/descriptor",
     "mixer/v1/template/extensions.proto": "istio.io/api/mixer/v1/template",
+    "mixer/v1/template/standard_types.proto": "istio.io/api/mixer/v1/template",
 }
 
 # TODO: develop better approach to import management.
@@ -147,11 +148,12 @@ DEPS_FOR_ALL_TMPLS = [
     "@io_istio_istio//mixer/pkg/adapter:go_default_library",
     "@io_istio_istio//mixer/pkg/attribute:go_default_library",
     "@io_istio_istio//mixer/pkg/expr:go_default_library",
+    "@io_istio_istio//mixer/pkg/config/proto:go_default_library",
     "@io_istio_istio//mixer/pkg/template:go_default_library",
+    "@io_istio_istio//pkg/log:go_default_library",
     "@com_github_gogo_protobuf//proto:go_default_library",
-    "@com_github_golang_glog//:go_default_library",
-    "@io_istio_api//:mixer/v1/config/descriptor",  # keep
-    "@io_istio_api//:mixer/v1/template",
+    "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
+    "@io_istio_api//mixer/v1/template:go_default_library",
 ]
 
 def mixer_supported_template_library(name, packages, deps):

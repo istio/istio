@@ -19,10 +19,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/log"
 )
 
 // Test utilities for kubernetes
@@ -42,7 +45,7 @@ func CreateNamespace(cl kubernetes.Interface) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	glog.Infof("Created namespace %s", ns.Name)
+	log.Infof("Created namespace %s", ns.Name)
 	return ns.Name, nil
 }
 
@@ -50,9 +53,9 @@ func CreateNamespace(cl kubernetes.Interface) (string, error) {
 func DeleteNamespace(cl kubernetes.Interface, ns string) {
 	if ns != "" && ns != "default" {
 		if err := cl.CoreV1().Namespaces().Delete(ns, &meta_v1.DeleteOptions{}); err != nil {
-			glog.Warningf("Error deleting namespace: %v", err)
+			log.Warnf("Error deleting namespace: %v", err)
 		}
-		glog.Infof("Deleted namespace %s", ns)
+		log.Infof("Deleted namespace %s", ns)
 	}
 }
 
@@ -76,7 +79,7 @@ func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, 
 	var items []v1.Pod
 
 	for _, ns := range nslist {
-		glog.Infof("Checking all pods are running in namespace %s ...", ns)
+		log.Infof("Checking all pods are running in namespace %s ...", ns)
 
 		for n := 0; ; n++ {
 			list, err := cl.CoreV1().Pods(ns).List(meta_v1.ListOptions{})
@@ -88,13 +91,13 @@ func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, 
 
 			for _, pod := range items {
 				if pod.Status.Phase != "Running" {
-					glog.Infof("Pod %s.%s has status %s", pod.Name, ns, pod.Status.Phase)
+					log.Infof("Pod %s.%s has status %s", pod.Name, ns, pod.Status.Phase)
 					ready = false
 					break
 				} else {
 					for _, container := range pod.Status.ContainerStatuses {
 						if !container.Ready {
-							glog.Infof("Container %s in Pod %s in namespace % s is not ready", container.Name, pod.Name, ns)
+							log.Infof("Container %s in Pod %s in namespace % s is not ready", container.Name, pod.Name, ns)
 							ready = false
 							break
 						}
@@ -127,12 +130,12 @@ func GetAppPods(cl kubernetes.Interface, nslist []string) (map[string][]string, 
 
 // FetchLogs for a container in a a pod
 func FetchLogs(cl kubernetes.Interface, name, namespace string, container string) string {
-	glog.V(2).Infof("Fetching log for container %s in %s.%s", container, name, namespace)
+	log.Infof("Fetching log for container %s in %s.%s", container, name, namespace)
 	raw, err := cl.CoreV1().Pods(namespace).
 		GetLogs(name, &v1.PodLogOptions{Container: container}).
 		Do().Raw()
 	if err != nil {
-		glog.Infof("Request error %v", err)
+		log.Infof("Request error %v", err)
 		return ""
 	}
 	return string(raw)
@@ -145,7 +148,7 @@ func Eventually(f func() bool, t *testing.T) {
 		if f() {
 			return
 		}
-		glog.Infof("Sleeping %v", interval)
+		log.Infof("Sleeping %v", interval)
 		time.Sleep(interval)
 		interval = 2 * interval
 	}

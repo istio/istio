@@ -19,11 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -119,6 +121,9 @@ const (
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
+	// headerAuthority is authority header used by Envoy for HTTP/HTTP2
+	headerAuthority = ":authority"
+
 	router  = "router"
 	auto    = "auto"
 	decoder = "decoder"
@@ -134,7 +139,7 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 func convertDuration(d *duration.Duration) time.Duration {
 	dur, err := ptypes.Duration(d)
 	if err != nil {
-		glog.Warningf("error converting duration %#v, using 0: %v", d, err)
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
 	return dur
 }
@@ -262,7 +267,7 @@ type HTTPRoute struct {
 	WeightedClusters *WeightedCluster `json:"weighted_clusters,omitempty"`
 
 	Headers      Headers           `json:"headers,omitempty"`
-	TimeoutMS    int64             `json:"timeout_ms,omitempty"`
+	TimeoutMS    int64             `json:"timeout_ms"`
 	RetryPolicy  *RetryPolicy      `json:"retry_policy,omitempty"`
 	OpaqueConfig map[string]string `json:"opaque_config,omitempty"`
 

@@ -17,22 +17,22 @@ package api
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"strings"
 	"testing"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapterManager"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/status"
+	"istio.io/istio/pkg/log"
 )
 
 type preprocCallback func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error
@@ -42,24 +42,6 @@ type quotaCallback func(ctx context.Context, requestBag attribute.Bag,
 	qma *aspect.QuotaMethodArgs) (*adapter.QuotaResult, error)
 
 type preprocCallbackLegacy func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status
-type quotaCallbackLegacy func(requestBag attribute.Bag, args *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp,
-	rpc.Status)
-
-type legacyDispatcher struct {
-	adapterManager.AspectDispatcher
-	quota   quotaCallbackLegacy
-	preproc preprocCallbackLegacy
-}
-
-func (l *legacyDispatcher) Preprocess(_ context.Context, requestBag attribute.Bag,
-	responseBag *attribute.MutableBag) rpc.Status {
-	return l.preproc(requestBag, responseBag)
-}
-
-func (l *legacyDispatcher) Quota(_ context.Context, requestBag attribute.Bag,
-	qma *aspect.QuotaMethodArgs) (*aspect.QuotaMethodResp, rpc.Status) {
-	return l.quota(requestBag, qma)
-}
 
 type testState struct {
 	client     mixerpb.MixerClient
@@ -72,8 +54,6 @@ type testState struct {
 	report  reportCallback
 	quota   quotaCallback
 	preproc preprocCallback
-
-	legacy *legacyDispatcher
 }
 
 func (ts *testState) createGRPCServer() (string, error) {
@@ -93,7 +73,7 @@ func (ts *testState) createGRPCServer() (string, error) {
 	ts.gp = pool.NewGoroutinePool(128, false)
 	ts.gp.AddWorkers(32)
 
-	ms := NewGRPCServer(ts.legacy, ts, ts.gp)
+	ms := NewGRPCServer(ts, ts.gp)
 	ts.s = ms.(*grpcServer)
 	mixerpb.RegisterMixerServer(ts.gs, ts.s)
 
@@ -129,9 +109,7 @@ func (ts *testState) deleteAPIClient() {
 }
 
 func prepTestState() (*testState, error) {
-	ts := &testState{
-		legacy: &legacyDispatcher{},
-	}
+	ts := &testState{}
 	dial, err := ts.createGRPCServer()
 	if err != nil {
 		return nil, err
@@ -146,9 +124,6 @@ func prepTestState() (*testState, error) {
 		return nil
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return status.OK
-	}
 	return ts, nil
 }
 
@@ -232,22 +207,25 @@ func TestCheck(t *testing.T) {
 		t.Errorf("Got %v, expected success", err)
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 		responseBag.Set("A1", "override")
-		return status.OK
+		responseBag.Set("genAttrGen", "genAttrGenValue")
+		return nil
 	}
 
 	ts.check = func(ctx context.Context, requestBag attribute.Bag) (*adapter.CheckResult, error) {
 		if val, _ := requestBag.Get("A1"); val == "override" {
 			return nil, errors.New("attribute overriding not allowed in Check")
 		}
-		return &adapter.CheckResult{
-			Status: status.WithPermissionDenied("Not Implemented"),
-		}, nil
+		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
+			return nil, errors.New("generated attribute via preproc not part of check attributes")
+		}
+		return &adapter.CheckResult{}, nil
 	}
 
-	if _, err = ts.client.Check(context.Background(), &request); err != nil {
-		t.Errorf("Got unexpected error: %v", err)
+	chkRes, err := ts.client.Check(context.Background(), &request)
+	if err != nil || chkRes.Precondition.Status.Code != 0 {
+		t.Errorf("Got error; expect success: %v, %v", chkRes, err)
 	}
 }
 
@@ -382,14 +360,18 @@ func TestReport(t *testing.T) {
 		t.Errorf("Got %d, expected call count of 2", callCount)
 	}
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
 		responseBag.Set("A1", "override")
-		return status.OK
+		responseBag.Set("genAttrGen", "genAttrGenValue")
+		return nil
 	}
 
 	ts.report = func(ctx context.Context, requestBag attribute.Bag) error {
 		if val, _ := requestBag.Get("A1"); val == "override" {
-			return errors.New("attribute overriding NOT allowed in Check")
+			return errors.New("attribute overriding NOT allowed in Report")
+		}
+		if val, _ := requestBag.Get("genAttrGen"); val != "genAttrGenValue" {
+			return errors.New("generated attribute via preproc not part of report attributes")
 		}
 		return nil
 	}
@@ -430,11 +412,8 @@ func TestFailingPreproc(t *testing.T) {
 	}
 	defer ts.cleanupTestState()
 
-	ts.legacy.preproc = func(requestBag attribute.Bag, responseBag *attribute.MutableBag) rpc.Status {
-		return rpc.Status{
-			Code:    12345678,
-			Message: "DEADBEEF!",
-		}
+	ts.preproc = func(ctx context.Context, requestBag attribute.Bag, responseBag *attribute.MutableBag) error {
+		return errors.New("123 preproc failed")
 	}
 
 	{
@@ -445,8 +424,8 @@ func TestFailingPreproc(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("Got success, expected failure")
-		} else if !strings.Contains(err.Error(), "DEADBEEF!") {
-			t.Errorf("Got '%s', expected DEADBEEF!", err.Error())
+		} else if !strings.Contains(err.Error(), "123 preproc failed") {
+			t.Errorf("Got '%s', expected '123 preproc failed'", err.Error())
 		}
 	}
 
@@ -458,13 +437,15 @@ func TestFailingPreproc(t *testing.T) {
 		}
 		if err == nil {
 			t.Error("Got success, expected failure")
-		} else if !strings.Contains(err.Error(), "DEADBEEF!") {
-			t.Errorf("Got '%s', expected DEADBEEF!", err.Error())
+		} else if !strings.Contains(err.Error(), "123 preproc failed") {
+			t.Errorf("Got '%s', expected '123 preproc failed'", err.Error())
 		}
 	}
 }
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
+	o := log.NewOptions()
+	o.SetOutputLevel(zapcore.DebugLevel)
+	_ = log.Configure(o)
 }

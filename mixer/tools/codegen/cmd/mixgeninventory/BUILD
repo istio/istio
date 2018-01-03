@@ -7,6 +7,7 @@ go_library(
     deps = [
         "//mixer/tools/codegen/pkg/inventory:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
+        "@in_gopkg_yaml_v2//:go_default_library",
     ],
 )
 

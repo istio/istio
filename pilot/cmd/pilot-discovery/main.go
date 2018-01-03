@@ -19,57 +19,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
-	configaggregate "istio.io/istio/pilot/adapter/config/aggregate"
-	"istio.io/istio/pilot/adapter/config/crd"
-	"istio.io/istio/pilot/adapter/config/ingress"
-	"istio.io/istio/pilot/adapter/serviceregistry/aggregate"
 	"istio.io/istio/pilot/cmd"
-	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/platform"
-	"istio.io/istio/pilot/platform/consul"
-	"istio.io/istio/pilot/platform/eureka"
-	"istio.io/istio/pilot/platform/kube"
-	"istio.io/istio/pilot/platform/kube/admit"
-	"istio.io/istio/pilot/proxy"
-	"istio.io/istio/pilot/proxy/envoy"
-	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pilot/cmd/pilot-discovery/server"
+	"istio.io/istio/pkg/log"
 )
 
-type consulArgs struct {
-	config    string
-	serverURL string
-}
-
-type eurekaArgs struct {
-	serverURL string
-}
-
-type args struct {
-	kubeconfig string
-	meshconfig string
-
-	// namespace for the controller (typically istio installation namespace)
-	namespace string
-
-	// ingress sync mode is set to off by default
-	controllerOptions kube.ControllerOptions
-	discoveryOptions  envoy.DiscoveryServiceOptions
-
-	registries    []string
-	consul        consulArgs
-	eureka        eurekaArgs
-	admissionArgs admit.ControllerOptions
-}
-
 var (
-	flags args
+	serverArgs server.PilotArgs
+
+	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot",
@@ -81,152 +44,25 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
-
-			// receive mesh configuration
-			mesh, fail := cmd.ReadMeshConfig(flags.meshconfig)
-			if fail != nil {
-				defaultMesh := proxy.DefaultMeshConfig()
-				mesh = &defaultMesh
-				glog.Warningf("failed to read mesh configuration, using default: %v", fail)
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
 			}
 
-			glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
-			glog.V(2).Infof("version %s", version.Line())
-			glog.V(2).Infof("flags %s", spew.Sdump(flags))
-
+			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
 
-			if flags.namespace == "" {
-				flags.namespace = os.Getenv("POD_NAMESPACE")
-			}
-
-			_, client, kuberr := kube.CreateInterface(flags.kubeconfig)
-			if kuberr != nil {
-				return multierror.Prefix(kuberr, "failed to connect to Kubernetes API.")
-			}
-
-			configClient, err := crd.NewClient(flags.kubeconfig, model.ConfigDescriptor{
-				model.RouteRule,
-				model.EgressRule,
-				model.DestinationPolicy,
-			}, flags.controllerOptions.DomainSuffix)
-			if err != nil {
-				return multierror.Prefix(err, "failed to open a config client.")
-			}
-
-			if err = configClient.RegisterResources(); err != nil {
-				return multierror.Prefix(err, "failed to register custom resources.")
-			}
-
-			configController := crd.NewController(configClient, flags.controllerOptions)
-			serviceControllers := aggregate.NewController()
-			registered := make(map[platform.ServiceRegistry]bool)
-			for _, r := range flags.registries {
-				serviceRegistry := platform.ServiceRegistry(r)
-				if _, exists := registered[serviceRegistry]; exists {
-					return multierror.Prefix(err, r+" registry specified multiple times.")
-				}
-				registered[serviceRegistry] = true
-				glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
-				switch serviceRegistry {
-				case platform.KubernetesRegistry:
-					kubectl := kube.NewController(client, flags.controllerOptions)
-					serviceControllers.AddRegistry(
-						aggregate.Registry{
-							Name:             serviceRegistry,
-							ServiceDiscovery: kubectl,
-							ServiceAccounts:  kubectl,
-							Controller:       kubectl,
-						})
-					if mesh.IngressControllerMode != proxyconfig.MeshConfig_OFF {
-						configController, err = configaggregate.MakeCache([]model.ConfigStoreCache{
-							configController,
-							ingress.NewController(client, mesh, flags.controllerOptions),
-						})
-						if err != nil {
-							return err
-						}
-					}
-
-					if ingressSyncer, errSyncer := ingress.NewStatusSyncer(mesh, client,
-						flags.namespace, flags.controllerOptions); errSyncer != nil {
-						glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
-					} else {
-						go ingressSyncer.Run(stop)
-					}
-
-				case platform.ConsulRegistry:
-					glog.V(2).Infof("Consul url: %v", flags.consul.serverURL)
-					conctl, conerr := consul.NewController(
-						// TODO: Remove this hardcoding!
-						flags.consul.serverURL, "dc1", 2*time.Second)
-					if conerr != nil {
-						return fmt.Errorf("failed to create Consul controller: %v", conerr)
-					}
-
-					serviceControllers.AddRegistry(
-						aggregate.Registry{
-							Name:             serviceRegistry,
-							ServiceDiscovery: conctl,
-							ServiceAccounts:  conctl,
-							Controller:       conctl,
-						})
-				case platform.EurekaRegistry:
-					glog.V(2).Infof("Eureka url: %v", flags.eureka.serverURL)
-					client := eureka.NewClient(flags.eureka.serverURL)
-					serviceControllers.AddRegistry(
-						aggregate.Registry{
-							Name: serviceRegistry,
-							// TODO: Remove sync time hardcoding!
-							Controller:       eureka.NewController(client, 2*time.Second),
-							ServiceDiscovery: eureka.NewServiceDiscovery(client),
-							ServiceAccounts:  eureka.NewServiceAccounts(),
-						})
-				default:
-					return multierror.Prefix(err, "Service registry "+r+" is not supported.")
-				}
-			}
-			var mixerSAN []string
-			if mesh.DefaultConfig.ControlPlaneAuthPolicy == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
-				mixerSAN = envoy.GetMixerSAN(flags.controllerOptions.DomainSuffix, flags.namespace)
-			}
-
-			environment := proxy.Environment{
-				Mesh:             mesh,
-				IstioConfigStore: model.MakeIstioStore(configController),
-				ServiceDiscovery: serviceControllers,
-				ServiceAccounts:  serviceControllers,
-				MixerSAN:         mixerSAN,
-			}
-
-			// Set up discovery service
-			discovery, err := envoy.NewDiscoveryService(
-				serviceControllers,
-				configController,
-				environment,
-				flags.discoveryOptions)
+			// Create the server for the discovery service.
+			discoveryServer, err := server.NewServer(serverArgs)
 			if err != nil {
 				return fmt.Errorf("failed to create discovery service: %v", err)
 			}
 
-			// Set up configuration validation admission
-			// controller. Fill in remaining admission controller
-			// options
-			flags.admissionArgs.Descriptor = configClient.ConfigDescriptor()
-			flags.admissionArgs.ServiceNamespace = flags.namespace
-			flags.admissionArgs.DomainSuffix = flags.controllerOptions.DomainSuffix
-			flags.admissionArgs.ValidateNamespaces = []string{
-				flags.controllerOptions.WatchedNamespace,
-			}
-			admissionController, err := admit.NewController(client, flags.admissionArgs)
+			// Start the server
+			_, err = discoveryServer.Start(stop)
 			if err != nil {
-				return fmt.Errorf("failed to create validation admission controller: %v", err)
+				return fmt.Errorf("failed to start discovery service: %v", err)
 			}
 
-			go admissionController.Run(stop)
-			go serviceControllers.Run(stop)
-			go configController.Run(stop)
-			go discovery.Run()
 			cmd.WaitSignal(stop)
 			return nil
 		},
@@ -234,59 +70,75 @@ var (
 )
 
 func init() {
-	discoveryCmd.PersistentFlags().StringSliceVar(&flags.registries, "registries",
-		[]string{string(platform.KubernetesRegistry)},
-		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s})",
-			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
-	discoveryCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
+	discoveryCmd.PersistentFlags().StringSliceVar(&serverArgs.Service.Registries, "registries",
+		[]string{string(server.KubernetesRegistry)},
+		fmt.Sprintf("Comma separated list of platform service registries to read from (choose one or more from {%s, %s, %s, %s, %s})",
+			server.KubernetesRegistry, server.ConsulRegistry, server.EurekaRegistry, server.CloudFoundryRegistry, server.MockRegistry))
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.CFConfig, "cfConfig", "",
+		"Cloud Foundry config file")
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.KubeConfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
-	discoveryCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshConfig", "/etc/istio/config/mesh",
-		fmt.Sprintf("File name for Istio mesh configuration"))
-	discoveryCmd.PersistentFlags().StringVarP(&flags.namespace, "namespace", "n", "",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Mesh.ConfigFile, "meshConfig", "/etc/istio/config/mesh",
+		fmt.Sprintf("File name for Istio mesh configuration. If not specified, a default mesh will be used."))
+	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Namespace, "namespace", "n", "",
 		"Select a namespace where the controller resides. If not set, uses ${POD_NAMESPACE} environment variable")
-	discoveryCmd.PersistentFlags().StringVarP(&flags.controllerOptions.WatchedNamespace, "appNamespace",
+
+	// Config Controller options
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.FileDir, "configDir", "",
+		"Directory to watch for updates to config yaml files. If specified, the files will be used as the source of config, rather than a CRD client.")
+	discoveryCmd.PersistentFlags().StringVarP(&serverArgs.Config.ControllerOptions.WatchedNamespace, "appNamespace",
 		"a", metav1.NamespaceAll,
 		"Restrict the applications namespace the controller manages; if not set, controller watches all namespaces")
-	discoveryCmd.PersistentFlags().DurationVar(&flags.controllerOptions.ResyncPeriod, "resync", 60*time.Second,
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Config.ControllerOptions.ResyncPeriod, "resync", 60*time.Second,
 		"Controller resync interval")
-	discoveryCmd.PersistentFlags().StringVar(&flags.controllerOptions.DomainSuffix, "domain", "cluster.local",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Config.ControllerOptions.DomainSuffix, "domain", "cluster.local",
 		"DNS domain suffix")
 
-	discoveryCmd.PersistentFlags().IntVar(&flags.discoveryOptions.Port, "port", 8080,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.DiscoveryOptions.Port, "port", 8080,
 		"Discovery service port")
-	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableProfiling, "profile", true,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.DiscoveryOptions.MonitoringPort, "monitoringPort", 9093,
+		"HTTP port to use for the exposing pilot self-monitoring information")
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
-	discoveryCmd.PersistentFlags().BoolVar(&flags.discoveryOptions.EnableCaching, "discovery_cache", true,
+	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableCaching, "discovery_cache", true,
 		"Enable caching discovery service responses")
 
-	discoveryCmd.PersistentFlags().StringVar(&flags.consul.config, "consulconfig", "",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.Config, "consulconfig", "",
 		"Consul Config file for discovery")
-	discoveryCmd.PersistentFlags().StringVar(&flags.consul.serverURL, "consulserverURL", "",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Consul.ServerURL, "consulserverURL", "",
 		"URL for the Consul server")
-	discoveryCmd.PersistentFlags().StringVar(&flags.eureka.serverURL, "eurekaserverURL", "",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Service.Eureka.ServerURL, "eurekaserverURL", "",
 		"URL for the Eureka server")
 
-	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ExternalAdmissionWebhookName,
+	// Admission controller arguments.
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Admission.ExternalAdmissionWebhookName,
 		"admission-webhook-name", "pilot-webhook.istio.io", "Webhook name for Pilot admission controller")
-	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.ServiceName,
-		"admission-service", "istio-pilot-external",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Admission.ServiceName,
+		"admission-service", "istio-pilot",
 		"Service name the admission controller uses during registration")
-	discoveryCmd.PersistentFlags().IntVar(&flags.admissionArgs.Port, "admission-service-port", 443,
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.Admission.Port, "admission-service-port", 443,
 		"HTTPS port of the admission service. Must be 443 if service has more than one port ")
-	discoveryCmd.PersistentFlags().StringVar(&flags.admissionArgs.SecretName, "admission-secret", "pilot-webhook",
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.Admission.SecretName, "admission-secret", "pilot-webhook",
 		"Name of k8s secret for pilot webhook certs")
-	discoveryCmd.PersistentFlags().DurationVar(&flags.admissionArgs.RegistrationDelay,
-		"admission-registration-delay", 5*time.Second,
+	discoveryCmd.PersistentFlags().DurationVar(&serverArgs.Admission.RegistrationDelay,
+		"admission-registration-delay", 0*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
+
 	cmd.AddFlags(rootCmd)
+
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 }
 
 func main() {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
 	if err := rootCmd.Execute(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		os.Exit(-1)
 	}
 }

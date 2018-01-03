@@ -9,11 +9,20 @@
 # Bazel
 /bazel-*
 vendor
-*.descriptor_set
 # vi backups
 *.bak
+# python artifacts
+*.pyc
 # Vm setup generated files
 cluster.env
 kubedns
 # pilot
-pilot/platform/config
+pilot/platform/kube/config
+pilot/proxy/envoy/envoy
+# lint
+lintconfig.gen.json
+# dep
+.istiorc
+# codegen stuff
+bin/protoc-gen-gogoslick*
+bin/protoc-min-version*

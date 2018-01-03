@@ -1,0 +1,98 @@
+
+ˆ!
+_bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/interfacegen/testdata/report_tmpl.protoistio.mixer.adapter.metricentry"mixer/v1/template/extensions.proto+mixer/v1/config/descriptor/value_type.proto"í
+TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalueU
+
+dimensions (25.istio.mixer.adapter.metricentry.Type.DimensionsEntryR
+dimensionsW
+anotherValueType (2+.istio.mixer.v1.config.descriptor.ValueTypeRanotherValueTypeK
+	res3_list (2..istio.mixer.adapter.metricentry.Resource3TypeRres3ListM
+res3_map (22.istio.mixer.adapter.metricentry.Type.Res3MapEntryRres3Mapj
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8j
+Res3MapEntry
+key (	RkeyD
+value (2..istio.mixer.adapter.metricentry.Resource3TypeRvalue:8"­
+Resource1TypeR
+self_ref_res1 (2..istio.mixer.adapter.metricentry.Resource1TypeRselfRefRes1H
+resRef2 (2..istio.mixer.adapter.metricentry.Resource2TypeRresRef2"ä
+Resource2TypeB
+res3 (2..istio.mixer.adapter.metricentry.Resource3TypeRres3K
+	res3_list (2..istio.mixer.adapter.metricentry.Resource3TypeRres3ListV
+res3_map (2;.istio.mixer.adapter.metricentry.Resource2Type.Res3MapEntryRres3Mapj
+Res3MapEntry
+key (	RkeyD
+value (2..istio.mixer.adapter.metricentry.Resource3TypeRvalue:8"÷
+Resource3TypeA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue^
+
+dimensions (2>.istio.mixer.adapter.metricentry.Resource3Type.DimensionsEntryR
+dimensionsW
+anotherValueType (2+.istio.mixer.v1.config.descriptor.ValueTypeRanotherValueTypej
+DimensionsEntry
+key (	RkeyA
+value (2+.istio.mixer.v1.config.descriptor.ValueTypeRvalue:8"Ä
+InstanceParam
+value (	Rvalue^
+
+dimensions (2>.istio.mixer.adapter.metricentry.InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive*
+anotherValueType (	RanotherValueTypeš
+dimensionsFixedInt64ValueDType (2R.istio.mixer.adapter.metricentry.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp	 (	R	timeStamp
+duration
+ (	Rduration
+ip_addr (	RipAddr
+dns_name (	RdnsName
+
+email_addr (	R	emailAddr
+uri (	RuriT
+	res3_list (27.istio.mixer.adapter.metricentry.Resource3InstanceParamRres3ListV
+res3_map (2;.istio.mixer.adapter.metricentry.InstanceParam.Res3MapEntryRres3Map=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8Q
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8s
+Res3MapEntry
+key (	RkeyM
+value (27.istio.mixer.adapter.metricentry.Resource3InstanceParamRvalue:8"Ú
+Resource1InstanceParam
+str (	Rstr[
+self_ref_res1 (27.istio.mixer.adapter.metricentry.Resource1InstanceParamRselfRefRes1Q
+resRef2 (27.istio.mixer.adapter.metricentry.Resource2InstanceParamRresRef2"£
+Resource2InstanceParam
+str (	RstrK
+res3 (27.istio.mixer.adapter.metricentry.Resource3InstanceParamRres3T
+	res3_list (27.istio.mixer.adapter.metricentry.Resource3InstanceParamRres3List_
+res3_map (2D.istio.mixer.adapter.metricentry.Resource2InstanceParam.Res3MapEntryRres3Maps
+Res3MapEntry
+key (	RkeyM
+value (27.istio.mixer.adapter.metricentry.Resource3InstanceParamRvalue:8"×
+Resource3InstanceParam
+value (	Rvalueg
+
+dimensions (2G.istio.mixer.adapter.metricentry.Resource3InstanceParam.DimensionsEntryR
+dimensions&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitive*
+anotherValueType (	RanotherValueType£
+dimensionsFixedInt64ValueDType (2[.istio.mixer.adapter.metricentry.Resource3InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp	 (	R	timeStamp
+duration
+ (	Rduration=
+DimensionsEntry
+key (	Rkey
+value (	Rvalue:8Q
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8BøÒä“bproto3

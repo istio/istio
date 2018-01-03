@@ -16,9 +16,12 @@ package na
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 )
@@ -32,7 +35,7 @@ type NodeAgent interface {
 // NewNodeAgent is constructor for Node agent based on the provided Environment variable.
 func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	if cfg == nil {
-		return nil, fmt.Errorf("Nil configuration passed")
+		return nil, fmt.Errorf("nil configuration passed")
 	}
 	na := &nodeAgentInternal{
 		config:   cfg,
@@ -50,9 +53,10 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 
 	// TODO: Specify files for service identity cert/key instead of node agent files.
 	secretServer, err := workload.NewSecretServer(
-		workload.NewSecretFileServerConfig(cfg.PlatformConfig.CertChainFile, cfg.PlatformConfig.KeyFile))
+		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile, cfg.PlatformConfig.OnPremConfig.KeyFile))
 	if err != nil {
-		glog.Fatalf("Workload IO creation error: %v", err)
+		log.Errorf("Workload IO creation error: %v", err)
+		os.Exit(-1)
 	}
 	na.secretServer = secretServer
 	return na, nil

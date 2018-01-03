@@ -20,12 +20,16 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/golang/glog"
-
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/log"
 )
 
 // TODO: consider implementing a pool of proto bags
+
+type attributeRef struct {
+	Name   string
+	MapKey string
+}
 
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type ProtoBag struct {
@@ -33,17 +37,17 @@ type ProtoBag struct {
 	globalDict          map[string]int32
 	globalWordList      []string
 	messageDict         map[string]int32
-	convertedStringMaps map[int32]map[string]string
+	convertedStringMaps map[int32]StringMap
 	stringMapMutex      sync.RWMutex
 
 	// to keep track of attributes that are referenced
-	referencedAttrs      map[string]mixerpb.ReferencedAttributes_Condition
+	referencedAttrs      map[attributeRef]mixerpb.ReferencedAttributes_Condition
 	referencedAttrsMutex sync.Mutex
 }
 
 // NewProtoBag creates a new proto-based attribute bag.
 func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
-	glog.V(4).Infof("Creating bag with attributes: %v", proto)
+	log.Debugf("Creating bag with attributes: %v", proto)
 
 	// build the message-level dictionary
 	d := make(map[string]int32, len(proto.Words))
@@ -56,8 +60,31 @@ func NewProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int3
 		globalDict:      globalDict,
 		globalWordList:  globalWordList,
 		messageDict:     d,
-		referencedAttrs: make(map[string]mixerpb.ReferencedAttributes_Condition, 16),
+		referencedAttrs: make(map[attributeRef]mixerpb.ReferencedAttributes_Condition, 16),
 	}
+}
+
+// StringMap wraps a map[string]string and reference counts it
+type StringMap struct {
+	// name of the stringmap  -- request.headers
+	name string
+	// entries in the stringmap
+	entries map[string]string
+	// protoBag that owns this stringmap
+	pb *ProtoBag
+}
+
+// Get returns a stringmap value and records access
+func (s StringMap) Get(key string) (string, bool) {
+	cond := mixerpb.ABSENCE
+	str, found := s.entries[key]
+
+	if found {
+		cond = mixerpb.EXACT
+	}
+	// TODO add REGEX condition
+	s.pb.trackMapReference(s.name, key, cond)
+	return str, found
 }
 
 // Get returns an attribute value.
@@ -65,7 +92,7 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 	// find the dictionary index for the given string
 	index, ok := pb.getIndex(name)
 	if !ok {
-		glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
+		log.Debugf("Attribute '%s' not in either global or message dictionaries", name)
 		// the string is not in the dictionary, and hence the attribute is not in the proto either
 		pb.trackReference(name, mixerpb.ABSENCE)
 		return nil, false
@@ -78,7 +105,11 @@ func (pb *ProtoBag) Get(name string) (interface{}, bool) {
 		return nil, false
 	}
 
-	pb.trackReference(name, mixerpb.EXACT)
+	// Do not record StringMap access. Keys in it will be recorded separately.
+	if _, smFound := result.(StringMap); !smFound {
+		pb.trackReference(name, mixerpb.EXACT)
+	}
+
 	return result, ok
 }
 
@@ -91,8 +122,13 @@ func (pb *ProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalW
 	output.AttributeMatches = make([]mixerpb.ReferencedAttributes_AttributeMatch, len(pb.referencedAttrs))
 	i := 0
 	for k, v := range pb.referencedAttrs {
+		mk := int32(0)
+		if len(k.MapKey) > 0 {
+			mk = ds.assignDictIndex(k.MapKey)
+		}
 		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
-			Name:      ds.assignDictIndex(k),
+			Name:      ds.assignDictIndex(k.Name),
+			MapKey:    mk,
 			Condition: v,
 		}
 		i++
@@ -110,9 +146,15 @@ func (pb *ProtoBag) ClearReferencedAttributes() {
 	}
 }
 
+func (pb *ProtoBag) trackMapReference(name string, key string, condition mixerpb.ReferencedAttributes_Condition) {
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs[attributeRef{Name: name, MapKey: key}] = condition
+	pb.referencedAttrsMutex.Unlock()
+}
+
 func (pb *ProtoBag) trackReference(name string, condition mixerpb.ReferencedAttributes_Condition) {
 	pb.referencedAttrsMutex.Lock()
-	pb.referencedAttrs[name] = condition
+	pb.referencedAttrs[attributeRef{Name: name}] = condition
 	pb.referencedAttrsMutex.Unlock()
 }
 
@@ -122,7 +164,7 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		// found the attribute, now convert its value from a dictionary index to a string
 		str, err := pb.lookup(strIndex)
 		if err != nil {
-			glog.Errorf("string attribute %s: %v", name, err)
+			log.Errorf("string attribute %s: %v", name, err)
 			return nil, false
 		}
 
@@ -146,19 +188,20 @@ func (pb *ProtoBag) internalGet(name string, index int32) (interface{}, bool) {
 		// convert from map[int32]int32 to map[string]string
 		m, err := pb.convertStringMap(sm.Entries)
 		if err != nil {
-			glog.Errorf("string map %s: %v", name, err)
+			log.Errorf("string map %s: %v", name, err)
 			return nil, false
 		}
 
 		// cache the converted string map for later calls
+		ssm := StringMap{name: name, entries: m, pb: pb}
 		pb.stringMapMutex.Lock()
 		if pb.convertedStringMaps == nil {
-			pb.convertedStringMaps = make(map[int32]map[string]string)
+			pb.convertedStringMaps = make(map[int32]StringMap)
 		}
-		pb.convertedStringMaps[index] = m
+		pb.convertedStringMaps[index] = ssm
 		pb.stringMapMutex.Unlock()
 
-		return m, true
+		return ssm, true
 	}
 
 	value, ok = pb.proto.Int64S[index]
@@ -320,7 +363,7 @@ func (pb *ProtoBag) DebugString() string {
 		// find the dictionary index for the given string
 		index, ok := pb.getIndex(name)
 		if !ok {
-			glog.V(4).Infof("Attribute '%s' not in either global or message dictionaries", name)
+			log.Debugf("Attribute '%s' not in either global or message dictionaries", name)
 			continue
 		}
 

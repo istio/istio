@@ -26,7 +26,7 @@ func TestNewNodeAgent(t *testing.T) {
 	}{
 		"null config test": {
 			config:      nil,
-			expectedErr: "Nil configuration passed",
+			expectedErr: "nil configuration passed",
 		},
 		"onprem env test": {
 			config: &Config{
@@ -44,7 +44,7 @@ func TestNewNodeAgent(t *testing.T) {
 			config: &Config{
 				Env: "somethig else",
 			},
-			expectedErr: "Invalid env somethig else specified",
+			expectedErr: "invalid env somethig else specified",
 		},
 	}
 

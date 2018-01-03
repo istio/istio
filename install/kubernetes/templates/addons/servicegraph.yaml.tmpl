@@ -16,6 +16,7 @@ spec:
       containers:
       - name: servicegraph
         image: {MIXER_HUB}/servicegraph:{MIXER_TAG}
+        imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 8088
         args:

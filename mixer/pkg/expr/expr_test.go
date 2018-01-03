@@ -16,13 +16,9 @@ package expr
 
 import (
 	"fmt"
-	"math/rand"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
-
-	lru "github.com/hashicorp/golang-lru"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
@@ -51,6 +47,19 @@ func TestGoodParse(t *testing.T) {
 		{`match(service.name, "cluster1.ns.*")`, `match($service.name, "cluster1.ns.*")`},
 		{`a.b == 3.14 && c == "d" && r.h["abc"] == "pqr" || r.h["abc"] == "xyz"`,
 			`LOR(LAND(LAND(EQ($a.b, 3.14), EQ($c, "d")), EQ(INDEX($r.h, "abc"), "pqr")), EQ(INDEX($r.h, "abc"), "xyz"))`},
+
+		{`a()`, `a()`},
+		{`a.b()`, `$a:b()`},
+		{`a.b.c(q)`, `$a.b:c($q)`},
+		{`a.b.c(q, z)`, `$a.b:c($q, $z)`},
+		{`a.b(q.z(d()))`, `$a:b($q:z(d()))`},
+		{`a.b(q.z(d())) == 42`, `EQ($a:b($q:z(d())), 42)`},
+		{`a.b().c().d()`, `$a:b():c():d()`},
+		{`a.b.c().d()`, `$a.b:c():d()`},
+		{`a.b.c().d() == 23`, `EQ($a.b:c():d(), 23)`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
+		{`"abc".prefix(23).matches("foo")`, `"abc":prefix(23):matches("foo")`},
+		{`"abc".matches("foo")`, `"abc":matches("foo")`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -186,14 +195,18 @@ func TestBadParse(t *testing.T) {
 		{`*a != b`, "unexpected expression"},
 		{"a = bc", `unable to parse`},
 		{`3 = 10`, "unable to parse"},
-		{`a.b.c() == 20`, "unexpected expression"},
-		{`a.b().c() == 20`, "unexpected expression"},
 		{`(a.c).d == 300`, `unexpected expression`},
 		{`substring(*a, 20) == 12`, `unexpected expression`},
 		{`(*a == 20) && 12`, `unexpected expression`},
 		{`!*a`, `unexpected expression`},
 		{`request.headers[*a] == 200`, `unexpected expression`},
 		{`atr == 'aaa'`, "unable to parse"},
+		{`c().e.d()`, `unexpected expression`},
+		{`foo{}`, `unexpected expression`},
+		{`foo{}.bar`, `unexpected expression`},
+		{`foo{}.bar()`, `unexpected expression`},
+		{`(foo{}).bar()`, `unexpected expression`},
+		{`a().b`, `unexpected expression`},
 	}
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.src), func(t *testing.T) {
@@ -233,230 +246,98 @@ func newAF(ds []*ad) *af {
 	return &af{m}
 }
 
-func TestTypeCheck(t *testing.T) {
-	af := newAF([]*ad{
-		{"int", dpb.INT64},
-		{"bool", dpb.BOOL},
-		{"double", dpb.DOUBLE},
-		{"string", dpb.STRING},
-		{"timestamp", dpb.TIMESTAMP},
-		{"ip", dpb.IP_ADDRESS},
-		{"email", dpb.EMAIL_ADDRESS},
-		{"uri", dpb.URI},
-		{"dns", dpb.DNS_NAME},
-		{"duration", dpb.DURATION},
-		{"stringmap", dpb.STRING_MAP},
-	})
-
-	tests := []struct {
-		in  string
-		out dpb.ValueType
-		err string
-	}{
-		// identity
-		{"int", dpb.INT64, ""},
-		{"bool", dpb.BOOL, ""},
-		{"double", dpb.DOUBLE, ""},
-		{"string", dpb.STRING, ""},
-		{"timestamp", dpb.TIMESTAMP, ""},
-		{"ip", dpb.IP_ADDRESS, ""},
-		{"email", dpb.EMAIL_ADDRESS, ""},
-		{"uri", dpb.URI, ""},
-		{"dns", dpb.DNS_NAME, ""},
-		{"duration", dpb.DURATION, ""},
-		{"stringmap", dpb.STRING_MAP, ""},
-		// expressions
-		{"int == 2", dpb.BOOL, ""},
-		{"double == 2.0", dpb.BOOL, ""},
-		{`string | "foobar"`, dpb.STRING, ""},
-		// invalid expressions
-		{"int | bool", dpb.VALUE_TYPE_UNSPECIFIED, "typeError"},
-		{"stringmap | ", dpb.VALUE_TYPE_UNSPECIFIED, "failed to parse"},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.in), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(DefaultCacheSize)
-			if er != nil {
-				t.Errorf("Failed to create expression evaluator: %v", er)
-			}
-			vt, err := ev.EvalType(tt.in, af)
-			if tt.err != "" || err != nil {
-				if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("EvalType(%s, adf) = %v, wanted err %v", tt.in, err, tt.err)
-				}
-			}
-			if vt != tt.out {
-				t.Fatalf("EvalType(%s, adf) = %v, wanted type %v", tt.in, vt, tt.out)
-			}
-		})
-	}
-}
-
-func TestAssertType(t *testing.T) {
-	af := newAF([]*ad{
-		{"int64", dpb.INT64},
-		{"string", dpb.STRING},
-		{"duration", dpb.DURATION},
-	})
-
-	tests := []struct {
-		name     string
-		expr     string
-		expected dpb.ValueType
-		err      string
-	}{
-		{"correct type", "string", dpb.STRING, ""},
-		{"wrong type", "int64", dpb.STRING, "expected type STRING"},
-		{"eval error", "duration |", dpb.DURATION, "failed to parse"},
-	}
-
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			ev, er := NewCEXLEvaluator(DefaultCacheSize)
-			if er != nil {
-				t.Errorf("Failed to create expression evaluator: %v", er)
-			}
-			if err := ev.AssertType(tt.expr, af, tt.expected); tt.err != "" || err != nil {
-				if tt.err == "" {
-					t.Fatalf("AssertType(%s, af, %v) = %v, wanted no err", tt.expr, tt.expected, err)
-				} else if !strings.Contains(err.Error(), tt.err) {
-					t.Fatalf("AssertType(%s, af, %v) = %v, wanted err %v", tt.expr, tt.expected, err, tt.err)
-				}
-			}
-		})
-	}
-}
-
-func TestCacheContent(t *testing.T) {
-	cache, _ := lru.New(DefaultCacheSize)
-	cexl := &cexl{
-		fMap: FuncMap(), cache: cache,
-	}
-	str1 := "a.b"
-	_, err := cexl.cacheGetExpression(str1)
-	if err != nil {
-		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
-		return
-	}
-	expectedEx, _ := Parse(str1)
-
-	exFromCache, _ := cexl.cache.Get(str1)
-	cachedEx := exFromCache.(*Expression)
-
-	if !reflect.DeepEqual(cachedEx, expectedEx) {
-		t.Errorf("Output of Parse(%s) != cexl.cache.Get(%s); %v != %v. Expected data to be the same", str1, str1, cachedEx, expectedEx)
-	}
-}
-
-func TestCacheHit(t *testing.T) {
-	cache, _ := lru.New(DefaultCacheSize)
-	cexl := &cexl{
-		fMap: FuncMap(), cache: cache,
-	}
-	str1 := "a.b"
-	exprNew, err := cexl.cacheGetExpression(str1)
-	if err != nil || exprNew == nil {
-		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
-		return
-	}
-	exprCacheHit, _ := cexl.cacheGetExpression(str1)
-
-	if exprNew != exprCacheHit || cexl.cache.Len() != 1 {
-		t.Errorf("No hit for second call to cacheGetExpression(%s); Got cache size of %d with entries %v; "+
-			"expected cache size of 1 with single entry of %s", str1, cexl.cache.Len(), cexl.cache.Keys(), str1)
-	}
-}
-
-func TestCacheMiss(t *testing.T) {
-	cache, _ := lru.New(DefaultCacheSize)
-	cexl := &cexl{
-		fMap: FuncMap(), cache: cache,
-	}
-	str1 := "a.b"
-	exprNew, err := cexl.cacheGetExpression(str1)
-	if err != nil || exprNew == nil {
-		t.Errorf("Parsing of expression '%s' failed with error '%v'", str1, err)
-		return
-	}
-	str2 := "a | b"
-	exprCacheMiss, _ := cexl.cacheGetExpression(str2)
-
-	if exprNew == exprCacheMiss || cexl.cache.Len() != 2 {
-		t.Errorf("Invalid cache after cacheGetExpression(%s) and cacheGetExpression(%s); Got cache size of %d with entries %v; "+
-			"expected cache size of 2 with entry for %s and %s", str1, str2, cexl.cache.Len(), cexl.cache.Keys(), str1, str2)
-	}
-}
-
-func TestCacheGetWithParseError(t *testing.T) {
-	cache, _ := lru.New(DefaultCacheSize)
-	cexl := &cexl{
-		fMap: FuncMap(), cache: cache,
-	}
-	str1 := "a.invalid."
-	_, err := cexl.cacheGetExpression(str1)
-	if err == nil {
-		t.Errorf("Expected error when parsing '%s', instead got <nil> error.", str1)
-	}
-	if cexl.cache.Len() != 0 {
-		t.Errorf("Invalid cache after cacheGetExpression(%s); Got cache with entries %v; "+
-			"expected empty cache", str1, cexl.cache.Keys())
-	}
-}
-
-func TestConcurrencyWithCache(t *testing.T) {
-	cache, _ := lru.New(DefaultCacheSize)
-	cexl := &cexl{
-		fMap: FuncMap(), cache: cache,
-	}
-
-	exprs := []string{"a.b", "c | d", "p.q | 0", "x | 0"}
-
-	loopCount := 100
-	var wg sync.WaitGroup
-	wg.Add(loopCount)
-
-	for i := 0; i < loopCount; i++ {
-		go func() {
-			exprStr := exprs[rand.Intn(len(exprs))]
-			_, err := cexl.cacheGetExpression(exprStr)
-			if err != nil {
-				t.Errorf("Parsing of expression '%s' failed with error '%v'", exprStr, err)
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-
-	if cexl.cache.Len() != len(exprs) {
-		t.Errorf("Invalid cache after %d calls to expressions %v: Got cache size %d with content %v; Expected cache size %d with entries for %v",
-			loopCount, exprs, cexl.cache.Len(), cexl.cache.Keys(), len(exprs), exprs)
-	}
-}
-
 func TestInternalTypeCheck(t *testing.T) {
 	success := "__SUCCESS__"
 	tests := []struct {
 		s       string
 		retType dpb.ValueType
 		ds      []*ad
+		fns     []FunctionMetadata
 		err     string
 	}{
-		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
-		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.BOOL}}, "typeError"},
-		{"a == 2 || a == 5", dpb.BOOL, []*ad{{"a", dpb.INT64}}, success},
-		{"a | b | 5", dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, success},
-		{`a | b | "5"`, dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, "typeError"},
-		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, success},
-		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, "typeError"},
-		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, success},
-		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "unknown attribute"},
-		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, "arity mismatch"},
-		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, "unknown function"},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, success},
+		{"a == 2", dpb.BOOL, []*ad{{"a", dpb.BOOL}}, nil, "typeError"},
+		{"a == 2 || a == 5", dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, success},
+		{"a | b | 5", dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, nil, success},
+		{`a | b | "5"`, dpb.INT64, []*ad{{"a", dpb.INT64}, {"b", dpb.INT64}}, nil, "typeError"},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING_MAP}, {"b", dpb.INT64}}, nil, success},
+		{`a["5"] == "abc"`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.INT64}}, nil, "typeError"},
+		{`a | b | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, success},
+		{`x | y | "abc"`, dpb.STRING, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, "unknown attribute"},
+		{`EQ("abc")`, dpb.BOOL, []*ad{{"a", dpb.STRING}, {"b", dpb.STRING}}, nil, "arity mismatch"},
+		{`a % 5`, dpb.BOOL, []*ad{{"a", dpb.INT64}}, nil, "unknown function"},
+
+		{`fn1()`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn1", Instance: false, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{}},
+		}, success},
+		{`fn2(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn2", Instance: false, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, success},
+		{`fn3(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn3", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, "invoking instance method without an instance"},
+		{`a.fn4(true)`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn4", Instance: false, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+				dpb.BOOL,
+			}},
+		}, "invoking regular function on instance method"},
+		{`a.fn5()`, dpb.BOOL, []*ad{{}}, []FunctionMetadata{
+			{Name: "fn5", Instance: true, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{}},
+		}, "unknown attribute"},
+		{`pattern.matches(str)`, dpb.BOOL,
+			[]*ad{
+				{"pattern", dpb.STRING},
+				{"str", dpb.STRING},
+			},
+			[]FunctionMetadata{
+				{Name: "matches", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			success},
+		{`text.prefix(3).startswith(str)`, dpb.BOOL,
+			[]*ad{
+				{"text", dpb.STRING},
+				{"str", dpb.STRING},
+			},
+			[]FunctionMetadata{
+				{Name: "prefix", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.STRING, ArgumentTypes: []dpb.ValueType{
+					dpb.INT64,
+				}},
+				{Name: "startswith", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			success},
+		{`no.matches("a")`, dpb.BOOL,
+			[]*ad{
+				{"no", dpb.INT64},
+			},
+			[]FunctionMetadata{
+				{Name: "matches", Instance: true, TargetType: dpb.STRING, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.STRING,
+				}},
+			},
+			`$no:matches("a") target typeError got INT64`},
+		{`"abc".genericEquals("cba")`, dpb.BOOL, []*ad{},
+			[]FunctionMetadata{
+				{Name: "genericEquals", Instance: true, TargetType: dpb.VALUE_TYPE_UNSPECIFIED, ReturnType: dpb.BOOL, ArgumentTypes: []dpb.ValueType{
+					dpb.VALUE_TYPE_UNSPECIFIED,
+				}},
+			},
+			success},
 	}
-	fMap := FuncMap()
 	for idx, c := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, c.s), func(t *testing.T) {
+			fns := c.fns
+			if fns == nil {
+				fns = []FunctionMetadata{}
+			}
+			fMap := FuncMap(fns)
 			var ex *Expression
 			var err error
 			var retType dpb.ValueType
@@ -482,5 +363,4 @@ func TestInternalTypeCheck(t *testing.T) {
 
 		})
 	}
-
 }

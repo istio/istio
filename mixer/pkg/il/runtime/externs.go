@@ -17,29 +17,75 @@ package runtime
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strings"
 	"time"
 
+	config "istio.io/api/mixer/v1/config/descriptor"
+	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/interpreter"
 )
 
 // Externs contains the list of standard external functions used during evaluation.
 var Externs = map[string]interpreter.Extern{
-	"ip":              interpreter.ExternFromFn("ip", externIp),
-	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIpEqual),
+	"ip":              interpreter.ExternFromFn("ip", externIP),
+	"ip_equal":        interpreter.ExternFromFn("ip_equal", externIPEqual),
 	"timestamp":       interpreter.ExternFromFn("timestamp", externTimestamp),
 	"timestamp_equal": interpreter.ExternFromFn("timestamp_equal", externTimestampEqual),
 	"match":           interpreter.ExternFromFn("match", externMatch),
+	"matches":         interpreter.ExternFromFn("matches", externMatches),
+	"startsWith":      interpreter.ExternFromFn("startsWith", externStartsWith),
+	"endsWith":        interpreter.ExternFromFn("endsWith", externEndsWith),
 }
 
-func externIp(in string) ([]byte, error) {
+// ExternFunctionMetadata is the type-metadata about externs. It gets used during compilations.
+var ExternFunctionMetadata = []expr.FunctionMetadata{
+	{
+		Name:          "ip",
+		ReturnType:    config.IP_ADDRESS,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "timestamp",
+		ReturnType:    config.TIMESTAMP,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "match",
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING, config.STRING},
+	},
+	{
+		Name:          "matches",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "startsWith",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+	{
+		Name:          "endsWith",
+		Instance:      true,
+		TargetType:    config.STRING,
+		ReturnType:    config.BOOL,
+		ArgumentTypes: []config.ValueType{config.STRING},
+	},
+}
+
+func externIP(in string) ([]byte, error) {
 	if ip := net.ParseIP(in); ip != nil {
 		return []byte(ip), nil
 	}
 	return []byte{}, fmt.Errorf("could not convert %s to IP_ADDRESS", in)
 }
 
-func externIpEqual(a []byte, b []byte) bool {
+func externIPEqual(a []byte, b []byte) bool {
 	// net.IP is an alias for []byte, so these are safe to convert
 	ip1 := net.IP(a)
 	ip2 := net.IP(b)
@@ -67,4 +113,16 @@ func externMatch(str string, pattern string) bool {
 		return strings.HasSuffix(str, pattern[1:])
 	}
 	return str == pattern
+}
+
+func externMatches(pattern string, str string) (bool, error) {
+	return regexp.MatchString(pattern, str)
+}
+
+func externStartsWith(str string, prefix string) bool {
+	return strings.HasPrefix(str, prefix)
+}
+
+func externEndsWith(str string, suffix string) bool {
+	return strings.HasSuffix(str, suffix)
 }

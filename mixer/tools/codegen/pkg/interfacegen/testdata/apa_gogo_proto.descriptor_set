@@ -1,0 +1,44 @@
+
+¯
+\bazel-out/k8-fastbuild/genfiles/mixer/tools/codegen/pkg/interfacegen/testdata/apa_tmpl.protoistio.mixer.adapter.myapa"mixer/v1/template/extensions.proto"œ
+InstanceParam&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitiveî
+dimensionsFixedInt64ValueDType (2L.istio.mixer.adapter.myapa.InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp (	R	timeStamp
+duration (	RdurationP
+res3_map (25.istio.mixer.adapter.myapa.InstanceParam.Res3MapEntryRres3Mapq
+attribute_bindings∞ º" (2?.istio.mixer.adapter.myapa.InstanceParam.AttributeBindingsEntryRattributeBindingsQ
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8m
+Res3MapEntry
+key (	RkeyG
+value (21.istio.mixer.adapter.myapa.Resource3InstanceParamRvalue:8D
+AttributeBindingsEntry
+key (	Rkey
+value (	Rvalue:8"Œ
+Resource1InstanceParam
+str (	RstrU
+self_ref_res1 (21.istio.mixer.adapter.myapa.Resource1InstanceParamRselfRefRes1K
+resRef2 (21.istio.mixer.adapter.myapa.Resource2InstanceParamRresRef2"ª
+Resource2InstanceParam
+str (	RstrE
+res3 (21.istio.mixer.adapter.myapa.Resource3InstanceParamRres3Y
+res3_map (2>.istio.mixer.adapter.myapa.Resource2InstanceParam.Res3MapEntryRres3Mapm
+Res3MapEntry
+key (	RkeyG
+value (21.istio.mixer.adapter.myapa.Resource3InstanceParamRvalue:8"Á
+Resource3InstanceParam&
+int64Primitive (	Rint64Primitive$
+boolPrimitive (	RboolPrimitive(
+doublePrimitive (	RdoublePrimitive(
+stringPrimitive (	RstringPrimitiveù
+dimensionsFixedInt64ValueDType (2U.istio.mixer.adapter.myapa.Resource3InstanceParam.DimensionsFixedInt64ValueDTypeEntryRdimensionsFixedInt64ValueDType
+	timeStamp (	R	timeStamp
+duration (	RdurationQ
+#DimensionsFixedInt64ValueDTypeEntry
+key (	Rkey
+value (	Rvalue:8B¯“‰ìbproto3

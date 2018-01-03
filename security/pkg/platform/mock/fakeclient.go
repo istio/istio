@@ -18,8 +18,6 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-
-	"istio.io/istio/security/pkg/platform"
 )
 
 // FakeClient is mocked platform metadata client.
@@ -34,7 +32,7 @@ type FakeClient struct {
 }
 
 // GetDialOptions returns the DialOption field.
-func (f FakeClient) GetDialOptions(*platform.ClientConfig) ([]grpc.DialOption, error) {
+func (f FakeClient) GetDialOptions() ([]grpc.DialOption, error) {
 	if len(f.DialOptionErr) > 0 {
 		return nil, fmt.Errorf(f.DialOptionErr)
 	}

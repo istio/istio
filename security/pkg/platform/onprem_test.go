@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestGetServiceIdentity(t *testing.T) {
+func TestOnPremGetServiceIdentity(t *testing.T) {
 	testCases := map[string]struct {
 		filename    string
 		expectedID  string
@@ -39,7 +39,7 @@ func TestGetServiceIdentity(t *testing.T) {
 		"Bad cert format": {
 			filename:    "testdata/cert-chain-bad1.pem",
 			expectedID:  "",
-			expectedErr: "Invalid PEM encoded certificate",
+			expectedErr: "invalid PEM encoded certificate",
 		},
 		"Wrong file": {
 			filename:    "testdata/cert-chain-bad2.pem",
@@ -49,7 +49,7 @@ func TestGetServiceIdentity(t *testing.T) {
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{c.filename}
+		onprem := NewOnPremClientImpl(OnPremConfig{CertChainFile: c.filename})
 		identity, err := onprem.GetServiceIdentity()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -65,11 +65,11 @@ func TestGetServiceIdentity(t *testing.T) {
 
 func TestGetTLSCredentials(t *testing.T) {
 	testCases := map[string]struct {
-		config      *ClientConfig
+		config      OnPremConfig
 		expectedErr string
 	}{
 		"Good cert": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
@@ -77,27 +77,27 @@ func TestGetTLSCredentials(t *testing.T) {
 			expectedErr: "",
 		},
 		"Loading failure": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-goo.pem",
 				KeyFile:        "testdata/cert-from-root-not-exist.pem",
 				RootCACertFile: "testdata/cert-root-good.pem",
 			},
-			expectedErr: "Cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
+			expectedErr: "cannot load key pair: open testdata/cert-from-root-goo.pem: no such file or directory",
 		},
 		"Loading root cert failure": {
-			config: &ClientConfig{
+			config: OnPremConfig{
 				CertChainFile:  "testdata/cert-from-root-good.pem",
 				KeyFile:        "testdata/key-from-root-good.pem",
 				RootCACertFile: "testdata/cert-root-not-exist.pem",
 			},
-			expectedErr: "Failed to read CA cert: open testdata/cert-root-not-exist.pem: no such file or directory",
+			expectedErr: "failed to read CA cert: open testdata/cert-root-not-exist.pem: no such file or directory",
 		},
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{""}
+		onprem := NewOnPremClientImpl(c.config)
 
-		_, err := onprem.GetDialOptions(c.config)
+		_, err := onprem.GetDialOptions()
 		if len(c.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: Succeeded. Error expected: %v", id, err)
@@ -130,12 +130,12 @@ func TestGetAgentCredential(t *testing.T) {
 		"Missing cert": {
 			filename:      "testdata/fake-cert.pem",
 			expectedBytes: nil,
-			expectedErr:   "Failed to read cert file: testdata/fake-cert.pem",
+			expectedErr:   "failed to read cert file: testdata/fake-cert.pem",
 		},
 	}
 
 	for id, c := range testCases {
-		onprem := OnPremClientImpl{c.filename}
+		onprem := NewOnPremClientImpl(OnPremConfig{CertChainFile: c.filename})
 		cred, err := onprem.GetAgentCredential()
 		if c.expectedErr != "" {
 			if err == nil {
@@ -146,5 +146,27 @@ func TestGetAgentCredential(t *testing.T) {
 		} else if !bytes.Equal(cred, c.expectedBytes) {
 			t.Errorf("%s: GetAgentCredential returns bytes: %s. It should be %s.", id, cred, c.expectedBytes)
 		}
+	}
+}
+
+func TestOnpremIsProperPlatform(t *testing.T) {
+	onprem := NewOnPremClientImpl(
+		OnPremConfig{
+			CertChainFile: "testdata/fake-cert.pem",
+		})
+	exptected := onprem.IsProperPlatform()
+	if !exptected {
+		t.Errorf("Unexpected response: %v.", exptected)
+	}
+}
+
+func TestOnpremGetCredentialType(t *testing.T) {
+	onprem := NewOnPremClientImpl(
+		OnPremConfig{
+			CertChainFile: "testdata/fake-cert.pem",
+		})
+	credentialType := onprem.GetCredentialType()
+	if credentialType != "onprem" {
+		t.Errorf("Unexpected credential type: %v.", credentialType)
 	}
 }

@@ -37,8 +37,11 @@ setup: platform/kube/config
 	@bin/init.sh
 
 .PHONY: build
-build:	
-	@bazel build ${BUILD_FLAGS} //pilot/...
+build:
+	go install istio.io/istio/pilot/cmd/pilot-discovery
+	go install istio.io/istio/pilot/cmd/pilot-agent
+	go install istio.io/istio/pilot/cmd/istioctl
+	go install istio.io/istio/pilot/cmd/sidecar-initializer
 
 .PHONY: docker
 docker:
@@ -50,15 +53,17 @@ docker-push:
 
 .PHONY: clean
 clean:
-	@bazel clean
+	rm -f docker/pilot-discovery docker/pilot-agent docker/sidecar-initializer docker/client docker/server docker/eurekamirror
 
 .PHONY: test
 test:
-	@bazel test //pilot/...
+	go test ${T} ./...
 
 .PHONY: e2etest
 e2etest:
-	@bazel run //pilot/test/integration -- --logtostderr ${TESTOPTS} ${hub} ${tag}
+	go install ./test/integration
+	# Pilot integration assumes it is running in ISTIO_GO.
+	(cd ..; integration --logtostderr ${TESTOPTS} ${hub} ${tag})
 
 .PHONY: coverage
 coverage:

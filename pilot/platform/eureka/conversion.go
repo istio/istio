@@ -16,11 +16,12 @@ package eureka
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Convert Eureka applications to services. If provided, only convert applications in the hostnames whitelist,
@@ -57,7 +58,7 @@ func convertServices(apps []*application, hostnames map[string]bool) map[string]
 			for _, port := range ports {
 				if servicePort, exists := service.Ports.GetByPort(port.Port); exists {
 					if servicePort.Protocol != protocol {
-						glog.Warningf(
+						log.Warnf(
 							"invalid Eureka config: "+
 								"%s:%d has conflicting protocol definitions %s, %s",
 							instance.Hostname, servicePort.Port,
@@ -122,42 +123,15 @@ func convertPorts(instance *instance) model.PortList {
 
 const protocolMetadata = "istio.protocol" // metadata key for port protocol
 
-// supported protocol metadata values
-const (
-	metadataUDP   = "udp"
-	metadataTCP   = "tcp"
-	metadataHTTP  = "http"
-	metadataHTTP2 = "http2"
-	metadataHTTPS = "https"
-	metadataGRPC  = "grpc"
-	metadataMongo = "mongo"
-	metadataRedis = "redis"
-)
-
 func convertProtocol(md metadata) model.Protocol {
+	name := md[protocolMetadata]
+
 	if md != nil {
-		protocol := strings.ToLower(md[protocolMetadata])
-		switch protocol {
-		case metadataUDP:
-			return model.ProtocolUDP
-		case metadataTCP:
-			return model.ProtocolTCP
-		case metadataHTTP:
-			return model.ProtocolHTTP
-		case metadataHTTP2:
-			return model.ProtocolHTTP2
-		case metadataHTTPS:
-			return model.ProtocolHTTPS
-		case metadataGRPC:
-			return model.ProtocolGRPC
-		case metadataMongo:
-			return model.ProtocolMongo
-		case metadataRedis:
-			return model.ProtocolRedis
-		case "":
-			// fallthrough to default protocol
-		default:
-			glog.Warningf("unsupported protocol value: %s", protocol)
+		protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+		if protocol == model.ProtocolUnsupported {
+			log.Warnf("unsupported protocol value: %s", name)
+		} else {
+			return protocol
 		}
 	}
 	return model.ProtocolTCP // default protocol

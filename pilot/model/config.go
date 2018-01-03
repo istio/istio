@@ -20,9 +20,9 @@ import (
 	"sort"
 
 	"github.com/golang/protobuf/proto"
-	multierror "github.com/hashicorp/go-multierror"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	mccpb "istio.io/api/mixer/v1/config/client"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model/test"
 )
 
@@ -226,7 +226,7 @@ type IstioConfigStore interface {
 	ConfigStore
 
 	// EgressRules lists all egress rules
-	EgressRules() map[string]*proxyconfig.EgressRule
+	EgressRules() map[string]*routing.EgressRule
 
 	// RouteRules selects routing rules by source service instances and
 	// destination service.  A rule must match at least one of the input service
@@ -242,6 +242,19 @@ type IstioConfigStore interface {
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
+
+	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
+	// associated with destination service instances.
+	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
+
+	// QuotaSpecByDestination selects Mixerclient quota specifications
+	// associated with destination service instances.
+	QuotaSpecByDestination(instance *ServiceInstance) []Config
+
+	// EndUserAuthenticationPolicySpecByDestination selects
+	// Mixerclient end user authn policy specifications associated
+	// with destination service instances.
+	EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config
 }
 
 const (
@@ -256,6 +269,12 @@ const (
 
 	// HeaderAuthority is authority HTTP header
 	HeaderAuthority = "authority"
+
+	// HeaderMethod is method HTTP header
+	HeaderMethod = "method"
+
+	// HeaderScheme is scheme HTTP header
+	HeaderScheme = "scheme"
 
 	// NamespaceAll is a designated symbol for listing across all namespaces
 	NamespaceAll = ""
@@ -279,15 +298,23 @@ var (
 	RouteRule = ProtoSchema{
 		Type:        "route-rule",
 		Plural:      "route-rules",
-		MessageName: "istio.proxy.v1.config.RouteRule",
+		MessageName: "istio.routing.v1alpha1.RouteRule",
 		Validate:    ValidateRouteRule,
+	}
+
+	// Gateway describes a gateway (how a proxy is exposed on the network)
+	Gateway = ProtoSchema{
+		Type:        "gateway",
+		Plural:      "gateways",
+		MessageName: "istio.routing.v1alpha2.Gateway",
+		Validate:    ValidateGateway,
 	}
 
 	// IngressRule describes ingress rules
 	IngressRule = ProtoSchema{
 		Type:        "ingress-rule",
 		Plural:      "ingress-rules",
-		MessageName: "istio.proxy.v1.config.IngressRule",
+		MessageName: "istio.routing.v1alpha1.IngressRule",
 		Validate:    ValidateIngressRule,
 	}
 
@@ -295,7 +322,7 @@ var (
 	EgressRule = ProtoSchema{
 		Type:        "egress-rule",
 		Plural:      "egress-rules",
-		MessageName: "istio.proxy.v1.config.EgressRule",
+		MessageName: "istio.routing.v1alpha1.EgressRule",
 		Validate:    ValidateEgressRule,
 	}
 
@@ -303,23 +330,78 @@ var (
 	DestinationPolicy = ProtoSchema{
 		Type:        "destination-policy",
 		Plural:      "destination-policies",
-		MessageName: "istio.proxy.v1.config.DestinationPolicy",
+		MessageName: "istio.routing.v1alpha1.DestinationPolicy",
 		Validate:    ValidateDestinationPolicy,
+	}
+
+	// HTTPAPISpec describes an HTTP API specification.
+	HTTPAPISpec = ProtoSchema{
+		Type:        "http-api-spec",
+		Plural:      "http-api-specs",
+		MessageName: "istio.mixer.v1.config.client.HTTPAPISpec",
+		Validate:    ValidateHTTPAPISpec,
+	}
+
+	// HTTPAPISpecBinding describes an HTTP API specification binding.
+	HTTPAPISpecBinding = ProtoSchema{
+		Type:        "http-api-spec-binding",
+		Plural:      "http-api-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.HTTPAPISpecBinding",
+		Validate:    ValidateHTTPAPISpecBinding,
+	}
+
+	// QuotaSpec describes an Quota specification.
+	QuotaSpec = ProtoSchema{
+		Type:        "quota-spec",
+		Plural:      "quota-specs",
+		MessageName: "istio.mixer.v1.config.client.QuotaSpec",
+		Validate:    ValidateQuotaSpec,
+	}
+
+	// QuotaSpecBinding describes an Quota specification binding.
+	QuotaSpecBinding = ProtoSchema{
+		Type:        "quota-spec-binding",
+		Plural:      "quota-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.QuotaSpecBinding",
+		Validate:    ValidateQuotaSpecBinding,
+	}
+
+	// EndUserAuthenticationPolicySpec describes an end-user authentication policy.
+	EndUserAuthenticationPolicySpec = ProtoSchema{
+		Type:        "end-user-authentication-policy-spec",
+		Plural:      "end-user-authentication-policy-specs",
+		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpec",
+		Validate:    ValidateEndUserAuthenticationPolicySpec,
+	}
+
+	// EndUserAuthenticationPolicySpecBinding describes an EndUserAuthenticationPolicy specification binding.
+	EndUserAuthenticationPolicySpecBinding = ProtoSchema{
+		Type:        "end-user-authentication-policy-spec-binding",
+		Plural:      "end-user-authentication-policy-spec-bindings",
+		MessageName: "istio.mixer.v1.config.client.EndUserAuthenticationPolicySpecBinding",
+		Validate:    ValidateEndUserAuthenticationPolicySpecBinding,
 	}
 
 	// IstioConfigTypes lists all Istio config types with schemas and validation
 	IstioConfigTypes = ConfigDescriptor{
 		RouteRule,
 		IngressRule,
+		Gateway,
 		EgressRule,
 		DestinationPolicy,
+		HTTPAPISpec,
+		HTTPAPISpecBinding,
+		QuotaSpec,
+		QuotaSpecBinding,
+		EndUserAuthenticationPolicySpec,
+		EndUserAuthenticationPolicySpecBinding,
 	}
 )
 
 // ResolveHostname uses metadata information to resolve a service reference to
 // a fully qualified hostname. The metadata namespace and domain are used as
 // fallback values to fill up the complete name.
-func ResolveHostname(meta ConfigMeta, svc *proxyconfig.IstioService) string {
+func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 	out := svc.Name
 	// if FQDN is specified, do not append domain or namespace to hostname
 	// Service field has precedence over Name
@@ -355,7 +437,7 @@ func MakeIstioStore(store ConfigStore) IstioConfigStore {
 
 // MatchSource checks that a rule applies for source service instances.
 // Empty source match condition applies for all cases.
-func MatchSource(meta ConfigMeta, source *proxyconfig.IstioService, instances []*ServiceInstance) bool {
+func MatchSource(meta ConfigMeta, source *routing.IstioService, instances []*ServiceInstance) bool {
 	if source == nil {
 		return true
 	}
@@ -380,8 +462,8 @@ func SortRouteRules(rules []Config) {
 	// sort by high precedence first, key string second (keys are unique)
 	sort.Slice(rules, func(i, j int) bool {
 		// protect against incompatible types
-		irule, _ := rules[i].Spec.(*proxyconfig.RouteRule)
-		jrule, _ := rules[j].Spec.(*proxyconfig.RouteRule)
+		irule, _ := rules[i].Spec.(*routing.RouteRule)
+		jrule, _ := rules[j].Spec.(*routing.RouteRule)
 		return irule == nil || jrule == nil ||
 			irule.Precedence > jrule.Precedence ||
 			(irule.Precedence == jrule.Precedence && rules[i].Key() < rules[j].Key())
@@ -396,7 +478,7 @@ func (store *istioConfigStore) RouteRules(instances []*ServiceInstance, destinat
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*proxyconfig.RouteRule)
+		rule := config.Spec.(*routing.RouteRule)
 
 		// validate that rule match predicate applies to destination service
 		hostname := ResolveHostname(config.ConfigMeta, rule.Destination)
@@ -423,7 +505,7 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 	}
 
 	for _, config := range configs {
-		rule := config.Spec.(*proxyconfig.RouteRule)
+		rule := config.Spec.(*routing.RouteRule)
 		destination := ResolveHostname(config.ConfigMeta, rule.Destination)
 		for _, instance := range instances {
 			if destination == instance.Service.Hostname {
@@ -436,14 +518,14 @@ func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInsta
 	return out
 }
 
-func (store *istioConfigStore) EgressRules() map[string]*proxyconfig.EgressRule {
-	out := make(map[string]*proxyconfig.EgressRule)
+func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {
+	out := make(map[string]*routing.EgressRule)
 	rs, err := store.List(EgressRule.Type, "")
 	if err != nil {
 		return nil
 	}
 	for _, r := range rs {
-		if rule, ok := r.Spec.(*proxyconfig.EgressRule); ok {
+		if rule, ok := r.Spec.(*routing.EgressRule); ok {
 			out[r.Key()] = rule
 		}
 	}
@@ -460,7 +542,7 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	var out Config
 	var found bool
 	for _, config := range configs {
-		policy := config.Spec.(*proxyconfig.DestinationPolicy)
+		policy := config.Spec.(*routing.DestinationPolicy)
 		if !MatchSource(config.ConfigMeta, policy.Source, instances) {
 			continue
 		}
@@ -488,45 +570,166 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	return &out
 }
 
-// RejectConflictingEgressRules rejects rules that have the destination which is equal to
-// the destionation of some other rule.
-// According to Envoy's virtual host specification, no virtual hosts can share the same domain.
-// The following code rejects conflicting rules deterministically, by a lexicographical order -
-// a rule with a smaller key lexicographically wins.
-// Here the key of the rule is the key of the Istio configuration objects - see
-// `func (meta *ConfigMeta) Key() string`
-func RejectConflictingEgressRules(egressRules map[string]*proxyconfig.EgressRule) ( // long line split
-	map[string]*proxyconfig.EgressRule, error) {
-	filteredEgressRules := make(map[string]*proxyconfig.EgressRule)
-	var errs error
-
-	var keys []string
-
-	// the key here is the key of the Istio configuration objects - see
-	// `func (meta *ConfigMeta) Key() string`
-	for key := range egressRules {
-		keys = append(keys, key)
+// `istio.mixer.v1.config.client.IstioService` and
+// `istio.routing.v1alpha1.IstioService` are logically
+// equivalent. Convert from mixer-to-proxy representation so we can
+// use ResolveHostname below.
+func mixerToProxyIstioService(in *mccpb.IstioService) *routing.IstioService {
+	return &routing.IstioService{
+		Name:      in.Name,
+		Namespace: in.Namespace,
+		Domain:    in.Domain,
+		Service:   in.Service,
+		Labels:    in.Labels,
 	}
-	sort.Strings(keys)
+}
 
-	// domains - a map where keys are of the form domain:port and values are the keys of
-	// egress-rule configuration objects
-	domains := make(map[string]string)
-	for _, egressRuleKey := range keys {
-		egressRule := egressRules[egressRuleKey]
-		domain := egressRule.Destination.Service
-		keyOfAnEgressRuleWithTheSameDomain, conflictingRule := domains[domain]
-		if conflictingRule {
-			errs = multierror.Append(errs,
-				fmt.Errorf("rule %q conflicts with rule %q on domain "+
-					"%s, is rejected", egressRuleKey,
-					keyOfAnEgressRuleWithTheSameDomain, domain))
-			continue
+// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
+// associated with destination service instances.
+func (store *istioConfigStore) HTTPAPISpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(HTTPAPISpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(HTTPAPISpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of HTTP API spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.HTTPAPISpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.ApiSpecs {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
 		}
-
-		domains[domain] = egressRuleKey
-		filteredEgressRules[egressRuleKey] = egressRule
 	}
 
-	return filteredEgressRules, errs
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+// QuotaSpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) QuotaSpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(QuotaSpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(QuotaSpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of quota spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.QuotaSpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.QuotaSpecs {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+// EndUserAuthenticationPolicySpecByDestination selects Mixerclient quota specifications
+// associated with destination service instances.
+func (store *istioConfigStore) EndUserAuthenticationPolicySpecByDestination(instance *ServiceInstance) []Config {
+	bindings, err := store.List(EndUserAuthenticationPolicySpecBinding.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+	specs, err := store.List(EndUserAuthenticationPolicySpec.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	// Create a set key from a reference's name and namespace.
+	key := func(name, namespace string) string { return name + "/" + namespace }
+
+	// Build the set of end user authn spec references bound to the service instance.
+	refs := make(map[string]struct{})
+	for _, binding := range bindings {
+		b := binding.Spec.(*mccpb.EndUserAuthenticationPolicySpecBinding)
+		for _, service := range b.Services {
+			hostname := ResolveHostname(binding.ConfigMeta, mixerToProxyIstioService(service))
+			if hostname == instance.Service.Hostname {
+				for _, spec := range b.Policies {
+					refs[key(spec.Name, spec.Namespace)] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Append any spec that is in the set of references.
+	var out []Config
+	for _, spec := range specs {
+		if _, ok := refs[key(spec.ConfigMeta.Name, spec.ConfigMeta.Namespace)]; ok {
+			out = append(out, spec)
+		}
+	}
+
+	return out
+}
+
+// SortHTTPAPISpec sorts a slice in a stable manner.
+func SortHTTPAPISpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.HTTPAPISpec)
+		jrule, _ := specs[j].Spec.(*mccpb.HTTPAPISpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
+}
+
+// SortQuotaSpec sorts a slice in a stable manner.
+func SortQuotaSpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.QuotaSpec)
+		jrule, _ := specs[j].Spec.(*mccpb.QuotaSpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
+}
+
+// SortEndUserAuthenticationPolicySpec sorts a slice in a stable manner.
+func SortEndUserAuthenticationPolicySpec(specs []Config) {
+	sort.Slice(specs, func(i, j int) bool {
+		// protect against incompatible types
+		irule, _ := specs[i].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
+		jrule, _ := specs[j].Spec.(*mccpb.EndUserAuthenticationPolicySpec)
+		return irule == nil || jrule == nil || (specs[i].Key() < specs[j].Key())
+	})
 }

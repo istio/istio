@@ -27,11 +27,8 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
-	"istio.io/istio/mixer/pkg/expr"
 	ilt "istio.io/istio/mixer/pkg/il/testing"
 )
-
-const maxStringTableSizeForPurge int = 1024
 
 func TestExpressions(t *testing.T) {
 	for _, test := range ilt.TestData {
@@ -40,112 +37,59 @@ func TestExpressions(t *testing.T) {
 			continue
 		}
 
-		name := "IL/" + test.E
+		if test.Fns != nil {
+			// Skip tests that have extern functions defined. We cannot inject extern functions into the evaluator.
+			// Compiler tests actually also do evaluation.
+			continue
+		}
+		name := "IL/" + test.TestName()
 		t.Run(name, func(tt *testing.T) {
 			testWithILEvaluator(test, tt)
-		})
-
-		name = "AST/" + test.E
-		t.Run(name, func(tt *testing.T) {
-			if test.SkipAst {
-				tt.Skip("Skipping: %s", name)
-				return
-			}
-
-			testWithASTEvaluator(test, tt)
 		})
 	}
 }
 
 func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
-	config := test.Conf
-	if config == nil {
-		config = ilt.TestConfigs["Default"]
-	}
-
-	evaluator := initEvaluator(t, *config)
-	bag := &ilt.FakeBag{Attrs: test.I}
+	evaluator := initEvaluator(t, test.Conf())
+	bag := ilt.NewFakeBag(test.I)
 
 	r, err := evaluator.Eval(test.E, bag)
-	if test.Err != "" || test.CompileErr != "" {
-		expectedErr := test.Err
-		if expectedErr == "" {
-			expectedErr = test.CompileErr
-		}
-
+	// Evaluator does in-line compilation. Check for both.
+	if test.CompileErr != "" {
 		if err == nil {
-			t.Errorf("Expected error was not thrown: %s", expectedErr)
-			return
-		}
-		if !strings.EqualFold(expectedErr, err.Error()) {
-			t.Errorf("Error mismatch: '%s' != '%s'", err.Error(), expectedErr)
+			t.Errorf("expected compile error was not thrown: %s", test.CompileErr)
+		} else if !strings.HasPrefix(err.Error(), test.CompileErr) {
+			t.Errorf("Error mismatch: '%s' != '%s'", err.Error(), test.CompileErr)
 		}
 		return
 	}
 
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
-
-	if !ilt.AreEqual(test.R, r) {
-		t.Errorf("Result mismatch: %v != %v", r, test.R)
+	if err = test.CheckEvaluationResult(r, err); err != nil {
+		t.Errorf(err.Error())
+		return
 	}
 
 	// Depending on the type, try testing specialized methods as well.
 
-	if estr, ok := test.R.(string); ok {
+	switch test.R.(type) {
+	case string:
 		astr, err := evaluator.EvalString(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+		if e := test.CheckEvaluationResult(astr, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
-		if astr != estr {
-			t.Errorf("EvalString failed: '%s' != '%s'", astr, estr)
-		}
-	}
 
-	if ebool, ok := test.R.(bool); ok {
+	case bool:
 		abool, err := evaluator.EvalPredicate(test.E, bag)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
+		if e := test.CheckEvaluationResult(abool, err); e != nil {
+			t.Errorf(e.Error())
+			return
 		}
-		if abool != ebool {
-			t.Errorf("EvalPredicate failed: '%s' != '%s'", abool, ebool)
-		}
-	}
-}
-
-func testWithASTEvaluator(test ilt.TestInfo, t *testing.T) {
-	ev, er := expr.NewCEXLEvaluator(1024)
-	if er != nil {
-		t.Errorf("Failed to create expression evaluator: %v", er)
-	}
-
-	input := test.I
-	if input == nil {
-		input = map[string]interface{}{}
-	}
-	attrs := &ilt.FakeBag{Attrs: input}
-	ret, err := ev.Eval(test.E, attrs)
-	if (err == nil) != (test.AstErr == "") {
-		t.Errorf("got %v, want %v", err, test.AstErr)
-		return
-	}
-
-	// check if error is of the correct type
-	if err != nil {
-		if !strings.Contains(err.Error(), test.AstErr) {
-			t.Errorf("got %s, want %s", err, test.AstErr)
-		}
-		return
-	}
-	// check result
-	if !ilt.AreEqual(test.R, ret) {
-		t.Errorf("got %v, want %v", ret, test.R)
 	}
 }
 
 func TestEvalString_WrongType(t *testing.T) {
-	e := initEvaluator(t, configInt)
+	e := initEvaluator(t, &configInt)
 	bag := initBag(int64(23))
 	r, err := e.EvalString("attr", bag)
 	if err != nil {
@@ -157,7 +101,7 @@ func TestEvalString_WrongType(t *testing.T) {
 }
 
 func TestEvalString_Error(t *testing.T) {
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 	bag := initBag("foo")
 	_, err := e.EvalString("bar", bag)
 	if err == nil {
@@ -166,7 +110,7 @@ func TestEvalString_Error(t *testing.T) {
 }
 
 func TestEvalPredicate_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	bag := initBag(int64(23))
 	_, err := e.EvalPredicate("attr", bag)
 	if err == nil {
@@ -175,7 +119,7 @@ func TestEvalPredicate_WrongType(t *testing.T) {
 }
 
 func TestEvalPredicate_Error(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	bag := initBag(true)
 	_, err := e.EvalPredicate("boo", bag)
 	if err == nil {
@@ -201,17 +145,17 @@ func TestConcurrent(t *testing.T) {
 
 	for i := 0; i < maxNum; i++ {
 		v := randString(6)
-		bags = append(bags, &ilt.FakeBag{
-			Attrs: map[string]interface{}{
+		bags = append(bags, ilt.NewFakeBag(
+			map[string]interface{}{
 				"attr": v,
 			},
-		})
+		))
 	}
 
 	expression := fmt.Sprintf("attr == \"%s\"", randString(16))
 	maxThreads := 10
 
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 	errChan := make(chan error, len(bags)*maxThreads)
 
 	wg := sync.WaitGroup{}
@@ -239,7 +183,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestEvalType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	ty, err := e.EvalType("attr", e.getAttrContext().finder)
 	if err != nil {
 		t.Fatalf("error: %s", err)
@@ -250,23 +194,15 @@ func TestEvalType(t *testing.T) {
 }
 
 func TestEvalType_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	_, err := e.EvalType("boo", e.getAttrContext().finder)
 	if err == nil {
 		t.Fatal("Was expecting an error")
 	}
 }
 
-func TestAssertType(t *testing.T) {
-	e := initEvaluator(t, configBool)
-	err := e.AssertType("attr", e.getAttrContext().finder, pbv.BOOL)
-	if err != nil {
-		t.Fatalf("error: %s", err)
-	}
-}
-
 func TestAssertType_WrongType(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	err := e.AssertType("attr", e.getAttrContext().finder, pbv.STRING)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -274,7 +210,7 @@ func TestAssertType_WrongType(t *testing.T) {
 }
 
 func TestAssertType_EvaluationError(t *testing.T) {
-	e := initEvaluator(t, configBool)
+	e := initEvaluator(t, &configBool)
 	err := e.AssertType("boo", e.getAttrContext().finder, pbv.BOOL)
 	if err == nil {
 		t.Fatal("Was expecting an error")
@@ -282,7 +218,7 @@ func TestAssertType_EvaluationError(t *testing.T) {
 }
 
 func TestConfigChange(t *testing.T) {
-	e := initEvaluator(t, configInt)
+	e := initEvaluator(t, &configInt)
 	bag := initBag(int64(23))
 
 	// Prime the cache
@@ -304,34 +240,11 @@ func TestConfigChange(t *testing.T) {
 	}
 }
 
-func Test_StringTableSizeBasedEviction(t *testing.T) {
-	src := rand.NewSource(time.Now().UnixNano())
-	rnd := rand.New(src)
-	e := initEvaluator(t, configString)
-
-	expr := `attr == "boo"`
-
-	for i := 0; i < maxStringTableSizeForPurge*10; i++ {
-		bag := initBag(generateRandomStr(rnd))
-		_, err := e.Eval(expr, bag)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		entry, err := e.getAttrContext().getOrCreateCacheEntry(expr)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		if entry.interpreter.StringTableSize() > maxStringTableSizeForPurge {
-			t.Fatalf("%d > %d", entry.interpreter.StringTableSize(), maxStringTableSizeForPurge)
-		}
-	}
-}
-
 func Test_Stress(t *testing.T) {
 	src := rand.NewSource(time.Now().UnixNano())
 	rnd := rand.New(src)
 
-	e := initEvaluator(t, configString)
+	e := initEvaluator(t, &configString)
 
 	exprs := []string{
 		`attr`,
@@ -359,6 +272,29 @@ func Test_Stress(t *testing.T) {
 	}
 }
 
+func Test_TypeChecker_Uninitialized(t *testing.T) {
+	e, err := NewILEvaluator(10)
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+
+	aType, err := e.EvalType("attr", descriptor.NewFinder(&configString))
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+	if aType != pbv.STRING {
+		t.Fatalf("attr should have been a string: %s", aType)
+	}
+
+	aType, err = e.EvalType("attr", descriptor.NewFinder(&configInt))
+	if err != nil {
+		t.Fatalf("error: %s", err)
+	}
+	if aType != pbv.INT64 {
+		t.Fatalf("attr should have been an int: %s", aType)
+	}
+}
+
 func generateRandomStr(r *rand.Rand) string {
 	size := r.Intn(20) + 1
 	bytes := make([]byte, size)
@@ -375,15 +311,15 @@ func initBag(attrValue interface{}) attribute.Bag {
 	attrs := make(map[string]interface{})
 	attrs["attr"] = attrValue
 
-	return &ilt.FakeBag{Attrs: attrs}
+	return ilt.NewFakeBag(attrs)
 }
 
-func initEvaluator(t *testing.T, config pb.GlobalConfig) *IL {
-	e, err := NewILEvaluator(10, maxStringTableSizeForPurge)
+func initEvaluator(t *testing.T, config *pb.GlobalConfig) *IL {
+	e, err := NewILEvaluator(10)
 	if err != nil {
 		t.Fatalf("error: %s", err)
 	}
-	finder := descriptor.NewFinder(&config)
+	finder := descriptor.NewFinder(config)
 	e.ChangeVocabulary(finder)
 	return e
 }

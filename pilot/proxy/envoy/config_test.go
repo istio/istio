@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/test/util"
@@ -278,6 +278,11 @@ var (
 		file: "testdata/egress-rule-timeout-route-rule.yaml.golden",
 	}
 
+	egressRuleTCP = fileConfig{
+		meta: model.ConfigMeta{Type: model.EgressRule.Type, Name: "google-cloud-tcp"},
+		file: "testdata/egress-rule-tcp.yaml.golden",
+	}
+
 	ingressRouteRule1 = fileConfig{
 		meta: model.ConfigMeta{Type: model.IngressRule.Type, Name: "world"},
 		file: "testdata/ingress-route-world.yaml.golden",
@@ -301,6 +306,37 @@ var (
 	mirrorRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route.yaml.golden",
+	}
+
+	// mixerclient service configuration
+	mixerclientAPISpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpec.Type, Name: "api-spec"},
+		file: "testdata/api-spec.yaml.golden",
+	}
+
+	mixerclientAPISpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.HTTPAPISpecBinding.Type, Name: "api-spec-binding"},
+		file: "testdata/api-spec-binding.yaml.golden",
+	}
+
+	mixerclientQuotaSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpec.Type, Name: "quota-spec"},
+		file: "testdata/quota-spec.yaml.golden",
+	}
+
+	mixerclientQuotaSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.QuotaSpecBinding.Type, Name: "quota-spec-binding"},
+		file: "testdata/quota-spec-binding.yaml.golden",
+	}
+
+	mixerclientAuthSpec = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpec.Type, Name: "auth-spec"},
+		file: "testdata/auth-spec.yaml.golden",
+	}
+
+	mixerclientAuthSpecBinding = fileConfig{
+		meta: model.ConfigMeta{Type: model.EndUserAuthenticationPolicySpecBinding.Type, Name: "auth-spec-binding"},
+		file: "testdata/auth-spec-binding.yaml.golden",
 	}
 )
 
@@ -332,7 +368,7 @@ func addConfig(r model.ConfigStore, config fileConfig, t *testing.T) {
 	}
 }
 
-func makeProxyConfig() proxyconfig.ProxyConfig {
+func makeProxyConfig() meshconfig.ProxyConfig {
 	proxyConfig := proxy.DefaultProxyConfig()
 	proxyConfig.ZipkinAddress = "localhost:6000"
 	proxyConfig.StatsdUdpAddress = "10.1.1.10:9125"
@@ -345,13 +381,13 @@ var (
 	pilotSAN = []string{"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}
 )
 
-func makeProxyConfigControlPlaneAuth() proxyconfig.ProxyConfig {
+func makeProxyConfigControlPlaneAuth() meshconfig.ProxyConfig {
 	proxyConfig := makeProxyConfig()
-	proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+	proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 	return proxyConfig
 }
 
-func makeMeshConfig() proxyconfig.MeshConfig {
+func makeMeshConfig() meshconfig.MeshConfig {
 	mesh := proxy.DefaultMeshConfig()
 	mesh.MixerAddress = "istio-mixer.istio-system:9091"
 	mesh.RdsRefreshDelay = ptypes.DurationProto(10 * time.Millisecond)
@@ -434,6 +470,56 @@ func TestTruncateClusterName(t *testing.T) {
 	prefixLen := MaxClusterNameLength - sha1.Size*2
 	if gt[:prefixLen] != trunc[:prefixLen] {
 		t.Errorf("Unexpected prefix:\nwant %s,\ngot %s", gt[:prefixLen], trunc[:prefixLen])
+	}
+}
+
+func TestBuildJwksUriClusterNameAndAddress(t *testing.T) {
+	cases := []struct {
+		in          string
+		wantAddress string
+		wantName    string
+		wantSSL     bool
+		wantError   bool
+	}{
+		{
+			in:          "https://www.googleapis.com/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
+		},
+		{
+			in:          "https://www.googleapis.com:443/oauth2/v1/certs",
+			wantAddress: "www.googleapis.com:443",
+			wantName:    OutboundJWTURIClusterPrefix + "www.googleapis.com|443",
+			wantSSL:     true,
+		},
+		{
+			in:          "http://example.com/oauth2/v1/certs",
+			wantAddress: "example.com:80",
+			wantName:    OutboundJWTURIClusterPrefix + "example.com|80",
+			wantSSL:     false,
+		},
+		{
+			in:        ":foo",
+			wantError: true,
+		},
+	}
+	for _, c := range cases {
+		gotName, gotAddress, gotSSL, gotError := buildJWKSURIClusterNameAndAddress(c.in)
+		if c.wantError != (gotError != nil) {
+			t.Errorf("%s returned unexpected error: want %v got %v: %v",
+				c.in, c.wantError, gotError != nil, gotError)
+		} else {
+			if gotAddress != c.wantAddress {
+				t.Errorf("%s: gotAddress %v wantAddress %v", c.in, gotAddress, c.wantAddress)
+			}
+			if gotName != c.wantName {
+				t.Errorf("%s: gotName %v wantName %v", c.in, gotName, c.wantName)
+			}
+			if gotSSL != c.wantSSL {
+				t.Errorf("%s: gotSsl %v wantSSL %v", c.in, gotSSL, c.wantSSL)
+			}
+		}
 	}
 }
 

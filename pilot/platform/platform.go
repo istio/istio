@@ -24,4 +24,6 @@ const (
 	ConsulRegistry ServiceRegistry = "Consul"
 	// EurekaRegistry environment flag
 	EurekaRegistry ServiceRegistry = "Eureka"
+	// CloudFoundryRegistry environment flag
+	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 )

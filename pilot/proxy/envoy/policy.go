@@ -18,16 +18,27 @@
 package envoy
 
 import (
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
+
+func isDestinationExcludedForMTLS(serviceName string, mtlsExcludedServices []string) bool {
+	hostname, _, _ := model.ParseServiceKey(serviceName)
+	for _, serviceName := range mtlsExcludedServices {
+		if hostname == serviceName {
+			return true
+		}
+	}
+	return false
+}
 
 // applyClusterPolicy assumes an outbound cluster and inserts custom configuration for the cluster
 func applyClusterPolicy(cluster *Cluster,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore,
-	mesh *proxyconfig.MeshConfig,
+	mesh *meshconfig.MeshConfig,
 	accounts model.ServiceAccounts) {
 	duration := protoDurationToMS(mesh.ConnectTimeout)
 	cluster.ConnectTimeoutMs = duration
@@ -40,7 +51,8 @@ func applyClusterPolicy(cluster *Cluster,
 	// Original DST cluster are used to route to services outside the mesh
 	// where Istio auth does not apply.
 	if cluster.Type != ClusterTypeOriginalDST {
-		if conslidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == proxyconfig.AuthenticationPolicy_MUTUAL_TLS {
+		if !isDestinationExcludedForMTLS(cluster.ServiceName, mesh.MtlsExcludedServices) &&
+			consolidateAuthPolicy(mesh, cluster.port.AuthenticationPolicy) == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 			// apply auth policies
 			ports := model.PortList{cluster.port}.GetNames()
 			serviceAccounts := accounts.GetIstioServiceAccounts(cluster.hostname, ports)
@@ -55,17 +67,17 @@ func applyClusterPolicy(cluster *Cluster,
 		return
 	}
 
-	policy := policyConfig.Spec.(*proxyconfig.DestinationPolicy)
+	policy := policyConfig.Spec.(*routing.DestinationPolicy)
 
 	// Load balancing policies do not apply for Original DST clusters
 	// as the intent is to go directly to the instance.
 	if policy.LoadBalancing != nil && cluster.Type != ClusterTypeOriginalDST {
 		switch policy.LoadBalancing.GetName() {
-		case proxyconfig.LoadBalancing_ROUND_ROBIN:
+		case routing.LoadBalancing_ROUND_ROBIN:
 			cluster.LbType = LbTypeRoundRobin
-		case proxyconfig.LoadBalancing_LEAST_CONN:
+		case routing.LoadBalancing_LEAST_CONN:
 			cluster.LbType = LbTypeLeastRequest
-		case proxyconfig.LoadBalancing_RANDOM:
+		case routing.LoadBalancing_RANDOM:
 			cluster.LbType = LbTypeRandom
 		}
 	}
@@ -87,7 +99,9 @@ func applyClusterPolicy(cluster *Cluster,
 		if cbconfig.HttpMaxPendingRequests > 0 {
 			cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
 		}
-		//TODO: need to add max_retries as well. Currently it defaults to 3
+		if cbconfig.HttpMaxRetries > 0 {
+			cluster.CircuitBreaker.Default.MaxRetries = int(cbconfig.HttpMaxRetries)
+		}
 
 		cluster.OutlierDetection = &OutlierDetection{}
 

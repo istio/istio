@@ -19,9 +19,6 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 )
 
-// TODO this file is copied from pkg/adapterManager.
-// Remove the adapterManager package once adapters2 switch is complete.
-
 type env struct {
 	logger adapter.Logger
 	gp     *pool.GoroutinePool
@@ -39,7 +36,7 @@ func (e env) Logger() adapter.Logger {
 }
 
 func (e env) ScheduleWork(fn adapter.WorkFunc) {
-	e.gp.ScheduleWork(func() {
+	e.gp.ScheduleWork(func(_ interface{}) {
 		defer func() {
 			if r := recover(); r != nil {
 				_ = e.Logger().Errorf("Adapter worker failed: %v", r) // nolint: gas
@@ -52,7 +49,7 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 		}()
 
 		fn()
-	})
+	}, nil)
 }
 
 func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {

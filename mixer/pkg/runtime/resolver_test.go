@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"flag"
 	"strings"
 	"testing"
 
@@ -185,6 +184,10 @@ func fakePred(reject bool, err string) *fakePredEval {
 	return f
 }
 
+func (f *fakePredEval) Eval(expr string, bag attribute.Bag) (interface{}, error) {
+	return f.EvalPredicate(expr, bag)
+}
+
 func (f *fakePredEval) EvalPredicate(expr string, _ attribute.Bag) (bool, error) {
 	return !f.reject, f.err
 }
@@ -228,5 +231,3 @@ func newRules(vr adptTmpl.TemplateVariety, frule []fakeRuleCfg) map[string][]*Ru
 	}
 	return rules
 }
-
-var _ = flag.Lookup("v").Value.Set("99")

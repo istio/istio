@@ -188,5 +188,8 @@ var (
 		"request.auth.principal",
 		"request.auth.audiences",
 		"request.auth.presenter",
+		"request.api_key",
+		"check.error_code",
+		"check.error_message",
 	}
 )

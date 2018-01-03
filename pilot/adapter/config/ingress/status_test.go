@@ -19,16 +19,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/ingress/core/pkg/ingress/annotations/class"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 func makeAnnotatedIngress(annotation string) *extensions.Ingress {
@@ -49,37 +51,37 @@ func makeAnnotatedIngress(annotation string) *extensions.Ingress {
 // representation correctly.
 func TestConvertIngressControllerMode(t *testing.T) {
 	cases := []struct {
-		Mode       proxyconfig.MeshConfig_IngressControllerMode
+		Mode       meshconfig.MeshConfig_IngressControllerMode
 		Annotation string
 		Ignore     bool
 	}{
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_DEFAULT,
+			Mode:       meshconfig.MeshConfig_DEFAULT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "",
 			Ignore:     false,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "istio",
 			Ignore:     true,
 		},
 		{
-			Mode:       proxyconfig.MeshConfig_STRICT,
+			Mode:       meshconfig.MeshConfig_STRICT,
 			Annotation: "nginx",
 			Ignore:     false,
 		},
@@ -164,7 +166,7 @@ func TestSyncer(t *testing.T) {
 			continue
 		}
 		ips := out.Status.LoadBalancer.Ingress
-		glog.V(2).Info(ips)
+		log.Infoa(ips)
 		if len(ips) > 0 && ips[0].IP == ip {
 			close(stop)
 			break

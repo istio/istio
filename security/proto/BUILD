@@ -1,10 +1,12 @@
+# gazelle:exclude ca_service.pb.go
+
 load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 
 gogoslick_proto_library(
     name = "go_default_library",
     importmap = {
         "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
-        "google/rpc/status.proto": "github.com/googleapis/googleapis/google/rpc",
+        "google/rpc/status.proto": "istio.io/gogo-genproto/googleapis/google/rpc",
     },
     imports = [
         "external/com_github_gogo_protobuf",
@@ -23,6 +25,6 @@ gogoslick_proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_gogo_protobuf//gogoproto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
     ],
 )

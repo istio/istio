@@ -21,6 +21,7 @@
         }
        ]
       },
+      "timeout_ms": 0,
       "opaque_config": {
        "destination.service": "world.default.svc.cluster.local",
        "mixer_check": "on",

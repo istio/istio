@@ -21,6 +21,8 @@ import (
 	"reflect"
 
 	"github.com/ghodss/yaml"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	gogoproto "github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
@@ -31,9 +33,25 @@ import (
 func (ps *ProtoSchema) Make() (proto.Message, error) {
 	pbt := proto.MessageType(ps.MessageName)
 	if pbt == nil {
-		return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		// goproto and gogoproto maintain their own separate registry
+		// of linked proto files. istio.io/api/proxy protobufs use
+		// goproto and istio.io/api/mixer protobufs use
+		// gogoproto. Until use of goproto vs. gogoproto is reconciled
+		// we need to check both registries when dealing to handle
+		// proxy and mixerclient types.
+		//
+		// NOTE: this assumes that protobuf type names are unique
+		// across goproto and gogoproto.
+		pbt = gogoproto.MessageType(ps.MessageName)
+		if pbt == nil {
+			return nil, fmt.Errorf("unknown type %q", ps.MessageName)
+		}
 	}
 	return reflect.New(pbt.Elem()).Interface().(proto.Message), nil
+}
+
+func isGogoProto(in proto.Message) bool {
+	return gogoproto.MessageName(in) != ""
 }
 
 // ToJSON marshals a proto to canonical JSON
@@ -43,8 +61,15 @@ func ToJSON(msg proto.Message) (string, error) {
 	}
 
 	// Marshal from proto to json bytes
-	m := jsonpb.Marshaler{}
-	out, err := m.MarshalToString(msg)
+	var out string
+	var err error
+	if isGogoProto(msg) {
+		m := gogojsonpb.Marshaler{}
+		out, err = m.MarshalToString(msg)
+	} else {
+		m := jsonpb.Marshaler{}
+		out, err = m.MarshalToString(msg)
+	}
 	if err != nil {
 		return "", err
 	}
@@ -93,6 +118,9 @@ func (ps *ProtoSchema) FromJSON(js string) (proto.Message, error) {
 
 // ApplyJSON unmarshals a JSON string into a proto message
 func ApplyJSON(js string, pb proto.Message) error {
+	if isGogoProto(pb) {
+		return gogojsonpb.UnmarshalString(js, pb)
+	}
 	return jsonpb.UnmarshalString(js, pb)
 }
 

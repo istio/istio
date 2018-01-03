@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -37,7 +39,7 @@ func convertLabels(labels []string) model.Labels {
 		if len(vals) > 1 {
 			out[vals[0]] = vals[1]
 		} else {
-			glog.Warningf("Tag %v ignored since it is not of form key|value", tag)
+			log.Warnf("Tag %v ignored since it is not of form key|value", tag)
 		}
 	}
 	return out
@@ -65,7 +67,7 @@ func convertService(endpoints []*api.CatalogService) *model.Service {
 		port := convertPort(endpoint.ServicePort, endpoint.NodeMeta[protocolTagName])
 
 		if svcPort, exists := ports[port.Port]; exists && svcPort.Protocol != port.Protocol {
-			glog.Warningf("Service %v has two instances on same port %v but different protocols (%v, %v)",
+			log.Warnf("Service %v has two instances on same port %v but different protocols (%v, %v)",
 				name, port.Port, svcPort.Protocol, port.Protocol)
 		} else {
 			ports[port.Port] = port
@@ -139,27 +141,10 @@ func parseHostname(hostname string) (name string, err error) {
 }
 
 func convertProtocol(name string) model.Protocol {
-	switch name {
-	case "tcp":
+	protocol := model.ConvertCaseInsensitiveStringToProtocol(name)
+	if protocol == model.ProtocolUnsupported {
+		log.Warnf("unsupported protocol value: %s", name)
 		return model.ProtocolTCP
-	case "udp":
-		return model.ProtocolUDP
-	case "grpc":
-		return model.ProtocolGRPC
-	case "http":
-		return model.ProtocolHTTP
-	case "http2":
-		return model.ProtocolHTTP2
-	case "https":
-		return model.ProtocolHTTPS
-	case "mongo":
-		return model.ProtocolMongo
-	case "redis":
-		return model.ProtocolRedis
-	case "":
-		// fallthrough to default protocol
-	default:
-		glog.Warningf("unsupported protocol value: %s", name)
 	}
-	return model.ProtocolTCP
+	return protocol
 }

@@ -10,7 +10,7 @@ load("//mixer/docker:cacerts.bzl", "cacerts")
 pkg_tar(
     name = "mixer_tar",
     srcs = [
-        "//mixer/cmd/server:mixs",
+        "//mixer/cmd/mixs",
     ],
     extension = "tar.gz",
     mode = "0755",
@@ -29,11 +29,10 @@ cacerts(
 
 mixer_docker_build(
     cmd = [
-        "--configStoreURL=fs:///etc/opt/mixer/configroot",
         "--configStore2URL=k8s://",
         "--logtostderr",
         "--v=2",
-        "--traceOutput=http://zipkin:9411/api/v1/spans",
+        "--zipkinURL=http://zipkin:9411/api/v1/spans",
     ],
     debs = [
         "@openssl//file:pkg.deb",

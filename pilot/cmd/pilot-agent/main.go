@@ -17,22 +17,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/spf13/cobra"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/proxy/envoy"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -54,6 +58,9 @@ var (
 	proxyAdminPort         int
 	controlPlaneAuthPolicy string
 	customConfigFile       string
+	proxyLogLevel          string
+
+	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "agent",
@@ -65,7 +72,10 @@ var (
 		Use:   "proxy",
 		Short: "Envoy proxy agent",
 		RunE: func(c *cobra.Command, args []string) error {
-			glog.V(2).Infof("Version %s", version.Line())
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
+			log.Infof("Version %s", version.Line())
 			role.Type = proxy.Sidecar
 			if len(args) > 0 {
 				role.Type = proxy.NodeType(args[0])
@@ -79,7 +89,7 @@ var (
 					ipAddr := "127.0.0.1"
 					if ok := proxy.WaitForPrivateNetwork(); ok {
 						ipAddr = proxy.GetPrivateIP().String()
-						glog.V(2).Infof("Obtained private IP %v", ipAddr)
+						log.Infof("Obtained private IP %v", ipAddr)
 					}
 
 					role.IPAddress = ipAddr
@@ -106,9 +116,22 @@ var (
 				}
 			}
 
-			glog.V(2).Infof("Proxy role: %#v", role)
+			// Get AZ for proxy
+			azResp, err := http.Get(fmt.Sprintf("http://%v/v1/az/%v/%v", discoveryAddress, serviceCluster, role.ServiceNode()))
+			if err != nil {
+				log.Infof("Error retrieving availability zone from pilot: %v", err)
+			} else {
+				body, err := ioutil.ReadAll(azResp.Body)
+				if err != nil {
+					log.Infof("Error reading availability zone response from pilot: %v", err)
+				}
+				availabilityZone = string(body)
+				log.Infof("Proxy availability zone: %v", availabilityZone)
+			}
 
-			proxyConfig := proxyconfig.ProxyConfig{}
+			log.Infof("Proxy role: %#v", role)
+
+			proxyConfig := meshconfig.ProxyConfig{}
 
 			// set all flags
 			proxyConfig.CustomConfigFile = customConfigFile
@@ -127,11 +150,11 @@ var (
 
 			var pilotSAN []string
 			switch controlPlaneAuthPolicy {
-			case proxyconfig.AuthenticationPolicy_NONE.String():
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_NONE
-			case proxyconfig.AuthenticationPolicy_MUTUAL_TLS.String():
+			case meshconfig.AuthenticationPolicy_NONE.String():
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
+			case meshconfig.AuthenticationPolicy_MUTUAL_TLS.String():
 				var ns string
-				proxyConfig.ControlPlaneAuthPolicy = proxyconfig.AuthenticationPolicy_MUTUAL_TLS
+				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
 				if serviceregistry == platform.KubernetesRegistry {
 					partDiscoveryAddress := strings.Split(discoveryAddress, ":")
 					discoveryHostname := partDiscoveryAddress[0]
@@ -152,11 +175,11 @@ var (
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
 				addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
-				if err != nil {
-					return err
+				if err == nil {
+					proxyConfig.StatsdUdpAddress = addr
 				}
-
-				proxyConfig.StatsdUdpAddress = addr
+				// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
+				// (instead of crashing). Mixer is optional.
 			}
 
 			if err := model.ValidateProxyConfig(&proxyConfig); err != nil {
@@ -164,9 +187,9 @@ var (
 			}
 
 			if out, err := model.ToYAML(&proxyConfig); err != nil {
-				glog.V(2).Infof("Failed to serialize to YAML: %v", err)
+				log.Infof("Failed to serialize to YAML: %v", err)
 			} else {
-				glog.V(2).Infof("Effective config: %s", out)
+				log.Infof("Effective config: %s", out)
 			}
 
 			certs := []envoy.CertSource{
@@ -183,9 +206,9 @@ var (
 				})
 			}
 
-			glog.V(2).Infof("Monitored certs: %#v", certs)
+			log.Infof("Monitored certs: %#v", certs)
 
-			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode())
+			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, agent, role, certs, pilotSAN)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -203,7 +226,7 @@ var (
 func timeDuration(dur *duration.Duration) time.Duration {
 	out, err := ptypes.Duration(dur)
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 	return out
 }
@@ -212,8 +235,7 @@ func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&serviceregistry), "serviceregistry",
 		string(platform.KubernetesRegistry),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			string(platform.KubernetesRegistry), string(platform.ConsulRegistry),
-			string(platform.EurekaRegistry)))
+			platform.KubernetesRegistry, platform.ConsulRegistry, platform.EurekaRegistry))
 	proxyCmd.PersistentFlags().StringVar(&role.IPAddress, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -255,6 +277,13 @@ func init() {
 		values.ControlPlaneAuthPolicy.String(), "Control Plane Authentication Policy")
 	proxyCmd.PersistentFlags().StringVar(&customConfigFile, "customConfigFile", values.CustomConfigFile,
 		"Path to the generated configuration file directory")
+	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
+	proxyCmd.PersistentFlags().StringVar(&proxyLogLevel, "proxyLogLevel", "off",
+		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})",
+			"trace", "debug", "info", "warn", "err", "critical", "off"))
+
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
 
 	cmd.AddFlags(rootCmd)
 
@@ -263,8 +292,11 @@ func init() {
 }
 
 func main() {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
 	if err := rootCmd.Execute(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		os.Exit(-1)
 	}
 }

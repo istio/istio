@@ -6,7 +6,6 @@ so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Setting up Bazel](#setting-up-bazel)
   - [Setting up Docker](#setting-up-docker)
   - [Setting up environment variables](#setting-up-environment-variables)
   - [Setting up personal access token](#setting-up-a-personal-access-token)
@@ -23,7 +22,7 @@ so we can improve the doc.
   - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
-  - [Building the containers](#building-the-containers)
+  - [Building and pushing the containers](#building-and-pushing-the-containers)
   - [Building the Istio manifests](#building-the-istio-manifests)
   - [Cleaning outputs](#cleaning-outputs)
   - [Running tests](#running-tests)
@@ -33,7 +32,7 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Local development scripts](#collection-of-scripts-and-notes-for-developing-for-istio)
+- [Local development scripts](#collection-of-scripts-and-notes-for-developing-istio)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -53,21 +52,20 @@ to install the Go tools.
 
 Istio currently builds with Go 1.9
 
-### Setting up Bazel
-
-Istio components are built using the Bazel build system. See
-[here](https://bazel.build/versions/master/docs/install.html) for the
-installation procedures.
-In addition to Bazel itself, you should install the Bazel buildifier tool from
-[here](https://github.com/bazelbuild/buildtools).
-
-Istio currently builds with Bazel 0.7.0
-
 ### Setting up Docker
 
 To run some of Istio's examples and tests, you need to set up Docker server.
 Please follow [these instructions](https://docs.docker.com/engine/installation/)
 for how to do this for your platform.
+
+Ensure your UID is in the docker group to access the docker daemon as a non-root user:
+
+```shell
+sudo adduser $USER docker
+```
+
+where:
+    username is your login name
 
 ### Setting up environment variables
 
@@ -79,6 +77,17 @@ typically added to your ~/.profile:
 export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 export ISTIO=$GOPATH/src/istio.io # eg. ~/go/src/istio.io
+
+# Please change HUB to the desired HUB for custom docker container
+# builds.
+export HUB="docker.io/$USER"
+
+# The Istio Docker build system will build images with a tag composed of
+# $USER and timestamp. The codebase doesn't consistently use the same timestamp
+# tag. To simplify development the development process when later using
+# updateVersion.sh you may find it helpful to set TAG to something consistent
+# such as $USER.
+export TAG=$USER
 
 # If your github username is not the same as your local user name (saved in the
 # shell variable $USER), then replace "$USER" below with your github username
@@ -235,49 +244,29 @@ make build
 
 This build command figures out what it needs to do and does not need any input from you.
 
-### Setup bazel and go links
+### Building and pushing the containers
 
-Symlinks bazel artifacts into the standard go structure so standard go
-tooling functions correctly
+Build the containers in your local docker cache:
 
 ```shell
-./bin/bazel_to_go.py
-```
-(You can safely ignore some errors like
-`com_github_opencontainers_go_digest Does not exist`)
-
-### Building the containers
-
-This tool builds and publishes Mixer container images to the specified
-registry.
-
-```
-bin/publish-docker-images.sh -h gcr.io/my-project -t my-tag
+make docker
 ```
 
-where
+Push the containers to your registry:
 
-* The `-h` parameter `gcr.io/my-project` is the composition of the registry
-  hostname and the project id. This should be customized.
-* The `-t` parameter `my-tag` is the desired tag. This should be customized.
+```shell
+make push
+```
 
-### Building the Istio manfiests
+### Building the Istio manifests
 
 Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
-to generate new manifests with the specified Mixer containers.
+to generate new manifests with mixer, pilot, and ca_cert custom built containers:
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -xgcr.io/my-project,my-tag
+install/updateVersion.sh -a${HUB},${TAG}
 ```
-
-where
-
-* `gcr.io/my-project` is equivalent to the `-h` parameter specified to
-  `publish-docker-images.sh`.
-* `my-tag` is equivalent to the `-t` parameter specified to
-  `publish-docker-images.sh`.
-* `-x` and `,` and the parameters are not delimited by a space.
 
 ### Cleaning outputs
 
@@ -303,7 +292,7 @@ make coverage
 
 ### Auto-formatting source code
 
-You can automatically format the source code and BUILD files to follow our conventions by going to the
+You can automatically format the source code to follow our conventions by going to the
 top of the repo and entering:
 
 ```shell
@@ -338,37 +327,9 @@ make racetest
 
 ### Adding dependencies
 
-It will occasionally be necessary to add a new external dependency to the system
-Dependencies are maintained in the [WORKSPACE](https://github.com/istio/istio/blob/master/WORKSPACE)
-file. To add a new dependency, please append to the bottom on the file. A dependency
-can be added manually, or via [wtool](https://github.com/bazelbuild/rules_go/blob/master/go/tools/wtool/main.go).
-
-All dependencies:
-- *MUST* be specified in terms of commit SHA (vs release tag).
-- *MUST* be annotated with the commit date and an explanation for the choice of
-commit. Annotations *MUST* follow the `commit` param as a comment field.
-- *SHOULD* be targeted at a commit that corresponds to a stable release of the
-library. If the library does not provide regular releases, etc., pulling from a
-known good recent commit is acceptable.
-
-Examples:
-
-```shell
-new_go_repository(
-    name = "org_golang_google_grpc",
-    commit = "708a7f9f3283aa2d4f6132d287d78683babe55c8", # Dec 5, 2016 (v1.0.5)
-    importpath = "google.golang.org/grpc",
-)
-```
-
-```shell
-git_repository(
-    name = "org_pubref_rules_protobuf",
-    commit = "b0acb9ecaba79716a36fdadc0bcc47dedf6b711a", # Nov 28 2016 (importmap support for gogo_proto_library)
-    remote = "https://github.com/pubref/rules_protobuf",
-)
-```
-
+It will occasionally be necessary to add a new external dependency to the
+system. Istio uses Go's [Dep](github.com/golang/dep) tool. To add a new
+dependency, run the `dep ensure` command to update the Gopkg.lock files.
 
 ### About testing
 
@@ -379,43 +340,7 @@ passed both unit and integration tests. We only merge pull requests when
 * Unit tests should be fully hermetic
   - Only access resources in the test binary.
 * All packages and any significant files require unit tests.
+* Unit tests are written using the standard Go testing package.
 * The preferred method of testing multiple scenarios or input is
   [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
 * Concurrent unit test runs must pass.
-
-
-## Collection of scripts and notes for developing Istio
-
-For local development (building from source and running the major components of the data path) on Ubuntu/raw VM:
-
-Assuming you did (once):
-1. [Install bazel](https://bazel.build/versions/master/docs/install-ubuntu.html), note that as of this writing Bazel needs the `openjdk-8-jdk` VM (you might need to uninstall or get out of the way the `ibm-java80-jdk` that comes by default with GCE for instance)
-2. Install required packages: `sudo apt-get install make openjdk-8-jdk libtool m4 autoconf uuid-dev cmake golang-go`
-3. Get the source trees
-   ```bash
-   mkdir github
-   cd github/
-   git clone https://github.com/istio/istio.git
-   git clone https://github.com/istio/proxy.git
-   ```
-4. You can then use
-   - [tools/update_all](tools/update_all) : script to build from source
-   - [tools/setup_run](tools/setup_run) : run locally
-   - [fortio](https://github.com/istio/fortio/) (φορτίο) : load testing and minimal echo http and grpc server
-   - And an unrelated tool to aggregate [GitHub Contributions](githubContrib/) statistics.
-5. And run things like
-   ```bash
-   # Test the echo server:
-   curl -v http://localhost:8080/
-   # Test through the proxy:
-   curl -v http://localhost:9090/echo
-   # Add a rule locally (simply drop the file or exercise the API:)
-   curl -v  http://localhost:9094/api/v1/scopes/global/subjects/foo.svc.cluster.local/rules --data-binary @quota.yaml -X PUT -H "Content-Type: application/yaml"
-   # Test under some load:
-   fortio load -qps 2000 http://localhost:9090/echo
-   ```
-   Note that this is done for you by [setup_run](tools/setup_run) but to use the correct go environment:
-   ```bash
-   cd istio/
-   source bin/use_bazel_go.sh
-   ```

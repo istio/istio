@@ -23,13 +23,24 @@
 # TODO: fork the repo to checkin artifacts, or find an alternative repo that has artifacts available.
 # This repo includes only istio-generated files.
 
+### BEGIN Mixer codegen deps
+
+required = [
+  "github.com/gogo/protobuf/proto",
+  "github.com/gogo/protobuf/jsonpb",
+  "github.com/gogo/protobuf/protoc-gen-gogoslick",
+  "github.com/gogo/protobuf/gogoproto",
+]
+
+### END Mixer codegen deps
+
 [[constraint]]
   name = "github.com/googleapis/googleapis"
   source = "https://github.com/costinm/googleapis.git"
 
 [[constraint]]
   name = "google.golang.org/grpc"
-  revision = "f92cdcd7dcdc69e81b2d7b338479a19a8723cfa3"
+  version = "^1.8.2" # match istio/api
 
 [[constraint]]
   name = "k8s.io/client-go"
@@ -59,17 +70,37 @@
   name = "github.com/russross/blackfriday"
   revision = "4048872b16cc0fc2c5fd9eacf0ed2c2fedaa0c8c"
 
+[[constraint]]
+  name = "code.cloudfoundry.org/copilot"
+  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+
 [[override]]
   name = "github.com/ugorji/go"
   revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
 
 [[override]]
- name = "github.com/openzipkin/zipkin-go-opentracing"
- revision = "75836a71be339e7faf1b6b775e0703a875f484de"
- source = "https://github.com/mandarjog/zipkin-go-opentracing.git"
+ name = "github.com/apache/thrift"
+ version = ">=0.9.3, <0.11.0"
+
+### DO NOT PIN these repos to master. It will result in inconsistent builds in circleci
+### as we cache dep ensure.
+[[constraint]]
+  name = "istio.io/api"
+  revision = "b08011c721e03edd61c721e4943607c97b7a9879"
+
+[[constraint]]
+  name = "istio.io/fortio"
+  revision = "6684bc54abfa793ee4beffe8b2a5b9ec83c782e3"
+
+
+### Begin Mixer codegen dep pinning
 
 [[override]]
-    revision = "d4df91709b724174aaf8a957f3edac3573be354e"
-    name = "github.com/apache/thrift"
+  name = "github.com/gogo/protobuf"
+  version = "=0.5"
 
+### End Mixer codegen dep pinning
 
+[[constraint]]
+  name = "github.com/open-policy-agent/opa"
+  version = "0.5.13"

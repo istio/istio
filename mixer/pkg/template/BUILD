@@ -9,11 +9,12 @@ go_library(
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
+        "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",
-        "@io_istio_api//:mixer/v1/template",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
+        "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
 
@@ -24,6 +25,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "@io_istio_api//:mixer/v1/config/descriptor",  # keep
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

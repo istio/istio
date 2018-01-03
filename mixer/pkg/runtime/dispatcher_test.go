@@ -17,16 +17,15 @@ package runtime
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -222,11 +221,57 @@ func TestQuota(t *testing.T) {
 }
 
 func TestPreprocess(t *testing.T) {
-	m := dispatcher{}
+	tname := "kube1"
+	gp := pool.NewGoroutinePool(1, true)
+	err1 := errors.New("internal error")
 
-	err := m.Preprocess(context.TODO(), nil, nil)
-	if err == nil {
-		t.Fatalf("not working yet")
+	mBag := attribute.GetMutableBag(nil)
+	mBag.Set("k1", "v1")
+
+	for _, s := range []struct {
+		name        string
+		tn          string
+		callErr     error
+		resolveErr  bool
+		ncalled     int
+		aBag        *attribute.MutableBag
+		emptyResult bool
+	}{
+		{name: "basic", tn: tname, ncalled: 6, aBag: mBag},
+		{name: "nilBagFromTmpl", tn: tname, ncalled: 6, aBag: nil},
+		{name: "errFromTmpl", tn: tname, callErr: err1},
+		{name: "resolverErr", tn: tname, callErr: err1, resolveErr: true},
+	} {
+		t.Run(fmt.Sprintf("%s", s.name), func(t *testing.T) {
+			fp := &fakeProc{
+				err:              s.callErr,
+				mutableBagResult: s.aBag,
+			}
+			var resolveErr error
+			if s.resolveErr {
+				resolveErr = s.callErr
+			}
+			rt := newFakeResolver(s.tn, resolveErr, s.emptyResult, fp)
+			m := newDispatcher(nil, rt, gp, DefaultIdentityAttribute)
+
+			rBag := attribute.GetMutableBag(nil)
+			err := m.Preprocess(context.Background(), attribute.GetMutableBag(nil), rBag)
+
+			checkError(t, s.callErr, err)
+
+			if s.callErr != nil {
+				return
+			}
+			if fp.called != s.ncalled {
+				t.Fatalf("got %v, want %v", fp.called, s.ncalled)
+			}
+			if s.ncalled == 0 {
+				return
+			}
+			if !reflect.DeepEqual(fp.mutableBagResult.Names(), rBag.Names()) {
+				t.Fatalf("got %v, want %v", rBag.Names(), fp.mutableBagResult.Names())
+			}
+		})
 	}
 }
 
@@ -285,12 +330,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName + "B",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName,
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -302,12 +347,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName,
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName + "B",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -319,12 +364,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName + "X",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName + "Y",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -341,18 +386,20 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 
 func newTemplate(name string, fproc *fakeProc) *template.Info {
 	return &template.Info{
-		Name:          name,
-		ProcessReport: fproc.ProcessReport,
-		ProcessCheck:  fproc.ProcessCheck,
-		ProcessQuota:  fproc.ProcessQuota,
+		Name:            name,
+		ProcessReport:   fproc.ProcessReport,
+		ProcessCheck:    fproc.ProcessCheck,
+		ProcessQuota:    fproc.ProcessQuota,
+		ProcessGenAttrs: fproc.ProcessGenAttrs,
 	}
 }
 
 type fakeProc struct {
-	called      int
-	err         error
-	checkResult adapter.CheckResult
-	quotaResult adapter.QuotaResult
+	called           int
+	err              error
+	checkResult      adapter.CheckResult
+	quotaResult      adapter.QuotaResult
+	mutableBagResult *attribute.MutableBag
 }
 
 func (f *fakeProc) ProcessReport(_ context.Context, _ map[string]proto.Message,
@@ -372,4 +419,8 @@ func (f *fakeProc) ProcessQuota(_ context.Context, _ string, _ proto.Message, _ 
 	return f.quotaResult, f.err
 }
 
-var _ = flag.Lookup("v").Value.Set("99")
+func (f *fakeProc) ProcessGenAttrs(ctx context.Context, instName string, instCfg proto.Message, attrs attribute.Bag,
+	mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
+	f.called++
+	return f.mutableBagResult, f.err
+}

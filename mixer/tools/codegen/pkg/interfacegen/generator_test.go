@@ -48,6 +48,9 @@ func TestGenerator_Generate(t *testing.T) {
 		{"Check", "testdata/check_proto.descriptor_set",
 			"testdata/CheckTmpl.go.golden",
 			"testdata/CheckTmpl.golden.proto"},
+		{"APA", "testdata/apa_proto.descriptor_set",
+			"testdata/ApaTmpl.go.golden",
+			"testdata/ApaTmpl.golden.proto"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {

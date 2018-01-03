@@ -16,22 +16,21 @@ package e2e
 
 import (
 	"context"
-	"io"
-	"log"
-	"os"
+	"strconv"
 	"testing"
+
+	"google.golang.org/grpc"
 
 	istio_mixer_v1 "istio.io/api/mixer/v1"
 	pb "istio.io/api/mixer/v1/config/descriptor"
-	"istio.io/istio/mixer/pkg/template"
+	testEnv "istio.io/istio/mixer/pkg/server"
 	spyAdapter "istio.io/istio/mixer/test/spyAdapter"
-	e2eTmpl "istio.io/istio/mixer/test/template"
-	reportTmpl "istio.io/istio/mixer/test/template/report"
-	testEnv "istio.io/istio/mixer/test/testenv"
+	e2eTmpl "istio.io/istio/mixer/test/spyAdapter/template"
+	reportTmpl "istio.io/istio/mixer/test/spyAdapter/template/report"
 )
 
 const (
-	globalCfg = `
+	reportGlobalCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
@@ -55,7 +54,7 @@ spec:
         value_type: INT64
 ---
 `
-	reportTestCfg = `
+	reportSvcCfg = `
 apiVersion: "config.istio.io/v1alpha2"
 kind: fakeHandler
 metadata:
@@ -83,7 +82,7 @@ metadata:
   name: rule1
   namespace: istio-system
 spec:
-  selector: target.name == "*"
+  selector: match(target.name, "*")
   actions:
   - handler: fakeHandlerConfig.fakeHandler
     instances:
@@ -93,27 +92,11 @@ spec:
 `
 )
 
-type testData struct {
-	name      string
-	cfg       string
-	behaviors []spyAdapter.AdapterBehavior
-	templates map[string]template.Info
-	attrs     map[string]interface{}
-	validate  func(t *testing.T, err error, sypAdpts []*spyAdapter.Adapter)
-}
-
-func closeHelper(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func TestReport(t *testing.T) {
 	tests := []testData{
 		{
 			name:      "Report",
-			cfg:       reportTestCfg,
+			cfg:       reportSvcCfg,
 			behaviors: []spyAdapter.AdapterBehavior{{Name: "fakeHandler"}},
 			templates: e2eTmpl.SupportedTmplInfo,
 			attrs:     map[string]interface{}{"target.name": "somesrvcname"},
@@ -142,49 +125,44 @@ func TestReport(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		configDir := GetCfgs(tt.cfg, globalCfg)
-		defer func() {
-			if !t.Failed() {
-				_ = os.RemoveAll(configDir)
-			} else {
-				t.Logf("The configs are located at %s", configDir)
+	for i, tt := range tests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
+
+			args := testEnv.NewArgs()
+			args.APIPort = 0
+			args.MonitoringPort = 0
+			args.Templates = e2eTmpl.SupportedTmplInfo
+			args.Adapters = adapterInfos
+			args.GlobalConfig = reportGlobalCfg
+			args.ServiceConfig = tt.cfg
+
+			env, err := testEnv.New(args)
+			if err != nil {
+				t.Fatalf("fail to create mixer: %v", err)
 			}
-		}() // nolint: gas
 
-		var args = testEnv.Args{
-			// Start Mixer server on a free port on loop back interface
-			MixerServerAddr:               `127.0.0.1:0`,
-			ConfigStoreURL:                `fs://` + configDir,
-			ConfigStore2URL:               `fs://` + configDir,
-			ConfigDefaultNamespace:        "istio-system",
-			ConfigIdentityAttribute:       "destination.service",
-			ConfigIdentityAttributeDomain: "svc.cluster.local",
-			UseAstEvaluator:               true,
-		}
+			env.Run()
 
-		adapterInfos, spyAdapters := ConstructAdapterInfos(tt.behaviors)
-		env, err := testEnv.NewEnv(&args, e2eTmpl.SupportedTmplInfo, adapterInfos)
-		if err != nil {
-			t.Fatalf("fail to create testenv: %v", err)
-		}
+			defer closeHelper(env)
 
-		defer closeHelper(env)
+			conn, err := grpc.Dial(env.Addr().String(), grpc.WithInsecure())
+			if err != nil {
+				t.Fatalf("Unable to connect to gRPC server: %v", err)
+			}
 
-		client, conn, err := env.CreateMixerClient()
-		if err != nil {
-			t.Fatalf("fail to create client connection: %v", err)
-		}
-		defer closeHelper(conn)
+			client := istio_mixer_v1.NewMixerClient(conn)
+			defer closeHelper(conn)
 
-		req := istio_mixer_v1.ReportRequest{
-			Attributes: []istio_mixer_v1.CompressedAttributes{
-				testEnv.GetAttrBag(tt.attrs,
-					args.ConfigIdentityAttribute,
-					args.ConfigIdentityAttributeDomain)},
-		}
-		_, err = client.Report(context.Background(), &req)
+			req := istio_mixer_v1.ReportRequest{
+				Attributes: []istio_mixer_v1.CompressedAttributes{
+					getAttrBag(tt.attrs,
+						args.ConfigIdentityAttribute,
+						args.ConfigIdentityAttributeDomain)},
+			}
+			_, err = client.Report(context.Background(), &req)
 
-		tt.validate(t, err, spyAdapters)
+			tt.validate(t, err, spyAdapters)
+		})
 	}
 }

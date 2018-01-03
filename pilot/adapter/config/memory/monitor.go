@@ -15,9 +15,11 @@
 package memory
 
 import (
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -47,8 +49,13 @@ type configstoreMonitor struct {
 	eventCh  chan ConfigEvent
 }
 
-// NewConfigStoreMonitor returns new Monitor implementation
-func NewConfigStoreMonitor(store model.ConfigStore) Monitor {
+// NewMonitor returns new Monitor implementation with a default event buffer size.
+func NewMonitor(store model.ConfigStore) Monitor {
+	return NewBufferedMonitor(store, BufferSize)
+}
+
+// NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
+func NewBufferedMonitor(store model.ConfigStore, bufferSize int) Monitor {
 	handlers := make(map[string][]Handler)
 
 	for _, typ := range store.ConfigDescriptor().Types() {
@@ -58,7 +65,7 @@ func NewConfigStoreMonitor(store model.ConfigStore) Monitor {
 	return &configstoreMonitor{
 		store:    store,
 		handlers: handlers,
-		eventCh:  make(chan ConfigEvent, BufferSize),
+		eventCh:  make(chan ConfigEvent, bufferSize),
 	}
 }
 
@@ -84,7 +91,7 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 
 func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 	if _, exists := m.handlers[ce.config.Type]; !exists {
-		glog.Warningf("Config Type %s does not exist in config store", ce.config.Type)
+		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
 		return
 	}
 	m.applyHandlers(ce.config, ce.event)

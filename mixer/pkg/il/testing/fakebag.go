@@ -14,28 +14,59 @@
 
 package ilt
 
-import "istio.io/istio/mixer/pkg/attribute"
+import (
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/il"
+)
 
-// FakeBag is a fake implementation of the Bag for testing purposes.
-type FakeBag struct {
+// NewFakeBag creates a fakebag and converts map[string]string to StringMap
+func NewFakeBag(attrs map[string]interface{}) attribute.Bag {
+	for k, v := range attrs {
+		if sm, ok := v.(map[string]string); ok {
+			attrs[k] = NewStringMap(k, sm)
+		}
+	}
+	return &fakeBag{Attrs: attrs}
+}
+
+// fakeBag is a fake implementation of the Bag for testing purposes.
+type fakeBag struct {
 	Attrs map[string]interface{}
 }
 
-var _ attribute.Bag = (*FakeBag)(nil)
+var _ attribute.Bag = (*fakeBag)(nil)
 
 // Get returns an attribute value.
-func (b *FakeBag) Get(name string) (interface{}, bool) {
+func (b *fakeBag) Get(name string) (interface{}, bool) {
 	c, found := b.Attrs[name]
 	return c, found
 }
 
 // Names return the names of all the attributes known to this bag.
-func (b *FakeBag) Names() []string {
+func (b *fakeBag) Names() []string {
 	return []string{}
 }
 
 // Done indicates the bag can be reclaimed.
-func (b *FakeBag) Done() {}
+func (b *fakeBag) Done() {}
 
 // DebugString is needed to implement the Bag interface.
-func (b *FakeBag) DebugString() string { return "" }
+func (b *fakeBag) DebugString() string { return "" }
+
+// NewStringMap creates an il.StringMap given map[string]string
+func NewStringMap(name string, entries map[string]string) il.StringMap {
+	return stringMap{Name: name, Entries: entries}
+}
+
+type stringMap struct {
+	// Name of the stringmap  -- request.headers
+	Name string
+	// Entries in the stringmap
+	Entries map[string]string
+}
+
+// Get returns a stringmap value and records access
+func (s stringMap) Get(key string) (string, bool) {
+	str, found := s.Entries[key]
+	return str, found
+}

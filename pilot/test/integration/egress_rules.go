@@ -21,8 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/log"
 )
 
 type egressRules struct {
@@ -66,48 +69,41 @@ func (t *egressRules) run() error {
 			},
 		},
 		{
-			description: "prohibit external traffic to cloud.google.com",
-			config:      "egress-rule-httpbin.yaml.tmpl",
+			description: "allow https external traffic to www.wikipedia.org by a tcp egress rule with cidr",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://cloud.google.com:443", false)
+				return t.verifyReachable("https://www.wikipedia.org", true)
 			},
 		},
 		{
-			description: "allow https external traffic to *google.com",
-			config:      "egress-rule-google.yaml.tmpl",
+			description: "prohibit http external traffic to cnn.com by a tcp egress rule",
+			config:      "egress-rule-tcp-wikipedia-cidr.yaml.tmpl",
 			check: func() error {
-				return t.verifyReachable("http://cloud.google.com:443", true)
-			},
-		},
-		{
-			description: "prohibit http external traffic to *google.com",
-			config:      "egress-rule-google.yaml.tmpl",
-			check: func() error {
-				return t.verifyReachable("http://cloud.google.com", false)
+				return t.verifyReachable("https://cnn.com", false)
 			},
 		},
 	}
 	var errs error
 	for _, cs := range cases {
-		log("Checking egressRules test", cs.description)
+		tlog("Checking egressRules test", cs.description)
 		if err := t.applyConfig(cs.config, nil); err != nil {
 			return err
 		}
 
 		if err := repeat(cs.check, 3, time.Second); err != nil {
-			glog.Infof("Failed the test with %v", err)
+			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
-			glog.Info("Success!")
+			log.Info("Success!")
 		}
 	}
 	return errs
 }
 
 func (t *egressRules) teardown() {
-	glog.Info("Cleaning up egress rules...")
+	log.Info("Cleaning up egress rules...")
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }
 

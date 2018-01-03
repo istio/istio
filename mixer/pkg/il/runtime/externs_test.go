@@ -22,7 +22,7 @@ import (
 )
 
 func TestExternIp(t *testing.T) {
-	b, err := externIp("1.2.3.4")
+	b, err := externIP("1.2.3.4")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -32,21 +32,21 @@ func TestExternIp(t *testing.T) {
 }
 
 func TestExternIp_Error(t *testing.T) {
-	_, err := externIp("A.A.A.A")
+	_, err := externIP("A.A.A.A")
 	if err == nil {
 		t.Fatalf("Expected error not found.")
 	}
 }
 
 func TestExternIpEqual_True(t *testing.T) {
-	b := externIpEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.4"))
 	if !b {
 		t.Fatal()
 	}
 }
 
 func TestExternIpEqual_False(t *testing.T) {
-	b := externIpEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
+	b := externIPEqual(net.ParseIP("1.2.3.4"), net.ParseIP("1.2.3.5"))
 	if b {
 		t.Fatal()
 	}
@@ -102,6 +102,70 @@ func TestExternMatch(t *testing.T) {
 	for _, c := range cases {
 		if externMatch(c.s, c.p) != c.e {
 			t.Fatalf("externMatch failure: %+v", c)
+		}
+	}
+}
+
+func TestExternMatches(t *testing.T) {
+	var cases = []struct {
+		p string
+		s string
+		e bool
+	}{
+		{"ns1\\.svc\\.local", "ns1.svc.local", true},
+		{"ns1.*", "ns1.svc.local", true},
+		{"ns2.*", "ns1.svc.local", false},
+	}
+
+	for _, c := range cases {
+		m, err := externMatches(c.p, c.s)
+		if err != nil {
+			t.Fatalf("Unexpected error: %+v, %v", c, err)
+			if m != c.e {
+				t.Fatalf("matches failure: %+v", c)
+			}
+		}
+	}
+}
+
+func TestExternStartsWith(t *testing.T) {
+	var cases = []struct {
+		s string
+		p string
+		e bool
+	}{
+		{"abc", "a", true},
+		{"abc", "", true},
+		{"abc", "abc", true},
+		{"abc", "abcd", false},
+		{"cba", "a", false},
+	}
+
+	for _, c := range cases {
+		m := externStartsWith(c.s, c.p)
+		if m != c.e {
+			t.Fatalf("startsWith failure: %+v", c)
+		}
+	}
+}
+
+func TestExternEndsWith(t *testing.T) {
+	var cases = []struct {
+		s string
+		u string
+		e bool
+	}{
+		{"abc", "c", true},
+		{"abc", "", true},
+		{"abc", "abc", true},
+		{"abc", "dabc", false},
+		{"cba", "c", false},
+	}
+
+	for _, c := range cases {
+		m := externEndsWith(c.s, c.u)
+		if m != c.e {
+			t.Fatalf("endsWith failure: %+v", c)
 		}
 	}
 }

@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 
-	proxyconfig "istio.io/api/proxy/v1/config"
+	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/proxy"
@@ -126,6 +126,9 @@ var (
 						},
 					},
 				},
+				{
+					Host: "host3.com",
+				},
 			},
 		},
 	}
@@ -221,12 +224,12 @@ func TestIngressController(t *testing.T) {
 		if !exists {
 			t.Errorf("expected IngressRule with key %v to exist", listMsg.Key())
 		} else {
-			listRule, ok := listMsg.Spec.(*proxyconfig.IngressRule)
+			listRule, ok := listMsg.Spec.(*routing.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", listMsg.Spec)
 			}
 
-			getRule, ok := getMsg.Spec.(*proxyconfig.IngressRule)
+			getRule, ok := getMsg.Spec.(*routing.IngressRule)
 			if !ok {
 				t.Errorf("expected IngressRule but got %v", getMsg)
 			}

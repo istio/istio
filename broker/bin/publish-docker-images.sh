@@ -43,8 +43,8 @@ IFS=',' read -ra HUBS <<< "${HUBS}"
 
 # Build Bazel based docker images
 for IMAGE in "${BAZEL_IMAGES[@]}"; do
-  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//docker:${IMAGE}"
-  docker tag "istio/docker:${IMAGE}" "${IMAGE}"
+  bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_ARGS} "//broker/docker:${IMAGE}"
+  docker tag "istio/broker/docker:${IMAGE}" "${IMAGE}"
   IMAGES+=("${IMAGE}")
 done
 

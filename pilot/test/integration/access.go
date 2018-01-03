@@ -19,10 +19,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 )
 
 // envoy access log testing utilities
@@ -56,13 +58,13 @@ func (a *accessLogs) add(app, id, desc string) {
 // check logs against a deployment
 func (a *accessLogs) check(infra *infra) error {
 	if !infra.checkLogs {
-		glog.Info("Log checking is disabled")
+		log.Info("Log checking is disabled")
 		return nil
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	glog.Info("Checking pod logs for request IDs...")
-	glog.V(3).Info(a.logs)
+	log.Info("Checking pod logs for request IDs...")
+	log.Debuga(a.logs)
 
 	funcs := make(map[string]func() status)
 	for app := range a.logs {
@@ -102,7 +104,7 @@ func (a *accessLogs) check(infra *infra) error {
 				for id, want := range counts {
 					got := strings.Count(logs, id)
 					if got < want {
-						glog.Errorf("Got %d for %s in logs of %s, want %d", got, id, pod, want)
+						log.Errorf("Got %d for %s in logs of %s, want %d", got, id, pod, want)
 						return errAgain
 					}
 				}

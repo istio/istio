@@ -25,13 +25,35 @@
         "vet",
         "vetshadow"
     ],
+    "severity": {
+        "aligncheck": "warn",
+        "deadcode": "error",
+        "errcheck": "error",
+        "gas": "error",
+        "goconst": "error",
+        "gofmt": "error",
+        "goimports": "error",
+        "golint": "error",
+        "ineffassign": "error",
+        "interfacer": "error",
+        "lll": "error",
+        "megacheck": "error",
+        "misspell": "error",
+        "structcheck": "error",
+        "unconvert": "error",
+        "varcheck": "error",
+        "vet": "error",
+        "vetshadow": "error"
+    },
     "exclude": [
         "vendor",
+	"../vendor",
         ".pb.go",
+	"mock_*",
+        "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
         "should have a package comment",
-        ".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON",
         "genfiles"
     ]
 }

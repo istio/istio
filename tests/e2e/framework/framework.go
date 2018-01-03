@@ -19,12 +19,16 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
-	"github.com/golang/glog"
+	"istio.io/istio/pkg/log"
 )
 
 var (
 	skipCleanup = flag.Bool("skip_cleanup", false, "Debug, skip clean up")
+	// TestVM is true if in this test run user wants to test VM on istio
+	TestVM = flag.Bool("test_vm", false, "whether to test VM on istio")
 )
 
 type testCleanup struct {
@@ -56,18 +60,27 @@ type runnable interface {
 	Run() int
 }
 
-// InitGlog sets the logging directory.
+// InitLogging sets the logging directory.
 // Should be called right after flag.Parse().
-func InitGlog() error {
+func InitLogging() error {
+	// Create a temporary directory for any logging files.
 	tmpDir, err := ioutil.TempDir(os.TempDir(), tmpPrefix)
 	if err != nil {
 		return err
 	}
-	f := flag.Lookup("log_dir")
-	if err = f.Value.Set(tmpDir); err != nil {
+
+	// Configure Istio logging to use a file under the temp dir.
+	o := log.NewOptions()
+	tmpLogFile, err := ioutil.TempFile(tmpDir, tmpPrefix)
+	if err != nil {
 		return err
 	}
-	glog.Info("Logging initialized")
+	o.OutputPaths = []string{tmpLogFile.Name()}
+	if err := log.Configure(o); err != nil {
+		return err
+	}
+
+	log.Info("Logging initialized")
 	return nil
 }
 
@@ -77,7 +90,7 @@ func NewCommonConfig(testID string) (*CommonConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := newKubeInfo(t.LogsPath, t.RunID)
+	k, err := newKubeInfo(t.TempDir, t.RunID)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +145,7 @@ func (t *testCleanup) popCleanupAction() func() error {
 
 func (t *testCleanup) init() error {
 	// Run setup on all cleanable
-	glog.Info("Starting Initialization")
+	log.Info("Starting Initialization")
 	c := t.popCleanable()
 	for c != nil {
 		err := c.Setup()
@@ -142,45 +155,45 @@ func (t *testCleanup) init() error {
 		}
 		c = t.popCleanable()
 	}
-	glog.Info("Initialization complete")
+	log.Info("Initialization complete")
 	return nil
 }
 
 func (t *testCleanup) cleanup() {
 	if t.skipCleanup {
-		glog.Info("Dev mode (--skip_cleanup), skipping cleanup (removal of namespace/install)")
+		log.Info("Dev mode (--skip_cleanup), skipping cleanup (removal of namespace/install)")
 		return
 	}
 	// Run tear down on all cleanable
-	glog.Info("Starting Cleanup")
+	log.Info("Starting Cleanup")
 	fn := t.popCleanupAction()
 	for fn != nil {
 		if err := fn(); err != nil {
-			glog.Errorf("Failed to cleanup. Error %s", err)
+			log.Errorf("Failed to cleanup. Error %s", err)
 		}
 		fn = t.popCleanupAction()
 	}
-	glog.Info("Cleanup complete")
+	log.Info("Cleanup complete")
 }
 
 // Save test logs to tmp dir
-// Fetch and save cluster tracing logs if logProvider specified
+// Fetch and save cluster pod logs using kuebctl
 // Logs are uploaded during test tear down
 func (c *CommonConfig) saveLogs(r int) error {
 	if c.Cleanup.skipCleanup {
-		glog.Info("Dev mode (--skip_cleanup), skipping log fetching")
+		log.Info("Dev mode (--skip_cleanup), skipping log fetching")
 		return nil
 	}
 	if c.Info == nil {
-		glog.Warning("Skipping log saving as Info is not initialized")
+		log.Warn("Skipping log saving as Info is not initialized")
 		return nil
 	}
 	if c.Info.LogBucketPath == "" {
 		return nil
 	}
-	glog.Info("Saving logs")
+	log.Info("Saving logs")
 	if err := c.Info.Update(r); err != nil {
-		glog.Errorf("Could not create status file. Error %s", err)
+		log.Errorf("Could not create status file. Error %s", err)
 		return err
 	}
 	return c.Info.FetchAndSaveClusterLogs(c.Kube.Namespace)
@@ -192,14 +205,14 @@ func (c *CommonConfig) saveLogs(r int) error {
 func (c *CommonConfig) RunTest(m runnable) int {
 	var ret int
 	if err := c.Cleanup.init(); err != nil {
-		glog.Errorf("Failed to complete Init. Error %s", err)
+		log.Errorf("Failed to complete Init. Error %s", err)
 		ret = 1
 	} else {
-		glog.Info("Running test")
+		log.Info("Running test")
 		ret = m.Run()
 	}
 	if err := c.saveLogs(ret); err != nil {
-		glog.Warningf("Log saving incomplete: %v", err)
+		log.Warnf("Log saving incomplete: %v", err)
 	}
 	c.Cleanup.cleanup()
 	return ret

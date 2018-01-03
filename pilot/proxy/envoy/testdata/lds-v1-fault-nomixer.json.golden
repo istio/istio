@@ -8,47 +8,6 @@
     "use_original_dst": true
    },
    {
-    "address": "tcp://0.0.0.0:443",
-    "name": "http_0.0.0.0_443",
-    "filters": [
-     {
-      "type": "read",
-      "name": "http_connection_manager",
-      "config": {
-       "codec_type": "auto",
-       "stat_prefix": "http",
-       "generate_request_id": true,
-       "tracing": {
-        "operation_name": "egress"
-       },
-       "rds": {
-        "cluster": "rds",
-        "route_config_name": "443",
-        "refresh_delay_ms": 10
-       },
-       "filters": [
-        {
-         "type": "",
-         "name": "cors",
-         "config": {}
-        },
-        {
-         "type": "decoder",
-         "name": "router",
-         "config": {}
-        }
-       ],
-       "access_log": [
-        {
-         "path": "/dev/stdout"
-        }
-       ]
-      }
-     }
-    ],
-    "bind_to_port": false
-   },
-   {
     "address": "tcp://0.0.0.0:80",
     "name": "http_0.0.0.0_80",
     "filters": [
@@ -163,17 +122,23 @@
    },
    {
     "address": "tcp://10.1.0.0:110",
-    "name": "redis_10.1.0.0_110",
+    "name": "tcp_10.1.0.0_110",
     "filters": [
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "out.hello.default.svc.cluster.local|redis",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.hello.default.svc.cluster.local|redis",
+          "destination_ip_list": [
+           "10.1.0.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],
@@ -228,6 +193,7 @@
            {
             "prefix": "/",
             "cluster": "in.1081",
+            "timeout_ms": 0,
             "decorator": {
              "operation": "default-route"
             }
@@ -315,17 +281,23 @@
    },
    {
     "address": "tcp://10.1.1.1:1110",
-    "name": "redis_10.1.1.1_1110",
+    "name": "tcp_10.1.1.1_1110",
     "filters": [
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "in.1110",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "in.1110",
+          "destination_ip_list": [
+           "10.1.1.1/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],
@@ -380,6 +352,7 @@
            {
             "prefix": "/",
             "cluster": "in.80",
+            "timeout_ms": 0,
             "decorator": {
              "operation": "default-route"
             }
@@ -467,17 +440,23 @@
    },
    {
     "address": "tcp://10.2.0.0:110",
-    "name": "redis_10.2.0.0_110",
+    "name": "tcp_10.2.0.0_110",
     "filters": [
      {
-      "type": "both",
-      "name": "redis_proxy",
+      "type": "read",
+      "name": "tcp_proxy",
       "config": {
-       "cluster_name": "out.world.default.svc.cluster.local|redis",
-       "conn_pool": {
-        "op_timeout_ms": 30000
-       },
-       "stat_prefix": "redis"
+       "stat_prefix": "tcp",
+       "route_config": {
+        "routes": [
+         {
+          "cluster": "out.world.default.svc.cluster.local|redis",
+          "destination_ip_list": [
+           "10.2.0.0/32"
+          ]
+         }
+        ]
+       }
       }
      }
     ],

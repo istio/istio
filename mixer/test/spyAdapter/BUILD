@@ -7,7 +7,8 @@ go_library(
     srcs = ["spyadapter.go"],
     deps = [
         "//mixer/pkg/adapter:go_default_library",
-        "//mixer/test/template/report:go_default_library",
+        "//mixer/test/spyAdapter/template/apa:go_default_library",
+        "//mixer/test/spyAdapter/template/report:go_default_library",
         "@com_github_gogo_protobuf//types:go_default_library",
     ],
 )

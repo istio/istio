@@ -505,13 +505,13 @@ inventory_library(
    packages = {
        # list of all adapters
        # "friendlyName" : "go_import_path"
-       "svcctrl": "istio.io/istio/mixer/adapter/svcctrl",
+       "servicecontrol": "istio.io/istio/mixer/adapter/servicecontrol",
        ...
        <b>"mysampleadapter": "istio.io/istio/mixer/adapter/mysampleadapter",</b>
    },
    deps = [
        # list of all go_default_library rule for adapters.
-       "//mixer/adapter/svcctrl:go_default_library",
+       "//mixer/adapter/servicecontrol:go_default_library",
        ...
        <b>"//mixer/adapter/mysampleadapter:go_default_library",</b>
    ],
@@ -593,7 +593,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/server/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig --configStoreURL=fs://$MIXER_REPO
+cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/mixs/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
@@ -622,7 +622,7 @@ cd $MIXER_REPO && bazel build ...
 Invoke report
 
 ```bash
-../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local"
+../bazel-bin/mixer/cmd/mixc/mixc report -s="destination.service=svc.cluster.local"
 ```
 
 
@@ -646,7 +646,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-../bazel-bin/mixer/cmd/client/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+../bazel-bin/mixer/cmd/mixc/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
@@ -678,7 +678,7 @@ import (
 
 	mixerapi "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/test/testenv"
+	"istio.io/istio/mixer/pkg/mock"
 	"istio.io/istio/mixer/template"
 	"path/filepath"
 )
@@ -689,7 +689,7 @@ func TestMySampleAdapter(t *testing.T) {
 		t.Fatalf("fail to get absolute path for sampleoperatorconfig: %v", err)
 	}
 
-	var args = testenv.Args{
+	var args = mock.Args{
 		// Start Mixer server on a free port on loop back interface
 		MixerServerAddr:               `127.0.0.1:0`,
 		ConfigStoreURL:                `fs://` + operatorCnfg,
@@ -699,20 +699,20 @@ func TestMySampleAdapter(t *testing.T) {
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
 	}
 
-	env, err := testenv.NewEnv(&args, template.SupportedTmplInfo, []adapter.InfoFn{GetInfo})
+	s, err := mock.NewServer(&args, template.SupportedTmplInfo, []adapter.InfoFn{GetInfo})
 	if err != nil {
 		t.Fatalf("fail to create testenv: %v", err)
 	}
-	defer closeHelper(env)
+	defer closeHelper(s)
 
-	client, conn, err := env.CreateMixerClient()
+	client, conn, err := s.CreateClient()
 	if err != nil {
 		t.Fatalf("fail to create client connection: %v", err)
 	}
 	defer closeHelper(conn)
 
 	attrs := map[string]interface{}{"response.code": int64(400)}
-	bag := testenv.GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
+	bag := mock.GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
 	request := mixerapi.ReportRequest{Attributes: []mixerapi.Attributes{ bag}}
 	_, err = client.Report(context.Background(), &request)
 	if err != nil {
@@ -765,9 +765,9 @@ go_test(
     deps = [
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/template:go_default_library",
-        "//mixer/test/testenv:go_default_library",
+        "//mixer/pkg/mock:go_default_library",
         "//mixer/template:go_default_library",
-        "@io_istio_api//:mixer/v1",  # keep
+        "@io_istio_api//mixer/v1:go_default_library",  # keep
         "@org_golang_x_net//context:go_default_library",
     ],
 )

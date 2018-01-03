@@ -6,20 +6,18 @@ go_library(
     name = "go_default_library",
     srcs = [
         "convert.go",
-        "fsstore.go",
         "fsstore2.go",
         "memstore.go",
         "queue.go",
-        "store.go",
         "store2.go",
-        "testutil.go",
+        "validator.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//jsonpb:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
     ],
 )
 
@@ -29,10 +27,9 @@ go_test(
     srcs = [
         "convert_test.go",
         "fsstore2_test.go",
-        "fsstore_test.go",
         "queue_test.go",
         "store2_test.go",
-        "store_test.go",
+        "validator_test.go",
     ],
     library = ":go_default_library",
     deps = [

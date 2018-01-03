@@ -1,8 +1,8 @@
-# dummy line 3 - circli cache is keyed off the checksum of the top level WORKSPACE file -
+# dummy line 6 - circli cache is keyed off the checksum of the top level WORKSPACE file -
 
 workspace(name = "io_istio_istio")
 
-load("//mixer:check_bazel_version.bzl", "check_version")
+load("//:check_bazel_version.bzl", "check_version")
 
 check_version()
 
@@ -75,6 +75,18 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_google_go_github",
+    commit = "fbfee053c26dab3772adfc7799d995eed379133e",  # Dec 2, 2017 (no releases)
+    importpath = "github.com/google/go-github",
+)
+
+go_repository(
+    name = "com_github_google_go_querystring",
+    commit = "53e6ce116135b80d037921a7fdd5138cf32d7a8a",  # Jan 11, 2017 (no releases)
+    importpath = "github.com/google/go-querystring",
+)
+
+go_repository(
     name = "com_github_hashicorp_errwrap",
     commit = "7554cd9344cec97297fa6649b055a8c98c2a1e55",  # Oct 27, 2014 (no releases)
     importpath = "github.com/hashicorp/errwrap",
@@ -93,9 +105,45 @@ go_repository(
     importpath = "github.com/opentracing/basictracer-go",
 )
 
-load("//mixer:x_tools_imports.bzl", "go_x_tools_imports_repositories")
-load("//mixer:googleapis.bzl", "go_googleapis_repositories")
-load("//mixer:istio_api.bzl", "go_istio_api_repositories")
+go_repository(
+    name = "com_github_circonuslabs_circonus_gometrics",
+    commit = "b25d14eeef390159289ad3e8521eff3162c59685",  # Oct 19, 2017
+    importpath = "github.com/circonus-labs/circonus-gometrics",
+)
+
+go_repository(
+    name = "com_github_tv42_httpunix",
+    commit = "b75d8614f926c077e48d85f1f8f7885b758c6225",  # Apr 26, 2015
+    importpath = "github.com/tv42/httpunix",
+)
+
+go_repository(
+    name = "com_github_circonus_labs_circonusllhist",
+    commit = "6e85b9352cf0c2bb969831347491388bb3ae9c69",  # May 25, 2017
+    importpath = "github.com/circonus-labs/circonusllhist",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "f15c970de5b76fac0b59abb32d62c17cc7bed265",  # Oct 18, 2017
+    importpath = "github.com/pkg/errors",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_retryablehttp",
+    commit = "794af36148bf63c118d6db80eb902a136b907e71",  # Aug 24, 2017
+    importpath = "github.com/hashicorp/go-retryablehttp",
+)
+
+go_repository(
+    name = "com_github_hashicorp_go_cleanhttp",
+    commit = "3573b8b52aa7b37b9358d966a898feb387f62437",  # Feb 10, 2017
+    importpath = "github.com/hashicorp/go-cleanhttp",
+)
+
+load("//:x_tools_imports.bzl", "go_x_tools_imports_repositories")
+load("//:googleapis.bzl", "go_googleapis_repositories")
+load("//:istio_api.bzl", "go_istio_api_repositories")
 
 go_x_tools_imports_repositories()
 
@@ -295,12 +343,6 @@ go_repository(
 )
 
 go_repository(
-    name = "org_golang_x_oauth2",
-    commit = "3c3a985cb79f52a3190fbc056984415ca6763d01",  # Aug 26, 2016 (no releases)
-    importpath = "golang.org/x/oauth2",
-)
-
-go_repository(
     name = "com_github_juju_ratelimit",
     commit = "5b9ff866471762aa2ab2dced63c9fb6f53921342",  # May 23, 2017 (no releases)
     importpath = "github.com/juju/ratelimit",
@@ -416,7 +458,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_google_api",
-    commit = "1faa39f42f12a54fa82ca5902a7ab642d5b09ad1",  # Jun 5, 2017 (no releases)
+    commit = "406e6cffe51212e465c56554f243c115595e135a",  # Oct 3, 2017 (no release)
     importpath = "google.golang.org/api",
 )
 
@@ -451,18 +493,9 @@ go_repository(
 )
 
 go_repository(
-    name = "com_github_openzipkin_zipkin_go_opentracing",
-    build_file_proto_mode = "legacy",
-    commit = "75836a71be339e7faf1b6b775e0703a875f484de",  # Oct 26, 2017 (fixes goroutine proliferation)
-    importpath = "github.com/openzipkin/zipkin-go-opentracing",
-    remote = "https://github.com/mandarjog/zipkin-go-opentracing",
-    vcs = "git",
-)
-
-go_repository(
     name = "com_github_apache_thrift",
     build_file_name = "BUILD.bazel",
-    commit = "d4df91709b724174aaf8a957f3edac3573be354e",  # Oct 26, 2017 (HEAD) required by openzipkin dependency.
+    commit = "b2a4d4ae21c789b689dd162deb819665567f481c",  # Pinned to 0.10.0 Release until jaeger libraries can update
     importpath = "github.com/apache/thrift",
 )
 
@@ -536,6 +569,30 @@ go_repository(
     name = "com_github_stretchr_testify",
     commit = "69483b4bd14f5845b5a1e55bca19e954e827f1d0",  # September 24, 2016 (1.1.4)
     importpath = "github.com/stretchr/testify",
+)
+
+go_repository(
+    name = "org_golang_x_sync",
+    commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
+    importpath = "golang.org/x/sync",
+)
+
+go_repository(
+    name = "com_github_open_policy_agent_opa",
+    commit = "4b934006914c7964e89563d54bbfc63167922aa0",  # Dec 7, 2017 (0.5.13)
+    importpath = "github.com/open-policy-agent/opa",
+)
+
+go_repository(
+    name = "com_github_dchest_siphash",
+    commit = "4ebf1de738443ea7f45f02dc394c4df1942a126d",  # Aug 31, 2016 (no releases)
+    importpath = "github.com/dchest/siphash",
+)
+
+go_repository(
+    name = "com_github_pkg_errors",
+    commit = "c605e284fe17294bda444b34710735b29d1a9d90",  # May 4, 2017 (no releases)
+    importpath = "github.com/pkg/errors",
 )
 
 go_repository(
@@ -681,6 +738,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_natefinch_lumberjack",
+    commit = "aee4629129445bbdfb69aa565537dcfa16544311",
+    importpath = "github.com/natefinch/lumberjack",
+)
+
+go_repository(
     name = "com_github_go_openapi_jsonpointer",
     commit = "46af16f9f7b149af66e5d1bd010e3574dc06de98",
     importpath = "github.com/go-openapi/jsonpointer",
@@ -704,11 +767,13 @@ go_repository(
     importpath = "github.com/go-openapi/swag",
 )
 
-go_repository(
-    name = "com_github_gogo_protobuf",
-    commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-    importpath = "github.com/gogo/protobuf",
-)
+# gogo/protobuf dependency is described in mixer/adapter_author_deps.bzl.
+# This is not necessary.
+# go_repository(
+#     name = "com_github_gogo_protobuf",
+#     commit = "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
+#     importpath = "github.com/gogo/protobuf",
+# )
 
 go_repository(
     name = "com_github_golang_glog",
@@ -814,7 +879,7 @@ go_repository(
 
 go_repository(
     name = "org_golang_x_oauth2",
-    commit = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4",
+    commit = "9a379c6b3e95a790ffc43293c2a78dee0d7b6e20",  # Aug 7, 2017 (no releases)
     importpath = "golang.org/x/oauth2",
 )
 
@@ -1051,9 +1116,9 @@ go_repository(
 ## Proxy image
 ##
 
-# Change this and the docker/Dockerfile.proxy* files together
+# Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "a05c813aa01b8eed00d1698f5daba3f468b0a293"
+ISTIO_PROXY_BUCKET = "699d147c65359664b2c4717fdde20bfe26c19079"
 
 http_file(
     name = "envoy_binary",
@@ -1076,16 +1141,11 @@ go_repository(
 
 git_repository(
     name = "com_github_istio_test_infra",
-    commit = "67e73ad01f9d1074a7d787a91201d41938ad4310",  # Aug 25, 2017
+    commit = "470646bb988771c3bac655b1acf9aa70d68db5e4",  # Dec 5, 2017
     remote = "https://github.com/istio/test-infra.git",
 )
 
 ## auth deps
-go_repository(
-    name = "com_github_aws_aws-sdk-go",
-    importpath = "github.com/aws/aws-sdk-go",
-    tag = "v1.12.5",
-)
 
 go_repository(
     name = "com_github_go_ini_ini",
@@ -1149,4 +1209,54 @@ go_repository(
     name = "com_github_gorilla_context",
     commit = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",  # Aug 17, 2016
     importpath = "github.com/gorilla/context",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_client_go",
+    commit = "ffe98ab2252526eee5389b09328d6433024625f6",
+    importpath = "github.com/uber/jaeger-client-go",
+)
+
+go_repository(
+    name = "com_github_uber_jaeger_lib",
+    commit = "bc381f836083a0f7d5778d4216022388c4aeaf46",
+    importpath = "github.com/uber/jaeger-lib",
+)
+
+go_repository(
+    name = "com_github_codahale_hdrhistogram",
+    commit = "3a0bb77429bd3a61596f5e8a3172445844342120",
+    importpath = "github.com/codahale/hdrhistogram",
+)
+
+go_repository(
+    name = "org_cloudfoundry_code_copilot",
+    commit = "03646eb993243c330f30e3053523da4e8c0850ab",
+    importpath = "code.cloudfoundry.org/copilot",
+)
+
+go_repository(
+    name = "com_github_onsi_ginkgo",
+    commit = "cb73bd0f14eb8d91a9801647edbebe6ddb5b4cb4",
+    importpath = "github.com/onsi/ginkgo",
+)
+
+go_repository(
+    name = "com_github_onsi_gomega",
+    commit = "c1fb6682134d162f37c13f42e7157653a7de7d2b",
+    importpath = "github.com/onsi/gomega",
+)
+
+go_repository(
+    name = "in_gopkg_validator_v2",
+    commit = "460c83432a98c35224a6fe352acf8b23e067ad06",
+    importpath = "gopkg.in/validator.v2",
+)
+
+go_repository(
+    name = "com_github_square_certstrap",
+    commit = "ae69f1c8301cc4d140d281998e9cac1c9df78c61",
+    importpath = "github.com/square/certstrap",
+    remote = "https://github.com/cf-routing/certstrap",
+    vcs = "git",
 )
