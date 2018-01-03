@@ -238,24 +238,24 @@ go-test: pilot-test mixer-test security-test broker-test
 # Target: Code coverage ( go )
 #-----------------------------------------------------------------------------
 
-.PHONY: pilot-cov
-pilot-cov:
+.PHONY: pilot-coverage
+pilot-coverage:
 	bin/parallel-codecov.sh pilot
 
-.PHONY: mixer-cov
-mixer-cov:
+.PHONY: mixer-coverage
+mixer-coverage:
 	bin/parallel-codecov.sh mixer
 
-.PHONY: broker-cov
-broker-cov:
+.PHONY: broker-coverage
+broker-coverage:
 	bin/parallel-codecov.sh broker
 
-.PHONY: security-cov
-security-cov:
+.PHONY: security-coverage
+security-coverage:
 	bin/parallel-codecov.sh security
 
 # Run coverage tests
-cov: pilot-cov mixer-cov security-cov broker-cov
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 
 
 #-----------------------------------------------------------------------------
