@@ -60,18 +60,16 @@ func (gp *GoroutinePool) Close() error {
 // By making use of the supplied parameter, it is possible to avoid allocation costs when scheduling the
 // work function. The caller needs to make sure that function fn only depends on external data through the
 // passed in param interface{} and nothing else.
+//
+// A way to ensure this condition is met, is by passing ScheduleWork a normal named function rather than an
+// inline anonymous function. It's easy for code in an anonymous function to have (or gain) an accidental
+// reference that causes a closure to silently be created.
 func (gp *GoroutinePool) ScheduleWork(fn WorkFunc, param interface{}) {
 	if gp.singleThreaded {
 		fn(param)
 	} else {
 		gp.queue <- work{fn: fn, param: param}
 	}
-}
-
-// runParameterlessFn takes a parameterless fn as a parameter and runs it.
-func runParameterlessFn(param interface{}) {
-	fn := param.(func())
-	fn()
 }
 
 // AddWorkers introduces more goroutines in the worker pool, increasing potential parallelism.
