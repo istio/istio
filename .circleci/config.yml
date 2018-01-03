@@ -225,7 +225,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make depend
+      - run: make vendor/github.com
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:

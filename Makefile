@@ -114,14 +114,16 @@ depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
 	
-# Re-create the vendor directory, if it doesn't exist, using the checked in lock file
-depend.vendor: vendor
+# Re-create the vendor directory - used for cached vendor (in circleci), where
+# Gopkg.lock will be more recent due to checkout.
+vendor/github.com:
 	$(Q) dep ensure -vendor-only
 
 vendor: vendor/Gopkg.lock; $(info $(H) Updating vendor directory)
 
 # Update vendor and vendor/gopkg.lock if the lock file is changed
 vendor/Gopkg.lock: Gopkg.lock
+	ls -l Gopkg.lock vendor/Gopkg.lock
 	time ${GOPATH}/bin/dep ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 
