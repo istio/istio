@@ -18,12 +18,9 @@ import (
 	"sync"
 )
 
-// WorkFunc represents a function to invoke from a worker.
-type WorkFunc func()
-
-// WorkFuncWithParam represents a function to invoke from a worker. The parameter is passed on the side
+// WorkFunc represents a function to invoke from a worker. The parameter is passed on the side
 // to avoid creating closures and allocating.
-type WorkFuncWithParam func(param interface{})
+type WorkFunc func(param interface{})
 
 // GoroutinePool represents a set of reusable goroutines onto which work can be scheduled.
 type GoroutinePool struct {
@@ -33,9 +30,8 @@ type GoroutinePool struct {
 }
 
 type work struct {
-	fn          WorkFunc
-	fnWithParam WorkFuncWithParam
-	param       interface{}
+	fn    WorkFunc
+	param interface{}
 }
 
 // NewGoroutinePool creates a new pool of goroutines to schedule async work.
@@ -59,21 +55,27 @@ func (gp *GoroutinePool) Close() error {
 }
 
 // ScheduleWork registers the given function to be executed at some point
-func (gp *GoroutinePool) ScheduleWork(fn WorkFunc) {
+func (gp *GoroutinePool) ScheduleWork(fn func()) {
 	if gp.singleThreaded {
 		fn()
 	} else {
-		gp.queue <- work{fn: fn}
+		gp.queue <- work{fn: runParameterlessFn, param: fn}
 	}
+}
+
+// runParameterlessFn takes a parameterless fn as a parameter and runs it.
+func runParameterlessFn(param interface{}) {
+	fn := param.(func())
+	fn()
 }
 
 // ScheduleWorkWithParam registers the given function to be executed at some point. The given param will
 // be supplied to the function during execution.
-func (gp *GoroutinePool) ScheduleWorkWithParam(fn WorkFuncWithParam, param interface{}) {
+func (gp *GoroutinePool) ScheduleWorkWithParam(fn WorkFunc, param interface{}) {
 	if gp.singleThreaded {
 		fn(param)
 	} else {
-		gp.queue <- work{fnWithParam: fn, param: param}
+		gp.queue <- work{fn: fn, param: param}
 	}
 }
 
@@ -84,11 +86,7 @@ func (gp *GoroutinePool) AddWorkers(numWorkers int) {
 		for i := 0; i < numWorkers; i++ {
 			go func() {
 				for work := range gp.queue {
-					if work.fn != nil {
-						work.fn()
-					} else {
-						work.fnWithParam(work.param)
-					}
+					work.fn(work.param)
 				}
 
 				gp.wg.Done()
