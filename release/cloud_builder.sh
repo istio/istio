@@ -103,6 +103,9 @@ popd
 # doesn't help when the user doesn't have one.
 touch pilot/platform/kube/config
 
+# pull in outside dependencies
+make depend
+
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
