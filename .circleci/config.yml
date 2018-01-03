@@ -142,6 +142,10 @@ jobs:
               sleep 2
             done
       - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run:  make sidecar.deb
+      - store_artifacts:
+          path: /go/out/istio-sidecar.deb
+
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -304,15 +308,12 @@ jobs:
             go get github.com/jstemmer/go-junit-report
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             make localTestEnv go-test KUBECONFIG=/go/src/istio.io/istio/.circleci/config T=-v | tee /go/out/tests/go-test-report.out
-      - run:  make sidecar.deb
       - store_artifacts:
           path: /go/bin
       - store_artifacts:
           path: /go/out
       - store_test_results:
           path: /go/out/tests
-      - store_artifacts:
-          path: /go/out/istio-sidecar.deb
 
   build:
     <<: *defaults
