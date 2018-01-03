@@ -26,7 +26,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	"go.uber.org/zap/zapcore"
 
 	dpb "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
@@ -391,6 +390,6 @@ logs:
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.NewOptions()
-	o.SetOutputLevel(zapcore.DebugLevel)
+	o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 }
