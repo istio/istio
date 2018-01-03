@@ -204,7 +204,7 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run:  make depend.update
+      - run:  make depend.update init
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
@@ -213,11 +213,11 @@ jobs:
       - run:
           name: Status and artifacts
           command: |
-            mkdir -p ${GOPATH}/out
+            mkdir -p $/go/out
             make depend.status
-            tar cfz ${GOPATH}/out/istio-vendor.tgz vendor
+            tar cfz /go/out/istio-vendor.tgz vendor
       - store_artifacts:
-          path: ${GOPATH}/out/istio-vendor.tgz
+          path: /go/out/istio-vendor.tgz
       - store_artifacts:
           path: vendor/Gopkg.lock
       - store_artifacts:
@@ -231,11 +231,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          command: |
-            if [ ! -d vendor/github.com ] ; then
-              make vendor
-            fi
+      - run: make init
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
