@@ -4,11 +4,18 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
 
+if [ ! -e $ROOT/Gopkg.lock ]; then
+  echo "Please run 'dep ensure' first"
+  exit 1
+fi
+
+GOGO_VERSION=$(grep -A 4 "gogo/protobuf" $ROOT/Gopkg.lock | grep version | sed -e 's/^[^\"]*\"//g' -e 's/\"//g')
+
 set -e
 
 outdir=$ROOT
 file=$ROOT
-protoc="protoc-min-version -version=3.5.0"
+protoc="$ROOT/bin/protoc-min-version-$GOGO_VERSION -version=3.5.0"
 optimport=$ROOT
 
 while getopts 'f:o:p:i:' flag; do
@@ -33,12 +40,10 @@ GOGOPROTO_PATH=vendor/github.com/gogo/protobuf
 GOGOSLICK=protoc-gen-gogoslick
 GOGOSLICK_PATH=$ROOT/$GOGOPROTO_PATH/$GOGOSLICK
 
-if [ ! -e $ROOT/bin/$GOGOSLICK ]; then
+if [ ! -e $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ]; then
 echo "Building protoc-gen-gogoslick..."
 pushd $ROOT
-set -x
-go build --pkgdir $GOGOSLICK_PATH -o $ROOT/bin/$GOGOSLICK ./$GOGOPROTO_PATH/$GOGOSLICK
-set +x
+go build --pkgdir $GOGOSLICK_PATH -o $ROOT/bin/$GOGOSLICK-$GOGO_VERSION ./$GOGOPROTO_PATH/$GOGOSLICK
 popd
 echo "Done."
 fi
@@ -46,10 +51,10 @@ fi
 PROTOC_MIN_VERSION=protoc-min-version
 MIN_VERSION_PATH=$ROOT/$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 
-if [ ! -e $ROOT/bin/$PROTOC_MIN_VERSION ]; then
+if [ ! -e $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ]; then
 echo "Building protoc-min-version..."
 pushd $ROOT
-go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
+go build --pkgdir $MIN_VERSION_PATH -o $ROOT/bin/$PROTOC_MIN_VERSION-$GOGO_VERSION ./$GOGOPROTO_PATH/$PROTOC_MIN_VERSION
 popd
 echo "Done."
 fi
@@ -103,7 +108,7 @@ do
 done
 
 
-PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick --gogoslick_out=$MAPPINGS:"
+PLUGIN="--plugin=$ROOT/bin/protoc-gen-gogoslick-$GOGO_VERSION --gogoslick_out=$MAPPINGS:"
 PLUGIN+=$outdir
 
 # echo $protoc $IMPORTS $PLUGIN $file

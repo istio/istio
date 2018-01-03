@@ -25,5 +25,5 @@ lintconfig.gen.json
 Gopkg.lock
 .istiorc
 # codegen stuff
-bin/protoc-gen-gogoslick
-bin/protoc-min-version
+bin/protoc-gen-gogoslick*
+bin/protoc-min-version*
