@@ -260,8 +260,20 @@ function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
   pushd $TEMP_DIR/templates/addons
-  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
+
   execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
+
+  execute_sed 's/^/    /' grafana-config/custom.ini
+  execute_sed 's/^/    /' grafana-config/istio-dashboard.json
+  execute_sed '/{CUSTOM_INI}/ {
+      r grafana-config/custom.ini
+      d
+    }' grafana.yaml.tmpl
+  execute_sed '/{ISTIO_DASHBOARD_JSON}/ {
+      r grafana-config/istio-dashboard.json
+      d
+    }' grafana.yaml.tmpl
+
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
