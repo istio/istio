@@ -19,12 +19,14 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/gorilla/mux"
 
 	"istio.io/istio/broker/pkg/controller"
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/platform/kube/crd"
+	"istio.io/istio/pkg/log"
 )
 
 // Server data
@@ -57,6 +59,6 @@ func (s *Server) Start(port uint16) {
 	http.Handle("/", router)
 
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
-		glog.Errorf("Unable to start server: %v", err)
+		log.Errorf("Unable to start server: %v", err)
 	}
 }

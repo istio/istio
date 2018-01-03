@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
@@ -53,7 +55,7 @@ func (c *cAGrpcClientImpl) SendCSR(req *pb.Request, pc platform.Client, cfg *Con
 	}
 	defer func() {
 		if closeErr := conn.Close(); closeErr != nil {
-			glog.Errorf("Failed to close connection")
+			log.Errorf("Failed to close connection")
 		}
 	}()
 	client := pb.NewIstioCAServiceClient(conn)
@@ -86,7 +88,7 @@ func (na *nodeAgentInternal) Start() error {
 		return fmt.Errorf("node Agent is not running on the right platform")
 	}
 
-	glog.Infof("Node Agent starts successfully.")
+	log.Infof("Node Agent starts successfully.")
 
 	retries := 0
 	retrialInterval := na.config.CSRInitialRetrialInterval
@@ -102,14 +104,14 @@ func (na *nodeAgentInternal) Start() error {
 			return reqErr
 		}
 
-		glog.Infof("Sending CSR (retrial #%d) ...", retries)
+		log.Infof("Sending CSR (retrial #%d) ...", retries)
 
 		resp, err := na.cAClient.SendCSR(req, na.pc, na.config)
 		if err == nil && resp != nil && resp.IsApproved {
 			waitTime, ttlErr := na.certUtil.GetWaitTime(
 				resp.SignedCertChain, time.Now(), na.config.CSRGracePeriodPercentage)
 			if ttlErr != nil {
-				glog.Errorf("Error getting TTL from approved cert: %v", ttlErr)
+				log.Errorf("Error getting TTL from approved cert: %v", ttlErr)
 				success = false
 			} else {
 				if writeErr := na.secretServer.SetServiceIdentityCert(resp.SignedCertChain); writeErr != nil {
@@ -118,7 +120,7 @@ func (na *nodeAgentInternal) Start() error {
 				if writeErr := na.secretServer.SetServiceIdentityPrivateKey(privateKey); writeErr != nil {
 					return writeErr
 				}
-				glog.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
+				log.Infof("CSR is approved successfully. Will renew cert in %s", waitTime.String())
 				retries = 0
 				retrialInterval = na.config.CSRInitialRetrialInterval
 				timer := time.NewTimer(waitTime)
@@ -135,13 +137,13 @@ func (na *nodeAgentInternal) Start() error {
 					"node agent can't get the CSR approved from Istio CA after max number of retries (%d)", na.config.CSRMaxRetries)
 			}
 			if err != nil {
-				glog.Errorf("CSR signing failed: %v. Will retry in %s", err, retrialInterval.String())
+				log.Errorf("CSR signing failed: %v. Will retry in %s", err, retrialInterval.String())
 			} else if resp == nil {
-				glog.Errorf("CSR signing failed: response empty. Will retry in %s", retrialInterval.String())
+				log.Errorf("CSR signing failed: response empty. Will retry in %s", retrialInterval.String())
 			} else if !resp.IsApproved {
-				glog.Errorf("CSR signing failed: request not approved. Will retry in %s", retrialInterval.String())
+				log.Errorf("CSR signing failed: request not approved. Will retry in %s", retrialInterval.String())
 			} else {
-				glog.Errorf("Certificate parsing error. Will retry in %s", retrialInterval.String())
+				log.Errorf("Certificate parsing error. Will retry in %s", retrialInterval.String())
 			}
 			retries++
 			timer := time.NewTimer(retrialInterval)

@@ -15,6 +15,7 @@
 package compiled
 
 import (
+	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/il/compiler"
@@ -44,16 +45,16 @@ func newBuilder(finder expr.AttributeDescriptorFinder, functions map[string]expr
 }
 
 // Compile the given text and return a pre-compiled expression object.
-func (e *ExpressionBuilder) Compile(text string) (Expression, error) {
-	fnID, err := e.compiler.CompileExpression(text)
+func (e *ExpressionBuilder) Compile(text string) (Expression, descriptor.ValueType, error) {
+	fnID, expressionType, err := e.compiler.CompileExpression(text)
 	if err != nil {
-		return nil, err
+		return nil, descriptor.VALUE_TYPE_UNSPECIFIED, err
 	}
 
 	return expression{
 		interpreter: e.interpreter,
 		fnID:        fnID,
-	}, nil
+	}, expressionType, nil
 }
 
 type expression struct {
@@ -79,6 +80,33 @@ func (e expression) EvaluateBoolean(attributes attribute.Bag) (bool, error) {
 	}
 
 	return r.AsBool(), nil
+}
+
+func (e expression) EvaluateString(attributes attribute.Bag) (string, error) {
+	r, err := e.interpreter.EvalFnID(e.fnID, attributes)
+	if err != nil {
+		return "", err
+	}
+
+	return r.AsString(), nil
+}
+
+func (e expression) EvaluateDouble(attributes attribute.Bag) (float64, error) {
+	r, err := e.interpreter.EvalFnID(e.fnID, attributes)
+	if err != nil {
+		return 0, err
+	}
+
+	return r.AsDouble(), nil
+}
+
+func (e expression) EvaluateInteger(attributes attribute.Bag) (int64, error) {
+	r, err := e.interpreter.EvalFnID(e.fnID, attributes)
+	if err != nil {
+		return 0, err
+	}
+
+	return r.AsInteger(), nil
 }
 
 // TODO: This should be replaced with a common, shared context, instead of a singleton global.

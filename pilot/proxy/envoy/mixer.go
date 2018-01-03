@@ -22,13 +22,15 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -223,7 +225,7 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 			// scheme, i.e. buildJWKSURIClusterNameAndAddress.
 			for _, jwt := range spec.Jwts {
 				if name, _, _, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-					glog.Warningf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
+					log.Warnf("Could not set jwks_uri_envoy and address for jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
 					jwt.JwksUriEnvoyCluster = name
@@ -233,7 +235,7 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 			sc.EndUserAuthnSpec = spec
 			if len(authSpecs) > 1 {
 				// TODO - validation should catch this problem earlier at config time.
-				glog.Warningf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
+				log.Warnf("Multiple EndUserAuthenticationPolicySpec found for service %q. Selecting %v",
 					instance.Service, spec)
 			}
 		}
@@ -242,7 +244,7 @@ func mixerHTTPRouteConfig(role proxy.Node, instances []*model.ServiceInstance, c
 	}
 
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
-		glog.Warningf("Could not encode v2 HTTP mixerclient filter for node %q: %v", role, err)
+		log.Warnf("Could not encode v2 HTTP mixerclient filter for node %q: %v", role, err)
 	} else {
 		filter.V2 = v2JSONMap
 	}
@@ -267,7 +269,7 @@ func mixerTCPConfig(role proxy.Node, check bool, instance *model.ServiceInstance
 		},
 	}
 	if v2JSONMap, err := model.ToJSONMap(v2); err != nil {
-		glog.Warningf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
+		log.Warnf("Could not encode v2 TCP mixerclient filter for node %q: %v", role, err)
 	} else {
 		filter.V2 = v2JSONMap
 
@@ -326,7 +328,7 @@ func buildMixerAuthFilterClusters(config model.IstioConfigStore, mesh *meshconfi
 		for _, policy := range config.EndUserAuthenticationPolicySpecByDestination(instance) {
 			for _, jwt := range policy.Spec.(*mccpb.EndUserAuthenticationPolicySpec).Jwts {
 				if name, address, ssl, err := buildJWKSURIClusterNameAndAddress(jwt.JwksUri); err != nil {
-					glog.Warningf("Could not build envoy cluster and address from jwks_uri %q: %v",
+					log.Warnf("Could not build envoy cluster and address from jwks_uri %q: %v",
 						jwt.JwksUri, err)
 				} else {
 					authClusters[address] = authCluster{name, ssl}

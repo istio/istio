@@ -11,6 +11,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pilot/model:go_default_library",
+        "//pkg/log:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@in_gopkg_validator_v2//:go_default_library",
         "@in_gopkg_yaml_v2//:go_default_library",

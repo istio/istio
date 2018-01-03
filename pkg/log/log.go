@@ -12,43 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package log provides the canonical logging functionality used by Go-based
-// Istio components.
-//
-// Istio's logging subsystem is built on top of the [Zap](https://godoc.org/go.uber.org/zap) package.
-// High performance scenarios should use the Error, Warn, Info, and Debug methods. Lower perf
-// scenarios can use the more expensive convenience methods such as Debugf and Warnw.
-//
-// The package provides direct integration with the Cobra command-line processor which makes it
-// easy to build programs that use a consistent interface for logging. Here's an example
-// of a simple Cobra-based program using this log package:
-//
-//		func main() {
-//			// get the default logging options
-//			options := log.NewOptions()
-//
-//			rootCmd := &cobra.Command{
-//				Run: func(cmd *cobra.Command, args []string) {
-//
-//					// configure the logging system
-//					if err := log.Configure(options); err != nil {
-//                      // print an error and quit
-//                  }
-//
-//					// output some logs
-//					log.Info("Hello")
-//					log.Sync()
-//				},
-//			}
-//
-//			// add logging-specific flags to the cobra command
-//			options.AttachCobraFlags(rootCmd)
-//			rootCmd.SetArgs(os.Args[1:])
-//			rootCmd.Execute()
-//		}
-//
-// Once configured, this package intercepts the output of the standard golang "log" package as well as anything
-// sent to the global zap logger (zap.L()).
 package log
 
 import (
@@ -56,97 +19,11 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zapgrpc"
-	"google.golang.org/grpc/grpclog"
 )
 
 // Global variables against which all our logging occurs.
 var logger *zap.Logger = zap.NewNop()
 var sugar *zap.SugaredLogger = logger.Sugar()
-
-// Configure initializes Istio's logging subsystem.
-//
-// You typically call this once at process startup.
-// Once this call returns, the logging system is ready to accept data.
-func Configure(options *Options) error {
-	return configure(options, func(c *zap.Config) (*zap.Logger, error) { return c.Build() })
-}
-
-type builder func(c *zap.Config) (*zap.Logger, error)
-
-func configure(options *Options, b builder) error {
-	outputLevel, err := options.GetOutputLevel()
-	if err != nil {
-		return err
-	}
-
-	stackTraceLevel, err := options.GetStackTraceLevel()
-	if err != nil {
-		return err
-	}
-
-	if outputLevel == None {
-		// stick with the Nop default
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		logger = zap.NewNop()
-		sugar = logger.Sugar()
-		return nil
-	}
-
-	zapConfig := zap.Config{
-		Level:       zap.NewAtomicLevelAt(outputLevel),
-		Development: false,
-
-		Sampling: &zap.SamplingConfig{
-			Initial:    100,
-			Thereafter: 100,
-		},
-
-		Encoding: "console",
-		EncoderConfig: zapcore.EncoderConfig{
-			TimeKey:        "time",
-			LevelKey:       "level",
-			NameKey:        "logger",
-			CallerKey:      "caller",
-			MessageKey:     "msg",
-			StacktraceKey:  "stack",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.LowercaseLevelEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeTime:     formatDate,
-		},
-
-		OutputPaths:       options.OutputPaths,
-		ErrorOutputPaths:  []string{"stderr"},
-		DisableCaller:     !options.IncludeCallerSourceLocation,
-		DisableStacktrace: stackTraceLevel == None,
-	}
-
-	if options.JSONEncoding {
-		zapConfig.Encoding = "json"
-	}
-
-	l, err := b(&zapConfig)
-	if err != nil {
-		return err
-	}
-
-	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(stackTraceLevel))
-	sugar = logger.Sugar()
-
-	// capture global zap logging and force it through our logger
-	_ = zap.ReplaceGlobals(l)
-
-	// capture standard golang "log" package output and force it through our logger
-	_ = zap.RedirectStdLog(logger)
-
-	// capture gRPC logging
-	grpclog.SetLogger(zapgrpc.NewLogger(logger.WithOptions(zap.AddCallerSkip(2))))
-
-	return nil
-}
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
@@ -156,32 +33,32 @@ func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 
 	buf := make([]byte, 27)
 
-	buf[0] = (byte(year/1000) % 10) + '0'
-	buf[1] = (byte(year/100) % 10) + '0'
-	buf[2] = (byte(year/10) % 10) + '0'
-	buf[3] = (byte(year) % 10) + '0'
+	buf[0] = byte((year/1000)%10) + '0'
+	buf[1] = byte((year/100)%10) + '0'
+	buf[2] = byte((year/10)%10) + '0'
+	buf[3] = byte(year%10) + '0'
 	buf[4] = '-'
-	buf[5] = (byte(month) / 10) + '0'
-	buf[6] = (byte(month) % 10) + '0'
+	buf[5] = byte((month)/10) + '0'
+	buf[6] = byte((month)%10) + '0'
 	buf[7] = '-'
-	buf[8] = (byte(day) / 10) + '0'
-	buf[9] = (byte(day) % 10) + '0'
+	buf[8] = byte((day)/10) + '0'
+	buf[9] = byte((day)%10) + '0'
 	buf[10] = 'T'
-	buf[11] = (byte(hour) / 10) + '0'
-	buf[12] = (byte(hour) % 10) + '0'
+	buf[11] = byte((hour)/10) + '0'
+	buf[12] = byte((hour)%10) + '0'
 	buf[13] = ':'
-	buf[14] = (byte(minute) / 10) + '0'
-	buf[15] = (byte(minute) % 10) + '0'
+	buf[14] = byte((minute)/10) + '0'
+	buf[15] = byte((minute)%10) + '0'
 	buf[16] = ':'
-	buf[17] = (byte(second) / 10) + '0'
-	buf[18] = (byte(second) % 10) + '0'
+	buf[17] = byte((second)/10) + '0'
+	buf[18] = byte((second)%10) + '0'
 	buf[19] = '.'
-	buf[20] = (byte(micros/100000) % 10) + '0'
-	buf[21] = (byte(micros/10000) % 10) + '0'
-	buf[22] = (byte(micros/1000) % 10) + '0'
-	buf[23] = (byte(micros/100) % 10) + '0'
-	buf[24] = (byte(micros/10) % 10) + '0'
-	buf[25] = (byte(micros) % 10) + '0'
+	buf[20] = byte((micros/100000)%10) + '0'
+	buf[21] = byte((micros/10000)%10) + '0'
+	buf[22] = byte((micros/1000)%10) + '0'
+	buf[23] = byte((micros/100)%10) + '0'
+	buf[24] = byte((micros/10)%10) + '0'
+	buf[25] = byte((micros)%10) + '0'
 	buf[26] = 'Z'
 
 	enc.AppendString(string(buf))

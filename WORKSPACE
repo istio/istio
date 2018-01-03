@@ -738,6 +738,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_natefinch_lumberjack",
+    commit = "aee4629129445bbdfb69aa565537dcfa16544311",
+    importpath = "github.com/natefinch/lumberjack",
+)
+
+go_repository(
     name = "com_github_go_openapi_jsonpointer",
     commit = "46af16f9f7b149af66e5d1bd010e3574dc06de98",
     importpath = "github.com/go-openapi/jsonpointer",
@@ -1112,7 +1118,7 @@ go_repository(
 
 # Change this and the pilot/docker/Dockerfile.proxy* files together
 # This SHA is obtained from proxy/postsubmit job
-ISTIO_PROXY_BUCKET = "a7e4ff4e3ee3fefde0159436713c2a0777be31de"
+ISTIO_PROXY_BUCKET = "82b525e7154fac96bdb96ca00d3edaabe36b4ce7"
 
 http_file(
     name = "envoy_binary",

@@ -49,7 +49,7 @@
       "cluster": "out.world.default.svc.cluster.local|http",
       "timeout_ms": 0,
       "shadow": {
-       "cluster": "hello.default.svc.cluster.local"
+       "cluster": "out.hello.default.svc.cluster.local|http|version=v1"
       },
       "decorator": {
        "operation": "mirror-requests"

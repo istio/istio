@@ -21,12 +21,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/registry"
@@ -53,31 +55,31 @@ type Server struct {
 func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Response, error) {
 	caller := s.authenticate(ctx)
 	if caller == nil {
-		glog.Warning("request authentication failure")
+		log.Warn("request authentication failure")
 		return nil, grpc.Errorf(codes.Unauthenticated, "request authenticate failure")
 	}
 
 	csr, err := pki.ParsePemEncodedCSR(request.CsrPem)
 	if err != nil {
-		glog.Warning("CSR parsing error (error %v)", err)
+		log.Warnf("CSR parsing error (error %v)", err)
 		return nil, grpc.Errorf(codes.InvalidArgument, "CSR parsing error (%v)", err)
 	}
 
 	requestedIDs, err := pki.ExtractIDs(csr.Extensions)
 	if err != nil {
-		glog.Warning("CSR identity extraction error (%v)", err)
+		log.Warnf("CSR identity extraction error (%v)", err)
 		return nil, grpc.Errorf(codes.InvalidArgument, "CSR identity extraction error (%v)", err)
 	}
 
 	err = s.authorizer.authorize(caller, requestedIDs)
 	if err != nil {
-		glog.Warning("request is not authorized (%v)", err)
+		log.Warnf("request is not authorized (%v)", err)
 		return nil, grpc.Errorf(codes.PermissionDenied, "request is not authorized (%v)", err)
 	}
 
 	cert, err := s.ca.Sign(request.CsrPem)
 	if err != nil {
-		glog.Errorf("CSR signing error (%v)", err)
+		log.Errorf("CSR signing error (%v)", err)
 		return nil, grpc.Errorf(codes.Internal, "CSR signing error (%v)", err)
 	}
 
@@ -85,7 +87,7 @@ func (s *Server) HandleCSR(ctx context.Context, request *pb.Request) (*pb.Respon
 		IsApproved:      true,
 		SignedCertChain: cert,
 	}
-	glog.Info("CSR successfully signed.")
+	log.Info("CSR successfully signed.")
 
 	return response, nil
 }
@@ -104,12 +106,12 @@ func (s *Server) Run() error {
 
 	// grpcServer.Serve() is a blocking call, so run it in a goroutine.
 	go func() {
-		glog.Infof("Starting GRPC server on port %d", s.port)
+		log.Infof("Starting GRPC server on port %d", s.port)
 
 		err := grpcServer.Serve(listener)
 
 		// grpcServer.Serve() always returns a non-nil error.
-		glog.Warningf("GRPC server returns an error: %v", err)
+		log.Warnf("GRPC server returns an error: %v", err)
 	}()
 
 	return nil
@@ -123,7 +125,7 @@ func New(ca ca.CertificateAuthority, hostname string, port int) *Server {
 	authenticators := []authenticator{&clientCertAuthenticator{}}
 	aud := fmt.Sprintf("grpc://%s:%d", hostname, port)
 	if jwtAuthenticator, err := newIDTokenAuthenticator(aud); err != nil {
-		glog.Errorf("failed to create JWT authenticator (error %v)", err)
+		log.Errorf("failed to create JWT authenticator (error %v)", err)
 	} else {
 		authenticators = append(authenticators, jwtAuthenticator)
 	}

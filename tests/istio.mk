@@ -1,5 +1,4 @@
 # Test-specific targets, included from top Makefile
-
 ifeq (${TEST_ENV},minikube)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
@@ -58,15 +57,17 @@ e2e: istioctl
 
 # Simple e2e test using fortio, approx 2 min
 e2e_simple: istioctl
-	echo "=== E2E testing with ${TAG} and ${HUB}"
+	@echo "=== E2E testing with ${TAG} and ${HUB}"
 	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
              --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 
 e2e_mixer: istioctl
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args ${E2E_ARGS}
+	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+                          --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 e2e_bookinfo: istioctl
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/bookinfo -args ${E2E_ARGS}
+	go test -v ${TEST_ARGS:-} ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+                         --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 e2e_all: e2e_simple e2e_mixer e2e_bookinfo

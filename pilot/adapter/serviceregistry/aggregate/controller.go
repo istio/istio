@@ -15,11 +15,13 @@
 package aggregate
 
 import (
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pkg/log"
 )
 
 // Registry specifies the collection of service registry related interfaces
@@ -71,7 +73,7 @@ func (c *Controller) GetService(hostname string) (*model.Service, error) {
 			errs = multierror.Append(errs, err)
 		} else if service != nil {
 			if errs != nil {
-				glog.Warningf("GetService() found match but encountered an error: %v", errs)
+				log.Warnf("GetService() found match but encountered an error: %v", errs)
 			}
 			return service, nil
 		}
@@ -104,7 +106,7 @@ func (c *Controller) Instances(hostname string, ports []string,
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			if errs != nil {
-				glog.Warningf("Instances() found match but encountered an error: %v", errs)
+				log.Warnf("Instances() found match but encountered an error: %v", errs)
 			}
 			return instances, nil
 		}
@@ -127,7 +129,7 @@ func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInsta
 
 	if len(out) > 0 {
 		if errs != nil {
-			glog.Warningf("HostInstances() found match but encountered an error: %v", errs)
+			log.Warnf("HostInstances() found match but encountered an error: %v", errs)
 		}
 		return out, nil
 	}
@@ -143,14 +145,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	}
 
 	<-stop
-	glog.V(2).Info("Registry Aggregator terminated")
+	log.Info("Registry Aggregator terminated")
 }
 
 // AppendServiceHandler implements a service catalog operation
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
 	for _, r := range c.registries {
 		if err := r.AppendServiceHandler(f); err != nil {
-			glog.V(2).Infof("Fail to append service handler to adapter %s", r.Name)
+			log.Infof("Fail to append service handler to adapter %s", r.Name)
 			return err
 		}
 	}
@@ -161,7 +163,7 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	for _, r := range c.registries {
 		if err := r.AppendInstanceHandler(f); err != nil {
-			glog.V(2).Infof("Fail to append instance handler to adapter %s", r.Name)
+			log.Infof("Fail to append instance handler to adapter %s", r.Name)
 			return err
 		}
 	}

@@ -23,7 +23,8 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 
 	mpb "istio.io/api/mixer/v1"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/model/test"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -384,14 +386,14 @@ func CheckCacheEvents(store model.ConfigStore, cache model.ConfigStoreCache, nam
 			}
 			deleted++
 		}
-		glog.Infof("Added %d, deleted %d", added, deleted)
+		log.Infof("Added %d, deleted %d", added, deleted)
 	})
 	go cache.Run(stop)
 
 	// run map invariant sequence
 	CheckMapInvariant(store, t, namespace, n)
 
-	glog.Infof("Waiting till all events are received")
+	log.Infof("Waiting till all events are received")
 	util.Eventually(func() bool { return added == n && deleted == n }, t)
 }
 
@@ -415,7 +417,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 				t.Errorf("Got %#v, %t, expected %#v", elt, exists, o)
 			}
 
-			glog.Infof("Calling Update(%s)", config.Key())
+			log.Infof("Calling Update(%s)", config.Key())
 			revised := Make(namespace, 1)
 			revised.ConfigMeta = elt.ConfigMeta
 			if _, err := cache.Update(revised); err != nil {
@@ -429,7 +431,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 				t.Errorf("Got %#v, %t, expected nonempty", elt, exists)
 			}
 
-			glog.Infof("Calling Delete(%s)", config.Key())
+			log.Infof("Calling Delete(%s)", config.Key())
 			if err := cache.Delete(model.MockConfig.Type, config.Name, config.Namespace); err != nil {
 				t.Error(err)
 			}
@@ -437,7 +439,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 			if len(elts) != 0 {
 				t.Errorf("Got %#v, expected zero elements on Delete event", elts)
 			}
-			glog.Infof("Stopping channel for (%#v)", config.Key)
+			log.Infof("Stopping channel for (%#v)", config.Key)
 			close(stop)
 			doneMu.Lock()
 			done = true
@@ -453,7 +455,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 	}
 
 	// add and remove
-	glog.Infof("Calling Create(%#v)", o)
+	log.Infof("Calling Create(%#v)", o)
 	if _, err := cache.Create(o); err != nil {
 		t.Error(err)
 	}
@@ -497,7 +499,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	// check again in the controller cache
 	util.Eventually(func() bool {
 		os, _ = cache.List(model.MockConfig.Type, namespace)
-		glog.Infof("cache.List => Got %d, expected %d", len(os), 0)
+		log.Infof("cache.List => Got %d, expected %d", len(os), 0)
 		return len(os) == 0
 	}, t)
 
@@ -512,8 +514,8 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreCache, names
 	util.Eventually(func() bool {
 		cs, _ := cache.List(model.MockConfig.Type, namespace)
 		os, _ := store.List(model.MockConfig.Type, namespace)
-		glog.Infof("cache.List => Got %d, expected %d", len(cs), n)
-		glog.Infof("store.List => Got %d, expected %d", len(os), n)
+		log.Infof("cache.List => Got %d, expected %d", len(cs), n)
+		log.Infof("store.List => Got %d, expected %d", len(os), n)
 		return len(os) == n && len(cs) == n
 	}, t)
 

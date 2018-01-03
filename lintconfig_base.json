@@ -26,7 +26,7 @@
         "vetshadow"
     ],
     "severity": {
-        "aligncheck": "error",
+        "aligncheck": "warn",
         "deadcode": "error",
         "errcheck": "error",
         "gas": "error",
@@ -47,7 +47,9 @@
     },
     "exclude": [
         "vendor",
+	"../vendor",
         ".pb.go",
+	"mock_*",
         "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",

@@ -14,7 +14,7 @@ go_library(
     deps = [
         "//mixer/cmd/shared:go_default_library",
         "//mixer/pkg/attribute:go_default_library",
-        "//mixer/pkg/tracing:go_default_library",
+        "//pkg/tracing:go_default_library",
         "@com_github_grpc_ecosystem_grpc_opentracing//go/otgrpc:go_default_library",
         "@com_github_opentracing_opentracing_go//:go_default_library",
         "@com_github_opentracing_opentracing_go//ext:go_default_library",
