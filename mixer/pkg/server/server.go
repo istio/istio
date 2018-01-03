@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -23,6 +24,8 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -36,6 +39,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 // Server is an in-memory Mixer service.
@@ -46,7 +50,7 @@ type Server struct {
 	adapterGP *pool.GoroutinePool
 	listener  net.Listener
 	monitor   *monitor
-	tracer    *mixerTracer
+	tracer    io.Closer
 	configDir string
 
 	dispatcher mixerRuntime.Dispatcher
@@ -60,9 +64,9 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
-	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
-	startMonitor func(port uint16) (*monitor, error)
-	listen       func(network string, address string) (net.Listener, error)
+	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
+	startMonitor  func(port uint16) (*monitor, error)
+	listen        func(network string, address string) (net.Listener, error)
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
@@ -75,7 +79,7 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
 		newRuntime:     mixerRuntime.New,
-		startTracer:    startTracer,
+		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
 	}
@@ -116,17 +120,13 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	if a.EnableTracing() {
-		var interceptor grpc.UnaryServerInterceptor
-
-		if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
+	if a.TracingOptions.TracingEnabled() {
+		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
+		if err != nil {
 			_ = s.Close()
-			return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
+			return nil, fmt.Errorf("unable to setup tracing")
 		}
-
-		if interceptor != nil {
-			interceptors = append(interceptors, interceptor)
-		}
+		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
 	}
 
 	// setup server prometheus monitoring (as final interceptor in chain)
@@ -252,6 +252,9 @@ func (s *Server) Close() error {
 	if s.configDir != "" {
 		_ = os.RemoveAll(s.configDir)
 	}
+
+	// final attempt to purge buffered logs
+	log.Sync()
 
 	return nil
 }
