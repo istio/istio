@@ -21,14 +21,25 @@ if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
+if which dep; then
+    echo "Using $(which dep)"
+else
+    go get -u github.com/golang/dep/cmd/dep
+fi
+
 # Download dependencies
 if [ ! -d vendor/github.com ]; then
-    if which dep; then
-        echo "Using $(which dep)"
-    else
-        go get -u github.com/golang/dep/cmd/dep
+    ${GOPATH}/bin/dep ensure -vendor-only
+	cp Gopkg.lock vendor/Gopkg.lock
+elif [ ! -f vendor/Gopkg.lock ]; then
+    ${GOPATH}/bin/dep ensure -vendor-only
+	cp Gopkg.lock vendor/Gopkg.lock
+else
+    diff Gopkg.lock vendor/Gopkg.lock
+    if [ $? -ne 0 ]; then
+            ${GOPATH}/bin/dep ensure -vendor-only
+            cp Gopkg.lock vendor/Gopkg.lock
     fi
-    dep ensure
 fi
 
 # Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
@@ -37,15 +48,20 @@ fi
 PROXYVERSION=$(grep envoy-debug pilot/docker/Dockerfile.proxy_debug  |cut -d: -f2)
 PROXY=debug-$PROXYVERSION
 
-if [ ! -f $GOPATH/bin/envoy-$PROXYVERSION ] ; then
+# Save envoy in vendor, which is cached
+if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     mkdir -p $OUT
     pushd $OUT
-    # TODO: Use circleci builds
     curl -Lo - https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xz
-    cp usr/local/bin/envoy $TOP/bin/envoy
-    cp usr/local/bin/envoy $TOP/bin/envoy-$PROXYVERSION
-    ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy/
+    cp usr/local/bin/envoy $ISTIO_GO/vendor/envoy-$PROXYVERSION
     popd
 fi
 
+if [ ! -f $GOPATH/bin/envoy ] ; then
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GOPATH/bin/envoy
+fi
+
+if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
+    ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
+fi
 

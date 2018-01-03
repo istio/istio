@@ -332,7 +332,8 @@ jobs:
       - persist_to_workspace:
           root: /go
           paths:
-            - pkg
+            # pkg may include 'dep'
+            - pkg/linux_amd64
             - bin
 
   lint:

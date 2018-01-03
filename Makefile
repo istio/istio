@@ -90,7 +90,7 @@ setup: pilot/platform/kube/config
 # Pull depdendencies, based on the checked in Gopkg.lock file.
 # Developers must manually call dep.update if adding new deps or to pull recent
 # changes.
-depend: vendor
+depend: init
 
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
@@ -113,14 +113,6 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-
-vendor: vendor/Gopkg.lock; $(info $(H) Updating vendor directory)
-
-# Update vendor and vendor/gopkg.lock if the lock file is changed
-vendor/Gopkg.lock: Gopkg.lock
-	ls -l Gopkg.lock vendor/Gopkg.lock
-	time ${GOPATH}/bin/dep ensure -vendor-only
-	cp Gopkg.lock vendor/Gopkg.lock
 
 lint:
 	SKIP_INIT=1 bin/linters.sh
