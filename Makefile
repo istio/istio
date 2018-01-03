@@ -113,7 +113,7 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-
+	
 # Re-create the vendor directory, if it doesn't exist, using the checked in lock file
 depend.vendor: vendor
 	$(Q) dep ensure -vendor-only
