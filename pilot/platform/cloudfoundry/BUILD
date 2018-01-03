@@ -5,8 +5,6 @@ go_library(
     srcs = [
         "config.go",
         "controller.go",
-        "serviceaccounts.go",
-        "servicediscovery.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -26,7 +24,6 @@ go_test(
         "config_test.go",
         "controller_test.go",
         "mockcopilotclient_test.go",
-        "servicediscovery_test.go",
     ],
     deps = [
         ":go_default_library",

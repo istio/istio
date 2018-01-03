@@ -151,6 +151,44 @@ const (
 	EventDelete
 )
 
+func NewCacheReferences(Kind string) *CacheReferences {
+    return &CacheReferences{
+        Kind: Kind,
+        Keyset: map[string]bool{},
+    }
+}
+
+// Compares one set of cache references with another
+func (cr *CacheReferences) Equals(other *CacheReferences) bool {
+    if cr.Kind != other.Kind {
+        return false
+    }
+    if len(cr.Keyset) != len(other.Keyset) {
+        return false
+    }
+    for key, val := range cr.Keyset {
+        otherVal, exists := other.Keyset[key]
+        if !exists {
+            return false
+        }
+        if val != otherVal {
+            return false
+        }
+    }
+    return true
+}
+
+// Utility function mostly intended for logging cache refrerences
+func (cr *CacheReferences) String() string {
+    out := "Kind: " + cr.Kind + ", Keyset: ["
+    for key, exists := range cr.Keyset {
+        if exists {
+            out = out + key + ", "
+        }
+    }
+    return out + "]"
+}
+
 func (event Event) String() string {
 	out := "unknown"
 	switch event {

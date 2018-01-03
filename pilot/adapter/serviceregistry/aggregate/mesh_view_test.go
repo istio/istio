@@ -17,17 +17,20 @@ package aggregate
 import (
 	"encoding/hex"
 	"fmt"
+	"net"
 	"testing"
 
+	"github.com/golang/glog"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/test/mock"
 )
 
-var platform1 platform.ServiceRegistry
-var platform2 platform.ServiceRegistry
-var discovery1 *mock.ServiceDiscovery
-var discovery2 *mock.ServiceDiscovery
+const (
+	platform1 = platform.ServiceRegistry("mockAdapter1")
+	platform2 = platform.ServiceRegistry("mockAdapter2")
+)
+
 var evVerifier eventVerifier
 var mockInstances []*model.ServiceInstance
 var helloSvcInst []*model.ServiceInstance
@@ -36,152 +39,146 @@ var countInstPerSvc int
 
 // MockMeshResourceView specifies a mock MeshResourceView for testing
 type MockController struct {
-	registry platform.ServiceRegistry
+	registry 			platform.ServiceRegistry
+	serviceDiscovery 	*mock.ServiceDiscovery
+	controllerPath		string
+	viewHandler 		*model.ControllerViewHandler
 }
 
-type serviceEvent struct {
-	*model.Service
-	model.Event
-}
-
-type instanceEvent struct {
-	*model.ServiceInstance
-	model.Event
-}
-
+// eventVerifier checks that the cache invalidator receives notifications only for
+// Services and Instances that changed. 
 type eventVerifier struct {
-	mockSvcHandlerMap map[platform.ServiceRegistry]func(*model.Service, model.Event)
-	svcTracked        []serviceEvent
-	svcToVerify       []serviceEvent
+    controllerMap			  map[platform.ServiceRegistry]*MockController           
+	serviceActualEvictions    model.CacheReferences
+	serviceExpectedEvictions  model.CacheReferences
+	instanceActualEvictions   model.CacheReferences
+	instanceExpectedEvictions model.CacheReferences
+}
 
-	mockInstHandlerMap map[platform.ServiceRegistry]func(*model.ServiceInstance, model.Event)
-	instTracked        []instanceEvent
-	instToVerify       []instanceEvent
+func (con *MockController) MockReconcileEvent() {
+        conServices, err := con.serviceDiscovery.Services()
+        if err != nil {
+            glog.Fatal("Unexpected error while mocking reconcile events: " + err.Error())
+        }
+        controllerView := model.ControllerView {
+            Path: 				con.controllerPath,
+            Services:			conServices,
+            ServiceInstances: 	con.serviceDiscovery.WantHostInstances,
+        }
+        (*con.viewHandler).Reconcile(&controllerView)
 }
 
 func newEventVerifier() *eventVerifier {
-	out := eventVerifier{
-		mockSvcHandlerMap:  map[platform.ServiceRegistry]func(*model.Service, model.Event){},
-		svcTracked:         []serviceEvent{},
-		svcToVerify:        []serviceEvent{},
-		mockInstHandlerMap: map[platform.ServiceRegistry]func(*model.ServiceInstance, model.Event){},
-		instTracked:        []instanceEvent{},
-		instToVerify:       []instanceEvent{},
+	return &eventVerifier{
+	    controllerMap:					map[platform.ServiceRegistry]*MockController{},
+		serviceActualEvictions:         *model.NewCacheReferences(labelServiceName),
+		serviceExpectedEvictions:       *model.NewCacheReferences(labelServiceName),
+		instanceActualEvictions:        *model.NewCacheReferences(labelInstanceRef),
+		instanceExpectedEvictions:      *model.NewCacheReferences(labelInstanceRef),
 	}
-	return &out
 }
 
-func (ev *eventVerifier) trackService(s *model.Service, e model.Event) {
-	ev.svcTracked = append(ev.svcTracked, serviceEvent{s, e})
-}
-
-func (ev *eventVerifier) trackInstance(i *model.ServiceInstance, e model.Event) {
-	ev.instTracked = append(ev.instTracked, instanceEvent{i, e})
+func (ev *eventVerifier) EvictCache(cr model.CacheReferences) {
+    var actualCr *model.CacheReferences
+    switch cr.Kind {
+    case labelServiceName:
+      actualCr = &ev.serviceActualEvictions
+      break
+    case labelInstanceRef:
+      actualCr = &ev.instanceActualEvictions
+      break
+    default:
+      glog.Fatal("Unsupported cache type: '" + cr.Kind + "'")
+    }
+    for key, add := range cr.Keyset {
+        if add {
+            actualCr.Keyset[key] = true
+        }
+    }
 }
 
 func (ev *eventVerifier) mockSvcEvent(registry platform.ServiceRegistry, s *model.Service, e model.Event) {
-	ev.svcToVerify = append(ev.svcToVerify, serviceEvent{s, e})
-	handler, found := ev.mockSvcHandlerMap[registry]
+    controller, found := ev.controllerMap[registry]
 	if found {
-		handler(s, e)
+	    ev.serviceExpectedEvictions.Keyset[s.Hostname] = true
+		err := controller.serviceDiscovery.ModifyService(s, e)
+		if err != nil {
+		    glog.Fatal("Unexpected mock failure: " + err.Error())
+		}
+		return
 	}
+	glog.Fatal("Unexpected mock operation: No controller for registry '" + string(registry) + "' was ever setup.")
 }
 
 func (ev *eventVerifier) mockInstEvent(registry platform.ServiceRegistry, i *model.ServiceInstance, e model.Event) {
-	ev.instToVerify = append(ev.instToVerify, instanceEvent{i, e})
-	handler, found := ev.mockInstHandlerMap[registry]
+    controller, found := ev.controllerMap[registry]
 	if found {
-		handler(i, e)
+	    ev.instanceExpectedEvictions.Keyset[buildInstanceKey(i)] = true
+		err := controller.serviceDiscovery.ModifyServiceInstance(i, e)
+    	if err != nil {
+    	    glog.Fatal("Unexpected mock failure: " + err.Error())
+    	}
+		return
 	}
+	glog.Fatal("Unexpected mock operation: No controller for registry '" + string(registry) + "' was ever setup.")
 }
 
-func (ev *eventVerifier) verifyServiceEvents(t *testing.T) {
-	expCount := len(ev.svcToVerify)
-	actCount := len(ev.svcTracked)
-	expIdx := 0
-	for ; expIdx < expCount && expIdx < actCount; expIdx++ {
-		expEvent := ev.svcToVerify[expIdx]
-		actEvent := ev.svcTracked[expIdx]
-		if expEvent.Service.Hostname != actEvent.Service.Hostname || expEvent.Event != actEvent.Event {
-			t.Errorf("Unexpected out-of-sequence service event: expected event '%v', actual event '%v'", expEvent, actEvent)
-		}
-	}
-	for ; expIdx < expCount; expIdx++ {
-		expEvent := ev.svcToVerify[expIdx]
-		t.Errorf("Expected service event: '%v', none actually tracked", expEvent)
-	}
-	for ; expIdx < actCount; expIdx++ {
-		actEvent := ev.svcTracked[expIdx]
-		t.Errorf("Unexpected extra service event: '%v'", actEvent)
-	}
-	ev.svcToVerify = []serviceEvent{}
-	ev.svcTracked = []serviceEvent{}
+func (ev *eventVerifier) mockControllerReconcileEvents() {
+    for _, con := range ev.controllerMap {
+        con.MockReconcileEvent()
+    }
 }
 
-func (ev *eventVerifier) verifyInstanceEvents(t *testing.T) {
-	expCount := len(ev.instToVerify)
-	actCount := len(ev.instTracked)
-	expIdx := 0
-	for ; expIdx < expCount && expIdx < actCount; expIdx++ {
-		expEvent := ev.instToVerify[expIdx]
-		actEvent := ev.instTracked[expIdx]
-		if expEvent.ServiceInstance.Service.Hostname != actEvent.ServiceInstance.Service.Hostname ||
-			expEvent.ServiceInstance.Endpoint.Address != actEvent.ServiceInstance.Endpoint.Address ||
-			expEvent.ServiceInstance.Endpoint.Port != actEvent.ServiceInstance.Endpoint.Port ||
-			expEvent.Event != actEvent.Event {
-			t.Errorf("Unexpected out-of-sequence instance event: expected event '%v', actual event '%v'", expEvent, actEvent)
-		}
-	}
-	for ; expIdx < expCount; expIdx++ {
-		expEvent := ev.svcToVerify[expIdx]
-		t.Errorf("Expected instance event: '%v', none actually tracked", expEvent)
-	}
-	for ; expIdx < actCount; expIdx++ {
-		actEvent := ev.svcTracked[expIdx]
-		t.Errorf("Unexpected extra instance event: '%v'", actEvent)
-	}
-	ev.instToVerify = []instanceEvent{}
-	ev.instTracked = []instanceEvent{}
+func (ev *eventVerifier) verifyEvictions(t *testing.T) {
+    if !ev.serviceExpectedEvictions.Equals(&ev.serviceActualEvictions) {
+        t.Errorf("Keys found for service cache eviction do not match up. Expected '%s'. Actual '%s'",
+            ev.serviceExpectedEvictions.String(), ev.serviceActualEvictions.String())
+    }
+    if !ev.instanceExpectedEvictions.Equals(&ev.instanceActualEvictions) {
+        t.Errorf("Keys found for instance cache eviction do not match up. Expected '%s'. Actual '%s'",
+            ev.instanceExpectedEvictions.String(), ev.instanceActualEvictions.String())
+    }
+	ev.serviceActualEvictions = *model.NewCacheReferences(labelServiceName)
+	ev.serviceExpectedEvictions = *model.NewCacheReferences(labelServiceName)
+	ev.instanceActualEvictions = *model.NewCacheReferences(labelInstanceRef)
+	ev.instanceExpectedEvictions = *model.NewCacheReferences(labelInstanceRef)
 }
 
-func (v *MockController) AppendMeshHandler(model.MeshHandler) error {
+func NewMockController(pl platform.ServiceRegistry) *MockController {
+    return &MockController{
+        registry: 			pl, 
+        serviceDiscovery: 	mock.NewDiscovery(map[string]*model.Service{}, 0),
+    }
+}
+
+func (v *MockController) Handle(p string, h *model.ControllerViewHandler) error {
+    v.controllerPath = p 
+	v.viewHandler = h
     return nil
-} 
-
-func (v *MockController) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	evVerifier.mockSvcHandlerMap[v.registry] = f
-	return nil
-}
-
-func (v *MockController) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	evVerifier.mockInstHandlerMap[v.registry] = f
-	return nil
 }
 
 func (v *MockController) Run(<-chan struct{}) {}
 
 func buildMockMeshResourceView() *MeshResourceView {
-	evVerifier = *newEventVerifier()
-	discovery1 = mock.NewDiscovery(map[string]*model.Service{}, 0)
-	discovery2 = mock.NewDiscovery(map[string]*model.Service{}, 0)
-	platform1 = platform.ServiceRegistry("mockAdapter1")
-	platform2 = platform.ServiceRegistry("mockAdapter2")
-
+    controller1 := NewMockController(platform1)
+    controller2 := NewMockController(platform2)
 	registry1 := Registry{
 		Name:       platform1,
-		Controller: &MockController{platform1},
+		Controller: controller1,
 	}
-
 	registry2 := Registry{
 		Name:       platform2,
-		Controller: &MockController{platform2},
+		Controller: controller2,
 	}
+
+	evVerifier = *newEventVerifier()
+	evVerifier.controllerMap[platform1] = controller1
+	evVerifier.controllerMap[platform2] = controller2
 
 	meshView := NewMeshResourceView()
 	meshView.AddRegistry(registry1)
 	meshView.AddRegistry(registry2)
-	meshView.AppendServiceHandler(evVerifier.trackService)
-	meshView.AppendInstanceHandler(evVerifier.trackInstance)
+	meshView.SetCacheEvictionHandler(&evVerifier)
 	return meshView
 }
 
@@ -211,7 +208,8 @@ func expectServices(t *testing.T, expected, actual []*model.Service) {
 }
 
 func buildInstanceKey(i *model.ServiceInstance) string {
-	return "[" + i.Service.Hostname + "][" + i.Endpoint.Address + "][" +
+	ip := net.ParseIP(i.Endpoint.Address)
+	return "[" + i.Service.Hostname + "][" + hex.EncodeToString(ip) + "][" +
 		hex.EncodeToString([]byte{byte((i.Endpoint.Port >> 8) & 0xFF), byte(i.Endpoint.Port & 0xFF)}) + "]"
 }
 
@@ -248,17 +246,29 @@ func instList(s ...*model.ServiceInstance) []*model.ServiceInstance {
 
 func TestServices(t *testing.T) {
 	meshView := buildMockMeshResourceView()
-	t.Run("EmptyMesh", func(t *testing.T) {
+	t.Run("EmptyMeshNoReconcileEvents", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
 			t.Errorf("Services() encountered unexpected error: %v", err)
 			return
 		}
 		expectServices(t, svcList(), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
+	})
+
+    evVerifier.mockControllerReconcileEvents()
+	t.Run("EmptyMeshAfterEmptyReconcileEvents", func(t *testing.T) {
+		svcs, err := meshView.Services()
+		if err != nil {
+			t.Errorf("Services() encountered unexpected error: %v", err)
+			return
+		}
+		expectServices(t, svcList(), svcs)
+		evVerifier.verifyEvictions(t)
 	})
 
 	evVerifier.mockSvcEvent(platform1, mock.HelloService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AddHelloServicePlatform1", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
@@ -266,10 +276,11 @@ func TestServices(t *testing.T) {
 			return
 		}
 		expectServices(t, svcList(mock.HelloService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AddWorldServicePlatform2", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
@@ -277,10 +288,11 @@ func TestServices(t *testing.T) {
 			return
 		}
 		expectServices(t, svcList(mock.HelloService, mock.WorldService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 
 	evVerifier.mockSvcEvent(platform1, mock.WorldService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AddWorldServiceAgainButPlatform1", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
@@ -288,10 +300,11 @@ func TestServices(t *testing.T) {
 			return
 		}
 		expectServices(t, svcList(mock.HelloService, mock.WorldService, mock.WorldService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("DeleteWorldServicePlatform2", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
@@ -299,34 +312,39 @@ func TestServices(t *testing.T) {
 			return
 		}
 		expectServices(t, svcList(mock.HelloService, mock.WorldService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 
-	evVerifier.mockSvcEvent(platform1, mock.WorldService, model.EventUpdate)
+    svcToUpdate := mock.MakeService(mock.WorldService.Hostname, mock.WorldService.Address)
+    svcToUpdate.LoadBalancingDisabled = true
+	evVerifier.mockSvcEvent(platform1, svcToUpdate, model.EventUpdate)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("UpdateWorldServicePlatform1", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
 			t.Errorf("Services() encountered unexpected error: %v", err)
 			return
 		}
-		expectServices(t, svcList(mock.HelloService, mock.WorldService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		expectServices(t, svcList(mock.HelloService, svcToUpdate), svcs)
+		evVerifier.verifyEvictions(t)
 	})
 
-	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventUpdate)
-	t.Run("UpsertWorldServicePlatform2", func(t *testing.T) {
+	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
+	t.Run("AddWorldServiceAgainButToPlatform2", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
 			t.Errorf("Services() encountered unexpected error: %v", err)
 			return
 		}
 		expectServices(t, svcList(mock.HelloService, mock.WorldService, mock.WorldService), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 
 	evVerifier.mockSvcEvent(platform1, mock.WorldService, model.EventDelete)
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventDelete)
 	evVerifier.mockSvcEvent(platform1, mock.HelloService, model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterDeleteAll", func(t *testing.T) {
 		svcs, err := meshView.Services()
 		if err != nil {
@@ -334,7 +352,7 @@ func TestServices(t *testing.T) {
 			return
 		}
 		expectServices(t, svcList(), svcs)
-		evVerifier.verifyServiceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 }
 
@@ -352,6 +370,7 @@ func TestGetService(t *testing.T) {
 	})
 	evVerifier.mockSvcEvent(platform1, mock.HelloService, model.EventAdd)
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterAddHelloAndWorld", func(t *testing.T) {
 		expectedList := svcList(mock.HelloService, mock.WorldService)
 		for _, expectedSvc := range expectedList {
@@ -376,6 +395,7 @@ func TestGetService(t *testing.T) {
 		}
 	})
 	evVerifier.mockSvcEvent(platform1, mock.HelloService, model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterDeleteHelloService", func(t *testing.T) {
 		svc, err := meshView.GetService(mock.HelloService.Hostname)
 		if err != nil {
@@ -387,7 +407,8 @@ func TestGetService(t *testing.T) {
 		}
 	})
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventDelete)
-	t.Run("AfterDelete", func(t *testing.T) {
+    evVerifier.mockControllerReconcileEvents()
+	t.Run("AfterDeleteWorldService", func(t *testing.T) {
 		expectedNilList := svcList(mock.HelloService, mock.WorldService)
 		for _, expectedSvc := range expectedNilList {
 			svc, err := meshView.GetService(expectedSvc.Hostname)
@@ -405,8 +426,9 @@ func TestGetService(t *testing.T) {
 func TestManagementPorts(t *testing.T) {
 	meshView := buildMockMeshResourceView()
 	mockInstances = buildMockInstances()
-	triggerAddInstanceEvents()
+	triggerAddInstanceEvents(t)
 	expected := buildMockManagementPorts()
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("ExpectNone", func(t *testing.T) {
 		ports := meshView.ManagementPorts(mock.MakeIP(mock.HelloService, 1))
 		if len(ports) != 0 {
@@ -418,10 +440,24 @@ func TestManagementPorts(t *testing.T) {
 		if len(ports) != len(expected) {
 			t.Errorf("Returned wrong number of ports from MeshView. Expected '%d' Found '%d'", len(expected), len(ports))
 		}
-		for i := 0; i < len(ports); i++ {
-			if ports[i].Name != expected[i].Name || ports[i].Port != expected[i].Port ||
-				ports[i].Protocol != expected[i].Protocol {
-				t.Errorf("Returned management ports result does not match expected one. Expected '%v' Found '%v'", expected[i], ports[i])
+		expectedPortMap := map[int]*model.Port{}
+		for i, cntExp := 0, len(expected); i < cntExp; i++ {
+		    port := expected[i]
+		    expectedPortMap[port.Port] = port
+		}
+		actualPortMap := map[int]*model.Port{}
+		for i, cntExp := 0, len(ports); i < cntExp; i++ {
+		    port := ports[i]
+		    actualPortMap[port.Port] = port
+		}
+		for portNum, expPort := range expectedPortMap {
+		    actPort, found := actualPortMap[portNum]
+		    if !found {
+				t.Errorf("Expected port '%v' not found.", expPort)
+				continue;
+		    }
+			if expPort.Name != actPort.Name || expPort.Protocol != actPort.Protocol {
+				t.Errorf("Returned management ports result does not match expected one. Expected '%v' Found '%v'", expPort, actPort)
 			}
 		}
 	})
@@ -457,7 +493,7 @@ func buildMockInstances() []*model.ServiceInstance {
 	return append(helloSvcInst, worldSvcInst...)
 }
 
-func triggerAddInstanceEvents() {
+func triggerAddInstanceEvents(t *testing.T) {
 	for _, inst := range mockInstances {
 		var registry platform.ServiceRegistry
 		if inst.Service.Hostname == mock.HelloService.Hostname {
@@ -494,7 +530,8 @@ func TestInstances(t *testing.T) {
 			t.Errorf("Expected 0 instances. Found: '%v'", instances)
 		}
 	})
-	triggerAddInstanceEvents()
+	triggerAddInstanceEvents(t)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AddInstancesBothPlatforms", func(t *testing.T) {
 		instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
 		if err != nil {
@@ -508,7 +545,7 @@ func TestInstances(t *testing.T) {
 			return
 		}
 		expectInstances(t, helloSvcInst, instances)
-		evVerifier.verifyInstanceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
 	t.Run("WithLabelSet", func(t *testing.T) {
 		t.Run("OneSet", func(t *testing.T) {
@@ -542,6 +579,7 @@ func TestInstances(t *testing.T) {
 	})
 	idxToChange := 2
 	evVerifier.mockInstEvent(platform2, worldSvcInst[idxToChange], model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("RemovedOneInstance", func(t *testing.T) {
 		t.Run("CheckRemoved", func(t *testing.T) {
 			instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
@@ -561,39 +599,59 @@ func TestInstances(t *testing.T) {
 			}
 			expectInstances(t, helloSvcInst, instances)
 		})
-		evVerifier.verifyInstanceEvents(t)
+		evVerifier.verifyEvictions(t)
 	})
-	evVerifier.mockInstEvent(platform2, mockInstances[idxToChange], model.EventUpdate)
-	t.Run("UpsertOneInstance", func(t *testing.T) {
-		instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
-		if err != nil {
-			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.WorldService.Hostname, err)
-			return
-		}
-		expectInstances(t, worldSvcInst, instances)
-		instances, err = meshView.Instances(mock.HelloService.Hostname, []string{}, model.LabelsCollection{})
-		if err != nil {
-			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.HelloService.Hostname, err)
-			return
-		}
-		expectInstances(t, helloSvcInst, instances)
-		evVerifier.verifyInstanceEvents(t)
+	evVerifier.mockInstEvent(platform2, mockInstances[idxToChange], model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
+	t.Run("AddOneInstance", func(t *testing.T) {
+	    t.Run("CheckedAdded", func(t *testing.T) {
+    		instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
+    		if err != nil {
+    			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.WorldService.Hostname, err)
+    			return
+    		}
+    		expectInstances(t, worldSvcInst, instances)
+    	})
+	    t.Run("CheckedUntouched", func(t *testing.T) {
+    		instances, err := meshView.Instances(mock.HelloService.Hostname, []string{}, model.LabelsCollection{})
+    		if err != nil {
+    			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.HelloService.Hostname, err)
+    			return
+    		}
+    		expectInstances(t, helloSvcInst, instances)
+    	})
+		evVerifier.verifyEvictions(t)
 	})
-	evVerifier.mockInstEvent(platform2, worldSvcInst[idxToChange], model.EventAdd)
-	t.Run("MultipleAddsShouldBeUpserts", func(t *testing.T) {
-		instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
-		if err != nil {
-			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.WorldService.Hostname, err)
-			return
-		}
-		expectInstances(t, worldSvcInst, instances)
-		instances, err = meshView.Instances(mock.HelloService.Hostname, []string{}, model.LabelsCollection{})
-		if err != nil {
-			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.HelloService.Hostname, err)
-			return
-		}
-		expectInstances(t, helloSvcInst, instances)
-		evVerifier.verifyInstanceEvents(t)
+	instToUpdate := mock.MakeInstance(worldSvcInst[idxToChange].Service, worldSvcInst[idxToChange].Endpoint.ServicePort, 1, "SomeNewAZ")
+	evVerifier.mockInstEvent(platform2, instToUpdate, model.EventUpdate)
+    evVerifier.mockControllerReconcileEvents()
+	t.Run("UpdateOneInstance", func(t *testing.T) {
+	    t.Run("CheckedUpdated", func(t *testing.T) {
+    		instances, err := meshView.Instances(mock.WorldService.Hostname, []string{}, model.LabelsCollection{})
+    		if err != nil {
+    			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.WorldService.Hostname, err)
+    			return
+    		}
+    		cnt := len(worldSvcInst)
+    		instToVerify := make([]*model.ServiceInstance, cnt)
+    		for i := 0; i < cnt; i++ {
+    		    if i != idxToChange {
+        		    instToVerify[i] = worldSvcInst[i]
+    		    } else {
+        		    instToVerify[i] = instToUpdate
+    		    }
+    		}
+    		expectInstances(t, instToVerify, instances)
+    	})
+	    t.Run("CheckedUntouched", func(t *testing.T) {
+    		instances, err := meshView.Instances(mock.HelloService.Hostname, []string{}, model.LabelsCollection{})
+    		if err != nil {
+    			t.Errorf("Services() encountered unexpected error retrieving instance for host '%s': %v", mock.HelloService.Hostname, err)
+    			return
+    		}
+    		expectInstances(t, helloSvcInst, instances)
+    	})
+		evVerifier.verifyEvictions(t)
 	})
 }
 
@@ -612,7 +670,8 @@ func TestHostInstances(t *testing.T) {
 			t.Errorf("Expected 0 instances. Found: '%v'", instances)
 		}
 	})
-	triggerAddInstanceEvents()
+	triggerAddInstanceEvents(t)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterAdd", func(t *testing.T) {
 		addresses := map[string]bool{instanceToVerify.Endpoint.Address: true}
 		instances, err := meshView.HostInstances(addresses)
@@ -623,6 +682,7 @@ func TestHostInstances(t *testing.T) {
 		expectInstances(t, worldSvcInst, instances)
 	})
 	evVerifier.mockInstEvent(platform2, instanceToVerify, model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterDeleteOne", func(t *testing.T) {
 		addresses := map[string]bool{instanceToVerify.Endpoint.Address: true}
 		instances, err := meshView.HostInstances(addresses)
@@ -658,6 +718,7 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	meshView := buildMockMeshResourceView()
 	instanceToVerify := worldSvcInst[3]
 	evVerifier.mockSvcEvent(platform1, instanceToVerify.Service, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("EmptyView", func(t *testing.T) {
 		address := instanceToVerify.Endpoint.Address
 		accounts := meshView.GetIstioServiceAccounts(address, []string{})
@@ -665,7 +726,8 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 			t.Errorf("Expected 0 instances. Found: '%v'", accounts)
 		}
 	})
-	triggerAddInstanceEvents()
+	triggerAddInstanceEvents(t)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("AfterAddEmptyAddresses", func(t *testing.T) {
 		address := instanceToVerify.Endpoint.Address
 		accounts := meshView.GetIstioServiceAccounts(address, []string{})
@@ -696,6 +758,7 @@ func TestServiceByLabels(t *testing.T) {
 	meshView := buildMockMeshResourceView()
 	evVerifier.mockSvcEvent(platform1, mock.HelloService, model.EventAdd)
 	evVerifier.mockSvcEvent(platform2, mock.WorldService, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("NonExistentLabel", func(t *testing.T) {
 		svcs := meshView.serviceByLabels(
 			resourceLabels{
@@ -718,6 +781,7 @@ func TestServiceByLabels(t *testing.T) {
 	extSvc := mock.MakeService("hello.default.svc.cluster.local", "10.1.0.0")
 	extSvc.ExternalName = "some-external-service.somedomain.com"
 	evVerifier.mockSvcEvent(platform2, extSvc, model.EventAdd)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("LabelExternalName", func(t *testing.T) {
 		svcs := meshView.serviceByLabels(
 			resourceLabels{
@@ -727,6 +791,7 @@ func TestServiceByLabels(t *testing.T) {
 		expectServices(t, []*model.Service{extSvc}, svcs)
 	})
 	evVerifier.mockSvcEvent(platform2, extSvc, model.EventDelete)
+    evVerifier.mockControllerReconcileEvents()
 	t.Run("LabelExternalNameAfterDelete", func(t *testing.T) {
 		svcs := meshView.serviceByLabels(
 			resourceLabels{

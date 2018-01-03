@@ -87,6 +87,28 @@ type MeshResourceView struct {
 	cacheEvictionHandler model.CacheEvictionHandler
 }
 
+type serviceList []*model.Service
+
+func  (sl *serviceList) String() string {
+    out := "["
+    for _, s := range *sl {
+        out = out + s.Hostname + ", "
+    }
+    out = out + "]"
+    return out
+}
+
+type serviceInstanceList []*model.ServiceInstance
+
+func  (sl *serviceInstanceList) String() string {
+    out := "["
+    for _, i := range *sl {
+        out = out + i.Service.Hostname + ":" + i.Endpoint.Address + ":" + fmt.Sprintf("%d", i.Endpoint.Port) +  ", "
+    }
+    out = out + "]"
+    return out
+}
+
 // NewMeshResourceView creates an aggregated store for resources sourced from various registries
 func NewMeshResourceView() *MeshResourceView {
 	return &MeshResourceView{
@@ -340,6 +362,11 @@ func (v *MeshResourceView) reconcile(r *Registry, cv *model.ControllerView) {
 
 func (v *MeshResourceView) reconcileServices(r *Registry, cvp string, rl resourceLabels, expectedServices []*model.Service) {
     actualServices := v.serviceByLabels(rl)
+    if glog.V(2) {
+        glog.Infof("Expected: %s Actual %s", 
+            ((*serviceList)(&expectedServices)).String(),
+            ((*serviceList)(&actualServices)).String())
+    }
     actualKeySvcMap := buildServiceKeyMap(r, actualServices)
     expectedKeySvcMap := buildServiceKeyMap(r, expectedServices)
     updateSet := map[resourceKey]*model.Service{}
@@ -445,16 +472,15 @@ func isSetModified(first, second map[string]bool) bool {
 func isPortListModified(first, second model.PortList) bool {
     for idx, portFirst := range first {
         portSecond := second[idx]
-        if portFirst.Name == portSecond.Name ||
-            portFirst.Port == portSecond.Port ||
-            portFirst.Protocol == portSecond.Protocol ||
-            portFirst.AuthenticationPolicy == portSecond.AuthenticationPolicy {
+        if portFirst.Name != portSecond.Name ||
+            portFirst.Port != portSecond.Port ||
+            portFirst.Protocol != portSecond.Protocol ||
+            portFirst.AuthenticationPolicy != portSecond.AuthenticationPolicy {
                 return true
             }
     }
     return false
 }
-
 
 // Compares services based on only what's needed for xDS to work.
 func isServiceModified(expected, actual *model.Service) bool {
@@ -468,6 +494,9 @@ func isServiceModified(expected, actual *model.Service) bool {
         len(expected.Ports) != len(actual.Ports) ||
         isPortListModified(expected.Ports, actual.Ports) ||
         isSetModified(getUniqueSet(expected.ServiceAccounts), getUniqueSet(actual.ServiceAccounts)) { 
+        if glog.V(2) {
+            glog.Infof("Service changed: Expected '%v' Actual '%v'", expected, actual)
+        }    
         return true
     }
     return false
@@ -488,9 +517,12 @@ func isServiceInstanceModified(expected, actual *model.ServiceInstance) bool {
     return false
 }
 
+// reconcileService is expected to be called only from inside reconcileServices(). The caller is expected
+// to lock the resource view before calling this method()
 func (v *MeshResourceView) reconcileService(cp string, k resourceKey, s *model.Service, e model.Event) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
+    if glog.V(2) {
+        glog.Infof("Svc event '%s' for service '%s'", e.String(), s.Hostname)
+    }
 	old, found := v.services[k]
 	if found {
 		v.serviceLabels.deleteLabel(k, labelControllerPath, cp)
@@ -505,7 +537,7 @@ func (v *MeshResourceView) reconcileService(cp string, k resourceKey, s *model.S
 	}
 	if e != model.EventDelete {
 		// Treat as upsert
-		v.serviceLabels.deleteLabel(k, labelControllerPath, cp)
+		v.serviceLabels.addLabel(k, labelControllerPath, cp)
 		v.serviceLabels.addLabel(k, labelServiceName, s.Hostname)
 		if s.ExternalName != "" {
 			v.serviceLabels.addLabel(k, labelServiceExternalName, s.ExternalName)
@@ -517,9 +549,9 @@ func (v *MeshResourceView) reconcileService(cp string, k resourceKey, s *model.S
 	}
 }
 
+// reconcileServiceInstance is expected to be called only from inside reconcileServiceInstances(). The caller is expected
+// to lock the resource view before calling this method()
 func (v *MeshResourceView) reconcileServiceInstance(cp string, k resourceKey, i *model.ServiceInstance, e model.Event) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
 	old, found := v.serviceInstances[k]
 	if found {
 		v.serviceInstanceLabels.deleteLabel(k, labelControllerPath, cp)
