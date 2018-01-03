@@ -287,18 +287,32 @@ class CheckData : public HttpCheckData,
     if (!entry) {
       return false;
     }
-    std::string payload_str = Auth::Base64UrlDecode(
-        std::string(entry->value().c_str(), entry->value().size()));
-    auto json_obj = Json::Factory::loadFromString(payload_str);
-    json_obj->iterate(
-        [payload](const std::string& key, const Json::Object& obj) -> bool {
-          // will throw execption if value type is not string.
-          try {
-            (*payload)[key] = obj.asString();
-          } catch (...) {
-          }
-          return true;
-        });
+    std::string value(entry->value().c_str(), entry->value().size());
+    std::string payload_str = Auth::Base64UrlDecode(value);
+    // Return an empty string if Base64 decode fails.
+    if (payload_str.empty()) {
+      ENVOY_LOG(error, "Invalid {} header, invalid base64: {}",
+                Http::JwtVerificationFilter::AuthorizedHeaderKey().get(),
+                value);
+      return false;
+    }
+    try {
+      auto json_obj = Json::Factory::loadFromString(payload_str);
+      json_obj->iterate(
+          [payload](const std::string& key, const Json::Object& obj) -> bool {
+            // will throw execption if value type is not string.
+            try {
+              (*payload)[key] = obj.asString();
+            } catch (...) {
+            }
+            return true;
+          });
+    } catch (...) {
+      ENVOY_LOG(error, "Invalid {} header, invalid json: {}",
+                Http::JwtVerificationFilter::AuthorizedHeaderKey().get(),
+                payload_str);
+      return false;
+    }
     return true;
   }
 };
