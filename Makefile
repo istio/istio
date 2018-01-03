@@ -84,10 +84,20 @@ setup: pilot/platform/kube/config
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend 
+.PHONY: depend dep.update
 .PHONY: depend.status depend.ensure depend.graph
 
-depend: depend.ensure
+# Pull depdendencies, based on the checked in Gopkg.lock file.
+# Developers must manually call dep.update if adding new deps or to pull recent
+# changes.
+depend: vendor
+
+# Target to update the Gopkg.lock with latest versions.
+# Should be run when adding any new dependency and periodically.
+depend.update: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
+	dep ensure
+	dep ensure -update
+	cp Gopkg.lock vendor/Gopkg.lock
 
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
@@ -95,24 +105,21 @@ ${GOPATH}/bin/dep:
 Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
 	$(Q) dep ensure -update
 
-depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
-	$(Q) dep status
-
-# @todo only run if there are changes (e.g., create a checksum file?) 
-# Update the vendor dir, pulling latest compatible dependencies from the
-# defined branches.
-depend.ensure: Gopkg.lock ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
-	$(Q) dep ensure
-
-depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
-	$(Q) dep status -dot | dot -T png | display
+depend.status: Gopkg.lock
+	$(Q) dep status > vendor/dep.txt
+	$(Q) dep status -dot > vendor/dep.dot
+	cat vendor/dep.dot | dot -T png > vendor/dep.png
 
 # Re-create the vendor directory, if it doesn't exist, using the checked in lock file
 depend.vendor: vendor
 	$(Q) dep ensure -vendor-only
 
-vendor:
-	dep ensure -update
+vendor: vendor/Gopkg.lock; $(info $(H) Updating vendor directory)
+
+# Update vendor and vendor/gopkg.lock if the lock file is changed
+vendor/Gopkg.lock: Gopkg.lock ${GOPATH}/bin/dep
+	${GOPATH}/bin/dep ensure -vendor-only
+	cp Gopkg.lock vendor/Gopkg.lock
 
 lint:
 	SKIP_INIT=1 bin/linters.sh
@@ -120,6 +127,11 @@ lint:
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
 pre-commit: fmt lint
+
+# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+# Will also check vendor, based on Gopkg.lock
+init:
+	@bin/init.sh
 
 #-----------------------------------------------------------------------------
 # Target: precommit

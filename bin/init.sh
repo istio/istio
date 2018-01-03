@@ -8,7 +8,6 @@ ISTIO_GO=$ROOT
 set -o errexit
 set -o nounset
 set -o pipefail
-set -x
 
 # Set GOPATH to match the expected layout
 TOP=$(cd $(dirname $0)/../../../..; pwd)
