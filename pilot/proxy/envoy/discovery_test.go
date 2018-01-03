@@ -421,6 +421,20 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	}
 }
 
+func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, multiMatchFaultRouteRuleV2, t)
+
+	// fault rule is source based: we check that the rule only affects v0 and not v1
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-fault-v0.json", t)
+
+	url = fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV1.ServiceNode())
+	response = makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-fault-v1.json", t)
+}
+
 func TestRouteDiscoveryMirror(t *testing.T) {
 	for _, mirrorConfig := range []fileConfig{mirrorRule, mirrorRuleV2} {
 		_, registry, ds := commonSetup(t)
@@ -594,6 +608,10 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 		{
 			name: "fault",
 			file: faultRouteRuleV2,
+		},
+		{
+			name: "multi-match-fault",
+			file: multiMatchFaultRouteRuleV2,
 		},
 		{
 			name: "egress-rule",

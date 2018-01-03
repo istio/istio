@@ -555,35 +555,10 @@ func (store *istioConfigStore) routeRulesV2(instances []*ServiceInstance, destin
 			continue
 		}
 
-		if !matchSource(rule, instances) {
-			continue
-		}
-
 		out = append(out, config)
 	}
 
 	return out
-}
-
-// TODO: can the instance matching be optimized?
-func matchSource(rule *routingv2.RouteRule, instances []*ServiceInstance) bool {
-	if len(rule.Http) == 0 {
-		return true
-	}
-	for _, http := range rule.Http {
-		if len(http.Match) == 0 {
-			return true
-		}
-
-		for _, match := range http.Match {
-			for _, instance := range instances {
-				if Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 func (store *istioConfigStore) RouteRulesByDestination(instances []*ServiceInstance) []Config {

@@ -90,10 +90,10 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
-func buildInboundRouteV2(config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+func buildInboundRouteV2(instances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
 	routes := make([]*HTTPRoute, 0)
 	for _, http := range rule.Http {
-		matchRoutes := buildHTTPRouteMatches(http.Match)
+		matchRoutes := buildHTTPRouteMatches(instances, http.Match)
 		for _, route := range matchRoutes {
 			route.Cluster = cluster.Name
 			route.clusters = []*Cluster{cluster}
@@ -151,12 +151,12 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
+func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance) []*HTTPRoute {
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRouteV2(config, service, port)
+		return buildHTTPRouteV2(config, service, port, instances)
 	default:
 		panic("unsupported rule")
 	}
@@ -281,13 +281,13 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port) []*HTTPRoute {
+func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance) []*HTTPRoute {
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
 	defaultDestination := service.Hostname
 	for _, http := range rule.Http {
-		matchRoutes := buildHTTPRouteMatches(http.Match)
+		matchRoutes := buildHTTPRouteMatches(instances, http.Match)
 		for _, route := range matchRoutes {
 			// TODO: logic in this block is not dependent on the route match, so we may be able to avoid
 			// rerunning it N times

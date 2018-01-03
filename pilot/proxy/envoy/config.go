@@ -548,7 +548,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		model.SortRouteRules(rules)
 
 		for _, rule := range rules {
-			httpRoutes := buildHTTPRoute(rule, service, servicePort)
+			httpRoutes := buildHTTPRoute(rule, service, servicePort, instances)
 			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
@@ -776,7 +776,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 					case *routingv2.RouteRule:
 						rule := config.Spec.(*routingv2.RouteRule)
 						// if no routes are returned, it is a TCP RouteRule
-						routes := buildInboundRouteV2(config, rule, cluster)
+						routes := buildInboundRouteV2(instances, config, rule, cluster)
 						for _, route := range routes {
 							// set server-side mixer filter config for inbound HTTP routes
 							// Note: websocket routes do not call the filter chain. Will be

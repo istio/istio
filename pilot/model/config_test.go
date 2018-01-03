@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-
 	"github.com/golang/protobuf/proto"
 
 	routing "istio.io/api/routing/v1alpha1"
