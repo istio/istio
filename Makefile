@@ -111,15 +111,15 @@ depend.graph: Gopkg.lock | ${GOPATH}/bin/dep ; $(info $(H) visualizing dependenc
 depend.vendor: vendor | ${GOPATH}/bin/dep
 	$(Q) ${GOPATH}/bin/dep ensure -vendor-only
 
+vendor: | ${GOPATH}/bin/dep
+	${GOPATH}/bin/dep ensure -update
+
 lint:
 	SKIP_INIT=1 bin/linters.sh
 
 # Target run by the pre-commit script, to automate formatting and lint
 # If pre-commit script is not used, please run this manually.
 pre-commit: fmt lint
-
-vendor: | ${GOPATH}/bin/dep
-	${GOPATH}/bin/dep ensure -update
 
 #-----------------------------------------------------------------------------
 # Target: precommit
