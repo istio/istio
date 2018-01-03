@@ -232,7 +232,7 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
-          command:
+          command: |
             if [ ! -d vendor/github.com ] ; then
               make vendor
             fi
