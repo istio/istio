@@ -101,7 +101,7 @@ depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
 # @todo only run if there are changes (e.g., create a checksum file?) 
 # Update the vendor dir, pulling latest compatible dependencies from the
 # defined branches.
-depend.ensure: Gopkg.lock ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
+depend.ensure: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
 	$(Q) dep ensure
 
 depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
