@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/mixer/cmd/shared"
+	"istio.io/istio/pkg/tracing"
 )
 
 type rootArgs struct {
@@ -59,6 +60,8 @@ type rootArgs struct {
 
 	// # times to repeat the operation
 	repeat int
+
+	tracingOptions *tracing.Options
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -87,7 +90,9 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 	_ = fs.Parse([]string{})
 	flag.CommandLine = fs
 
-	rootArgs := &rootArgs{}
+	rootArgs := &rootArgs{
+		tracingOptions: tracing.NewOptions(),
+	}
 
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.mixerAddress, "mixer", "m", "localhost:9091",
 		"Address and port of a running Mixer instance")
@@ -112,13 +117,12 @@ func GetRootCmd(args []string, printf, fatalf shared.FormatFn) *cobra.Command {
 		"List of name/value bytes attributes specified as name1=b0:b1:b3,name2=b4:b5:b6,...")
 	rootCmd.PersistentFlags().StringVarP(&rootArgs.stringMapAttributes, "stringmap_attributes", "", "",
 		"List of name/value string map attributes specified as name1=k1:v1;k2:v2,name2=k3:v3...")
-	// TODO: implement an option to specify how traces are reported (hardcoded to report to stdout right now).
-	rootCmd.PersistentFlags().BoolVarP(&rootArgs.enableTracing, "trace", "", false,
-		"Whether to trace rpc executions")
 
 	rootCmd.AddCommand(checkCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(reportCmd(rootArgs, printf, fatalf))
 	rootCmd.AddCommand(shared.VersionCmd(printf))
+
+	rootArgs.tracingOptions.AttachCobraFlags(rootCmd)
 
 	return rootCmd
 }
