@@ -237,6 +237,8 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
+      - attach_workspace:
+          at:  /go
       - run: mkdir -p /tmp/coverage
       - run:
           name: Running Kubernetes API Server standalone
