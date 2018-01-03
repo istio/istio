@@ -134,4 +134,5 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
 fi
 popd
 
+# log where git thinks the build might be dirty
 git status
