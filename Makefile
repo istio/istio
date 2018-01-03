@@ -121,8 +121,8 @@ depend.vendor: vendor
 vendor: vendor/Gopkg.lock; $(info $(H) Updating vendor directory)
 
 # Update vendor and vendor/gopkg.lock if the lock file is changed
-vendor/Gopkg.lock: Gopkg.lock ${GOPATH}/bin/dep
-	${GOPATH}/bin/dep ensure -vendor-only
+vendor/Gopkg.lock: Gopkg.lock
+	time ${GOPATH}/bin/dep ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 
 lint:
