@@ -304,10 +304,11 @@ jobs:
             go get github.com/jstemmer/go-junit-report
             free
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            make localTestEnv
             go test ./pilot/adapter/config/ingress
             go test ./pilot/platform/kube
             go test ./pilot/platform/kube/admit
-            make localTestEnv pilot-test T=-v | tee /go/out/tests/go-test-report.out
+            make pilot-test T=-v | tee /go/out/tests/go-test-report.out
             free
             make mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_artifacts:

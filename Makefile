@@ -350,6 +350,7 @@ docker.sidecar.deb:
 sidecar.deb: ${OUT}/istio-sidecar.deb
 
 ${OUT}/istio-sidecar.deb:
+	mkdir -p ${OUT}
 	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
 	   --url http://istio.io  \
 	   --license Apache \
