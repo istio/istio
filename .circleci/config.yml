@@ -199,7 +199,7 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             if [ ! -d vendor ]; then
-               dep ensure
+               dep ensure -vendor-only
             fi
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
