@@ -3,6 +3,8 @@ defaults: &defaults
   working_directory: /go/src/istio.io/istio
   docker:
     - image: istio/ci:go1.9-k8s1.7.4
+  environment:
+    GOPATH: /go
 
 # org context settings. If developing on a clone, please configure:
 
@@ -209,7 +211,7 @@ jobs:
           command: |
             mkdir -p ${GOPATH}/out
             make depend.status
-            tar cvfz ${GOPATH}/out/istio-vendor.tgz vendor
+            tar cfz ${GOPATH}/out/istio-vendor.tgz vendor
       - store_artifacts:
           path: ${GOPATH}/out/istio-vendor.tgz
       - store_artifacts:
@@ -225,7 +227,11 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make vendor/github.com
+      - run:
+          command:
+            if [ ! -d vendor/github.com ]; then
+              make vendor
+            fi
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:

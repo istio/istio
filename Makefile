@@ -113,11 +113,6 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-	
-# Re-create the vendor directory - used for cached vendor (in circleci), where
-# Gopkg.lock will be more recent due to checkout.
-vendor/github.com:
-	$(Q) dep ensure -vendor-only
 
 vendor: vendor/Gopkg.lock; $(info $(H) Updating vendor directory)
 
