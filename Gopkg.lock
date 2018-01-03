@@ -536,7 +536,7 @@
   branch = "master"
   name = "golang.org/x/oauth2"
   packages = [".","google","internal","jws","jwt"]
-  revision = "90155042cbc501d0b5c9badf50f1975dd2a7fdd0"
+  revision = "ee2bad97a97122079f2a3d0dce09330f085b36a0"
 
 [[projects]]
   branch = "master"

@@ -108,7 +108,11 @@ Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
 depend.status: Gopkg.lock
 	$(Q) dep status > vendor/dep.txt
 	$(Q) dep status -dot > vendor/dep.dot
+
+# Requires 'graphviz' package. Run as user
+depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
+	display vendor/dep.pkg
 
 # Re-create the vendor directory, if it doesn't exist, using the checked in lock file
 depend.vendor: vendor

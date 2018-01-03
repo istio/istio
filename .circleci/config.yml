@@ -198,25 +198,24 @@ jobs:
     <<: *defaults
     steps:
       - checkout
-      - run:
-          command: |
-            make dep.update
+      - run:  make depend.update
       - save_cache:
           key: dep-cache-{{ checksum "Gopkg.lock" }}
           paths:
             - /go/src/istio.io/istio/vendor
+      - run: make
       - run:
+          name: Status and artifacts
           command: |
-            make
             mkdir -p ${GOPATH}/out
             make depend.status
             tar cvfz ${GOPATH}/out/istio-vendor.tgz vendor
       - store_artifacts:
           path: ${GOPATH}/out/istio-vendor.tgz
       - store_artifacts:
-          path: vendor/dep.dot
+          path: vendor/Gopkg.lock
       - store_artifacts:
-          path: vendor/dep.png
+          path: vendor/dep.dot
       # TODO: auto-commit Gopkg.lock if test is successful
 
   dependencies:
