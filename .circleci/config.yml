@@ -315,8 +315,11 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             make go-build
+            make sidecar.deb
       - store_artifacts:
           path: /go/bin
+      - store_artifacts:
+          path: /go/out/istio-sidecar.deb
       - persist_to_workspace:
           root: /go
           paths:

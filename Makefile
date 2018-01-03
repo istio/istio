@@ -198,7 +198,7 @@ mixs: vendor
 
 .PHONY: mixc
 mixc: vendor
-	go install istio.io/istio/mixer/cmd/mixc
+	go build -o ${GOPATH}/bin/mixc istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
 node-agent: vendor
@@ -220,9 +220,9 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 
 localTestEnv:
 	bin/testEnvLocalK8S.sh ensure
-	go install istio.io/istio/pilot/test/server
-	go install istio.io/istio/pilot/test/client
-	go install istio.io/istio/pilot/test/eurekamirror
+	go build -o ${GOPATH}/bin/server istio.io/istio/pilot/test/server
+	go build -o ${GOPATH}/bin/client istio.io/istio/pilot/test/client
+	go build -o ${GOPATH}/bin/eurekamirror istio.io/istio/pilot/test/eurekamirror
 
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
@@ -338,7 +338,7 @@ dist: dist-bin
 
 include .circleci/Makefile
 
-.PHONY: docker.sidecar.deb sidecar.deb
+.PHONY: docker.sidecar.deb sidecar.deb ${OUT}/istio-sidecar.deb
 
 # Make the deb image using the CI/CD image and docker.
 docker.sidecar.deb:
@@ -354,8 +354,10 @@ docker.sidecar.deb:
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
-sidecar.deb:
-	fpm -s dir -t deb -n istio-sidecar --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
+sidecar.deb: ${OUT}/istio-sidecar.deb
+
+${OUT}/istio-sidecar.deb:
+	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
 	   --url http://istio.io  \
 	   --license Apache \
 	   --vendor istio.io \
