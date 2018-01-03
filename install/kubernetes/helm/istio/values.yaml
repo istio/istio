@@ -1,4 +1,4 @@
-Istio:
+istio:
    deploy_base_config: true
    initializer_enabled: true 
    mixer_enabled: true 
