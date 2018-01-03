@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"strconv"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/tracing"
 )
 
 const (
@@ -177,7 +179,7 @@ func TestErrors(t *testing.T) {
 	a.MonitoringPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
-	a.LogTraceSpans = true
+	a.TracingOptions.LogTraceSpans = true
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -199,8 +201,8 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 3:
-				pt.startTracer = func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error) {
-					return nil, nil, errors.New("BAD")
+				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
+					return nil, errors.New("BAD")
 				}
 			case 4:
 				pt.startMonitor = func(port uint16) (*monitor, error) {
