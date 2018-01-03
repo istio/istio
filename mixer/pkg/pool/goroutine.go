@@ -56,23 +56,15 @@ func (gp *GoroutinePool) Close() error {
 
 // ScheduleWork registers the given function to be executed at some point. The given param will
 // be supplied to the function during execution.
+//
+// By making use of the supplied parameter, it is possible to avoid allocation costs when scheduling the
+// work function. The caller needs to make sure that function fn only depends on external data through the
+// passed in param interface{} and nothing else.
 func (gp *GoroutinePool) ScheduleWork(fn WorkFunc, param interface{}) {
 	if gp.singleThreaded {
 		fn(param)
 	} else {
 		gp.queue <- work{fn: fn, param: param}
-	}
-}
-
-// ScheduleWorkNoParam registers the given function to be executed at some point.
-// Prefer ScheduleWork instead, if possible. By passing the parameter on the side, it is possible to avoid
-// extra allocations. However, using this method almost always guarantees allocation due to the inherent
-// need of a closure for any meaningful work.
-func (gp *GoroutinePool) ScheduleWorkNoParam(fn func()) {
-	if gp.singleThreaded {
-		fn()
-	} else {
-		gp.queue <- work{fn: runParameterlessFn, param: fn}
 	}
 }
 

@@ -19,31 +19,6 @@ import (
 	"testing"
 )
 
-func TestWorkerPoolWithNoParam(t *testing.T) {
-	const numWorkers = 123
-	const numWorkItems = 456
-
-	for i := 0; i < 2; i++ {
-		gp := NewGoroutinePool(128, i == 0)
-		gp.AddWorkers(numWorkers)
-
-		wg := &sync.WaitGroup{}
-		wg.Add(numWorkItems)
-
-		for i := 0; i < numWorkItems; i++ {
-			gp.ScheduleWorkNoParam(func() {
-				wg.Done()
-			})
-		}
-
-		// wait for all the functions to have run
-		wg.Wait()
-
-		// make sure the pool can be shutdown cleanly
-		gp.Close()
-	}
-}
-
 func TestWorkerPool(t *testing.T) {
 	const numWorkers = 123
 	const numWorkItems = 456
