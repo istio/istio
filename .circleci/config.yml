@@ -55,7 +55,7 @@ jobs:
 
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run: make docker
       - run:
           name: "Wait for minikube"
@@ -122,7 +122,7 @@ jobs:
             sudo chown -R $USER $HOME/.minikube
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: go build -i ./pilot/test/integration
       - run:
@@ -170,7 +170,7 @@ jobs:
             sudo chown -R $USER $HOME/.minikube
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
       - run: go build -i ./pilot/test/integration
       - run:
@@ -194,7 +194,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -202,7 +202,7 @@ jobs:
                dep ensure
             fi
       - save_cache:
-          key: dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+          key: dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
           paths:
             - /go/src/istio.io/istio/vendor
 
@@ -218,28 +218,15 @@ jobs:
           background: true
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
+            bin/init.sh
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - run:
-          command: |
-            mkdir ~/envoy
-            cd ~/envoy
-            ISTIO_PROXY_BUCKET=$(sed 's/ = /=/' <<< $( awk '/ISTIO_PROXY_BUCKET =/' /go/src/istio.io/istio/WORKSPACE))
-            PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
-            PROXY=debug-$PROXYVERSION
-            wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
-            ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
@@ -264,7 +251,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             docker login -u $DOCKER_USER -p $DOCKER_PASS
@@ -279,7 +266,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -299,7 +286,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cd /go/src/istio.io/istio
@@ -325,7 +312,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           no_output_timeout: 900
           command: |
@@ -338,7 +325,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -358,7 +345,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "WORKSPACE" }}
+            - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
             cp -a /usr/local/go /go
