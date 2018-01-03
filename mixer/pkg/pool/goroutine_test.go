@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func TestWorkerPool(t *testing.T) {
+func TestWorkerPoolWithNoParam(t *testing.T) {
 	const numWorkers = 123
 	const numWorkItems = 456
 
@@ -31,7 +31,7 @@ func TestWorkerPool(t *testing.T) {
 		wg.Add(numWorkItems)
 
 		for i := 0; i < numWorkItems; i++ {
-			gp.ScheduleWork(func() {
+			gp.ScheduleWorkNoParam(func() {
 				wg.Done()
 			})
 		}
@@ -44,7 +44,7 @@ func TestWorkerPool(t *testing.T) {
 	}
 }
 
-func TestWorkerPoolWithParam(t *testing.T) {
+func TestWorkerPool(t *testing.T) {
 	const numWorkers = 123
 	const numWorkItems = 456
 
@@ -59,7 +59,7 @@ func TestWorkerPoolWithParam(t *testing.T) {
 
 		for i := 0; i < numWorkItems; i++ {
 			passedParam := i // capture the parameter on stack to avoid closing on the loop variable.
-			gp.ScheduleWorkWithParam(func(param interface{}) {
+			gp.ScheduleWork(func(param interface{}) {
 				paramI := param.(int)
 				if paramI != passedParam {
 					parameterMismatch = true

@@ -205,7 +205,7 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		}
 
 		wg.Add(1)
-		gp.ScheduleWork(func() {
+		gp.ScheduleWorkNoParam(func() {
 			if _, err := bs.client.Check(context.Background(), request); err != nil {
 				b.Errorf("Check2 failed with %v", err)
 			}

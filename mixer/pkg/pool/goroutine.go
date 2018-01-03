@@ -54,8 +54,21 @@ func (gp *GoroutinePool) Close() error {
 	return nil
 }
 
-// ScheduleWork registers the given function to be executed at some point
-func (gp *GoroutinePool) ScheduleWork(fn func()) {
+// ScheduleWork registers the given function to be executed at some point. The given param will
+// be supplied to the function during execution.
+func (gp *GoroutinePool) ScheduleWork(fn WorkFunc, param interface{}) {
+	if gp.singleThreaded {
+		fn(param)
+	} else {
+		gp.queue <- work{fn: fn, param: param}
+	}
+}
+
+// ScheduleWorkNoParam registers the given function to be executed at some point.
+// Prefer ScheduleWork instead, if possible. By passing the parameter on the side, it is possible to avoid
+// extra allocations. However, using this method almost always guarantees allocation due to the inherent
+// need of a closure for any meaningful work.
+func (gp *GoroutinePool) ScheduleWorkNoParam(fn func()) {
 	if gp.singleThreaded {
 		fn()
 	} else {
@@ -67,16 +80,6 @@ func (gp *GoroutinePool) ScheduleWork(fn func()) {
 func runParameterlessFn(param interface{}) {
 	fn := param.(func())
 	fn()
-}
-
-// ScheduleWorkWithParam registers the given function to be executed at some point. The given param will
-// be supplied to the function during execution.
-func (gp *GoroutinePool) ScheduleWorkWithParam(fn WorkFunc, param interface{}) {
-	if gp.singleThreaded {
-		fn(param)
-	} else {
-		gp.queue <- work{fn: fn, param: param}
-	}
 }
 
 // AddWorkers introduces more goroutines in the worker pool, increasing potential parallelism.

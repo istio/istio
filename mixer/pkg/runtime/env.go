@@ -36,7 +36,7 @@ func (e env) Logger() adapter.Logger {
 }
 
 func (e env) ScheduleWork(fn adapter.WorkFunc) {
-	e.gp.ScheduleWork(func() {
+	e.gp.ScheduleWorkNoParam(func() {
 		defer func() {
 			if r := recover(); r != nil {
 				_ = e.Logger().Errorf("Adapter worker failed: %v", r) // nolint: gas

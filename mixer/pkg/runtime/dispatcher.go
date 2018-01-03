@@ -404,7 +404,7 @@ func safeDispatch(ctx context.Context, do dispatchFn, op string) (res *result) {
 func (m *dispatcher) runAsync(ctx context.Context, callinfo *Action, results chan *result, do dispatchFn) {
 	log.Debugf("runAsync %v", *callinfo)
 
-	m.gp.ScheduleWork(func() {
+	m.gp.ScheduleWorkNoParam(func() {
 		// tracing
 		op := callinfo.processor.Name + ":" + callinfo.handlerName + "(" + callinfo.adapterName + ")"
 		span, ctx := opentracing.StartSpanFromContext(ctx, op)
