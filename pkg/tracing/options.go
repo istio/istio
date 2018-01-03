@@ -37,6 +37,7 @@ func NewOptions() *Options {
 	return &Options{}
 }
 
+// Validate returns whether the options have been configured correctly or an error
 func (o *Options) Validate() error {
 	// due to a race condition in the OT libraries somewhere, we can't have both tracing outputs active at once
 	if o.JaegerURL != "" && o.ZipkinURL != "" {
