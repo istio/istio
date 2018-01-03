@@ -248,8 +248,6 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - attach_workspace:
-          at:  /go
       - run:
           command: |
             cd /go/src/istio.io/istio
