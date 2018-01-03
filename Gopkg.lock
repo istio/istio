@@ -944,7 +944,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "b08011c721e03edd61c721e4943607c97b7a9879"
+  revision = "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1160,6 +1160,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "02698cd7ff92b41811ebc3535d027248b4559b03cc2221c2ecde44034149da31"
+  inputs-digest = "bb36336aac786741ddc9941025061cde9d93fb3857ebc6c33817f922474d0bef"
   solver-name = "gps-cdcl"
   solver-version = 1
