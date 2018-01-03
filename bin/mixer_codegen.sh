@@ -74,8 +74,8 @@ popd
 echo "Done."
 fi
 
-SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
-GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${SHA}
+GOOGLEAPIS_SHA=c8c975543a134177cc41b64cbbf10b88fe66aa1d
+GOOGLEAPIS_URL=https://raw.githubusercontent.com/googleapis/googleapis/${GOOGLEAPIS_SHA}
 
 if [ ! -e ${ROOT}/vendor/github.com/googleapis/googleapis ]; then
 echo "Pull down source protos from googleapis..."
