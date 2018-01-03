@@ -64,9 +64,6 @@ Ensure your UID is in the docker group to access the docker daemon as a non-root
 sudo adduser $USER docker
 ```
 
-where:
-    username is your login name
-
 ### Setting up environment variables
 
 Set up your GOPATH, add a path entry for Go binaries to your PATH, set the ISTIO
@@ -99,6 +96,10 @@ Execute a one time operation to contain the Istio source trees.
 ```shell
 mkdir -p $ISTIO
 ```
+
+As the steps recommmended in this section change both the user's groups
+information as well as the $PATH and environment, please logout of the
+development machine and log in to reload the environment.
 
 ### Setting up a personal access token
 
@@ -287,7 +288,7 @@ make test
 You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
 
 ```shell
-make coverage
+make cov
 ```
 
 ### Auto-formatting source code
