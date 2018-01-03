@@ -240,6 +240,8 @@ jobs:
   codecov:
     <<: *defaults
     resource_class: xlarge
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     steps:
       - checkout
       - attach_workspace:
