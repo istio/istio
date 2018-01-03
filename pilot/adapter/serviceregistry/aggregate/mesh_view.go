@@ -375,7 +375,7 @@ func (v *MeshResourceView) reconcileServices(r *Registry, cvp string, rl resourc
         if !found {
             continue  // Needs to be added to MeshView
         }
-        if isServiceModified(expSvc, actSvc) {
+        if !expSvc.Equals(actSvc) {
             updateSet[k] = expSvc
         }
         // Remaining would be ones that need adding
@@ -418,7 +418,7 @@ func (v *MeshResourceView) reconcileServiceInstances(cvp string, rl resourceLabe
         if !found {
             continue  // Needs to be added to MeshView
         }
-        if isServiceInstanceModified(expInst, actInst) {
+        if !expInst.Equals(actInst) {
             updateSet[k] = expInst
         }
         // Remaining would be ones that need adding
@@ -449,72 +449,6 @@ func (v *MeshResourceView) reconcileServiceInstances(cvp string, rl resourceLabe
     }()
     // Caches must be updated outside scope of locks
     v.cacheEvictionHandler.EvictCache(cacheReferences)
-}
-
-func getUniqueSet(values []string) map[string]bool {  
-    out := map[string]bool{}
-    for _, val := range values {
-        out[val] = true
-    }
-    return out
-}
-
-func isSetModified(first, second map[string]bool) bool {
-    for firstVal := range first {
-        _, found := second[firstVal]
-        if !found {
-            return true
-        }
-    }
-    return false
-}
-
-func isPortListModified(first, second model.PortList) bool {
-    for idx, portFirst := range first {
-        portSecond := second[idx]
-        if portFirst.Name != portSecond.Name ||
-            portFirst.Port != portSecond.Port ||
-            portFirst.Protocol != portSecond.Protocol ||
-            portFirst.AuthenticationPolicy != portSecond.AuthenticationPolicy {
-                return true
-            }
-    }
-    return false
-}
-
-// Compares services based on only what's needed for xDS to work.
-func isServiceModified(expected, actual *model.Service) bool {
-    // Skip checking host name, cause that would result a different resourceKey and this
-    // function would never be invoked.
-    if expected.Address != actual.Address ||
-        expected.External() != actual.External() ||
-        expected.ExternalName != actual.ExternalName ||
-        expected.LoadBalancingDisabled != actual.LoadBalancingDisabled ||
-        len(expected.ServiceAccounts) != len(actual.ServiceAccounts) ||
-        len(expected.Ports) != len(actual.Ports) ||
-        isPortListModified(expected.Ports, actual.Ports) ||
-        isSetModified(getUniqueSet(expected.ServiceAccounts), getUniqueSet(actual.ServiceAccounts)) { 
-        if glog.V(2) {
-            glog.Infof("Service changed: Expected '%v' Actual '%v'", expected, actual)
-        }    
-        return true
-    }
-    return false
-} 
-
-// Compares services based on only what's needed for xDS to work.
-func isServiceInstanceModified(expected, actual *model.ServiceInstance) bool {
-    // Skip Endpoint and Service, cause that would result in a different resourceKey and this
-    // function would never be invoked.
-    if expected.AvailabilityZone != actual.AvailabilityZone ||
-      expected.ServiceAccount != actual.ServiceAccount ||
-      len(expected.Labels) != len(actual.Labels) ||
-      len(expected.ManagementPorts) != len(actual.ManagementPorts) ||
-      isPortListModified(expected.ManagementPorts, actual.ManagementPorts) ||
-      !expected.Labels.Equals(actual.Labels) {
-          return true
-    }
-    return false
 }
 
 // reconcileService is expected to be called only from inside reconcileServices(). The caller is expected

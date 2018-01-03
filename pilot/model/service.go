@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/golang/glog"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
@@ -453,4 +454,87 @@ func ParseLabelsString(s string) Labels {
 		}
 	}
 	return tag
+}
+
+func buildUniqueSet(values []string) map[string]bool {  
+    out := map[string]bool{}
+    for _, val := range values {
+        out[val] = true
+    }
+    return out
+}
+
+func setEquals(first, second map[string]bool) bool {
+    if len(first) != len(second) {
+        return false
+    }
+    for firstVal := range first {
+        _, found := second[firstVal]
+        if !found {
+            return false
+        }
+    }
+    return true
+}
+
+func (pl *PortList) Equals(other *PortList) bool {
+    if len(*pl) != len(*other) {
+        return false
+    }
+    plMap := map[int]*Port{}
+    for _, p := range *pl {
+        plMap[p.Port] = p
+    }    
+    otherMap := map[int]*Port{}
+    for _, p := range *other {
+        otherMap[p.Port] = p
+    }    
+    for portNum, p := range plMap {
+        o, found := otherMap[portNum]
+        if !found {
+            return false    
+        }
+        if p.Name != o.Name ||
+            p.Protocol != o.Protocol ||
+            p.AuthenticationPolicy != o.AuthenticationPolicy {
+            return false
+        }
+    }
+    return true
+}
+
+// Compares services based on only what's needed for xDS to work.
+// This method assumes service names are the same and compares
+// other relevant fields.
+func (s *Service) Equals(other *Service) bool {
+    // Expect host names, cause that would result a different object and this
+    // function would never be invoked.
+    if s.Address != other.Address ||
+        s.External() != other.External() ||
+        s.ExternalName != other.ExternalName ||
+        s.LoadBalancingDisabled != other.LoadBalancingDisabled ||
+        !s.Ports.Equals(&other.Ports) ||
+        !setEquals(buildUniqueSet(s.ServiceAccounts), buildUniqueSet(other.ServiceAccounts)) { 
+        if glog.V(2) {
+            glog.Infof("Service changed: Expected '%v' Actual '%v'", s, other)
+        }    
+        return false
+    }
+    return true
+} 
+
+// Compares services based on only what's needed for xDS to work.
+// This method assumes service names, endpoint address and port are the same
+// and compares other relevant fields.
+func (i *ServiceInstance) Equals(other *ServiceInstance) bool {
+    // Skip Endpoint and Service, cause that would result in a different object and this
+    // function would never be invoked.
+    if i.AvailabilityZone != other.AvailabilityZone ||
+      i.ServiceAccount != other.ServiceAccount ||
+      len(i.Labels) != len(other.Labels) ||
+      !i.ManagementPorts.Equals(&other.ManagementPorts) ||
+      !i.Labels.Equals(other.Labels) {
+          return false
+    }
+    return true
 }
