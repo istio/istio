@@ -2,7 +2,7 @@
 {{- $pilot_hub := .Values.global.pilot_hub }}
 {{- $pilot_tag := .Values.global.pilot_tag }}
 ################################
-# Istio initializer
+# istio initializer
 ################################
 apiVersion: v1
 kind: ConfigMap
@@ -56,7 +56,6 @@ spec:
           image: {{$pilot_hub}}/sidecar_initializer:{{$pilot_tag}}
           imagePullPolicy: IfNotPresent
           args:
-            - --port=8083
             - --namespace={{ $istio_namespace }}
             - -v=2
           volumeMounts:
