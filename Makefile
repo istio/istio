@@ -210,7 +210,7 @@ go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent is
 .PHONY: go-test localTestEnv
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
-GOTEST_P ?= '-p 1'
+GOTEST_P ?= -p 1
 
 localTestEnv:
 	bin/testEnvLocalK8S.sh ensure
