@@ -221,25 +221,12 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
           command: |
-            cd /go/src/istio.io/istio
-            if [ ! -d vendor ]; then
-               dep ensure
-            fi
+            bin/init.sh
       - run:
           command: |
             mkdir ~/.kube
             cp /go/src/istio.io/istio/.circleci/config ~/.kube/config
             ln -s ~/.kube/config /go/src/istio.io/istio/pilot/platform/kube/config
-      - run:
-          command: |
-            mkdir ~/envoy
-            cd ~/envoy
-            ISTIO_PROXY_BUCKET=$(sed 's/export PROXY_TAG=//' <<< $( awk '/export PROXY_TAG=/' istio.VERSION) | tr -d '"')
-            PROXYVERSION=$(sed 's/[^"]*"\([^"]*\)".*/\1/' <<<  $ISTIO_PROXY_BUCKET)
-            PROXY=debug-$PROXYVERSION
-            wget -qO- https://storage.googleapis.com/istio-build/proxy/envoy-$PROXY.tar.gz | tar xvz
-            ln -sf ~/envoy/usr/local/bin/envoy /go/src/istio.io/istio/pilot/proxy/envoy/envoy
-
       - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh pilot
       - run:
           command: |
