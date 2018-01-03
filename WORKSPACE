@@ -211,7 +211,7 @@ go_repository(
 
 go_repository(
     name = "com_github_alicebob_miniredis",
-    commit = "e9169f14d501184b6cc94e270e5a93e4bab203d7",  # release 2.0.0, 4/15/2017
+    commit = "8f848dada7eede8920d2c695493728a9d400d4dd",  # Oct 11, 2017 (no releases)
     importpath = "github.com/alicebob/miniredis",
 )
 
@@ -599,6 +599,18 @@ go_repository(
     name = "org_golang_x_sync",
     commit = "f52d1811a62927559de87708c8913c1650ce4f26",  # May 17, 2017 (no releases)
     importpath = "golang.org/x/sync",
+)
+
+go_repository(
+    name = "github_com_go_redis_redis",
+    commit = "fdafb11e5fa5d52d965e12073c8a58468c98ebe2",  # Sep 11, 2017 (no releases)
+    importpath = "github.com/go-redis/redis",
+)
+
+go_repository(
+    name = "com_github_yuin_gopher_lua",
+    commit = "609c9cd2697344dec90fe0543c6493e3b8da3435",  # Oct 30, 2017
+    importpath = "github.com/yuin/gopher-lua",
 )
 
 ##
