@@ -21,6 +21,4 @@ pilot/platform/kube/config
 pilot/proxy/envoy/envoy
 # lint
 lintconfig.gen.json
-# dep
-Gopkg.lock
 .istiorc
