@@ -16,6 +16,8 @@ package perf
 
 import (
 	"testing"
+
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 )
 
 func TestBasicReportRequest(t *testing.T) {

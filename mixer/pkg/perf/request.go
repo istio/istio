@@ -17,6 +17,7 @@ package perf
 import (
 	"encoding/json"
 
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/attribute"
 )
 

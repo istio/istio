@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 )
 
 var tests = []struct {
