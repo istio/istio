@@ -29,9 +29,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/sync/errgroup"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
@@ -147,7 +144,7 @@ func main() {
 
 	if len(kubeconfig) == 0 {
 		kubeconfig = "pilot/platform/kube/config"
-		glog.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
+		log.Info("Using linked in kube config. Set KUBECONFIG env before running the test.")
 	}
 	var err error
 	_, client, err = kube.CreateInterface(kubeconfig)

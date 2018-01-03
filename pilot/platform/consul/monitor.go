@@ -19,8 +19,6 @@ import (
 	"sort"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"

@@ -130,8 +130,8 @@ spec:
         args:
         - proxy
         - pilot
-        - -v
-        - "2"
+        - -log_output_level
+        - "info"
         - --discoveryAddress
         - istio-pilot:15003
         - --controlPlaneAuthPolicy

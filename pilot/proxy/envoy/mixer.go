@@ -22,9 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"

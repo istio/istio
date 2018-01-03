@@ -42,7 +42,7 @@ e2e_docker: docker push
 endif
 
 E2E_ARGS ?=
-E2E_ARGS += $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
+E2E_ARGS += $(if ifeq($V,1),-alsologtostderr -test.v -log_output_level info)
 E2E_ARGS += ${MINIKUBE_FLAGS}
 E2E_ARGS += --istioctl ${GOPATH}/bin/istioctl
 

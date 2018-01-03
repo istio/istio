@@ -54,7 +54,7 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --namespace={ISTIO_NAMESPACE}
-            - -v=2
+            - -log_output_level=info
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config

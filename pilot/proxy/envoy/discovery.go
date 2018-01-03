@@ -26,8 +26,6 @@ import (
 	"sync/atomic"
 
 	"github.com/emicklei/go-restful"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
 

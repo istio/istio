@@ -25,8 +25,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"k8s.io/api/admission/v1alpha1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	"k8s.io/api/core/v1"

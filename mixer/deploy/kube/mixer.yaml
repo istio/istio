@@ -19,7 +19,7 @@ spec:
         - mountPath: /etc/opt/mixer
           name: config
         args:
-          - -v=4
+          - -log_output_level=debug
       volumes:
       - name: config
         configMap:

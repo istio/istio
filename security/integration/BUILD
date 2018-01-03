@@ -10,8 +10,6 @@ go_library(
         "//security/pkg/cmd:go_default_library",
         "//security/pkg/pki/ca/controller:go_default_library",
         "//security/pkg/pki/testutil:go_default_library",
-        # TODO(nmittler): Remove this
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",

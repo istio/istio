@@ -17,7 +17,7 @@ services:
     privileged: true
     environment:
       - SERVICE_IGNORE=1
-    command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-v", "2", "--insecure-bind-address", "0.0.0.0"]
+    command: ["kube-apiserver", "--etcd-servers", "http://etcd:2379", "--service-cluster-ip-range", "10.99.0.0/16", "--insecure-port", "8080", "-log_output_level", "info", "--insecure-bind-address", "0.0.0.0"]
 
   eureka:
     image: netflixoss/eureka:1.3.1
@@ -42,7 +42,7 @@ services:
       - "8080"
     ports:
       - "8081:8080"
-    command: ["discovery", "-v", "2",
+    command: ["discovery", "-log_output_level", "info",
              "--registries", "Eureka",
              "--eurekaserverURL", "http://eureka:8080",
              "--kubeconfig", "/etc/istio/config/kubeconfig"]

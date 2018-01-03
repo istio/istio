@@ -19,8 +19,6 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 

@@ -10,9 +10,6 @@ go_library(
         "//pilot/adapter/config/crd:go_default_library",
         "//pilot/model:go_default_library",
         "//pkg/log:go_default_library",
-
-        # TODO(nmittler): Remove this
-        "@com_github_golang_glog//:go_default_library",
     ],
 )
 

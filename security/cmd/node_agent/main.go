@@ -17,8 +17,6 @@ package main
 import (
 	"os"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pkg/log"

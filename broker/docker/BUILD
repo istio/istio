@@ -17,7 +17,7 @@ pkg_tar(
 broker_docker_build(
     cmd = [
         "--logtostderr",
-        "--v=2",
+        "--log_output_level=info",
     ],
     entrypoint = [
         "/usr/local/bin/brks",
