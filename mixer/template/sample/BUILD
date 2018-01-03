@@ -7,10 +7,10 @@ load("//mixer/tools/codegen:generate.bzl", "mixer_supported_template_library")
 mixer_supported_template_library(
     name = "go_default_library",
     packages = {
-        "//mixer/template/sample/report:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/report",
-        "//mixer/template/sample/check:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/check",
-        "//mixer/template/sample/quota:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/quota",
-        "//mixer/template/sample/apa:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/apa",
+        "//mixer/template/sample/report:descriptor_set": "istio.io/istio/mixer/template/sample/report",
+        "//mixer/template/sample/check:descriptor_set": "istio.io/istio/mixer/template/sample/check",
+        "//mixer/template/sample/quota:descriptor_set": "istio.io/istio/mixer/template/sample/quota",
+        "//mixer/template/sample/apa:descriptor_set": "istio.io/istio/mixer/template/sample/apa",
     },
     deps = [
         "//mixer/template/sample/apa:go_default_library",
