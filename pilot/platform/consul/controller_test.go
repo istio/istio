@@ -130,7 +130,7 @@ func newServer() *mockServer {
 func TestInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestInstances(t *testing.T) {
 func TestInstancesBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestInstancesBadHostname(t *testing.T) {
 
 func TestInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -227,7 +227,7 @@ func TestInstancesError(t *testing.T) {
 func TestGetService(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestGetService(t *testing.T) {
 
 func TestGetServiceError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -267,7 +267,7 @@ func TestGetServiceError(t *testing.T) {
 func TestGetServiceBadHostname(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestGetServiceBadHostname(t *testing.T) {
 func TestGetServiceNoInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestGetServiceNoInstances(t *testing.T) {
 func TestServices(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestServices(t *testing.T) {
 
 func TestServicesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
@@ -352,7 +352,7 @@ func TestServicesError(t *testing.T) {
 func TestHostInstances(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		t.Errorf("could not create Consul Controller: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestHostInstances(t *testing.T) {
 
 func TestHostInstancesError(t *testing.T) {
 	ts := newServer()
-	controller, err := NewController(ts.Server.URL, "datacenter", 3*time.Second)
+	controller, err := NewController(ts.Server.URL, 3*time.Second)
 	if err != nil {
 		ts.Server.Close()
 		t.Errorf("could not create Consul Controller: %v", err)
