@@ -1635,63 +1635,69 @@ func ValidateRouteRuleV2(msg proto.Message) (errs error) {
 		errs = multierror.Append(errs, errors.New("at least one host required"))
 	}
 
-	for _, http := range routeRule.Http {
-		// check for conflicts
-		if http.Redirect != nil {
-			if len(http.Route) > 0 {
-				errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
-			}
-
-			if http.Fault != nil {
-				errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
-			}
-
-			if http.Rewrite != nil {
-				errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
-			}
-
-			if http.WebsocketUpgrade {
-				errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
-			}
-		}
-
-		for name := range http.AppendHeaders {
-			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-		}
-		errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
-		errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
-
-		for _, match := range http.Match {
-			for name := range match.Headers {
-				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-			}
-
-			// TODO: validate once implemented
-			if match.Port != nil {
-				errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
-			}
-
-			errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
-		}
-		errs = appendErrors(errs, validateDestination(http.Mirror))
-		errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
-		errs = appendErrors(errs, validateHTTPRetry(http.Retries))
-		errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
-		for _, route := range http.Route {
-			if route.Destination == nil {
-				errs = multierror.Append(errs, errors.New("destination is required"))
-			}
-			errs = appendErrors(errs, validateDestination(route.Destination))
-			errs = appendErrors(errs, ValidatePercent(route.Weight))
-		}
-		if http.Timeout != nil {
-			errs = appendErrors(errs, ValidateDuration(http.Timeout))
-		}
+	for _, httpRoute := range routeRule.Http {
+		errs = appendErrors(validateHTTPRoute(httpRoute))
 	}
 
 	// TODO: validate once implemented
 	if len(routeRule.Tcp) > 0 {
 		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	}
+
+	return
+}
+
+func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
+	// check for conflicts
+	if http.Redirect != nil {
+		if len(http.Route) > 0 {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
+		}
+
+		if http.Fault != nil {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
+		}
+
+		if http.Rewrite != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
+		}
+
+		if http.WebsocketUpgrade {
+			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
+		}
+	}
+
+	for name := range http.AppendHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
+
+	for _, match := range http.Match {
+		for name := range match.Headers {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+
+		// TODO: validate once implemented
+		if match.Port != nil {
+			errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
+		}
+
+		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	}
+	errs = appendErrors(errs, validateDestination(http.Mirror))
+	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
+	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	for _, route := range http.Route {
+		if route.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		errs = appendErrors(errs, validateDestination(route.Destination))
+		errs = appendErrors(errs, ValidatePercent(route.Weight))
+	}
+	if http.Timeout != nil {
+		errs = appendErrors(errs, ValidateDuration(http.Timeout))
 	}
 
 	return
@@ -1759,10 +1765,11 @@ func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) 
 
 	switch abort.ErrorType.(type) {
 	case *routingv2.HTTPFaultInjection_Abort_GrpcStatus:
-		// TODO: GRPC status validation
-		errs = multierror.Append(errs, fmt.Errorf("gRPC fault injection not supported yet"))
+		// TODO: gRPC status validation
+		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
 	case *routingv2.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
+		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
 	case *routingv2.HTTPFaultInjection_Abort_HttpStatus:
 		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
 	}

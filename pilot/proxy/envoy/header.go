@@ -66,50 +66,54 @@ func buildHTTPRouteMatches(matches []*routingv2.HTTPMatchRequest) []*HTTPRoute {
 
 	routes := make([]*HTTPRoute, 0, len(matches))
 	for _, match := range matches {
-		route := &HTTPRoute{}
-		for name, stringMatch := range match.Headers {
-			route.Headers = append(route.Headers, buildHeaderV2(name, stringMatch))
-		}
-
-		// guarantee ordering of headers
-		sort.Slice(route.Headers, func(i, j int) bool {
-			if route.Headers[i].Name == route.Headers[j].Name {
-				return route.Headers[i].Value < route.Headers[j].Value
-			}
-			return route.Headers[i].Name < route.Headers[j].Name
-		})
-
-		if match.Uri != nil {
-			switch m := match.Uri.MatchType.(type) {
-			case *routingv2.StringMatch_Exact:
-				route.Path = m.Exact
-			case *routingv2.StringMatch_Prefix:
-				route.Prefix = m.Prefix
-			case *routingv2.StringMatch_Regex:
-				route.Regex = m.Regex
-			}
-		} else {
-			route.Prefix = "/" // default
-		}
-
-		if match.Method != nil {
-			route.Headers = append(route.Headers, buildHeaderV2(headerMethod, match.Method))
-		}
-
-		if match.Authority != nil {
-			route.Headers = append(route.Headers, buildHeaderV2(headerAuthority, match.Authority))
-		}
-
-		if match.Scheme != nil {
-			route.Headers = append(route.Headers, buildHeaderV2(headerScheme, match.Scheme))
-		}
-
-		// TODO: match.DestinationPorts
-
-		routes = append(routes, route)
+		routes = append(routes, buildHTTPRouteMatchV2(match))
 	}
 
 	return routes
+}
+
+func buildHTTPRouteMatchV2(match *routingv2.HTTPMatchRequest) *HTTPRoute {
+	route := &HTTPRoute{}
+	for name, stringMatch := range match.Headers {
+		route.Headers = append(route.Headers, buildHeaderV2(name, stringMatch))
+	}
+
+	// guarantee ordering of headers
+	sort.Slice(route.Headers, func(i, j int) bool {
+		if route.Headers[i].Name == route.Headers[j].Name {
+			return route.Headers[i].Value < route.Headers[j].Value
+		}
+		return route.Headers[i].Name < route.Headers[j].Name
+	})
+
+	if match.Uri != nil {
+		switch m := match.Uri.MatchType.(type) {
+		case *routingv2.StringMatch_Exact:
+			route.Path = m.Exact
+		case *routingv2.StringMatch_Prefix:
+			route.Prefix = m.Prefix
+		case *routingv2.StringMatch_Regex:
+			route.Regex = m.Regex
+		}
+	} else {
+		route.Prefix = "/" // default
+	}
+
+	if match.Method != nil {
+		route.Headers = append(route.Headers, buildHeaderV2(headerMethod, match.Method))
+	}
+
+	if match.Authority != nil {
+		route.Headers = append(route.Headers, buildHeaderV2(headerAuthority, match.Authority))
+	}
+
+	if match.Scheme != nil {
+		route.Headers = append(route.Headers, buildHeaderV2(headerScheme, match.Scheme))
+	}
+
+	// TODO: match.DestinationPorts
+
+	return route
 }
 
 func buildHeader(name string, match *routing.StringMatch) Header {

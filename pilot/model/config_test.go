@@ -274,18 +274,23 @@ func TestResolveFQDN(t *testing.T) {
 	}{
 		{
 			name: "hello",
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			fqdn: "hello.default.svc.cluster.local",
+			meta: model.ConfigMeta{Namespace: "world", Domain: "cluster.local"},
+			fqdn: "hello.world.svc.cluster.local",
 		},
 		{
-			name: "hello.default",
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			fqdn: "hello.default.svc.cluster.local",
+			name: "hello.world",
+			meta: model.ConfigMeta{Namespace: "world", Domain: "cluster.local"},
+			fqdn: "hello.world.svc.cluster.local",
 		},
 		{
-			name: "hello.default.svc.cluster.local",
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			fqdn: "hello.default.svc.cluster.local",
+			name: "hello.foobar",
+			meta: model.ConfigMeta{Namespace: "world", Domain: "cluster.local"},
+			fqdn: "hello.foobar.svc.cluster.local",
+		},
+		{
+			name: "hello.world.svc.cluster.local",
+			meta: model.ConfigMeta{Namespace: "world", Domain: "cluster.local"},
+			fqdn: "hello.world.svc.cluster.local",
 		},
 	}
 
