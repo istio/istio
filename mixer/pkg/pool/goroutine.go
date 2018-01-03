@@ -21,17 +21,27 @@ import (
 // WorkFunc represents a function to invoke from a worker.
 type WorkFunc func()
 
+// WorkFuncWithParam represents a function to invoke from a worker. The parameter is passed on the side
+// to avoid creating closures and allocating.
+type WorkFuncWithParam func(param interface{})
+
 // GoroutinePool represents a set of reusable goroutines onto which work can be scheduled.
 type GoroutinePool struct {
-	queue          chan WorkFunc  // Channel providing the work that needs to be executed
+	queue          chan work      // Channel providing the work that needs to be executed
 	wg             sync.WaitGroup // Used to block shutdown until all workers complete
 	singleThreaded bool           // Whether to actually use goroutines or not
+}
+
+type work struct {
+	fn          WorkFunc
+	fnWithParam WorkFuncWithParam
+	param       interface{}
 }
 
 // NewGoroutinePool creates a new pool of goroutines to schedule async work.
 func NewGoroutinePool(queueDepth int, singleThreaded bool) *GoroutinePool {
 	gp := &GoroutinePool{
-		queue:          make(chan WorkFunc, queueDepth),
+		queue:          make(chan work, queueDepth),
 		singleThreaded: singleThreaded,
 	}
 
@@ -53,7 +63,17 @@ func (gp *GoroutinePool) ScheduleWork(fn WorkFunc) {
 	if gp.singleThreaded {
 		fn()
 	} else {
-		gp.queue <- fn
+		gp.queue <- work{fn: fn}
+	}
+}
+
+// ScheduleWorkWithParam registers the given function to be executed at some point. The given param will
+// be supplied to the function during execution.
+func (gp *GoroutinePool) ScheduleWorkWithParam(fn WorkFuncWithParam, param interface{}) {
+	if gp.singleThreaded {
+		fn(param)
+	} else {
+		gp.queue <- work{fnWithParam: fn, param: param}
 	}
 }
 
@@ -63,8 +83,12 @@ func (gp *GoroutinePool) AddWorkers(numWorkers int) {
 		gp.wg.Add(numWorkers)
 		for i := 0; i < numWorkers; i++ {
 			go func() {
-				for fn := range gp.queue {
-					fn()
+				for work := range gp.queue {
+					if work.fn != nil {
+						work.fn()
+					} else {
+						work.fnWithParam(work.param)
+					}
 				}
 
 				gp.wg.Done()
