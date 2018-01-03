@@ -363,8 +363,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessGenAttrs2 dispatches the instance to the attribute producing handler handler.
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+			// DispathGenAttrs dispatches the instance to the attribute producing handler.
+			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
 				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 
 				// Convert the instance from the generic interface{}, to their specialized type.
@@ -427,7 +427,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_sampleapa_Template(expb, param.(*sampleapa.InstanceParam))
@@ -449,10 +456,13 @@ var (
 				}, nil
 			},
 
-			// CreateOutputMapperFn creates a new template.OutputMapperFn based on the supplied instance parameters.
+			// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
 			//
-			// See template.CreateOutputMapperFn for more details.
-			CreateOutputMapperFn: func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, expb *compiled.ExpressionBuilder) (template.OutputMapperFn, error) {
+			// See template.CreateOutputExpressionsFn for more details.
+			CreateOutputExpressions: func(
+				instanceParam proto.Message,
+				finder expr.AttributeDescriptorFinder,
+				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_mixer_v1_config_descriptor.ValueType
 
@@ -473,7 +483,6 @@ var (
 					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
 
 					if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
-						// TODO: Should this simply skip the attribute, instead of bailing out?
 						return nil, err
 					}
 
@@ -483,7 +492,7 @@ var (
 					}
 				}
 
-				return template.NewOutputMapperFn(expressions), nil
+				return expressions, nil
 			},
 		},
 
@@ -618,8 +627,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*samplereport.Instance, len(inst))
@@ -640,7 +649,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_samplereport_Template(expb, param.(*samplereport.InstanceParam))
@@ -890,7 +906,7 @@ func (b *builder_samplereport_Template) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface

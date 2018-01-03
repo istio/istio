@@ -466,8 +466,8 @@ var (
         /* runtime2 bindings */
 
         {{if eq .VarietyName "TEMPLATE_VARIETY_REPORT"}}
-		// ProcessReport2 dispatches the instances to the handler.
-        ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+		// DispatchReport dispatches the instances to the handler.
+        DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
             // Convert the instances from the generic []interface{}, to their specialized type.
             instances := make([]*{{.GoPackageName}}.Instance, len(inst))
@@ -484,8 +484,8 @@ var (
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_CHECK"}}
-		// ProcessCheck2 dispatches the instance to the handler.
-        ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+		// DispatchCheck dispatches the instance to the handler.
+        DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 			// Convert the instance from the generic interface{}, to its specialized type.
 			instance := inst.(*{{.GoPackageName}}.Instance)
@@ -496,8 +496,8 @@ var (
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_QUOTA"}}
-		// ProcessQuota2 dispatches the instance to the handler.
-        ProcessQuota2: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+		// DispatchQuota dispatches the instance to the handler.
+        DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
 			// Convert the instance from the generic interface{}, to its specialized type.
             instance := inst.(*{{.GoPackageName}}.Instance)
@@ -508,8 +508,8 @@ var (
         {{end}}
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-		// ProcessGenAttrs2 dispatches the instance to the attribute producing handler handler.
-        ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+		// DispathGenAttrs dispatches the instance to the attribute producing handler.
+        DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
             mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
  
 			// Convert the instance from the generic interface{}, to their specialized type.
@@ -560,10 +560,17 @@ var (
         // the builder with an attribute bag.
         //
         // See template.CreateInstanceBuilderFn for more details.
-        CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+        CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
             {{$t := .}}
             {{$m := $t.TemplateMessage}}
             {{$newBuilderFnName := getNewMessageBuilderFnName $t $m}}
+
+			// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+			if param == nil {
+				return func(attr attribute.Bag) (interface{}, error) {
+					return nil, nil
+				}, nil
+			}
 
             // Instantiate a new builder for the instance.
             builder, errp := {{$newBuilderFnName}}(expb, param.(*{{$t.GoPackageName}}.{{getResourcMessageInterfaceParamTypeName $m.Name}}))
@@ -586,10 +593,13 @@ var (
         },
  
         {{if eq .VarietyName "TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR"}}
-		// CreateOutputMapperFn creates a new template.OutputMapperFn based on the supplied instance parameters.
+		// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
 		//
-        // See template.CreateOutputMapperFn for more details.
-        CreateOutputMapperFn: func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, expb *compiled.ExpressionBuilder) (template.OutputMapperFn, error) {
+        // See template.CreateOutputExpressionsFn for more details.
+		CreateOutputExpressions: func(
+			instanceParam proto.Message,
+			finder expr.AttributeDescriptorFinder,
+			expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
             var err error
 			var expType istio_mixer_v1_config_descriptor.ValueType
 
@@ -598,7 +608,7 @@ var (
 
             // Create a mapping of expressions back to the attribute names.
             expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
- 
+
             const fullOutName = "{{.GoPackageName}}.output."
             for attrName, outExpr := range param.AttributeBindings {
 				attrInfo := finder.GetAttribute(attrName)
@@ -610,7 +620,6 @@ var (
                 ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
 
                 if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
-					// TODO: Should this simply skip the attribute, instead of bailing out?
 					return nil, err
                 }
 
@@ -620,8 +629,8 @@ var (
 				}
             }
 
-            return template.NewOutputMapperFn(expressions), nil
-        },
+            return expressions, nil
+		},
         {{end}}
  
         },
@@ -676,7 +685,7 @@ var (
             if param == nil {
                 return nil, template.ErrorPath{}
             }
- 
+
             b := &{{$builderName}} {}
  
             var exp compiled.Expression
@@ -780,7 +789,7 @@ var (
                         r.{{$f.GoName}} = make(map[string]*{{$t.GoPackageName}}.{{getTypeName .GoType.MapValue}}, len(b.{{builderFieldName $f}}))
                         for k, v := range b.{{builderFieldName $f}} {
                             if r.{{$f.GoName}}[k], errp = v.build(attrs); !errp.IsNil() {
-                                return nil, errp.WithPrefix("{{$f.GoName}}["+ k + "].")
+                                return nil, errp.WithPrefix("{{$f.GoName}}["+ k + "]")
                             }
                         }
                     {{else}}
@@ -793,12 +802,12 @@ var (
 							{{if isPrimitiveType $f.GoType.MapValue}}
 								{{getLocalVar $f.GoType.MapValue}}, err = v.{{getEvalMethod $f.GoType.MapValue}}(attrs)
 								if err != nil {
-	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "].", err)
+	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
 								}
 								r.{{$f.GoName}}[k] = {{getLocalVar $f.GoType.MapValue}}
 							{{else}}
 	                            if vIface, err = v.Evaluate(attrs); err != nil {
-	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "].", err)
+	                                return nil, template.NewErrorPath("{{$f.GoName}}["+ k + "]", err)
 	                            }
 	                            {{if containsValueTypeOrResMsg $f.GoType.MapValue}}
 	                                r.{{$f.GoName}}[k] = vIface
@@ -814,9 +823,9 @@ var (
                     {{end}}
                 {{else}}
                     {{if $f.GoType.IsResourceMessage}}
-                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
-                            return nil, errp.WithPrefix("{{$f.GoName}}.")
-                        }
+	                        if r.{{$f.GoName}}, errp = b.{{builderFieldName $f}}.build(attrs); !errp.IsNil() {
+                            return nil, errp.WithPrefix("{{$f.GoName}}")
+						}
                     {{else}}
 						{{if isPrimitiveType $f.GoType}}
 							{{getLocalVar $f.GoType}}, err = b.{{builderFieldName $f}}.{{getEvalMethod $f.GoType}}(attrs)

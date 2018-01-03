@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// You may obtain a copyAttrs of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -868,8 +868,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessGenAttrs2 dispatches the instance to the attribute producing handler handler.
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+			// DispathGenAttrs dispatches the instance to the attribute producing handler.
+			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
 				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
 
 				// Convert the instance from the generic interface{}, to their specialized type.
@@ -948,7 +948,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_istio_mixer_adapter_sample_myapa_Template(expb, param.(*istio_mixer_adapter_sample_myapa.InstanceParam))
@@ -970,10 +977,13 @@ var (
 				}, nil
 			},
 
-			// CreateOutputMapperFn creates a new template.OutputMapperFn based on the supplied instance parameters.
+			// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
 			//
-			// See template.CreateOutputMapperFn for more details.
-			CreateOutputMapperFn: func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, expb *compiled.ExpressionBuilder) (template.OutputMapperFn, error) {
+			// See template.CreateOutputExpressionsFn for more details.
+			CreateOutputExpressions: func(
+				instanceParam proto.Message,
+				finder expr.AttributeDescriptorFinder,
+				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 				var err error
 				var expType istio_mixer_v1_config_descriptor.ValueType
 
@@ -994,7 +1004,6 @@ var (
 					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
 
 					if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
-						// TODO: Should this simply skip the attribute, instead of bailing out?
 						return nil, err
 					}
 
@@ -1004,7 +1013,7 @@ var (
 					}
 				}
 
-				return template.NewOutputMapperFn(expressions), nil
+				return expressions, nil
 			},
 		},
 
@@ -1526,8 +1535,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessCheck2 dispatches the instance to the handler.
-			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*istio_mixer_adapter_sample_check.Instance)
@@ -1542,7 +1551,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_istio_mixer_adapter_sample_check_Template(expb, param.(*istio_mixer_adapter_sample_check.InstanceParam))
@@ -2082,8 +2098,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessQuota2 dispatches the instance to the handler.
-			ProcessQuota2: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*istio_mixer_adapter_sample_quota.Instance)
@@ -2098,7 +2114,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_istio_mixer_adapter_sample_quota_Template(expb, param.(*istio_mixer_adapter_sample_quota.InstanceParam))
@@ -2899,8 +2922,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*istio_mixer_adapter_sample_report.Instance, len(inst))
@@ -2921,7 +2944,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_istio_mixer_adapter_sample_report_Template(expb, param.(*istio_mixer_adapter_sample_report.InstanceParam))
@@ -3155,7 +3185,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"].", err)
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
 		}
 		r.DimensionsFixedInt64ValueDType[k] = vInt
 
@@ -3176,7 +3206,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
 	r.Res3Map = make(map[string]*istio_mixer_adapter_sample_myapa.Resource3, len(b.bldRes3Map))
 	for k, v := range b.bldRes3Map {
 		if r.Res3Map[k], errp = v.build(attrs); !errp.IsNil() {
-			return nil, errp.WithPrefix("Res3Map[" + k + "].")
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
 		}
 	}
 
@@ -3285,11 +3315,11 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource1) build(
 	r.Str = vString
 
 	if r.SelfRefRes1, errp = b.bldSelfRefRes1.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("SelfRefRes1.")
+		return nil, errp.WithPrefix("SelfRefRes1")
 	}
 
 	if r.ResRef2, errp = b.bldResRef2.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("ResRef2.")
+		return nil, errp.WithPrefix("ResRef2")
 	}
 
 	return r, template.ErrorPath{}
@@ -3390,13 +3420,13 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource2) build(
 	r.Str = vString
 
 	if r.Res3, errp = b.bldRes3.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res3.")
+		return nil, errp.WithPrefix("Res3")
 	}
 
 	r.Res3Map = make(map[string]*istio_mixer_adapter_sample_myapa.Resource3, len(b.bldRes3Map))
 	for k, v := range b.bldRes3Map {
 		if r.Res3Map[k], errp = v.build(attrs); !errp.IsNil() {
-			return nil, errp.WithPrefix("Res3Map[" + k + "].")
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
 		}
 	}
 
@@ -3579,7 +3609,7 @@ func (b *builder_istio_mixer_adapter_sample_myapa_Resource3) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"].", err)
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
 		}
 		r.DimensionsFixedInt64ValueDType[k] = vInt
 
@@ -3706,14 +3736,14 @@ func (b *builder_istio_mixer_adapter_sample_check_Template) build(
 
 		vString, err = v.EvaluateString(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("StringMap["+k+"].", err)
+			return nil, template.NewErrorPath("StringMap["+k+"]", err)
 		}
 		r.StringMap[k] = vString
 
 	}
 
 	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res1.")
+		return nil, errp.WithPrefix("Res1")
 	}
 
 	return r, template.ErrorPath{}
@@ -3920,7 +3950,7 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -3957,7 +3987,7 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("Int64Map["+k+"].", err)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
 		}
 		r.Int64Map[k] = vInt
 
@@ -3976,13 +4006,13 @@ func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
 	r.Duration = vIface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res2.")
+		return nil, errp.WithPrefix("Res2")
 	}
 
 	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_check.Res2, len(b.bldRes2Map))
 	for k, v := range b.bldRes2Map {
 		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
-			return nil, errp.WithPrefix("Res2Map[" + k + "].")
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
 		}
 	}
 
@@ -4090,7 +4120,7 @@ func (b *builder_istio_mixer_adapter_sample_check_Res2) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4205,7 +4235,7 @@ func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4218,14 +4248,14 @@ func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
 
 		vBool, err = v.EvaluateBoolean(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("BoolMap["+k+"].", err)
+			return nil, template.NewErrorPath("BoolMap["+k+"]", err)
 		}
 		r.BoolMap[k] = vBool
 
 	}
 
 	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res1.")
+		return nil, errp.WithPrefix("Res1")
 	}
 
 	return r, template.ErrorPath{}
@@ -4432,7 +4462,7 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4469,7 +4499,7 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("Int64Map["+k+"].", err)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
 		}
 		r.Int64Map[k] = vInt
 
@@ -4488,13 +4518,13 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
 	r.Duration = vIface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res2.")
+		return nil, errp.WithPrefix("Res2")
 	}
 
 	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_quota.Res2, len(b.bldRes2Map))
 	for k, v := range b.bldRes2Map {
 		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
-			return nil, errp.WithPrefix("Res2Map[" + k + "].")
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
 		}
 	}
 
@@ -4602,7 +4632,7 @@ func (b *builder_istio_mixer_adapter_sample_quota_Res2) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4806,7 +4836,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4843,7 +4873,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("Int64Map["+k+"].", err)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
 		}
 		r.Int64Map[k] = vInt
 
@@ -4862,7 +4892,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Template) build(
 	r.Duration = vIface.(time.Duration)
 
 	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res1.")
+		return nil, errp.WithPrefix("Res1")
 	}
 
 	return r, template.ErrorPath{}
@@ -5069,7 +5099,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -5106,7 +5136,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 
 		vInt, err = v.EvaluateInteger(attrs)
 		if err != nil {
-			return nil, template.NewErrorPath("Int64Map["+k+"].", err)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
 		}
 		r.Int64Map[k] = vInt
 
@@ -5125,13 +5155,13 @@ func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
 	r.Duration = vIface.(time.Duration)
 
 	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Res2.")
+		return nil, errp.WithPrefix("Res2")
 	}
 
 	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_report.Res2, len(b.bldRes2Map))
 	for k, v := range b.bldRes2Map {
 		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
-			return nil, errp.WithPrefix("Res2Map[" + k + "].")
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
 		}
 	}
 
@@ -5293,7 +5323,7 @@ func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface

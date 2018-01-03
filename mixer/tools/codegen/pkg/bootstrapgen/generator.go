@@ -44,14 +44,18 @@ type Generator struct {
 
 const (
 	fullGoNameOfValueTypePkgName = "istio_mixer_v1_config_descriptor."
+	strInt64                     = "int64"
+	strString                    = "string"
+	strBool                      = "bool"
+	strFloat64                   = "float64"
 )
 
 // TODO share the code between this generator and the interfacegen code generator.
 var primitiveToValueType = map[string]string{
-	"string":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
-	"bool":                 fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
-	"int64":                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
-	"float64":              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
+	strString:              fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING.String(),
+	strBool:                fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.BOOL.String(),
+	strInt64:               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.INT64.String(),
+	strFloat64:             fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.DOUBLE.String(),
 	"map[string]string":    fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.STRING_MAP.String(),
 	"net.IP":               fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.IP_ADDRESS.String(),
 	"adapter.URI":          fullGoNameOfValueTypePkgName + istio_mixer_v1_config_descriptor.URI.String(),
@@ -63,9 +67,9 @@ var primitiveToValueType = map[string]string{
 }
 
 var aliasTypes = map[string]string{
-	"adapter.DNSName":      "string",
-	"adapter.EmailAddress": "string",
-	"adapter.URI":          "string",
+	"adapter.DNSName":      strString,
+	"adapter.EmailAddress": strString,
+	"adapter.URI":          strString,
 	"net.IP":               "[]uint8",
 }
 
@@ -185,7 +189,7 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				// Returns whether the given type is a primitive value, for evaluation purposes.
 				// Primitives are: bool, int64, float64, and string.
 				switch goType.Name {
-				case "string", "bool", "int64", "float64":
+				case strString, strBool, strInt64, strFloat64:
 					return true
 				default:
 					return false
@@ -195,13 +199,13 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 				// Returns the name of the evaluation method that should be called on a compiled expression
 				// for a given target type.
 				switch goType.Name {
-				case "string":
+				case strString:
 					return "EvaluateString"
-				case "bool":
+				case strBool:
 					return "EvaluateBoolean"
-				case "int64":
+				case strInt64:
 					return "EvaluateInteger"
-				case "float64":
+				case strFloat64:
 					return "EvaluateDouble"
 				default:
 					return "Evaluate"
@@ -210,13 +214,13 @@ func (g *Generator) Generate(fdsFiles map[string]string) error {
 			"getLocalVar": func(goType modelgen.TypeInfo) string {
 				// Returns the name of the local variable to assign to when evaluating a compiled expression.
 				switch goType.Name {
-				case "string":
+				case strString:
 					return "vString"
-				case "bool":
+				case strBool:
 					return "vBool"
-				case "int64":
+				case strInt64:
 					return "vInt"
-				case "float64":
+				case strFloat64:
 					return "vDouble"
 				default:
 					return "vIface"

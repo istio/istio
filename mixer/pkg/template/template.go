@@ -22,15 +22,14 @@ import (
 	"github.com/gogo/protobuf/proto"
 	multierror "github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/mixer/pkg/il/compiled"
-	"istio.io/istio/pkg/log"
-
 	pb "istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
+	"istio.io/istio/pkg/log"
 )
 
 type (
@@ -68,17 +67,17 @@ type (
 	// HandlerSupportsTemplateFn check if the handler supports template.
 	HandlerSupportsTemplateFn func(hndlr adapter.Handler) bool
 
-	// ProcessCheck2Fn dispatches the instance to the handler.
-	ProcessCheck2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
+	// DispatchCheckFn dispatches the instance to the handler.
+	DispatchCheckFn func(ctx context.Context, handler adapter.Handler, instance interface{}) (adapter.CheckResult, error)
 
-	// ProcessReport2Fn dispatches the instances to the handler.
-	ProcessReport2Fn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
+	// DispatchReportFn dispatches the instances to the handler.
+	DispatchReportFn func(ctx context.Context, handler adapter.Handler, instances []interface{}) error
 
-	// ProcessQuota2Fn dispatches the instance to the handler.
-	ProcessQuota2Fn func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
+	// DispatchQuotaFn dispatches the instance to the handler.
+	DispatchQuotaFn func(ctx context.Context, handler adapter.Handler, instance interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error)
 
-	// ProcessGenerateAttributes2Fn dispatches the instance object to the attribute generating handler.
-	ProcessGenerateAttributes2Fn func(ctx context.Context, handler adapter.Handler, instance interface{},
+	// DispatchGenerateAttributesFn dispatches the instance object to the attribute generating handler.
+	DispatchGenerateAttributesFn func(ctx context.Context, handler adapter.Handler, instance interface{},
 		attrs attribute.Bag, mapper OutputMapperFn) (*attribute.MutableBag, error)
 
 	// InstanceBuilderFn builds and returns an instance, based on the attributes supplied.
@@ -140,13 +139,12 @@ type (
 	//       return nil, err
 	//     }
 	//  }
-	CreateInstanceBuilderFn func(instanceName string, instanceParam interface{}, builder *compiled.ExpressionBuilder) (InstanceBuilderFn, error)
+	CreateInstanceBuilderFn func(instanceName string, instanceParam proto.Message, builder *compiled.ExpressionBuilder) (InstanceBuilderFn, error)
 
-	// CreateOutputMapperFn builds and returns a function that will map APA output values to attributes.
-	// It works similar to the CreateInstanceBuilderFn/InstanceBuilderFn, but used for mapping back attributes.
+	// CreateOutputExpressionsFn builds and returns a map of attribute names to the expression for calculating them.
 	//
-	//  // A CreateOutputMapperFn implementation:
-	//  func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, builder *compiled.ExpressionBuilder) (OutputMapperFn, error) {
+	//  // A CreateOutputExpressionsFn implementation:
+	//  func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, builder *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
 	//
 	//    // Convert the generic instanceParam to its specialized type.
 	//     param := instanceParam.(*myInstanceParam)
@@ -157,12 +155,13 @@ type (
 	//       // compile an expression and put it in expressions.
 	//    }
 	//
-	//    // Return a function that, given an attribute bag,  will iterate over the expressions, calculate
-	//    // values of the new attributes, and return a bag that has the new attribute valeus.
-	//    return template.NewOutputMapperFn(expression)
+	//    return expressions, nil
 	//  }
 	//
-	CreateOutputMapperFn func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, builder *compiled.ExpressionBuilder) (OutputMapperFn, error)
+	CreateOutputExpressionsFn func(
+		instanceParam proto.Message,
+		finder expr.AttributeDescriptorFinder,
+		expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error)
 
 	// OutputMapperFn maps the results of an APA output bag, with "$out"s, by processing it through
 	// AttributeBindings.
@@ -199,13 +198,13 @@ type (
 
 		AttributeManifests []*istio_mixer_v1_config.AttributeManifest
 
-		ProcessReport2   ProcessReport2Fn
-		ProcessCheck2    ProcessCheck2Fn
-		ProcessQuota2    ProcessQuota2Fn
-		ProcessGenAttrs2 ProcessGenerateAttributes2Fn
+		DispatchReport   DispatchReportFn
+		DispatchCheck    DispatchCheckFn
+		DispatchQuota    DispatchQuotaFn
+		DispatchGenAttrs DispatchGenerateAttributesFn
 
-		CreateInstanceBuilder CreateInstanceBuilderFn
-		CreateOutputMapperFn  CreateOutputMapperFn
+		CreateInstanceBuilder   CreateInstanceBuilderFn
+		CreateOutputExpressions CreateOutputExpressionsFn
 	}
 
 	// templateRepo implements Repository

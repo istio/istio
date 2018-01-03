@@ -904,8 +904,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*servicecontrolreport.Instance, len(inst))
@@ -926,7 +926,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_servicecontrolreport_Template(expb, param.(*servicecontrolreport.InstanceParam))
@@ -1140,8 +1147,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessCheck2 dispatches the instance to the handler.
-			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*apikey.Instance)
@@ -1156,7 +1163,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_apikey_Template(expb, param.(*apikey.InstanceParam))
@@ -1542,8 +1556,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessCheck2 dispatches the instance to the handler.
-			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*authorization.Instance)
@@ -1558,7 +1572,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_authorization_Template(expb, param.(*authorization.InstanceParam))
@@ -1672,8 +1693,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessCheck2 dispatches the instance to the handler.
-			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*checknothing.Instance)
@@ -1688,7 +1709,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_checknothing_Template(expb, param.(*checknothing.InstanceParam))
@@ -1822,8 +1850,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessCheck2 dispatches the instance to the handler.
-			ProcessCheck2: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*listentry.Instance)
@@ -1838,7 +1866,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_listentry_Template(expb, param.(*listentry.InstanceParam))
@@ -2055,8 +2090,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*logentry.Instance, len(inst))
@@ -2077,7 +2112,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_logentry_Template(expb, param.(*logentry.InstanceParam))
@@ -2271,8 +2313,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*metric.Instance, len(inst))
@@ -2293,7 +2335,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_metric_Template(expb, param.(*metric.InstanceParam))
@@ -2426,8 +2475,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessQuota2 dispatches the instance to the handler.
-			ProcessQuota2: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
 
 				// Convert the instance from the generic interface{}, to its specialized type.
 				instance := inst.(*quota.Instance)
@@ -2442,7 +2491,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_quota_Template(expb, param.(*quota.InstanceParam))
@@ -2559,8 +2615,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*reportnothing.Instance, len(inst))
@@ -2581,7 +2637,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_reportnothing_Template(expb, param.(*reportnothing.InstanceParam))
@@ -2838,8 +2901,8 @@ var (
 
 			/* runtime2 bindings */
 
-			// ProcessReport2 dispatches the instances to the handler.
-			ProcessReport2: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
 
 				// Convert the instances from the generic []interface{}, to their specialized type.
 				instances := make([]*tracespan.Instance, len(inst))
@@ -2860,7 +2923,14 @@ var (
 			// the builder with an attribute bag.
 			//
 			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
 
 				// Instantiate a new builder for the instance.
 				builder, errp := newBuilder_tracespan_Template(expb, param.(*tracespan.InstanceParam))
@@ -2880,631 +2950,6 @@ var (
 					e.Name = instanceName
 					return e, nil
 				}, nil
-			},
-		},
-
-		adapter_template_kubernetesenv.TemplateName: {
-			Name:               adapter_template_kubernetesenv.TemplateName,
-			Impl:               "adapter.template.kubernetesenv",
-			CtrCfg:             &adapter_template_kubernetesenv.InstanceParam{},
-			Variety:            adptTmpl.TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR,
-			BldrInterfaceName:  adapter_template_kubernetesenv.TemplateName + "." + "HandlerBuilder",
-			HndlrInterfaceName: adapter_template_kubernetesenv.TemplateName + "." + "Handler",
-			BuilderSupportsTemplate: func(hndlrBuilder adapter.HandlerBuilder) bool {
-				_, ok := hndlrBuilder.(adapter_template_kubernetesenv.HandlerBuilder)
-				return ok
-			},
-			HandlerSupportsTemplate: func(hndlr adapter.Handler) bool {
-				_, ok := hndlr.(adapter_template_kubernetesenv.Handler)
-				return ok
-			},
-			InferType: func(cp proto.Message, tEvalFn template.TypeEvalFn) (proto.Message, error) {
-
-				var BuildTemplate func(param *adapter_template_kubernetesenv.InstanceParam,
-					path string) (proto.Message, error)
-
-				_ = BuildTemplate
-
-				BuildTemplate = func(param *adapter_template_kubernetesenv.InstanceParam,
-					path string) (proto.Message, error) {
-
-					if param == nil {
-						return nil, nil
-					}
-
-					var err error = nil
-
-					if param.SourceUid == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SourceUid")
-					}
-					if t, e := tEvalFn(param.SourceUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceUid", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceUid", t, istio_mixer_v1_config_descriptor.STRING)
-					}
-
-					if param.SourceIp == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"SourceIp")
-					}
-					if t, e := tEvalFn(param.SourceIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"SourceIp", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"SourceIp", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
-					}
-
-					if param.DestinationUid == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DestinationUid")
-					}
-					if t, e := tEvalFn(param.DestinationUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationUid", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationUid", t, istio_mixer_v1_config_descriptor.STRING)
-					}
-
-					if param.DestinationIp == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"DestinationIp")
-					}
-					if t, e := tEvalFn(param.DestinationIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"DestinationIp", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"DestinationIp", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
-					}
-
-					if param.OriginUid == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"OriginUid")
-					}
-					if t, e := tEvalFn(param.OriginUid); e != nil || t != istio_mixer_v1_config_descriptor.STRING {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"OriginUid", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OriginUid", t, istio_mixer_v1_config_descriptor.STRING)
-					}
-
-					if param.OriginIp == "" {
-						return nil, fmt.Errorf("expression for field '%s' cannot be empty", path+"OriginIp")
-					}
-					if t, e := tEvalFn(param.OriginIp); e != nil || t != istio_mixer_v1_config_descriptor.IP_ADDRESS {
-						if e != nil {
-							return nil, fmt.Errorf("failed to evaluate expression for field '%s': %v", path+"OriginIp", e)
-						}
-						return nil, fmt.Errorf("error type checking for field '%s': Evaluated expression type %v want %v", path+"OriginIp", t, istio_mixer_v1_config_descriptor.IP_ADDRESS)
-					}
-
-					return nil, err
-
-				}
-
-				instParam := cp.(*adapter_template_kubernetesenv.InstanceParam)
-
-				const fullOutName = "adapter_template_kubernetesenv.output."
-				for attr, exp := range instParam.AttributeBindings {
-					expr := strings.Replace(exp, "$out.", fullOutName, -1)
-					t1, err := tEvalFn(expr)
-					if err != nil {
-						return nil, fmt.Errorf("error evaluating AttributeBinding expression '%s' for attribute '%s': %v", expr, attr, err)
-					}
-					t2, err := tEvalFn(attr)
-					if err != nil {
-						return nil, fmt.Errorf("error evaluating AttributeBinding expression for attribute key '%s': %v", attr, err)
-					}
-					if t1 != t2 {
-						return nil, fmt.Errorf(
-							"error evaluating AttributeBinding: type '%v' for attribute '%s' does not match type '%s' for expression '%s'",
-							t2, attr, t1, expr)
-					}
-				}
-
-				return BuildTemplate(instParam, "")
-			},
-
-			AttributeManifests: []*istio_mixer_v1_config.AttributeManifest{
-				{
-					Attributes: map[string]*istio_mixer_v1_config.AttributeManifest_AttributeInfo{
-
-						"adapter_template_kubernetesenv.output.source_pod_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetesenv.output.source_pod_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.source_labels": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
-						},
-
-						"adapter_template_kubernetesenv.output.source_namespace": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.source_service": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.source_service_account_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.source_host_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_pod_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_pod_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_labels": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_namespace": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_service": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_service_account_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.destination_host_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_pod_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_pod_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_labels": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING_MAP,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_namespace": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_service": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_service_account_name": {
-							ValueType: istio_mixer_v1_config_descriptor.STRING,
-						},
-
-						"adapter_template_kubernetesenv.output.origin_host_ip": {
-							ValueType: istio_mixer_v1_config_descriptor.IP_ADDRESS,
-						},
-					},
-				},
-			},
-
-			ProcessGenAttrs: func(ctx context.Context, instName string, inst proto.Message, attrs attribute.Bag,
-				mapper expr.Evaluator, handler adapter.Handler) (*attribute.MutableBag, error) {
-
-				var BuildTemplate func(instName string,
-					param *adapter_template_kubernetesenv.InstanceParam, path string) (
-					*adapter_template_kubernetesenv.Instance, error)
-				_ = BuildTemplate
-
-				BuildTemplate = func(instName string,
-					param *adapter_template_kubernetesenv.InstanceParam, path string) (
-					*adapter_template_kubernetesenv.Instance, error) {
-					if param == nil {
-						return nil, nil
-					}
-					var err error
-					_ = err
-
-					SourceUid, err := mapper.Eval(param.SourceUid, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SourceUid", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					SourceIp, err := mapper.Eval(param.SourceIp, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SourceIp", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					DestinationUid, err := mapper.Eval(param.DestinationUid, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DestinationUid", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					DestinationIp, err := mapper.Eval(param.DestinationIp, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DestinationIp", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					OriginUid, err := mapper.Eval(param.OriginUid, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"OriginUid", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					OriginIp, err := mapper.Eval(param.OriginIp, attrs)
-
-					if err != nil {
-						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"OriginIp", instName, err)
-						log.Error(msg)
-						return nil, errors.New(msg)
-					}
-
-					_ = param
-					return &adapter_template_kubernetesenv.Instance{
-
-						Name: instName,
-
-						SourceUid: SourceUid.(string),
-
-						SourceIp: net.IP(SourceIp.([]uint8)),
-
-						DestinationUid: DestinationUid.(string),
-
-						DestinationIp: net.IP(DestinationIp.([]uint8)),
-
-						OriginUid: OriginUid.(string),
-
-						OriginIp: net.IP(OriginIp.([]uint8)),
-					}, nil
-				}
-
-				instParam := inst.(*adapter_template_kubernetesenv.InstanceParam)
-				instance, err := BuildTemplate(instName, instParam, "")
-				if err != nil {
-					return nil, err
-
-				}
-
-				out, err := handler.(adapter_template_kubernetesenv.Handler).GenerateKubernetesEnvAttributes(ctx, instance)
-				if err != nil {
-					return nil, err
-				}
-				abag := attrs
-				const fullOutName = "adapter_template_kubernetesenv.output."
-				if out == nil {
-					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
-				} else {
-					abag = newWrapperAttrBag(
-						func(name string) (value interface{}, found bool) {
-							field := strings.TrimPrefix(name, fullOutName)
-							if len(field) != len(name) {
-								switch field {
-
-								case "source_pod_ip":
-
-									return []uint8(out.SourcePodIp), true
-
-								case "source_pod_name":
-
-									return out.SourcePodName, true
-
-								case "source_labels":
-
-									return out.SourceLabels, true
-
-								case "source_namespace":
-
-									return out.SourceNamespace, true
-
-								case "source_service":
-
-									return out.SourceService, true
-
-								case "source_service_account_name":
-
-									return out.SourceServiceAccountName, true
-
-								case "source_host_ip":
-
-									return []uint8(out.SourceHostIp), true
-
-								case "destination_pod_ip":
-
-									return []uint8(out.DestinationPodIp), true
-
-								case "destination_pod_name":
-
-									return out.DestinationPodName, true
-
-								case "destination_labels":
-
-									return out.DestinationLabels, true
-
-								case "destination_namespace":
-
-									return out.DestinationNamespace, true
-
-								case "destination_service":
-
-									return out.DestinationService, true
-
-								case "destination_service_account_name":
-
-									return out.DestinationServiceAccountName, true
-
-								case "destination_host_ip":
-
-									return []uint8(out.DestinationHostIp), true
-
-								case "origin_pod_ip":
-
-									return []uint8(out.OriginPodIp), true
-
-								case "origin_pod_name":
-
-									return out.OriginPodName, true
-
-								case "origin_labels":
-
-									return out.OriginLabels, true
-
-								case "origin_namespace":
-
-									return out.OriginNamespace, true
-
-								case "origin_service":
-
-									return out.OriginService, true
-
-								case "origin_service_account_name":
-
-									return out.OriginServiceAccountName, true
-
-								case "origin_host_ip":
-
-									return []uint8(out.OriginHostIp), true
-
-								default:
-									return nil, false
-								}
-
-							}
-							return attrs.Get(name)
-						},
-						func() []string { return attrs.Names() },
-						func() { attrs.Done() },
-						func() string { return attrs.DebugString() },
-					)
-				}
-				resultBag := attribute.GetMutableBag(nil)
-				for attrName, outExpr := range instParam.AttributeBindings {
-					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-					val, err := mapper.Eval(ex, abag)
-					if err != nil {
-						return nil, err
-					}
-					switch v := val.(type) {
-					case net.IP:
-						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
-						// TODO: remove
-						if v4 := v.To4(); v4 != nil {
-							resultBag.Set(attrName, []byte(v4))
-							continue
-						}
-						resultBag.Set(attrName, []byte(v.To16()))
-					default:
-						resultBag.Set(attrName, val)
-					}
-				}
-				return resultBag, nil
-
-			},
-
-			/* runtime2 bindings */
-
-			// ProcessGenAttrs2 dispatches the instance to the attribute producing handler handler.
-			ProcessGenAttrs2: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
-				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
-
-				// Convert the instance from the generic interface{}, to their specialized type.
-				instance := inst.(*adapter_template_kubernetesenv.Instance)
-
-				// Invoke the handler.
-				out, err := handler.(adapter_template_kubernetesenv.Handler).GenerateKubernetesEnvAttributes(ctx, instance)
-				if err != nil {
-					return nil, err
-				}
-
-				// Construct a wrapper bag around the returned output message and pass it to the output mapper
-				// to map $out values back to the destination attributes in the ambient context.
-				const fullOutName = "adapter_template_kubernetesenv.output."
-				outBag := newWrapperAttrBag(
-					func(name string) (value interface{}, found bool) {
-						field := strings.TrimPrefix(name, fullOutName)
-						if len(field) != len(name) {
-							switch field {
-
-							case "source_pod_ip":
-
-								return []uint8(out.SourcePodIp), true
-
-							case "source_pod_name":
-
-								return out.SourcePodName, true
-
-							case "source_labels":
-
-								return out.SourceLabels, true
-
-							case "source_namespace":
-
-								return out.SourceNamespace, true
-
-							case "source_service":
-
-								return out.SourceService, true
-
-							case "source_service_account_name":
-
-								return out.SourceServiceAccountName, true
-
-							case "source_host_ip":
-
-								return []uint8(out.SourceHostIp), true
-
-							case "destination_pod_ip":
-
-								return []uint8(out.DestinationPodIp), true
-
-							case "destination_pod_name":
-
-								return out.DestinationPodName, true
-
-							case "destination_labels":
-
-								return out.DestinationLabels, true
-
-							case "destination_namespace":
-
-								return out.DestinationNamespace, true
-
-							case "destination_service":
-
-								return out.DestinationService, true
-
-							case "destination_service_account_name":
-
-								return out.DestinationServiceAccountName, true
-
-							case "destination_host_ip":
-
-								return []uint8(out.DestinationHostIp), true
-
-							case "origin_pod_ip":
-
-								return []uint8(out.OriginPodIp), true
-
-							case "origin_pod_name":
-
-								return out.OriginPodName, true
-
-							case "origin_labels":
-
-								return out.OriginLabels, true
-
-							case "origin_namespace":
-
-								return out.OriginNamespace, true
-
-							case "origin_service":
-
-								return out.OriginService, true
-
-							case "origin_service_account_name":
-
-								return out.OriginServiceAccountName, true
-
-							case "origin_host_ip":
-
-								return []uint8(out.OriginHostIp), true
-
-							default:
-								return nil, false
-							}
-						}
-						return attrs.Get(name)
-					},
-					func() []string { return attrs.Names() },
-					func() { attrs.Done() },
-					func() string { return attrs.DebugString() },
-				)
-
-				// Mapper will map back $out values in the outBag into ambient attribute names, and return
-				// a bag with these additional attributes.
-				return mapper(outBag)
-			},
-
-			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
-			// the expression builder to create a new instance of a builder struct for the instance type. Created
-			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
-			// the builder with an attribute bag.
-			//
-			// See template.CreateInstanceBuilderFn for more details.
-			CreateInstanceBuilder: func(instanceName string, param interface{}, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
-
-				// Instantiate a new builder for the instance.
-				builder, errp := newBuilder_adapter_template_kubernetesenv_Template(expb, param.(*adapter_template_kubernetesenv.InstanceParam))
-				if !errp.IsNil() {
-					return nil, errp.AsCompilationError(instanceName)
-				}
-
-				return func(attr attribute.Bag) (interface{}, error) {
-					// Use the instantiated builder (that this fn closes over) to construct an instance.
-					e, errp := builder.build(attr)
-					if !errp.IsNil() {
-						err := errp.AsEvaluationError(instanceName)
-						log.Error(err.Error())
-						return nil, err
-					}
-
-					e.Name = instanceName
-					return e, nil
-				}, nil
-			},
-
-			// CreateOutputMapperFn creates a new template.OutputMapperFn based on the supplied instance parameters.
-			//
-			// See template.CreateOutputMapperFn for more details.
-			CreateOutputMapperFn: func(instanceParam interface{}, finder expr.AttributeDescriptorFinder, expb *compiled.ExpressionBuilder) (template.OutputMapperFn, error) {
-				var err error
-				var expType istio_mixer_v1_config_descriptor.ValueType
-
-				// Convert the generic instanceParam to its specialized type.
-				param := instanceParam.(*adapter_template_kubernetesenv.InstanceParam)
-
-				// Create a mapping of expressions back to the attribute names.
-				expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
-
-				const fullOutName = "adapter_template_kubernetesenv.output."
-				for attrName, outExpr := range param.AttributeBindings {
-					attrInfo := finder.GetAttribute(attrName)
-					if attrInfo == nil {
-						log.Warnf("attribute not found when mapping outputs: attr='%s', expr='%s'", attrName, outExpr)
-						continue
-					}
-
-					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
-
-					if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
-						// TODO: Should this simply skip the attribute, instead of bailing out?
-						return nil, err
-					}
-
-					if attrInfo.ValueType != expType {
-						log.Warnf("attribute type mismatch: attr='%s', attrType='%v', expr='%s', exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
-						continue
-					}
-				}
-
-				return template.NewOutputMapperFn(expressions), nil
 			},
 		},
 	}
@@ -4034,11 +3479,11 @@ func (b *builder_authorization_Template) build(
 	r := &authorization.Instance{}
 
 	if r.Subject, errp = b.bldSubject.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Subject.")
+		return nil, errp.WithPrefix("Subject")
 	}
 
 	if r.Action, errp = b.bldAction.build(attrs); !errp.IsNil() {
-		return nil, errp.WithPrefix("Action.")
+		return nil, errp.WithPrefix("Action")
 	}
 
 	return r, template.ErrorPath{}
@@ -4156,7 +3601,7 @@ func (b *builder_authorization_Subject) build(
 	for k, v := range b.bldProperties {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Properties["+k+"].", err)
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
 		}
 
 		r.Properties[k] = vIface
@@ -4318,7 +3763,7 @@ func (b *builder_authorization_Action) build(
 	for k, v := range b.bldProperties {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Properties["+k+"].", err)
+			return nil, template.NewErrorPath("Properties["+k+"]", err)
 		}
 
 		r.Properties[k] = vIface
@@ -4583,7 +4028,7 @@ func (b *builder_logentry_Template) build(
 	for k, v := range b.bldVariables {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Variables["+k+"].", err)
+			return nil, template.NewErrorPath("Variables["+k+"]", err)
 		}
 
 		r.Variables[k] = vIface
@@ -4613,7 +4058,7 @@ func (b *builder_logentry_Template) build(
 	for k, v := range b.bldMonitoredResourceDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
 		}
 
 		r.MonitoredResourceDimensions[k] = vIface
@@ -4738,7 +4183,7 @@ func (b *builder_metric_Template) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -4756,7 +4201,7 @@ func (b *builder_metric_Template) build(
 	for k, v := range b.bldMonitoredResourceDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"].", err)
+			return nil, template.NewErrorPath("MonitoredResourceDimensions["+k+"]", err)
 		}
 
 		r.MonitoredResourceDimensions[k] = vIface
@@ -4838,7 +4283,7 @@ func (b *builder_quota_Template) build(
 	for k, v := range b.bldDimensions {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("Dimensions["+k+"].", err)
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
 		}
 
 		r.Dimensions[k] = vIface
@@ -5086,7 +4531,7 @@ func (b *builder_tracespan_Template) build(
 	for k, v := range b.bldSpanTags {
 
 		if vIface, err = v.Evaluate(attrs); err != nil {
-			return nil, template.NewErrorPath("SpanTags["+k+"].", err)
+			return nil, template.NewErrorPath("SpanTags["+k+"]", err)
 		}
 
 		r.SpanTags[k] = vIface
