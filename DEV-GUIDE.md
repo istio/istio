@@ -152,7 +152,7 @@ passes local tests before being committed.
 
 Run
 ```shell
-user@host:~/GOHOME/src/istio.io/istio$ ./bin/pre-commit
+./bin/pre-commit
 Installing pre-commit hook
 ```
 This hook is invoked every time you commit changes locally.
