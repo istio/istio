@@ -320,8 +320,8 @@ docker.test: docker.pilot-test
 	time (cd mixer/example/servicegraph/docker && docker build -t ${HUB}/servicegraph_debug:${TAG} -f Dockerfile.debug .)
 	# TODO: generate or checkin test CA and keys
 	security/bin/gen-keys.sh
-	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca-test)
-	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.node-agent-test)
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca-test .)
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.node-agent-test .)
 
 
 push: checkvars
