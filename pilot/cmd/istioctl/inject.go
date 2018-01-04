@@ -95,28 +95,36 @@ kubectl get deployment -o yaml | istioctl kube-inject -f - | kubectl apply -f -
 				if in, err = os.Open(inFilename); err != nil {
 					return err
 				}
+				reader = in
 				defer func() {
-					if err = in.Close(); err != nil {
-						log.Errorf("Error: close file from %s, %s", inFilename, err)
+					if errClose := in.Close(); errClose != nil {
+						log.Errorf("Error: close file from %s, %s", inFilename, errClose)
+
+						// don't overwrite the previous error
+						if err == nil {
+							err = errClose
+						}
 					}
 				}()
-				reader = in
 			}
 
 			var writer io.Writer
 			if outFilename == "" {
 				writer = os.Stdout
 			} else {
-				var file *os.File
-				if file, err = os.Create(outFilename); err != nil {
+				var out *os.File
+				if out, err = os.Create(outFilename); err != nil {
 					return err
 				}
-				writer = file
+				writer = out
 				defer func() {
-					// don't overwrite error if preceding injection failed
-					errClose := file.Close()
-					if err == nil {
-						err = errClose
+					if errClose := out.Close(); errClose != nil {
+						log.Errorf("Error: close file from %s, %s", outFilename, errClose)
+
+						// don't overwrite the previous error
+						if err == nil {
+							err = errClose
+						}
 					}
 				}()
 			}
