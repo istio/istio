@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate sh -c ./generate_mock.sh
-
 package config
 
 import (

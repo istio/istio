@@ -27,14 +27,12 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "mock_store_test.go",
         "schema_test.go",
         "store_test.go",
     ],
     library = ":go_default_library",
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
-        "@com_github_golang_mock//gomock:go_default_library",
         "@io_istio_api//broker/v1/config:go_default_library",
     ],
 )
