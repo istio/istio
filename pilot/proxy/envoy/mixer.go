@@ -205,8 +205,8 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instance
 			DisableReportCalls: outboundRoute || role.Type == proxy.Ingress,
 		}
 
-		// omit API, Quota, and Auth portion of service config for
-		// outbound services when check and report are disabled.
+		// omit API, Quota, and Auth portion of service config when
+		// check and report are disabled.
 		if !sc.DisableCheckCalls || !sc.DisableReportCalls {
 			apiSpecs := config.HTTPAPISpecByDestination(instance)
 			model.SortHTTPAPISpec(apiSpecs)
