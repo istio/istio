@@ -14,14 +14,14 @@
 
 package attribute
 
-func GlobalList() []string {
-	tmp := make([]string, len(globalList))
-	copy(tmp, globalList)
-	return tmp
+func GlobalList() ([]string) { 
+    tmp := make([]string, len(globalList))
+    copy(tmp, globalList)
+    return tmp
 }
 
-var (
-	globalList = []string{
+var ( 
+    globalList = []string{
 		"source.ip",
 		"source.port",
 		"source.name",
@@ -191,5 +191,5 @@ var (
 		"request.api_key",
 		"check.error_code",
 		"check.error_message",
-	}
+    }
 )

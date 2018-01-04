@@ -5,6 +5,7 @@
 #
 
 import os
+import argparse
 
 HEADER = """// Copyright 2017 Istio Authors
 //
@@ -23,35 +24,36 @@ HEADER = """// Copyright 2017 Istio Authors
 package attribute
 
 func GlobalList() ([]string) { 
-        tmp := make([]string, len(globalList))
-        copy(tmp, globalList)
-        return tmp
+    tmp := make([]string, len(globalList))
+    copy(tmp, globalList)
+    return tmp
 }
 
 var ( 
-        globalList = []string{
+    globalList = []string{
 """
 
-FOOTER = """}
+FOOTER = """    }
 )
 """
 
-def generate(src_path):
+def generate(src, dst):
     code = HEADER
-    with open(src_path) as src_file:
-        for line in src_file:
-            if line.startswith("-"):
-                code += "\"" + line[1:].strip() + "\",\n"
+    for line in src:
+        if line.startswith("-"):
+            code += "\t\t\"" + line[1:].strip() + "\",\n"
     code += FOOTER
-    print(code)
+    dst.write(code)
 
 def main(args):
-    if len(args) == 1:
-        file = args[0]
-        path = os.path.abspath(file)
-        generate(path)
-    else:
-        print "USAGE: generate_word_list.py <path_to_yaml_src>"
+    parser = argparse.ArgumentParser(description='Generate global world list code.')
+    parser.add_argument('infile', type=argparse.FileType('r'), help='source file for global word list')
+    parser.add_argument('outfile', type=argparse.FileType('w'), help='output file for generated code')
+    parsed = parser.parse_args(args)
+    generate(parsed.infile, parsed.outfile)
+    parsed.infile.close()
+    parsed.outfile.close()
+
 
 if __name__ == "__main__":
     import sys

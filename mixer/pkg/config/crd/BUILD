@@ -13,6 +13,8 @@ go_library(
         "//pkg/log:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
+        "@io_k8s_api//admission/v1beta1:go_default_library",
+        "@io_k8s_api//admissionregistration/v1beta1:go_default_library",
         "@io_k8s_apimachinery//pkg/api/errors:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured:go_default_library",
