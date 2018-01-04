@@ -157,12 +157,12 @@ jobs:
             - HUB: docker.io/dnerepo
             - TAG: dontpush
     steps:
-      - run:
-          name: Initialize Working Directory
-          command: |
-            sudo mkdir -p /go/src/istio.io/istio
-            sudo chown -R circleci /go
-            mkdir -p /go/out /home/circleci/logs
+      - type: shell
+              name: Initialize Working Directory
+              pwd: /
+              command: |
+                sudo mkdir -p /go/src/istio.io/istio
+                sudo chown -R circleci /go
       - checkout
       - attach_workspace:
           at:  /go
