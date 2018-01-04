@@ -191,7 +191,7 @@ mixs: vendor
 
 .PHONY: mixc
 mixc: vendor
-	go build -o ${GOPATH}/bin/mixc istio.io/istio/mixer/cmd/mixc
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/mixc istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
 node-agent: vendor
@@ -211,11 +211,12 @@ go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent is
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
+GOSTATIC = -ldflags '-extldflags "-static"'
 
 testApps:
-	go build -o ${GOPATH}/bin/server istio.io/istio/pilot/test/server
-	go build -o ${GOPATH}/bin/client istio.io/istio/pilot/test/client
-	go build -o ${GOPATH}/bin/eurekamirror istio.io/istio/pilot/test/eurekamirror
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/server istio.io/istio/pilot/test/server
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/client istio.io/istio/pilot/test/client
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/eurekamirror istio.io/istio/pilot/test/eurekamirror
 
 localTestEnv: testApps
 	bin/testEnvLocalK8S.sh ensure
