@@ -46,6 +46,8 @@ jobs:
           command: |
             mkdir -p /go/out
             mkdir /home/circleci/logs
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             sudo -E minikube start \
               --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
               --kubernetes-version=v1.7.5 --vm-driver=none
@@ -106,6 +108,8 @@ jobs:
       - run:
           name: "Start minikube"
           command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             mkdir -p /go/out
             mkdir /home/circleci/logs
             sudo -E minikube start \
@@ -147,7 +151,7 @@ jobs:
           path: /tmp
 
   pilot-integration-auth:
-    <<: *integrationDefaults
+    <<: *defaults
     environment:
             - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
@@ -163,6 +167,8 @@ jobs:
           sudo chown -R circleci /go
           sudo chown -R circleci /usr/local/go
       - checkout
+      - setup_remote_docker:
+                docker_layer_caching: true
       - attach_workspace:
           at:  /go
       - run:
@@ -217,6 +223,8 @@ jobs:
           at:  /go
       - run:
           command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             mkdir -p /go/out
             mkdir /home/circleci/logs
             sudo -E minikube start \
