@@ -18,20 +18,32 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
-	// None is used to disable logging output as well as to disable stack tracing.
-	None zapcore.Level = 100
-
-	defaultOutputLevel        = zapcore.InfoLevel
-	defaultStackTraceLevel    = None
+	defaultOutputLevel        = InfoLevel
+	defaultStackTraceLevel    = NoneLevel
 	defaultOutputPath         = "stdout"
 	defaultErrorOutputPath    = "stderr"
 	defaultRotationMaxAge     = 30
 	defaultRotationMaxSize    = 100 * 1024 * 1024
 	defaultRotationMaxBackups = 1000
+)
+
+// Level is an enumeration of all supported log levels.
+type Level string
+
+const (
+	// DebugLevel enables debug level logging
+	DebugLevel Level = "debug"
+	// InfoLevel enables info level logging
+	InfoLevel Level = "info"
+	// WarnLevel enables warn level logging
+	WarnLevel Level = "warn"
+	// ErrorLevel enables error level logging
+	ErrorLevel Level = "error"
+	// NoneLevel disables logging
+	NoneLevel Level = "none"
 )
 
 // Options defines the set of options supported by Istio's component logging package.
@@ -82,22 +94,6 @@ type Options struct {
 	outputLevel     string
 }
 
-var levelToString = map[zapcore.Level]string{
-	zapcore.DebugLevel: "debug",
-	zapcore.InfoLevel:  "info",
-	zapcore.WarnLevel:  "warn",
-	zapcore.ErrorLevel: "error",
-	None:               "none",
-}
-
-var stringToLevel = map[string]zapcore.Level{
-	"debug": zapcore.DebugLevel,
-	"info":  zapcore.InfoLevel,
-	"warn":  zapcore.WarnLevel,
-	"error": zapcore.ErrorLevel,
-	"none":  None,
-}
-
 // NewOptions returns a new set of options, initialized to the defaults
 func NewOptions() *Options {
 	return &Options{
@@ -106,58 +102,53 @@ func NewOptions() *Options {
 		RotationMaxSize:    defaultRotationMaxSize,
 		RotationMaxAge:     defaultRotationMaxAge,
 		RotationMaxBackups: defaultRotationMaxBackups,
-		outputLevel:        levelToString[defaultOutputLevel],
-		stackTraceLevel:    levelToString[defaultStackTraceLevel],
+		outputLevel:        string(defaultOutputLevel),
+		stackTraceLevel:    string(defaultStackTraceLevel),
+	}
+}
+
+func isValid(level Level) bool {
+	switch level {
+	case DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel:
+		return true
+	default:
+		return false
 	}
 }
 
 // SetOutputLevel sets the minimum log output level.
-//
-// The level can be one of zapcore.DebugLevel, zapcore.InfoLevel,
-// zapcore.WarnLevel, zapcore.ErrorLevel, or None. The default is
-// zapcore.InfoLevel.
-func (o *Options) SetOutputLevel(level zapcore.Level) error {
-	s, ok := levelToString[level]
-	if !ok {
+func (o *Options) SetOutputLevel(level Level) error {
+	if ok := isValid(level); !ok {
 		return fmt.Errorf("unknown output level: %v", level)
 	}
-
-	o.outputLevel = s
+	o.outputLevel = string(level)
 	return nil
 }
 
 // GetOutputLevel returns the minimum log output level.
-func (o *Options) GetOutputLevel() (zapcore.Level, error) {
-	l, ok := stringToLevel[o.outputLevel]
-	if !ok {
-		return 0, fmt.Errorf("unknown output level: %s", o.outputLevel)
+func (o *Options) GetOutputLevel() (Level, error) {
+	l := Level(o.outputLevel)
+	if ok := isValid(l); !ok {
+		return "", fmt.Errorf("unknown output level: %v", l)
 	}
-
 	return l, nil
 }
 
 // SetStackTraceLevel sets the minimum stack trace capture level.
-//
-// The level can be one of zapcore.DebugLevel, zapcore.InfoLevel,
-// zapcore.WarnLevel, zapcore.ErrorLevel, or None. The default is
-// None.
-func (o *Options) SetStackTraceLevel(level zapcore.Level) error {
-	s, ok := levelToString[level]
-	if !ok {
+func (o *Options) SetStackTraceLevel(level Level) error {
+	if ok := isValid(level); !ok {
 		return fmt.Errorf("unknown stack trace level: %v", level)
 	}
-
-	o.stackTraceLevel = s
+	o.stackTraceLevel = string(level)
 	return nil
 }
 
 // GetStackTraceLevel returns the current stack trace level.
-func (o *Options) GetStackTraceLevel() (zapcore.Level, error) {
-	l, ok := stringToLevel[o.stackTraceLevel]
-	if !ok {
-		return 0, fmt.Errorf("unknown stack trace level: %s", o.stackTraceLevel)
+func (o *Options) GetStackTraceLevel() (Level, error) {
+	l := Level(o.stackTraceLevel)
+	if ok := isValid(l); !ok {
+		return "", fmt.Errorf("unknown stack trace level: %v", l)
 	}
-
 	return l, nil
 }
 
@@ -186,13 +177,15 @@ func (o *Options) AttachCobraFlags(cmd *cobra.Command) {
 		"Whether to format output as JSON or in plain console-friendly format")
 
 	cmd.PersistentFlags().StringVar(&o.outputLevel, "log_output_level", o.outputLevel,
-		"The minimum logging level of messages to output, can be one of debug, info, warning, error, or none")
+		fmt.Sprintf("The minimum logging level of messages to output, can be one of %q, %q, %q, %q, or %q",
+			DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel))
 
 	cmd.PersistentFlags().BoolVar(&o.IncludeCallerSourceLocation, "log_callers", o.IncludeCallerSourceLocation,
 		"Include caller information, useful for debugging")
 
 	cmd.PersistentFlags().StringVar(&o.stackTraceLevel, "log_stacktrace_level", o.stackTraceLevel,
-		"The minimum logging level at which stack traces are captured, can be one of debug, info, warning, error, or none")
+		fmt.Sprintf("The minimum logging level at which stack traces are captured, can be one of %q, %q, %q, %q, or %q",
+			DebugLevel, InfoLevel, WarnLevel, ErrorLevel, NoneLevel))
 
 	// NOTE: we don't currently expose a command-line option to control ErrorOutputPaths since it
 	// seems too esoteric.

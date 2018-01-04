@@ -96,47 +96,47 @@ func TestBasic(t *testing.T) {
 		pat        string
 		json       bool
 		caller     bool
-		stackLevel zapcore.Level
+		stackLevel Level
 	}{
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
-		{func() { Debugf("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
-		{func() { Debugw("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
-		{func() { Debuga("Hello") }, timePattern + "\tdebug\tHello", false, false, None},
+		{func() { Debug("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
+		{func() { Debugf("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
+		{func() { Debugw("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
+		{func() { Debuga("Hello") }, timePattern + "\tdebug\tHello", false, false, NoneLevel},
 
-		{func() { Info("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
-		{func() { Infof("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
-		{func() { Infow("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
-		{func() { Infoa("Hello") }, timePattern + "\tinfo\tHello", false, false, None},
+		{func() { Info("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
+		{func() { Infof("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
+		{func() { Infow("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
+		{func() { Infoa("Hello") }, timePattern + "\tinfo\tHello", false, false, NoneLevel},
 
-		{func() { Warn("Hello") }, timePattern + "\twarn\tHello", false, false, None},
-		{func() { Warnf("Hello") }, timePattern + "\twarn\tHello", false, false, None},
-		{func() { Warnw("Hello") }, timePattern + "\twarn\tHello", false, false, None},
-		{func() { Warna("Hello") }, timePattern + "\twarn\tHello", false, false, None},
+		{func() { Warn("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
+		{func() { Warnf("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
+		{func() { Warnw("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
+		{func() { Warna("Hello") }, timePattern + "\twarn\tHello", false, false, NoneLevel},
 
-		{func() { Error("Hello") }, timePattern + "\terror\tHello", false, false, None},
-		{func() { Errorf("Hello") }, timePattern + "\terror\tHello", false, false, None},
-		{func() { Errorw("Hello") }, timePattern + "\terror\tHello", false, false, None},
-		{func() { Errora("Hello") }, timePattern + "\terror\tHello", false, false, None},
+		{func() { Error("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
+		{func() { Errorf("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
+		{func() { Errorw("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
+		{func() { Errora("Hello") }, timePattern + "\terror\tHello", false, false, NoneLevel},
 
 		{func() {
 			l := With(zap.String("key", "value"))
 			l.Debug("Hello")
-		}, timePattern + "\tdebug\tHello\t{\"key\": \"value\"}", false, false, None},
+		}, timePattern + "\tdebug\tHello\t{\"key\": \"value\"}", false, false, NoneLevel},
 
-		{func() { Debug("Hello") }, timePattern + "\tdebug\tlog/log_test.go:.*\tHello", false, true, None},
+		{func() { Debug("Hello") }, timePattern + "\tdebug\tlog/log_test.go:.*\tHello", false, true, NoneLevel},
 
 		{func() { Debug("Hello") }, "{\"level\":\"debug\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
 			"\"stack\":\".*\"}",
-			true, true, zapcore.DebugLevel},
+			true, true, DebugLevel},
 		{func() { Info("Hello") }, "{\"level\":\"info\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
 			"\"stack\":\".*\"}",
-			true, true, zapcore.DebugLevel},
+			true, true, DebugLevel},
 		{func() { Warn("Hello") }, "{\"level\":\"warn\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
 			"\"stack\":\".*\"}",
-			true, true, zapcore.DebugLevel},
+			true, true, DebugLevel},
 		{func() { Error("Hello") }, "{\"level\":\"error\",\"time\":\"" + timePattern + "\",\"caller\":\"log/log_test.go:.*\",\"msg\":\"Hello\"," +
 			"\"stack\":\".*\"}",
-			true, true, zapcore.DebugLevel},
+			true, true, DebugLevel},
 	}
 
 	for i, c := range cases {
@@ -147,7 +147,7 @@ func TestBasic(t *testing.T) {
 				o.JSONEncoding = c.json
 				o.IncludeCallerSourceLocation = c.caller
 
-				_ = o.SetOutputLevel(zapcore.DebugLevel)
+				_ = o.SetOutputLevel(DebugLevel)
 				_ = o.SetStackTraceLevel(c.stackLevel)
 				if err := Configure(o); err != nil {
 					t.Errorf("Got err '%v', expecting success", err)
@@ -175,17 +175,17 @@ func TestBasic(t *testing.T) {
 
 func TestEnabled(t *testing.T) {
 	cases := []struct {
-		level        zapcore.Level
+		level        Level
 		debugEnabled bool
 		infoEnabled  bool
 		warnEnabled  bool
 		errorEnabled bool
 	}{
-		{zapcore.DebugLevel, true, true, true, true},
-		{zapcore.InfoLevel, false, true, true, true},
-		{zapcore.WarnLevel, false, false, true, true},
-		{zapcore.ErrorLevel, false, false, false, true},
-		{None, false, false, false, false},
+		{DebugLevel, true, true, true, true},
+		{InfoLevel, false, true, true, true},
+		{WarnLevel, false, false, true, true},
+		{ErrorLevel, false, false, false, true},
+		{NoneLevel, false, false, false, false},
 	}
 
 	for i, c := range cases {
