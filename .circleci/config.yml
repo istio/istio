@@ -36,16 +36,44 @@ jobs:
         name: Initialize Working Directory
         pwd: /
         command: |
+          sudo mkdir -p /go/src/istio.io/istio /go/out /home/circleci/logs
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run: bin/testEnvRootMinikube.sh start
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make docker
+      - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
+      - run: make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+
+  e2e-mixer:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
+          mkdir -p /go/out
+          mkdir /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
       - run:
           name: "Start minikube"
           command: |
-            mkdir -p /go/out
-            mkdir /home/circleci/logs
             curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
             curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
             sudo -E minikube start \
@@ -72,12 +100,6 @@ jobs:
               sleep 2
             done
             kubectl get svc --all-namespaces
-
-      - run: docker images
-      - run:
-            timeout: 20m
-            command: |
-                  make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
             timeout: 20m
             # Run the test even if previous failed
@@ -186,7 +208,6 @@ jobs:
       - run: make docker.pilot-debug
       - run: make docker.pilot-test
       - run: docker images
-      - run: go build -i ./pilot/test/integration
       - run:
           command: |
             set -ne
@@ -198,7 +219,7 @@ jobs:
               fi
               sleep 2
             done
-      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -384,6 +405,7 @@ jobs:
           command: |
             cd /go/src/istio.io/istio
             make init go-build
+      - run: go build -o $GOPATH/bin/integration ./pilot/test/integration
       - store_artifacts:
           path: /go/bin
       - persist_to_workspace:
@@ -510,6 +532,9 @@ workflows:
           requires:
             - build
       - e2e-bookinfo:
+          requires:
+            - build
+      - e2e-mixer:
           requires:
             - build
       - test:
