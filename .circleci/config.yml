@@ -130,6 +130,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker.pilot-debug
       - run: make docker.pilot-test
+      - run: docker images
       - run: go build -i ./pilot/test/integration
       - run:
           command: |
