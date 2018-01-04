@@ -84,6 +84,61 @@ jobs:
             when: always
             command: |
                   make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - store_artifacts:
+          path: /home/circleci/logs
+      - store_artifacts:
+          path: /tmp
+
+  e2e-bookinfo:
+    <<: *integrationDefaults
+    environment:
+            - KUBECONFIG: /go/out/minikube.conf
+            - TEST_ENV: minikube-none
+            - GOPATH: /go
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+      - checkout
+      - attach_workspace:
+          at:  /go
+      - run:
+          name: "Start minikube"
+          command: |
+            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+            curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+            mkdir -p /go/out
+            mkdir /home/circleci/logs
+            sudo -E minikube start \
+              --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+              --kubernetes-version=v1.7.5 --vm-driver=none
+            sudo chown -R $USER $KUBECONFIG
+            sudo chown -R $USER $HOME/.minikube
+            cat $KUBECONFIG
+
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: make docker.debug
+      - run: make docker.test
+      - run:
+          name: "Wait for minikube"
+          command: |
+            kubectl cluster-info
+            set -ne
+            for i in {1..150}; do # timeout for 5 minutes
+               kubectl get po &> /dev/null
+               if [ $? -ne 1 ]; then
+                  break
+              fi
+              sleep 2
+            done
+            kubectl get svc --all-namespaces
+
+      - run: docker images
       - run:
             timeout: 20m
             when: always
@@ -452,6 +507,9 @@ workflows:
           requires:
             - dependencies
       - e2e:
+          requires:
+            - build
+      - e2e-bookinfo:
           requires:
             - build
       - test:
