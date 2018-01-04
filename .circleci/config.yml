@@ -164,8 +164,6 @@ jobs:
             sudo chown -R circleci /go
             mkdir -p /go/out /home/circleci/logs
       - checkout
-      - setup_remote_docker:
-            docker_layer_caching: true
       - attach_workspace:
           at:  /go
       - run:
