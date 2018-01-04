@@ -136,6 +136,10 @@ function install_istio_ingress_rules() {
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
+function install_istio_cache_busting_rule() {
+  FNAME=$TOOLS_DIR/cache_buster.yaml
+  Execute $ISTIOCTL create -f $FNAME
+}
 
 function get_fortio_k8s_ip() {
   FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
@@ -216,6 +220,7 @@ function setup_istio_all() {
   install_istio
   install_istio_svc
   install_istio_ingress_rules
+  install_istio_cache_busting_rule
 }
 
 function setup_cluster_all() {

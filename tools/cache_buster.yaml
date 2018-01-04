@@ -1,0 +1,33 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: denier
+metadata:
+  name: denyall
+  namespace: istio-system
+spec:
+  status:
+    code: 7
+    message: Not allowed
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: checknothing
+metadata:
+  name: denyrequest
+  namespace: istio-system
+spec:
+
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: mixercachebuster
+  namespace: istio-system
+spec:
+  # one direction 1->2 won't be cached, 2->1 will use the cache
+  match: destination.service == "echosrv1.istio.svc.cluster.local" && request.headers["x-request-id"] == "foo"
+  # test that denial does work
+  #match: destination.service == "echosrv1.istio.svc.cluster.local" && request.headers["x-forwarded-proto"] == "http" && source.service == "echosrv2.istio.svc.cluster.local"
+  actions:
+  # handler and instance names default to the rule's namespace.
+  - handler: denyall.denier
+    instances:
+    - denyrequest.checknothing
