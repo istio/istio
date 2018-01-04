@@ -21,11 +21,7 @@ if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-if which dep; then
-    echo "Using $(which dep)"
-else
-    go get -u github.com/golang/dep/cmd/dep
-fi
+which dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
 
 # Download dependencies
 if [ ! -d vendor/github.com ]; then
@@ -35,11 +31,9 @@ elif [ ! -f vendor/Gopkg.lock ]; then
     ${GOPATH}/bin/dep ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 else
-    diff Gopkg.lock vendor/Gopkg.lock
-    if [ $? -ne 0 ]; then
-            ${GOPATH}/bin/dep ensure -vendor-only
-            cp Gopkg.lock vendor/Gopkg.lock
-    fi
+    diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
+            ( ${GOPATH}/bin/dep ensure -vendor-only ; \
+              cp Gopkg.lock vendor/Gopkg.lock)
 fi
 
 # Original circleci - replaced with the version in the dockerfile, as we deprecate bazel
