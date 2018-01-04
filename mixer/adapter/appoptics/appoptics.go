@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/appoptics/config/config.proto
+
+// Package appoptics publishes metric and log values collected by Mixer
+// to appoptics and papertrail respectively.
 package appoptics
 
 import (
