@@ -291,7 +291,7 @@ docker:
 	time $(ISTIO_GO)/pilot/bin/push-docker ${hub} ${tag} -build-only
 
 # Build docker images for pilot
-docker.pilot-debug: setup pilot istioctl pilot-agent sidecar-initializer
+docker.pilot-debug: pilot pilot-agent sidecar-initializer
 	cp ${GOPATH}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
