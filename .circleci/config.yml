@@ -172,14 +172,14 @@ jobs:
       - attach_workspace:
           at:  /go
       - run:
+          name: Start minikube
           command: |
             mkdir -p /go/out
-            mkdir /home/circleci/logs
+            mkdir -p /home/circleci/logs
             sudo -E minikube start \
               --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
               --kubernetes-version=v1.7.5 --vm-driver=none
-            sudo chown -R $USER $KUBECONFIG
-            sudo chown -R $USER $HOME/.minikube
+            sudo chown -R $(id -u) $KUBECONFIG $HOME/.minikube
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
