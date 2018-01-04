@@ -18,9 +18,6 @@ rules:
 - apiGroups: ["apiextensions.k8s.io"]
   resources: ["customresourcedefinitions"]
   verbs: ["*"]
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs", "istioconfigs.istio.io"]
-  verbs: ["*"]
 - apiGroups: ["extensions"]
   resources: ["thirdpartyresources", "thirdpartyresources.extensions", "ingresses", "ingresses/status"]
   verbs: ["*"]
@@ -85,9 +82,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
   name: istio-sidecar-{{$istio_namespace}}
 rules:
-- apiGroups: ["istio.io"]
-  resources: ["istioconfigs"]
-  verbs: ["get", "watch", "list"]
 - apiGroups: ["extensions"]
   resources: ["thirdpartyresources", "ingresses"]
   verbs: ["get", "watch", "list", "update"]
