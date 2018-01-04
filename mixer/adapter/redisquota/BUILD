@@ -22,7 +22,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
-        #"redisquota_integration_test.go",
+        "redisquota_integration_test.go",
         "redisquota_test.go",
     ],
     library = ":go_default_library",
