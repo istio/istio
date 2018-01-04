@@ -164,14 +164,20 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instance
 				AttrDestinationUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 			},
 		},
-		ForwardAttributes: &mpb.Attributes{
+		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+	}
+
+	if role.Type == proxy.Sidecar && !outboundRoute {
+		// Don't forward mixer attributes to the app from inbound sidecar routes
+	} else {
+		v2.ForwardAttributes = &mpb.Attributes{
 			Attributes: map[string]*mpb.Attributes_AttributeValue{
 				AttrSourceIP:  {Value: &mpb.Attributes_AttributeValue_BytesValue{net.ParseIP(role.IPAddress)}},
 				AttrSourceUID: {Value: &mpb.Attributes_AttributeValue_StringValue{"kubernetes://" + role.ID}},
 			},
-		},
-		ServiceConfigs: map[string]*mccpb.ServiceConfig{},
+		}
 	}
+
 	if len(instances) > 0 {
 		// legacy mixerclient behavior is a comma separated list of
 		// services. When can this be removed?
@@ -202,7 +208,7 @@ func mixerHTTPRouteConfig(mesh *meshconfig.MeshConfig, role proxy.Node, instance
 				},
 			},
 			DisableCheckCalls:  outboundRoute || mesh.DisablePolicyChecks,
-			DisableReportCalls: outboundRoute || role.Type == proxy.Ingress,
+			DisableReportCalls: outboundRoute,
 		}
 
 		// omit API, Quota, and Auth portion of service config when
