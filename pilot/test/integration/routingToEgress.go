@@ -22,10 +22,7 @@ import (
 	"strings"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pkg/log"
 )
 
@@ -122,7 +119,7 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 }
 
 func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
-	glog.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
+	log.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
 
 	resp := t.clientRequest(src, httpbinURL, 1, "")
 

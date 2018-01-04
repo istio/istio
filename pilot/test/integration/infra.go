@@ -32,8 +32,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -478,14 +476,14 @@ func (infra *infra) deleteConfig(inFile string) error {
 		// fill up namespace for the config
 		v.Namespace = infra.Namespace
 
-		glog.Infof("Delete config %s", v.Key())
+		log.Infof("Delete config %s", v.Key())
 		if err = infra.config.Delete(v.Type, v.Name, v.Namespace); err != nil {
 			return err
 		}
 	}
 
 	sleepTime := time.Second * 3
-	glog.Infof("Sleeping %v for the config to propagate", sleepTime)
+	log.Infof("Sleeping %v for the config to propagate", sleepTime)
 	time.Sleep(sleepTime)
 	return nil
 }
