@@ -18,8 +18,8 @@ export KUBECONFIG=${KUBECONFIG:-$GOPATH/minikube.conf}
 export PATH=$GOPATH/bin:$PATH
 
 function waitMinikube() {
-    kubectl cluster-info
     set -ne
+    kubectl cluster-info
     # this for loop waits until kubectl can access the api server that Minikube has created
     for i in {1..150}; do # timeout for 5 minutes
        ./kubectl get po &> /dev/null
@@ -28,8 +28,9 @@ function waitMinikube() {
       fi
       sleep 2
     done
-    kubectl get svc --all-namespaces
     cat $KUBECONFIG
+    kubectl get svc --all-namespaces
+    echo "Minikube is running"
 }
 
 

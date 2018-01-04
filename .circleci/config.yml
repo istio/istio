@@ -513,6 +513,9 @@ workflows:
   all:
     jobs:
       - dependencies
+      - lint:
+          requires:
+            - dependencies
       - build:
           requires:
             - dependencies
@@ -522,9 +525,9 @@ workflows:
       - test:
           requires:
             - dependencies
-      - lint:
+      - codecov:
           requires:
-            - dependencies
+            - build
       - pilot-integration-auth:
           requires:
             - build
