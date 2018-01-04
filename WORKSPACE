@@ -1154,7 +1154,7 @@ http_file(
 
 go_repository(
     name = "com_github_golang_mock",
-    commit = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
+    commit = "13f360950a79f5864a972c786a10a50e44b69541",
     importpath = "github.com/golang/mock",
 )
 
