@@ -236,7 +236,7 @@ func (p *PaperTrailLogger) flushLogs() {
 	}
 }
 
-// This method closes the PaperTrailLogger instance
+// Close - closes the PaperTrailLogger instance
 func (p *PaperTrailLogger) Close() error {
 	p.loopFactor = false
 	return nil

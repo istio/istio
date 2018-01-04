@@ -51,7 +51,7 @@ func newLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (lo
 		if ppi != nil {
 			pp, ok = ppi.(*papertrail.PaperTrailLogger)
 			if !ok {
-				return nil, fmt.Errorf("Received instance is not of valid type.")
+				return nil, fmt.Errorf("received instance is not of valid type.")
 			}
 		}
 	}
