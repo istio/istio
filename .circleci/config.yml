@@ -32,13 +32,12 @@ jobs:
             - TEST_ENV: minikube-none
             - GOPATH: /go
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          mkdir -p /go/out /home/circleci/logs
+      - run:
+          name: Initialize Working Directory
+          command: |
+            sudo mkdir /go/src/istio.io/istio
+            sudo chown -R circleci /go
+            mkdir -p /go/out /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
@@ -156,16 +155,15 @@ jobs:
             - HUB: docker.io/dnerepo
             - TAG: dontpush
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
-          sudo chown -R circleci /usr/local/go
+      - run:
+          name: Initialize Working Directory
+          command: |
+            sudo mkdir /go/src/istio.io/istio
+            sudo chown -R circleci /go
+            mkdir -p /go/out /home/circleci/logs
       - checkout
       - setup_remote_docker:
-                docker_layer_caching: true
+            docker_layer_caching: true
       - attach_workspace:
           at:  /go
       - run:
@@ -477,10 +475,24 @@ workflows:
     jobs:
       - depupdate
 
-  all:
+  periodic:
+    triggers:
+       - schedule:
+           cron: "20 1,4,7,10,13,16,19,22 * * *"
+           filters:
+             branches:
+               only:
+                 - master
     jobs:
+      - depupdate
       - dependencies
       - build:
+          requires:
+            - dependencies
+      - codecov:
+          requires:
+            - build
+      - test:
           requires:
             - dependencies
       - e2e:
@@ -492,18 +504,25 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-      - test:
-          requires:
-            - dependencies
-      - codecov:
-          requires:
-            - build
-      - lint:
-          requires:
-            - dependencies
       - pilot-integration-noauth:
           requires:
             - build
+
+  all:
+    jobs:
+      - dependencies
+      - build:
+          requires:
+            - dependencies
+      - e2e:
+          requires:
+            - build
+      - test:
+          requires:
+            - dependencies
+      - lint:
+          requires:
+            - dependencies
       - pilot-integration-auth:
           requires:
             - build
