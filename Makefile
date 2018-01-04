@@ -301,6 +301,7 @@ docker.pilot-debug: setup pilot istioctl pilot-agent sidecar-initializer
 # Build all docker debug images
 docker.debug: docker.pilot-debug mixs mixc node-agent istio-ca
 	cp ${GOPATH}/bin/mixs mixer/docker
+	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
 	cp ${GOPATH}/bin/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
