@@ -22,8 +22,8 @@ import (
 )
 
 // Global variables against which all our logging occurs.
-var logger *zap.Logger = zap.NewNop()
-var sugar *zap.SugaredLogger = logger.Sugar()
+var logger = zap.NewNop()
+var sugar = logger.Sugar()
 
 func formatDate(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	t = t.UTC()
