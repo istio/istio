@@ -128,7 +128,8 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
+      - run: make docker.pilot-debug
+      - run: make docker.pilot-test
       - run: go build -i ./pilot/test/integration
       - run:
           command: |

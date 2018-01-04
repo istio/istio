@@ -207,16 +207,18 @@ go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent is
 # Target: go test
 #-----------------------------------------------------------------------------
 
-.PHONY: go-test localTestEnv
+.PHONY: go-test localTestEnv testApps
 
 GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
 
-localTestEnv:
-	bin/testEnvLocalK8S.sh ensure
+testApps:
 	go build -o ${GOPATH}/bin/server istio.io/istio/pilot/test/server
 	go build -o ${GOPATH}/bin/client istio.io/istio/pilot/test/client
 	go build -o ${GOPATH}/bin/eurekamirror istio.io/istio/pilot/test/eurekamirror
+
+localTestEnv: testApps
+	bin/testEnvLocalK8S.sh ensure
 
 # Temp. disable parallel test - flaky consul test.
 # https://github.com/istio/istio/issues/2318
@@ -281,10 +283,44 @@ clean.go: ; $(info $(H) cleaning...)
 
 test: setup go-test
 
+# Build all prod and debug images
 docker:
-	$(ISTIO_GO)/security/bin/push-docker ${hub} ${tag} -build-only
-	$(ISTIO_GO)/mixer/bin/push-docker ${hub} ${tag} -build-only
-	$(ISTIO_GO)/pilot/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/security/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/mixer/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/pilot/bin/push-docker ${hub} ${tag} -build-only
+
+# Build docker images for pilot
+docker.pilot-debug: setup pilot istioctl pilot-agent sidecar-initializer
+	cp ${GOPATH}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
+	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
+	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
+
+# Build all docker debug images
+docker.debug: docker.pilot-debug mixs mixc node-agent istio-ca
+	cp ${GOPATH}/bin/mixs mixer/docker
+	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
+	cp ${GOPATH}/bin/{istio_ca,node_agent} security/docker
+	cp docker/ca-certificates.tgz security/docker/
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
+
+docker.pilot-test: testApps
+	cp ${GOPATH}/bin/{client,server,eurekamirror} pilot/docker
+	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
+	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
+
+# Build extra docker debug images (examples, etc)
+docker.test: docker.pilot-test
+	cp -a mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
+	bin/gobuild.sh ${GOPATH}/bin/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph/cmd/server
+	cp ${GOPATH}/bin/servicegraph mixer/example/servicegraph/docker
+	time (cd mixer/example/servicegraph/docker && docker build -t ${HUB}/servicegraph_debug:${TAG} -f Dockerfile.debug .)
+	# TODO: generate or checkin test CA and keys
+	security/bin/gen-keys.sh
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca-test)
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.node-agent-test)
+
 
 push: checkvars
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
