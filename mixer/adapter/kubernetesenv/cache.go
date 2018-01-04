@@ -94,10 +94,10 @@ func newCacheController(clientset *kubernetes.Clientset, refreshDuration time.Du
 	c.pods = cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return clientset.Pods(namespace).List(opts)
+				return clientset.CoreV1().Pods(namespace).List(opts)
 			},
 			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return clientset.Pods(namespace).Watch(opts)
+				return clientset.CoreV1().Pods(namespace).Watch(opts)
 			},
 		},
 		&v1.Pod{},
