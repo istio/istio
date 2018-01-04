@@ -50,7 +50,7 @@ jobs:
       - run: make docker
       - run: bin/testEnvRootMinikube.sh wait
       - run: docker images
-      - run: make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
+      - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
       - store_artifacts:
@@ -149,7 +149,7 @@ jobs:
           path: /tmp
 
   pilot-integration-auth:
-    <<: *defaults
+    <<: *integrationDefaults
     environment:
             - GOPATH: /go
             - KUBECONFIG: /go/out/minikube.conf
