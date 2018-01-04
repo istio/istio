@@ -82,9 +82,5 @@ func TestController(t *testing.T) {
 
 	mockHandler := test.NewMockControllerViewHandler()
 	controller := NewController(cl, *mockHandler.GetTicker())
-	controller.Handle(test.MockControllerPath, mockHandler.ToModelControllerViewHandler())
-	go controller.Run(mockHandler.GetStopChannel())
-	defer mockHandler.StopController()
-	actualView := mockHandler.GetReconciledView()
-	test.AssertControllerViewEquals(t, buildExpectedControllerView(t, cl), actualView)
+	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView(t, cl))
 }

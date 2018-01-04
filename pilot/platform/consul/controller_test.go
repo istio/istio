@@ -156,9 +156,5 @@ func TestController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create Consul Controller: %v", err)
 	}
-	controller.Handle(test.MockControllerPath, mockHandler.ToModelControllerViewHandler())
-	go controller.Run(mockHandler.GetStopChannel())
-	defer mockHandler.StopController()
-	actualView := mockHandler.GetReconciledView()
-	test.AssertControllerViewEquals(t, buildExpectedControllerView(), actualView)
+	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView())
 }

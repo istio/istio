@@ -6,18 +6,16 @@ Package test implements the boiler plate for testing model.Controller implementa
 Typical usage:
 
     import "istio.io/istio/pilot/platform/test"
-
-	mockHandler := test.NewMockControllerViewHandler()
-	controller, err := NewYourFavoriteController(...., *mockHandler.GetTicker())
-	if err != nil {
-		t.Fatalf("could not create My favourite Controller: %v", err)
-	}
-	controller.Handle(test.MockControllerPath, mockHandler.ToModelControllerViewHandler())
-	go controller.Run(mockHandler.GetStopChannel())
-	defer mockHandler.StopController()
-	actualView := mockHandler.GetReconciledView()
-	test.AssertControllerViewEquals(t, 
-    	test.BuildExpectedControllerView(yourExpectedServices, yourExpectedInstances), actualView)
+    
+    func TestController(t *testing.T) {
+    	mockHandler := test.NewMockControllerViewHandler()
+    	controller, err := NewYourFavoriteController(...., *mockHandler.GetTicker())
+    	if err != nil {
+    		t.Fatalf("could not create My favourite Controller: %v", err)
+    	}
+        mockHandler.AssertControllerOK(t, controller,
+            test.BuildExpectedControllerView(yourExpectedServices, yourExpectedInstances))
+    }
 */
 
 import (
@@ -65,14 +63,14 @@ func (h *MockControllerViewHandler) GetTicker() *time.Ticker {
 // Retrieves the stop channel used for passing to model.Controller.Run() methods of
 // controllers under istio.io/istio/pilot/platform/*. Callers of this method ought
 // to call defer h.StopController() to cause controllers to stop running.
-func (h *MockControllerViewHandler) GetStopChannel() chan struct{} {
+func (h *MockControllerViewHandler) getStopChannel() chan struct{} {
     return h.stop
 }
 
 // Issues a signal to the stop channel for stopping test controllers under 
 // istio.io/istio/pilot/platform/*. Callers of this method ought
 // to have passed the contents of GetStopChannel() to the controllers to begin with.
-func (h *MockControllerViewHandler) StopController() {
+func (h *MockControllerViewHandler) stopController() {
     h.runTicker.Stop()
     close(h.reconciledViews)
     close(h.stop)
@@ -90,7 +88,7 @@ func (h *MockControllerViewHandler) Reconcile(cv *model.ControllerView) {
 }
 
 // Gets the most recently supplied controller view to Reconcile()
-func (h *MockControllerViewHandler) GetReconciledView() *model.ControllerView {
+func (h *MockControllerViewHandler) getReconciledView() *model.ControllerView {
     timeout := make(chan bool, 1)
     go func() {
         time.Sleep(maxWaitForReconciledView)
@@ -108,12 +106,23 @@ func (h *MockControllerViewHandler) GetReconciledView() *model.ControllerView {
 }
 
 // Used to pass to mock.Controller.Handle()
-func (h *MockControllerViewHandler) ToModelControllerViewHandler() *model.ControllerViewHandler {
+func (h *MockControllerViewHandler) toModelControllerViewHandler() *model.ControllerViewHandler {
     var handler model.ControllerViewHandler
     handler = h
     return &handler
 }
 
+// Verifies that the supplied controller is able to provide an actual controller view that matches
+// up with the expected controller view ev.  
+func (h *MockControllerViewHandler) AssertControllerOK(t *testing.T, c model.Controller, ev *model.ControllerView) {
+	c.Handle(MockControllerPath, h.toModelControllerViewHandler())
+	go c.Run(h.getStopChannel())
+	defer h.stopController()
+	actualView := h.getReconciledView()
+	assertControllerViewEquals(t, ev, actualView)    
+}
+
+// Builds the expected model.ControllerView given the list of services and instances provided by the platform
 func BuildExpectedControllerView(modelSvcs []*model.Service, modelInsts []*model.ServiceInstance) *model.ControllerView { 
     return &model.ControllerView {
         Path: 				MockControllerPath,
@@ -140,8 +149,7 @@ func getPortHex(port int) string {
 	return hex.EncodeToString(pb)
 }
 
-// Intended to be used by tests to compare expected and actual controller views
-func AssertControllerViewEquals(t *testing.T, expected, actual *model.ControllerView) {
+func assertControllerViewEquals(t *testing.T, expected, actual *model.ControllerView) {
     t.Run("CheckServices", func(t *testing.T) {
         if len(expected.Services) != len(actual.Services) {
             t.Errorf("Expecting services with %v. Actual services %v", 

@@ -15,178 +15,88 @@
 package cloudfoundry_test
 
 import (
-	"sync"
-	"time"
+	"testing"
 
 	"code.cloudfoundry.org/copilot/api"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/cloudfoundry"
+	"istio.io/istio/pilot/platform/test"
 )
 
-var _ = Describe("Controller", func() {
-	var (
-		ticker     fakeTicker
-		client     *mockCopilotClient
-		controller *cloudfoundry.Controller
-	)
-
-	BeforeEach(func() {
-		ticker = make(fakeTicker)
-		client = newMockCopilotClient()
-		client.RoutesOutput.Ret0 <- &api.RoutesResponse{
-			Backends: map[string]*api.BackendSet{
-				"process-guid-a.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.10.1.5",
-							Port:    61005,
-						},
-						{
-							Address: "10.0.40.2",
-							Port:    61008,
-						},
-					},
+func buildBackends() map[string]*api.BackendSet {
+    return map[string]*api.BackendSet{
+		"process-guid-a.cfapps.internal": {
+			Backends: []*api.Backend{
+				{
+					Address: "10.10.1.5",
+					Port:    61005,
 				},
-				"process-guid-b.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.0.50.4",
-							Port:    61009,
-						},
-						{
-							Address: "10.0.60.2",
-							Port:    61001,
-						},
-					},
+				{
+					Address: "10.0.40.2",
+					Port:    61008,
 				},
 			},
-		}
-		client.RoutesOutput.Ret1 <- nil
-		controller = &cloudfoundry.Controller{
-			Client: client,
-			Ticker: ticker,
-		}
-	})
-
-	It("calls all the instance handlers when the cache is invalidated", func() {
-		ih1, ih2 := new(fakeInstanceHandler), new(fakeInstanceHandler)
-		sh1, sh2 := new(fakeServiceHandler), new(fakeServiceHandler)
-
-		controller.AppendInstanceHandler(ih1.Do)
-		controller.AppendInstanceHandler(ih2.Do)
-		controller.AppendServiceHandler(sh1.Do)
-		controller.AppendServiceHandler(sh2.Do)
-
-		stop := make(chan struct{})
-		defer close(stop)
-		go controller.Run(stop)
-
-		By("checking no handlers are called before the ticker fires")
-		Consistently(client.RoutesCalled, "100ms").ShouldNot(Receive())
-		Consistently(ih1.callCount, "100ms").Should(Equal(0))
-		Consistently(ih2.callCount, "100ms").Should(Equal(0))
-		Consistently(sh1.callCount, "100ms").Should(Equal(0))
-		Consistently(sh2.callCount, "100ms").Should(Equal(0))
-
-		By("checking that all handlers are called after the first ticker fires")
-		ticker <- time.Time{}
-		Eventually(client.RoutesCalled).Should(Receive())
-		Eventually(ih1.callCount).Should(Equal(1))
-		Eventually(ih2.callCount).Should(Equal(1))
-		Eventually(sh1.callCount).Should(Equal(1))
-		Eventually(sh2.callCount).Should(Equal(1))
-
-		By("checking that no handlers are called if the cached data is still valid")
-		ticker <- time.Time{}
-		Eventually(client.RoutesCalled).Should(Receive())
-		Consistently(ih1.callCount, "100ms").Should(Equal(1))
-		Consistently(ih2.callCount, "100ms").Should(Equal(1))
-		Consistently(sh1.callCount, "100ms").Should(Equal(1))
-		Consistently(sh2.callCount, "100ms").Should(Equal(1))
-
-		By("checking that all handlers are called again when the cache is invalidated")
-		client.RoutesOutput.Ret0 <- &api.RoutesResponse{
-			Backends: map[string]*api.BackendSet{
-				"other-process-guid-a.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.10.2.6",
-							Port:    61006,
-						},
-						{
-							Address: "10.0.41.3",
-							Port:    61009,
-						},
-					},
+		},
+		"process-guid-b.cfapps.internal": {
+			Backends: []*api.Backend{
+				{
+					Address: "10.0.50.4",
+					Port:    61009,
 				},
-				"process-guid-b.cfapps.internal": {
-					Backends: []*api.Backend{
-						{
-							Address: "10.0.50.4",
-							Port:    61009,
-						},
-						{
-							Address: "10.0.60.2",
-							Port:    61001,
-						},
-					},
+				{
+					Address: "10.0.60.2",
+					Port:    61001,
 				},
 			},
-		}
-		client.RoutesOutput.Ret1 <- nil
-		ticker <- time.Time{}
-		Eventually(client.RoutesCalled).Should(Receive())
-		Eventually(ih1.callCount).Should(Equal(2))
-		Eventually(ih2.callCount).Should(Equal(2))
-		Eventually(sh1.callCount).Should(Equal(2))
-		Eventually(sh2.callCount).Should(Equal(2))
-	})
-})
+		},
+	}
+}    
 
-type fakeTicker chan time.Time
+func buildExpectedControllerView(backends map[string]*api.BackendSet) *model.ControllerView {
+    modelSvcs := []*model.Service{}
+    modelInsts := []*model.ServiceInstance{}
 
-func (f fakeTicker) Chan() <-chan time.Time {
-	return f
+	for hostname := range backends {
+	    service := 	&model.Service {
+        	Hostname: hostname,
+        	Ports: []*model.Port{
+        		{
+        			Port:     8080,
+        			Protocol: model.ProtocolTCP,
+        		},
+        	},
+    	}	
+		modelSvcs = append(modelSvcs, service)
+    	backendSet, ok := backends[hostname]
+    	if !ok {
+    		continue
+    	}
+    	for _, backend := range backendSet.GetBackends() {
+    		modelInsts = append(modelInsts, &model.ServiceInstance{
+    			Endpoint: model.NetworkEndpoint{
+    				Address:     backend.Address,
+    				Port:        int(backend.Port),
+    				ServicePort: service.Ports[0],
+    			},
+    			Service: service,
+    		})
+    	}
+	}
+    return test.BuildExpectedControllerView(modelSvcs, modelInsts)
 }
 
-func (f fakeTicker) Tick() {
-	f <- time.Now()
-}
 
-func (f fakeTicker) Stop() {}
-
-type fakeHandler struct {
-	mutex sync.Mutex
-	calls int
-}
-
-func (h *fakeHandler) callCount() int {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	return h.calls
-}
-
-func (h *fakeHandler) recordCall() {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	h.calls++
-}
-
-type fakeInstanceHandler struct {
-	fakeHandler
-}
-
-func (h *fakeInstanceHandler) Do(*model.ServiceInstance, model.Event) {
-	h.recordCall()
-}
-
-type fakeServiceHandler struct {
-	fakeHandler
-}
-
-func (h *fakeServiceHandler) Do(*model.Service, model.Event) {
-	h.recordCall()
+// The only thing being tested are the public interfaces of the controller
+// namely: Handle() and Run(). Everything else is implementation detail.
+func TestController(t *testing.T) {
+    testBackends := buildBackends()
+    client := newMockCopilotClient()
+    client.RoutesOutput.Ret0 <- &api.RoutesResponse{
+    	Backends: testBackends,
+    }
+    client.RoutesOutput.Ret1 <- nil
+    mockHandler := test.NewMockControllerViewHandler()
+    controller := cloudfoundry.NewController(client, *mockHandler.GetTicker())
+	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView(testBackends))
 }
