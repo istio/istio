@@ -202,7 +202,7 @@ git push origin my-feature
 ### Creating a pull request
 
 1. Visit https://github.com/$GITHUB_USER/istio if you created a fork in your own github repostiory, or https://github.com/istio/istio and navigate to your branch (e.g. "my-feature").
-2. Click the "Compare" to compare the change, and then the "Pull request" button next to your "my-feature" branch.
+2. Click the "Compare" button to compare the change, and then the "Pull request" button next to your "my-feature" branch.
 
 ### Getting a code review
 
