@@ -201,8 +201,8 @@ git push origin my-feature
 
 ### Creating a pull request
 
-1. Visit https://github.com/$GITHUB_USER/istio
-2. Click the "Compare & pull request" button next to your "my-feature" branch.
+1. Visit https://github.com/$GITHUB_USER/istio if you created a fork in your own github repostiory, or https://github.com/istio/istio and navigate to your branch (e.g. "my-feature").
+2. Click the "Compare" to compare the change, and then the "Pull request" button next to your "my-feature" branch.
 
 ### Getting a code review
 
@@ -240,6 +240,11 @@ To build the core repo:
 
 ```shell
 cd $ISTIO/istio
+
+go get github.com/golang/dep/cmd/dep
+
+dep ensure
+
 make build
 ```
 
