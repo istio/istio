@@ -39,9 +39,9 @@ function tag_and_push() {
   for IMAGE in ${IMAGES[@]}; do
     for TAG in ${TAGS[@]}; do
       for HUB in ${HUBS[@]}; do
-        docker tag "${IMAGE}" "${HUB}/${IMAGE}:${TAG}"
+        docker tag "${IMAGE}" "${HUB}/${IMAGE}-${TAG}"
         if [ "${BUILD_ONLY}" != "true" ]; then
-          docker_push "${HUB}/${IMAGE}:${TAG}"
+          docker_push "${HUB}/${IMAGE}-${TAG}"
         fi
       done
     done
