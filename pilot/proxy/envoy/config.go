@@ -348,7 +348,7 @@ func buildHTTPListener(mesh *meshconfig.MeshConfig, node proxy.Node, instances [
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(node, instances, outboundListener, store)
+		mixerConfig := mixerHTTPRouteConfig(mesh, node, instances, outboundListener, store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
