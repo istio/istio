@@ -125,8 +125,13 @@ var (
 				if err != nil {
 					log.Infof("Error reading availability zone response from pilot: %v", err)
 				}
-				availabilityZone = string(body)
-				log.Infof("Proxy availability zone: %v", availabilityZone)
+				if azResp.StatusCode != http.StatusOK {
+					log.Infof("Received %q status from pilot when retrieving availability zone: %v", azResp.StatusCode, string(body))
+				} else {
+					availabilityZone = string(body)
+					log.Infof("Proxy availability zone: %v", availabilityZone)
+				}
+
 			}
 
 			log.Infof("Proxy role: %#v", role)
