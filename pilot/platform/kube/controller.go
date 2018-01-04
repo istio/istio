@@ -43,9 +43,12 @@ const (
 // ControllerOptions stores the configurable attributes of a Controller.
 type ControllerOptions struct {
 	// Namespace the controller watches. If set to meta_v1.NamespaceAll (""), controller watches all namespaces
-	WatchedNamespace string
-	ResyncPeriod     time.Duration
-	DomainSuffix     string
+	WatchedNamespace 	string
+	ResyncPeriod     	time.Duration
+	DomainSuffix     	string
+	
+	// Should only be used for pre-primed Kube clients
+	IgnoreInformerSync	bool
 }
 
 // Controller is a collection of synchronized resource watchers
@@ -53,16 +56,16 @@ type ControllerOptions struct {
 type Controller struct {
 	domainSuffix string
 
-	client    kubernetes.Interface
-	ticker           time.Ticker
-    controllerPath 	string
-    handler 		*model.ControllerViewHandler	
-	
-	queue     Queue
-	services  cacheHandler
-	endpoints cacheHandler
-	nodes     cacheHandler
-	pods 	  *PodCache
+	client    			kubernetes.Interface
+	ticker           	time.Ticker
+    controllerPath 		string
+    handler 			*model.ControllerViewHandler	
+	queue     			Queue
+	services  			cacheHandler
+	endpoints 			cacheHandler
+	nodes     			cacheHandler
+	pods 	  			*PodCache
+	ignoreInformerSync  bool
 }
 
 type cacheHandler struct {
@@ -115,6 +118,7 @@ func NewController(client kubernetes.Interface, ticker time.Ticker, options Cont
 		func(opts meta_v1.ListOptions) (watch.Interface, error) {
 			return client.CoreV1().Pods(options.WatchedNamespace).Watch(opts)
 		}))
+	out.ignoreInformerSync = options.IgnoreInformerSync
 
 	return out
 }
@@ -139,14 +143,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	go c.services.informer.Run(stop)
 	go c.endpoints.informer.Run(stop)
 	go c.pods.informer.Run(stop)
-
     for {
         // Block until tick
         <- c.ticker.C
         c.doReconcile()        
         select {
         case <- stop:
-            return  
+            return
+        default:
         }        
     }
     glog.Infof("Stopping Kubernetes registry controller for controller path '%s'", c.controllerPath)
@@ -201,12 +205,14 @@ func (c *Controller) createInformer(
 
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) hasSynced() bool {
+    if c.ignoreInformerSync {
+        return true
+    }
 	if !c.services.informer.HasSynced() ||
 		!c.endpoints.informer.HasSynced() ||
 		!c.pods.informer.HasSynced() {
 		return false
 	}
-
 	return true
 }
 
@@ -230,7 +236,11 @@ func (c *Controller) doReconcile() {
 			controllerView.Services = append(controllerView.Services, svc)
 			svcKey := KeyFunc(kubeSvc.Name, kubeSvc.Namespace)
 			keySvcMap[svcKey] = svc
-			portMap := PortMap{}
+			portMap, found := svcPortMap[svcKey]
+			if !found {
+			    portMap = PortMap{}
+			    svcPortMap[svcKey] = portMap
+			}
         	for _, port := range svc.Ports {
         	    portMap[port.Port] = port
         	}

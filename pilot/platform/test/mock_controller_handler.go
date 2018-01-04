@@ -46,12 +46,19 @@ type MockControllerViewHandler struct {
 // Creates a MockControllerViewHandler for testing public interfaces of controllers
 // under istio.io/istio/pilot/platform/*
 func NewMockControllerViewHandler() *MockControllerViewHandler {
+    return NewMockControllerViewHandlerWithTicker(time.Nanosecond)
+}
+
+// Creates a MockControllerViewHandler for testing public interfaces of controllers
+// under istio.io/istio/pilot/platform/*
+func NewMockControllerViewHandlerWithTicker(tickerDuration time.Duration) *MockControllerViewHandler {
     return &MockControllerViewHandler{
-        runTicker: 			*time.NewTicker(time.Nanosecond),
+        runTicker: 			*time.NewTicker(tickerDuration),
         stop:				make(chan struct{}, 1),
         reconciledViews:	make(chan *model.ControllerView, maxPendingReconciledViews),
     }
 }
+
 
 // Retrieves the ticker used for creating controllers under istio.io/istio/pilot/platform/*
 // The returned ticker ticks every nanosecond to allow model.Controller.Run() to execute
@@ -72,14 +79,18 @@ func (h *MockControllerViewHandler) getStopChannel() chan struct{} {
 // to have passed the contents of GetStopChannel() to the controllers to begin with.
 func (h *MockControllerViewHandler) stopController() {
     h.runTicker.Stop()
-    close(h.reconciledViews)
     close(h.stop)
+    close(h.reconciledViews)
 }
 
 // Implements model.ControllerViewHandler. Not intended for direct use in test code
 func (h *MockControllerViewHandler) Reconcile(cv *model.ControllerView) {
+    defer func() {
+        // Ignore errors on channel close
+        recover();
+    }()    
     select {
-    case h.reconciledViews <- cv:
+    case h.reconciledViews<- cv:
         break
     default:
         glog.Fatalf("Possible test setup issue: Too many views '%d' reconciled but not retreived by the test", 
@@ -94,12 +105,22 @@ func (h *MockControllerViewHandler) getReconciledView() *model.ControllerView {
         time.Sleep(maxWaitForReconciledView)
         timeout <- true
     }()
-    select {
-    case cv := <-h.reconciledViews:
-        return cv
-    case <-timeout:
-        glog.Fatalf("Unable to get reconciled view in '%v'.", 
-            maxWaitForReconciledView)
+    for {
+        select {
+        case cv, ok := <-h.reconciledViews:
+            if !ok {
+                return nil
+            }
+            return cv
+        case _, ok := <-timeout:
+            if !ok {
+                return nil
+            }
+            glog.Fatalf("Unable to get reconciled view in '%v'.", 
+                maxWaitForReconciledView)
+        default:
+            time.Sleep(time.Millisecond * 5)
+        }
     }
     // Should never happen
     return nil
@@ -118,8 +139,19 @@ func (h *MockControllerViewHandler) AssertControllerOK(t *testing.T, c model.Con
 	c.Handle(MockControllerPath, h.toModelControllerViewHandler())
 	go c.Run(h.getStopChannel())
 	defer h.stopController()
-	actualView := h.getReconciledView()
-	assertControllerViewEquals(t, ev, actualView)    
+	// Until we receive non-empty service list or there's a timeout
+	for {
+    	actualView := h.getReconciledView()
+    	if actualView == nil {
+    	    // Channel was closed
+    	    t.Fatal("Unexpected nil reconciled view. Channels used by handler may have been closed prematurely.")
+    	    
+    	}
+    	if len(actualView.Services) > 0 {
+        	assertControllerViewEquals(t, ev, actualView)
+        	break
+    	}    
+	}
 }
 
 // Builds the expected model.ControllerView given the list of services and instances provided by the platform
@@ -149,11 +181,28 @@ func getPortHex(port int) string {
 	return hex.EncodeToString(pb)
 }
 
+func printService(svc *model.Service) string {
+    out := svc.Hostname
+    if svc.Address != "" {
+        out = out + "@" + svc.Address
+    }
+    return out
+}
+
+func printServiceList(l []*model.Service) string {
+    out := "["
+    for _, svc := range l {
+        out = out + printService(svc) + ","
+    } 
+    out = out + "]"
+    return out
+}
+
 func assertControllerViewEquals(t *testing.T, expected, actual *model.ControllerView) {
     t.Run("CheckServices", func(t *testing.T) {
         if len(expected.Services) != len(actual.Services) {
-            t.Errorf("Expecting services with %v. Actual services %v", 
-                expected.Services, actual.Services)
+            t.Errorf("Expecting services with %s. Actual services %s", 
+                printServiceList(expected.Services), printServiceList(actual.Services))
         }
         expSvcsMap := map[string]*model.Service{}
         for _, svc := range expected.Services {
@@ -164,18 +213,20 @@ func assertControllerViewEquals(t *testing.T, expected, actual *model.Controller
             actSvcsMap[svc.Hostname] = svc
         }
         if len(expSvcsMap) != len(actSvcsMap) {
-            t.Errorf("Expecting services with %v. Actual services %v", 
-                expected.Services, actual.Services)
+            t.Errorf("Expecting services with %s. Actual services %s", 
+                printServiceList(expected.Services), printServiceList(actual.Services))
         }
         for hostname, svc := range expSvcsMap {
             act, found := actSvcsMap[hostname]
             if !found {
-                t.Errorf("Expected service with hostname '%s', found none. Expected services with %v. Actual services %v", 
-                    hostname, expected, actual)
+                t.Errorf("Expected service with hostname '%s', found none. Expected services with %s. Actual services %s", 
+                    hostname, printServiceList(expected.Services), printServiceList(actual.Services))
+
+                continue
             }
             if !svc.Equals(act) {
-                t.Errorf("Service with hostname '%s' do not match. Expected service %v. Actual service %v",
-                    hostname, *svc, *act)
+                t.Errorf("Service with hostname '%s' do not match. Expected service %s. Actual service %s",
+                    hostname, printService(svc), printService(act))
             }
         }
     })
@@ -201,6 +252,7 @@ func assertControllerViewEquals(t *testing.T, expected, actual *model.Controller
             if !found {
                 t.Errorf("Expected service instance identified by '%s', found none. Expected service instances with %v. Actual service instances %v", 
                     instKey, expected.ServiceInstances, actual.ServiceInstances)
+                continue
             }
             if !inst.Equals(act) {
                 t.Errorf("Service isntance identified by '%s' do not match. Expected service instance %v. Actual service instance %v",

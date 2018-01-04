@@ -16,6 +16,7 @@ package kube
 
 import (
 	"reflect"
+	"time"
 	"testing"
 
 	"k8s.io/api/core/v1"
@@ -66,7 +67,7 @@ func TestPodCache(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			clientSet := fake.NewSimpleClientset()
-			controller := NewController(clientSet, ControllerOptions{
+			controller := NewController(clientSet, time.Ticker{}, ControllerOptions{
 				WatchedNamespace: "default",
 				ResyncPeriod:     resync,
 				DomainSuffix:     domainSuffix,

@@ -61,6 +61,7 @@ func (c *controller) Run(stop <-chan struct{}) {
         select {
         case <- stop:
             return  
+        default:
         }        
     }
     glog.Infof("Stopping Eureka registry controller for controller path '%s'", c.controllerPath)

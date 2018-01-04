@@ -70,7 +70,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
         c.doReconcile()        
         select {
         case <- stop:
-            return  
+            return
+        default:  
         }        
     }
     glog.Infof("Stopping Consul registry controller for controller path '%s'", c.controllerPath)
