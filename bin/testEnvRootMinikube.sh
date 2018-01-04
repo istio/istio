@@ -26,7 +26,7 @@ function waitMinikube() {
       sleep 2
     done
     kubectl get svc --all-namespaces
-
+    cat $KUBECONFIG
 }
 
 
