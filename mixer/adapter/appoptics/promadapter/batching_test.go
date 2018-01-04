@@ -17,6 +17,7 @@ package promadapter
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -45,6 +46,8 @@ func TestBatchMeasurements(t *testing.T) {
 				measurements = append(measurements, &appoptics.Measurement{})
 			}
 			prepChan <- measurements
+			loopFactor = false
+			time.Sleep(time.Millisecond)
 			close(prepChan)
 			close(pushChan)
 		}()
@@ -67,15 +70,15 @@ func TestBatchMeasurements(t *testing.T) {
 		stopChan := make(chan struct{})
 
 		loopFactor := true
-
 		go func() {
 			time.Sleep(time.Millisecond)
 			stopChan <- struct{}{}
 		}()
 		BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, logger)
-		close(stopChan)
+		loopFactor = false
 		close(prepChan)
 		close(pushChan)
+		close(stopChan)
 	})
 
 }
@@ -131,10 +134,13 @@ func TestPersistBatches(t *testing.T) {
 			stopChan := make(chan struct{})
 			errChan := make(chan error)
 			var count int64
+			var wg sync.WaitGroup
 			if test.sendOnStopChan {
+				wg.Add(1)
 				go func() {
 					time.Sleep(time.Millisecond)
 					stopChan <- struct{}{}
+					wg.Done()
 				}()
 			}
 			go func() {
@@ -161,10 +167,15 @@ func TestPersistBatches(t *testing.T) {
 				},
 			}, pushChan, stopChan, errChan, logger)
 			time.Sleep(2 * time.Second)
+			logger.Infof("%s - waiting...\n", t.Name())
+			if test.sendOnStopChan {
+				wg.Wait()
+			}
 			if atomic.LoadInt64(&count) != test.expectedCount {
 				t.Errorf("Count did not match the expected count: %d", test.expectedCount)
 			}
 			logger.Infof("Closing channels. . .")
+			loopFactor = false
 			close(pushChan)
 			close(stopChan)
 			close(errChan)
