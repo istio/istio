@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
-if [ ! -f $GOPATH/bin/minikube ]; then
-    curl -Lo $GOPATH/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube
-fi
-if [ ! -f $GOPATH/bin/kubectl ]; then
-    curl -Lo $GOPATH/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl
+if [ ! -f /usr/local/bin/minkube ] ; then
+    if [ ! -f $GOPATH/bin/minikube ]; then
+        curl -Lo $GOPATH/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x $GOPATH/bin/minikube
+    fi
+    if [ ! -f $GOPATH/bin/kubectl ]; then
+        curl -Lo $GOPATH/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x $GOPATH/bin/kubectl
+    fi
 fi
 
 export MINIKUBE_WANTUPDATENOTIFICATION=false
@@ -13,6 +15,7 @@ export MINIKUBE_HOME=$HOME
 export CHANGE_MINIKUBE_NONE_USER=true
 
 export KUBECONFIG=${KUBECONFIG:-$GOPATH/minikube.conf}
+export PATH=$GOPATH/bin:$PATH
 
 function waitMinikube() {
     kubectl cluster-info
