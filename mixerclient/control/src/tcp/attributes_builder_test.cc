@@ -70,9 +70,15 @@ attributes {
 
 const char kReportAttributes[] = R"(
 attributes {
-  key: "check.status"
+  key: "check.error_code"
   value {
-    int64_value: 0
+    int64_value: 3
+  }
+}
+attributes {
+  key: "check.error_message"
+  value {
+    string_value: "INVALID_ARGUMENT:Invalid argument"
   }
 }
 attributes {
@@ -182,6 +188,8 @@ TEST(AttributesBuilderTest, TestReportAttributes) {
       }));
 
   RequestContext request;
+  request.check_status = ::google::protobuf::util::Status(
+      ::google::protobuf::util::error::INVALID_ARGUMENT, "Invalid argument");
   AttributesBuilder builder(&request);
   builder.ExtractReportAttributes(&mock_data);
 

@@ -58,8 +58,9 @@ const char AttributeName::kConnectionDuration[] = "connection.duration";
 const char AttributeName::kContextProtocol[] = "context.protocol";
 const char AttributeName::kContextTime[] = "context.time";
 
-// Check status code.
-const char AttributeName::kCheckStatusCode[] = "check.status";
+// Check error code and message.
+const char AttributeName::kCheckErrorCode[] = "check.error_code";
+const char AttributeName::kCheckErrorMessage[] = "check.error_message";
 
 // Authentication attributes
 const char AttributeName::kRequestAuthPrincipal[] = "request.auth.principal";

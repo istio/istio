@@ -60,8 +60,9 @@ struct AttributeName {
   static const char kContextProtocol[];
   static const char kContextTime[];
 
-  // Check status code.
-  static const char kCheckStatusCode[];
+  // Check error code and message.
+  static const char kCheckErrorCode[];
+  static const char kCheckErrorMessage[];
 
   // Authentication attributes
   static const char kRequestAuthPrincipal[];

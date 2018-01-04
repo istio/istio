@@ -53,8 +53,12 @@ void AttributesBuilder::ExtractReportAttributes(ReportData* report_data) {
   builder.AddInt64(AttributeName::kConnectionSendBytes, info.send_bytes);
   builder.AddInt64(AttributeName::kConnectionSendTotalBytes, info.send_bytes);
   builder.AddDuration(AttributeName::kConnectionDuration, info.duration);
-  builder.AddInt64(AttributeName::kCheckStatusCode,
-                   request_->check_status.error_code());
+  if (!request_->check_status.ok()) {
+    builder.AddInt64(AttributeName::kCheckErrorCode,
+                     request_->check_status.error_code());
+    builder.AddString(AttributeName::kCheckErrorMessage,
+                      request_->check_status.ToString());
+  }
 
   std::string dest_ip;
   int dest_port;
