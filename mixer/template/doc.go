@@ -41,6 +41,9 @@
 // tracespan
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/tracespan/tracespan.proto
 
+// template.gen.go
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go -f $GOPATH/src/istio.io/istio/mixer/template/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/template/template.gen.go
+
 // Package template provides runtime descriptors of the templates known
 // to Mixer at compile-time.
 package template
