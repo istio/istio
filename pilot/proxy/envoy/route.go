@@ -151,12 +151,12 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance) []*HTTPRoute {
+func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRouteV2(config, service, port, instances)
+		return buildHTTPRouteV2(config, service, port, instances, domain)
 	default:
 		panic("unsupported rule")
 	}
@@ -281,7 +281,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance) []*HTTPRoute {
+func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
@@ -299,8 +299,8 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 			} else {
 				route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 				for _, dst := range http.Route {
-					hostname := model.ResolveFQDN(config.ConfigMeta, dst.Destination.Name)
-					cluster := buildOutboundCluster(hostname, port, dst.Destination.Labels) // TODO: support Destination.Port
+					fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+					cluster := buildOutboundCluster(fqdn, port, dst.Destination.Labels) // TODO: support Destination.Port
 					route.clusters = append(route.clusters, cluster)
 					route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 						&WeightedClusterEntry{
@@ -336,7 +336,7 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 				}
 			}
 
-			route.ShadowCluster = buildShadowCluster(config.ConfigMeta, http.Mirror)
+			route.ShadowCluster = buildShadowCluster(domain, http.Mirror)
 			route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 			route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 			route.WebsocketUpgrade = http.WebsocketUpgrade
@@ -387,9 +387,9 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	}
 }
 
-func buildShadowCluster(meta model.ConfigMeta, mirror *routingv2.Destination) *ShadowCluster {
+func buildShadowCluster(domain string, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
-		return &ShadowCluster{Cluster: model.ResolveFQDN(meta, mirror.Name)}
+		return &ShadowCluster{Cluster: model.ResolveFQDN(mirror.Name, domain)}
 	}
 	return nil
 }
