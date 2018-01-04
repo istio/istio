@@ -280,7 +280,7 @@ func buildSidecarListenersClusters(
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
 			buildHTTPListener(mesh, node, instances, nil, listenAddress, int(mesh.ProxyHttpPort),
-				RDSAll, useRemoteAddress, traceOperation, config))
+				RDSAll, useRemoteAddress, traceOperation, true, config))
 		// TODO: need inbound listeners in HTTP_PROXY case, with dedicated ingress listener.
 	}
 
@@ -332,7 +332,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node proxy.Node, routeName strin
 // Set RDS parameter to a non-empty value to enable RDS for the matching route name.
 func buildHTTPListener(mesh *meshconfig.MeshConfig, node proxy.Node, instances []*model.ServiceInstance,
 	routeConfig *HTTPRouteConfig, ip string, port int, rds string, useRemoteAddress bool, direction string,
-	store model.IstioConfigStore) *Listener {
+	outboundListener bool, store model.IstioConfigStore) *Listener {
 	filters := buildFaultFilters(routeConfig)
 
 	filters = append(filters, HTTPFilter{
@@ -348,7 +348,7 @@ func buildHTTPListener(mesh *meshconfig.MeshConfig, node proxy.Node, instances [
 	filters = append([]HTTPFilter{filter}, filters...)
 
 	if mesh.MixerAddress != "" {
-		mixerConfig := mixerHTTPRouteConfig(node, instances, store)
+		mixerConfig := mixerHTTPRouteConfig(node, instances, outboundListener, store)
 		filter := HTTPFilter{
 			Type:   decoder,
 			Name:   MixerFilter,
@@ -522,7 +522,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 		}
 
 		l := buildHTTPListener(mesh, sidecar, instances, routeConfig, WildcardAddress, port,
-			fmt.Sprintf("%d", port), useRemoteAddress, operation, config)
+			fmt.Sprintf("%d", port), useRemoteAddress, operation, true, config)
 		listeners = append(listeners, l)
 		clusters = append(clusters, routeConfig.clusters()...)
 	}
@@ -768,7 +768,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 
 			routeConfig := &HTTPRouteConfig{VirtualHosts: []*VirtualHost{host}}
 			listener = buildHTTPListener(mesh, sidecar, instances, routeConfig, endpoint.Address,
-				endpoint.Port, "", false, IngressTraceOperation, config)
+				endpoint.Port, "", false, IngressTraceOperation, false, config)
 
 		case model.ProtocolTCP, model.ProtocolHTTPS, model.ProtocolMongo, model.ProtocolRedis:
 			listener = buildTCPListener(&TCPRouteConfig{
