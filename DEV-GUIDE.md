@@ -269,7 +269,7 @@ to generate new manifests with mixer, pilot, and ca_cert custom built containers
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -a${HUB},${TAG}
+install/updateVersion.sh -a ${HUB},${TAG}
 ```
 
 ### Cleaning outputs
