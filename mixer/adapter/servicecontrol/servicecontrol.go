@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/servicecontrol/config/config.proto
+
 package servicecontrol
 
 import (
@@ -25,9 +27,9 @@ import (
 	"istio.io/istio/mixer/adapter/servicecontrol/config"
 	"istio.io/istio/mixer/adapter/servicecontrol/template/servicecontrolreport"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/template/apikey"
 	"istio.io/istio/mixer/template/quota"
+	"istio.io/istio/pkg/cache"
 )
 
 // servicecontrol adapter builder

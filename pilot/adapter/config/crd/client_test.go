@@ -15,30 +15,17 @@
 package crd
 
 import (
-	"os"
-	"os/user"
 	"testing"
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/tests/k8s"
 )
 
 func kubeconfig(t *testing.T) string {
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	kubeconfig := usr.HomeDir + "/.kube/config"
-
-	// For Bazel sandbox we search a different location:
-	if _, err = os.Stat(kubeconfig); err != nil {
-		kubeconfig, _ = os.Getwd()
-		kubeconfig = kubeconfig + "/../../../platform/kube/config"
-	}
-
+	kubeconfig := k8s.Kubeconfig("/../../../platform/kube/config")
 	return kubeconfig
 }
 

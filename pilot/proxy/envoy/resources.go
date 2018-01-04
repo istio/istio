@@ -19,11 +19,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -137,7 +139,7 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 func convertDuration(d *duration.Duration) time.Duration {
 	dur, err := ptypes.Duration(d)
 	if err != nil {
-		glog.Warningf("error converting duration %#v, using 0: %v", d, err)
+		log.Warnf("error converting duration %#v, using 0: %v", d, err)
 	}
 	return dur
 }

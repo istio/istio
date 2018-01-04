@@ -17,7 +17,10 @@ package util
 import (
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -67,7 +70,7 @@ func (r Retrier) Retry(fn func(retryIndex int) error) (int, error) {
 	var err error
 	var i int
 	if r.Retries <= 0 {
-		glog.Warningf("retries must to be >= 1. Got %d, setting to 1", r.Retries)
+		log.Warnf("retries must to be >= 1. Got %d, setting to 1", r.Retries)
 		r.Retries = 1
 	}
 	for i = 1; i <= r.Retries; i++ {

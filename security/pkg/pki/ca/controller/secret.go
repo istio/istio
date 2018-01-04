@@ -20,7 +20,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 	"istio.io/istio/security/pkg/pki/ca"
 )
@@ -150,7 +152,7 @@ func (sc *SecretController) saUpdated(oldObj, curObj interface{}) {
 		sc.deleteSecret(oldName, oldNamespace)
 		sc.upsertSecret(curName, curNamespace)
 
-		glog.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
+		log.Infof("Service account \"%s\" in namespace \"%s\" has been updated to \"%s\" in namespace \"%s\"",
 			oldName, oldNamespace, curName, curNamespace)
 	}
 }
@@ -167,7 +169,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 
 	_, exists, err := sc.scrtStore.Get(secret)
 	if err != nil {
-		glog.Errorf("Failed to get secret from the store (error %v)", err)
+		log.Errorf("Failed to get secret from the store (error %v)", err)
 	}
 
 	if exists {
@@ -178,7 +180,7 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	// Now we know the secret does not exist yet. So we create a new one.
 	chain, key, err := sc.generateKeyAndCert(saName, saNamespace)
 	if err != nil {
-		glog.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
+		log.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
 			saName, saNamespace, err)
 
 		return
@@ -191,33 +193,33 @@ func (sc *SecretController) upsertSecret(saName, saNamespace string) {
 	}
 	_, err = sc.core.Secrets(saNamespace).Create(secret)
 	if err != nil {
-		glog.Errorf("Failed to create secret (error: %s)", err)
+		log.Errorf("Failed to create secret (error: %s)", err)
 		return
 	}
 
-	glog.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
+	log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been created", saName, saNamespace)
 }
 
 func (sc *SecretController) deleteSecret(saName, saNamespace string) {
 	err := sc.core.Secrets(saNamespace).Delete(getSecretName(saName), nil)
 	// kube-apiserver returns NotFound error when the secret is successfully deleted.
 	if err == nil || errors.IsNotFound(err) {
-		glog.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
+		log.Infof("Istio secret for service account \"%s\" in namespace \"%s\" has been deleted", saName, saNamespace)
 		return
 	}
 
-	glog.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
+	log.Errorf("Failed to delete Istio secret for service account \"%s\" in namespace \"%s\" (error: %s)",
 		saName, saNamespace, err)
 }
 
 func (sc *SecretController) scrtDeleted(obj interface{}) {
 	scrt, ok := obj.(*v1.Secret)
 	if !ok {
-		glog.Warning("Failed to convert to secret object: %v", obj)
+		log.Warnf("Failed to convert to secret object: %v", obj)
 		return
 	}
 
-	glog.Infof("Re-create deleted Istio secret")
+	log.Infof("Re-create deleted Istio secret")
 
 	saName := scrt.Annotations[serviceAccountNameAnnotationKey]
 	sc.upsertSecret(saName, scrt.GetNamespace())
@@ -246,7 +248,7 @@ func (sc *SecretController) generateKeyAndCert(saName string, saNamespace string
 func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	scrt, ok := newObj.(*v1.Secret)
 	if !ok {
-		glog.Warning("Failed to convert to secret object: %v", newObj)
+		log.Warnf("Failed to convert to secret object: %v", newObj)
 		return
 	}
 
@@ -255,7 +257,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 	if err != nil {
 		// TODO: we should refresh secret in this case since the secret contains an
 		// invalid cert.
-		glog.Error(err)
+		log.Errora(err)
 		return
 	}
 
@@ -270,14 +272,14 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		namespace := scrt.GetNamespace()
 		name := scrt.GetName()
 
-		glog.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
+		log.Infof("Refreshing secret %s/%s, either the leaf certificate is about to expire "+
 			"or the root certificate is outdated", namespace, name)
 
 		saName := scrt.Annotations[serviceAccountNameAnnotationKey]
 
 		chain, key, err := sc.generateKeyAndCert(saName, namespace)
 		if err != nil {
-			glog.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
+			log.Errorf("Failed to generate key and certificate for service account %q in namespace %q (error %v)",
 				saName, namespace, err)
 
 			return
@@ -288,7 +290,7 @@ func (sc *SecretController) scrtUpdated(oldObj, newObj interface{}) {
 		scrt.Data[RootCertID] = rootCertificate
 
 		if _, err = sc.core.Secrets(namespace).Update(scrt); err != nil {
-			glog.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
+			log.Errorf("Failed to update secret %s/%s (error: %s)", namespace, name, err)
 		}
 	}
 }

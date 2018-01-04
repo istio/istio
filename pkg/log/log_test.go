@@ -15,7 +15,6 @@
 package log
 
 import (
-	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -30,6 +30,65 @@ import (
 )
 
 const timePattern = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9]Z"
+
+type testDateEncoder struct {
+	zapcore.PrimitiveArrayEncoder
+	output string
+}
+
+func (tde *testDateEncoder) AppendString(s string) {
+	tde.output = s
+}
+
+func TestTimestampProperYear(t *testing.T) {
+	testEnc := &testDateEncoder{}
+	cases := []struct {
+		name  string
+		input time.Time
+		want  string
+	}{
+		{"1", time.Date(1, time.April, 1, 1, 1, 1, 1, time.UTC), "0001"},
+		{"1989", time.Date(1989, time.February, 1, 1, 1, 1, 1, time.UTC), "1989"},
+		{"2017", time.Date(2017, time.January, 1, 1, 1, 1, 1, time.UTC), "2017"},
+		{"2083", time.Date(2083, time.March, 1, 1, 1, 1, 1, time.UTC), "2083"},
+		{"2573", time.Date(2573, time.June, 1, 1, 1, 1, 1, time.UTC), "2573"},
+		{"9999", time.Date(9999, time.May, 1, 1, 1, 1, 1, time.UTC), "9999"},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			formatDate(v.input, testEnc)
+			if !strings.HasPrefix(testEnc.output, v.want) {
+				t.Errorf("formatDate(%v) => %s, want year: %s", v.input, testEnc.output, v.want)
+			}
+		})
+	}
+}
+
+func TestTimestampProperMicros(t *testing.T) {
+	testEnc := &testDateEncoder{}
+	cases := []struct {
+		name  string
+		input time.Time
+		want  string
+	}{
+		{"1", time.Date(2017, time.April, 1, 1, 1, 1, 1000, time.UTC), "1"},
+		{"99", time.Date(1989, time.February, 1, 1, 1, 1, 99000, time.UTC), "99"},
+		{"999", time.Date(2017, time.January, 1, 1, 1, 1, 999000, time.UTC), "999"},
+		{"9999", time.Date(2083, time.March, 1, 1, 1, 1, 9999000, time.UTC), "9999"},
+		{"99999", time.Date(2083, time.March, 1, 1, 1, 1, 99999000, time.UTC), "99999"},
+		{"999999", time.Date(2083, time.March, 1, 1, 1, 1, 999999000, time.UTC), "999999"},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(t *testing.T) {
+			formatDate(v.input, testEnc)
+			if !strings.HasSuffix(testEnc.output, v.want+"Z") {
+				t.Errorf("formatDate(%v) => %s, want micros: %s", v.input, testEnc.output, v.want)
+			}
+		})
+	}
+}
 
 func TestBasic(t *testing.T) {
 	cases := []struct {
@@ -162,20 +221,89 @@ func TestOddballs(t *testing.T) {
 	o.outputLevel = "foobar"
 	err := Configure(o)
 	if err == nil {
-		t.Errorf("Got success, expected failure")
+		t.Error("Got success, expected failure")
 	}
 
 	o = NewOptions()
 	o.stackTraceLevel = "foobar"
 	err = Configure(o)
 	if err == nil {
-		t.Errorf("Got success, expected failure")
+		t.Error("Got success, expected failure")
 	}
 
 	o = NewOptions()
-	err = configure(o, func(c *zap.Config) (*zap.Logger, error) { return nil, errors.New("BAD") })
+	o.OutputPaths = []string{"/JUNK"}
+	err = Configure(o)
 	if err == nil {
 		t.Errorf("Got success, expecting error")
+	}
+
+	o = NewOptions()
+	o.ErrorOutputPaths = []string{"/JUNK"}
+	err = Configure(o)
+	if err == nil {
+		t.Errorf("Got success, expecting error")
+	}
+}
+
+func TestRotateNoStdout(t *testing.T) {
+	// Ensure that rotation is setup properly
+
+	dir, _ := ioutil.TempDir("", "TestRotateNoStdout")
+	defer os.RemoveAll(dir)
+
+	file := dir + "/rot.log"
+
+	o := NewOptions()
+	o.OutputPaths = []string{}
+	o.RotateOutputPath = file
+	if err := Configure(o); err != nil {
+		t.Fatalf("Unable to configure logging: %v", err)
+	}
+
+	Error("HELLO")
+	Sync()
+
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Errorf("Got failure '%v', expecting success", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	if !strings.Contains(lines[0], "HELLO") {
+		t.Errorf("Expecting for first line of log to contain HELLO, got %s", lines[0])
+	}
+}
+
+func TestRotateAndStdout(t *testing.T) {
+	dir, _ := ioutil.TempDir("", "TestRotateAndStdout")
+	defer os.RemoveAll(dir)
+
+	file := dir + "/rot.log"
+
+	stdoutLines, _ := captureStdout(func() {
+		o := NewOptions()
+		o.RotateOutputPath = file
+		if err := Configure(o); err != nil {
+			t.Fatalf("Unable to configure logger: %v", err)
+		}
+
+		Error("HELLO")
+		Sync()
+
+		content, err := ioutil.ReadFile(file)
+		if err != nil {
+			t.Errorf("Got failure '%v', expecting success", err)
+		}
+
+		rotLines := strings.Split(string(content), "\n")
+		if !strings.Contains(rotLines[0], "HELLO") {
+			t.Errorf("Expecting for first line of log to contain HELLO, got %s", rotLines[0])
+		}
+	})
+
+	if !strings.Contains(stdoutLines[0], "HELLO") {
+		t.Errorf("Expecting for first line of log to contain HELLO, got %s", stdoutLines[0])
 	}
 }
 
@@ -229,11 +357,11 @@ func captureStdout(f func()) ([]string, error) {
 	tf.Close()
 
 	content, err := ioutil.ReadFile(path)
+	_ = os.Remove(path)
+
 	if err != nil {
 		return nil, err
 	}
-
-	_ = os.Remove(path)
 
 	return strings.Split(string(content), "\n"), nil
 }

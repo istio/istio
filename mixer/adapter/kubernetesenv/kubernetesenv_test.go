@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubernetes
+package kubernetesenv
 
 import (
 	"context"
@@ -371,7 +371,7 @@ func TestKubegen_Generate(t *testing.T) {
 
 			kg := &handler{env: test.NewEnv(t), params: v.params, pods: fakeCache{pods: pods}}
 
-			got, err := kg.GenerateKubernetesAttributes(context.Background(), v.inputs)
+			got, err := kg.GenerateKubernetesEnvAttributes(context.Background(), v.inputs)
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return

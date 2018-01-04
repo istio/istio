@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate cp $GOPATH/src/istio.io/istio/vendor/istio.io/api/mixer/v1/config/fixed_cfg.pb.go .
+
 package istio_mixer_v1_config
 
 // Combined config is given to aspect managers.

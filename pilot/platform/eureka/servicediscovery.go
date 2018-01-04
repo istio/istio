@@ -15,9 +15,11 @@
 package eureka
 
 import (
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // NewServiceDiscovery instantiates an implementation of service discovery for Eureka
@@ -35,7 +37,7 @@ type serviceDiscovery struct {
 func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
-		glog.Warningf("could not list Eureka instances: %v", err)
+		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 	services := convertServices(apps, nil)
@@ -51,7 +53,7 @@ func (sd *serviceDiscovery) Services() ([]*model.Service, error) {
 func (sd *serviceDiscovery) GetService(hostname string) (*model.Service, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
-		glog.Warningf("could not list Eureka instances: %v", err)
+		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 
@@ -66,7 +68,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 
 	apps, err := sd.client.Applications()
 	if err != nil {
-		glog.Warningf("could not list Eureka instances: %v", err)
+		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 	portSet := make(map[string]bool)
@@ -94,7 +96,7 @@ func (sd *serviceDiscovery) Instances(hostname string, ports []string,
 func (sd *serviceDiscovery) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
 	apps, err := sd.client.Applications()
 	if err != nil {
-		glog.Warningf("could not list Eureka instances: %v", err)
+		log.Warnf("could not list Eureka instances: %v", err)
 		return nil, err
 	}
 	services := convertServices(apps, nil)

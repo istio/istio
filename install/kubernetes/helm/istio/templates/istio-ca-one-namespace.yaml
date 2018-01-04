@@ -1,11 +1,11 @@
-{{- if .Values.Istio.deploy_base_config }}
+{{- if .Values.istio.deploy_base_config }}
 {{- if .Values.global.auth_enabled }}
 {{- if .Values.global.ca_demo }}
 {{- $istio_namespace := .Values.global.namespace }}
 {{- $ca_hub := .Values.global.ca_hub }}
 {{- $ca_tag := .Values.global.ca_tag }}
 ################################
-# Istio-CA single namespace
+# istio-CA single namespace
 ################################
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
@@ -16,7 +16,7 @@ metadata:
   name: istio-ca-service-account
   namespace: {{ $istio_namespace }}
 ---
-# Istio CA
+# istio CA
 apiVersion: v1
 kind: Deployment
 apiVersion: extensions/v1beta1
