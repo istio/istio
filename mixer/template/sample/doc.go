@@ -26,6 +26,9 @@
 // report
 //go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/sample/report/ReportTesterTemplate.proto
 
+// template.gen.go
+//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go -f $GOPATH/src/istio.io/istio/mixer/template/sample/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/template/sample/template.gen.go
+
 // Package sample provides a set of templates for internal testing of Mixer.
 // Templates under this directory are for Mixer's internal testing purpose *ONLY*.
 package sample
