@@ -59,7 +59,7 @@ func TestNewLogHandler(t *testing.T) {
 			logger.Infof("Starting %s - test run. . .", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-			lh, err := NewLogHandler(ctx, &adapterEnvInst{}, test.cfg)
+			lh, err := newLogHandler(ctx, &adapterEnvInst{}, test.cfg)
 			if err != nil {
 				t.Errorf("Unexpected error: %v while running test: %s", err, t.Name())
 				return
@@ -93,7 +93,7 @@ func TestHandleLogEntry(t *testing.T) {
 			}
 		}()
 
-		lh, err := NewLogHandler(ctx, &adapterEnvInst{}, &config.Params{
+		lh, _ := newLogHandler(ctx, &adapterEnvInst{}, &config.Params{
 			PapertrailUrl: fmt.Sprintf("localhost:%d", port),
 			Logs: []*config.Params_LogInfo{
 				{
@@ -101,7 +101,7 @@ func TestHandleLogEntry(t *testing.T) {
 				},
 			},
 		})
-		err = lh.HandleLogEntry(ctx, []*logentry.Instance{
+		err := lh.handleLogEntry(ctx, []*logentry.Instance{
 			&logentry.Instance{
 				Name:      "params1",
 				Variables: map[string]interface{}{},
@@ -115,12 +115,12 @@ func TestHandleLogEntry(t *testing.T) {
 
 	t.Run("papertrail instance is nil", func(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
-		lh, err := NewLogHandler(ctx, &adapterEnvInst{}, &config.Params{})
+		lh, err := newLogHandler(ctx, &adapterEnvInst{}, &config.Params{})
 		if err != nil {
 			t.Errorf("Unexpected error while executing test: %s - err: %v", t.Name(), err)
 			return
 		}
-		err = lh.HandleLogEntry(ctx, []*logentry.Instance{
+		err = lh.handleLogEntry(ctx, []*logentry.Instance{
 			&logentry.Instance{},
 		})
 		if err != nil {

@@ -85,11 +85,11 @@ func (b *builder) Build(ctx context.Context, env adapter.Env) (adapter.Handler, 
 		logger.Infof("AO - Invoking AO build.")
 	}
 
-	m, err := NewMetricsHandler(ctx, env, b.cfg)
+	m, err := newMetricsHandler(ctx, env, b.cfg)
 	if err != nil {
 		return nil, err
 	}
-	l, err := NewLogHandler(ctx, env, b.cfg)
+	l, err := newLogHandler(ctx, env, b.cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -104,14 +104,14 @@ func (h *handler) HandleMetric(ctx context.Context, vals []*metric.Instance) err
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - In the metrics handler")
 	}
-	return h.metricsHandler.HandleMetric(ctx, vals)
+	return h.metricsHandler.handleMetric(ctx, vals)
 }
 
 func (h *handler) HandleLogEntry(ctx context.Context, values []*logentry.Instance) error {
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - In the log handler")
 	}
-	return h.logHandler.HandleLogEntry(ctx, values)
+	return h.logHandler.handleLogEntry(ctx, values)
 }
 
 func (h *handler) Close() error {
@@ -121,13 +121,13 @@ func (h *handler) Close() error {
 	}
 
 	if h.metricsHandler != nil {
-		err = h.metricsHandler.Close()
+		err = h.metricsHandler.close()
 		if err != nil {
 			return err
 		}
 	}
 	if h.logHandler != nil {
-		err = h.logHandler.Close()
+		err = h.logHandler.close()
 		if err != nil {
 			return err
 		}

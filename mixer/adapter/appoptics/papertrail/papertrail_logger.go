@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package papertrail
 
 import (
@@ -38,7 +37,9 @@ import (
 const (
 	defaultRetention = "24h"
 
-	defaultTemplate = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
+	defaultTemplate = `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} ` +
+		`[{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} ` +
+		`{{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}`
 )
 
 var defaultWorkerCount = 10
@@ -48,7 +49,8 @@ type logInfo struct {
 	tmpl   *template.Template
 }
 
-type PaperTrailLoggerInterface interface {
+// LoggerInterface is the interface for all Papertrail logger types
+type LoggerInterface interface {
 	Log(*logentry.Instance) error
 	Close() error
 }
@@ -58,6 +60,7 @@ const (
 	keyPattern = "TS:(\\d+)-BODY:(.*)"
 )
 
+// PaperTrailLogger is a concrete type of LoggerInterface which collects and ships logs to Papertrail
 type PaperTrailLogger struct {
 	paperTrailURL string
 
@@ -74,7 +77,9 @@ type PaperTrailLogger struct {
 	loopFactor bool
 }
 
-func NewPaperTrailLogger(paperTrailURL string, logRetentionStr string, logConfigs []*config.Params_LogInfo, logger adapter.Logger) (PaperTrailLoggerInterface, error) {
+// NewPaperTrailLogger does some ground work and returns an instance of LoggerInterface
+func NewPaperTrailLogger(paperTrailURL string, logRetentionStr string, logConfigs []*config.Params_LogInfo,
+	logger adapter.Logger) (LoggerInterface, error) {
 
 	retention, err := time.ParseDuration(logRetentionStr)
 	if err != nil {
@@ -119,6 +124,7 @@ func NewPaperTrailLogger(paperTrailURL string, logRetentionStr string, logConfig
 	return p, nil
 }
 
+// Log method receives log messages
 func (p *PaperTrailLogger) Log(msg *logentry.Instance) error {
 	if p.log.VerbosityLevel(config.DebugLevel) {
 		p.log.Infof("AO - In Log method. Received msg: %v", msg)
@@ -150,6 +156,7 @@ func (p *PaperTrailLogger) Log(msg *logentry.Instance) error {
 	}
 	return nil
 }
+
 func (p *PaperTrailLogger) sendLogs(data string) error {
 	var err error
 	if p.log.VerbosityLevel(config.DebugLevel) {
@@ -229,6 +236,7 @@ func (p *PaperTrailLogger) flushLogs() {
 	}
 }
 
+// This method closes the PaperTrailLogger instance
 func (p *PaperTrailLogger) Close() error {
 	p.loopFactor = false
 	return nil

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package promadapter
 
 import (
@@ -112,7 +111,7 @@ func TestPersistBatches(t *testing.T) {
 			name:           "Response error",
 			expectedCount:  1,
 			response:       nil,
-			error:          fmt.Errorf("Damn"),
+			error:          fmt.Errorf("damn.."),
 			sendOnStopChan: false,
 		},
 		{

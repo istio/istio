@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package appoptics
 
 import (
@@ -49,12 +48,12 @@ func TestNewMetricsHandler(t *testing.T) {
 			logger.Infof("Starting %s - test run. . .\n", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-			mhi, err := NewMetricsHandler(ctx, &adapterEnvInst{}, test.cfg)
+			mhi, err := newMetricsHandler(ctx, &adapterEnvInst{}, test.cfg)
 			if err != nil {
 				t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
 				return
 			}
-			defer mhi.Close()
+			defer mhi.close()
 
 			mh, ok := mhi.(*metricsHandler)
 			if !ok || mh == nil {
@@ -72,13 +71,13 @@ func TestHandleMetric(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .\n", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 
-		mhi, err := NewMetricsHandler(ctx, &adapterEnvInst{}, &config.Params{})
+		mhi, err := newMetricsHandler(ctx, &adapterEnvInst{}, &config.Params{})
 		if err != nil {
 			t.Errorf("Unexpected error while running %s test - %v", t.Name(), err)
 			return
 		}
-		defer mhi.Close()
-		err = mhi.HandleMetric(ctx, []*metric.Instance{
+		defer mhi.close()
+		err = mhi.handleMetric(ctx, []*metric.Instance{
 			&metric.Instance{
 				Name:  "m1",
 				Value: 1, // int

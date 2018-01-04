@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package appoptics
 
 import (
@@ -59,11 +58,7 @@ type ErrorResponse struct {
 	Errors interface{} `json:"errors"`
 }
 
-// RequestErrorMessage represents the error schema for request errors
-type RequestErrorMessage map[string][]string
-
-type ParamErrorMessage []map[string]string
-
+// NewClient creates a new client to interact with appoptics
 func NewClient(token string, logger adapter.Logger) *Client {
 	baseURL, _ := url.Parse(defaultBaseURL)
 	c := &Client{
@@ -119,7 +114,8 @@ func (c *Client) MeasurementsService() MeasurementsCommunicator {
 	return c.measurementsService
 }
 
-// Error makes ErrorResponse satisfy the error interface and can be used to serialize error responses back to the client
+// Error makes ErrorResponse satisfy the error interface and can be used to serialize error
+// responses back to the client
 func (e *ErrorResponse) Error() string {
 	errorData, _ := json.Marshal(e)
 	return string(errorData)
@@ -142,11 +138,10 @@ func (c *Client) Do(req *http.Request, respData interface{}) (*http.Response, er
 	defer resp.Body.Close()
 	if respData != nil {
 		if writer, ok := respData.(io.Writer); ok {
-			_, err := io.Copy(writer, resp.Body)
+			_, err = io.Copy(writer, resp.Body)
 			return resp, err
-		} else {
-			err = json.NewDecoder(resp.Body).Decode(respData)
 		}
+		err = json.NewDecoder(resp.Body).Decode(respData)
 	}
 
 	return resp, err
@@ -160,9 +155,8 @@ func checkError(resp *http.Response, log adapter.Logger) error {
 		err := json.Unmarshal(body, &errResponse)
 		if err == nil {
 			return log.Errorf("Error: %+v", errResponse)
-		} else {
-			return log.Errorf("Error: %s", string(body))
 		}
+		return log.Errorf("Error: %s", string(body))
 	}
 	return nil
 }

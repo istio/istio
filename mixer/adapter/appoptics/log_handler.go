@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package appoptics
 
 import (
@@ -27,16 +26,16 @@ import (
 )
 
 type logHandlerInterface interface {
-	HandleLogEntry(context.Context, []*logentry.Instance) error
-	Close() error
+	handleLogEntry(context.Context, []*logentry.Instance) error
+	close() error
 }
 
 type logHandler struct {
 	logger           adapter.Logger
-	paperTrailLogger papertrail.PaperTrailLoggerInterface
+	paperTrailLogger papertrail.LoggerInterface
 }
 
-func NewLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (logHandlerInterface, error) {
+func newLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (logHandlerInterface, error) {
 	if env.Logger().VerbosityLevel(config.DebugLevel) {
 		env.Logger().Infof("AO - Invoking log handler build.")
 	}
@@ -44,7 +43,7 @@ func NewLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (lo
 	var err error
 	var ok bool
 	if strings.TrimSpace(cfg.PapertrailUrl) != "" {
-		var ppi papertrail.PaperTrailLoggerInterface
+		var ppi papertrail.LoggerInterface
 		ppi, err = papertrail.NewPaperTrailLogger(cfg.PapertrailUrl, cfg.PapertrailLocalRetention, cfg.Logs, env.Logger())
 		if err != nil {
 			return nil, err
@@ -62,7 +61,7 @@ func NewLogHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (lo
 	}, nil
 }
 
-func (h *logHandler) HandleLogEntry(ctx context.Context, values []*logentry.Instance) error {
+func (h *logHandler) handleLogEntry(ctx context.Context, values []*logentry.Instance) error {
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - In the log handler")
 	}
@@ -79,7 +78,7 @@ func (h *logHandler) HandleLogEntry(ctx context.Context, values []*logentry.Inst
 	return nil
 }
 
-func (h *logHandler) Close() error {
+func (h *logHandler) close() error {
 	var err error
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - closing log handler")

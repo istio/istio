@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package appoptics
 
 import (
@@ -28,6 +27,7 @@ import (
 // Measurements are the individual time series samples sent to AppOptics. They are
 // associated by name with a Metric.
 
+// MeasurementTags is used to store the tags (labels)
 type MeasurementTags map[string]string
 
 // Measurement corresponds to the AppOptics API type of the same name
@@ -73,7 +73,7 @@ func (ms *MeasurementsService) Create(mc []*Measurement) (*http.Response, error)
 	req, err := ms.client.NewRequest("POST", "measurements", payload)
 
 	if err != nil {
-		ms.logger.Errorf("error creating request:", err)
+		ms.logger.Errorf("error creating request: %v", err)
 		return nil, err
 	}
 	return ms.client.Do(req, nil)

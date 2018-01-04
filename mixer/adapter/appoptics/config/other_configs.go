@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package config
 
+// DebugLevel is used to define what verbosity consitutes debug level
 const DebugLevel = 4 // verbosity level

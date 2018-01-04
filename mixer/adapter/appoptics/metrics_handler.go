@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 package appoptics
 
 import (
@@ -31,8 +30,8 @@ import (
 )
 
 type metricsHandlerInterface interface {
-	HandleMetric(context.Context, []*metric.Instance) error
-	Close() error
+	handleMetric(context.Context, []*metric.Instance) error
+	close() error
 }
 
 type metricsHandler struct {
@@ -46,7 +45,7 @@ type metricsHandler struct {
 	loopFactor *bool
 }
 
-func NewMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
+func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params) (metricsHandlerInterface, error) {
 	if env.Logger().VerbosityLevel(config.DebugLevel) {
 		env.Logger().Infof("AO - Invoking metrics handler build.")
 	}
@@ -93,7 +92,7 @@ func NewMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 	}, err
 }
 
-func (h *metricsHandler) HandleMetric(_ context.Context, vals []*metric.Instance) error {
+func (h *metricsHandler) handleMetric(_ context.Context, vals []*metric.Instance) error {
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - In the metrics handler. Received metrics: %#v", vals)
 	}
@@ -130,7 +129,7 @@ func (h *metricsHandler) HandleMetric(_ context.Context, vals []*metric.Instance
 	return nil
 }
 
-func (h *metricsHandler) Close() error {
+func (h *metricsHandler) close() error {
 	if h.logger.VerbosityLevel(config.DebugLevel) {
 		h.logger.Infof("AO - closing metrics handler")
 	}
