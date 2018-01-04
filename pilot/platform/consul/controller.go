@@ -104,7 +104,7 @@ func (c *Controller) doReconcile() {
 	}
 	consulView := model.ControllerView {
 	    Path: c.controllerPath,
-    	Services: make([]*model.Service, 0, len(data)),
+    	Services: []*model.Service{},
     	ServiceInstances: []*model.ServiceInstance{},
 	}
 	for name := range data {
