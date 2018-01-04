@@ -28,9 +28,6 @@ import (
 	"istio.io/istio/pilot/platform/test"
 )
 
-const (
-    fakeControllerPath = "/somepath/"
-)
 var (
 	services = map[string][]string{
 		"productpage": {"version|v1"},
@@ -145,11 +142,7 @@ func buildExpectedControllerView() *model.ControllerView {
         modelInsts[instIdx] = convertInstance(endpoint)
         instIdx++
     }
-    return &model.ControllerView {
-        Path: 				fakeControllerPath,
-        Services:			modelSvcs,
-        ServiceInstances: 	modelInsts,
-    }
+    return test.BuildExpectedControllerView(modelSvcs, modelInsts)
 }
 
 // The only thing being tested are the public interfaces of the controller
@@ -163,7 +156,7 @@ func TestController(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create Consul Controller: %v", err)
 	}
-	controller.Handle(fakeControllerPath, mockHandler.ToModelControllerViewHandler())
+	controller.Handle(test.MockControllerPath, mockHandler.ToModelControllerViewHandler())
 	go controller.Run(mockHandler.GetStopChannel())
 	defer mockHandler.StopController()
 	actualView := mockHandler.GetReconciledView()

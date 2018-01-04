@@ -5,16 +5,19 @@ Package test implements the boiler plate for testing model.Controller implementa
 
 Typical usage:
 
+    import "istio.io/istio/pilot/platform/test"
+
 	mockHandler := test.NewMockControllerViewHandler()
 	controller, err := NewYourFavoriteController(...., *mockHandler.GetTicker())
 	if err != nil {
 		t.Fatalf("could not create My favourite Controller: %v", err)
 	}
-	controller.Handle(fakeControllerPath, mockHandler.ToModelControllerViewHandler())
+	controller.Handle(test.MockControllerPath, mockHandler.ToModelControllerViewHandler())
 	go controller.Run(mockHandler.GetStopChannel())
 	defer mockHandler.StopController()
 	actualView := mockHandler.GetReconciledView()
-	test.AssertControllerViewEquals(t, yourExpectedView, actualView)
+	test.AssertControllerViewEquals(t, 
+    	test.BuildExpectedControllerView(yourExpectedServices, yourExpectedInstances), actualView)
 */
 
 import (
@@ -28,6 +31,7 @@ import (
 )
 
 const (
+    MockControllerPath = "/somepath/"
     maxPendingReconciledViews = 1000
     maxWaitForReconciledView  = 60 * time.Second
 )
@@ -103,10 +107,19 @@ func (h *MockControllerViewHandler) GetReconciledView() *model.ControllerView {
     return nil
 }
 
+// Used to pass to mock.Controller.Handle()
 func (h *MockControllerViewHandler) ToModelControllerViewHandler() *model.ControllerViewHandler {
     var handler model.ControllerViewHandler
     handler = h
     return &handler
+}
+
+func BuildExpectedControllerView(modelSvcs []*model.Service, modelInsts []*model.ServiceInstance) *model.ControllerView { 
+    return &model.ControllerView {
+        Path: 				MockControllerPath,
+        Services:			modelSvcs,
+        ServiceInstances: 	modelInsts,
+    }
 }
 
 // buildServiceInstanceKey builds a key to a service instance for a specific registry
