@@ -241,9 +241,7 @@ To build the core repo:
 ```shell
 cd $ISTIO/istio
 
-go get github.com/golang/dep/cmd/dep
-
-dep ensure
+make depend
 
 make build
 ```
