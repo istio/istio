@@ -393,16 +393,6 @@
           "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
-           },
            "mixerAttributes": {
             "attributes": {
              "destination.ip": {
@@ -683,16 +673,6 @@
           "quota_name": "RequestCount",
           "v2": {
            "defaultDestinationService": "hello.default.svc.cluster.local",
-           "forwardAttributes": {
-            "attributes": {
-             "source.ip": {
-              "bytesValue": "AAAAAAAAAAAAAP//CgEBAA=="
-             },
-             "source.uid": {
-              "stringValue": "kubernetes://v0.default"
-             }
-            }
-           },
            "mixerAttributes": {
             "attributes": {
              "destination.ip": {
