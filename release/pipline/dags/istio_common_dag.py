@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import datetime
+import logging
 import time
 
 from airflow import DAG
@@ -50,7 +51,7 @@ def GetSettingPython(ti, setting):
   Returns:
     The item saved in xcom.
   """
-  return ti.xcom_pull(task_id='generate_workflow_args'.task_id)[setting]
+  return ti.xcom_pull(task_ids='generate_workflow_args')[setting]
 
 
 def GetSettingTemplate(setting):
@@ -94,7 +95,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
     minor_version = (date.year - 2017) * 12 + (date.month - 1) - 7
     major_version = AirflowGetVariableOrBaseCase('major_version', 0)
-    # This code gets information about the last released version so we know
+    # This code gets information about the latest released version so we know
     # What version number to use for this round.
     r_minor = int(AirflowGetVariableOrBaseCase('released_version_minor', 0))
     r_patch = int(AirflowGetVariableOrBaseCase('released_version_patch', 0))
@@ -122,7 +123,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
         'PROJECT_ID',
         'MFEST_URL',
         'MFEST_FILE',
-        'GCR_BUCKET',
         'GCS_STAGING_BUCKET',
         'SVC_ACCT',
         'GITHUB_ORG',
@@ -134,6 +134,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
         'GCS_MONTHLY_RELEASE_PATH',
         'DOCKER_HUB',
         'GCS_BUILD_BUCKET',
+        'RELEASE_PROJECT_ID',
     ]
 
     for name in config_settings_name:
@@ -141,13 +142,14 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
     if monthly:
       config_settings['MFEST_COMMIT'] = conf.get(
-          'MFEST_COMMIT') or Variable.get('last_daily')
-      gcs_path = conf.get('GCS_MONTHLY_STAGE_PATH') or Variable.get(
-          'GCS_MONTHLY_STAGE_PATH')
+          'MFEST_COMMIT') or Variable.get('latest_sha')
+      gcs_path = conf.get('GCS_MONTHLY_STAGE_PATH')
+      if not gcs_path:
+        gcs_path= default_conf['GCS_MONTHLY_STAGE_PATH']
     else:
       config_settings['MFEST_COMMIT'] = conf.get(
           'MFEST_COMMIT') or default_conf['MFEST_COMMIT']
-      gcs_path = conf.get('GCS_DAILY_PATH') or Variable.get('GCS_DAILY_PATH')
+      gcs_path = conf.get('GCS_DAILY_PATH') or default_conf['GCS_DAILY_PATH']
 
     config_settings['GCS_STAGING_PATH'] = gcs_path
     config_settings['GCS_BUILD_PATH'] = '{}/{}'.format(
@@ -185,7 +187,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
     {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
     /home/airflow/gcs/data/release/start_gcb_build.sh -w -p {{ settings.PROJECT_ID \
-    }} -r {{ settings.GCR_BUCKET }} -s {{ settings.GCS_BUILD_PATH }} \
+    }} -r {{ settings.GCR_STAGING_DEST }} -s {{ settings.GCS_BUILD_PATH }} \
     -v "{{ settings.VERSION }}" \
     -u "{{ settings.MFEST_URL }}" \
     -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
@@ -203,7 +205,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
     /home/airflow/gcs/data/githubctl \
     --token_file="{{ settings.TOKEN_FILE }}" \
     --op=dailyRelQual \
-    --hub=gcr.io/{{ settings.GCR_BUCKET }} \
+    --hub=gcr.io/{{ settings.GCR_STAGING_DEST }} \
     --gcs_path="{{ settings.GCS_BUILD_PATH }}" \
     --tag="{{ settings.VERSION }}"
     """
@@ -211,7 +213,6 @@ def MakeCommonDag(name='istio_daily_flow_test',
   run_release_quilification_tests = BashOperator(
       task_id='run_release_quilification_tests',
       bash_command=test_command,
-      params={'tests': 5},
       retries=2,
       dag=common_dag)
   copy_files = GoogleCloudStorageCopyOperator(
@@ -230,16 +231,19 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
 def ReportDailySuccessful(task_instance, **kwargs):
   date = kwargs['execution_date']
-  last_run = float(Variable.get('last_daily_timestamp'))
+  latest_run = float(Variable.get('latest_daily_timestamp'))
 
   timestamp = time.mktime(date.timetuple())
-  if timestamp > last_run:
-    Variable.set('last_daily_timestamp', timestamp)
-    run_sha = task_instance.xcom_pull(task_id='get_git_commit')
-    last_version = GetSettingPython(task_instance, 'VERSTION')
-    print 'setting last green daily to: {}'.format(run_sha)
-    Variable.set('last_sha', run_sha)
-    Variable.set('last_daily', last_version)
+  logging.info('Current run\'s timestamp: %s \n'
+               'latest_daily\'s timestamp: %s', timestamp, latest_run)
+  if timestamp >= latest_run:
+    Variable.set('latest_daily_timestamp', timestamp)
+    run_sha = task_instance.xcom_pull(task_ids='get_git_commit')
+    latest_version = GetSettingPython(task_instance, 'VERSION')
+    logging.info('setting latest green daily to: %s', run_sha)
+    Variable.set('latest_sha', run_sha)
+    Variable.set('latest_daily', latest_version)
+    logging.info('latest_sha test to %s', run_sha)
 
 
 def MakeMarkComplete(dag):

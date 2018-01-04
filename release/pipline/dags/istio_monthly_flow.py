@@ -33,8 +33,8 @@ chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
 
-echo /home/airflow/gcs/data/release/start_gcb_publish.sh \
--p "{{ settings.PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
+/home/airflow/gcs/data/release/start_gcb_publish.sh \
+-p "{{ settings.RELEASE_PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}" -s "{{ settings.GCS_SOURCE }}" \
 -b "{{ settings.GCS_MONTHLY_RELEASE_PATH }}" -r "{{ settings.GCR_RELEASE_DEST }}" \
 -g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
@@ -53,11 +53,11 @@ chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
 
-echo /home/airflow/gcs/data/release/start_gcb_tag.sh \
--p "{{ settings.PROJECT_ID }}" \
+/home/airflow/gcs/data/release/start_gcb_tag.sh \
+-p "{{ settings.RELEASE_PROJECT_ID }}" \
 -h "{{ settings.GITHUB_ORG }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}"   -e "istio_releaser_bot@example.com" \
--n "IstioReleaserBot" -s "{{ settings.GCS_SOURCE }}" \
+-n "IstioReleaserBot" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
 -g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
 -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" -w
 """

@@ -110,6 +110,10 @@ while getopts cd:e:g:h:i:k:l:mn:o:qr:t:u:v:wxyz arg ; do
   esac
 done
 
+if [[ "${DOCKER_DEST}" == "<none>" ]]; then
+  DO_DOCKERHUB="false"
+fi
+
 if [[ "${DO_GCS}" == "false" && "${DO_GITHUB_TAG}" == "false" && "${DO_GITHUB_REL}" == "false" && \
       "${DO_GCRHUB}" == "false" && "${DO_DOCKERHUB}" == "false" ]]; then
   echo "All operations supported by this script are disabled"
@@ -136,7 +140,7 @@ if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
     usage
     exit 1
   fi
-    
+
   cp "${KEYFILE}" "${KEYFILE_ENC}"
   gcloud kms decrypt \
        --ciphertext-file=$KEYFILE_ENC \
@@ -144,7 +148,7 @@ if [[ "${KEYFILE_DECRYPT}" == "true" ]]; then
        --location=global \
        --keyring=${KEYRING} \
        --key=${KEY}
-  
+
   KEYFILE="${KEYFILE_TEMP}"
 fi
 
@@ -257,14 +261,14 @@ if [[ "${DO_DOCKERHUB}" == "true" || "${DO_GCRHUB}" == "true" ]]; then
   do
     TAR_NAME=$(basename "$TAR_PATH")
     IMAGE_NAME="${TAR_NAME%.tar.gz}"
-    
+
     # if no docker/ directory or directory has no tar files
     if [[ "${IMAGE_NAME}" == "*" ]]; then
       echo "No image tar files were found in docker/"
       exit 1
     fi
     docker load -i "${TAR_PATH}"
-  
+
     if [[ "${DO_DOCKERHUB}" == "true" ]]; then
       docker tag "${IMAGE_NAME}" "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
       docker push "${DOCKER_DEST}/${IMAGE_NAME}:${VERSION}"
@@ -295,7 +299,7 @@ fi
 if [[ "${DO_GITHUB_REL}" == "true" ]]; then
 
   SHA=`grep $ORG/$REPO ${UPLOAD_DIR}/manifest.xml | cut -f 6 -d \"`
-  
+
   echo "Beginning release to github using sha $SHA"
   if [[ -n "${KEYFILE}" ]]; then
     ${SCRIPTPATH}/create_github_release.sh -o "$ORG" -r "$REPO" -k "$KEYFILE" \
