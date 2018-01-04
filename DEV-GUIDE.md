@@ -113,7 +113,7 @@ you must setup a personal access token to enable push via HTTPS. Please follow
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
-### Setting up a container registry
+### Optional: Setting up a container registry
 
 Follow the
 [Google Container Registry Quickstart](https://cloud.google.com/container-registry/docs/quickstart).
