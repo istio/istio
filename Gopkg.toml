@@ -42,28 +42,42 @@ required = [
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
-[[constraint]]
+
+# When necessary, override transitive contraints that might be pinned
+# to older versions (e.g. ingress-nginx pinned to 1.8).
+
+[[override]]
   name = "k8s.io/client-go"
-  revision = "7c69e980210777a6292351ac6873de083526f08e"
+  branch = "release-6.0"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/apimachinery"
-  revision = "6134cb2da6d90597b0434e349f90f94fafc9ae51"
+  branch = "release-1.9"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/api"
-  revision = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7"
+  branch = "release-1.9"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "c682349b0d1c12975d8e24a9799b66747255d7a5"
+  branch = "release-1.9"
 
 [[constraint]]
   name = "k8s.io/apiserver"
-  revision = "149fc2228647cea28b0670c240ec582e985e8eda"
+  branch = "release-1.9"
 
+# Keep k8s.io/ingress-nginx pinned to an older version until istio
+# ingress code is refactored.
+#
+# istio.io/istio/pilot/adapter/config/ingress uses the following nginx
+# controller packages from an older version of k8s.io/ingress which
+# have since been made internal and are no longer available.
+#
+#     "k8s.io/ingress-nginx/core/pkg/ingress/status"
+#     "k8s.io/ingress-nginx/core/pkg/ingress/store"
+#     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
 [[constraint]]
-  name = "k8s.io/ingress"
+  name = "k8s.io/ingress-nginx"
   revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[constraint]]
