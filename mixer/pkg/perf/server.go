@@ -20,8 +20,6 @@ import (
 	"path"
 	"time"
 
-	"go.uber.org/zap"
-
 	"istio.io/istio/mixer/pkg/adapter"
 	testEnv "istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/pkg/template"
@@ -98,13 +96,13 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 		setup.Config.EnableLog = true
 
 		o := log.NewOptions()
-		o.SetOutputLevel(zap.DebugLevel)
+		o.SetOutputLevel(log.DebugLevel)
 		args.LoggingOptions = o
 	}
 
 	if !setup.Config.EnableLog {
 		o := log.NewOptions()
-		o.SetOutputLevel(log.None)
+		o.SetOutputLevel(log.NoneLevel)
 		args.LoggingOptions = o
 	}
 
