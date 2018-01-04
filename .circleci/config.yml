@@ -36,7 +36,8 @@ jobs:
         name: Initialize Working Directory
         pwd: /
         command: |
-          sudo mkdir -p /go/src/istio.io/istio /go/out /home/circleci/logs
+          sudo chown -R circleci /go
+          mkdir -p /go/src/istio.io/istio /go/out /home/circleci/logs
       - checkout
       - attach_workspace:
           at:  /go
