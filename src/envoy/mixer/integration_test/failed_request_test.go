@@ -60,6 +60,8 @@ const checkAttributesMixerFail = `
 // Report attributes from a fail GET request from mixer
 const reportAttributesMixerFail = `
 {
+  "check.error_code": 16,
+  "check.error_message": "UNAUTHENTICATED:Unauthenticated by mixer.",
   "context.protocol": "http",
   "mesh1.ip": "[1 1 1 1]",
   "mesh2.ip": "[0 0 0 0 0 0 0 0 0 0 255 255 204 152 189 116]",
@@ -90,7 +92,6 @@ const reportAttributesMixerFail = `
   "response.time": "*",
   "response.size": 41,
   "response.duration": "*",
-  "response.code": 401,
   "response.headers": {
      "date": "*",
      "content-type": "text/plain",

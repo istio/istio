@@ -50,8 +50,7 @@ const reportAttributesOkPost = `
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
-  "connection.duration": "*",
-  "check.status": 0
+  "connection.duration": "*"
 }
 `
 
@@ -70,7 +69,8 @@ const reportAttributesFailPost = `
   "connection.sent.bytes": 0,
   "connection.sent.bytes_total": 0,
   "connection.duration": "*",
-  "check.status": 16
+  "check.error_code": 16,
+  "check.error_message": "UNAUTHENTICATED"
 }
 `
 

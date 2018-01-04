@@ -48,8 +48,7 @@ const reportAttributesOkPost = `
   "connection.received.bytes_total": 178,
   "connection.sent.bytes": 133,
   "connection.sent.bytes_total": 133,
-  "connection.duration": "*",
-  "check.status": 0
+  "connection.duration": "*"
 }
 `
 
