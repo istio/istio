@@ -138,7 +138,7 @@ function install_istio_ingress_rules() {
 
 function install_istio_cache_busting_rule() {
   FNAME=$TOOLS_DIR/cache_buster.yaml
-  Execute $ISTIOCTL create -f $FNAME
+  Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
 function get_fortio_k8s_ip() {
