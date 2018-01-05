@@ -47,9 +47,9 @@
     },
     "exclude": [
         "vendor",
-	    "../vendor",
+        "../vendor",
         ".pb.go",
-	    "mock_*",
+        "mock_*",
         "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
