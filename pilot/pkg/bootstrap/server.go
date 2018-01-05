@@ -253,7 +253,7 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 
 func (s *Server) readClusters(args *PilotArgs) (err error) {
 	s.clusterStore, err = clusterregistry.ReadClusters(args.Config.ClusterStoreDir)
-	glog.V(2).Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
+	log.Infof("clusters configuration %s", spew.Sdump(s.clusterStore))
 	return
 }
 
@@ -399,7 +399,7 @@ func (s *Server) CreateK8sServiceControllers(serviceControllers *aggregate.Contr
 			return multierror.Prefix(kuberr, fmt.Sprintf("failed to connect to Kubernetes API with kubeconfig: %s", kubeCfgFile))
 		}
 
-		glog.V(2).Infof("Cluster name: %s, KubeConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
+		log.Infof("Cluster name: %s, KubeConfigFile: %s", clusterregistry.GetClusterName(cluster), kubeCfgFile)
 		kubectl := kube.NewController(client, args.Config.ControllerOptions)
 		serviceControllers.AddRegistry(
 			aggregate.Registry{
