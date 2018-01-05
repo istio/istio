@@ -59,18 +59,22 @@ done
 [[ -z "${VER_STRING}"   ]] && usage
 
 function copy_and_archive() {
-  # can't seem to set/override PROXY_HUB, FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
+  # can't seem to set/override PROXY_TAG (sha), FORTIO_HUB ("docker.io/istio"), FORTIO_TAG ("0.3.1")
   ${ROOT}/install/updateVersion.sh -c "${DOCKER_HUB_TAG}" -A "${DEBIAN_URL}"   -x "${DOCKER_HUB_TAG}" \
                                    -p "${DOCKER_HUB_TAG}" -i "${ISTIOCTL_URL}" -P "${DEBIAN_URL}" \
-                                   -r "${VER_STRING}" -E "${DEBIAN_URL}" -d "${OUTPUT_PATH}"
+                                   -r "${VER_STRING}" -E "${DEBIAN_URL}"
+  # save -d "${OUTPUT_PATH}" for later
   
+  pushd ${ROOT}
+  cp istio.VERSION LICENSE README.md "${OUTPUT_PATH}/"
+  find samples install -type f \( -name "*.yaml" -o -name "cleanup*" -o -name "*.md" \) \
+    -exec cp --parents {} "${OUTPUT_PATH}" \;
+  find install/tools -type f -exec cp --parents {} "${OUTPUT_PATH}" \;
+  popd
+
   ${ROOT}/release/create_release_archives.sh -v "${VER_STRING}" -o "${OUTPUT_PATH}"
   return 0
 }
-
-pushd ${ROOT}
-cp LICENSE README.md "${OUTPUT_PATH}/"
-popd
 
 # generate a test set of tars for images on GCR
 if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
@@ -91,9 +95,6 @@ if [[ -n "${GCR_TEST_PATH}" && -n "${GCS_TEST_PATH}" ]]; then
   for TAR_FILE in ${OUTPUT_PATH}/istio?${VER_STRING}*; do
     mv "$TAR_FILE" $(dirname "$TAR_FILE")/TESTONLY-$(basename "$TAR_FILE")
   done
-
-  # avoid potential issues with re-running updateVersion.sh by clobbering the dirs it creates
-  rm -r ${OUTPUT_PATH}/install ${OUTPUT_PATH}/samples
 fi
 
 # generate the release set of tars
