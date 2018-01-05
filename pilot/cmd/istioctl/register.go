@@ -17,10 +17,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -40,12 +42,12 @@ var (
 				}
 				portsList[i] = p
 			}
-			glog.Infof("Registering for service '%s' ip '%s', ports list %v",
+			log.Infof("Registering for service '%s' ip '%s', ports list %v",
 				svcName, ip, portsList)
 			if svcAcctAnn != "" {
 				annotations = append(annotations, fmt.Sprintf("%s=%s", kube.KubeServiceAccountsOnVMAnnotation, svcAcctAnn))
 			}
-			glog.Infof("%d labels (%v) and %d annotations (%v)",
+			log.Infof("%d labels (%v) and %d annotations (%v)",
 				len(labels), labels, len(annotations), annotations)
 			_, client, err := kube.CreateInterface(kubeconfig)
 			if err != nil {

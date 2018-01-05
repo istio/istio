@@ -21,7 +21,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -82,7 +85,7 @@ func (w *Wrk) Install() error {
 		}
 		err = HTTPDownload(w.BinaryPath, *wrkURL)
 		if err != nil {
-			glog.Error("Failed to download wrk")
+			log.Error("Failed to download wrk")
 			return err
 		}
 		err = os.Chmod(w.BinaryPath, 0755) // #nosec
@@ -101,7 +104,7 @@ func (w *Wrk) Install() error {
 func (w *Wrk) Run(format string, args ...interface{}) error {
 	format = w.BinaryPath + " " + format
 	if _, err := Shell(format, args...); err != nil {
-		glog.Errorf("wrk %s failed", args)
+		log.Errorf("wrk %s failed", args)
 		return err
 	}
 	return nil

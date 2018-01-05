@@ -17,7 +17,10 @@ package registry
 import (
 	"sync"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 // Registry is the standard interface for identity registry implementation
@@ -46,7 +49,7 @@ func (reg *IdentityRegistry) Check(id1, id2 string) bool {
 	mapped, ok := reg.Map[id1]
 	reg.RUnlock()
 	if !ok || id2 != mapped {
-		glog.Warningf("Identity %q does not exist or is not mapped to %q", id1, id2)
+		log.Warnf("Identity %q does not exist or is not mapped to %q", id1, id2)
 		return false
 	}
 	return true
@@ -58,7 +61,7 @@ func (reg *IdentityRegistry) AddMapping(id1, id2 string) {
 	oldID, ok := reg.Map[id1]
 	reg.RUnlock()
 	if ok {
-		glog.Warningf("Overwriting existing mapping: %q -> %q", id1, oldID)
+		log.Warnf("Overwriting existing mapping: %q -> %q", id1, oldID)
 	}
 	reg.Lock()
 	reg.Map[id1] = id2
@@ -72,7 +75,7 @@ func (reg *IdentityRegistry) DeleteMapping(id1, id2 string) {
 	oldID, ok := reg.Map[id1]
 	reg.RUnlock()
 	if !ok || oldID != id2 {
-		glog.Warningf("Could not delete nonexistent mapping: %q -> %q", id1, id2)
+		log.Warnf("Could not delete nonexistent mapping: %q -> %q", id1, id2)
 		return
 	}
 	reg.Lock()

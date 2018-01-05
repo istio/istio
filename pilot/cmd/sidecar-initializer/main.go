@@ -17,7 +17,8 @@ package main
 import (
 	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
@@ -26,26 +27,33 @@ import (
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
-func getRootCmd() *cobra.Command {
-	flags := struct {
-		kubeconfig   string
-		meshconfig   string
-		injectConfig string
-		namespace    string
-	}{}
+var (
+	flags = struct {
+		kubeconfig     string
+		meshconfig     string
+		injectConfig   string
+		namespace      string
+		loggingOptions *log.Options
+	}{
+		loggingOptions: log.NewOptions(),
+	}
 
-	rootCmd := &cobra.Command{
+	rootCmd = &cobra.Command{
 		Use:   "sidecar-initializer",
 		Short: "Kubernetes initializer for Istio sidecar",
 		RunE: func(*cobra.Command, []string) error {
+			if err := log.Configure(flags.loggingOptions); err != nil {
+				return err
+			}
 			restConfig, client, err := kube.CreateInterface(flags.kubeconfig)
 			if err != nil {
 				return multierror.Prefix(err, "failed to connect to Kubernetes API.")
 			}
 
-			glog.V(2).Infof("version %s", version.Line())
+			log.Infof("version %s", version.Line())
 
 			config, err := inject.GetInitializerConfig(client, flags.namespace, flags.injectConfig)
 			if err != nil {
@@ -70,7 +78,9 @@ func getRootCmd() *cobra.Command {
 			return nil
 		},
 	}
+)
 
+func init() {
 	rootCmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "",
 		"Use a Kubernetes configuration file instead of in-cluster configuration")
 	rootCmd.PersistentFlags().StringVar(&flags.meshconfig, "meshconfig", "/etc/istio/config/mesh",
@@ -80,13 +90,17 @@ func getRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.namespace, "namespace", v1.NamespaceDefault, // TODO istio-system?
 		"Namespace of initializer configuration ConfigMap")
 
-	cmd.AddFlags(rootCmd)
+	// Attach the Istio logging options to the command.
+	flags.loggingOptions.AttachCobraFlags(rootCmd)
 
-	return rootCmd
+	cmd.AddFlags(rootCmd)
 }
 
 func main() {
-	if err := getRootCmd().Execute(); err != nil {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(-1)
 	}
 }

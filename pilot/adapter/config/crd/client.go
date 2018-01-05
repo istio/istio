@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate sh -c "./generate.sh config.go > types.go"
+
 // Package crd provides an implementation of the config store and cache
 // using Kubernetes Custom Resources and the informer framework from Kubernetes
 package crd
@@ -20,7 +22,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -30,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+
+	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -166,7 +171,7 @@ func (cl *Client) RegisterResources() error {
 				},
 			},
 		}
-		glog.V(2).Infof("registering CRD %q", name)
+		log.Infof("registering CRD %q", name)
 		_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			return err
@@ -186,16 +191,16 @@ func (cl *Client) RegisterResources() error {
 				switch cond.Type {
 				case apiextensionsv1beta1.Established:
 					if cond.Status == apiextensionsv1beta1.ConditionTrue {
-						glog.V(2).Infof("established CRD %q", name)
+						log.Infof("established CRD %q", name)
 						continue descriptor
 					}
 				case apiextensionsv1beta1.NamesAccepted:
 					if cond.Status == apiextensionsv1beta1.ConditionFalse {
-						glog.Warningf("name conflict: %v", cond.Reason)
+						log.Warnf("name conflict: %v", cond.Reason)
 					}
 				}
 			}
-			glog.V(2).Infof("missing status condition for %q", name)
+			log.Infof("missing status condition for %q", name)
 			return false, nil
 		}
 		return true, nil
@@ -248,13 +253,13 @@ func (cl *Client) Get(typ, name, namespace string) (*model.Config, bool) {
 		Do().Into(config)
 
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 		return nil, false
 	}
 
 	out, err := ConvertObject(schema, config, cl.domainSuffix)
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 		return nil, false
 	}
 	return out, true

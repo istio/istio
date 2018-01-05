@@ -119,7 +119,6 @@ spec:
       volumes:
       - emptyDir:
           medium: Memory
-          sizeLimit: "0"
         name: istio-envoy
       - name: istio-certs
         secret:

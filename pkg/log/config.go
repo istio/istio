@@ -53,12 +53,22 @@ package log
 
 import (
 	"github.com/natefinch/lumberjack"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapgrpc"
 	"google.golang.org/grpc/grpclog"
 )
+
+// none is used to disable logging output as well as to disable stack tracing.
+const none zapcore.Level = 100
+
+var levelToZap = map[Level]zapcore.Level{
+	DebugLevel: zapcore.DebugLevel,
+	InfoLevel:  zapcore.InfoLevel,
+	WarnLevel:  zapcore.WarnLevel,
+	ErrorLevel: zapcore.ErrorLevel,
+	NoneLevel:  none,
+}
 
 // Configure initializes Istio's logging subsystem.
 //
@@ -77,7 +87,7 @@ func Configure(options *Options) error {
 		return err
 	}
 
-	if outputLevel == None || ((len(options.OutputPaths) == 0) && options.RotateOutputPath == "") {
+	if outputLevel == NoneLevel || ((len(options.OutputPaths) == 0) && options.RotateOutputPath == "") {
 		// stick with the Nop default
 		logger = zap.NewNop()
 		sugar = logger.Sugar()
@@ -144,16 +154,16 @@ func Configure(options *Options) error {
 		opts = append(opts, zap.AddCaller())
 	}
 
-	if stackTraceLevel != None {
-		opts = append(opts, zap.AddStacktrace(stackTraceLevel))
+	if stackTraceLevel != NoneLevel {
+		opts = append(opts, zap.AddStacktrace(levelToZap[stackTraceLevel]))
 	}
 
 	l := zap.New(
-		zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(outputLevel)),
+		zapcore.NewCore(enc, sink, zap.NewAtomicLevelAt(levelToZap[outputLevel])),
 		opts...,
 	)
 
-	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(stackTraceLevel))
+	logger = l.WithOptions(zap.AddCallerSkip(1), zap.AddStacktrace(levelToZap[stackTraceLevel]))
 	sugar = logger.Sugar()
 
 	// capture global zap logging and force it through our logger

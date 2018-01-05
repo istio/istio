@@ -19,10 +19,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 type consulServices map[string][]string
@@ -83,7 +85,7 @@ func (m *consulMonitor) run(stop <-chan struct{}) {
 func (m *consulMonitor) updateServiceRecord() {
 	svcs, _, err := m.discovery.Catalog().Services(nil)
 	if err != nil {
-		glog.Warningf("Could not fetch services: %v", err)
+		log.Warnf("Could not fetch services: %v", err)
 		return
 	}
 	newRecord := consulServices(svcs)
@@ -98,7 +100,7 @@ func (m *consulMonitor) updateServiceRecord() {
 		for _, f := range m.serviceHandlers {
 			go func(handler ServiceHandler) {
 				if err := handler(obj, event); err != nil {
-					glog.Warningf("Error executing service handler function: %v", err)
+					log.Warnf("Error executing service handler function: %v", err)
 				}
 			}(f)
 		}
@@ -109,7 +111,7 @@ func (m *consulMonitor) updateServiceRecord() {
 func (m *consulMonitor) updateInstanceRecord() {
 	svcs, _, err := m.discovery.Catalog().Services(nil)
 	if err != nil {
-		glog.Warningf("Could not fetch instances: %v", err)
+		log.Warnf("Could not fetch instances: %v", err)
 		return
 	}
 	for _, tags := range svcs {
@@ -120,7 +122,7 @@ func (m *consulMonitor) updateInstanceRecord() {
 	for name := range svcs {
 		endpoints, _, err := m.discovery.Catalog().Service(name, "", nil)
 		if err != nil {
-			glog.Warningf("Could not retrieve service catalogue from consul: %v", err)
+			log.Warnf("Could not retrieve service catalogue from consul: %v", err)
 			continue
 		}
 		instances = append(instances, endpoints...)
@@ -139,7 +141,7 @@ func (m *consulMonitor) updateInstanceRecord() {
 		for _, f := range m.instanceHandlers {
 			go func(handler InstanceHandler) {
 				if err := handler(obj, event); err != nil {
-					glog.Warningf("Error executing instance handler function: %v", err)
+					log.Warnf("Error executing instance handler function: %v", err)
 				}
 			}(f)
 		}

@@ -16,9 +16,12 @@ package na
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/platform"
 	"istio.io/istio/security/pkg/workload"
 )
@@ -52,7 +55,8 @@ func NewNodeAgent(cfg *Config) (NodeAgent, error) {
 	secretServer, err := workload.NewSecretServer(
 		workload.NewSecretFileServerConfig(cfg.PlatformConfig.OnPremConfig.CertChainFile, cfg.PlatformConfig.OnPremConfig.KeyFile))
 	if err != nil {
-		glog.Fatalf("Workload IO creation error: %v", err)
+		log.Errorf("Workload IO creation error: %v", err)
+		os.Exit(-1)
 	}
 	na.secretServer = secretServer
 	return na, nil

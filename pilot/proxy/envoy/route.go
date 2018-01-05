@@ -238,8 +238,9 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	}
 
 	if rule.Mirror != nil {
+		fqdnDest := model.ResolveHostname(config.ConfigMeta, rule.Mirror)
 		route.ShadowCluster = &ShadowCluster{
-			Cluster: model.ResolveHostname(config.ConfigMeta, rule.Mirror),
+			Cluster: buildOutboundCluster(fqdnDest, port, rule.Mirror.Labels).Name,
 		}
 	}
 

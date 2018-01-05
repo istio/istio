@@ -23,10 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -186,7 +188,7 @@ func (m *Monitor) checkAndUpdate() {
 
 func (m *Monitor) createConfig(c *model.Config) {
 	if _, err := m.store.Create(*c); err != nil {
-		glog.Warningf("Failed to create config (%m): %v ", *c, err)
+		log.Warnf("Failed to create config (%m): %v ", *c, err)
 	}
 }
 
@@ -197,13 +199,13 @@ func (m *Monitor) updateConfig(c *model.Config) {
 	}
 
 	if _, err := m.store.Update(*c); err != nil {
-		glog.Warningf("Failed to update config (%m): %v ", *c, err)
+		log.Warnf("Failed to update config (%m): %v ", *c, err)
 	}
 }
 
 func (m *Monitor) deleteConfig(c *model.Config) {
 	if err := m.store.Delete(c.Type, c.Name, c.Namespace); err != nil {
-		glog.Warningf("Failed to delete config (%m): %v ", *c, err)
+		log.Warnf("Failed to delete config (%m): %v ", *c, err)
 	}
 }
 
@@ -218,12 +220,12 @@ func (m *Monitor) readFiles() []*model.Config {
 		}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			glog.Warningf("Failed to read %s: %v", path, err)
+			log.Warnf("Failed to read %s: %v", path, err)
 			return err
 		}
 		configs, err := parseInputs(data)
 		if err != nil {
-			glog.Warningf("Failed to parse %s: %v", path, err)
+			log.Warnf("Failed to parse %s: %v", path, err)
 			return err
 		}
 
@@ -237,7 +239,7 @@ func (m *Monitor) readFiles() []*model.Config {
 		return nil
 	})
 	if err != nil {
-		glog.Warningf("failure during filepath.Walk: %v", err)
+		log.Warnf("failure during filepath.Walk: %v", err)
 	}
 
 	// Sort by the config IDs.

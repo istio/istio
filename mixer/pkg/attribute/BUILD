@@ -8,7 +8,7 @@ go_library(
         "bag.go",
         "dictState.go",
         "emptyBag.go",
-        "list.gen.go",  # keep
+        "list.gen.go",
         "mutableBag.go",
         "protoBag.go",
     ],
@@ -30,17 +30,4 @@ go_test(
         "@io_istio_api//mixer/v1:go_default_library",
         "@org_uber_go_zap//zapcore:go_default_library",
     ],
-)
-
-genrule(
-    name = "global_list",
-    srcs = ["@io_istio_api//mixer/v1:attributes_file"],
-    outs = ["list.gen.go"],
-    cmd = "$(location //mixer:generate_word_list) $(location @io_istio_api//mixer/v1:attributes_file) | $(location @org_golang_x_tools_imports//:goimports) > $@",
-    message = "Generating word list",
-    tools = [
-        "//mixer:generate_word_list",
-        "@org_golang_x_tools_imports//:goimports",
-    ],
-    visibility = ["//visibility:private"],
 )

@@ -21,7 +21,11 @@ go_test(
     size = "small",
     srcs = ["generator_test.go"],
     data = [
-        "//mixer/tools/codegen/pkg/bootstrapgen/testdata:descriptors",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/apa:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/check:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/quota:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/report1:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/report2:descriptor_set",
         "//mixer/tools/codegen/pkg/bootstrapgen/testdata:golden_files",
     ],
     library = ":go_default_library",

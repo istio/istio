@@ -20,8 +20,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"golang.org/x/time/rate"
+
+	"istio.io/istio/pkg/log"
 )
 
 // Agent manages the restarts and the life cycle of a proxy binary.  Agent
@@ -161,7 +164,7 @@ func (a *agent) ScheduleConfigUpdate(config interface{}) {
 }
 
 func (a *agent) Run(ctx context.Context) {
-	glog.V(2).Info("Starting proxy agent")
+	log.Info("Starting proxy agent")
 
 	// Throttle processing up to smoothed 1 qps with bursts up to 10 qps.
 	// High QPS is needed to process messages on all channels.
@@ -183,7 +186,7 @@ func (a *agent) Run(ctx context.Context) {
 		select {
 		case config := <-a.configCh:
 			if !reflect.DeepEqual(a.desiredConfig, config) {
-				glog.V(2).Infof("Received new config, resetting budget")
+				log.Infof("Received new config, resetting budget")
 				a.desiredConfig = config
 
 				// reset retry budget if and only if the desired config changes
@@ -199,16 +202,16 @@ func (a *agent) Run(ctx context.Context) {
 			a.currentConfig = a.epochs[a.latestEpoch()]
 
 			if status.err == errAbort {
-				glog.V(2).Infof("Epoch %d aborted", status.epoch)
+				log.Infof("Epoch %d aborted", status.epoch)
 			} else if status.err != nil {
-				glog.Warningf("Epoch %d terminated with an error: %v", status.epoch, status.err)
+				log.Warnf("Epoch %d terminated with an error: %v", status.epoch, status.err)
 
 				// NOTE: due to Envoy hot restart race conditions, an error from the
 				// process requires aggressive non-graceful restarts by killing all
 				// existing proxy instances
 				a.abortAll()
 			} else {
-				glog.V(2).Infof("Epoch %d exited normally", status.epoch)
+				log.Infof("Epoch %d exited normally", status.epoch)
 			}
 
 			// cleanup for the epoch
@@ -226,14 +229,14 @@ func (a *agent) Run(ctx context.Context) {
 						restart := time.Now().Add(delayDuration)
 						a.retry.restart = &restart
 						a.retry.budget = a.retry.budget - 1
-						glog.V(2).Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
+						log.Infof("Epoch %d: set retry delay to %v, budget to %d", status.epoch, delayDuration, a.retry.budget)
 					} else {
-						glog.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
+						log.Error("Permanent error: budget exhausted trying to fulfill the desired configuration")
 						a.proxy.Panic(a.desiredConfig)
 						return
 					}
 				} else {
-					glog.V(2).Infof("Epoch %d: restart already scheduled", status.epoch)
+					log.Debugf("Epoch %d: restart already scheduled", status.epoch)
 				}
 			}
 
@@ -250,7 +253,7 @@ func (a *agent) Run(ctx context.Context) {
 }
 
 func (a *agent) terminate() {
-	glog.V(2).Info("Agent terminating")
+	log.Infof("Agent terminating")
 	a.abortAll()
 }
 
@@ -258,11 +261,11 @@ func (a *agent) reconcile() {
 	// cancel any scheduled restart
 	a.retry.restart = nil
 
-	glog.V(2).Infof("Reconciling configuration (budget %d)", a.retry.budget)
+	log.Infof("Reconciling configuration (budget %d)", a.retry.budget)
 
 	// check that the config is current
 	if reflect.DeepEqual(a.desiredConfig, a.currentConfig) {
-		glog.V(2).Info("Desired configuration is already applied")
+		log.Infof("Desired configuration is already applied")
 		return
 	}
 
@@ -278,7 +281,7 @@ func (a *agent) reconcile() {
 
 // waitForExit runs the start-up command as a go routine and waits for it to finish
 func (a *agent) waitForExit(config interface{}, epoch int, abortCh <-chan error) {
-	glog.V(2).Infof("Epoch %d starting", epoch)
+	log.Infof("Epoch %d starting", epoch)
 	err := a.proxy.Run(config, epoch, abortCh)
 	a.statusCh <- exitStatus{epoch: epoch, err: err}
 }
@@ -297,8 +300,8 @@ func (a *agent) latestEpoch() int {
 // abortAll sends abort error to all proxies
 func (a *agent) abortAll() {
 	for epoch, abortCh := range a.abortCh {
-		glog.Warningf("Aborting epoch %d...", epoch)
+		log.Warnf("Aborting epoch %d...", epoch)
 		abortCh <- errAbort
 	}
-	glog.Warningf("Aborted all epochs")
+	log.Warnf("Aborted all epochs")
 }
