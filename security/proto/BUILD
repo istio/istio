@@ -1,30 +1,23 @@
-# gazelle:exclude ca_service.pb.go
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
-
-gogoslick_proto_library(
+go_library(
     name = "go_default_library",
-    importmap = {
-        "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
-        "google/rpc/status.proto": "istio.io/gogo-genproto/googleapis/google/rpc",
-    },
-    imports = [
-        "external/com_github_gogo_protobuf",
-        "external/com_github_google_protobuf/src",
-        "external/com_github_googleapis_googleapis/",
+    srcs = [
+        "ca_service.pb.go",
+        "generate.go",
     ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-        "@com_github_googleapis_googleapis//:status_proto",
-        "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
-    ],
-    protos = [
-        "ca_service.proto",
-    ],
-    verbose = 0,
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_gogo_protobuf//gogoproto:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
         "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_x_net//context:go_default_library",
     ],
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = ["ca_service.proto"],
+    visibility = ["//visibility:public"],
 )

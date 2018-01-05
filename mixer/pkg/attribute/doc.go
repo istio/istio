@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// template.gen.go
 // nolint
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go -f $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/test/spyAdapter/template/template.gen.go
+//go:generate $GOPATH/src/istio.io/istio/mixer/bin/generate_word_list.py $GOPATH/src/istio.io/istio/vendor/istio.io/api/mixer/v1/global_dictionary.yaml list.gen.go
 
-// Package template contains generated code for the spy adapter testing. It
-// should *ONLY* be used for testing Mixer.
-package template
+// Package attribute is focused on enabling efficient handling and tracking of
+// attribute usage within Mixer.
+package attribute
