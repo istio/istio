@@ -115,12 +115,13 @@ class Config {
         tls_(context.threadLocal().allocateSlot()) {
     mixer_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
-    tls_->set(
-        [this, &random](Event::Dispatcher& dispatcher)
-            -> ThreadLocal::ThreadLocalObjectSharedPtr {
-              return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new HttpMixerControl(mixer_config_, cm_, dispatcher, random));
-            });
+    Stats::Scope& scope = context.scope();
+    tls_->set([this, &random, &scope](Event::Dispatcher& dispatcher)
+                  -> ThreadLocal::ThreadLocalObjectSharedPtr {
+                    return ThreadLocal::ThreadLocalObjectSharedPtr(
+                        new HttpMixerControl(mixer_config_, cm_, dispatcher,
+                                             random, scope));
+                  });
 
     std::vector<std::shared_ptr<Auth::IssuerInfo>> issuers;
     CreateAuthIssuers(mixer_config_, &issuers);
