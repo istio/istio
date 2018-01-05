@@ -1,12 +1,5 @@
 [
 	{
-		"name": "istio.io/api",
-		"repoName": "api",
-		"prodBranch": "master",
-		"file": "Gopkg.toml",
-		"lastStableSHA": "881baa18b3b910b52dedf3a56c5fc619c21905e5"
-	},
-	{
 		"name": "ISTIO_API_SHA",
 		"repoName": "api",
 		"prodBranch": "master",
