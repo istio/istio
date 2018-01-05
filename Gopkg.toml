@@ -45,7 +45,15 @@ required = [
 
 # When necessary, override transitive contraints that might be pinned
 # to older versions (e.g. ingress-nginx pinned to 1.8).
-
+#
+# kubernetes has a quarterly release cycle. For now the k8s
+# dependencies below follow this convention, but that could possibly
+# change in the future as repos are further decoupled from
+# kubernetes/kubernetes proper.
+#
+# client-go release-6.0 corresponds to k8s release-1.9 branch. See
+# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# for details.
 [[override]]
   name = "k8s.io/client-go"
   branch = "release-6.0"
@@ -66,8 +74,9 @@ required = [
   name = "k8s.io/apiserver"
   branch = "release-1.9"
 
-# Keep k8s.io/ingress-nginx pinned to an older version until istio
-# ingress code is refactored.
+# TODO(https://github.com/istio/istio/issues/2413). Keep
+# k8s.io/ingress-nginx pinned to an older version until istio ingress code
+# is refactored.
 #
 # istio.io/istio/pilot/adapter/config/ingress uses the following nginx
 # controller packages from an older version of k8s.io/ingress which

@@ -25,7 +25,7 @@
     "api",
     "testhelpers"
   ]
-  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
 
 [[projects]]
   name = "github.com/Azure/go-autorest"
@@ -84,8 +84,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "5db34a6d9a78f5a3c6a713197aeb6bf159458211"
-  version = "v1.12.54"
+  revision = "f62f7b7c5425f2b1a630932617477bdeac6dc371"
+  version = "v1.12.55"
 
 [[projects]]
   branch = "master"
@@ -117,7 +117,7 @@
   branch = "master"
   name = "github.com/circonus-labs/circonusllhist"
   packages = ["."]
-  revision = "6e85b9352cf0c2bb969831347491388bb3ae9c69"
+  revision = "1e65893c445875524c5610f2a58aef24e30ef98a"
 
 [[projects]]
   branch = "master"
@@ -129,7 +129,7 @@
   branch = "v2"
   name = "github.com/coreos/go-oidc"
   packages = ["."]
-  revision = "2e15e5498dc4eda1265de6f4ccc49419fd81be16"
+  revision = "5c72298dbabcb77267f45d8648c889e598822495"
 
 [[projects]]
   name = "github.com/cpuguy83/go-md2man"
@@ -204,7 +204,7 @@
   branch = "master"
   name = "github.com/go-openapi/swag"
   packages = ["."]
-  revision = "cf0bdb963811675a4d7e74901cefc7411a1df939"
+  revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -252,12 +252,6 @@
   name = "github.com/golang/groupcache"
   packages = ["lru"]
   revision = "84a468cf14b4376def5d68c722b139b881c450a4"
-
-[[projects]]
-  name = "github.com/golang/mock"
-  packages = ["gomock"]
-  revision = "13f360950a79f5864a972c786a10a50e44b69541"
-  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -340,7 +334,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "2f0d338349a31e1419d5d226af27bfe2942e9f6e"
+  revision = "fe4853e064e386919340e25c447d0fed6cd8c6ea"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -509,27 +503,7 @@
 
 [[projects]]
   name = "github.com/onsi/ginkgo"
-  packages = [
-    ".",
-    "config",
-    "extensions/table",
-    "internal/codelocation",
-    "internal/containernode",
-    "internal/failer",
-    "internal/leafnodes",
-    "internal/remote",
-    "internal/spec",
-    "internal/spec_iterator",
-    "internal/specrunner",
-    "internal/suite",
-    "internal/testingtproxy",
-    "internal/writer",
-    "reporters",
-    "reporters/stenographer",
-    "reporters/stenographer/support/go-colorable",
-    "reporters/stenographer/support/go-isatty",
-    "types"
-  ]
+  packages = ["config"]
   revision = "9eda700730cba42af70d53180f9dcce9266bc2bc"
   version = "v1.4.0"
 
@@ -549,8 +523,7 @@
     "matchers/support/goraph/util",
     "types"
   ]
-  revision = "c893efa28eb45626cdaa76c9f653b62488858837"
-  version = "v1.2.0"
+  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"
 
 [[projects]]
   name = "github.com/open-policy-agent/opa"
@@ -713,8 +686,8 @@
     "transport/zipkin",
     "utils"
   ]
-  revision = "ff3efa227b65e419701a4f48985379ca106a89e7"
-  version = "v2.11.0"
+  revision = "f54d8ece0a66e3db6a9247e946eb1e2bd79029ea"
+  version = "v2.11.1"
 
 [[projects]]
   name = "github.com/uber/jaeger-lib"
@@ -774,7 +747,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "d866cfc389cec985d6fda2859936a575a55a3ab6"
+  revision = "42fe2e1c20de1054d3d30f82cc9fb5b41e2e3767"
 
 [[projects]]
   branch = "master"
@@ -786,7 +759,7 @@
     "jws",
     "jwt"
   ]
-  revision = "90155042cbc501d0b5c9badf50f1975dd2a7fdd0"
+  revision = "30785a2c434e431ef7c507b54617d6a951d5f2b4"
 
 [[projects]]
   branch = "master"
@@ -801,7 +774,7 @@
     "unix",
     "windows"
   ]
-  revision = "83801418e1b59fb1880e363299581ee543af32ca"
+  revision = "a3f2cbd54cf5dfe3fbaccf76375fdb12f67654c8"
 
 [[projects]]
   branch = "master"
@@ -850,7 +823,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "894cde2672a2fb65ca40a8fbdce343f755975005"
+  revision = "b790d0ba0332a621d0b58cfd69fa13bd3dc358d2"
 
 [[projects]]
   branch = "master"
@@ -870,7 +843,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "92c31202d4179425301c9ad5a63abd8df45a9674"
+  revision = "2c6d8d196bf34219b5c8f453dd2ec079b7f1ab0c"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -914,6 +887,7 @@
   packages = [
     ".",
     "balancer",
+    "balancer/base",
     "balancer/roundrobin",
     "codes",
     "connectivity",
@@ -937,8 +911,8 @@
     "tap",
     "transport"
   ]
-  revision = "e687fa4e6424368ece6e4fe727cea2c806a0fcb4"
-  version = "v1.8.2"
+  revision = "f3955b8e9e244dd4dd4bc4f7b7a23a8445400a76"
+  version = "v1.9.0"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -966,7 +940,7 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "c95af922eae69f190717a0b7148960af8c55a072"
+  revision = "0e4404da71227dcc02fb1deee803d93e86d08f72"
 
 [[projects]]
   name = "istio.io/api"
@@ -1206,7 +1180,8 @@
     "core/pkg/strings",
     "core/pkg/task"
   ]
-  revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
+  revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
+  version = "0.9.6"
 
 [[projects]]
   branch = "master"
@@ -1220,6 +1195,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c42abae6e8ed6ce53a13563b335472084c03ef1ff839995dc34e258319c6117c"
+  inputs-digest = "ff7dfff1c6a562c84d17e7ab9777456715770928e5ccc57047f148d920f795f9"
   solver-name = "gps-cdcl"
   solver-version = 1
