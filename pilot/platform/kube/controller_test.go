@@ -44,19 +44,6 @@ func makeClient(t *testing.T) kubernetes.Interface {
 	return cl
 }
 
-func eventually(f func() bool, t *testing.T) {
-	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
-		if f() {
-			return
-		}
-		log.Infof("Sleeping %v", interval)
-		time.Sleep(interval)
-		interval = 2 * interval
-	}
-	t.Errorf("Failed to satisfy function")
-}
-
 const (
 	testService = "test"
 	resync      = 1 * time.Second
@@ -85,7 +72,7 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	eventually(func() bool {
+	util.Eventually(func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
