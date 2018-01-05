@@ -65,7 +65,7 @@ Options relevant to most features:
     -v <ver>   version tag of release    (optional for gcs-only publish, otherwise required)
 Options specific to docker hub:
     -c         use istio cred for docker (for cloud builder) (optional)
-    -d         docker hub uri
+    -d         docker hub uri (Providing the string \"<none>\" here has the same affect as -z)
 Options specific to gcr:
     -i <uri>   dest for images on gcr
 Options specific to github (tag and/or release):

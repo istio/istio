@@ -20,13 +20,6 @@ import istio_common_dag
 
 dag, copy_files = istio_common_dag.MakeCommonDag(
     'istio_monthly_release', schedule_interval='15 4 20 * *', monthly=True)
-"""subdag_task_id = 'build_and_varify'
-
-build_dag, copy_files = istio_common_dag.MakeCommonDag(
-    name='{}.{}'.format(dag.dag_id, subdag_task_id),
-    schedule_interval=dag.schedule_interval,
-    monthly=True)
-"""
 
 monthly_release_template = """
 chmod +x /home/airflow/gcs/data/release/*
