@@ -1,0 +1,39 @@
+{{- $istio_namespace := .Values.global.namespace }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "0"
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: {{ template "fullname" . }}-get-crd
+  namespace: {{$istio_namespace}}
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ template "name" . }}
+        release: {{ .Release.Name }}
+      name: {{ template "fullname" . }}-get-crd
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          imagePullPolicy: "{{ .Values.global.hyperkube.pullPolicy }}"
+          command:
+            - ./kubectl
+            - get
+            - customresourcedefinitions
+            - attributemanifests.config.istio.io
+            - stdios.config.istio.io
+            - rules.config.istio.io
+            - metrics.config.istio.io
+            - kubernetesenvs.config.istio.io
+            - kuberneteses.config.istio.io
+      restartPolicy: OnFailure

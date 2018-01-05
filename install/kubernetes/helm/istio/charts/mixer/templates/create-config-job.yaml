@@ -1,0 +1,41 @@
+{{- $istio_namespace := .Values.global.namespace }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-delete-policy": hook-succeeded
+    "helm.sh/hook-weight": "1"
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+  name: {{ template "fullname" . }}-create-config-job
+  namespace: {{$istio_namespace}}
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ template "name" . }}
+        release: {{ .Release.Name }}
+      name: {{ template "fullname" . }}-create-config-job
+    spec:
+      serviceAccountName: istio-mixer-service-account
+      containers:
+        - name: hyperkube
+          image: "{{ .Values.global.hyperkube.repository }}:{{ .Values.global.hyperkube.tag }}"
+          imagePullPolicy: "{{ .Values.global.hyperkube.pullPolicy }}"
+          command:
+            - ./kubectl
+            - apply
+            - -f
+            - /tmp/mixer/mixer-config.yaml
+          volumeMounts:
+            - mountPath: "/tmp/mixer"
+              name: tmp-configmap-mixer
+      volumes:
+        - name: tmp-configmap-mixer
+          configMap:
+            name: mixer-config
+      restartPolicy: OnFailure
