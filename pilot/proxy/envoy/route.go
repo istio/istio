@@ -330,8 +330,8 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 			// Add the fault filters, one per cluster defined in weighted cluster or cluster
 			if http.Fault != nil {
 				route.faults = make([]*HTTPFilter, 0, len(route.clusters))
-				for _, c := range route.clusters {
-					if fault := buildHTTPFaultFilterV2(c.Name, http.Fault, route.Headers); fault != nil {
+				for _, cluster := range route.clusters {
+					if fault := buildHTTPFaultFilterV2(cluster.Name, http.Fault, route.Headers); fault != nil {
 						route.faults = append(route.faults, fault)
 					}
 				}

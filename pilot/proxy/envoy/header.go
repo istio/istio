@@ -66,16 +66,11 @@ func buildHTTPRouteMatches(instances []*model.ServiceInstance, matches []*routin
 
 	routes := make([]*HTTPRoute, 0, len(matches))
 	for _, match := range matches {
-		var found bool
 		for _, instance := range instances {
 			if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-				found = true
+				routes = append(routes, buildHTTPRouteMatchV2(match))
 				break
 			}
-		}
-
-		if found {
-			routes = append(routes, buildHTTPRouteMatchV2(match))
 		}
 	}
 

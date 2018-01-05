@@ -240,8 +240,6 @@ type IstioConfigStore interface {
 	// service instances.  A rule must match at least one of the input
 	// destination instances.
 	RouteRulesByDestination(destination []*ServiceInstance, domain string) []Config
-	//
-	//RouteRulesV2(instance *Ser)
 
 	// Policy returns a policy for a service version that match at least one of
 	// the source instances.  The labels must match precisely in the policy.
@@ -438,8 +436,8 @@ func ResolveHostname(meta ConfigMeta, svc *routing.IstioService) string {
 }
 
 // ResolveFQDN ensures a host is a FQDN. If the host is a short name (i.e. has no dots in the name) and the domain is
-// non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a FQDN
-// and returned unchanged.
+// non-empty the FQDN is built by concatenating the host and domain with a dot. Otherwise host is assumed to be a
+// FQDN and is returned unchanged.
 func ResolveFQDN(host, domain string) string {
 	if strings.Count(host, ".") == 0 { // host is a shortname
 		if len(domain) > 0 {
@@ -538,19 +536,12 @@ func (store *istioConfigStore) routeRulesV2(domain, destination string) []Config
 
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.RouteRule)
-
-		var found bool
 		for _, host := range rule.Hosts {
 			if ResolveFQDN(host, domain) == destination {
-				found = true
+				out = append(out, config)
 				break
 			}
 		}
-		if !found {
-			continue
-		}
-
-		out = append(out, config)
 	}
 
 	return out
