@@ -220,7 +220,7 @@ def MakeCommonDag(name='istio_daily_flow_test',
       source_bucket=GetSettingTemplate('GCS_BUILD_BUCKET'),
       source_object=GetSettingTemplate('GCS_STAGING_PATH'),
       destination_bucket=GetSettingTemplate('GCS_STAGING_BUCKET'),
-      destination_object=GetSettingTemplate('GCS_STAGING_PATH'),
+      destination_directory=GetSettingTemplate('GCS_STAGING_PATH'),
       dag=common_dag,
   )
   generate_flow_args >> get_git_commit >> build

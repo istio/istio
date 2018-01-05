@@ -35,7 +35,7 @@ chmod +x /home/airflow/gcs/data/release/*
 
 /home/airflow/gcs/data/release/start_gcb_publish.sh \
 -p "{{ settings.RELEASE_PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
--v "{{ settings.VERSION }}" -s "{{ settings.GCS_SOURCE }}" \
+-v "{{ settings.VERSION }}" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
 -b "{{ settings.GCS_MONTHLY_RELEASE_PATH }}" -r "{{ settings.GCR_RELEASE_DEST }}" \
 -g "{{ settings.GCS_GITHUB_PATH }}" -u "{{ settings.MFEST_URL }}" \
 -t "{{ m_commit }}" -m "{{ settings.MFEST_FILE }}" \
