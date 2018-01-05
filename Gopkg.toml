@@ -96,7 +96,7 @@ required = [
 
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
-  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -128,3 +128,7 @@ required = [
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
   version = "0.5.13"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"

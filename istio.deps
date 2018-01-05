@@ -7,20 +7,6 @@
 		"lastStableSHA": "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
 	},
 	{
-		"name": "ISTIO_API_SHA",
-		"repoName": "api",
-		"prodBranch": "master",
-		"file": "istio_api.bzl",
-		"lastStableSHA": "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
-	},
-	{
-		"name": "ISTIO_PROXY_BUCKET",
-		"repoName": "proxy",
-		"prodBranch": "master",
-		"file": "WORKSPACE",
-		"lastStableSHA": "3d3c2052243676ef8e0236b731710a8964f2c841"
-	},
-	{
 		"name": "/envoy",
 		"repoName": "proxy",
 		"prodBranch": "master",
