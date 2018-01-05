@@ -20,8 +20,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/istio/mixer/pkg/cache"
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/cache"
 )
 
 const validatedDataExpiration = time.Second * 10

@@ -20,12 +20,12 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/cache"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
 	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/cache"
 	"istio.io/istio/pkg/log"
 )
 
