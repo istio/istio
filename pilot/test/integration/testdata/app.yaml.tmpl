@@ -89,15 +89,20 @@ spec:
         - name: tcp-health-port
           containerPort: 3333
         livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 3333
+          exec:
+            command:
+            - /usr/local/bin/client
+            - -url
+            - http://localhost:3333/healthz
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
         readinessProbe:
-          tcpSocket:
-            port: tcp-health-port
+          exec:
+            command:
+            - /usr/local/bin/client
+            - -url
+            - http://localhost:3333/healthz
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
