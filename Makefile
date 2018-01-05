@@ -84,7 +84,7 @@ setup: pilot/platform/kube/config
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend dep.update
+.PHONY: depend depend.update
 .PHONY: depend.status depend.ensure depend.graph
 
 # Pull depdendencies, based on the checked in Gopkg.lock file.
