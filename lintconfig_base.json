@@ -47,16 +47,16 @@
     },
     "exclude": [
         "vendor",
-	"../vendor",
+	    "../vendor",
         ".pb.go",
-	"mock_*",
+	    "mock_*",
         "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
-	"mixer/template/doc.go",
-	"mixer/template/sample/doc.go",
-	"mixer/test/spyAdapter/template/doc.go",
-        "should have a package comment",
+        "mixer/template/doc.go",
+        "mixer/template/sample/doc.go",
+        "mixer/test/spyAdapter/template/doc.go",
+        "mixer/tools/codegen/pkg/bootstrapgen/template/bootstrapTemplate.go",
         "genfiles"
     ]
 }
