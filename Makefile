@@ -94,12 +94,14 @@ depend: init
 
 depend.ensure: init
 
+vendor/Gopkg.lock: Gopkg.lock
+	cp Gopkg.lock vendor/Gopkg.lock
+
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
 depend.update: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
 	dep ensure
 	dep ensure -update
-	cp Gopkg.lock vendor/Gopkg.lock
 
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
