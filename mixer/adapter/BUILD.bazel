@@ -20,7 +20,7 @@ go_library(
         "//mixer/adapter/stackdriver:go_default_library",
         "//mixer/adapter/statsd:go_default_library",
         "//mixer/adapter/stdio:go_default_library",
-        "//mixer/adapter/appoptics:go_default_library",
+        "//mixer/adapter/solarwinds:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
     ],
 )

@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package adapter.appoptics.config;
+package adapter.solarwinds.config;
 
 import "gogoproto/gogo.proto";
 

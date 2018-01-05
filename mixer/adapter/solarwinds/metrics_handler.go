@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package appoptics
+package solarwinds
 
 import (
 	"context"
@@ -22,9 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/mixer/adapter/appoptics/appoptics"
-	"istio.io/istio/mixer/adapter/appoptics/config"
-	"istio.io/istio/mixer/adapter/appoptics/promadapter"
+	"istio.io/istio/mixer/adapter/solarwinds/appoptics"
+	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/metric"
 )
@@ -70,9 +69,9 @@ func newMetricsHandler(ctx context.Context, env adapter.Env, cfg *config.Params)
 	if strings.TrimSpace(cfg.AppopticsAccessToken) != "" {
 		lc := appoptics.NewClient(cfg.AppopticsAccessToken, env.Logger())
 
-		go promadapter.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, env.Logger())
-		go promadapter.PersistBatches(&loopFactor, lc, pushChan, stopChan, errorChan, env.Logger())
-		go promadapter.ManagePersistenceErrors(&loopFactor, errorChan, stopChan, env.Logger())
+		go appoptics.BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, env.Logger())
+		go appoptics.PersistBatches(&loopFactor, lc, pushChan, stopChan, errorChan, env.Logger())
+		go appoptics.ManagePersistenceErrors(&loopFactor, errorChan, stopChan, env.Logger())
 	} else {
 		go func() {
 			// to drain the channel
