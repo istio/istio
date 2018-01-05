@@ -112,6 +112,14 @@ export TAG=$USER
 # If your github username is not the same as your local user name (saved in the
 # shell variable $USER), then replace "$USER" below with your github username
 export GITHUB_USER=$USER
+
+# Specify which Kube config you'll use for testing. This depends on whether
+# you're using Minikube or your own Kubernetes cluster for local testing
+# For a GKE cluster:
+export KUBECONFIG=${HOME}/.kube/config
+# Alternatively, for Minikube:
+# export KUBECONFIG=${GOPATH}/src/istio.io/istio/.circleci/config
+
 ```
 
 Execute a one time operation to contain the Istio source trees.
