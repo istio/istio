@@ -84,6 +84,9 @@ rules:
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["get", "watch", "list"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "watch", "list"]
 ---
 # Permissions for the sidecar proxy.
 kind: ClusterRole
@@ -243,7 +246,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: statsd-to-prometheus
-        image: prom/statsd-exporter
+        image: prom/statsd-exporter:v0.5.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9102
@@ -976,6 +979,7 @@ spec:
     - tcpbytesent.metric
     - tcpbytereceived.metric
 ---
+
 apiVersion: "config.istio.io/v1alpha2"
 kind: kubernetesenv
 metadata:
@@ -993,7 +997,7 @@ spec:
 apiVersion: "config.istio.io/v1alpha2"
 kind: rule
 metadata:
-  name: kubeattrgenrule
+  name: kubeattrgenrulerule
   namespace: istio-system
 spec:
   actions:
