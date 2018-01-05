@@ -19,6 +19,8 @@ VERSION_FILE="istio.VERSION"
 SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
 DEST_DIR=$ROOT
+GIT_COMMIT=false
+CHECK_GIT_STATUS=false
 
 set -o errexit
 set -o pipefail
@@ -36,7 +38,9 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -c ... <hub>,<tag> for the istio-ca docker image
     -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
     -r ... tag for proxy debian package
+    -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
+    -s ... check if template files have been updated with this tool
     -A ... URL to download auth debian packages
     -P ... URL to download pilot debian packages
     -E ... URL to download proxy debian packages
@@ -47,7 +51,7 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:n:p:x:c:a:r:A:P:E:d: arg; do
+while getopts :gi:n:p:x:c:a:r:sA:P:E:d: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -56,6 +60,8 @@ while getopts :i:n:p:x:c:a:r:A:P:E:d: arg; do
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     r) PROXY_TAG="${OPTARG}";;
+    g) GIT_COMMIT=true;;
+    s) CHECK_GIT_STATUS=true;;
     A) AUTH_DEBIAN_URL="${OPTARG}";;
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     E) PROXY_DEBIAN_URL="${OPTARG}";;
@@ -94,6 +100,34 @@ function error_exit() {
   # ${BASH_SOURCE[1]} is the file name of the caller.
   echo "${BASH_SOURCE[1]}: line ${BASH_LINENO[0]}: ${1:-Unknown Error.} (exit ${2:-1})" 1>&2
   exit ${2:-1}
+}
+
+function set_git() {
+  if [[ ! -e "${HOME}/.gitconfig" ]]; then
+    cat > "${HOME}/.gitconfig" << EOF
+[user]
+  name = istio-testing
+  email = istio.testing@gmail.com
+EOF
+  fi
+}
+
+
+function create_commit() {
+  set_git
+  # If nothing to commit skip
+  check_git_status && return
+
+  echo 'Creating a commit'
+  git commit -a -m "Updating istio version" \
+    || error_exit 'Could not create a commit'
+
+}
+
+function check_git_status() {
+  local git_files="$(git status -s)"
+  [[ -z "${git_files}" ]] && return 0
+  return 1
 }
 
 #
@@ -182,23 +216,15 @@ EOF
 # Updating helm's values.yaml for the current versions
 #
 function update_helm_version() {
-  pushd $TEMP_DIR/templates/helm/istio
-  local HELM_FILE=$DEST_DIR/install/kubernetes/helm/istio/values.yaml
-
-  execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
-  execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
-  execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
-  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" values.yaml.tmpl
-  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
-  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
-  execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
-  execute_sed "s|{MIXER_TAG}|${MIXER_TAG}|" values.yaml.tmpl
-
-  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $HELM_FILE
-  echo "# TO UPDATE, modify files in install/kubernetes/templates/helm/istio and run install/updateVersion.sh" >> $HELM_FILE
-  cat values.yaml.tmpl >> $HELM_FILE
-
-  popd
+   helm_values_file="$ROOT/install/kubernetes/helm/istio/values.yaml"
+   execute_sed "s|\(ca_hub: \).*|\1'${CA_HUB}'|g" $helm_values_file
+   execute_sed "s|\(ca_tag: \).*|\1'${CA_TAG}'|g" $helm_values_file
+   execute_sed "s|\(proxy_hub: \).*|\1'${PILOT_HUB}'|g" $helm_values_file
+   execute_sed "s|\(proxy_tag: \).*|\1'${PROXY_TAG}'|g" $helm_values_file
+   execute_sed "s|\(pilot_hub: \).*|\1'${PILOT_HUB}'|g" $helm_values_file
+   execute_sed "s|\(pilot_tag: \).*|\1'${PILOT_TAG}'|g" $helm_values_file
+   execute_sed "s|\(mixer_hub: \).*|\1'${MIXER_HUB}'|g" $helm_values_file
+   execute_sed "s|\(mixer_tag: \).*|\1'${MIXER_TAG}'|g" $helm_values_file
 }
 
 function update_istio_install() {
@@ -288,9 +314,9 @@ function merge_files_docker() {
   cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
 }
 
-if [[ "$DEST_DIR" != "$ROOT" ]]; then
-  cp -R $ROOT/install $DEST_DIR/
-  cp -R $ROOT/samples $DEST_DIR/
+if [[ ${GIT_COMMIT} == true ]]; then
+    check_git_status \
+      || error_exit "You have modified files. Please commit or reset your workspace."
 fi
 
 mkdir -p $TEMP_DIR/templates
@@ -310,3 +336,12 @@ do
     merge_files_docker $platform
     rm -R $TEMP_DIR/templates
 done
+
+if [[ ${GIT_COMMIT} == true ]]; then
+    create_commit
+fi
+
+if [[ ${CHECK_GIT_STATUS} == true ]]; then
+ check_git_status \
+   || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
+fi

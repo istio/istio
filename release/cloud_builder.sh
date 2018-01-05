@@ -103,8 +103,23 @@ popd
 # doesn't help when the user doesn't have one.
 touch pilot/platform/kube/config
 
-# pull in outside dependencies
-make depend
+# building //... results in dirtied files:
+# broker/pkg/model/config/mock_store.go
+# broker/pkg/platform/kube/crd/types.go
+# mixer/template/apikey/go_default_library_handler.gen.go
+# mixer/template/apikey/go_default_library_tmpl.pb.go
+# mixer/template/template.gen.go
+bazel build //pilot/...
+
+# bazel_to_go likes to run from dir with WORKSPACE file
+./bin/bazel_to_go.py
+# Remove doubly-vendorized k8s dependencies that confuse go
+rm -rf vendor/k8s.io/*/vendor
+
+# bazel_to_go.py dirties generated_files and lintconfig.json
+# it's easier to ask git to restore files than add
+# an option to bazel_to_go to not touch them
+git checkout generated_files
 
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
@@ -133,6 +148,3 @@ if [ "${BUILD_DEBIAN}" == "true" ]; then
   ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
 fi
 popd
-
-# log where git thinks the build might be dirty
-git status
