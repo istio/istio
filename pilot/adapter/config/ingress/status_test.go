@@ -19,7 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 func makeAnnotatedIngress(annotation string) *extensions.Ingress {
@@ -164,7 +166,7 @@ func TestSyncer(t *testing.T) {
 			continue
 		}
 		ips := out.Status.LoadBalancer.Ingress
-		glog.V(2).Info(ips)
+		log.Infoa(ips)
 		if len(ips) > 0 && ips[0].IP == ip {
 			close(stop)
 			break

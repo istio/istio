@@ -39,18 +39,18 @@ func TestGenerator_Generate(t *testing.T) {
 	tests := []struct {
 		name, descriptor, wantIntFace, wantProto string
 	}{
-		{"Report", "testdata/report_proto.descriptor_set",
-			"testdata/ReportTmpl.go.golden",
-			"testdata/ReportTmpl.golden.proto"},
-		{"Quota", "testdata/quota_proto.descriptor_set",
-			"testdata/QuotaTmpl.go.golden",
-			"testdata/QuotaTmpl.golden.proto"},
-		{"Check", "testdata/check_proto.descriptor_set",
-			"testdata/CheckTmpl.go.golden",
-			"testdata/CheckTmpl.golden.proto"},
-		{"APA", "testdata/apa_proto.descriptor_set",
-			"testdata/ApaTmpl.go.golden",
-			"testdata/ApaTmpl.golden.proto"},
+		{"Report", "testdata/report/template_proto.descriptor_set",
+			"testdata/report/template_handler.gen.go.golden",
+			"testdata/report/template_instance.proto.golden"},
+		{"Quota", "testdata/quota/template_proto.descriptor_set",
+			"testdata/quota/template_handler.gen.go.golden",
+			"testdata/quota/template_instance.proto.golden"},
+		{"Check", "testdata/check/template_proto.descriptor_set",
+			"testdata/check/template_handler.gen.go.golden",
+			"testdata/check/template_instance.proto.golden"},
+		{"APA", "testdata/apa/template_proto.descriptor_set",
+			"testdata/apa/template_handler.gen.go.golden",
+			"testdata/apa/template_instance.proto.golden"},
 	}
 	for _, v := range tests {
 		t.Run(v.name, func(t *testing.T) {
@@ -103,18 +103,18 @@ func TestGenerator_GenerateErrors(t *testing.T) {
 	}()
 
 	g := Generator{OutInterfacePath: file.Name()}
-	err = g.Generate("testdata/error_template.descriptor_set")
+	err = g.Generate("testdata/error/template_proto.descriptor_set")
 	if err == nil {
-		t.Fatalf("Generate(%s) should have produced an error", "testdata/error_template.descriptor_set")
+		t.Fatalf("Generate(%s) should have produced an error", "testdata/error/template_proto.descriptor_set")
 	}
-	b, fileErr := ioutil.ReadFile("testdata/ErrorTemplate.baseline")
+	b, fileErr := ioutil.ReadFile("testdata/error/template.baseline")
 	if fileErr != nil {
 		t.Fatalf("Could not read baseline file: %v", err)
 	}
 	want := fmt.Sprintf("%s", b)
 	got := err.Error()
 	if got != want {
-		t.Fatalf("Generate(%s) => '%s'\nwanted: '%s'", "testdata/error_template.descriptor_set", got, want)
+		t.Fatalf("Generate(%s) => '%s'\nwanted: '%s'", "testdata/error/template_proto.descriptor_set", got, want)
 	}
 }
 

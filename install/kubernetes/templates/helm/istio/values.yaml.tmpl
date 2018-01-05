@@ -1,0 +1,26 @@
+istio:
+   deploy_base_config: true
+   initializer_enabled: true 
+   mixer_enabled: true 
+   pilot_enabled: true 
+   ca_hub: {CA_HUB}
+   ca_tag: {CA_TAG}
+   ca_demo: false
+   ingress:
+#
+# By default istio ingress uses LoadBalancer type of service
+# to use NodePort, it needs to be enabled and desired port specified
+#
+      use_nodeport: false
+      nodeport_port: 32000 
+
+global:
+   auth_enabled: false 
+   namespace: istio-system
+   proxy_hub: {PROXY_HUB}
+   proxy_tag: {PROXY_TAG}
+   proxy_debug: false
+   pilot_hub: {PILOT_HUB}
+   pilot_tag: {PILOT_TAG}
+   mixer_hub: {MIXER_HUB}
+   mixer_tag: {MIXER_TAG}

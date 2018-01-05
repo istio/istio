@@ -1,10 +1,10 @@
-{{- if .Values.Istio.deploy_base_config }}
+{{- if .Values.istio.deploy_base_config }}
 {{- if .Values.global.auth_enabled }}
 {{- $istio_namespace := .Values.global.namespace }}
-{{- $ca_hub := .Values.Istio.ca_hub }}
-{{- $ca_tag := .Values.Istio.ca_tag }}
+{{- $ca_hub := .Values.istio.ca_hub }}
+{{- $ca_tag := .Values.istio.ca_tag }}
 ################################
-# Istio CA with plug-in key/certs. Run this after istio-auth.yaml
+# istio CA with plug-in key/certs. Run this after istio-auth.yaml
 ################################
 apiVersion: v1
 kind: ServiceAccount

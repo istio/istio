@@ -191,8 +191,8 @@ func TestEnvoyArgs(t *testing.T) {
 	config.ServiceCluster = "my-cluster"
 	config.AvailabilityZone = "my-zone"
 
-	test := envoy{config: config, node: "my-node"}
-	testProxy := NewProxy(config, "my-node")
+	test := envoy{config: config, node: "my-node", extraArgs: []string{"-l", "trace"}}
+	testProxy := NewProxy(config, "my-node", "trace")
 	if !reflect.DeepEqual(testProxy, test) {
 		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxy, test)
 	}
@@ -206,6 +206,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--service-cluster", "my-cluster",
 		"--service-node", "my-node",
 		"--max-obj-name-len", fmt.Sprint(MaxClusterNameLength), // TODO: use MeshConfig.StatNameLength instead
+		"-l", "trace",
 		"--service-zone", "my-zone",
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -215,32 +216,37 @@ func TestEnvoyArgs(t *testing.T) {
 
 func TestEnvoyRun(t *testing.T) {
 	config := proxy.DefaultProxyConfig()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
+	dir := os.Getenv("ISTIO_BIN")
+	var err error
+	if len(dir) == 0 {
+		dir, err = os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	config.BinaryPath = path.Join(dir, "envoy")
+
 	config.ConfigPath = "tmp"
 
 	envoyConfig := buildConfig(config, nil)
-	proxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
+	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
 	abortCh := make(chan error, 1)
 
-	if err = proxy.Run(nil, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(nil, 0, abortCh); err == nil {
 		t.Error("expected error on nil config")
 	}
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err != nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err != nil {
 		t.Error(err)
 	}
 
-	proxy.Cleanup(0)
+	envoyProxy.Cleanup(0)
 
 	badConfig := config
 	badConfig.ConfigPath = ""
-	proxy.config = badConfig
+	envoyProxy.config = badConfig
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err == nil {
 		t.Errorf("expected error on bad config path")
 	}
 }

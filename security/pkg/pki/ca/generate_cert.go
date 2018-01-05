@@ -29,11 +29,14 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki"
 )
 
@@ -92,6 +95,11 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	return csr, privKey, nil
 }
 
+func fatalf(template string, args ...interface{}) {
+	log.Errorf(template, args)
+	os.Exit(-1)
+}
+
 // GenCert generates a X.509 certificate and a private key with the given options.
 func GenCert(options CertOptions) ([]byte, []byte) {
 	// Generates a RSA private&public key pair.
@@ -101,7 +109,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	// as specified in the CertOptions.
 	priv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {
-		glog.Fatalf("Cert generation fails at RSA key generation (%v)", err)
+		fatalf("Cert generation fails at RSA key generation (%v)", err)
 	}
 	template := genCertTemplate(options)
 	signerCert, signerKey := &template, crypto.PrivateKey(priv)
@@ -110,7 +118,7 @@ func GenCert(options CertOptions) ([]byte, []byte) {
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &template, signerCert, &priv.PublicKey, signerKey)
 	if err != nil {
-		glog.Fatalf("Cert generation fails at X509 cert creation (%v)", err)
+		fatalf("Cert generation fails at X509 cert creation (%v)", err)
 	}
 
 	return encodePem(false, certBytes, priv)
@@ -158,7 +166,7 @@ func genSerialNum() *big.Int {
 	serialNumLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNum, err := rand.Int(rand.Reader, serialNumLimit)
 	if err != nil {
-		glog.Fatalf("Serial number generation failure (%v)", err)
+		fatalf("Serial number generation failure (%v)", err)
 	}
 	return serialNum
 }
@@ -240,7 +248,7 @@ func buildSubjectAltNameExtension(hosts string) *pkix.Extension {
 
 	san, err := pki.BuildSANExtension(ids)
 	if err != nil {
-		glog.Fatalf("SAN extension building failure (%v)", err)
+		fatalf("SAN extension building failure (%v)", err)
 	}
 
 	return san

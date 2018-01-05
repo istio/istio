@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package kubernetes provides functionality to adapt mixer behavior to the
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/kubernetesenv/config/config.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
+
+// Package kubernetesenv provides functionality to adapt mixer behavior to the
 // kubernetes environment. Primarily, it is used to generate values as part
 // of Mixer's attribute generation preprocessing phase. These values will be
 // transformed into attributes that can be used for subsequent config
 // resolution and adapter dispatch and execution.
-package kubernetes
+package kubernetesenv
 
 import (
 	"context"
@@ -91,7 +94,7 @@ var _ ktmpl.HandlerBuilder = &builder{}
 func GetInfo() adapter.Info {
 	return adapter.Info{
 		Name:        "kubernetesenv",
-		Impl:        "istio.io/istio/mixer/adapter/kubernetes",
+		Impl:        "istio.io/istio/mixer/adapter/kubernetesenv",
 		Description: "Provides platform specific functionality for the kubernetes environment",
 		SupportedTemplates: []string{
 			ktmpl.TemplateName,
@@ -163,7 +166,7 @@ func newBuilder(clientFactory clientFactoryFn) *builder {
 	}
 }
 
-func (h *handler) GenerateKubernetesAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
+func (h *handler) GenerateKubernetesEnvAttributes(ctx context.Context, inst *ktmpl.Instance) (*ktmpl.Output, error) {
 	out := &ktmpl.Output{}
 	if inst.DestinationUid != "" {
 		if p, found := h.findPod(inst.DestinationUid); found {
@@ -208,7 +211,9 @@ func (h *handler) Close() error {
 func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	pod, found := h.pods.GetPod(podKey)
-	h.env.Logger().Infof("could not find pod for (uid: %s, key: %s)", uid, podKey)
+	if !found {
+		h.env.Logger().Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+	}
 	return pod, found
 }
 

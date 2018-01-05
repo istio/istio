@@ -28,25 +28,64 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: {MIXER_HUB}/grafana:{MIXER_TAG}
+        image: grafana/grafana:4.6.3
         imagePullPolicy: IfNotPresent
         ports:
           - containerPort: 3000
         env:
-        - name: GRAFANA_PORT
-          value: "3000"
-        - name: GF_AUTH_BASIC_ENABLED
-          value: "false"
-        - name: GF_AUTH_ANONYMOUS_ENABLED
-          value: "true"
-        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
-          value: Admin
         - name: GF_PATHS_DATA
           value: /data/grafana
+        - name: GF_PATHS_CONFIG
+          value: /grafana-config/custom.ini
+        - name: GF_DASHBOARDS_JSON_PATH
+          value: /grafana-config
         volumeMounts:
         - mountPath: /data/grafana
           name: grafana-data
+        - mountPath: /grafana-config
+          name: grafana-config
+      - name: datasource-inject
+        image: alpine:3.7
+        env:
+        - name: PROM_SVC_NAME
+          value: prometheus
+        command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache curl
+          AddDataSource() {
+            curl 'http://localhost:3000/api/datasources' \
+              -X POST \
+              -uadmin:admin\
+              -H 'Content-Type: application/json;charset=UTF-8' \
+              --data-binary \
+              '{"name":"Prometheus","type":"prometheus","url":"http://'${PROM_SVC_NAME}':9090","access":"proxy","isDefault":true}'
+          }
+          sleep 10
+          echo 'Adding Prometheus data source to Grafana'
+          until AddDataSource; do
+            echo '.'
+            sleep 2
+          done
+          echo
+          echo 'Added, sleeping...'
+          while :; do sleep 20d; done
       volumes:
       - name: grafana-data
         emptyDir: {}
+      - name: grafana-config
+        configMap:
+          name: grafana
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana
+  namespace: {ISTIO_NAMESPACE}
+data:
+  custom.ini: |
+    {CUSTOM_INI}
+  istio-dashboard.json: |
+    {ISTIO_DASHBOARD_JSON}
 ---

@@ -19,8 +19,6 @@ VERSION_FILE="istio.VERSION"
 SRC_VERSION_FILE="${ROOT}/${VERSION_FILE}"
 TEMP_DIR="/tmp"
 DEST_DIR=$ROOT
-GIT_COMMIT=false
-CHECK_GIT_STATUS=false
 
 set -o errexit
 set -o pipefail
@@ -36,11 +34,9 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -p ... <hub>,<tag> for the pilot docker image
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the istio-ca docker image
-    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, and istio-ca containers
+    -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
     -r ... tag for proxy debian package
-    -g ... create a git commit for the changes
     -n ... <namespace> namespace in which to install Istio control plane components
-    -s ... check if template files have been updated with this tool
     -A ... URL to download auth debian packages
     -P ... URL to download pilot debian packages
     -E ... URL to download proxy debian packages
@@ -51,7 +47,7 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :gi:n:p:x:c:a:r:sA:P:E:d: arg; do
+while getopts :i:n:p:x:c:a:r:A:P:E:d: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -60,8 +56,6 @@ while getopts :gi:n:p:x:c:a:r:sA:P:E:d: arg; do
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     r) PROXY_TAG="${OPTARG}";;
-    g) GIT_COMMIT=true;;
-    s) CHECK_GIT_STATUS=true;;
     A) AUTH_DEBIAN_URL="${OPTARG}";;
     P) PILOT_DEBIAN_URL="${OPTARG}";;
     E) PROXY_DEBIAN_URL="${OPTARG}";;
@@ -73,6 +67,8 @@ done
 if [[ -n ${ALL_HUB_TAG} ]]; then
     PILOT_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
     PILOT_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
+    PROXY_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
+    PROXY_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     MIXER_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
     MIXER_TAG="$(echo ${ALL_HUB_TAG}|cut -f2 -d,)"
     CA_HUB="$(echo ${ALL_HUB_TAG}|cut -f1 -d,)"
@@ -100,32 +96,13 @@ function error_exit() {
   exit ${2:-1}
 }
 
-function set_git() {
-  if [[ ! -e "${HOME}/.gitconfig" ]]; then
-    cat > "${HOME}/.gitconfig" << EOF
-[user]
-  name = istio-testing
-  email = istio.testing@gmail.com
-EOF
-  fi
-}
-
-
-function create_commit() {
-  set_git
-  # If nothing to commit skip
-  check_git_status && return
-
-  echo 'Creating a commit'
-  git commit -a -m "Updating istio version" \
-    || error_exit 'Could not create a commit'
-
-}
-
-function check_git_status() {
-  local git_files="$(git status -s)"
-  [[ -z "${git_files}" ]] && return 0
-  return 1
+#
+# In-place portable sed operation
+# the sed -i operation is not defined by POSIX and hence is not portable
+#
+function execute_sed() {
+  sed -e "${1}" $2 > $2.new
+  mv -- $2.new $2
 }
 
 # Generated merge yaml files for easy installation
@@ -154,22 +131,22 @@ function merge_files() {
   cat $SRC/istio-ca.yaml.tmpl >> $ISTIO
 
   cp $ISTIO $ISTIO_AUTH
-  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
-  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_AUTH
-  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_AUTH
-  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_AUTH
+  execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_AUTH
+  execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_AUTH
+  execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_AUTH
+  execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_AUTH
 
   # restrict pilot controllers to a single namespace in the test file
-  sed -i=.bak "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
+  execute_sed "s|args: \[\"discovery\", \"-v\", \"2\"|args: \[\"discovery\", \"-v\", \"2\", \"-a\", \"${ISTIO_NAMESPACE}\"|" $ISTIO_ONE_NAMESPACE
   cat $SRC/istio-ca-one-namespace.yaml.tmpl >> $ISTIO_ONE_NAMESPACE
 
   cp $ISTIO_ONE_NAMESPACE $ISTIO_ONE_NAMESPACE_AUTH
-  sed -i=.bak "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  sed -i=.bak "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
-  sed -i=.bak "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/"       $ISTIO_ONE_NAMESPACE_AUTH
-  sed -i=.bak "s/envoy_mixer.json/envoy_mixer_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
-  sed -i=.bak "s/envoy_pilot.json/envoy_pilot_auth.json/"          $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/# authPolicy: MUTUAL_TLS/authPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/# controlPlaneAuthPolicy: MUTUAL_TLS/controlPlaneAuthPolicy: MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/NONE #--controlPlaneAuthPolicy/MUTUAL_TLS/" $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/envoy_mixer.json/envoy_mixer_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
+  execute_sed "s/envoy_pilot.json/envoy_pilot_auth.json/" $ISTIO_ONE_NAMESPACE_AUTH
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $ISTIO_INITIALIZER
   echo "# TO UPDATE, modify files in install/kubernetes/templates and run install/updateVersion.sh" >> $ISTIO_INITIALIZER
@@ -205,53 +182,50 @@ EOF
 # Updating helm's values.yaml for the current versions
 #
 function update_helm_version() {
-   helm_values_file="$ROOT/install/kubernetes/helm/istio/values.yaml"
-   if [ -z ${OSTYPE##*darwin*} ]; then
-      sed -i "" 's|\(ca_hub: \).*|\1'${CA_HUB}'|g' $helm_values_file
-      sed -i "" 's|\(ca_tag: \).*|\1'${CA_TAG}'|g' $helm_values_file
-      sed -i "" 's|\(proxy_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
-      sed -i "" 's|\(proxy_tag: \).*|\1'${PROXY_TAG}'|g' $helm_values_file
-      sed -i "" 's|\(pilot_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
-      sed -i "" 's|\(pilot_tag: \).*|\1'${PILOT_TAG}'|g' $helm_values_file
-      sed -i "" 's|\(mixer_hub: \).*|\1'${MIXER_HUB}'|g' $helm_values_file
-      sed -i "" 's|\(mixer_tag: \).*|\1'${MIXER_TAG}'|g' $helm_values_file
-   else
-      sed -i 's|\(ca_hub: \).*|\1'${CA_HUB}'|g' $helm_values_file
-      sed -i 's|\(ca_tag: \).*|\1'${CA_TAG}'|g' $helm_values_file
-      sed -i 's|\(proxy_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
-      sed -i 's|\(proxy_tag: \).*|\1'${PROXY_TAG}'|g' $helm_values_file
-      sed -i 's|\(pilot_hub: \).*|\1'${PILOT_HUB}'|g' $helm_values_file
-      sed -i 's|\(pilot_tag: \).*|\1'${PILOT_TAG}'|g' $helm_values_file
-      sed -i 's|\(mixer_hub: \).*|\1'${MIXER_HUB}'|g' $helm_values_file
-      sed -i 's|\(mixer_tag: \).*|\1'${MIXER_TAG}'|g' $helm_values_file
-   fi
+  pushd $TEMP_DIR/templates/helm/istio
+  local HELM_FILE=$DEST_DIR/install/kubernetes/helm/istio/values.yaml
+
+  execute_sed "s|{CA_HUB}|${CA_HUB}|"       values.yaml.tmpl
+  execute_sed "s|{CA_TAG}|${CA_TAG}|"       values.yaml.tmpl
+  execute_sed "s|{PROXY_HUB}|${PILOT_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PROXY_TAG}|${PROXY_TAG}|" values.yaml.tmpl
+  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" values.yaml.tmpl
+  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
+  execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
+  execute_sed "s|{MIXER_TAG}|${MIXER_TAG}|" values.yaml.tmpl
+
+  echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $HELM_FILE
+  echo "# TO UPDATE, modify files in install/kubernetes/templates/helm/istio and run install/updateVersion.sh" >> $HELM_FILE
+  cat values.yaml.tmpl >> $HELM_FILE
+
+  popd
 }
 
 function update_istio_install() {
   pushd $TEMP_DIR/templates
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
-  sed -i=.bak "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ns.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-rbac-beta.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-config.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-pilot.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ingress.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-mixer.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-one-namespace.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-ca-plugin-certs.yaml.tmpl
+  execute_sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" istio-initializer.yaml.tmpl
 
-  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
-  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-mixer.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
-  sed -i=.bak "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-pilot.yaml.tmpl
+  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-mixer.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-one-namespace.yaml.tmpl
+  execute_sed "s|image: {CA_HUB}/\(.*\):{CA_TAG}|image: ${CA_HUB}/\1:${CA_TAG}|" istio-ca-plugin-certs.yaml.tmpl
 
-  sed -i=.bak "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
-  sed -i=.bak "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
+  execute_sed "s|{PILOT_HUB}|${PILOT_HUB}|" istio-initializer.yaml.tmpl
+  execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" istio-initializer.yaml.tmpl
 
-  sed -i=.bak "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
+  execute_sed "s|image: {PROXY_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio-ingress.yaml.tmpl
 
   popd
 }
@@ -260,8 +234,20 @@ function update_istio_addons() {
   DEST=$DEST_DIR/install/kubernetes/addons
   mkdir -p $DEST
   pushd $TEMP_DIR/templates/addons
-  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" grafana.yaml.tmpl
-  sed -i=.bak "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
+
+  execute_sed "s|image: {MIXER_HUB}/\(.*\):{MIXER_TAG}|image: ${MIXER_HUB}/\1:${MIXER_TAG}|" servicegraph.yaml.tmpl
+
+  execute_sed 's/^/    /' grafana-config/custom.ini
+  execute_sed 's/^/    /' grafana-config/istio-dashboard.json
+  execute_sed '/{CUSTOM_INI}/ {
+      r grafana-config/custom.ini
+      d
+    }' grafana.yaml.tmpl
+  execute_sed '/{ISTIO_DASHBOARD_JSON}/ {
+      r grafana-config/istio-dashboard.json
+      d
+    }' grafana.yaml.tmpl
+
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" grafana.yaml.tmpl  > $DEST/grafana.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" prometheus.yaml.tmpl > $DEST/prometheus.yaml
   sed "s|{ISTIO_NAMESPACE}|${ISTIO_NAMESPACE}|" servicegraph.yaml.tmpl > $DEST/servicegraph.yaml
@@ -272,9 +258,9 @@ function update_istio_addons() {
 
 function update_istio_install_docker() {
   pushd $TEMP_DIR/templates
-  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
-  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" bookinfo.sidecars.yaml.tmpl
-  sed -i=.bak "s|image: {PILOT_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" istio.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PILOT_TAG}|image: ${PILOT_HUB}/\1:${PILOT_TAG}|" bookinfo.sidecars.yaml.tmpl
+  execute_sed "s|image: {PILOT_HUB}/\(.*\):{PROXY_TAG}|image: ${PILOT_HUB}/\1:${PROXY_TAG}|" bookinfo.sidecars.yaml.tmpl
   popd
 }
 
@@ -302,9 +288,9 @@ function merge_files_docker() {
   cat $SRC/bookinfo.sidecars.yaml.tmpl >> $BOOKINFO
 }
 
-if [[ ${GIT_COMMIT} == true ]]; then
-    check_git_status \
-      || error_exit "You have modified files. Please commit or reset your workspace."
+if [[ "$DEST_DIR" != "$ROOT" ]]; then
+  cp -R $ROOT/install $DEST_DIR/
+  cp -R $ROOT/samples $DEST_DIR/
 fi
 
 mkdir -p $TEMP_DIR/templates
@@ -324,12 +310,3 @@ do
     merge_files_docker $platform
     rm -R $TEMP_DIR/templates
 done
-
-if [[ ${GIT_COMMIT} == true ]]; then
-    create_commit
-fi
-
-if [[ ${CHECK_GIT_STATUS} == true ]]; then
- check_git_status \
-   || { echo "Need to update template and run install/updateVersion.sh"; git diff; exit 1; }
-fi

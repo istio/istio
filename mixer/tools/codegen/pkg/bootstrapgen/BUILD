@@ -11,7 +11,7 @@ go_library(
         "//mixer/tools/codegen/pkg/modelgen:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_gogo_protobuf//protoc-gen-gogo/descriptor:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
         "@org_golang_x_tools//imports:go_default_library",
     ],
 )
@@ -21,7 +21,11 @@ go_test(
     size = "small",
     srcs = ["generator_test.go"],
     data = [
-        "//mixer/tools/codegen/pkg/bootstrapgen/testdata:descriptors",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/apa:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/check:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/quota:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/report1:descriptor_set",
+        "//mixer/tools/codegen/pkg/bootstrapgen/testdata/report2:descriptor_set",
         "//mixer/tools/codegen/pkg/bootstrapgen/testdata:golden_files",
     ],
     library = ":go_default_library",

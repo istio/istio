@@ -16,9 +16,9 @@ go_library(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/expr:go_default_library",
         "//mixer/pkg/status:go_default_library",
-        "//pkg/log:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "//pkg/log:go_default_library",        
         "@com_github_hashicorp_go_multierror//:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

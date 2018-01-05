@@ -24,23 +24,21 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
-	"os/user"
 	"testing"
 	"time"
 
-	"k8s.io/api/admission/v1alpha1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pilot/platform/kube/admit/testcerts"
+	"istio.io/istio/tests/k8s"
 )
 
 const (
@@ -86,23 +84,24 @@ func TestAdmissionController(t *testing.T) {
 
 	cases := []struct {
 		name            string
-		in              *v1alpha1.AdmissionReview
-		want            *v1alpha1.AdmissionReviewStatus
+		in              *admissionv1beta1.AdmissionRequest
+		want            *admissionv1beta1.AdmissionResponse
 		useNamespaceAll bool
 		v               store.BackendValidator
 	}{
 		{
 			name: "valid create",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
-					},
-					Operation: admission.Create,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Object: runtime.RawExtension{
+					Raw: valid,
+				},
+				Namespace: watchedNamespace,
+				Operation: admissionv1beta1.Create,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: true,
 			},
 			useNamespaceAll: true,
@@ -110,16 +109,17 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "valid update",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
-					},
-					Operation: admission.Update,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Object: runtime.RawExtension{
+					Raw: valid,
+				},
+				Namespace: watchedNamespace,
+				Operation: admissionv1beta1.Update,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: true,
 			},
 			useNamespaceAll: true,
@@ -127,16 +127,15 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "valid delete",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
-					},
-					Operation: admission.Delete,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Namespace: watchedNamespace,
+				Name:      "to-be-deleted",
+				Operation: admissionv1beta1.Delete,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: true,
 			},
 			useNamespaceAll: true,
@@ -144,16 +143,18 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "validation failure",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
-					},
-					Operation: admission.Update,
+			in: &admissionv1beta1.AdmissionRequest{
+
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Object: runtime.RawExtension{
+					Raw: valid,
+				},
+				Namespace: watchedNamespace,
+				Operation: admissionv1beta1.Update,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: false,
 			},
 			useNamespaceAll: true,
@@ -161,16 +162,15 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "validation failure on delete",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{}, // TODO
-					Object: runtime.RawExtension{
-						Raw: valid,
-					},
-					Operation: admission.Delete,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Namespace: watchedNamespace,
+				Name:      "to-be-deleted",
+				Operation: admissionv1beta1.Delete,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: false,
 			},
 			useNamespaceAll: true,
@@ -178,16 +178,17 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "valid in NamespaceAll",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{},
-					Object: runtime.RawExtension{
-						Raw: nonWatchedInvalid,
-					},
-					Operation: admission.Create,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Object: runtime.RawExtension{
+					Raw: nonWatchedInvalid,
+				},
+				Namespace: nonWatchedNamespace,
+				Operation: admissionv1beta1.Create,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: true,
 			},
 			useNamespaceAll: false,
@@ -195,20 +196,47 @@ func TestAdmissionController(t *testing.T) {
 		},
 		{
 			name: "invalid in NamespaceAll",
-			in: &v1alpha1.AdmissionReview{
-				Spec: v1alpha1.AdmissionReviewSpec{
-					Kind: metav1.GroupVersionKind{},
-					Object: runtime.RawExtension{
-						Raw: nonWatchedInvalid,
-					},
-					Operation: admission.Create,
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
 				},
+				Object: runtime.RawExtension{
+					Raw: nonWatchedInvalid,
+				},
+				Namespace: nonWatchedNamespace,
+				Operation: admissionv1beta1.Create,
 			},
-			want: &v1alpha1.AdmissionReviewStatus{
+			want: &admissionv1beta1.AdmissionResponse{
 				Allowed: false,
 			},
 			useNamespaceAll: true,
 			v:               &fakeValidator{errors.New("fail")},
+		},
+		{
+			name: "invalid create",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
+				},
+				Namespace: watchedNamespace,
+				Operation: admissionv1beta1.Create,
+			},
+			want: &admissionv1beta1.AdmissionResponse{
+				Allowed: false,
+			},
+		},
+		{
+			name: "invalid delete",
+			in: &admissionv1beta1.AdmissionRequest{
+				Kind: metav1.GroupVersionKind{
+					Kind: "mock",
+				},
+				Namespace: watchedNamespace,
+				Operation: admissionv1beta1.Delete,
+			},
+			want: &admissionv1beta1.AdmissionResponse{
+				Allowed: false,
+			},
 		},
 	}
 
@@ -230,25 +258,28 @@ func TestAdmissionController(t *testing.T) {
 
 		got := testAdmissionController.admit(c.in)
 		if got.Allowed != c.want.Allowed {
-			t.Errorf("%v: AdmissionReviewStatus.Allowed is wrong : got %v want %v",
+			t.Errorf("%v: AdmissionResponse.Allowed is wrong : got %v want %v",
 				c.name, got.Allowed, c.want.Allowed)
 		}
 	}
 }
 
 func makeTestData(t *testing.T) []byte {
-	review := v1alpha1.AdmissionReview{
-		Spec: v1alpha1.AdmissionReviewSpec{
-			Kind: metav1.GroupVersionKind{},
+	review := admissionv1beta1.AdmissionReview{
+		Request: &admissionv1beta1.AdmissionRequest{
+			Kind: metav1.GroupVersionKind{
+				Kind: "mock",
+			},
 			Object: runtime.RawExtension{
 				Raw: makeConfig(t, watchedNamespace, 0),
 			},
-			Operation: admission.Create,
+			Namespace: watchedNamespace,
+			Operation: admissionv1beta1.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
 	if err != nil {
-		t.Fatalf("Failed to create AdmissionReview: %v", err)
+		t.Fatalf("Failed to create AdmissionRequest: %v", err)
 	}
 	return reviewJSON
 }
@@ -384,13 +415,13 @@ func TestServe(t *testing.T) {
 			t.Errorf("%v: could not read body: %v", c.name, err)
 			continue
 		}
-		var gotReview v1alpha1.AdmissionReview
+		var gotReview admissionv1beta1.AdmissionReview
 		if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 			t.Errorf("%v: could not decode response body: %v", c.name, err)
 		}
-		if gotReview.Status.Allowed != c.wantAllowed {
-			t.Errorf("%v: AdmissionReview.Status.Allowed is wrong : got %v want %v",
-				c.name, gotReview.Status.Allowed, c.wantAllowed)
+		if gotReview.Response.Allowed != c.wantAllowed {
+			t.Errorf("%v: AdmissionRequest.Status.Allowed is wrong : got %v want %v",
+				c.name, gotReview.Response.Allowed, c.wantAllowed)
 		}
 	}
 }
@@ -406,9 +437,9 @@ func TestRegister(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	fakeClient := fake.NewSimpleClientset(&admissionregistrationv1alpha1.ExternalAdmissionHookConfiguration{})
+	fakeClient := fake.NewSimpleClientset(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
 
-	fakeAdmissionClient := fakeClient.AdmissionregistrationV1alpha1().ExternalAdmissionHookConfigurations()
+	fakeAdmissionClient := fakeClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	if err := testAdmissionController.register(fakeAdmissionClient, []byte("fake cert")); err != nil {
 		t.Fatalf("Register() failed: %v", err)
 	}
@@ -419,9 +450,9 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("register: unexpected number of actions: got %v want %v number actions", len(actions), len(wantVerbs))
 	}
 	for i, verb := range wantVerbs {
-		if actions[i].GetResource().Resource != "externaladmissionhookconfigurations" {
+		if actions[i].GetResource().Resource != "validatingwebhookconfigurations" {
 			t.Errorf("register: unexpected action: got %v want %v",
-				actions[i].GetResource().Resource, "externaladmissionhookconfigurations")
+				actions[i].GetResource().Resource, "validatingwebhookconfigurations")
 		}
 		if actions[i].GetVerb() != verb {
 			t.Errorf("register: unexpected action: got %v want %v", actions[i], verb)
@@ -439,9 +470,9 @@ func TestRegister(t *testing.T) {
 		t.Fatalf("unregister: unexpected number of actions: got %v want %v number actions", len(actions), len(wantVerbs))
 	}
 	for i, verb := range wantVerbs {
-		if actions[i].GetResource().Resource != "externaladmissionhookconfigurations" {
+		if actions[i].GetResource().Resource != "validatingwebhookconfigurations" {
 			t.Errorf("unregister: unexpected action: got %v want %v",
-				actions[i].GetResource().Resource, "externaladmissionhookconfigurations")
+				actions[i].GetResource().Resource, "validatingwebhookconfigurations")
 		}
 		if actions[i].GetVerb() != verb {
 			t.Errorf("unregister: unexpected action: got %v want %v", actions[i], verb)
@@ -451,19 +482,7 @@ func TestRegister(t *testing.T) {
 }
 
 func makeClient(t *testing.T) kubernetes.Interface {
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatal(err.Error())
-	}
-
-	kubeconfig := usr.HomeDir + "/.kube/config"
-
-	// For Bazel sandbox we search a different location:
-	if _, err = os.Stat(kubeconfig); err != nil {
-		kubeconfig, _ = os.Getwd()
-		kubeconfig = kubeconfig + "/config"
-	}
-
+	kubeconfig := k8s.Kubeconfig("/../../../../pilot/platform/kube/config")
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		t.Fatal(err)

@@ -29,7 +29,8 @@ const (
 	notifyThreshold = resync * 10
 )
 
-func TestController(t *testing.T) {
+// https://github.com/istio/istio/issues/2318
+func xTestController(t *testing.T) {
 	ts := newServer()
 	defer ts.Server.Close()
 	conf := api.DefaultConfig()

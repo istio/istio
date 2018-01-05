@@ -1,0 +1,2 @@
+apa/tmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/apa"
+report/reporttmpl_proto.descriptor_set: "istio.io/istio/mixer/test/spyAdapter/template/report"

@@ -33,6 +33,7 @@ extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
 [alt_names]
 IP.1 = 127.0.0.1
+IP.2 = ::1
 EOF
 
 cat > server.conf <<EOF
@@ -47,6 +48,7 @@ extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
 [alt_names]
 IP.1 = 127.0.0.1
+IP.2 = ::1
 EOF
 
 outfile=testcerts.go

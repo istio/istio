@@ -4,6 +4,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   exit -1
 fi
 
+if [[ "${TEST_ENV}" == "minikube" ]]; then
+    eval $(minikube docker-env)
+fi
+
 # standard checks
 set -ex
 set -o errexit

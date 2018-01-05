@@ -2,7 +2,7 @@ name: pilot
 version: 0.3.0
 description: Helm chart for pilot deployment
 keywords:
-  - Istio
+  - istio
   - pilot
 sources:
   - http://github.com/istio/istio

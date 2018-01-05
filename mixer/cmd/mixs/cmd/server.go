@@ -53,13 +53,6 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	serverCmd.PersistentFlags().BoolVarP(&sa.SingleThreaded, "singleThreaded", "", false,
 		"If true, each request to Mixer will be executed in a single go routine (useful for debugging)")
 
-	serverCmd.PersistentFlags().StringVarP(&sa.ZipkinURL, "zipkinURL", "", "",
-		"URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.")
-	serverCmd.PersistentFlags().StringVarP(&sa.JaegerURL, "jaegerURL", "", "",
-		"URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.")
-	serverCmd.PersistentFlags().BoolVarP(&sa.LogTraceSpans, "logTraceSpans", "", false,
-		"Whether or not to log Mixer trace spans. This enables tracing for Mixer itself.")
-
 	serverCmd.PersistentFlags().StringVarP(&sa.ConfigStore2URL, "configStore2URL", "", "",
 		"URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 
@@ -80,23 +73,21 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 		fatalf("unable to hide: %v", err)
 	}
 
-	// TODO: Remove all this stuff by the 0.5 release
+	// TODO: Remove all this stuff by the 0.5 release (don't forget all associated YAML templates and any other uses of these options in the code
+	// base & docs)
 	var dummy string
 	var dummy2 uint16
 	var dummy3 uint
-	serverCmd.PersistentFlags().StringVarP(&sa.ZipkinURL, "traceOutput", "", "", "deprecated")
 	serverCmd.PersistentFlags().StringVarP(&dummy, "configStoreURL", "", "", "deprecated")
 	serverCmd.PersistentFlags().StringVarP(&dummy, "serviceConfigFile", "", "", "deprecated")
 	serverCmd.PersistentFlags().StringVarP(&dummy, "globalConfigFile", "", "", "deprecated")
 	serverCmd.PersistentFlags().Uint16VarP(&dummy2, "configAPIPort", "", 0, "deprecated")
 	serverCmd.PersistentFlags().UintVarP(&dummy3, "configFetchInterval", "", 0, "deprecated")
-	_ = serverCmd.PersistentFlags().MarkDeprecated("traceOutput", "")
 	_ = serverCmd.PersistentFlags().MarkDeprecated("configStoreURL", "")
 	_ = serverCmd.PersistentFlags().MarkDeprecated("serviceConfigFile", "")
 	_ = serverCmd.PersistentFlags().MarkDeprecated("globalConfigFile", "")
 	_ = serverCmd.PersistentFlags().MarkDeprecated("configAPIPort", "")
 	_ = serverCmd.PersistentFlags().MarkDeprecated("configFetchInterval", "")
-	_ = serverCmd.PersistentFlags().MarkHidden("traceOutput")
 	_ = serverCmd.PersistentFlags().MarkHidden("configStoreURL")
 	_ = serverCmd.PersistentFlags().MarkHidden("serviceConfigFile")
 	_ = serverCmd.PersistentFlags().MarkHidden("globalConfigFile")
@@ -104,6 +95,7 @@ func serverCmd(info map[string]template.Info, adapters []adapter.InfoFn, printf,
 	_ = serverCmd.PersistentFlags().MarkHidden("configFetchInterval")
 
 	sa.LoggingOptions.AttachCobraFlags(serverCmd)
+	sa.TracingOptions.AttachCobraFlags(serverCmd)
 
 	return serverCmd
 }

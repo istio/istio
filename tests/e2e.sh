@@ -36,11 +36,10 @@ function error_exit() {
     exit ${2:-1}
 }
 
-TESTS_TARGETS=($(bazel query "tests(//${TESTSPATH}/...)"))|| error_exit 'Could not find tests targets'
+TESTS_TARGETS="./tests/e2e/tests/simple ./tests/e2e/tests/mixer ./tests/e2e/tests/bookinfo"
 TOTAL_FAILURE=0
 SUMMARY='Tests Summary'
 
-PARALLEL_MODE=false
 SINGLE_MODE=false
 
 function process_result() {
@@ -52,44 +51,6 @@ function process_result() {
     fi
 }
 
-function concurrent_exec() {
-    cd ${ROOT}
-    declare -A pid2testname
-    declare -A pid2logfile
-
-    for T in ${TESTS_TARGETS[@]}; do
-        # Compile test target
-        bazel build ${T}
-        # Construct path to binary using bazel target name
-        BAZEL_RULE_PREFIX="//"
-        BAZEL_BIN="bazel-bin/"
-        bin_path=${T/$BAZEL_RULE_PREFIX/$BAZEL_BIN}
-        bin_path=${bin_path/://}
-        log_file="${bin_path///_}.log"
-        # Run tests concurrently as subprocesses
-        # Dup stdout and stderr to file
-        "./$bin_path" ${ARGS[@]} &> ${log_file} &
-        pid=$!
-        pid2testname["$pid"]=$bin_path
-        pid2logfile["$pid"]=$log_file
-    done
-
-    echo "Running tests in parallel. Logs reported in serial order after all tests finish."
-
-    # Barrier until all forked processes finish
-    # also collects test results
-    for job in `jobs -p`; do
-        wait $job
-        process_result $? ${pid2testname[$job]}
-        echo '****************************************************'
-        echo "Log from ${pid2testname[$job]}"
-        echo '****************************************************'
-        cat ${pid2logfile[$job]}
-        echo
-        rm -rf ${pid2logfile[$job]}
-    done
-}
-
 function sequential_exec() {
     for T in ${TESTS_TARGETS[@]}; do
         single_exec ${T}
@@ -98,16 +59,15 @@ function sequential_exec() {
 
 function single_exec() {
     print_block "Running $1"
-    bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} $1 -- ${ARGS[@]}
+    # Bookinfo is very slow, waiting for cleanup and sync.
+    go test -timeout 20m ${TEST_ARGS:-} $1 -args ${ARGS[@]}
+    #bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} $1 -- ${ARGS[@]}
     process_result $? $1
 }
 
 # getopts only handles single character flags
 for ((i=1; i<=$#; i++)); do
     case ${!i} in
-        -p|--parallel) PARALLEL_MODE=true
-        continue
-        ;;
         # -s/--single_test to specify only one test to run.
         # e.g. "-s mixer" will only trigger mixer:go_default_test
         -s|--single_test) SINGLE_MODE=true; ((i++)); SINGLE_TEST=${!i}
@@ -118,12 +78,9 @@ for ((i=1; i<=$#; i++)); do
     ARGS+=( ${!i} )
 done
 
-if ${PARALLEL_MODE} ; then
-    echo "Executing tests in parallel"
-    concurrent_exec
-elif ${SINGLE_MODE}; then
+if ${SINGLE_MODE}; then
     echo "Executing single test"
-    SINGLE_TEST=//${TESTSPATH}/${SINGLE_TEST}:go_default_test
+    SINGLE_TEST=./${TESTSPATH}/${SINGLE_TEST}
 
     # Check if it's a valid test file
     VALID_TEST=false

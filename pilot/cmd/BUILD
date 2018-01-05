@@ -7,6 +7,9 @@ go_library(
     deps = [
         "//pilot/proxy:go_default_library",
         "//pilot/tools/version:go_default_library",
+        "//pkg/log:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
