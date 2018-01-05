@@ -311,9 +311,9 @@ docker.prebuilt:
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
 	# TODO: generate or checkin test CA and keys
 	## These are not used so far
-	##security/bin/gen-keys.sh
-	##time (cd security/docker && docker build -t ${HUB}/istio-ca-selfsigned:${TAG} -f Dockerfile.istio-ca-test .)
-	##time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent-test .)
+	security/bin/gen-keys.sh
+	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
 
 
 push: checkvars
