@@ -57,6 +57,7 @@
         "mixer/template/sample/doc.go",
         "mixer/test/spyAdapter/template/doc.go",
         "mixer/tools/codegen/pkg/bootstrapgen/template/bootstrapTemplate.go",
+        "should have a package comment",
         "genfiles"
     ]
 }
