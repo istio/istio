@@ -211,7 +211,9 @@ func (h *handler) Close() error {
 func (h *handler) findPod(uid string) (*v1.Pod, bool) {
 	podKey := keyFromUID(uid)
 	pod, found := h.pods.GetPod(podKey)
-	h.env.Logger().Infof("could not find pod for (uid: %s, key: %s)", uid, podKey)
+	if !found {
+		h.env.Logger().Warningf("could not find pod for (uid: %s, key: %s)", uid, podKey)
+	}
 	return pod, found
 }
 

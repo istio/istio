@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // Template used by generate.sh to code generate config types for Kubernetes APIs.
+//go:generate sh -c "./generate.sh template.go > types.go"
 
 package crd
 

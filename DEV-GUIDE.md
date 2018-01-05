@@ -113,7 +113,7 @@ you must setup a personal access token to enable push via HTTPS. Please follow
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
-### Setting up a container registry
+### Optional: Setting up a container registry
 
 Follow the
 [Google Container Registry Quickstart](https://cloud.google.com/container-registry/docs/quickstart).
@@ -269,7 +269,7 @@ to generate new manifests with mixer, pilot, and ca_cert custom built containers
 
 ```
 cd $ISTIO/istio
-install/updateVersion.sh -a${HUB},${TAG}
+install/updateVersion.sh -a ${HUB},${TAG}
 ```
 
 ### Cleaning outputs
@@ -311,14 +311,6 @@ You can run all the linters we require on your local repo by going to the top of
 make lint
 # To run only on your local changes
 bin/linters.sh -s HEAD^
-```
-
-### Source file dependencies
-
-You can keep track of dependencies between sources using:
-
-```shell
-make gazelle
 ```
 
 ### Race detection tests

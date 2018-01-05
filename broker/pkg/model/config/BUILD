@@ -5,7 +5,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "mock_store.go",
         "resource.go",
         "schema.go",
         "store.go",
@@ -25,18 +24,6 @@ go_library(
     ],
 )
 
-# Auto-generate mock interfaces for unit testing model package.
-#
-# Add `_test` suffix to the output file so mock interfaces, functions,
-# etc. are excluded from test coverage, gometalinter, etc.
-genrule(
-    name = "genmocks",
-    srcs = ["store.go"],
-    outs = ["mock_store.go"],
-    cmd = "$(location @com_github_golang_mock//mockgen) -source $< -destination $@ -package config",
-    tools = ["@com_github_golang_mock//mockgen"],
-)
-
 go_test(
     name = "go_default_test",
     srcs = [
@@ -46,7 +33,6 @@ go_test(
     library = ":go_default_library",
     deps = [
         "@com_github_davecgh_go_spew//spew:go_default_library",
-        "@com_github_golang_mock//gomock:go_default_library",
         "@io_istio_api//broker/v1/config:go_default_library",
     ],
 )
