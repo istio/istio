@@ -61,7 +61,7 @@ HUB=${HUB:-"gcr.io/istio-testing"}
 ${ISTIO_GO}/bin/init.sh
 
 # Build istioctl, used by  the test.
-make depend.ensure istioctl
+make depend.ensure istioctl generate_yaml
 
 mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
 
