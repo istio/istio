@@ -41,6 +41,7 @@ import (
 
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/tools/version"
@@ -534,6 +535,7 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 }
 
 func main() {
