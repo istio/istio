@@ -337,7 +337,7 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 				}
 			}
 
-			route.ShadowCluster = buildShadowCluster(domain, http.Mirror)
+			route.ShadowCluster = buildShadowCluster(domain, port, http.Mirror)
 			route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 			route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 			route.WebsocketUpgrade = http.WebsocketUpgrade
@@ -388,9 +388,10 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	}
 }
 
-func buildShadowCluster(domain string, mirror *routingv2.Destination) *ShadowCluster {
+func buildShadowCluster(domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
-		return &ShadowCluster{Cluster: model.ResolveFQDN(mirror.Name, domain)}
+		fqdn := model.ResolveFQDN(mirror.Name, domain)
+		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
 	}
 	return nil
 }
