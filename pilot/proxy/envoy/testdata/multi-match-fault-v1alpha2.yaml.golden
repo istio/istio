@@ -2,7 +2,15 @@ hosts:
   - world
 http:
   - match:
-      - sourceLabels:
+      - headers:
+          scooby:
+            exact: doo
+        sourceLabels:
+          version: v0
+      - headers:
+          animal:
+            prefix: dog
+        sourceLabels:
           version: v0
     route:
       - destination:

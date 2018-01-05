@@ -41,6 +41,31 @@
            "fixed_delay_percent": 100,
            "fixed_duration_ms": 5000
           },
+          "headers": [
+           {
+            "name": "scooby",
+            "value": "doo"
+           }
+          ],
+          "upstream_cluster": "out.world.default.svc.cluster.local|http|version=v0"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "fault",
+         "config": {
+          "delay": {
+           "type": "fixed",
+           "fixed_delay_percent": 100,
+           "fixed_duration_ms": 5000
+          },
+          "headers": [
+           {
+            "name": "animal",
+            "value": "^dog.*",
+            "regex": true
+           }
+          ],
           "upstream_cluster": "out.world.default.svc.cluster.local|http|version=v0"
          }
         },
@@ -94,6 +119,31 @@
            "fixed_delay_percent": 100,
            "fixed_duration_ms": 5000
           },
+          "headers": [
+           {
+            "name": "scooby",
+            "value": "doo"
+           }
+          ],
+          "upstream_cluster": "out.world.default.svc.cluster.local|http-status|version=v0"
+         }
+        },
+        {
+         "type": "decoder",
+         "name": "fault",
+         "config": {
+          "delay": {
+           "type": "fixed",
+           "fixed_delay_percent": 100,
+           "fixed_duration_ms": 5000
+          },
+          "headers": [
+           {
+            "name": "animal",
+            "value": "^dog.*",
+            "regex": true
+           }
+          ],
           "upstream_cluster": "out.world.default.svc.cluster.local|http-status|version=v0"
          }
         },

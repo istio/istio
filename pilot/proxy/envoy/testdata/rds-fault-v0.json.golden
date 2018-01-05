@@ -47,9 +47,38 @@
      {
       "prefix": "/",
       "cluster": "out.world.default.svc.cluster.local|http|version=v0",
+      "headers": [
+       {
+        "name": "scooby",
+        "value": "doo"
+       }
+      ],
       "timeout_ms": 0,
       "decorator": {
        "operation": "multi-match-fault"
+      }
+     },
+     {
+      "prefix": "/",
+      "cluster": "out.world.default.svc.cluster.local|http|version=v0",
+      "headers": [
+       {
+        "name": "animal",
+        "value": "^dog.*",
+        "regex": true
+       }
+      ],
+      "timeout_ms": 0,
+      "decorator": {
+       "operation": "multi-match-fault"
+      }
+     },
+     {
+      "prefix": "/",
+      "cluster": "out.world.default.svc.cluster.local|http",
+      "timeout_ms": 0,
+      "decorator": {
+       "operation": "default-route"
       }
      }
     ]
