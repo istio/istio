@@ -304,7 +304,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd /go/src/istio.io/istio; ./bin/check_license.sh
+      - run: /go/src/istio.io/istio/bin/check_license.sh
       - run:
           no_output_timeout: 15m
           command: |
