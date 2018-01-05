@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/appoptics/config/config.proto
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/solarwinds/config/config.proto
 
-// Package appoptics publishes metric and log values collected by Mixer
+// Package solarwinds publishes metric and log values collected by Mixer
 // to appoptics and papertrail respectively.
-package appoptics
+package solarwinds
 
 import (
 	"context"
 
-	"istio.io/istio/mixer/adapter/appoptics/config"
+	"istio.io/istio/mixer/adapter/solarwinds/config"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
@@ -40,22 +40,11 @@ type (
 	}
 )
 
-//var (
-//	charReplacer = strings.NewReplacer("/", "_", ".", "_", " ", "_", "-", "")
-
-//	_ metric.HandlerBuilder = &builder{}
-//	_ metric.Handler        = &handler{}
-//)
-
-//const (
-//	namespace = "istio"
-//)
-
 // GetInfo returns the Info associated with this adapter.
 func GetInfo() adapter.Info {
 	return adapter.Info{
-		Name:        "appoptics",
-		Impl:        "istio.io/istio/mixer/adapter/appoptics",
+		Name:        "solarwinds",
+		Impl:        "istio.io/istio/mixer/adapter/solarwinds",
 		Description: "Publishes metrics to appoptics and logs to papertrail",
 		SupportedTemplates: []string{
 			metric.TemplateName,

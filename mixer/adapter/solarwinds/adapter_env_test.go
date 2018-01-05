@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package appoptics
+package solarwinds
 
 import (
-	"istio.io/istio/mixer/adapter/appoptics/papertrail"
+	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 

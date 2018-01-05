@@ -26,10 +26,10 @@ import (
 	opa "istio.io/istio/mixer/adapter/opa"
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
+	solarwinds "istio.io/istio/mixer/adapter/solarwinds"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
 	statsd "istio.io/istio/mixer/adapter/statsd"
 	stdio "istio.io/istio/mixer/adapter/stdio"
-	appoptics "istio.io/istio/mixer/adapter/appoptics"
 	adptr "istio.io/istio/mixer/pkg/adapter"
 )
 
@@ -48,6 +48,6 @@ func Inventory() []adptr.InfoFn {
 		stackdriver.GetInfo,
 		statsd.GetInfo,
 		stdio.GetInfo,
-		appoptics.GetInfo,
+		solarwinds.GetInfo,
 	}
 }

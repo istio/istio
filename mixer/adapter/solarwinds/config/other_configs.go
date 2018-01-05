@@ -14,5 +14,5 @@
 
 package config
 
-// DebugLevel is used to define what verbosity consitutes debug level
+// DebugLevel is used to define what verbosity constitutes debug level
 const DebugLevel = 4 // verbosity level

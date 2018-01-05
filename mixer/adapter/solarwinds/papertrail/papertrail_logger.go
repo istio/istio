@@ -27,7 +27,7 @@ import (
 
 	"log/syslog"
 
-	"istio.io/istio/mixer/adapter/appoptics/config"
+	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/template/logentry"
 
