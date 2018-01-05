@@ -79,19 +79,6 @@ func TestHandleLogEntry(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
 		port := 34543
-		serverStopChan := make(chan struct{})
-		serverTrackChan := make(chan struct{})
-
-		go papertrail.RunUDPServer(port, logger, serverStopChan, serverTrackChan)
-		go func() {
-			count := 0
-			for range serverTrackChan {
-				count++
-			}
-			if count != 1 {
-				t.Errorf("Expected data count (1) received by server dont match the actual number: %d", count)
-			}
-		}()
 
 		lh, _ := newLogHandler(ctx, &adapterEnvInst{}, &config.Params{
 			PapertrailUrl: fmt.Sprintf("localhost:%d", port),
