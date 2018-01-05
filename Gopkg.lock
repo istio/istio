@@ -133,6 +133,12 @@
   version = "v2.4.0"
 
 [[projects]]
+  name = "github.com/fluent/fluent-logger-golang"
+  packages = ["fluent"]
+  revision = "8bbc2356beaf021b04c9bd5cdc76ea5a7ccb40ec"
+  version = "v1.3.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/fullsailor/pkcs7"
   packages = ["."]
@@ -461,6 +467,12 @@
   version = "v2.0.1"
 
 [[projects]]
+  name = "github.com/philhofer/fwd"
+  packages = ["."]
+  revision = "bb6d471dc95d4fe11e432687f8b70ff496cf3136"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
@@ -537,6 +549,12 @@
   packages = ["assert"]
   revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
   version = "v1.2.0"
+
+[[projects]]
+  name = "github.com/tinylib/msgp"
+  packages = ["msgp"]
+  revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
+  version = "1.0.2"
 
 [[projects]]
   branch = "master"
@@ -731,6 +749,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0bba712c246f48c3cf8623ae179a4e465c5c6474572c51fbf9858b6bbff09064"
+  inputs-digest = "c6f77ffedd16dc85659a339920d93251169017f792c209a59285d439d924ce01"
   solver-name = "gps-cdcl"
   solver-version = 1
