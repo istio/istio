@@ -13,6 +13,7 @@ go_library(
     deps = [
         "//pilot/adapter/config/crd:go_default_library",
         "//pilot/cmd:go_default_library",
+        "//pilot/cmd/istioctl/gendeployment:go_default_library",
         "//pilot/model:go_default_library",
         "//pilot/platform/kube:go_default_library",
         "//pilot/platform/kube/inject:go_default_library",

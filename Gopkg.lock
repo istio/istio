@@ -19,6 +19,24 @@
   version = "v9.6.0"
 
 [[projects]]
+  name = "github.com/BurntSushi/toml"
+  packages = ["."]
+  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
+  version = "v0.3.0"
+
+[[projects]]
+  name = "github.com/Masterminds/semver"
+  packages = ["."]
+  revision = "15d8430ab86497c5c0da827b748823945e1cf1e1"
+  version = "v1.4.0"
+
+[[projects]]
+  name = "github.com/Masterminds/sprig"
+  packages = ["."]
+  revision = "b217b9c388de2cacde4354c536e520c52c055563"
+  version = "v2.14.1"
+
+[[projects]]
   name = "github.com/PuerkitoBio/purell"
   packages = ["."]
   revision = "0bcb03f4b4d0a9428594752bd2a3b9aa0a9d4bd4"
@@ -29,6 +47,12 @@
   name = "github.com/PuerkitoBio/urlesc"
   packages = ["."]
   revision = "de5bf2ad457846296e2031421a34e2568e304e35"
+
+[[projects]]
+  name = "github.com/aokoli/goutils"
+  packages = ["."]
+  revision = "3391d3790d23d03408670993e957e8f408993c34"
+  version = "v1.0.1"
 
 [[projects]]
   name = "github.com/apache/thrift"
@@ -149,6 +173,12 @@
   name = "github.com/go-openapi/swag"
   packages = ["."]
   revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
+
+[[projects]]
+  name = "github.com/gobwas/glob"
+  packages = [".","compiler","match","syntax","syntax/ast","syntax/lexer","util/runes","util/strings"]
+  revision = "bea32b9cd2d6f55753d94a28e959b13f0244797a"
+  version = "v0.2.2"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -329,6 +359,12 @@
   name = "github.com/howeyc/gopass"
   packages = ["."]
   revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/huandu/xstrings"
+  packages = ["."]
+  revision = "37469d0c81a7910b49d64a0d308ded4823e90937"
 
 [[projects]]
   name = "github.com/imdario/mergo"
@@ -541,7 +577,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["ed25519","ed25519/internal/edwards25519","ssh/terminal"]
+  packages = ["ed25519","ed25519/internal/edwards25519","pbkdf2","scrypt","ssh/terminal"]
   revision = "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8"
 
 [[projects]]
@@ -675,6 +711,12 @@
   revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
 
 [[projects]]
+  name = "k8s.io/helm"
+  packages = ["pkg/chartutil","pkg/engine","pkg/ignore","pkg/proto/hapi/chart","pkg/proto/hapi/version","pkg/timeconv","pkg/version"]
+  revision = "8478fb4fc723885b155c924d1c8c410b7a9444e6"
+  version = "v2.7.2"
+
+[[projects]]
   name = "k8s.io/ingress"
   packages = ["core/pkg/ingress/annotations/class","core/pkg/ingress/annotations/parser","core/pkg/ingress/errors","core/pkg/ingress/status","core/pkg/ingress/store","core/pkg/k8s","core/pkg/strings","core/pkg/task"]
   revision = "fe19ebb09ee22f90d60ba3111ae0a9db6027e675"
@@ -689,6 +731,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d7e5d97cfd39f3b7d1ac0a200aa6495fce2abf6bb38b1b1a50c619fc58199eff"
+  inputs-digest = "8225ff9675300bde890521e25b39568f0e26d545c6e75714ebfe404fd6f861f0"
   solver-name = "gps-cdcl"
   solver-version = 1
