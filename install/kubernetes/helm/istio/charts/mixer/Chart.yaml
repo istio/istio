@@ -2,7 +2,7 @@ name: mixer
 version: 0.3.0
 description: Helm chart for mixer deployment
 keywords:
-  - Istio
+  - istio
   - mixer
 sources:
   - http://github.com/istio/istio

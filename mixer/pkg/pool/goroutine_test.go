@@ -23,6 +23,8 @@ func TestWorkerPool(t *testing.T) {
 	const numWorkers = 123
 	const numWorkItems = 456
 
+	parameterMismatch := false
+
 	for i := 0; i < 2; i++ {
 		gp := NewGoroutinePool(128, i == 0)
 		gp.AddWorkers(numWorkers)
@@ -31,13 +33,22 @@ func TestWorkerPool(t *testing.T) {
 		wg.Add(numWorkItems)
 
 		for i := 0; i < numWorkItems; i++ {
-			gp.ScheduleWork(func() {
+			passedParam := i // capture the parameter on stack to avoid closing on the loop variable.
+			gp.ScheduleWork(func(param interface{}) {
+				paramI := param.(int)
+				if paramI != passedParam {
+					parameterMismatch = true
+				}
 				wg.Done()
-			})
+			}, passedParam)
 		}
 
 		// wait for all the functions to have run
 		wg.Wait()
+
+		if parameterMismatch {
+			t.Fatal("Passed parameter was not as expected")
+		}
 
 		// make sure the pool can be shutdown cleanly
 		gp.Close()

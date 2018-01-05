@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	pbv "istio.io/api/mixer/v1/config/descriptor"
+	descriptor "istio.io/api/mixer/v1/config/descriptor"
 	pb "istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
 )
@@ -40,6 +40,7 @@ var TestData = []TestInfo{
 		name:  `ExprBench/ok_1st`,
 		Bench: true,
 		E:     `ai == 20 || ar["foo"] == "bar"`,
+		Type:  descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(20),
 			"ar": map[string]string{
@@ -65,6 +66,7 @@ end`,
 		name:  `ExprBench/ok_2nd`,
 		Bench: true,
 		E:     `ai == 20 || ar["foo"] == "bar"`,
+		Type:  descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(2),
 			"ar": map[string]string{
@@ -90,6 +92,7 @@ end`,
 		name:  `ExprBench/not_found`,
 		Bench: true,
 		E:     `ai == 20 || ar["foo"] == "bar"`,
+		Type:  descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(2),
 			"ar": map[string]string{
@@ -114,7 +117,8 @@ end`,
 
 	// Tests from expr/eval_test.go TestGoodEval
 	{
-		E: `a == 2`,
+		E:    `a == 2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -122,7 +126,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `a != 2`,
+		E:    `a != 2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -130,7 +135,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `a != 2`,
+		E:    `a != 2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
@@ -139,7 +145,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: "2 != a",
+		E:    "2 != a",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
@@ -148,7 +155,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: "a ",
+		E:    "a ",
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -179,7 +187,8 @@ end`,
 	},
 
 	{
-		E: "2 ",
+		E:    "2 ",
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -187,7 +196,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.user == "user1"`,
+		E:    `request.user == "user1"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.user": "user1",
 		},
@@ -195,7 +205,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.user2| request.user | "user1"`,
+		E:    `request.user2| request.user | "user1"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"request.user": "user2",
 		},
@@ -203,7 +214,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.user2| request.user3 | "user1"`,
+		E:    `request.user2| request.user3 | "user1"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"request.user": "user2",
 		},
@@ -211,7 +223,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.size| 200`,
+		E:    `request.size| 200`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"request.size": int64(120),
 		},
@@ -219,7 +232,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.size| 200`,
+		E:    `request.size| 200`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"request.size": int64(0),
 		},
@@ -227,7 +241,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.size| 200`,
+		E:    `request.size| 200`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"request.size1": int64(0),
 		},
@@ -235,7 +250,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `(x == 20 && y == 10) || x == 30`,
+		E:    `(x == 20 && y == 10) || x == 30`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"x": int64(20),
 			"y": int64(10),
@@ -244,7 +260,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `x == 20 && y == 10`,
+		E:    `x == 20 && y == 10`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(20),
 			"b": int64(10),
@@ -254,7 +271,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, "*.ns1.cluster") && service.user == "admin"`,
+		E:    `match(service.name, "*.ns1.cluster") && service.user == "admin"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name": "svc1.ns1.cluster",
 			"service.user": "admin",
@@ -264,12 +282,14 @@ end`,
 	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
+		Type: descriptor.BOOL,
 		I:    map[string]interface{}{},
 		R:    false,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `( origin.name | "unknown" ) == "users"`,
+		E:    `( origin.name | "unknown" ) == "users"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"origin.name": "users",
 		},
@@ -277,7 +297,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.header["user"] | "unknown"`,
+		E:    `request.header["user"] | "unknown"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"request.header": map[string]string{
 				"myheader": "bbb",
@@ -288,6 +309,7 @@ end`,
 	},
 	{
 		E:    `origin.name | "users"`,
+		Type: descriptor.STRING,
 		I:    map[string]interface{}{},
 		R:    "users",
 		conf: TestConfigs["Expr/Eval"],
@@ -303,7 +325,8 @@ end`,
 		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.header["X-FORWARDED-HOST"] == "aaa"`,
+		E:    `request.header["X-FORWARDED-HOST"] == "aaa"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.header": map[string]string{
 				"X-FORWARDED-HOST": "bbb",
@@ -313,7 +336,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.header["X-FORWARDED-HOST"] == "aaa"`,
+		E:    `request.header["X-FORWARDED-HOST"] == "aaa"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.header1": map[string]string{
 				"X-FORWARDED-HOST": "bbb",
@@ -324,7 +348,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.header[headername] == "aaa"`,
+		E:    `request.header[headername] == "aaa"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.header": map[string]string{
 				"X-FORWARDED-HOST": "bbb",
@@ -335,7 +360,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.header[headername] == "aaa"`,
+		E:    `request.header[headername] == "aaa"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"request.header": map[string]string{
 				"X-FORWARDED-HOST": "aaa",
@@ -346,7 +372,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, "*.ns1.cluster")`,
+		E:    `match(service.name, "*.ns1.cluster")`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name": "svc1.ns1.cluster",
 		},
@@ -354,7 +381,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, "*.ns1.cluster")`,
+		E:    `match(service.name, "*.ns1.cluster")`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name": "svc1.ns2.cluster",
 		},
@@ -362,7 +390,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, "*.ns1.cluster")`,
+		E:    `match(service.name, "*.ns1.cluster")`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name": 20,
 		},
@@ -371,7 +400,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, servicename)`,
+		E:    `match(service.name, servicename)`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name1": "svc1.ns2.cluster",
 			"servicename":   "*.aaa",
@@ -381,7 +411,8 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `match(service.name, servicename)`,
+		E:    `match(service.name, servicename)`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"service.name": "svc1.ns2.cluster",
 		},
@@ -400,12 +431,14 @@ end`,
 	},
 	{
 		E:    `target.ip| ip("10.1.12.3")`,
+		Type: descriptor.IP_ADDRESS,
 		I:    map[string]interface{}{},
 		R:    []uint8(net.ParseIP("10.1.12.3")),
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `target.ip| ip(2)`,
+		E:    `target.ip| ip(2)`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"target.ip": "",
 		},
@@ -415,6 +448,7 @@ end`,
 	},
 	{
 		E:      `target.ip| ip("10.1.12")`,
+		Type:   descriptor.IP_ADDRESS,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
 		AstErr: "could not convert '10.1.12' to IP_ADDRESS",
@@ -422,12 +456,14 @@ end`,
 	},
 	{
 		E:    `request.time | timestamp("2015-01-02T15:04:35Z")`,
+		Type: descriptor.TIMESTAMP,
 		I:    map[string]interface{}{},
 		R:    t,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: `request.time | timestamp(2)`,
+		E:    `request.time | timestamp(2)`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"request.time": "",
 		},
@@ -437,6 +473,7 @@ end`,
 	},
 	{
 		E:      `request.time | timestamp("242233")`,
+		Type:   descriptor.TIMESTAMP,
 		I:      map[string]interface{}{},
 		Err:    "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
@@ -454,7 +491,8 @@ end`,
 		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
-		E: "a == 2",
+		E:    "a == 2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -462,7 +500,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: "a == 3",
+		E:    "a == 3",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -470,7 +509,8 @@ end`,
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
-		E: "a == 2",
+		E:    "a == 2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
@@ -479,6 +519,7 @@ end`,
 	},
 	{
 		E:      "a == 2",
+		Type:   descriptor.BOOL,
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
@@ -486,12 +527,14 @@ end`,
 	},
 	{
 		E:    `request.user | "user1"`,
+		Type: descriptor.STRING,
 		I:    map[string]interface{}{},
 		R:    "user1",
 		conf: TestConfigs["Expr/Eval"],
 	},
 	{
 		E:      "a == 2",
+		Type:   descriptor.BOOL,
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
@@ -500,8 +543,9 @@ end`,
 
 	// Tests from compiler/compiler_test.go
 	{
-		E: "true",
-		R: true,
+		E:    "true",
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_b true
@@ -509,8 +553,9 @@ fn eval() bool
 end`,
 	},
 	{
-		E: "false",
-		R: false,
+		E:    "false",
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_b false
@@ -518,8 +563,9 @@ fn eval() bool
 end`,
 	},
 	{
-		E: `"ABC"`,
-		R: "ABC",
+		E:    `"ABC"`,
+		Type: descriptor.STRING,
+		R:    "ABC",
 		IL: `
 fn eval() string
   apush_s "ABC"
@@ -527,8 +573,9 @@ fn eval() string
 end`,
 	},
 	{
-		E: `456789`,
-		R: int64(456789),
+		E:    `456789`,
+		Type: descriptor.INT64,
+		R:    int64(456789),
 		IL: `
 fn eval() integer
   apush_i 456789
@@ -536,8 +583,9 @@ fn eval() integer
 end`,
 	},
 	{
-		E: `456.789`,
-		R: float64(456.789),
+		E:    `456.789`,
+		Type: descriptor.DOUBLE,
+		R:    float64(456.789),
 		IL: `
 fn eval() double
   apush_d 456.789000
@@ -545,8 +593,9 @@ fn eval() double
 end`,
 	},
 	{
-		E: `true || false`,
-		R: true,
+		E:    `true || false`,
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_b true
@@ -560,8 +609,9 @@ end`,
 	},
 
 	{
-		E: `false || true`,
-		R: true,
+		E:    `false || true`,
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_b false
@@ -575,21 +625,25 @@ end`,
 	},
 
 	{
-		E: `false || false`,
-		R: false,
+		E:    `false || false`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: `true || false`,
-		R: true,
+		E:    `true || false`,
+		Type: descriptor.BOOL,
+		R:    true,
 	},
 	{
-		E: `false || true`,
-		R: true,
+		E:    `false || true`,
+		Type: descriptor.BOOL,
+		R:    true,
 	},
 
 	{
-		E: `false || true || false`,
-		R: true,
+		E:    `false || true || false`,
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_b false
@@ -608,12 +662,14 @@ L2:
 end`,
 	},
 	{
-		E: `false || false || false`,
-		R: false,
+		E:    `false || false || false`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: `false && true`,
-		R: false,
+		E:    `false && true`,
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_b false
@@ -623,8 +679,9 @@ fn eval() bool
 end`,
 	},
 	{
-		E: `true && false`,
-		R: false,
+		E:    `true && false`,
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
  fn eval() bool
   apush_b true
@@ -634,15 +691,18 @@ end`,
 end`,
 	},
 	{
-		E: `true && true`,
-		R: true,
+		E:    `true && true`,
+		Type: descriptor.BOOL,
+		R:    true,
 	},
 	{
-		E: `false && false`,
-		R: false,
+		E:    `false && false`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: "b1 && b2",
+		E:    "b1 && b2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"b1": false,
 			"b2": true,
@@ -650,7 +710,8 @@ end`,
 		R: false,
 	},
 	{
-		E: "b1 && b2",
+		E:    "b1 && b2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"b1": true,
 			"b2": true,
@@ -658,8 +719,9 @@ end`,
 		R: true,
 	},
 	{
-		E: "3 == 2",
-		R: false,
+		E:    "3 == 2",
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_i 3
@@ -669,8 +731,9 @@ end`,
 	},
 
 	{
-		E: "true == false",
-		R: false,
+		E:    "true == false",
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_b true
@@ -680,21 +743,25 @@ end`,
 	},
 
 	{
-		E: "false == false",
-		R: true,
+		E:    "false == false",
+		Type: descriptor.BOOL,
+		R:    true,
 	},
 	{
-		E: "false == true",
-		R: false,
+		E:    "false == true",
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: "true == true",
-		R: true,
+		E:    "true == true",
+		Type: descriptor.BOOL,
+		R:    true,
 	},
 
 	{
-		E: `"ABC" == "ABC"`,
-		R: true,
+		E:    `"ABC" == "ABC"`,
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_s "ABC"
@@ -704,8 +771,9 @@ end`,
 	},
 
 	{
-		E: `"ABC" == "CBA"`,
-		R: false,
+		E:    `"ABC" == "CBA"`,
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_s "ABC"
@@ -715,8 +783,9 @@ end`,
 	},
 
 	{
-		E: `23.45 == 45.23`,
-		R: false,
+		E:    `23.45 == 45.23`,
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_d 23.450000
@@ -726,8 +795,9 @@ end`,
 	},
 
 	{
-		E: "3 != 2",
-		R: true,
+		E:    "3 != 2",
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_i 3
@@ -738,8 +808,9 @@ end`,
 	},
 
 	{
-		E: "true != false",
-		R: true,
+		E:    "true != false",
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_b true
@@ -750,8 +821,9 @@ end`,
 	},
 
 	{
-		E: `"ABC" != "ABC"`,
-		R: false,
+		E:    `"ABC" != "ABC"`,
+		Type: descriptor.BOOL,
+		R:    false,
 		IL: `
 fn eval() bool
   apush_s "ABC"
@@ -762,8 +834,9 @@ end`,
 	},
 
 	{
-		E: `23.45 != 45.23`,
-		R: true,
+		E:    `23.45 != 45.23`,
+		Type: descriptor.BOOL,
+		R:    true,
 		IL: `
 fn eval() bool
   apush_d 23.450000
@@ -773,7 +846,8 @@ fn eval() bool
 end`,
 	},
 	{
-		E: `ab`,
+		E:    `ab`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ab": true,
 		},
@@ -785,12 +859,14 @@ fn eval() bool
 end`,
 	},
 	{
-		E:   `ab`,
-		Err: "lookup failed: 'ab'",
-		R:   true, // Keep the return type, so that the special-purpose methods can be tested.
+		E:    `ab`,
+		Type: descriptor.BOOL,
+		Err:  "lookup failed: 'ab'",
+		R:    true, // Keep the return type, so that the special-purpose methods can be tested.
 	},
 	{
-		E: `as`,
+		E:    `as`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "AAA",
 		},
@@ -802,7 +878,8 @@ fn eval() string
 end`,
 	},
 	{
-		E: `ad`,
+		E:    `ad`,
+		Type: descriptor.DOUBLE,
 		I: map[string]interface{}{
 			"ad": float64(23.46),
 		},
@@ -814,7 +891,8 @@ fn eval() double
 end`,
 	},
 	{
-		E: `ai`,
+		E:    `ai`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"ai": int64(2346),
 		},
@@ -826,7 +904,8 @@ fn eval() integer
 end`,
 	},
 	{
-		E: `ar["b"]`,
+		E:    `ar["b"]`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"b": "c",
@@ -842,7 +921,8 @@ end
 `,
 	},
 	{
-		E: `ai == 20 || ar["b"] == "c"`,
+		E:    `ai == 20 || ar["b"] == "c"`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(19),
 			"ar": map[string]string{
@@ -866,19 +946,22 @@ end`,
 	},
 	{
 		E:       `as | ""`,
+		Type:    descriptor.STRING,
 		R:       "",
 		SkipAst: true, // AST returns nil for this case.
 	},
 	{
-		E: `as | ""`,
+		E:    `as | ""`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "foo",
 		},
 		R: "foo",
 	},
 	{
-		E: `as | "user1"`,
-		R: "user1",
+		E:    `as | "user1"`,
+		Type: descriptor.STRING,
+		R:    "user1",
 		IL: `
 fn eval() string
   tresolve_s "as"
@@ -889,15 +972,17 @@ L0:
 end`,
 	},
 	{
-		E: `as | "user1"`,
-		R: "a2",
+		E:    `as | "user1"`,
+		Type: descriptor.STRING,
+		R:    "a2",
 		I: map[string]interface{}{
 			"as": "a2",
 		},
 	},
 	{
-		E: `as | bs | "user1"`,
-		R: "user1",
+		E:    `as | bs | "user1"`,
+		Type: descriptor.STRING,
+		R:    "user1",
 		IL: `
 fn eval() string
   tresolve_s "as"
@@ -910,21 +995,24 @@ L0:
 end`,
 	},
 	{
-		E: `as | bs | "user1"`,
+		E:    `as | bs | "user1"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "a2",
 		},
 		R: "a2",
 	},
 	{
-		E: `as | bs | "user1"`,
+		E:    `as | bs | "user1"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"bs": "b2",
 		},
 		R: "b2",
 	},
 	{
-		E: `as | bs | "user1"`,
+		E:    `as | bs | "user1"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "a2",
 			"bs": "b2",
@@ -933,7 +1021,8 @@ end`,
 	},
 
 	{
-		E: `ab | true`,
+		E:    `ab | true`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ab": false,
 		},
@@ -948,12 +1037,14 @@ L0:
 end`,
 	},
 	{
-		E: `ab | true`,
-		I: map[string]interface{}{},
-		R: true,
+		E:    `ab | true`,
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		R:    true,
 	},
 	{
-		E: `ab | bb | true`,
+		E:    `ab | bb | true`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ab": false,
 		},
@@ -970,20 +1061,23 @@ L0:
 end`,
 	},
 	{
-		E: `ab | bb | true`,
+		E:    `ab | bb | true`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"bb": false,
 		},
 		R: false,
 	},
 	{
-		E: `ab | bb | true`,
-		I: map[string]interface{}{},
-		R: true,
+		E:    `ab | bb | true`,
+		Type: descriptor.BOOL,
+		I:    map[string]interface{}{},
+		R:    true,
 	},
 
 	{
-		E: `ai | 42`,
+		E:    `ai | 42`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"ai": int64(10),
 		},
@@ -998,12 +1092,14 @@ L0:
 end`,
 	},
 	{
-		E: `ai | 42`,
-		I: map[string]interface{}{},
-		R: int64(42),
+		E:    `ai | 42`,
+		Type: descriptor.INT64,
+		I:    map[string]interface{}{},
+		R:    int64(42),
 	},
 	{
-		E: `ai | bi | 42`,
+		E:    `ai | bi | 42`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"ai": int64(10),
 		},
@@ -1020,20 +1116,23 @@ L0:
 end`,
 	},
 	{
-		E: `ai | bi | 42`,
+		E:    `ai | bi | 42`,
+		Type: descriptor.INT64,
 		I: map[string]interface{}{
 			"bi": int64(20),
 		},
 		R: int64(20),
 	},
 	{
-		E: `ai | bi | 42`,
-		I: map[string]interface{}{},
-		R: int64(42),
+		E:    `ai | bi | 42`,
+		Type: descriptor.INT64,
+		I:    map[string]interface{}{},
+		R:    int64(42),
 	},
 
 	{
-		E: `ad | 42.1`,
+		E:    `ad | 42.1`,
+		Type: descriptor.DOUBLE,
 		I: map[string]interface{}{
 			"ad": float64(10),
 		},
@@ -1048,12 +1147,14 @@ L0:
 end`,
 	},
 	{
-		E: `ad | 42.1`,
-		I: map[string]interface{}{},
-		R: float64(42.1),
+		E:    `ad | 42.1`,
+		Type: descriptor.DOUBLE,
+		I:    map[string]interface{}{},
+		R:    float64(42.1),
 	},
 	{
-		E: `ad | bd | 42.1`,
+		E:    `ad | bd | 42.1`,
+		Type: descriptor.DOUBLE,
 		I: map[string]interface{}{
 			"ad": float64(10),
 		},
@@ -1070,20 +1171,23 @@ L0:
 end`,
 	},
 	{
-		E: `ad | bd | 42.1`,
+		E:    `ad | bd | 42.1`,
+		Type: descriptor.DOUBLE,
 		I: map[string]interface{}{
 			"bd": float64(20),
 		},
 		R: float64(20),
 	},
 	{
-		E: `ad | bd | 42.1`,
-		I: map[string]interface{}{},
-		R: float64(42.1),
+		E:    `ad | bd | 42.1`,
+		Type: descriptor.DOUBLE,
+		I:    map[string]interface{}{},
+		R:    float64(42.1),
 	},
 
 	{
 		E:       `(ar | br)["foo"]`,
+		Type:    descriptor.STRING,
 		SkipAst: true, // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"ar": map[string]string{
@@ -1106,6 +1210,7 @@ end`,
 	},
 	{
 		E:       `(ar | br)["foo"]`,
+		Type:    descriptor.STRING,
 		SkipAst: true, // AST evaluator panics for this case.
 		I: map[string]interface{}{
 			"br": map[string]string{
@@ -1116,7 +1221,8 @@ end`,
 	},
 
 	{
-		E: "ai == 2",
+		E:    "ai == 2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(2),
 		},
@@ -1129,14 +1235,16 @@ end`,
 end`,
 	},
 	{
-		E: "ai == 2",
+		E:    "ai == 2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(0x7F000000FF000000),
 		},
 		R: false,
 	},
 	{
-		E: "as == bs",
+		E:    "as == bs",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"as": "ABC",
 			"bs": "ABC",
@@ -1151,7 +1259,8 @@ fn eval() bool
 end`,
 	},
 	{
-		E: "ab == bb",
+		E:    "ab == bb",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ab": true,
 			"bb": true,
@@ -1166,7 +1275,8 @@ fn eval() bool
 end`,
 	},
 	{
-		E: "ai == bi",
+		E:    "ai == bi",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(0x7F000000FF000000),
 			"bi": int64(0x7F000000FF000000),
@@ -1181,7 +1291,8 @@ fn eval() bool
 end`,
 	},
 	{
-		E: "ad == bd",
+		E:    "ad == bd",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ad": float64(345345.45),
 			"bd": float64(345345.45),
@@ -1196,7 +1307,8 @@ fn eval() bool
 end`,
 	},
 	{
-		E: "ai != 2",
+		E:    "ai != 2",
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"ai": int64(2),
 		},
@@ -1211,7 +1323,8 @@ end`,
 	},
 
 	{
-		E: `sm["foo"]`,
+		E:    `sm["foo"]`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"sm": map[string]string{"foo": "bar"},
 		},
@@ -1224,7 +1337,8 @@ fn eval() string
 end`,
 	},
 	{
-		E: `sm[as]`,
+		E:    `sm[as]`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "foo",
 			"sm": map[string]string{"foo": "bar"},
@@ -1239,9 +1353,10 @@ fn eval() string
 end`,
 	},
 	{
-		E: `ar["c"] | "foo"`,
-		I: map[string]interface{}{},
-		R: "foo",
+		E:    `ar["c"] | "foo"`,
+		Type: descriptor.STRING,
+		I:    map[string]interface{}{},
+		R:    "foo",
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1258,16 +1373,18 @@ L2:
 end`,
 	},
 	{
-		E: `ar["c"] | "foo"`,
+		E:    `ar["c"] | "foo"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{"c": "b"},
 		},
 		R: "b",
 	},
 	{
-		E: `ar[as] | "foo"`,
-		I: map[string]interface{}{},
-		R: "foo",
+		E:    `ar[as] | "foo"`,
+		Type: descriptor.STRING,
+		I:    map[string]interface{}{},
+		R:    "foo",
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1287,21 +1404,24 @@ L3:
 end`,
 	},
 	{
-		E: `ar[as] | "foo"`,
+		E:    `ar[as] | "foo"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{"as": "bar"},
 		},
 		R: "foo",
 	},
 	{
-		E: `ar[as] | "foo"`,
+		E:    `ar[as] | "foo"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"as": "bar",
 		},
 		R: "foo",
 	},
 	{
-		E: `ar[as] | "foo"`,
+		E:    `ar[as] | "foo"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{"as": "bar"},
 			"as": "!!!!",
@@ -1309,7 +1429,8 @@ end`,
 		R: "foo",
 	},
 	{
-		E: `ar[as] | "foo"`,
+		E:    `ar[as] | "foo"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{"asval": "bar"},
 			"as": "asval",
@@ -1317,7 +1438,8 @@ end`,
 		R: "bar",
 	},
 	{
-		E: `ar["b"] | ar["c"] | "null"`,
+		E:    `ar["b"] | ar["c"] | "null"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"b": "c",
@@ -1349,14 +1471,16 @@ L2:
 end`,
 	},
 	{
-		E: `ar["b"] | ar["c"] | "null"`,
+		E:    `ar["b"] | ar["c"] | "null"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{},
 		},
 		R: "null",
 	},
 	{
-		E: `ar["b"] | ar["c"] | "null"`,
+		E:    `ar["b"] | ar["c"] | "null"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"b": "c",
@@ -1365,7 +1489,8 @@ end`,
 		R: "c",
 	},
 	{
-		E: `ar["b"] | ar["c"] | "null"`,
+		E:    `ar["b"] | ar["c"] | "null"`,
+		Type: descriptor.STRING,
 		I: map[string]interface{}{
 			"ar": map[string]string{
 				"c": "b",
@@ -1374,7 +1499,8 @@ end`,
 		R: "b",
 	},
 	{
-		E: `adur`,
+		E:    `adur`,
+		Type: descriptor.DURATION,
 		I: map[string]interface{}{
 			"adur": duration20,
 		},
@@ -1386,9 +1512,10 @@ fn eval() duration
 end`,
 	},
 	{
-		E: `adur | "19ms"`,
-		I: map[string]interface{}{},
-		R: duration19,
+		E:    `adur | "19ms"`,
+		Type: descriptor.DURATION,
+		I:    map[string]interface{}{},
+		R:    duration19,
 		IL: `
 fn eval() duration
   tresolve_i "adur"
@@ -1399,21 +1526,24 @@ L0:
 end`,
 	},
 	{
-		E: `adur | "19ms"`,
+		E:    `adur | "19ms"`,
+		Type: descriptor.DURATION,
 		I: map[string]interface{}{
 			"adur": duration20,
 		},
 		R: duration20,
 	},
 	{
-		E: `at`,
+		E:    `at`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"at": time1977,
 		},
 		R: time1977,
 	},
 	{
-		E: `at | bt`,
+		E:    `at | bt`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"at": time1999,
 			"bt": time1977,
@@ -1421,28 +1551,32 @@ end`,
 		R: time1999,
 	},
 	{
-		E: `at | bt`,
+		E:    `at | bt`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"bt": time1977,
 		},
 		R: time1977,
 	},
 	{
-		E: `aip`,
+		E:    `aip`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 		},
 		R: []byte{0x1, 0x2, 0x3, 0x4},
 	},
 	{
-		E: `aip | bip`,
+		E:    `aip | bip`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
 		},
 		R: []byte{0x4, 0x5, 0x6, 0x7},
 	},
 	{
-		E: `aip | bip`,
+		E:    `aip | bip`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
@@ -1450,8 +1584,9 @@ end`,
 		R: []byte{0x1, 0x2, 0x3, 0x4},
 	},
 	{
-		E: `ip("0.0.0.0")`,
-		R: []byte(net.IPv4zero),
+		E:    `ip("0.0.0.0")`,
+		Type: descriptor.IP_ADDRESS,
+		R:    []byte(net.IPv4zero),
 		IL: `fn eval() interface
   apush_s "0.0.0.0"
   call ip
@@ -1459,7 +1594,8 @@ end`,
 end`,
 	},
 	{
-		E: `aip == bip`,
+		E:    `aip == bip`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"aip": []byte{0x1, 0x2, 0x3, 0x4},
 			"bip": []byte{0x4, 0x5, 0x6, 0x7},
@@ -1473,8 +1609,9 @@ end`,
 end`,
 	},
 	{
-		E: `timestamp("2015-01-02T15:04:35Z")`,
-		R: t,
+		E:    `timestamp("2015-01-02T15:04:35Z")`,
+		Type: descriptor.TIMESTAMP,
+		R:    t,
 		IL: `fn eval() interface
   apush_s "2015-01-02T15:04:35Z"
   call timestamp
@@ -1482,7 +1619,8 @@ end`,
 end`,
 	},
 	{
-		E: `t1 == t2`,
+		E:    `t1 == t2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"t1": t,
 			"t2": t2,
@@ -1496,7 +1634,8 @@ end`,
 end`,
 	},
 	{
-		E: `t1 == t2`,
+		E:    `t1 == t2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"t1": t,
 			"t2": t,
@@ -1510,7 +1649,8 @@ end`,
 end`,
 	},
 	{
-		E: `t1 != t2`,
+		E:    `t1 != t2`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"t1": t,
 			"t2": t,
@@ -1525,14 +1665,16 @@ end`,
 end`,
 	},
 	{
-		E: `t1 | t2`,
+		E:    `t1 | t2`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"t2": t2,
 		},
 		R: t2,
 	},
 	{
-		E: `t1 | t2`,
+		E:    `t1 | t2`,
+		Type: descriptor.TIMESTAMP,
 		I: map[string]interface{}{
 			"t1": t,
 			"t2": t2,
@@ -1551,7 +1693,8 @@ end`,
 	},
 
 	{
-		E: `"foo" | "bar"`,
+		E:    `"foo" | "bar"`,
+		Type: descriptor.STRING,
 		IL: `
 fn eval() string
   apush_s "foo"
@@ -1565,7 +1708,8 @@ end
 	},
 
 	{
-		E: `ip("1.2.3.4")`,
+		E:    `ip("1.2.3.4")`,
+		Type: descriptor.IP_ADDRESS,
 		IL: `
 fn eval() interface
   apush_s "1.2.3.4"
@@ -1577,7 +1721,8 @@ end
 	},
 
 	{
-		E: `ip(as)`,
+		E:    `ip(as)`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"as": "1.2.3.4",
 		},
@@ -1592,7 +1737,8 @@ end
 	},
 
 	{
-		E: `ip("1.2.3.4" | "5.6.7.8")`,
+		E:    `ip("1.2.3.4" | "5.6.7.8")`,
+		Type: descriptor.IP_ADDRESS,
 		IL: `
 fn eval() interface
   apush_s "1.2.3.4"
@@ -1607,7 +1753,8 @@ end
 	},
 
 	{
-		E: `ip(as | "5.6.7.8")`,
+		E:    `ip(as | "5.6.7.8")`,
+		Type: descriptor.IP_ADDRESS,
 		IL: `
 fn eval() interface
   tresolve_s "as"
@@ -1622,7 +1769,8 @@ end
 	},
 
 	{
-		E: `ip(as | bs)`,
+		E:    `ip(as | bs)`,
+		Type: descriptor.IP_ADDRESS,
 		I: map[string]interface{}{
 			"bs": "1.2.3.4",
 		},
@@ -1630,12 +1778,14 @@ end
 	},
 
 	{
-		E:   `ip(as | bs)`,
-		Err: "lookup failed: 'bs'",
+		E:    `ip(as | bs)`,
+		Type: descriptor.IP_ADDRESS,
+		Err:  "lookup failed: 'bs'",
 	},
 
 	{
-		E: `ip(ar["foo"])`,
+		E:    `ip(ar["foo"])`,
+		Type: descriptor.IP_ADDRESS,
 		IL: `
 fn eval() interface
   resolve_f "ar"
@@ -1651,7 +1801,8 @@ end
 	},
 
 	{
-		E: `reverse(as)`,
+		E:    `reverse(as)`,
+		Type: descriptor.STRING,
 		IL: `
 fn eval() string
   resolve_s "as"
@@ -1664,7 +1815,7 @@ end
 		},
 		R: "1rts",
 		Fns: []expr.FunctionMetadata{
-			{Name: "reverse", Instance: false, ArgumentTypes: []pbv.ValueType{pbv.STRING}, ReturnType: pbv.STRING},
+			{Name: "reverse", Instance: false, ArgumentTypes: []descriptor.ValueType{descriptor.STRING}, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
 			"reverse": func(s string) string {
@@ -1678,7 +1829,8 @@ end
 	},
 
 	{
-		E: `as.reverse()`,
+		E:    `as.reverse()`,
+		Type: descriptor.STRING,
 		IL: `
 fn eval() string
   resolve_s "as"
@@ -1691,7 +1843,7 @@ end
 		},
 		R: "1rts",
 		Fns: []expr.FunctionMetadata{
-			{Name: "reverse", Instance: true, TargetType: pbv.STRING, ReturnType: pbv.STRING},
+			{Name: "reverse", Instance: true, TargetType: descriptor.STRING, ReturnType: descriptor.STRING},
 		},
 		Externs: map[string]interface{}{
 			"reverse": func(s string) string {
@@ -1717,7 +1869,8 @@ end
 		CompileErr: `invoking instance method without an instance: matches`,
 	},
 	{
-		E: `"abc".matches("abc")`,
+		E:    `"abc".matches("abc")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s "abc"
@@ -1729,7 +1882,8 @@ end
 		R: true,
 	},
 	{
-		E: `".*".matches("abc")`,
+		E:    `".*".matches("abc")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s ".*"
@@ -1741,11 +1895,13 @@ end
 		R: true,
 	},
 	{
-		E: `"ab.*d".matches("abc")`,
-		R: false,
+		E:    `"ab.*d".matches("abc")`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: `as.matches(bs)`,
+		E:    `as.matches(bs)`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   resolve_s "as"
@@ -1760,7 +1916,8 @@ end`,
 		R: true,
 	},
 	{
-		E: `as.matches(bs)`,
+		E:    `as.matches(bs)`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"as": "st.*",
 			"bs": "sqr1",
@@ -1781,7 +1938,8 @@ end`,
 		CompileErr: `invoking instance method without an instance: startsWith`,
 	},
 	{
-		E: `"abc".startsWith("abc")`,
+		E:    `"abc".startsWith("abc")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s "abc"
@@ -1793,7 +1951,8 @@ end
 		R: true,
 	},
 	{
-		E: `"abcd".startsWith("abc")`,
+		E:    `"abcd".startsWith("abc")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s "abcd"
@@ -1805,11 +1964,13 @@ end
 		R: true,
 	},
 	{
-		E: `"abfood".startsWith("abc")`,
-		R: false,
+		E:    `"abfood".startsWith("abc")`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: `as.startsWith(bs)`,
+		E:    `as.startsWith(bs)`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   resolve_s "as"
@@ -1824,7 +1985,8 @@ end`,
 		R: true,
 	},
 	{
-		E: `as.startsWith(bs)`,
+		E:    `as.startsWith(bs)`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"as": "bcda",
 			"bs": "abc",
@@ -1845,7 +2007,8 @@ end`,
 		CompileErr: `invoking instance method without an instance: endsWith`,
 	},
 	{
-		E: `"abc".endsWith("abc")`,
+		E:    `"abc".endsWith("abc")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s "abc"
@@ -1857,7 +2020,8 @@ end
 		R: true,
 	},
 	{
-		E: `"abcd".endsWith("bcd")`,
+		E:    `"abcd".endsWith("bcd")`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   apush_s "abcd"
@@ -1869,11 +2033,13 @@ end
 		R: true,
 	},
 	{
-		E: `"abfood".endsWith("abc")`,
-		R: false,
+		E:    `"abfood".endsWith("abc")`,
+		Type: descriptor.BOOL,
+		R:    false,
 	},
 	{
-		E: `as.endsWith(bs)`,
+		E:    `as.endsWith(bs)`,
+		Type: descriptor.BOOL,
 		IL: `
 fn eval() bool
   resolve_s "as"
@@ -1888,7 +2054,8 @@ end`,
 		R: true,
 	},
 	{
-		E: `as.endsWith(bs)`,
+		E:    `as.endsWith(bs)`,
+		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"as": "bcda",
 			"bs": "abc",
@@ -1917,6 +2084,9 @@ type TestInfo struct {
 
 	// R contains the expected result of a successful evaluation.
 	R interface{}
+
+	// Type is the expected of the expression upon successful compilation.
+	Type descriptor.ValueType
 
 	// Err contains the expected error message of a failed evaluation.
 	Err string
@@ -1993,58 +2163,58 @@ var TestConfigs = map[string]*pb.GlobalConfig{
 			{
 				Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
 					"a": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"request.user": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"request.user2": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"request.user3": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"source.name": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"source.target": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"request.size": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"request.size1": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"x": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"y": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"service.name": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"service.user": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"origin.name": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"request.header": {
-						ValueType: pbv.STRING_MAP,
+						ValueType: descriptor.STRING_MAP,
 					},
 					"request.time": {
-						ValueType: pbv.TIMESTAMP,
+						ValueType: descriptor.TIMESTAMP,
 					},
 					"headername": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"target.ip": {
-						ValueType: pbv.IP_ADDRESS,
+						ValueType: descriptor.IP_ADDRESS,
 					},
 					"servicename": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 				},
 			},
@@ -2055,67 +2225,67 @@ var TestConfigs = map[string]*pb.GlobalConfig{
 			{
 				Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
 					"ai": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"ab": {
-						ValueType: pbv.BOOL,
+						ValueType: descriptor.BOOL,
 					},
 					"as": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"ad": {
-						ValueType: pbv.DOUBLE,
+						ValueType: descriptor.DOUBLE,
 					},
 					"ar": {
-						ValueType: pbv.STRING_MAP,
+						ValueType: descriptor.STRING_MAP,
 					},
 					"adur": {
-						ValueType: pbv.DURATION,
+						ValueType: descriptor.DURATION,
 					},
 					"at": {
-						ValueType: pbv.TIMESTAMP,
+						ValueType: descriptor.TIMESTAMP,
 					},
 					"aip": {
-						ValueType: pbv.IP_ADDRESS,
+						ValueType: descriptor.IP_ADDRESS,
 					},
 					"bi": {
-						ValueType: pbv.INT64,
+						ValueType: descriptor.INT64,
 					},
 					"bb": {
-						ValueType: pbv.BOOL,
+						ValueType: descriptor.BOOL,
 					},
 					"bs": {
-						ValueType: pbv.STRING,
+						ValueType: descriptor.STRING,
 					},
 					"bd": {
-						ValueType: pbv.DOUBLE,
+						ValueType: descriptor.DOUBLE,
 					},
 					"br": {
-						ValueType: pbv.STRING_MAP,
+						ValueType: descriptor.STRING_MAP,
 					},
 					"bdur": {
-						ValueType: pbv.DURATION,
+						ValueType: descriptor.DURATION,
 					},
 					"bt": {
-						ValueType: pbv.TIMESTAMP,
+						ValueType: descriptor.TIMESTAMP,
 					},
 					"t1": {
-						ValueType: pbv.TIMESTAMP,
+						ValueType: descriptor.TIMESTAMP,
 					},
 					"t2": {
-						ValueType: pbv.TIMESTAMP,
+						ValueType: descriptor.TIMESTAMP,
 					},
 					"bip": {
-						ValueType: pbv.IP_ADDRESS,
+						ValueType: descriptor.IP_ADDRESS,
 					},
 					"b1": {
-						ValueType: pbv.BOOL,
+						ValueType: descriptor.BOOL,
 					},
 					"b2": {
-						ValueType: pbv.BOOL,
+						ValueType: descriptor.BOOL,
 					},
 					"sm": {
-						ValueType: pbv.STRING_MAP,
+						ValueType: descriptor.STRING_MAP,
 					},
 				},
 			},

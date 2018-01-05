@@ -1,22 +1,28 @@
-# gazelle:ignore
 package(default_visibility = ["//visibility:public"])
 
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
-load("//mixer/tools/codegen:generate.bzl", "mixer_supported_template_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
-mixer_supported_template_library(
+go_library(
     name = "go_default_library",
-    packages = {
-        "//mixer/template/sample/report:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/report",
-        "//mixer/template/sample/check:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/check",
-        "//mixer/template/sample/quota:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/quota",
-        "//mixer/template/sample/apa:go_default_library_proto.descriptor_set": "istio.io/istio/mixer/template/sample/apa",
-    },
+    srcs = [
+        "doc.go",
+        "template.gen.go",
+    ],
+    visibility = ["//visibility:public"],
     deps = [
+        "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/attribute:go_default_library",
+        "//mixer/pkg/config/proto:go_default_library",
+        "//mixer/pkg/expr:go_default_library",
+        "//mixer/pkg/template:go_default_library",
         "//mixer/template/sample/apa:go_default_library",
         "//mixer/template/sample/check:go_default_library",
         "//mixer/template/sample/quota:go_default_library",
         "//mixer/template/sample/report:go_default_library",
+        "//pkg/log:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
+        "@io_istio_api//mixer/v1/template:go_default_library",
     ],
 )
 

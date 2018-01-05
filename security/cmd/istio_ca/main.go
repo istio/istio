@@ -20,13 +20,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/cmd/istio_ca/version"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -66,10 +68,14 @@ type cliOptions struct {
 
 	grpcHostname string
 	grpcPort     int
+
+	loggingOptions *log.Options
 }
 
 var (
-	opts cliOptions
+	opts = cliOptions{
+		loggingOptions: log.NewOptions(),
+	}
 
 	rootCmd = &cobra.Command{
 		Use:   "istio_ca",
@@ -79,6 +85,11 @@ var (
 		},
 	}
 )
+
+func fatalf(template string, args ...interface{}) {
+	log.Errorf(template, args)
+	os.Exit(-1)
+}
 
 func init() {
 	flags := rootCmd.Flags()
@@ -114,17 +125,22 @@ func init() {
 
 	rootCmd.AddCommand(version.Command)
 
+	opts.loggingOptions.AttachCobraFlags(rootCmd)
 	cmd.InitializeFlags(rootCmd)
 }
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		os.Exit(-1)
 	}
 }
 
 func runCA() {
+	if err := log.Configure(opts.loggingOptions); err != nil {
+		fatalf("Failed to configure logging (%v)", err)
+	}
+
 	if value, exists := os.LookupEnv(namespaceKey); exists {
 		// When -namespace is not set, try to read the namespace from environment variable.
 		if opts.namespace == "" {
@@ -161,11 +177,11 @@ func runCA() {
 			// stop the registry-related controllers
 			ch <- struct{}{}
 
-			glog.Warningf("Failed to start GRPC server with error: %v", err)
+			log.Warnf("Failed to start GRPC server with error: %v", err)
 		}
 	}
 
-	glog.Info("Istio CA has started")
+	log.Info("Istio CA has started")
 	select {} // wait forever
 }
 
@@ -173,20 +189,20 @@ func createClientset() *kubernetes.Clientset {
 	c := generateConfig()
 	cs, err := kubernetes.NewForConfig(c)
 	if err != nil {
-		glog.Fatalf("Failed to create a clientset (error: %s)", err)
+		fatalf("Failed to create a clientset (error: %s)", err)
 	}
 	return cs
 }
 
 func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 	if opts.selfSignedCA {
-		glog.Info("Use self-signed certificate as the CA certificate")
+		log.Info("Use self-signed certificate as the CA certificate")
 
 		// TODO(wattli): Refactor this and combine it with NewIstioCA().
 		istioCA, err := ca.NewSelfSignedIstioCA(opts.caCertTTL, opts.certTTL, opts.selfSignedCAOrg,
 			opts.istioCaStorageNamespace, core)
 		if err != nil {
-			glog.Fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
+			fatalf("Failed to create a self-signed Istio CA (error: %v)", err)
 		}
 		return istioCA
 	}
@@ -205,7 +221,7 @@ func createCA(core corev1.SecretsGetter) ca.CertificateAuthority {
 
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
-		glog.Errorf("Failed to create an Istio CA (error: %v)", err)
+		log.Errorf("Failed to create an Istio CA (error: %v)", err)
 	}
 	return istioCA
 }
@@ -214,7 +230,7 @@ func generateConfig() *rest.Config {
 	if opts.kubeConfigFile != "" {
 		c, err := clientcmd.BuildConfigFromFlags("", opts.kubeConfigFile)
 		if err != nil {
-			glog.Fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
+			fatalf("Failed to create a config object from file %s, (error %v)", opts.kubeConfigFile, err)
 		}
 		return c
 	}
@@ -222,7 +238,7 @@ func generateConfig() *rest.Config {
 	// When `kubeConfigFile` is unspecified, use the in-cluster configuration.
 	c, err := rest.InClusterConfig()
 	if err != nil {
-		glog.Fatalf("Failed to create a in-cluster config (error: %s)", err)
+		fatalf("Failed to create a in-cluster config (error: %s)", err)
 	}
 	return c
 }
@@ -230,7 +246,7 @@ func generateConfig() *rest.Config {
 func readFile(filename string) []byte {
 	bs, err := ioutil.ReadFile(filename)
 	if err != nil {
-		glog.Fatalf("Failed to read file %s (error: %v)", filename, err)
+		fatalf("Failed to read file %s (error: %v)", filename, err)
 	}
 	return bs
 }
@@ -241,19 +257,19 @@ func verifyCommandLineOptions() {
 	}
 
 	if opts.signingCertFile == "" {
-		glog.Fatalf(
+		fatalf(
 			"No signing cert has been specified. Either specify a cert file via '-signing-cert' option " +
 				"or use '-self-signed-ca'")
 	}
 
 	if opts.signingKeyFile == "" {
-		glog.Fatalf(
+		fatalf(
 			"No signing key has been specified. Either specify a key file via '-signing-key' option " +
 				"or use '-self-signed-ca'")
 	}
 
 	if opts.rootCertFile == "" {
-		glog.Fatalf(
+		fatalf(
 			"No root cert has been specified. Either specify a root cert file via '-root-cert' option " +
 				"or use '-self-signed-ca'")
 	}

@@ -2,7 +2,7 @@ name: initializer
 version: 0.3.0
 description: Helm chart for initializer deployment
 keywords:
-  - Istio
+  - istio
   - initializer
 sources:
   - http://github.com/istio/istio

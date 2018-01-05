@@ -8,7 +8,6 @@ go_library(
         "args.go",
         "monitoring.go",
         "server.go",
-        "tracing.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -24,9 +23,9 @@ go_library(
         "//mixer/pkg/pool:go_default_library",
         "//mixer/pkg/runtime:go_default_library",
         "//mixer/pkg/template:go_default_library",
-        "//mixer/pkg/tracing:go_default_library",
         "//mixer/pkg/version:go_default_library",
         "//pkg/log:go_default_library",
+        "//pkg/tracing:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
         "@com_github_gogo_protobuf//proto:go_default_library",
         "@com_github_grpc_ecosystem_go_grpc_middleware//:go_default_library",

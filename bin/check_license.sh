@@ -4,7 +4,7 @@ ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
 ret=0
-for fn in $(find ${ROOTDIR} -name '*.go'); do
+for fn in $(find ${ROOTDIR} -name '*.go' | grep -v vendor); do
   if [[ $fn == *.pb.go ]];then
     continue
   fi

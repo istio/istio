@@ -12,6 +12,8 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/log:go_default_library",
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_go_github//github:go_default_library",
         "@com_github_pmezard_go_difflib//difflib:go_default_library",

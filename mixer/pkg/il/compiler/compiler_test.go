@@ -45,7 +45,7 @@ func TestCompiler_SingleExpressionSession(t *testing.T) {
 				fns = append(fns, test.Fns...)
 			}
 			compiler := New(finder, expr.FuncMap(fns))
-			fnID, err := compiler.CompileExpression(test.E)
+			fnID, _, err := compiler.CompileExpression(test.E)
 
 			if err != nil {
 				if err.Error() != test.CompileErr {
@@ -102,7 +102,7 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 				fns = append(fns, test.Fns...)
 			}
 			compiler := New(finder, expr.FuncMap(fns))
-			fnID1, err := compiler.CompileExpression(test.E)
+			fnID1, _, err := compiler.CompileExpression(test.E)
 			if err != nil {
 				if err.Error() != test.CompileErr {
 					tt.Fatalf("Unexpected error: '%s' != '%s'", err.Error(), test.CompileErr)
@@ -116,7 +116,7 @@ func TestCompiler_DoubleExpressionSession(t *testing.T) {
 			}
 
 			// Compile again
-			fnID2, err := compiler.CompileExpression(test.E)
+			fnID2, _, err := compiler.CompileExpression(test.E)
 			if err != nil {
 				tt.Fatalf("Unexpected compile error: '%s'", err.Error())
 			}

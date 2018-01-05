@@ -26,13 +26,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 // Config generation main functions.
@@ -45,10 +47,10 @@ import (
 
 // WriteFile saves config to a file
 func (conf *Config) WriteFile(fname string) error {
-	if glog.V(2) {
-		glog.Infof("writing configuration to %s", fname)
+	if log.InfoEnabled() {
+		log.Infof("writing configuration to %s", fname)
 		if err := conf.Write(os.Stderr); err != nil {
-			glog.Error(err)
+			log.Errora(err)
 		}
 	}
 
@@ -236,7 +238,7 @@ func buildSidecarListenersClusters(
 			c := mgmtClusters[i]
 			l := listeners.GetByAddress(m.Address)
 			if l != nil {
-				glog.Warningf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
 					m.Name, m.Address, l.Name, l.Address)
 				continue
 			}
@@ -579,7 +581,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		// handled by buildOutboundTCPListeners
 
 	default:
-		glog.V(4).Infof("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
+		log.Debugf("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
 	}
 
 	return nil
@@ -652,7 +654,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 					// or if its for a Router (where there is one wildcard TCP listener per port)
 					// or if this is in environment where services don't get a dummy load balancer IP.
 					if wildcardListenerPorts[servicePort.Port] {
-						glog.V(4).Infof("Multiple definitions for port %d", servicePort.Port)
+						log.Debugf("Multiple definitions for port %d", servicePort.Port)
 						continue
 					}
 					wildcardListenerPorts[servicePort.Port] = true
@@ -784,7 +786,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 			}
 
 		default:
-			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
+			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
 		}
 
 		if listener != nil {
@@ -884,7 +886,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
 
 	if errs != nil {
-		glog.Warningf("Rejected rules: %v", errs)
+		log.Warnf("Rejected rules: %v", errs)
 	}
 
 	for _, rule := range egressRules {
@@ -921,7 +923,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
 
 	if errs != nil {
-		glog.Warningf("Rejected rules: %v", errs)
+		log.Warnf("Rejected rules: %v", errs)
 	}
 
 	tcpRulesByPort := make(map[int][]*routing.EgressRule)
@@ -1013,7 +1015,7 @@ func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.P
 			clusters = append(clusters, cluster)
 			listeners = append(listeners, listener)
 		default:
-			glog.Warningf("Unsupported inbound protocol %v for management port %#v",
+			log.Warnf("Unsupported inbound protocol %v for management port %#v",
 				mPort.Protocol, mPort)
 		}
 	}

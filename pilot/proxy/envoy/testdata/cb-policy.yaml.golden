@@ -16,5 +16,6 @@ circuitBreaker:
     httpConsecutiveErrors: 10
     httpDetectionInterval: 30s
     httpMaxEjectionPercent: 100
+    httpMaxRetries: 10
 loadBalancing:
   name: RANDOM

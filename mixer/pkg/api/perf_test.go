@@ -205,12 +205,12 @@ func unaryBench(b *testing.B, grpcCompression, useGlobalDict bool) {
 		}
 
 		wg.Add(1)
-		gp.ScheduleWork(func() {
+		gp.ScheduleWork(func(_ interface{}) {
 			if _, err := bs.client.Check(context.Background(), request); err != nil {
 				b.Errorf("Check2 failed with %v", err)
 			}
 			wg.Done()
-		})
+		}, nil)
 	}
 
 	// wait for all the async work to be done

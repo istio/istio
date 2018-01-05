@@ -27,7 +27,6 @@ import (
 	"time"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-
 	"istio.io/istio/mixer/adapter/denier/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"

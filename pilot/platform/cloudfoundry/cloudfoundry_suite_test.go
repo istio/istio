@@ -15,6 +15,7 @@
 package cloudfoundry_test
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -24,4 +25,5 @@ import (
 func TestCloudFoundry(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cloud Foundry Suite")
+	fmt.Print("\n\n")
 }
