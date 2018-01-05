@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cloudfoundry_test
+// nolint
+//go:generate $GOPATH/src/istio.io/istio/mixer/bin/generate_word_list.py $GOPATH/src/istio.io/istio/vendor/istio.io/api/mixer/v1/global_dictionary.yaml list.gen.go
 
-import (
-	"fmt"
-	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-)
-
-func TestCloudFoundry(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cloud Foundry Suite")
-	fmt.Print("\n\n")
-}
+// Package attribute is focused on enabling efficient handling and tracking of
+// attribute usage within Mixer.
+package attribute

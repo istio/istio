@@ -69,25 +69,6 @@ func TestController(t *testing.T) {
 	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView(ns))
 }
 
-func addService(controller *Controller, n, ns string, cl kubernetes.Interface, t *testing.T) {
-	if err := controller.services.informer.GetStore().Add(&v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{Name: n, Namespace: ns},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Port: 80,
-					Name: "http-example",
-				},
-			},
-		},
-	}); err != nil {
-		t.Fatalf(err.Error())
-	}
-	if log.DebugEnabled() {
-		log.Debugf("Created service %s", n)
-	}
-}
-
 func TestController_getPodAZ(t *testing.T) {
 
 	pod1 := generatePod("pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"})
@@ -216,32 +197,22 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
-func createService(controller *Controller, name, namespace string, annotations map[string]string,
-	ports []int32, selector map[string]string, t *testing.T) {
-
-	svcPorts := []v1.ServicePort{}
-	for _, p := range ports {
-		svcPorts = append(svcPorts, v1.ServicePort{
-			Name:     "test-port",
-			Port:     p,
-			Protocol: "http",
-		})
-	}
-	service := &v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotations,
-		},
+func addService(controller *Controller, n, ns string, cl kubernetes.Interface, t *testing.T) {
+	if err := controller.services.informer.GetStore().Add(&v1.Service{
+		ObjectMeta: meta_v1.ObjectMeta{Name: n, Namespace: ns},
 		Spec: v1.ServiceSpec{
-			ClusterIP: "10.0.0.1", // FIXME: generate?
-			Ports:     svcPorts,
-			Selector:  selector,
-			Type:      v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					Port: 80,
+					Name: "http-example",
+				},
+			},
 		},
+	}); err != nil {
+		t.Fatalf(err.Error())
 	}
-	if err := controller.services.informer.GetStore().Add(service); err != nil {
-		t.Errorf("Cannot create service %s in namespace %s (error: %v)", name, namespace, err)
+	if log.DebugEnabled() {
+		log.Debugf("Created service %s", n)
 	}
 }
 
