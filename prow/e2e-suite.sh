@@ -65,8 +65,8 @@ make depend.ensure istioctl
 
 mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
 
-# It seems logs are generated on tmp ? 
-trap "cp -a /tmp ${GOPATH}/src/istio.io/istio/_artifacts" EXIT
+# It seems logs are generated on tmp ?
+trap "cp -a /tmp/istio* ${GOPATH}/src/istio.io/istio/_artifacts" EXIT
 
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
