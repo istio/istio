@@ -93,6 +93,8 @@ def MakeCommonDag(name='istio_daily_flow_test',
 
     timestamp = time.mktime(date.timetuple())
 
+    # Monthly releases started in Nov 2017 with 0.3.0, so minor is # of months
+    # from Aug 2017.
     minor_version = (date.year - 2017) * 12 + (date.month - 1) - 7
     major_version = AirflowGetVariableOrBaseCase('major_version', 0)
     # This code gets information about the latest released version so we know
