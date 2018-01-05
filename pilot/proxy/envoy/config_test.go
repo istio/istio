@@ -293,6 +293,11 @@ var (
 		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
 	}
 
+	multiMatchRewriteRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-rewrite"},
+		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
+	}
+
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",

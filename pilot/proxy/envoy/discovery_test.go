@@ -485,11 +485,19 @@ func TestRouteDiscoveryRewrite(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, rewriteConfig, t)
 
-		// fault rule is source based: we check that the rule only affect v0 and not v1
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-rewrite.json", t)
 	}
+}
+
+func TestRouteDiscoveryMultiMatchRewrite(t *testing.T) {
+	_, registry, ds := commonSetup(t)
+	addConfig(registry, multiMatchRewriteRouteRuleV2, t)
+
+	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
+	response := makeDiscoveryRequest(ds, "GET", url, t)
+	compareResponse(response, "testdata/rds-multi-match-rewrite-v1alpha2.json", t)
 }
 
 func TestRouteDiscoveryWebsocket(t *testing.T) {
