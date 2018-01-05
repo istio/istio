@@ -267,24 +267,24 @@ func TestResolveHostname(t *testing.T) {
 
 func TestResolveFQDN(t *testing.T) {
 	cases := []struct {
-		name string
+		name   string
 		domain string
-		fqdn string
+		fqdn   string
 	}{
 		{
-			name: "hello",
+			name:   "hello",
 			domain: "world.svc.cluster.local",
-			fqdn: "hello.world.svc.cluster.local",
+			fqdn:   "hello.world.svc.cluster.local",
 		},
 		{
-			name: "hello",
+			name:   "hello",
 			domain: "",
-			fqdn: "hello",
+			fqdn:   "hello",
 		},
 		{
-			name: "hello.world.svc.cluster.local",
+			name:   "hello.world.svc.cluster.local",
 			domain: "world.svc.cluster.local",
-			fqdn: "hello.world.svc.cluster.local",
+			fqdn:   "hello.world.svc.cluster.local",
 		},
 	}
 

@@ -296,7 +296,9 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.Port,
+	instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+
 	rule := config.Spec.(*routingv2.RouteRule)
 	routes := make([]*HTTPRoute, 0)
 
@@ -327,7 +329,9 @@ func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.
 	return routes
 }
 
-func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port, http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string) *HTTPRoute {
+func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port,
+	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string) *HTTPRoute {
+
 	route := buildHTTPRouteMatchV2(match)
 
 	if len(http.Route) == 0 { // build default cluster
