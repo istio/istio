@@ -1779,7 +1779,7 @@ func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) 
 
 func validateHTTPStatus(status int32) error {
 	if status < 0 || status > 600 {
-		return fmt.Errorf("HTTP status %q is not in range 0-600", status)
+		return fmt.Errorf("HTTP status %d is not in range 0-600", status)
 	}
 	return nil
 }

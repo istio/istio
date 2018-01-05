@@ -2234,6 +2234,12 @@ func TestValidateCORSPolicy(t *testing.T) {
 			ExposeHeaders: []string{"HEADER3"},
 			MaxAge:        &duration.Duration{Seconds: 2},
 		}, valid: false},
+		{name: "bad max age", in: &routingv2.CorsPolicy{
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &duration.Duration{Seconds: 2, Nanos: 42},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -2272,6 +2278,7 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 		in    *routingv2.HTTPFaultInjection_Abort
 		valid bool
 	}{
+		{name: "nil", in: nil, valid: true},
 		{name: "valid", in: &routingv2.HTTPFaultInjection_Abort{
 			Percent: 20,
 			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
@@ -2287,6 +2294,12 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 			Percent: -1,
 			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
 				HttpStatus: 200,
+			},
+		}, valid: false},
+		{name: "invalid http status", in: &routingv2.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 9000,
 			},
 		}, valid: false},
 	}
@@ -2307,6 +2320,7 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 		in    *routingv2.HTTPFaultInjection_Delay
 		valid bool
 	}{
+		{name: "nil", in: nil, valid: true},
 		{name: "valid fixed", in: &routingv2.HTTPFaultInjection_Delay{
 			Percent: 20,
 			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
@@ -2322,6 +2336,12 @@ func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
 			Percent: 101,
 			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
 				FixedDelay: &duration.Duration{Seconds: 3},
+			},
+		}, valid: false},
+		{name: "invalid delay", in: &routingv2.HTTPFaultInjection_Delay{
+			Percent: 20,
+			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &duration.Duration{Seconds: 3, Nanos: 42},
 			},
 		}, valid: false},
 	}
