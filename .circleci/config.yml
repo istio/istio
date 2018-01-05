@@ -44,8 +44,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker
+      - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
@@ -74,8 +75,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker
+      - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
       - run:
             no_output_timeout: 20m
             # Run the test even if previous failed
@@ -109,6 +111,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
       - run:
             no_output_timeout: 20m
             when: always
@@ -143,6 +146,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
       - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
@@ -171,6 +175,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
+      - run: docker images
       - run: $GOPATH/bin/pilot-integration-test --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
@@ -292,42 +297,45 @@ jobs:
       - store_artifacts:
           path: /go/out/istio-sidecar.deb
 
-  lint:
-    working_directory: /go/src/istio.io/istio
-    docker:
-      - image: gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10
-    environment:
-      GOPATH: /go
-    resource_class: xlarge
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: /go/src/istio.io/istio/bin/check_license.sh
-      - run:
-          no_output_timeout: 15m
-          command: |
-            cd /go/src/istio.io/istio
-            CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
-
+  ## CONTAINER BASED LINT. mukai's linter container does not have all
+  # tools. Install linters in istio's ci container.
   # lint:
-  #   <<: *integrationDefaults
+  #   working_directory: /go/src/istio.io/istio
+  #   docker:
+  #     - image: gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10
+  #   environment:
+  #     GOPATH: /go
+  #   resource_class: xlarge
   #   steps:
-  #     - type: shell
-  #       name: Initialize Working Directory
-  #       pwd: /
-  #       command: |
-  #         sudo mkdir -p /go/src/istio.io/istio
-  #         sudo chown -R circleci /go
   #     - checkout
   #     - restore_cache:
   #         keys:
   #           - dep-cache-{{ checksum "Gopkg.lock" }}
+  #     - run: /go/src/istio.io/istio/bin/check_license.sh
   #     - run:
   #         no_output_timeout: 15m
   #         command: |
-  #           make lint
+  #           cd /go/src/istio.io/istio
+  #           CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
+
+  ## TODO DISBALE ME and use the container based lint
+  lint:
+    <<: *integrationDefaults
+    steps:
+      - type: shell
+        name: Initialize Working Directory
+        pwd: /
+        command: |
+          sudo mkdir -p /go/src/istio.io/istio
+          sudo chown -R circleci /go
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          no_output_timeout: 15m
+          command: |
+            make lint
 
   docker-push:
     <<: *defaults
