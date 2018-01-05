@@ -304,10 +304,11 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: ./bin/check_license.sh
+      - run: cd /go/src/istio.io/istio; ./bin/check_license.sh
       - run:
           no_output_timeout: 15m
           command: |
+            cd /go/src/istio.io/istio
             CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
 
   # lint:
