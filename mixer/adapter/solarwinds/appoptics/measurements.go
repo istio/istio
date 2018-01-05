@@ -19,7 +19,7 @@ import (
 	"math"
 	"net/http"
 
-	"istio.io/istio/mixer/adapter/appoptics/config"
+	"istio.io/istio/mixer/adapter/solarwinds/config"
 	"istio.io/istio/mixer/pkg/adapter"
 )
 

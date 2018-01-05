@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"istio.io/istio/mixer/adapter/appoptics/papertrail"
+	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
 )
 
 var paramErrorFixture = `{

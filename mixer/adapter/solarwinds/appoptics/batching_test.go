@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package promadapter
+package appoptics
 
 import (
 	"fmt"
@@ -22,8 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/mixer/adapter/appoptics/appoptics"
-	"istio.io/istio/mixer/adapter/appoptics/papertrail"
+	"istio.io/istio/mixer/adapter/solarwinds/papertrail"
 )
 
 func TestBatchMeasurements(t *testing.T) {
@@ -32,8 +31,8 @@ func TestBatchMeasurements(t *testing.T) {
 		logger := &papertrail.LoggerImpl{}
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
-		prepChan := make(chan []*appoptics.Measurement)
-		pushChan := make(chan []*appoptics.Measurement)
+		prepChan := make(chan []*Measurement)
+		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
 		loopFactor := true
@@ -41,9 +40,9 @@ func TestBatchMeasurements(t *testing.T) {
 		go BatchMeasurements(&loopFactor, prepChan, pushChan, stopChan, logger)
 
 		go func() {
-			measurements := []*appoptics.Measurement{}
-			for i := 0; i < appoptics.MeasurementPostMaxBatchSize+1; i++ {
-				measurements = append(measurements, &appoptics.Measurement{})
+			measurements := []*Measurement{}
+			for i := 0; i < MeasurementPostMaxBatchSize+1; i++ {
+				measurements = append(measurements, &Measurement{})
 			}
 			prepChan <- measurements
 			loopFactor = false
@@ -65,8 +64,8 @@ func TestBatchMeasurements(t *testing.T) {
 		logger := &papertrail.LoggerImpl{}
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
-		prepChan := make(chan []*appoptics.Measurement)
-		pushChan := make(chan []*appoptics.Measurement)
+		prepChan := make(chan []*Measurement)
+		pushChan := make(chan []*Measurement)
 		stopChan := make(chan struct{})
 
 		loopFactor := true
@@ -85,10 +84,10 @@ func TestBatchMeasurements(t *testing.T) {
 
 type MockServiceAccessor struct {
 	// MeasurementsService implements an interface for dealing with  Measurements
-	MockMeasurementsService func() appoptics.MeasurementsCommunicator
+	MockMeasurementsService func() MeasurementsCommunicator
 }
 
-func (s *MockServiceAccessor) MeasurementsService() appoptics.MeasurementsCommunicator {
+func (s *MockServiceAccessor) MeasurementsService() MeasurementsCommunicator {
 	return s.MockMeasurementsService()
 }
 
@@ -130,7 +129,7 @@ func TestPersistBatches(t *testing.T) {
 			logger := &papertrail.LoggerImpl{}
 			logger.Infof("Starting %s - test run. . .\n", t.Name())
 			defer logger.Infof("Finished %s - test run. . .", t.Name())
-			pushChan := make(chan []*appoptics.Measurement)
+			pushChan := make(chan []*Measurement)
 			stopChan := make(chan struct{})
 			errChan := make(chan error)
 			var count int64
@@ -145,7 +144,7 @@ func TestPersistBatches(t *testing.T) {
 			} else {
 				go func() {
 					time.Sleep(50 * time.Millisecond)
-					pushChan <- []*appoptics.Measurement{
+					pushChan <- []*Measurement{
 						{}, {}, {},
 					}
 				}()
@@ -159,9 +158,9 @@ func TestPersistBatches(t *testing.T) {
 			loopFactor := true
 
 			go PersistBatches(&loopFactor, &MockServiceAccessor{
-				MockMeasurementsService: func() appoptics.MeasurementsCommunicator {
-					return &appoptics.MockMeasurementsService{
-						OnCreate: func(measurements []*appoptics.Measurement) (*http.Response, error) {
+				MockMeasurementsService: func() MeasurementsCommunicator {
+					return &MockMeasurementsService{
+						OnCreate: func(measurements []*Measurement) (*http.Response, error) {
 							return test.response, test.error
 						},
 					}

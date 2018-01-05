@@ -21,7 +21,7 @@ gogoslick_proto_library(
     ],
     verbose = 0,
 	srcs = ["other_configs.go"],
-    visibility = ["//mixer/adapter/appoptics:__pkg__", "//mixer/adapter/appoptics/appoptics:__pkg__", "//mixer/adapter/appoptics/papertrail:__pkg__", "//mixer/adapter/appoptics/promadapter:__pkg__"],
+    visibility = ["//mixer/adapter/solarwinds:__pkg__", "//mixer/adapter/solarwinds/appoptics:__pkg__", "//mixer/adapter/solarwinds/papertrail:__pkg__"],
     deps = [
         "@com_github_gogo_protobuf//gogoproto:go_default_library",
     ],
