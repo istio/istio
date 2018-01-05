@@ -92,6 +92,8 @@ setup: pilot/platform/kube/config
 # changes.
 depend: init
 
+depend.ensure: init
+
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
 depend.update: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)

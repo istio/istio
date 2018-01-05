@@ -63,6 +63,8 @@ ${ISTIO_GO}/bin/init.sh
 # Build istioctl, used by  the test.
 make depend.ensure istioctl
 
+mkdir -p ${GOPATH}/src/istio.io/istio/_artifacts
+trap cp -a /tmp ${GOPATH}/src/istio.io/istio/_artifacts
 echo 'Running Integration Tests'
 ./tests/e2e.sh ${E2E_ARGS[@]:-} "$@" \
   --mixer_tag "${GIT_SHA}"\
@@ -72,3 +74,5 @@ echo 'Running Integration Tests'
   --ca_tag "${GIT_SHA}"\
   --ca_hub "${HUB}"\
   --istioctl ${GOPATH}/bin/istioctl
+
+
