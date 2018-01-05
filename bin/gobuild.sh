@@ -58,5 +58,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} -o ${OUT} \
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
