@@ -73,17 +73,17 @@ jobs:
 
       - run: docker images
       - run:
-            timeout: 20m
+            no_output_timeout: 20m
             command: |
                   make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
-            timeout: 20m
+            no_output_timeout: 20m
             # Run the test even if previous failed
             when: always
             command: |
                   make e2e_mixer E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - run:
-            timeout: 20m
+            no_output_timeout: 20m
             when: always
             command: |
               make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
@@ -314,7 +314,7 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.toml" }}-{{ checksum "Gopkg.lock" }}
       - run:
-          no_output_timeout: 900
+          no_output_timeout: 15m
           command: |
             make lint
 

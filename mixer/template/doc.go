@@ -15,34 +15,36 @@
 // Codegen blocks
 
 // apikey
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/apikey/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/apikey/template.proto
 
 // authorization
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/authorization/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/authorization/template.proto
 
 // checknothing
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/checknothing/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/checknothing/template.proto
 
 // listentry
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/listentry/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/listentry/template.proto
 
 // logentry
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/logentry/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/logentry/template.proto
 
 // metric
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/metric/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/metric/template.proto
 
 // quota
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/quota/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/quota/template.proto
 
 // reportnothing
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/reportnothing/template.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/reportnothing/template.proto
 
 // tracespan
-//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/tracespan/tracespan.proto
+// go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/template/tracespan/tracespan.proto
 
 // template.gen.go
-//go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go -f $GOPATH/src/istio.io/istio/mixer/template/inventory.yaml -o $GOPATH/src/istio.io/istio/mixer/template/template.gen.go
+// go:generate go run $GOPATH/src/istio.io/istio/mixer/tools/codegen/cmd/mixgenbootstrap/main.go \
+//             -f $GOPATH/src/istio.io/istio/mixer/template/inventory.yaml \
+//             -o $GOPATH/src/istio.io/istio/mixer/template/template.gen.go
 
 // Package template provides runtime descriptors of the templates known
 // to Mixer at compile-time.
