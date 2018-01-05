@@ -170,26 +170,26 @@ func TestDispatchGenAttrs_Failure(t *testing.T) {
 }
 
 func executeDispatchReport(t *testing.T, h adapter.Handler) error {
-	instance := createInstance(t, h, sample_report.TemplateName, &defaultReportInstanceParam, defaultReportAttributes)
+	instance := createInstance(t, sample_report.TemplateName, &defaultReportInstanceParam, defaultReportAttributes)
 	return SupportedTmplInfo[sample_report.TemplateName].DispatchReport(context.TODO(), h, []interface{}{instance})
 }
 
 func executeDispatchCheck(t *testing.T, h adapter.Handler) (adapter.CheckResult, error) {
-	instance := createInstance(t, h, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
+	instance := createInstance(t, sample_check.TemplateName, &defaultCheckInstanceParam, defaultCheckAttributes)
 	return SupportedTmplInfo[sample_check.TemplateName].DispatchCheck(context.TODO(), h, instance)
 }
 
 func executeDispatchQuota(t *testing.T, h adapter.Handler, a adapter.QuotaArgs) (adapter.QuotaResult, error) {
-	instance := createInstance(t, h, sample_quota.TemplateName, &defaultQuotaInstanceParam, defaultQuotaAttributes)
+	instance := createInstance(t, sample_quota.TemplateName, &defaultQuotaInstanceParam, defaultQuotaAttributes)
 	return SupportedTmplInfo[sample_quota.TemplateName].DispatchQuota(context.TODO(), h, instance, a)
 }
 
 func executeDispatchGenAttrs(t *testing.T, h adapter.Handler, bag attribute.Bag, mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
-	instance := createInstance(t, h, sample_apa.TemplateName, &defaultApaInstanceParam, defaultApaAttributes)
+	instance := createInstance(t, sample_apa.TemplateName, &defaultApaInstanceParam, defaultApaAttributes)
 	return SupportedTmplInfo[sample_apa.TemplateName].DispatchGenAttrs(context.TODO(), h, instance, bag, mapper)
 }
 
-func createInstance(t *testing.T, h adapter.Handler, template string, instanceParam proto.Message, attrs map[string]interface{}) interface{} {
+func createInstance(t *testing.T, template string, instanceParam proto.Message, attrs map[string]interface{}) interface{} {
 	expb := compiled.NewBuilder(finder{defaultAttributeInfos})
 	builder, e := SupportedTmplInfo[template].CreateInstanceBuilder(
 		"instance1", instanceParam, expb)
