@@ -6,20 +6,12 @@ so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Setting up Docker](#setting-up-docker)
+  - [Setting up Kubernetes](#setting-up-kubernetes)
+    - [IBM Cloud Container Service](#ibm-cloud-container-service)
+    - [Google Kubernetes Engine](#google-kubernetes-engine)
+    - [Minikube](#minikube)
   - [Setting up environment variables](#setting-up-environment-variables)
   - [Setting up personal access token](#setting-up-a-personal-access-token)
-  - [Setting up a container registry](#setting-up-a-container-registry)
-- [Git workflow](#git-workflow)
-  - [Fork the main repository](#fork-the-main-repository)
-  - [Clone your fork](#clone-your-fork)
-  - [Enable pre commit hook](#enable-pre-commit-hook)
-  - [Create a branch and make changes](#create-a-branch-and-make-changes)
-  - [Keeping your fork in sync](#keeping-your-fork-in-sync)
-  - [Committing changes to your fork](#committing-changes-to-your-fork)
-  - [Creating a pull request](#creating-a-pull-request)
-  - [Getting a code review](#getting-a-code-review)
-  - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
@@ -32,7 +24,6 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Local development scripts](#collection-of-scripts-and-notes-for-developing-istio)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -52,17 +43,49 @@ to install the Go tools.
 
 Istio currently builds with Go 1.9
 
-### Setting up Docker
+### Setting up Kubernetes
 
-To run some of Istio's examples and tests, you need to set up Docker server.
-Please follow [these instructions](https://docs.docker.com/engine/installation/)
-for how to do this for your platform.
+If you are working on Istio in a Kubernetes environment, we require
+Kubernetes version 1.7.3 or higher. Follow the steps outlined in the
+_prerequisites_ section in the
+[Istio Quick Start](https://istio.io/docs/setup/kubernetes/quick-start.html)
+to setup a Kubernetes cluster with Minikube, or launch a cluster in IBM
+Cloud Container Service, Google Kubernetes Engine or Openshift.
 
-Ensure your UID is in the docker group to access the docker daemon as a non-root user:
+#### Additional steps for GKE
 
-```shell
-sudo adduser $USER docker
+* Add `--no-enable-legacy-authorization` to the list of gcloud flags to fully
+enable RBAC in GKE.
+
+* Update your kubeconfig file with appropriate credentials to point kubectl
+to the cluster created in GKE.
+
+  ```
+  gcloud container clusters get-credentials NAME --zone=ZONE
+  ```
+
+* Make sure you are using static client certificates before fetching cluster
+credentials:
+
+  ```
+  gcloud config set container/use_client_certificate True
+  ```
+
+#### Additional notes for Minikube
+
+Minikube version >= v0.22.3 is required for proper certificate
+configuration for GenericAdmissionWebhook feature. Get the latest version
+from
+[minikube release page](https://github.com/kubernetes/minikube/releases)
+for your platform.
+
+```bash
+minikube start \
+    --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+    --kubernetes-version=v1.7.5
 ```
+
+To enable RBAC, add `--bootstrapper kubeadm --extra-config=apiserver.Authorization.Mode=RBAC` to `minikube start` command, in addition to the flags above.
 
 ### Setting up environment variables
 
@@ -113,125 +136,6 @@ you must setup a personal access token to enable push via HTTPS. Please follow
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
-### Optional: Setting up a container registry
-
-Follow the
-[Google Container Registry Quickstart](https://cloud.google.com/container-registry/docs/quickstart).
-
-## Git workflow
-
-Below, we outline one of the more common Git workflows that core developers use.
-Other Git workflows are also valid.
-
-### Fork the main repository
-
-1. Go to https://github.com/istio/istio
-2. Click the "Fork" button (at the top right)
-
-### Clone your fork
-
-The commands below require that you have $GOPATH set ([$GOPATH
-docs](https://golang.org/doc/code.html#GOPATH)). We highly recommend you put
-Istio's code into your GOPATH. Note: the commands below will not work if
-there is more than one directory in your `$GOPATH`.
-
-```shell
-cd $ISTIO
-git clone https://github.com/$GITHUB_USER/istio.git
-cd istio
-git remote add upstream 'https://github.com/istio/istio.git'
-git config --global --add http.followRedirects 1
-```
-
-### Enable pre-commit hook
-
-NOTE: The precommit hook is not functional as of 11/08/2017 following the repo
-reorganization. It should come back alive shortly.
-
-Istio uses a local pre-commit hook to ensure that the code
-passes local tests before being committed.
-
-Run
-```shell
-./bin/pre-commit
-Installing pre-commit hook
-```
-This hook is invoked every time you commit changes locally.
-The commit is allowed to proceed only if the hook succeeds.
-
-### Create a branch and make changes
-
-```shell
-git checkout -b my-feature
-# Make your code changes
-```
-
-### Keeping your fork in sync
-
-```shell
-git fetch upstream
-git rebase upstream/master
-```
-
-Note: If you have write access to the main repositories
-(e.g. github.com/istio/istio), you should modify your Git configuration so
-that you can't accidentally push to upstream:
-
-```shell
-git remote set-url --push upstream no_push
-```
-
-### Committing changes to your fork
-
-When you're happy with some changes, you can commit them to your repo:
-
-```shell
-git add .
-git commit
-```
-Then push the change to the fork. When prompted for authentication, use your
-GitHub username as usual but the personal access token as your password if you
-have not setup ssh keys. Please
-follow [these instructions](https://help.github.com/articles/caching-your-github-password-in-git/#platform-linux)
-if you want to cache the token.
-
-```shell
-git push origin my-feature
-```
-
-### Creating a pull request
-
-1. Visit https://github.com/$GITHUB_USER/istio if you created a fork in your own github repostiory, or https://github.com/istio/istio and navigate to your branch (e.g. "my-feature").
-2. Click the "Compare" button to compare the change, and then the "Pull request" button next to your "my-feature" branch.
-
-### Getting a code review
-
-Once your pull request has been opened it will be assigned to one or more
-reviewers. Those reviewers will do a thorough code review, looking for
-correctness, bugs, opportunities for improvement, documentation and comments,
-and style.
-
-Very small PRs are easy to review. Very large PRs are very difficult to
-review. GitHub has a built-in code review tool, which is what most people use.
-
-### When to retain commits and when to squash
-
-Upon merge, all Git commits should represent meaningful milestones or units of
-work. Use commits to add clarity to the development and review process.
-
-Before merging a PR, squash any "fix review feedback", "typo", and "rebased"
-sorts of commits. It is not imperative that every commit in a PR compile and
-pass tests independently, but it is worth striving for. For mass automated
-fixups (e.g. automated doc formatting), use one or more commits for the
-changes to tooling and a final commit to apply the fixup en masse. This makes
-reviews much easier.
-
-Please do not use force push after submitting a PR to resolve review
-feedback. Doing so results in an inability to see what has changed between
-revisions of the PR. Instead submit additional commits until the PR is
-suitable for merging. Once the PR is suitable for merging, the commits will
-be squashed to simplify the commit.
-
 ## Using the code base
 
 ### Building the code
@@ -279,6 +183,7 @@ You can delete any build artifacts with:
 ```shell
 make clean
 ```
+
 ### Running tests
 
 You can run all the available tests with:
@@ -286,12 +191,28 @@ You can run all the available tests with:
 ```shell
 make test
 ```
+
+*Note on Pilot unit tests:* For tests that require systems integration,
+such as invoking the Envoy proxy with a special configuration, we capture
+the desired output as golden artifacts and save the artifacts in the
+repository. Validation tests compare generated output against the desired
+output. For example,
+[Envoy configuration test data](pilot/proxy/envoy/testdata) contains
+auto-generated proxy configuration. If you make changes to the config
+generation, you also need to create or update the golden artifact in the
+same pull request. The test library can automatically refresh all golden
+artifacts if you pass a special environment variable:
+
+```bash
+env REFRESH_GOLDEN=true make pilot-test
+```
+
 ### Getting coverage numbers
 
 You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
 
 ```shell
-make cov
+make coverage
 ```
 
 ### Auto-formatting source code
