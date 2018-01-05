@@ -17,7 +17,6 @@ package papertrail
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"istio.io/istio/mixer/adapter/appoptics/config"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -93,10 +92,8 @@ func TestLog(t *testing.T) {
 	t.Run("All Good", func(t *testing.T) {
 		logger.Infof("Starting %s - test run. . .", t.Name())
 		defer logger.Infof("Finished %s - test run. . .", t.Name())
-		port := 6767
-		urlLocal := "localhost"
 
-		ppi, err := NewLogger(fmt.Sprintf("%s:%d", urlLocal, port), "1h", []*config.Params_LogInfo{
+		ppi, err := NewLogger(fmt.Sprintf("%s:%d", "localhost", 6767), "1h", []*config.Params_LogInfo{
 			{
 				InstanceName: "params1",
 			},
@@ -106,21 +103,9 @@ func TestLog(t *testing.T) {
 		}
 
 		pp, _ := ppi.(*Logger)
+		defer pp.Close()
 
 		pcount := getKeyCount(pp)
-
-		serverStopChan := make(chan struct{})
-		serverTrackChan := make(chan struct{})
-		go RunUDPServer(port, logger, serverStopChan, serverTrackChan)
-		go func() {
-			count := 0
-			for range serverTrackChan {
-				count++
-			}
-			if count != 1 {
-				t.Errorf("Expected data count (1) received by server dont match the actual number: %d", count)
-			}
-		}()
 
 		if err = pp.Log(&logentry.Instance{
 			Name:      "params1",
@@ -133,15 +118,6 @@ func TestLog(t *testing.T) {
 		if count-pcount != 1 {
 			t.Error("key counts dont match")
 		}
-		time.Sleep(2 * time.Second)
-		count = getKeyCount(pp)
-		if count-pcount != 0 {
-			t.Error("key counts dont match")
-		}
-
-		serverStopChan <- struct{}{}
-		close(serverStopChan)
-		close(serverTrackChan)
 	})
 }
 

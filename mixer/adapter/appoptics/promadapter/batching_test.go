@@ -142,13 +142,14 @@ func TestPersistBatches(t *testing.T) {
 					stopChan <- struct{}{}
 					wg.Done()
 				}()
+			} else {
+				go func() {
+					time.Sleep(50 * time.Millisecond)
+					pushChan <- []*appoptics.Measurement{
+						{}, {}, {},
+					}
+				}()
 			}
-			go func() {
-				time.Sleep(50 * time.Millisecond)
-				pushChan <- []*appoptics.Measurement{
-					{}, {}, {},
-				}
-			}()
 			go func() {
 				time.Sleep(time.Millisecond)
 				<-errChan
@@ -166,6 +167,7 @@ func TestPersistBatches(t *testing.T) {
 					}
 				},
 			}, pushChan, stopChan, errChan, logger)
+
 			time.Sleep(2 * time.Second)
 			logger.Infof("%s - waiting...\n", t.Name())
 			if test.sendOnStopChan {
