@@ -35,5 +35,7 @@
 
 # protoc
 /protoc-tmp
+bin/protoc-gen-*
+bin/protoc-min-version-*
 
 /vendor
