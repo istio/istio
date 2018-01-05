@@ -21,7 +21,7 @@ if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-which dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
+which ${GOPATH}/bin/dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
 
 # Download dependencies
 if [ ! -d vendor/github.com ]; then
