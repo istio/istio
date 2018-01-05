@@ -6,8 +6,6 @@ go_library(
         "client.go",
         "controller.go",
         "conversion.go",
-        "serviceaccounts.go",
-        "servicediscovery.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -26,7 +24,6 @@ go_test(
         "client_test.go",
         "controller_test.go",
         "conversion_test.go",
-        "servicediscovery_test.go",
     ],
     data = glob(["testdata/*"]),
     library = ":go_default_library",

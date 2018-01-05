@@ -17,115 +17,61 @@ package kube
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"testing"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
-	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pilot/platform/test"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/tests/k8s"
 )
-
-func makeClient(t *testing.T) kubernetes.Interface {
-	kubeconfig := k8s.Kubeconfig("/config")
-	_, cl, err := CreateInterface(kubeconfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return cl
-}
-
-func eventually(f func() bool, t *testing.T) {
-	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
-		if f() {
-			return
-		}
-		log.Infof("Sleeping %v", interval)
-		time.Sleep(interval)
-		interval = 2 * interval
-	}
-	t.Errorf("Failed to satisfy function")
-}
 
 const (
 	testService = "test"
 	resync      = 1 * time.Second
 )
 
-func TestServices(t *testing.T) {
-	cl := makeClient(t)
-	t.Parallel()
-	ns, err := util.CreateNamespace(cl)
-	if err != nil {
-		t.Fatal(err.Error())
+func buildExpectedControllerView(ns string) *model.ControllerView {
+	modelSvcs := []*model.Service{
+		{
+			Hostname: testService + "." + ns + ".svc." + domainSuffix,
+			Ports: model.PortList{
+				&model.Port{
+					Name:                 "http-example",
+					Port:                 80,
+					Protocol:             model.ProtocolTCP,
+					AuthenticationPolicy: meshconfig.AuthenticationPolicy_INHERIT}},
+			LoadBalancingDisabled: true,
+		},
 	}
-	defer util.DeleteNamespace(cl, ns)
-
-	stop := make(chan struct{})
-	defer close(stop)
-
-	ctl := NewController(cl, ControllerOptions{
-		WatchedNamespace: ns,
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-	})
-	go ctl.Run(stop)
-
-	hostname := serviceHostname(testService, ns, domainSuffix)
-
-	var sds model.ServiceDiscovery = ctl
-	makeService(testService, ns, cl, t)
-	eventually(func() bool {
-		out, clientErr := sds.Services()
-		if clientErr != nil {
-			return false
-		}
-		log.Infof("Services: %#v", out)
-
-		for _, item := range out {
-			if item.Hostname == hostname &&
-				len(item.Ports) == 1 &&
-				item.Ports[0].Protocol == model.ProtocolHTTP {
-				return true
-			}
-		}
-		return false
-	}, t)
-
-	svc, err := sds.GetService(hostname)
-	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", hostname, err)
-	}
-	if svc == nil {
-		t.Errorf("GetService(%q) => should exists", hostname)
-	}
-	if svc.Hostname != hostname {
-		t.Errorf("GetService(%q) => %q", hostname, svc.Hostname)
-	}
-
-	missing := serviceHostname("does-not-exist", ns, domainSuffix)
-	svc, err = sds.GetService(missing)
-	if err != nil {
-		t.Errorf("GetService(%q) encountered unexpected error: %v", missing, err)
-	}
-	if svc != nil {
-		t.Errorf("GetService(%q) => %s, should not exist", missing, svc.Hostname)
-	}
+	modelInsts := []*model.ServiceInstance{}
+	return test.BuildExpectedControllerView(modelSvcs, modelInsts)
 }
 
-func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
-	_, err := cl.Core().Services(ns).Create(&v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{Name: n},
+// The only thing being tested are the public interfaces of the controller
+// namely: Handle() and Run(). Everything else is implementation detail.
+func TestController(t *testing.T) {
+	ns := "default"
+	mockHandler := test.NewMockControllerViewHandler()
+	cl := fake.NewSimpleClientset()
+	controller := NewController(cl, *mockHandler.GetTicker(), ControllerOptions{
+		WatchedNamespace:   ns,
+		ResyncPeriod:       resync,
+		DomainSuffix:       domainSuffix,
+		IgnoreInformerSync: true,
+	})
+	addService(controller, testService, ns, cl, t)
+	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView(ns))
+}
+
+func addService(controller *Controller, n, ns string, cl kubernetes.Interface, t *testing.T) {
+	if err := controller.services.informer.GetStore().Add(&v1.Service{
+		ObjectMeta: meta_v1.ObjectMeta{Name: n, Namespace: ns},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
@@ -134,11 +80,12 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 				},
 			},
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf(err.Error())
 	}
-	log.Infof("Created service %s", n)
+	if log.DebugEnabled() {
+		log.Debugf("Created service %s", n)
+	}
 }
 
 func TestController_getPodAZ(t *testing.T) {
@@ -208,7 +155,15 @@ func TestController_getPodAZ(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 
 			// Setup kube caches
-			controller := makeFakeKubeAPIController()
+			clientSet := fake.NewSimpleClientset()
+			ticker := time.NewTicker(time.Nanosecond)
+			defer ticker.Stop()
+			controller := NewController(clientSet, *ticker, ControllerOptions{
+				WatchedNamespace:   "default",
+				ResyncPeriod:       resync,
+				DomainSuffix:       domainSuffix,
+				IgnoreInformerSync: true,
+			})
 			addPods(t, controller, c.pods...)
 			for i, pod := range c.pods {
 				ip := fmt.Sprintf("128.0.0.%v", i+1)
@@ -219,7 +174,7 @@ func TestController_getPodAZ(t *testing.T) {
 
 			// Verify expected existing pod AZs
 			for pod, wantAZ := range c.wantAZ {
-				az, found := controller.GetPodAZ(pod)
+				az, found := controller.getPodAZ(pod)
 				if wantAZ != "" {
 					if !reflect.DeepEqual(az, wantAZ) {
 						t.Errorf("Wanted az: %s, got: %s", wantAZ, az)
@@ -233,77 +188,6 @@ func TestController_getPodAZ(t *testing.T) {
 		})
 	}
 
-}
-
-func TestController_GetIstioServiceAccounts(t *testing.T) {
-
-	controller := makeFakeKubeAPIController()
-
-	sa1 := "acct1"
-	sa2 := "acct2"
-	sa3 := "acct3"
-	k8sSaOnVM := "acct4"
-	canonicalSaOnVM := "acctvm@gserviceaccount.com"
-
-	pods := []*v1.Pod{
-		generatePod("pod1", "nsA", sa1, "node1", map[string]string{"app": "test-app"}),
-		generatePod("pod2", "nsA", sa2, "node2", map[string]string{"app": "prod-app"}),
-		generatePod("pod3", "nsB", sa3, "node1", map[string]string{"app": "prod-app"}),
-	}
-	addPods(t, controller, pods...)
-
-	nodes := []*v1.Node{
-		generateNode("node1", map[string]string{NodeZoneLabel: "az1"}),
-		generateNode("node2", map[string]string{NodeZoneLabel: "az2"}),
-	}
-	addNodes(t, controller, nodes...)
-
-	// Populate pod cache.
-	controller.pods.keys["128.0.0.1"] = "nsA/pod1"
-	controller.pods.keys["128.0.0.2"] = "nsA/pod2"
-	controller.pods.keys["128.0.0.3"] = "nsB/pod3"
-
-	createService(controller, "svc1", "nsA",
-		map[string]string{
-			KubeServiceAccountsOnVMAnnotation:      k8sSaOnVM,
-			CanonicalServiceAccountsOnVMAnnotation: canonicalSaOnVM},
-		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-	createService(controller, "svc2", "nsA", nil, []int32{8081}, map[string]string{"app": "staging-app"}, t)
-
-	// Endpoints are generated by Kubernetes from pod labels and service selectors.
-	// Here we manually create them for mocking purpose.
-	svc1Ips := []string{"128.0.0.2"}
-	svc2Ips := []string{}
-	portNames := []string{"test-port"}
-	createEndpoints(controller, "svc1", "nsA", portNames, svc1Ips, t)
-	createEndpoints(controller, "svc2", "nsA", portNames, svc2Ips, t)
-
-	hostname := serviceHostname("svc1", "nsA", domainSuffix)
-	sa := controller.GetIstioServiceAccounts(hostname, []string{"test-port"})
-	sort.Sort(sort.StringSlice(sa))
-	expected := []string{
-		"spiffe://" + canonicalSaOnVM,
-		"spiffe://company.com/ns/nsA/sa/" + sa2,
-		"spiffe://company.com/ns/nsA/sa/" + k8sSaOnVM,
-	}
-	if !reflect.DeepEqual(sa, expected) {
-		t.Errorf("Unexpected service accounts %v (expecting %v)", sa, expected)
-	}
-
-	hostname = serviceHostname("svc2", "nsA", domainSuffix)
-	sa = controller.GetIstioServiceAccounts(hostname, []string{})
-	if len(sa) != 0 {
-		t.Error("Failure: Expected to resolve 0 service accounts, but got: ", sa)
-	}
-}
-
-func makeFakeKubeAPIController() *Controller {
-	clientSet := fake.NewSimpleClientset()
-	return NewController(clientSet, ControllerOptions{
-		WatchedNamespace: "default",
-		ResyncPeriod:     resync,
-		DomainSuffix:     domainSuffix,
-	})
 }
 
 func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {

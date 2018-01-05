@@ -283,7 +283,7 @@ type DiscoveryServiceOptions struct {
 }
 
 // NewDiscoveryService creates an Envoy discovery service on a given port
-func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCache,
+func NewDiscoveryService(ctl model.UpdateNotifier, configCache model.ConfigStoreCache,
 	environment proxy.Environment, o DiscoveryServiceOptions) (*DiscoveryService, error) {
 	out := &DiscoveryService{
 		Environment: environment,
@@ -305,14 +305,7 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 
 	// Flush cached discovery responses whenever services, service
 	// instances, or routing configuration changes.
-	serviceHandler := func(*model.Service, model.Event) { out.clearCache() }
-	if err := ctl.AppendServiceHandler(serviceHandler); err != nil {
-		return nil, err
-	}
-	instanceHandler := func(*model.ServiceInstance, model.Event) { out.clearCache() }
-	if err := ctl.AppendInstanceHandler(instanceHandler); err != nil {
-		return nil, err
-	}
+	ctl.SetCacheEvictionHandler(out)
 
 	if configCache != nil {
 		configHandler := func(model.Config, model.Event) { out.clearCache() }
@@ -332,6 +325,12 @@ func NewDiscoveryService(ctl model.Controller, configCache model.ConfigStoreCach
 	}
 
 	return out, nil
+}
+
+// EvictCache implements model.CacheEvictionHandler
+// TODO - cache eviction needs to be refactored
+func (ds *DiscoveryService) EvictCache(_ model.CacheReferences) {
+	ds.clearCache()
 }
 
 // Register adds routes a web service container. This is visible for testing purposes only.

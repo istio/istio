@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pilot/platform/test"
 )
 
 const (
@@ -48,46 +49,27 @@ func (m *mockSyncClient) SetApplications(apps []*application) {
 
 var _ Client = (*mockSyncClient)(nil)
 
-// TODO: ensure this test is reliable (no timing issues) on different systems
+func buildExpectedControllerView(t *testing.T, cl *mockSyncClient) *model.ControllerView {
+	modelSvcs := []*model.Service{}
+	apps, err := cl.Applications()
+	if err != nil {
+		t.Fatalf("Unexpected test setup failure: '%s'", err.Error())
+	}
+	hostSvcMap := convertServices(apps, nil)
+	for _, svc := range hostSvcMap {
+		modelSvcs = append(modelSvcs, svc)
+	}
+	modelInsts := []*model.ServiceInstance{}
+	for _, instance := range convertServiceInstances(hostSvcMap, apps) {
+		modelInsts = append(modelInsts, instance)
+	}
+	return test.BuildExpectedControllerView(modelSvcs, modelInsts)
+}
+
+// The only thing being tested are the public interfaces of the controller
+// namely: Handle() and Run(). Everything else is implementation detail.
 func TestController(t *testing.T) {
 	cl := &mockSyncClient{}
-
-	countMutex := sync.Mutex{}
-	count := 0
-
-	incrementCount := func() {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		count++
-	}
-	getCountAndReset := func() int {
-		countMutex.Lock()
-		defer countMutex.Unlock()
-		c := count
-		count = 0
-		return c
-	}
-
-	ctl := NewController(cl, resync)
-	err := ctl.AppendInstanceHandler(func(instance *model.ServiceInstance, event model.Event) { incrementCount() })
-	if err != nil {
-		t.Errorf("AppendInstanceHandler() => %q", err)
-	}
-
-	err = ctl.AppendServiceHandler(func(service *model.Service, event model.Event) { incrementCount() })
-	if err != nil {
-		t.Errorf("AppendServiceHandler() => %q", err)
-	}
-
-	stop := make(chan struct{})
-	go ctl.Run(stop)
-	defer close(stop)
-
-	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 0 {
-		t.Errorf("got %d notifications from controller, want %d", c, 0)
-	}
-
 	cl.SetApplications([]*application{
 		{
 			Name: "APP",
@@ -97,8 +79,8 @@ func TestController(t *testing.T) {
 			},
 		},
 	})
-	time.Sleep(notifyThreshold)
-	if c := getCountAndReset(); c != 2 {
-		t.Errorf("got %d notifications from controller, want %d", count, 2)
-	}
+
+	mockHandler := test.NewMockControllerViewHandler()
+	controller := NewController(cl, *mockHandler.GetTicker())
+	mockHandler.AssertControllerOK(t, controller, buildExpectedControllerView(t, cl))
 }
