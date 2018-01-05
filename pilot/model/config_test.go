@@ -451,10 +451,9 @@ func TestRouteRules(t *testing.T) {
 			if out := store.RouteRules([]*model.ServiceInstance{instance}, mock.HelloService.Hostname, mock.HelloProxyV0.Domain); len(out) != 0 {
 				t.Error("RouteRules() => expected no match for destination-matched rules")
 			}
-			// TODO how to handle domain field here
-			//if out := store.RouteRules(nil, mock.WorldService.Hostname, mock.HelloProxyV0.Domain); len(out) != 0 {
-			//	t.Error("RouteRules() => expected no match for source-matched rules")
-			//}
+			if out := store.RouteRules(nil, mock.WorldService.Hostname, "DNE"); len(out) != 0 {
+				t.Error("RouteRules() => expected no match for source-matched rules")
+			}
 
 			world := mock.MakeInstance(mock.WorldService, mock.PortHTTP, 0, "")
 			if out := store.RouteRulesByDestination([]*model.ServiceInstance{world}, mock.HelloProxyV0.Domain); len(out) != 1 ||
