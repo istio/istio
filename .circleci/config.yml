@@ -22,9 +22,6 @@ integrationDefaults: &integrationDefaults
     GOPATH: /go
 
 jobs:
-  # WIP: run e2e tests (install full istio) in minikube.
-  # Currently fails due to DNS problems, tests use "istio-pilot.istio-system", but dnsmasq
-  # expects .cluster.local (with -none driver).
   e2e-simple:
     <<: *integrationDefaults
     environment:
@@ -49,7 +46,6 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker
       - run: bin/testEnvRootMinikube.sh wait
-      - run: docker images
       - run: PATH=$GOPATH/bin:$PATH make e2e_simple E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
       - store_artifacts:
           path: /home/circleci/logs
@@ -111,8 +107,7 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.debug
-      - run: make docker.test
+      - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
       - run:
             no_output_timeout: 20m
@@ -146,11 +141,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: make docker.pilot-debug
-      - run: make docker.pilot-test
-      - run: docker images
+      - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
-      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -169,7 +162,6 @@ jobs:
         command: |
           sudo mkdir -p /go/src/istio.io/istio
           sudo chown -R circleci /go
-          sudo chown -R circleci /usr/local/go
       - checkout
       - attach_workspace:
           at:  /go
@@ -177,10 +169,9 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run: cd pilot; bin/gocompile-and-push-images.sh -hub $HUB -tag $TAG -build-only
-      - run: go build -i ./pilot/test/integration
+      - run: make docker.prebuilt
       - run: bin/testEnvRootMinikube.sh wait
-      - run: ./integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=disable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
@@ -258,21 +249,6 @@ jobs:
           command: |
             bash <(curl -s https://codecov.io/bash) -F mixer
 
-  docker:
-    <<: *defaults
-    resource_class: xlarge
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - dep-cache-{{ checksum "Gopkg.lock" }}
-      - run:
-          command: |
-            docker login -u $DOCKER_USER -p $DOCKER_PASS
-            make docker push
-      - store_artifacts:
-          path: /go/bin
-
   test:
     <<: *defaults
     environment:
@@ -290,15 +266,7 @@ jobs:
             free
             trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
             make localTestEnv
-            go test ./pilot/platform/kube
-            go test ./pilot/platform/kube/admit
-            make pilot-test T=-v | tee /go/out/tests/go-test-report.out
-            free
-            make mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
-      - store_artifacts:
-          path: /go/bin
-      - store_artifacts:
-          path: /go/out
+            make pilot-test mixer-test broker-test security-test T=-v | tee -a /go/out/tests/go-test-report.out
       - store_test_results:
           path: /go/out/tests
 
@@ -313,10 +281,7 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            make init go-build
-      - run: go build -o $GOPATH/bin/integration ./pilot/test/integration
-      - store_artifacts:
-          path: /go/bin
+            make init go-build test-bins
       - persist_to_workspace:
           root: /go
           paths:
@@ -328,22 +293,40 @@ jobs:
           path: /go/out/istio-sidecar.deb
 
   lint:
-    <<: *integrationDefaults
+    working_directory: /go/src/istio.io/istio
+    docker:
+      - image: gcr.io/mukai-istio/linter:bbcfb47f85643d4f5a7b1c092280d33ffd214c10
+    environment:
+      GOPATH: /go
+    resource_class: xlarge
     steps:
-      - type: shell
-        name: Initialize Working Directory
-        pwd: /
-        command: |
-          sudo mkdir -p /go/src/istio.io/istio
-          sudo chown -R circleci /go
       - checkout
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run: bin/check_license.sh
       - run:
           no_output_timeout: 15m
           command: |
-            make lint
+            CGO_ENABLED=0 /usr/local/bin/gometalinter --config=./lintconfig_base.json -s vendor --fast ./...
+
+  # lint:
+  #   <<: *integrationDefaults
+  #   steps:
+  #     - type: shell
+  #       name: Initialize Working Directory
+  #       pwd: /
+  #       command: |
+  #         sudo mkdir -p /go/src/istio.io/istio
+  #         sudo chown -R circleci /go
+  #     - checkout
+  #     - restore_cache:
+  #         keys:
+  #           - dep-cache-{{ checksum "Gopkg.lock" }}
+  #     - run:
+  #         no_output_timeout: 15m
+  #         command: |
+  #           make lint
 
   docker-push:
     <<: *defaults
@@ -362,8 +345,6 @@ jobs:
               docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
               make docker push
             fi
-      - store_artifacts:
-          path: /go/bin
 
   goxbuild:
     <<: *defaults

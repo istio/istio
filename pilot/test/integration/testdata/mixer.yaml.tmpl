@@ -33,7 +33,7 @@ spec:
       serviceAccountName: istio-mixer-service-account
       containers:
       - name: mixer
-        image: {{.Hub}}/mixer:{{.Tag}}
+        image: {{.Hub}}/mixer_debug:{{.Tag}}
         imagePullPolicy: IfNotPresent
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
