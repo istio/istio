@@ -1,0 +1,27 @@
+version: 2
+defaults: &defaults
+  working_directory: /go/src/istio.io/api
+  docker:
+    - image: istio/ci:go1.9-k8s1.7.4
+  environment:
+    GOPATH: /go
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+      - run: make generate
+      - run:
+          command: |
+            if [[ -n $(git status --porcelain) ]]; then
+              git status
+              git diff
+              die "Repo has unstaged changes. Re-run ./scripts/generate-protos.sh"
+            fi
+
+workflows:
+  version: 2
+  all:
+    jobs:
+      - build
