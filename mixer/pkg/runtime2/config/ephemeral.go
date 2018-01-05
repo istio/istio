@@ -80,19 +80,6 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 	}
 }
 
-// ApplyEvents to the internal ephemeral state. This gets called by an external event listener to relay store change
-// events to this ephemeral config object.
-func (e *Ephemeral) ApplyEvents(events []*store.Event) {
-
-	if log.DebugEnabled() {
-		log.Debugf("Incoming config change events: count='%d'", len(events))
-	}
-
-	for _, event := range events {
-		e.ApplyEvent(event)
-	}
-}
-
 // ApplyEvent to the internal ephemeral state. This gets called by an external event listener to relay store change
 // events to this ephemeral config object.
 func (e *Ephemeral) ApplyEvent(event *store.Event) {
@@ -297,7 +284,7 @@ func (e *Ephemeral) processRuleConfigs(
 		}
 
 		// extract the set of actions from the rule, and the handlers they reference.
-		var actions []*Action
+		actions := make([]*Action, 0, len(cfg.Actions))
 		for i, a := range cfg.Actions {
 			log.Debugf("Processing action: %s[%d]", ruleName, i)
 
@@ -315,7 +302,7 @@ func (e *Ephemeral) processRuleConfigs(
 			// action
 			uniqueInstances := make(map[string]bool)
 
-			var actionInstances []*Instance
+			actionInstances := make([]*Instance, 0, len(a.Instances))
 			for _, instanceName := range a.Instances {
 				instanceName = canonicalize(instanceName, ruleKey.Namespace)
 				if _, found = uniqueInstances[instanceName]; found {

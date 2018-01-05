@@ -1436,12 +1436,16 @@ func runTests(t *testing.T) {
 			}
 
 			if test.Events1 != nil {
-				e.ApplyEvents(test.Events1)
+				for _, event := range test.Events1 {
+					e.ApplyEvent(event)
+				}
 				s = e.BuildSnapshot()
 			}
 
 			if test.Events2 != nil {
-				e.ApplyEvents(test.Events2)
+				for _, event := range test.Events2 {
+					e.ApplyEvent(event)
+				}
 				s = e.BuildSnapshot()
 			}
 
