@@ -68,6 +68,7 @@ go_test(
     ],
 )
 
+# NO LONGER NEEDED. TAKEN CARE OF BY MAKEFILE
 genrule(
     name = "envoy_binary",
     srcs = ["@envoy_binary//file"],
