@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy},
-		//{cbRouteRuleV2}, // TODO: re-enable when circuit breaker support is added to v1alpha2
+		//{cbRouteRuleV2}, // TODO: re-enable when circuit breakers are supported for v1alpha2
 	}
 
 	for _, configs := range tests {

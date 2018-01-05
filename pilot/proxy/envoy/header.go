@@ -59,25 +59,11 @@ func buildHTTPRouteMatch(matches *routing.MatchCondition) *HTTPRoute {
 	}
 }
 
-func buildHTTPRouteMatches(instances []*model.ServiceInstance, matches []*routingv2.HTTPMatchRequest) []*HTTPRoute {
-	if len(matches) == 0 {
-		return []*HTTPRoute{{Prefix: "/"}}
-	}
-
-	routes := make([]*HTTPRoute, 0, len(matches))
-	for _, match := range matches {
-		for _, instance := range instances {
-			if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-				routes = append(routes, buildHTTPRouteMatchV2(match))
-				break
-			}
-		}
-	}
-
-	return routes
-}
-
 func buildHTTPRouteMatchV2(match *routingv2.HTTPMatchRequest) *HTTPRoute {
+	if match == nil {
+		return &HTTPRoute{Prefix: "/"}
+	}
+
 	route := &HTTPRoute{}
 	for name, stringMatch := range match.Headers {
 		route.Headers = append(route.Headers, buildHeaderV2(name, stringMatch))
