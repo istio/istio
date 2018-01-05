@@ -49,3 +49,9 @@ def mixer_adapter_repositories():
         commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
         importpath = "golang.org/x/text",
     )
+
+    go_repository(
+        name = "io_istio_gogo_genproto",
+        commit = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd",  # Dec 14, 2017 (initial generation of status protos)
+        importpath = "istio.io/gogo-genproto",
+    )

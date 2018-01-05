@@ -20,8 +20,9 @@ import (
 	"time"
 
 	pbtypes "github.com/gogo/protobuf/types"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	sc "google.golang.org/api/servicecontrol/v1"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 type testMarshaller struct{}

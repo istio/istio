@@ -30,7 +30,7 @@ message Subject {
   // "groups" are normally populated from JWT claim or client certificate.
   // The operator can define how it is populated when creating an instance of
   // the template.
-  repeated string groups = 2;
+  string groups = 2;
   // Additional attributes about the subject.
   map<string, istio.mixer.v1.config.descriptor.ValueType> properties = 3;
 }

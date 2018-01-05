@@ -22,9 +22,11 @@ import (
 
 	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
+
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -46,6 +48,7 @@ import (
 	"istio.io/istio/pilot/proxy/envoy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
@@ -232,7 +235,7 @@ func (s *Server) initMonitor(args *PilotArgs) error {
 		go func() {
 			<-stop
 			err := monitor.Close()
-			glog.V(2).Infof("Monitoring server terminated: %v", err)
+			log.Debugf("Monitoring server terminated: %v", err)
 		}()
 		return nil
 	})
@@ -246,7 +249,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	if args.Mesh.ConfigFile != "" {
 		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
-			glog.Warningf("failed to read mesh configuration, using default: %v", err)
+			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		} else {
 			mesh = fileMesh
 		}
@@ -266,9 +269,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		}
 	}
 
-	glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
-	glog.V(2).Infof("version %s", version.Line())
-	glog.V(2).Infof("flags %s", spew.Sdump(args))
+	log.Infof("mesh configuration %s", spew.Sdump(mesh))
+	log.Infof("version %s", version.Line())
+	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh
 	return nil
@@ -364,7 +367,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, r+" registry specified multiple times.")
 		}
 		registered[serviceRegistry] = true
-		glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
+		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case MockRegistry:
 			discovery1 := mock.NewDiscovery(
@@ -416,7 +419,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 				if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
 					args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-					glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
+					log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 				} else {
 					s.addStartFunc(func(stop chan struct{}) error {
 						go ingressSyncer.Run(stop)
@@ -425,7 +428,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				}
 			}
 		case ConsulRegistry:
-			glog.V(2).Infof("Consul url: %v", args.Service.Consul.ServerURL)
+			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
 				// TODO: Remove this hardcoding!
 				args.Service.Consul.ServerURL, "dc1", 2*time.Second)
@@ -440,7 +443,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Controller:       conctl,
 				})
 		case EurekaRegistry:
-			glog.V(2).Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
+			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{

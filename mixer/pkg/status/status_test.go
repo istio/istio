@@ -19,8 +19,9 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	multierror "github.com/hashicorp/go-multierror"
+
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 func TestStatus(t *testing.T) {

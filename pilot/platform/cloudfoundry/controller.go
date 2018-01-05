@@ -19,10 +19,12 @@ import (
 	"time"
 
 	copilotapi "code.cloudfoundry.org/copilot/api"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"golang.org/x/net/context"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 type serviceHandler func(*model.Service, model.Event)
@@ -75,7 +77,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		case <-c.Ticker.Chan():
 			backendSets, err := c.Client.Routes(context.Background(), &copilotapi.RoutesRequest{})
 			if err != nil {
-				glog.Warningf("periodic copilot routes poll failed: %s", err)
+				log.Warnf("periodic copilot routes poll failed: %s", err)
 				continue
 			}
 

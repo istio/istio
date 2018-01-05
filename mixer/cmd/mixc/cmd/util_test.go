@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/attribute"
 )
 
@@ -183,10 +183,10 @@ func TestDecodeStatus(t *testing.T) {
 
 func TestDecodeError(t *testing.T) {
 	cases := []error{
-		grpc.Errorf(codes.AlreadyExists, ""),
-		grpc.Errorf(codes.Code(123456), ""),
-		grpc.Errorf(codes.AlreadyExists, "FOO"),
-		grpc.Errorf(codes.Code(123456), "FOO"),
+		status.Errorf(codes.AlreadyExists, ""),
+		status.Errorf(codes.Code(123456), ""),
+		status.Errorf(codes.AlreadyExists, "FOO"),
+		status.Errorf(codes.Code(123456), "FOO"),
 	}
 
 	for i, c := range cases {

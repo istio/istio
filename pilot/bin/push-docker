@@ -24,25 +24,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source ${ROOT}/../bin/docker_lib.sh
 
 cd $ROOT
+GOBUILD=${ROOT}/../bin/gobuild.sh
+VERSION_MODULE=istio.io/istio/pilot/tools/version
 
-detected_OS=`uname -s 2>/dev/null || echo not`
-BUILD_FLAGS="--output_groups=static"
-SUFFIX=".static"
-if [ "${detected_OS}" == "Darwin" ]; then # Mac OS X
-    BUILD_FLAGS="--cpu=darwin"
-    SUFFIX=""
-fi
+${GOBUILD} docker/pilot-discovery ${VERSION_MODULE} ./cmd/pilot-discovery
+${GOBUILD} docker/pilot-agent ${VERSION_MODULE} ./cmd/pilot-agent
+${GOBUILD} docker/sidecar-initializer ${VERSION_MODULE} ./cmd/sidecar-initializer
 
-# Collect artifacts for pushing
-bin=$(bazel info bazel-bin)
-
-bazel build ${BUILD_FLAGS} //pilot/cmd/... //pilot/test/...
-\cp -f "${bin}/pilot/test/client/client${SUFFIX}" docker/client
-\cp -f "${bin}/pilot/test/server/server${SUFFIX}" docker/server
-\cp -f "${bin}/pilot/cmd/pilot-agent/pilot-agent${SUFFIX}" docker/pilot-agent
-\cp -f "${bin}/pilot/cmd/pilot-discovery/pilot-discovery${SUFFIX}" docker/pilot-discovery
-\cp -f "${bin}/pilot/cmd/sidecar-initializer/sidecar-initializer${SUFFIX}" docker/sidecar-initializer
-\cp -f "${bin}/pilot/test/eurekamirror/eurekamirror${SUFFIX}" docker/eurekamirror
+${GOBUILD} docker/client ${VERSION_MODULE} ./test/client
+${GOBUILD} docker/server ${VERSION_MODULE} ./test/server
+${GOBUILD} docker/eurekamirror ${VERSION_MODULE} ./test/eurekamirror
 
 IMAGES=()
 
@@ -56,4 +47,3 @@ popd
 
 # Tag and push
 tag_and_push "${IMAGES[@]}"
-

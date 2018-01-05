@@ -19,10 +19,11 @@ package adapter
 import (
 	circonus "istio.io/istio/mixer/adapter/circonus"
 	denier "istio.io/istio/mixer/adapter/denier"
-	kubernetes "istio.io/istio/mixer/adapter/kubernetesenv"
+	kubernetesenv "istio.io/istio/mixer/adapter/kubernetesenv"
 	list "istio.io/istio/mixer/adapter/list"
 	memquota "istio.io/istio/mixer/adapter/memquota"
 	noop "istio.io/istio/mixer/adapter/noop"
+	opa "istio.io/istio/mixer/adapter/opa"
 	prometheus "istio.io/istio/mixer/adapter/prometheus"
 	servicecontrol "istio.io/istio/mixer/adapter/servicecontrol"
 	stackdriver "istio.io/istio/mixer/adapter/stackdriver"
@@ -36,10 +37,11 @@ func Inventory() []adptr.InfoFn {
 	return []adptr.InfoFn{
 		circonus.GetInfo,
 		denier.GetInfo,
-		kubernetes.GetInfo,
+		kubernetesenv.GetInfo,
 		list.GetInfo,
 		memquota.GetInfo,
 		noop.GetInfo,
+		opa.GetInfo,
 		prometheus.GetInfo,
 		servicecontrol.GetInfo,
 		stackdriver.GetInfo,

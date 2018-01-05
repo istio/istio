@@ -22,12 +22,13 @@ import (
 	"net"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/status"
 )
@@ -201,5 +202,5 @@ func ListenerAndPort() (net.Listener, int, error) {
 }
 
 func makeGRPCError(status rpc.Status) error {
-	return grpc.Errorf(codes.Code(status.Code), status.Message)
+	return grpcstatus.Errorf(codes.Code(status.Code), status.Message)
 }

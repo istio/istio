@@ -26,7 +26,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -54,7 +57,7 @@ func Fill(outFile, inFile string, values interface{}) error {
 	if err := ioutil.WriteFile(outFile, bytes.Bytes(), 0644); err != nil {
 		return err
 	}
-	glog.Infof("Created %s from template %s", outFile, inFile)
+	log.Infof("Created %s from template %s", outFile, inFile)
 	return nil
 }
 
@@ -63,7 +66,7 @@ func CreateNamespace(n string) error {
 	if _, err := Shell("kubectl create namespace %s", n); err != nil {
 		return err
 	}
-	glog.Infof("namespace %s created\n", n)
+	log.Infof("namespace %s created\n", n)
 	return nil
 }
 
@@ -77,10 +80,10 @@ func DeleteNamespace(n string) error {
 func NamespaceDeleted(n string) (bool, error) {
 	output, err := Shell("kubectl get namespace %s", n)
 	if strings.Contains(output, "NotFound") {
-		glog.V(2).Infof("namespace %s deleted\n", n)
+		log.Infof("namespace %s deleted\n", n)
 		return true, nil
 	}
-	glog.V(2).Infof("namespace %s not deleted yet\n", n)
+	log.Infof("namespace %s not deleted yet\n", n)
 	return false, err
 }
 
@@ -113,7 +116,7 @@ func KubeDeleteContents(namespace, yamlContents string) error {
 func removeFile(path string) {
 	err := os.Remove(path)
 	if err != nil {
-		glog.Errorf("Unable to remove %s: %v", path, err)
+		log.Errorf("Unable to remove %s: %v", path, err)
 	}
 }
 
@@ -144,7 +147,7 @@ func GetIngress(n string) (string, error) {
 		if ri.FindString(ip) == "" {
 			pods, _ := Shell("kubectl get all -n %s -o wide", n)
 			err = fmt.Errorf("unable to find ingress ip, state:\n%s", pods)
-			glog.Warning(err)
+			log.Warna(err)
 			return err
 		}
 		ingress = ip
@@ -156,11 +159,11 @@ func GetIngress(n string) (string, error) {
 		//port = strings.Trim(port, "'")
 		//if rp.FindString(port) == "" {
 		//	err = fmt.Errorf("unable to find ingress port")
-		//	glog.Warning(err)
+		//	log.Warn(err)
 		//	return err
 		//}
 		//ingress = ip + ":" + port
-		glog.Infof("Istio ingress: %s\n", ingress)
+		log.Infof("Istio ingress: %s\n", ingress)
 		return nil
 	}
 	_, err := retry.Retry(retryFn)
@@ -192,16 +195,16 @@ func GetIngressPod(n string) (string, error) {
 		podPort = strings.Trim(podPort, "'")
 		if ipRegex.FindString(podIP) == "" {
 			err = errors.New("unable to find ingress pod ip")
-			glog.Warning(err)
+			log.Warna(err)
 			return err
 		}
 		if portRegex.FindString(podPort) == "" {
 			err = errors.New("unable to find ingress pod port")
-			glog.Warning(err)
+			log.Warna(err)
 			return err
 		}
 		ingress = fmt.Sprintf("%s:%s", podIP, podPort)
-		glog.Infof("Istio ingress: %s\n", ingress)
+		log.Infof("Istio ingress: %s\n", ingress)
 		return nil
 	}
 	_, err := retry.Retry(retryFn)
@@ -212,12 +215,12 @@ func GetIngressPod(n string) (string, error) {
 func GetPodsName(n string) (pods []string) {
 	res, err := Shell("kubectl -n %s get pods -o jsonpath='{.items[*].metadata.name}'", n)
 	if err != nil {
-		glog.Infof("Failed to get pods name in namespace %s: %s", n, err)
+		log.Infof("Failed to get pods name in namespace %s: %s", n, err)
 		return
 	}
 	res = strings.Trim(res, "'")
 	pods = strings.Split(res, " ")
-	glog.Infof("Existing pods: %v", pods)
+	log.Infof("Existing pods: %v", pods)
 	return
 }
 
@@ -225,7 +228,7 @@ func GetPodsName(n string) (pods []string) {
 func GetPodStatus(n, pod string) string {
 	status, err := Shell("kubectl -n %s get pods %s -o jsonpath='{.status.phase}'", n, pod)
 	if err != nil {
-		glog.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
+		log.Infof("Failed to get status of pod %s in namespace %s: %s", pod, n, err)
 		status = podFailedGet
 	}
 	return strings.Trim(status, "'")
@@ -244,14 +247,14 @@ func CheckPodsRunning(n string) (ready bool) {
 		ready = true
 		for _, p := range pods {
 			if status := GetPodStatus(n, p); status != podRunning {
-				glog.Infof("%s in namespace %s is not running: %s", p, n, status)
+				log.Infof("%s in namespace %s is not running: %s", p, n, status)
 				ready = false
 			}
 		}
 		if !ready {
 			_, err := Shell("kubectl -n %s get pods -o wide", n)
 			if err != nil {
-				glog.Infof("Cannot get pods: %s", err)
+				log.Infof("Cannot get pods: %s", err)
 			}
 			return fmt.Errorf("some pods are not ready")
 		}
@@ -261,6 +264,6 @@ func CheckPodsRunning(n string) (ready bool) {
 	if err != nil {
 		return false
 	}
-	glog.Info("Get all pods running!")
+	log.Info("Get all pods running!")
 	return true
 }

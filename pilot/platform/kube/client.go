@@ -19,11 +19,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/pkg/log"
 	// import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	// import OIDC cluster authentication plugin, e.g. for Tectonic
@@ -45,7 +48,7 @@ func ResolveConfig(kubeconfig string) (string, error) {
 
 		// if it's an empty file, switch to in-cluster config
 		if info.Size() == 0 {
-			glog.Info("using in-cluster configuration")
+			log.Info("using in-cluster configuration")
 			return "", nil
 		}
 	}

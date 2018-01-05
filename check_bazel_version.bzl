@@ -14,7 +14,7 @@ def _parse_bazel_version(bazel_version):
 
 # acceptable min_version <= version <= max_version
 def check_version():
-    check_bazel_version("0.5.4", "0.8.99")
+    check_bazel_version("0.5.4", "0.9.99")
 
 # acceptable min_version <= version <= max_version
 def check_bazel_version(min_version, max_version):

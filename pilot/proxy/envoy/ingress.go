@@ -21,12 +21,14 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 func buildIngressListeners(mesh *meshconfig.MeshConfig,
@@ -67,7 +69,7 @@ func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 	for _, rule := range rules {
 		routes, tls, err := buildIngressRoute(mesh, instances, rule, discovery, config)
 		if err != nil {
-			glog.Warningf("Error constructing Envoy route from ingress rule: %v", err)
+			log.Warnf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
 		}
 
@@ -79,7 +81,7 @@ func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 				case *routing.StringMatch_Exact:
 					host = match.Exact
 				default:
-					glog.Warningf("Unsupported match type for authority condition %T, falling back to %q", match, host)
+					log.Warnf("Unsupported match type for authority condition %T, falling back to %q", match, host)
 					continue
 				}
 			}
@@ -89,7 +91,7 @@ func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 			if tlsAll == "" {
 				tlsAll = tls
 			} else if tlsAll != tls {
-				glog.Warningf("Multiple secrets detected %s and %s", tls, tlsAll)
+				log.Warnf("Multiple secrets detected %s and %s", tls, tlsAll)
 				if tls < tlsAll {
 					tlsAll = tls
 				}
