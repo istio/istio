@@ -1,7 +1,17 @@
 #! /bin/bash
 #
 # Sets up a cluster for perf testing - GCP/GKE
-# PROJECT=istio-perf tools/setup_perf_cluster.sh
+#   PROJECT=istio-perf tools/setup_perf_cluster.sh
+# Notes:
+# * Make sure istioctl in your path is the one matching your release/crd/...
+# * You need update istio-auth.yaml or run from a release directory:
+# For instance in ~/tmp/istio-0.3.0/ run
+#   ln -s ~/go/src/istio.io/istio/tools .
+# then
+#   PROJECT=istio-perf
+#   source tools/setup_perf_cluster.sh
+#   setup_all
+# (inside google you may need to rerun setup_vm_firewall multiple times)
 #
 # This can be used as a script or sourced and functions called interactively
 #
@@ -63,6 +73,9 @@ function create_vm() {
   VM_IMAGE=${VM_IMAGE:-$(gcloud compute images list --standard-images --filter=name~ubuntu-1604-xenial --limit=1 --uri)}
   echo "Creating VM_NAME=$VM_NAME using VM_IMAGE=$VM_IMAGE"
   Execute gcloud compute instances create $VM_NAME $GCP_OPTS --machine-type $MACHINE_TYPE --image $VM_IMAGE
+  echo "Waiting a bit for the VM to come up..."
+  #TODO: 'wait for vm to be ready'
+  sleep 45
 }
 
 function run_on_vm() {
@@ -112,7 +125,7 @@ function install_non_istio_svc() {
 }
 
 function install_istio_svc() {
- Execute kubectl create namespace $ISTIO_NAMESPACE || echo "Error assumed to be $ISTIO_NAMESPACE already created"
+ Execute kubectl create namespace $ISTIO_NAMESPACE || echo "Error assumed to be ns $ISTIO_NAMESPACE already created"
  FNAME=$TOOLS_DIR/perf_k8svcs
  Execute sh -c "$ISTIOCTL kube-inject --debug=$DEBUG -n $ISTIO_NAMESPACE -f $FNAME.yaml > ${FNAME}_istio.yaml"
  Execute kubectl apply -n $ISTIO_NAMESPACE -f ${FNAME}_istio.yaml
@@ -123,6 +136,10 @@ function install_istio_ingress_rules() {
   Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
 }
 
+function install_istio_cache_busting_rule() {
+  FNAME=$TOOLS_DIR/cache_buster.yaml
+  Execute $ISTIOCTL create -n $ISTIO_NAMESPACE -f $FNAME
+}
 
 function get_fortio_k8s_ip() {
   FORTIO_K8S_IP=$(kubectl -n $FORTIO_NAMESPACE get svc -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
@@ -192,8 +209,6 @@ function run_fortio_test3() {
 function setup_vm_all() {
   update_gcp_opts
   create_vm
-  #TODO: 'wait for vm to be ready'
-  sleep 10
   setup_vm
   setup_vm_firewall
   update_fortio_on_vm
@@ -205,6 +220,7 @@ function setup_istio_all() {
   install_istio
   install_istio_svc
   install_istio_ingress_rules
+  install_istio_cache_busting_rule
 }
 
 function setup_cluster_all() {
