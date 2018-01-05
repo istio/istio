@@ -77,7 +77,10 @@ func init() {
 }
 func (this *IPAddress) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*IPAddress)
@@ -90,7 +93,10 @@ func (this *IPAddress) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -98,7 +104,10 @@ func (this *IPAddress) Equal(that interface{}) bool {
 }
 func (this *Duration) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*Duration)
@@ -111,7 +120,10 @@ func (this *Duration) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -119,7 +131,10 @@ func (this *Duration) Equal(that interface{}) bool {
 }
 func (this *TimeStamp) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*TimeStamp)
@@ -132,7 +147,10 @@ func (this *TimeStamp) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -140,7 +158,10 @@ func (this *TimeStamp) Equal(that interface{}) bool {
 }
 func (this *DNSName) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*DNSName)
@@ -153,7 +174,10 @@ func (this *DNSName) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -161,7 +185,10 @@ func (this *DNSName) Equal(that interface{}) bool {
 }
 func (this *EmailAddress) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*EmailAddress)
@@ -174,7 +201,10 @@ func (this *EmailAddress) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
@@ -182,7 +212,10 @@ func (this *EmailAddress) Equal(that interface{}) bool {
 }
 func (this *Uri) Equal(that interface{}) bool {
 	if that == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	}
 
 	that1, ok := that.(*Uri)
@@ -195,7 +228,10 @@ func (this *Uri) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		return this == nil
+		if this == nil {
+			return true
+		}
+		return false
 	} else if this == nil {
 		return false
 	}
