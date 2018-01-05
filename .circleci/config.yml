@@ -25,7 +25,7 @@ jobs:
   # WIP: run e2e tests (install full istio) in minikube.
   # Currently fails due to DNS problems, tests use "istio-pilot.istio-system", but dnsmasq
   # expects .cluster.local (with -none driver).
-  e2e:
+  e2e-simple:
     <<: *integrationDefaults
     environment:
             - KUBECONFIG: /go/out/minikube.conf
@@ -81,7 +81,7 @@ jobs:
       - run: make docker
       - run: bin/testEnvRootMinikube.sh wait
       - run:
-            timeout: 20m
+            no_output_timeout: 20m
             # Run the test even if previous failed
             when: always
             command: |
@@ -115,7 +115,7 @@ jobs:
       - run: make docker.test
       - run: bin/testEnvRootMinikube.sh wait
       - run:
-            timeout: 20m
+            no_output_timeout: 20m
             when: always
             command: |
               make e2e_bookinfo E2E_ARGS="--skip_delete -use_local_cluster -cluster_wide -alsologtostderr -test.v -v 2 --istioctl ${GOPATH}/bin/istioctl"
@@ -124,7 +124,7 @@ jobs:
       - store_artifacts:
           path: /tmp
 
-  pilot-integration-auth:
+  e2e-pilot:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -154,7 +154,7 @@ jobs:
       - store_artifacts:
           path: /home/circleci/logs
 
-  pilot-integration-noauth:
+  e2e-pilot-noauth:
     <<: *integrationDefaults
     environment:
             - GOPATH: /go
@@ -283,8 +283,6 @@ jobs:
       - restore_cache:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
-      - attach_workspace:
-          at: /go/
       - run:
           command: |
             mkdir -p /go/out/tests
@@ -331,7 +329,6 @@ jobs:
 
   lint:
     <<: *integrationDefaults
-    resource_class: xlarge
     steps:
       - type: shell
         name: Initialize Working Directory
@@ -344,7 +341,7 @@ jobs:
           keys:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run:
-          no_output_timeout: 900
+          no_output_timeout: 15m
           command: |
             make lint
 
@@ -397,41 +394,43 @@ workflows:
              branches:
                only:
                  - master
-    jobs:
+    jobs: #daisy chained steps ending with docker push
+      - depupdate
       - dependencies
-      # Build
-      - gobuild:
+      - build:
           requires:
             - dependencies
-      # Unit tests
-      - gotest:
+      - test:
           requires:
-            - gobuild
+            - dependencies
+            - build
+      - e2e-simple:
+          requires:
+            - test
+      - e2e-bookinfo:
+          requires:
+            - test
+      - e2e-mixer:
+          requires:
+            - test
+      - e2e-pilot:
+          requires:
+            - test
+      - e2e-pilot-noauth:
+          requires:
+            - test
       # Compile for mac and arm
       - goxbuild:
           requires:
-            - gotest
-      # Integration tests
-      - pilot-integration-auth:
-          requires:
-            - gotest
+            - test
       # Push to dockerhub
       - docker-push:
           context: org-global
           requires:
-            - pilot-integration-auth
-
-  # Verify the latest version of dependencies can build
-  nightly-dep:
-    triggers:
-       - schedule:
-           cron: "0 1 * * *"
-           filters:
-             branches:
-               only:
-                 - master
-    jobs:
-      - depupdate
+            - e2e-bookinfo
+            - e2e-mixer
+            - e2e-pilot
+            - e2e-pilot-noauth
 
   periodic:
     triggers:
@@ -453,7 +452,7 @@ workflows:
       - test:
           requires:
             - dependencies
-      - e2e:
+      - e2e-simple:
           requires:
             - build
       - e2e-bookinfo:
@@ -462,7 +461,10 @@ workflows:
       - e2e-mixer:
           requires:
             - build
-      - pilot-integration-noauth:
+      - e2e-pilot:
+          requires:
+            - build
+      - e2e-pilot-noauth:
           requires:
             - build
 
@@ -475,15 +477,9 @@ workflows:
       - build:
           requires:
             - dependencies
-      - e2e:
-          requires:
-            - build
       - test:
           requires:
             - dependencies
-      - codecov:
-          requires:
-            - build
-      - pilot-integration-auth:
+      - e2e-pilot:
           requires:
             - build

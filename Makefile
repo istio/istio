@@ -104,8 +104,8 @@ depend.update: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to da
 ${GOPATH}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
-Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
-	$(Q) dep ensure -update
+Gopkg.lock: Gopkg.toml | ${GOPATH}/bin/dep ; $(info $(H) generating) @
+	$(Q) ${GOPATH}/bin/dep ensure -update
 
 depend.status: Gopkg.lock
 	$(Q) dep status > vendor/dep.txt
@@ -115,7 +115,7 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-
+  
 lint:
 	SKIP_INIT=1 bin/linters.sh
 

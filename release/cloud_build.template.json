@@ -7,7 +7,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "name": "gcr.io/istio-testing/istio-builder:0.4.5-bazel7-go19",
       "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/" ],
       "entrypoint": "bash"
     },
@@ -18,7 +18,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "name": "gcr.io/istio-testing/istio-builder:0.4.5-bazel7-go19",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/cloud_builder.sh", "-t", "$_VER_STRING", "-o", "/output" ]
     },
