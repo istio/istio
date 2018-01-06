@@ -552,7 +552,7 @@ You can even try passing other attributes to mixer server and inspect your out.t
 the adapter changes. For example
 
 ```bash
-../bazel-bin/mixer/cmd/mixc/mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
+pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local,target.service=mySrvc" -i="response.code=400" --stringmap_attributes="target.labels=app:dummyapp"
 ```
 
 **If you have reached this far, congratulate yourself !!**. You have successfully created a Mixer adapter. You can
@@ -669,7 +669,7 @@ tail $MIXER_REPO/adapter/mysampleadapter/out.txt
 
 # Step 9: Cleanup
 
-Delete the adapter/mysampleadapter` `directory and undo the edits made inside the adapter/BUILD file.
+Delete the adapter/mysampleadapter` `directory and undo the edits made inside the adapter/inventory.yaml and adapter/inventory.gen.go files.
 
 # Step 10: Next
 
