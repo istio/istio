@@ -66,73 +66,42 @@ done
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
+export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
-
-if [ ! -d "${PROXY_PATH}" ]; then
-  echo "proxy dir not detected at ${PROXY_PATH}"
-  usage
-fi
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-# Proxy has some specific requirements for Bazel's
-# config (plus it's nicely places bazel in batch
-# mode) so this component gets built first.
+VERBOSE=1 make setup
 
-pushd "${PROXY_PATH}"
-
-# Use this file for Cloud Builder specific settings.
-# This file sets RAM sizes and also specifies batch
-# mode that should shutdown bazel after each call.
-echo 'Setting bazel.rc'
-cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  mkdir -p "${OUTPUT_PATH}/deb"
-  ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
-popd
-
-# Pilot likes to check if the source tree is 'clean'
-# when it queries for version/source informatin.  Some
-# other components like littering the tree so it's better
-# to build pilot sooner than later.
-
-# Pilot build expects this file to exist.  The usual
-# approach of adding a symlink to the user's config file
-# doesn't help when the user doesn't have one.
-touch pilot/platform/kube/config
+VERBOSE=1 make init
 
 # pull in outside dependencies
-make depend
+VERBOSE=1 make depend
+
+if [ "${BUILD_DEBIAN}" == "true" ]; then
+  VERBOSE=1 OUT="${OUTPUT_PATH}/deb" VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make sidecar.deb
+fi
 
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
+# make istioctl just outputs to pilot/cmd/istioctl
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
 if [ "${BUILD_DOCKER}" == "true" ]; then
   # push-docker already adds docker/ to path
   ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
 fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
 popd
 
-pushd mixer
 if [ "${BUILD_DOCKER}" == "true" ]; then
+  pushd mixer
+  # XXX this might not build servicegraph_debug as it should
   ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-popd
-
-pushd security
-if [ "${BUILD_DOCKER}" == "true" ]; then
+  popd
+  pushd security
   ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+  popd
 fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
-popd
 
 # log where git thinks the build might be dirty
 git status

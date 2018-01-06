@@ -59,7 +59,8 @@ STATIC=0 GOOS=linux ${GOBUILD} "${BIN_DIR}/istioctl-linux" ${VERSION_PACKAGE} is
 
 if [[ ${RELEASE} == true ]]; then
   STATIC=0 GOOS=darwin ${GOBUILD} "${BIN_DIR}/istioctl-osx" ${VERSION_PACKAGE} istio.io/istio/pilot/cmd/istioctl
-  go get github.com/inconshreveable/mousetrap
+  # this should be grabbed by dep, as mousetrap is in Gopkg.lock
+  # go get github.com/inconshreveable/mousetrap
   STATIC=0 GOOS=windows ${GOBUILD} "${BIN_DIR}/istioctl-win.exe" ${VERSION_PACKAGE} istio.io/istio/pilot/cmd/istioctl
 fi
 
