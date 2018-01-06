@@ -164,7 +164,7 @@ message Params {
 
 Let's now generate the corresponding go file from the config.proto. To do this, add the following go generate comment to the adapter code. The bold text shows the new added text.
 <pre><code>
-<b>//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/memquota/config/config.proto</b>
+<b>//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/mysampleadapter/config/config.proto</b>
 package mysampleadapter
 
 import (
@@ -174,6 +174,8 @@ import (
   "istio.io/istio/mixer/pkg/adapter"
   "istio.io/istio/mixer/template/metric"
 )
+..
+..
 </code></pre>
 
 Just to ensure everything is good, let's generate the file and build the code
@@ -191,6 +193,7 @@ function to allow operators to pass the adapter-specific config and for the adap
 config. Copy the following code and the bold text shows the new added code.
 
 <pre>
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/mysampleadapter/config/config.proto
 package mysampleadapter
 
 import (
@@ -285,6 +288,7 @@ metric type information at configuration-time and using it at request-time. To a
 mysampleadapter.go to look like the following. Note the bold text shows the newly added code. 
 
 <pre>
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/mysampleadapter/config/config.proto
 package mysampleadapter
 
 import (
@@ -393,29 +397,25 @@ and to verify your code's behavior.
 
 # Step 5: Plug adapter into the Mixer.
 
-Update the $MIXER_REPO/adapter/BUILD file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
+Update the $MIXER_REPO/adapter/inventory.yaml file to add the new 'mysampleadapter' into the Mixer's adapter inventory.
 
-Add the lines in **bold** to the existing file. The `inventory_library` build rule should look like the following
+Add the lines in **bold** to the existing file. The yaml should look like the following
 
 <pre>
-inventory_library(
-   name = "go_default_library",
-   packages = {
-       # list of all adapters
-       # "friendlyName" : "go_import_path"
-       "servicecontrol": "istio.io/istio/mixer/adapter/servicecontrol",
-       ...
-       <b>"mysampleadapter": "istio.io/istio/mixer/adapter/mysampleadapter",</b>
-   },
-   deps = [
-       # list of all go_default_library rule for adapters.
-       "//mixer/adapter/servicecontrol:go_default_library",
-       ...
-       <b>"//mixer/adapter/mysampleadapter:go_default_library",</b>
-   ],
-)
+...
+prometheus: "istio.io/istio/mixer/adapter/prometheus"
+servicecontrol: "istio.io/istio/mixer/adapter/servicecontrol"
+stackdriver: "istio.io/istio/mixer/adapter/stackdriver"
+statsd: "istio.io/istio/mixer/adapter/statsd"
+stdio: "istio.io/istio/mixer/adapter/stdio"
+<b>mysampleadapter: "istio.io/istio/mixer/adapter/mysampleadapter"</b>
+...
 </pre>
 
+Now, regenerate the inventory code by running `go generate` inside the $MIXER_REPO/adapter directory
+```bash
+go generate $MIXER_REPO/adapter/doc.go
+```
 
 Now your adapter is plugged into Mixer and ready to receive data.
 
@@ -491,7 +491,7 @@ spec:
 Start the mixer pointing it to the sample operator configuration
 
 ```bash
-cd $MIXER_REPO && bazel build ... && ../bazel-bin/mixer/cmd/mixs/mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
+pushd $MIXER_REPO && go install ./... && mixs server --configStore2URL=fs://$MIXER_REPO/adapter/mysampleadapter/sampleoperatorconfig
 ```
 
 The terminal will have the following output and will be blocked waiting to serve requests
@@ -499,9 +499,24 @@ The terminal will have the following output and will be blocked waiting to serve
 ```
 ..
 ..
-Starting self-monitoring on port 9093
-Istio Mixer: version: 0.2.2-28-gc5112ac1 (build: 2017-09-23-c5112ac1, status: Modified)
-Starting gRPC server on port 9091
+Mixer started with
+MaxMessageSize: 1048576
+MaxConcurrentStreams: 1024
+APIWorkerPoolSize: 1024
+AdapterWorkerPoolSize: 1024
+ExpressionEvalCacheSize: 1024
+APIPort: 9091
+MonitoringPort: 9093
+SingleThreaded: false
+ConfigStore2URL: fs:///usr/local/google/home/guptasu/go/src/istio.io/istio/mixer/adapter/mysampleadapter/sampleoperatorconfig
+ConfigDefaultNamespace: istio-system
+ConfigIdentityAttribute: destination.service
+ConfigIdentityAttributeDomain: svc.cluster.local
+LoggingOptions: log.Options{OutputPaths:[]string{"stdout"}, ErrorOutputPaths:[]string{"stderr"}, RotateOutputPath:"", RotationMaxSize:104857600, RotationMaxAge:30, RotationMaxBackups:1000, JSONEncoding:false, IncludeCallerSourceLocation:false, stackTraceLevel:"none", outputLevel:"info"}
+TracingOptions: tracing.Options{ZipkinURL:"", JaegerURL:"", LogTraceSpans:false}
+
+2018-01-06T01:43:12.305995Z	info	template Kind: kubernetesenv, &InstanceParam{SourceUid:,SourceIp:,DestinationUid:,DestinationIp:,OriginUid:,OriginIp:,AttributeBindings:map[string]string{},}
+...
 ```
 
 Now let's call 'report' using mixer client. This step should cause the mixer server to call your sample adapter with
@@ -513,14 +528,7 @@ machine. Example ``export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer``
 In the new window call the following
 
 ```bash
-cd $MIXER_REPO && bazel build ...
-```
-
-
-Invoke report
-
-```bash
-../bazel-bin/mixer/cmd/mixc/mixc report -s="destination.service=svc.cluster.local"
+pushd $MIXER_REPO && go install ./... && mixc report -s="destination.service=svc.cluster.local"
 ```
 
 
@@ -572,11 +580,14 @@ import (
 	"log"
 	"testing"
 
+	"google.golang.org/grpc"
+
 	"golang.org/x/net/context"
 
-	mixerapi "istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/mock"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/server"
 	"istio.io/istio/mixer/template"
 	"path/filepath"
 )
@@ -586,33 +597,37 @@ func TestMySampleAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fail to get absolute path for sampleoperatorconfig: %v", err)
 	}
+	args := server.NewArgs()
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.ConfigStore2URL = `fs://` + operatorCnfg
+	args.Templates = template.SupportedTmplInfo
+	args.Adapters = []adapter.InfoFn{GetInfo}
 
-	var args = mock.Args{
-		// Start Mixer server on a free port on loop back interface
-		MixerServerAddr:               `127.0.0.1:0`,
-		ConfigStoreURL:                `fs://` + operatorCnfg,
-		ConfigStore2URL:               `fs://` + operatorCnfg,
-		ConfigDefaultNamespace:        "istio-system",
-		ConfigIdentityAttribute:       "destination.service",
-		ConfigIdentityAttributeDomain: "svc.cluster.local",
-	}
-
-	s, err := mock.NewServer(&args, template.SupportedTmplInfo, []adapter.InfoFn{GetInfo})
+	s, err := server.New(args)
 	if err != nil {
-		t.Fatalf("fail to create testenv: %v", err)
+		t.Fatalf("fail to create mixer: %v", err)
 	}
+
+	s.Run()
 	defer closeHelper(s)
 
-	client, conn, err := s.CreateClient()
+	conn, err := grpc.Dial(s.Addr().String(), grpc.WithInsecure())
 	if err != nil {
-		t.Fatalf("fail to create client connection: %v", err)
+		t.Fatalf("Unable to connect to gRPC server: %v", err)
 	}
+
+	client := istio_mixer_v1.NewMixerClient(conn)
 	defer closeHelper(conn)
 
 	attrs := map[string]interface{}{"response.code": int64(400)}
-	bag := mock.GetAttrBag(attrs, args.ConfigIdentityAttribute, args.ConfigIdentityAttributeDomain)
-	request := mixerapi.ReportRequest{Attributes: []mixerapi.Attributes{ bag}}
-	_, err = client.Report(context.Background(), &request)
+	req := istio_mixer_v1.ReportRequest{
+		Attributes: []istio_mixer_v1.CompressedAttributes{
+			getAttrBag(attrs,
+			args.ConfigIdentityAttribute,
+			args.ConfigIdentityAttributeDomain)},
+		}
+	_, err = client.Report(context.Background(), &req)
 	if err != nil {
 		t.Errorf("fail to send report to Mixer %v", err)
 	}
@@ -625,58 +640,24 @@ func closeHelper(c io.Closer) {
 	}
 }
 
+func getAttrBag(attrs map[string]interface{}, identityAttr, identityAttrDomain string) istio_mixer_v1.CompressedAttributes {
+	requestBag := attribute.GetMutableBag(nil)
+	requestBag.Set(identityAttr, identityAttrDomain)
+	for k, v := range attrs {
+		requestBag.Set(k, v)
+	}
+
+	var attrProto istio_mixer_v1.CompressedAttributes
+	requestBag.ToProto(&attrProto, nil, 0)
+	return attrProto
+}
+
 ```
 
-Add go_test to the BUILD file adapter/mysampleadapter/BUILD.
-
-Copy the following content into the existing BUILD file. The text in bold shows the newly added content.
-
-<pre>
-package(default_visibility = ["//visibility:public"])
-
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["mysampleadapter.go"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//mixer/adapter/mysampleadapter/config:go_default_library",
-        "//mixer/pkg/adapter:go_default_library",
-        "//mixer/template/metric:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-    ],
-)
-
-<b>
-load("@io_bazel_rules_go//go:def.bzl", "go_test")
-go_test(
-    name = "go_default_test",
-    size = "small",
-    srcs = ["mysampleadapter_test.go"],
-    library = ":go_default_library",
-    data = [
-        "sampleoperatorconfig",
-    ],
-    deps = [
-        "//mixer/pkg/adapter:go_default_library",
-        "//mixer/pkg/template:go_default_library",
-        "//mixer/pkg/mock:go_default_library",
-        "//mixer/template:go_default_library",
-        "@io_istio_api//mixer/v1:go_default_library",  # keep
-        "@org_golang_x_net//context:go_default_library",
-    ],
-)
-</b>
-</pre>
-
-
-Build the mixer code and run bazel_to_go.py script to use go tools for testing.
+Now run the test
 
 ```bash
-cd $MIXER_REPO && bazel build ... && ./bin/bazel_to_go.py && go test adapter/mysampleadapter/*.go
+cd $MIXER_REPO && go build ./... && go test adapter/mysampleadapter/*.go
 ```
 
 
