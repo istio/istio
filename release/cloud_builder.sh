@@ -82,7 +82,11 @@ VERBOSE=1 make init
 VERBOSE=1 make depend
 
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  VERBOSE=1 OUT="${OUTPUT_PATH}/deb" VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make sidecar.deb
+  # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
+  # and hope that the name of the file doesn't change.
+  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make sidecar.deb
+  mkdir -p ${OUTPUT_PATH}/deb
+  cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
 
 pushd pilot
