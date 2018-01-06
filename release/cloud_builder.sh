@@ -102,7 +102,6 @@ popd
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
   pushd mixer
-  # XXX this might not build servicegraph_debug as it should
   ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
   popd
   pushd security
