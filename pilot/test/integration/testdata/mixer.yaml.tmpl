@@ -35,6 +35,16 @@ spec:
       - name: mixer
         image: {{.Hub}}/mixer:{{.Tag}}
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9091
+        - containerPort: 9094
+        - containerPort: 42422
+        args:
+        - --configStoreURL=fs:///etc/opt/mixer/configroot
+        - --configStore2URL=k8s://
+        - --logtostderr
+        - -v
+        - "2"
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
         imagePullPolicy: IfNotPresent
