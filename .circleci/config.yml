@@ -150,7 +150,7 @@ jobs:
       - run: make docker.pilot-test
       - run: docker images
       - run: bin/testEnvRootMinikube.sh wait
-      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=false -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
+      - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
       - store_artifacts:
           path: /home/circleci/logs
 
