@@ -71,6 +71,9 @@ echo gopath is $GOPATH
 
 export ISTIO_VERSION="${TAG_NAME}"
 
+apt-get -qqy install ruby ruby-dev rubygems build-essential
+gem install --no-ri --no-rdoc fpm
+
 VERBOSE=1 make setup
 
 VERBOSE=1 make init
