@@ -16,6 +16,7 @@ package template
 
 // InterfaceTemplate defines the template used to generate the adapter
 // interfaces for Mixer for a given aspect.
+// nolint:lll
 var InterfaceTemplate = `// Copyright 2017 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
