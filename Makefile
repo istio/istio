@@ -242,8 +242,11 @@ broker-test: vendor
 security-test:
 	go test ${T} ./security/...
 
+common-test:
+	go test ${T} ./pkg/...
+
 # Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test
+go-test: pilot-test mixer-test security-test broker-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
