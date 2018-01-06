@@ -7,7 +7,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-testing/istio-builder:0.4.4",
+      "name": "docker.io/istio/ci:go1.9-k8s1.7.4",
       "args": [ "-c", "repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && repo sync && cp .repo/manifest.xml /output/" ],
       "entrypoint": "bash"
     },
@@ -29,7 +29,7 @@
           "path": "/output"
 	}
       ],
-      "name": "gcr.io/istio-io/istio-builder:0.4.4",
+      "name": "docker.io/istio/ci:go1.9-k8s1.7.4",
       "dir": "go/src/istio.io/istio",
       "args": [ "./release/update_and_create_archives.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output" ]
     },
