@@ -8,7 +8,7 @@
 	}
       ],
       "name": "docker.io/istio/ci:go1.9-k8s1.7.4",
-      "args": [ "-c", "which wget curl && wget -q \"https://storage.googleapis.com/git-repo-downloads/repo\" && chmod u+x ./repo && ./repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && ./repo sync && cp .repo/manifest.xml /output/" ],
+      "args": [ "-c", "wget \"https://storage.googleapis.com/git-repo-downloads/repo\" && chmod u+x ./repo && ./repo init -u \"$_MFEST_URL\" -m \"$_MFEST_FILE\" -b \"$_MFEST_VER\" && ./repo sync && cp .repo/manifest.xml /output/" ],
       "entrypoint": "bash"
     },
     {
