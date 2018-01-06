@@ -409,7 +409,7 @@ docker.sidecar.deb:
 # TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb: ${OUT}/istio-sidecar.deb
 
-${OUT}/istio-sidecar.deb: pilot-agent node_agent
+${OUT}/istio-sidecar.deb: pilot-agent node-agent
 	mkdir -p ${OUT}
 	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
 	   --url http://istio.io  \
