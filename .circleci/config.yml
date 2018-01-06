@@ -148,6 +148,7 @@ jobs:
             - dep-cache-{{ checksum "Gopkg.lock" }}
       - run: make docker.pilot-debug
       - run: make docker.pilot-test
+      - run: make docker.mixer-debug
       - run: docker images
       - run: bin/testEnvRootMinikube.sh wait
       - run: $GOPATH/bin/integration --logtostderr -hub $HUB -tag $TAG -mixer=true -auth=enable -errorlogsdir=/home/circleci/logs -use-initializer
