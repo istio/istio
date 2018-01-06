@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "f62f7b7c5425f2b1a630932617477bdeac6dc371"
-  version = "v1.12.55"
+  revision = "ce8d7a13a9e7f883d91c39eb98d4f72021eb48e2"
+  version = "v1.12.56"
 
 [[projects]]
   branch = "master"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "a3f2cbd54cf5dfe3fbaccf76375fdb12f67654c8"
+  revision = "12d9d5b28165b1684fdc69be47f71a36d85e9a2a"
 
 [[projects]]
   branch = "master"
@@ -888,7 +888,7 @@
     "go/ast/astutil",
     "imports"
   ]
-  revision = "b790d0ba0332a621d0b58cfd69fa13bd3dc358d2"
+  revision = "8cab8a1319f0be9798e7fe78b15da75e5f94b2e9"
 
 [[projects]]
   branch = "master"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "2c6d8d196bf34219b5c8f453dd2ec079b7f1ab0c"
+  revision = "b1c0f9b3aa8fac163224fab909402d49c6dce50a"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1019,7 +1019,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
+  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1274,6 +1274,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "c6f77ffedd16dc85659a339920d93251169017f792c209a59285d439d924ce01"
+  inputs-digest = "850b4632ecf52363867f203deec0a0fef3dedb8f360076fd2e42b10de0d90c71"
   solver-name = "gps-cdcl"
   solver-version = 1
