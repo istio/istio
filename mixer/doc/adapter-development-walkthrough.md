@@ -35,14 +35,14 @@ Download a local copy of the Mixer repo
 git clone https://github.com/istio/istio
 ```
 
-Install bazel (version 0.5.2 or higher) from [https://bazel.build/](https://bazel.build/) and add it to your PATH
+Install protoc (version 3.5.1 or higher) from [https://github.com/google/protobuf/releases](https://github.com/google/protobuf/releases) and add it to your PATH
 
 Set the MIXER_REPO variable to the path where the mixer repository is on the local machine. Example `export MIXER_REPO=$GOPATH/src/istio.io/istio/mixer`
 
 Successfully build the repo.
 
 ```bash
-pushd $MIXER_REPO && bazel build ...
+pushd $MIXER_REPO && go build ./...
 ```
 
 # Step 1: Write basic adapter skeleton code
@@ -123,41 +123,10 @@ func GetInfo() adapter.Info {
 }
 ```
 
-
-Now, write a corresponding BUILD file. Create a file name BUILD with the following content.
-
-```
-package(default_visibility = ["//visibility:public"])
-
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["mysampleadapter.go"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//mixer/pkg/adapter:go_default_library",
-        "//mixer/template/metric:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-    ],
-)
-```
-
-
 Just to ensure everything is good, let's build the code
 
 ```bash
-bazel build ...
-```
-
-
-The build output on the terminal should look like
-```
-INFO: Found 1 target...
-Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
+go build ./...
 ```
 
 Now we have the basic skeleton of an adapter with empty implementation for interfaces for the 'metric' templates. Later steps
@@ -193,82 +162,28 @@ message Params {
 }
 ```
 
-
-Create a BUILD file in the config directory with the following content:
-
-
-Copy the following content to the config/BUILD file.
-
-```
-package(default_visibility = ["//visibility:public"])
-
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
-
-gogoslick_proto_library(
-    name = "go_default_library",
-    importmap = {
-        "gogoproto/gogo.proto": "github.com/gogo/protobuf/gogoproto",
-        "google/protobuf/duration.proto": "github.com/gogo/protobuf/types",
-    },
-    imports = [
-        "external/com_github_gogo_protobuf",
-        "external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "@com_github_gogo_protobuf//gogoproto:go_default_library_protos",
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    protos = [
-        "config.proto",
-    ],
-    visibility = ["//mixer/adapter/mysampleadapter:__pkg__"],
-    deps = [
-        "@com_github_gogo_protobuf//gogoproto:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-    ],
-)
-```
-
-
-Just to ensure everything is good, let's build the code
-
-```bash
-bazel build ...
-```
-
-
-The build output on the terminal should look like
-```
-INFO: Found 1 target...
-Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
-```
-# Step 3: Link adapter config with adapter code.
-
-Reference the config build target from the adapter's BUILD file. To do this edit the existing
-adapter/mysampleadapter/BUILD file. Final adapter/mysampleadapter/BUILD file looks like below with bold text showing the
-new added text.
-
+Let's now generate the corresponding go file from the config.proto. To do this, add the following go generate comment to the adapter code. The bold text shows the new added text.
 <pre><code>
-package(default_visibility = ["//visibility:public"])
+<b>//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/memquota/config/config.proto</b>
+package mysampleadapter
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+import (
+  "context"
 
-go_library(
-    name = "go_default_library",
-    srcs = ["mysampleadapter.go"],
-    visibility = ["//visibility:public"],
-    deps = [
-        <b>"//mixer/adapter/mysampleadapter/config:go_default_library",</b>
-        "//mixer/pkg/adapter:go_default_library",
-        "//mixer/template/metric:go_default_library",
-        "@com_github_gogo_protobuf//types:go_default_library",
-        "@com_github_golang_protobuf//proto:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
-    ],
+  "github.com/gogo/protobuf/types"
+  "istio.io/istio/mixer/pkg/adapter"
+  "istio.io/istio/mixer/template/metric"
 )
 </code></pre>
 
+Just to ensure everything is good, let's generate the file and build the code
+
+```bash
+go generate ./...
+go build ./...
+```
+
+# Step 3: Link adapter config with adapter code.
 
 Modify the adapter code (`mysampleadapter.go`) to use the adapter-specific configuration
 (defined in `mysampleadapter/config/config.proto`) to instantiate the file to write to. Also update the `GetInfo`
@@ -359,20 +274,11 @@ func GetInfo() adapter.Info {
 Just to ensure everything is good, let's build the code
 
 ```bash
-bazel build ...
+go build ./...
 ```
 
-
-The build output on the terminal should look like
-```
-INFO: Found 1 target...
-Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
-```
 
 # Step 4: Write business logic into your adapter.
-
-
 
 Print Instance and associated Type information in the file configured via adapter config. This requires storing the
 metric type information at configuration-time and using it at request-time. To add this functionality, update the file
@@ -479,15 +385,7 @@ func GetInfo() adapter.Info {
 Just to ensure everything is good, let's build the code
 
 ```bash
-bazel build ...
-```
-
-
-The build output on the terminal should look like
-```
-INFO: Found 1 target...
-Target //adapter/mysampleadapter:go_default_library up-to-date:
-bazel-bin/adapter/mysampleadapter/~lib~/istio.io/istio/mixer/adapter/mysampleadapter
+go build ./...
 ```
 
 This concludes the implementation part of the adapter code. Next steps show how to plug an adapter into a build of Mixer
@@ -795,4 +693,5 @@ Delete the adapter/mysampleadapter` `directory and undo the edits made inside th
 # Step 10: Next
 
 Next step is to build your own adapter and integrate with  Mixer. Refer to [Developer's guide](./adapters.md) for necessary details.
+
 
