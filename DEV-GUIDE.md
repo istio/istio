@@ -6,6 +6,7 @@ so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
+  - [Dependency management](#setting-up-dep)
   - [Setting up Kubernetes](#setting-up-kubernetes)
     - [IBM Cloud Container Service](#ibm-cloud-container-service)
     - [Google Kubernetes Engine](#google-kubernetes-engine)
@@ -36,12 +37,23 @@ need to setup before being able to build and run the code.
 
 ### Setting up Go
 
-Many Istio components are written in the [Go](http://golang.org) programming language.
+Many Istio components are written in the [Go](https://golang.org) programming language.
 To build, you'll need a Go development environment. If you haven't set up a Go development
 environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
 
 Istio currently builds with Go 1.9
+
+### Setting up dep
+
+Istio uses [dep](https://github.com/golang/dep) as the dependency
+management tool for its Go codebase. Dep will be automatically installed as
+part of the build. However, if you wish to install `dep` yourself, use the
+following command:
+
+```bash
+go get -u github.com/golang/dep/cmd/dep
+```
 
 ### Setting up Kubernetes
 
@@ -148,17 +160,29 @@ Alternatively you can [add your SSH keys](https://help.github.com/articles/addin
 
 ### Building the code
 
-To build the core repo:
+To build Pilot, Mixer, and Istio CA for your host architecture, run
 
 ```shell
-cd $ISTIO/istio
-
-make depend
-
-make build
+make
 ```
 
-This build command figures out what it needs to do and does not need any input from you.
+This build command figures out what it needs to do and does not need any
+input from you.
+
+*TIP*: To speed up consecutive builds of the project, run the following
+command instead:
+
+```shell
+GOBUILDFLAGS=-i make
+```
+
+`GOBUILDFLAGS=-i` causes our build system to build with `go build -i`, that
+results in significant improvements of the overall build time. Note that
+the use of `-i` flag causes Go to cache intermediate results in
+`$GOPATH/pkg/`. Depending on the situation, this behaviour may be
+undesirable as Golang may not erase out of date artifacts from the
+cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
+before rebuilding the code.
 
 ### Building and pushing the containers
 
@@ -180,7 +204,6 @@ Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/update
 to generate new manifests with mixer, pilot, and ca_cert custom built containers:
 
 ```
-cd $ISTIO/istio
 install/updateVersion.sh -a ${HUB},${TAG}
 ```
 
@@ -253,8 +276,18 @@ make racetest
 ### Adding dependencies
 
 It will occasionally be necessary to add a new external dependency to the
-system. Istio uses Go's [Dep](github.com/golang/dep) tool. To add a new
-dependency, run the `dep ensure` command to update the Gopkg.lock files.
+system. If the dependent Go package does not have to be pinned to a
+specific version, run `dep ensure` to update the Gopkg.lock files and
+commit them along with your code. If the dependency has to be pinned to a
+specific version, run
+
+```bash
+dep ensure -add github.com/foo/bar
+```
+
+The command above adds a version constraint to Gopkg.toml and updates
+Gopkg.lock. Inspect Gopkg.toml to ensure that the package is pinned to the
+correct SHA. _Please pin to COMMIT SHAs instead of branches or tags._
 
 ### About testing
 

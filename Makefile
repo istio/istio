@@ -173,35 +173,35 @@ build: setup go-build
 # Params: OUT VERSION_PKG SRC
 
 .PHONY: pilot
-pilot: vendor
+pilot: depend
 	bin/gobuild.sh ${GOPATH}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
 
 .PHONY: pilot-agent
-pilot-agent: vendor
+pilot-agent: depend
 	bin/gobuild.sh ${GOPATH}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
 
 .PHONY: istioctl
-istioctl: vendor
+istioctl: depend
 	bin/gobuild.sh ${GOPATH}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
 
 .PHONY: sidecar-initializer
-sidecar-initializer: vendor
+sidecar-initializer: depend
 	bin/gobuild.sh ${GOPATH}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
 
 .PHONY: mixs
-mixs: vendor
+mixs: depend
 	bin/gobuild.sh ${GOPATH}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
-mixc: vendor
+mixc: depend
 	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/mixc istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
-node-agent: vendor
+node-agent: depend
 	bin/gobuild.sh ${GOPATH}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
 
 .PHONY: istio-ca
-istio-ca: vendor
+istio-ca: depend
 	bin/gobuild.sh ${GOPATH}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
@@ -236,7 +236,7 @@ mixer-test: mixs
 	(cd mixer; go test ${T} ${GOTEST_PARALLEL} ./...)
 
 .PHONY: broker-test
-broker-test: vendor
+broker-test: depend
 	go test ${T} ./broker/...
 
 .PHONY: security-test
