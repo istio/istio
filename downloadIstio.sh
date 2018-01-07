@@ -2,17 +2,18 @@
 #
 # Early version of a downloader/installer for Istio
 #
-# This file will be fetched as: curl -L https://git.io/getLatestIstio | sh -
+# This file will be fetched as: curl -L https://git.io/getIstio | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
 #
-# The script fetches the latest Istio release candidate and untars it.
-# It's derived from ../downloadIstio.sh which is for stable releases but lets
-# users do curl -L https://git.io/getLatestIstio | ISTIO_VERSION=0.3.6 sh -
-# for instance to change the version fetched.
+# The script fetches the latest STABLE Istio release and untars it.
+#
+# release/downloadIstioCandidate.sh lets users override the ISTIO_VERSION
+# and is updated more often.
 
-# This is the latest release candidate (matches ../istio.VERSION after basic
-# sanity checks)
+# DO NOT UPDATE THIS VERSION OR SCRIPT LIGHTLY - THIS IS THE "STABLE" VERSION
+ISTIO_VERSION="0.2.12"
 
+NAME="istio-$ISTIO_VERSION"
 OS="$(uname)"
 if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
@@ -20,13 +21,6 @@ else
   # TODO we should check more/complain if not likely to work, etc...
   OSEXT="linux"
 fi
-
-if [ "x${ISTIO_VERSION}" = "x" ] ; then
-  ISTIO_VERSION=$(curl -L -s https://api.github.com/repos/istio/istio/releases/latest | \
-                  grep tag_name | sed "s/ *\"tag_name\": *\"\(.*\)\",*/\1/")
-fi
-
-NAME="istio-$ISTIO_VERSION"
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 echo "Downloading $NAME from $URL ..."
 curl -L "$URL" | tar xz

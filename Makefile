@@ -73,7 +73,8 @@ V ?= $(or $(VERBOSE),0)
 Q = $(if $(filter 1,$V),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
-.DEFAULT_GOAL := build
+.PHONY: default
+default: depend build
 
 checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
@@ -115,7 +116,7 @@ depend.status: Gopkg.lock
 depend.view: depend.status
 	cat vendor/dep.dot | dot -T png > vendor/dep.png
 	display vendor/dep.pkg
-  
+
 lint:
 	SKIP_INIT=1 bin/linters.sh
 
@@ -242,8 +243,11 @@ broker-test: vendor
 security-test:
 	go test ${T} ./security/...
 
+common-test:
+	go test ${T} ./pkg/...
+
 # Run coverage tests
-go-test: pilot-test mixer-test security-test broker-test
+go-test: pilot-test mixer-test security-test broker-test common-test
 
 #-----------------------------------------------------------------------------
 # Target: Code coverage ( go )
