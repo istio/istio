@@ -1,0 +1,31 @@
+hosts:
+  - world
+http:
+  - route:
+    - destination:
+        name: world
+        labels:
+          version: v0
+      weight: 75
+    - destination:
+        name: world
+        labels:
+          version: v1
+      weight: 25
+    match:
+      - sourceLabels:
+            version: v0
+# TODO: uncomment when this is re-added to the api proto
+#upstreamSettings:
+#  lbPolicy: RANDOM
+#  connectionPool:
+#    tcp:
+#      maxConnections: 100
+#    http:
+#      maxPendingRequests: 100
+#      maxRequests: 100
+#      sleepWindow: 15.5s
+#      httpConsecutiveErrors: 10
+#      detectionInterval: 30s
+#      maxRequestsPerConnection: 100
+#      maxEjectionPercent: 100

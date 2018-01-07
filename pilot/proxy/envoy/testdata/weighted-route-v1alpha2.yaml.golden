@@ -1,0 +1,14 @@
+hosts:
+  - world
+http:
+  - route:
+    - destination:
+        name: world
+        labels:
+          version: v0
+      weight: 75
+    - destination:
+        name: world
+        labels:
+          version: v1
+      weight: 25
