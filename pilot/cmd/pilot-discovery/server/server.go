@@ -70,6 +70,7 @@ const (
 var (
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
+		model.V1alpha2RouteRule,
 		model.EgressRule,
 		model.DestinationPolicy,
 		model.HTTPAPISpec,

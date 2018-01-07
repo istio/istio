@@ -35,8 +35,8 @@
     "autorest/azure",
     "autorest/date"
   ]
-  revision = "809ed2ef5c4c9a60c3c2f3aa9cc11f3a7c2ce59d"
-  version = "v9.6.0"
+  revision = "8c58b4788dedd95779efe0ac2055bb6a1b9b8e01"
+  version = "v9.7.0"
 
 [[projects]]
   name = "github.com/BurntSushi/toml"
@@ -331,7 +331,7 @@
   branch = "master"
   name = "github.com/google/go-github"
   packages = ["github"]
-  revision = "fc3c57184028a80ff3979d912cdaf5f08887f98a"
+  revision = "218ecc238cf77bbaa2e16a54cada252ec87e7d6e"
 
 [[projects]]
   branch = "master"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "12d9d5b28165b1684fdc69be47f71a36d85e9a2a"
+  revision = "dd9ec17814d5b1de388ebe438ec013d57d8b3779"
 
 [[projects]]
   branch = "master"
