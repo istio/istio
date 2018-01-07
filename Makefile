@@ -303,14 +303,18 @@ docker.pilot-debug: pilot pilot-agent sidecar-initializer
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
 
-# Build all docker debug images
-docker.debug: docker.pilot-debug mixs mixc node-agent istio-ca
+docker.mixer-debug: mixs mixc
 	cp ${GOPATH}/bin/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
+
+docker.security-debug: node-agent istio-ca
 	cp ${GOPATH}/bin/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
 	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
+
+# Build all docker debug images
+docker.debug: docker.pilot-debug docker.mixer-debug docker.security-debug
 
 docker.pilot-test: testApps
 	cp ${GOPATH}/bin/{client,server,eurekamirror} pilot/docker
