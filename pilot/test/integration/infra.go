@@ -55,7 +55,6 @@ type infra struct { // nolint: aligncheck
 
 	// docker tags
 	Hub, Tag string
-	CaImage  string
 
 	Namespace      string
 	IstioNamespace string
