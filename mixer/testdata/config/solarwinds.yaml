@@ -1,0 +1,113 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: solarwinds
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  appoptics_access_token: SAMPLE_TOKEN
+  papertrail_url: logsX.papertrailapp.com:XXXXX
+  papertrail_local_retention: 24h
+  metrics:
+  - name: request_count
+    instance_name: requestcount.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: request_duration
+    instance_name: requestduration.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: request_size
+    instance_name: requestsize.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: response_size
+    instance_name: responsesize.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+    - response_code
+  - name: tcp_bytes_sent
+    instance_name: tcpbytesent.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+  - name: tcp_bytes_received
+    instance_name: tcpbytereceived.metric.istio-system
+    label_names:
+    - source_service
+    - source_version
+    - destination_service
+    - destination_version
+  logs:
+  - payloadTemplate: '{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}} [{{or (.timestamp.Format "2006-01-02T15:04:05Z07:00") "-"}}] "{{or (.method) "-"}} {{or (.url) "-"}} {{or (.protocol) "-"}}" {{or (.responseCode) "-"}} {{or (.responseSize) "-"}}'
+    instance_name: solarwindslogentry.logentry.istio-system
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: solarwindshttp
+  namespace: istio-system
+  labels:
+    istio-protocol: http
+spec:
+  actions:
+  - handler: handler.solarwinds
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+    - solarwindslogentry.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: solarwindstcp
+  namespace: istio-system
+  labels:
+    istio-protocol: tcp
+spec:
+  actions:
+  - handler: handler.solarwinds
+    instances:
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
+    - solarwindslogentry.logentry
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: logentry
+metadata:
+  name: solarwindslogentry
+  namespace: istio-system
+spec:
+  severity: '"Default"'
+  timestamp: request.time
+  variables:
+    originIp: origin.ip | source.ip | ip("0.0.0.0")
+    targetIp: destination.ip | ip("0.0.0.0")
+    sourceUser: origin.user | source.uid | ""
+    method: request.method | ""
+    url: request.path | ""
+    protocol: request.scheme | "http"
+    responseCode: response.code | 0
+    responseSize: response.size | 0
+    requestSize: request.size | 0
+    latency: response.duration | "0ms"
+  monitoredResourceType: '"ao"'
+---
