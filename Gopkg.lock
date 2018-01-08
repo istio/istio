@@ -379,7 +379,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "fe4853e064e386919340e25c447d0fed6cd8c6ea"
+  revision = "b2bf8a613b41baa2a8b56a6a8483321a84520dfa"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -412,7 +412,7 @@
   branch = "master"
   name = "github.com/grpc-ecosystem/go-grpc-middleware"
   packages = ["."]
-  revision = "967bee733a734780623ac3d7c8e9216e4372ea62"
+  revision = "d0c54e68681ec7999ac17864470f3bee6521ba2b"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -812,7 +812,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "42fe2e1c20de1054d3d30f82cc9fb5b41e2e3767"
+  revision = "434ec0c7fe3742c984919a691b2018a6e9694425"
 
 [[projects]]
   branch = "master"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "dd9ec17814d5b1de388ebe438ec013d57d8b3779"
+  revision = "1792d66dc88e503d3cb2400578221cdf1f7fe26f"
 
 [[projects]]
   branch = "master"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "b1c0f9b3aa8fac163224fab909402d49c6dce50a"
+  revision = "af40bece8f577b6beb316373ad9d96e4720a567a"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -1005,7 +1005,7 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "0e4404da71227dcc02fb1deee803d93e86d08f72"
+  revision = "1244d3ce02e3e1c16820ada0bae506b6c479f106"
 
 [[projects]]
   name = "istio.io/api"
@@ -1019,7 +1019,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
+  revision = "dde1b8fb7ea9c9e5acbb8b2a1c84fdef26515b28"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1274,6 +1274,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "850b4632ecf52363867f203deec0a0fef3dedb8f360076fd2e42b10de0d90c71"
+  inputs-digest = "70f678ddbec453cbcc51e3d4a213336fe8727bc54a09e67b8a0b4f171eeb762f"
   solver-name = "gps-cdcl"
   solver-version = 1
