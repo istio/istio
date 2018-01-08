@@ -21,14 +21,16 @@ SHELL := /bin/bash
 # Current version, updated after a release.
 VERSION ?= "0.5.0"
 
-# Make sure GOPATH is set based on the executing Makefile and workspace. Will override
-# GOPATH from the env.
-export GOPATH= $(shell cd ../../..; pwd)
+# If GOPATH is not set by the env, set it to a sane value
+GOPATH ?= $(shell cd ../../..; pwd)
+
+# If GOPATH is made up of several paths, use the first one for our targets in this Makefile
+GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
 
 export CGO_ENABLE=0
 
 # OUT is the directory where dist artifacts and temp files will be created.
-OUT=${GOPATH}/out
+OUT=${GO_TOP}/out
 
 GO ?= go
 
@@ -47,7 +49,7 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
-export ISTIO_BIN=${GOPATH}/bin
+export ISTIO_BIN=${GO_TOP}/bin
 
 hub = ""
 tag = ""
@@ -97,20 +99,20 @@ depend.ensure: init
 
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
-depend.update: ${GOPATH}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
-	dep ensure
-	dep ensure -update
+depend.update: ${GO_TOP}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
+	${GO_TOP}/bin/dep ensure
+	${GO_TOP}/bin/dep ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
-${GOPATH}/bin/dep:
+${GO_TOP}/bin/dep:
 	go get -u github.com/golang/dep/cmd/dep
 
-Gopkg.lock: Gopkg.toml | ${GOPATH}/bin/dep ; $(info $(H) generating) @
-	$(Q) ${GOPATH}/bin/dep ensure -update
+Gopkg.lock: Gopkg.toml | ${GO_TOP}/bin/dep ; $(info $(H) generating) @
+	$(Q) ${GO_TOP}/bin/dep ensure -update
 
 depend.status: Gopkg.lock
-	$(Q) dep status > vendor/dep.txt
-	$(Q) dep status -dot > vendor/dep.dot
+	$(Q) ${GO_TOP}/bin/dep status > vendor/dep.txt
+	$(Q) ${GO_TOP}/bin/dep status -dot > vendor/dep.dot
 
 # Requires 'graphviz' package. Run as user
 depend.view: depend.status
@@ -174,35 +176,35 @@ build: setup go-build
 
 .PHONY: pilot
 pilot: depend
-	bin/gobuild.sh ${GOPATH}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
+	bin/gobuild.sh ${GO_TOP}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
 
 .PHONY: pilot-agent
 pilot-agent: depend
-	bin/gobuild.sh ${GOPATH}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
+	bin/gobuild.sh ${GO_TOP}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
 
 .PHONY: istioctl
 istioctl: depend
-	bin/gobuild.sh ${GOPATH}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
+	bin/gobuild.sh ${GO_TOP}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
 
 .PHONY: sidecar-initializer
 sidecar-initializer: depend
-	bin/gobuild.sh ${GOPATH}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
+	bin/gobuild.sh ${GO_TOP}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
 
 .PHONY: mixs
 mixs: depend
-	bin/gobuild.sh ${GOPATH}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
+	bin/gobuild.sh ${GO_TOP}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
 mixc: depend
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/mixc istio.io/istio/mixer/cmd/mixc
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/mixc istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
 node-agent: depend
-	bin/gobuild.sh ${GOPATH}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
+	bin/gobuild.sh ${GO_TOP}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
 
 .PHONY: istio-ca
 istio-ca: depend
-	bin/gobuild.sh ${GOPATH}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
+	bin/gobuild.sh ${GO_TOP}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
 
@@ -217,10 +219,10 @@ GOTEST_P ?= -p 1
 GOSTATIC = -ldflags '-extldflags "-static"'
 
 test-bins:
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/pilot-test-server istio.io/istio/pilot/test/server
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/pilot-test-client istio.io/istio/pilot/test/client
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GOPATH}/bin/pilot-test-eurekamirror istio.io/istio/pilot/test/eurekamirror
-	go build -o ${GOPATH}/bin/pilot-integration-test istio.io/istio/pilot/test/integration
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-server istio.io/istio/pilot/test/server
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-client istio.io/istio/pilot/test/client
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-eurekamirror istio.io/istio/pilot/test/eurekamirror
+	go build -o ${GO_TOP}/bin/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -299,18 +301,18 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${GOPATH}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	cp ${GO_TOP}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${GOPATH}/bin/mixs mixer/docker
+	cp ${GO_TOP}/bin/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
-	cp ${GOPATH}/bin/{istio_ca,node_agent} security/docker
+	cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
 	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
-	cp ${GOPATH}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
+	cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
 	# TODO: generate or checkin test CA and keys
@@ -371,7 +373,7 @@ include .circleci/Makefile
 # Make the deb image using the CI/CD image and docker.
 docker.sidecar.deb:
 	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
-        -v ${GOPATH}:${GOPATH} \
+        -v ${GO_TOP}:${GO_TOP} \
         -w ${PWD} \
         -e USER=${USER} \
 		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
@@ -386,7 +388,7 @@ sidecar.deb: ${OUT}/istio-sidecar.deb
 
 ${OUT}/istio-sidecar.deb:
 	mkdir -p ${OUT}
-	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GOPATH} -f \
+	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
 	   --url http://istio.io  \
 	   --license Apache \
 	   --vendor istio.io \
