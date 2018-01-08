@@ -419,7 +419,7 @@ func ValidateL4MatchAttributes(ma *routing.L4MatchAttributes) (errs error) {
 // ValidatePercent checks that percent is in range
 func ValidatePercent(val int32) error {
 	if val < 0 || val > 100 {
-		return fmt.Errorf("must be in range 0..100")
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
 	}
 	return nil
 }
@@ -427,7 +427,7 @@ func ValidatePercent(val int32) error {
 // ValidateFloatPercent checks that percent is in range
 func ValidateFloatPercent(val float32) error {
 	if val < 0.0 || val > 100.0 {
-		return fmt.Errorf("must be in range 0..100")
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
 	}
 	return nil
 }
@@ -739,7 +739,6 @@ func ValidateRouteRule(msg proto.Message) error {
 	}
 
 	// We don't validate precedence because any int32 is legal
-
 	if value.Match != nil {
 		if err := ValidateMatchCondition(value.Match); err != nil {
 			errs = multierror.Append(errs, err)
@@ -1068,7 +1067,6 @@ func ValidateEgressRuleDomain(domain string) error {
 
 // ValidateEgressRulePort checks the port of the egress rule (communication port and protocol)
 func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
-
 	if err := ValidatePort(int(port.Port)); err != nil {
 		return err
 	}
@@ -1145,11 +1143,11 @@ func ValidateDuration(pd *duration.Duration) error {
 	if err != nil {
 		return err
 	}
-	if dur < (1 * time.Millisecond) {
+	if dur < time.Millisecond {
 		return errors.New("duration must be greater than 1ms")
 	}
 	if dur%time.Millisecond != 0 {
-		return errors.New("only durations to ms precision is supported")
+		return errors.New("only durations to ms precision are supported")
 	}
 	return nil
 }
@@ -1622,6 +1620,224 @@ func ValidateEndUserAuthenticationPolicySpecBinding(msg proto.Message) error {
 		}
 	}
 	return errs
+}
+
+// ValidateRouteRuleV2 checks that a v1alpha2 route rule is well-formed.
+func ValidateRouteRuleV2(msg proto.Message) (errs error) {
+	routeRule, ok := msg.(*routingv2.RouteRule)
+	if !ok {
+		return errors.New("cannot cast to v1alpha2 routing rule")
+	}
+
+	// TODO: routeRule.Gateways
+
+	if len(routeRule.Hosts) == 0 {
+		errs = multierror.Append(errs, errors.New("at least one host required"))
+	}
+
+	for _, httpRoute := range routeRule.Http {
+		errs = appendErrors(validateHTTPRoute(httpRoute))
+	}
+
+	// TODO: validate once implemented
+	if len(routeRule.Tcp) > 0 {
+		errs = appendErrors(errs, errors.New("TCP route rules have not been implemented"))
+	}
+
+	return
+}
+
+func validateHTTPRoute(http *routingv2.HTTPRoute) (errs error) {
+	// check for conflicts
+	if http.Redirect != nil {
+		if len(http.Route) > 0 {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both route and redirect"))
+		}
+
+		if http.Fault != nil {
+			errs = appendErrors(errs, errors.New("HTTP route cannot contain both fault and redirect"))
+		}
+
+		if http.Rewrite != nil {
+			errs = appendErrors(errs, errors.New("HTTP route rule cannot contain both rewrite and redirect"))
+		}
+
+		if http.WebsocketUpgrade {
+			errs = appendErrors(errs, errors.New("WebSocket upgrade is not allowed on redirect rules")) // nolint: golint
+		}
+	}
+
+	for name := range http.AppendHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+	errs = appendErrors(errs, validateCORSPolicy(http.CorsPolicy))
+	errs = appendErrors(errs, validateHTTPFaultInjection(http.Fault))
+
+	for _, match := range http.Match {
+		for name := range match.Headers {
+			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		}
+
+		// TODO: validate once implemented
+		if match.Port != nil {
+			errs = appendErrors(errs, errors.New("HTTP match port has not been implemented"))
+		}
+
+		errs = appendErrors(errs, Labels(match.SourceLabels).Validate())
+	}
+	errs = appendErrors(errs, validateDestination(http.Mirror))
+	errs = appendErrors(errs, validateHTTPRedirect(http.Redirect))
+	errs = appendErrors(errs, validateHTTPRetry(http.Retries))
+	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
+	for _, route := range http.Route {
+		if route.Destination == nil {
+			errs = multierror.Append(errs, errors.New("destination is required"))
+		}
+		errs = appendErrors(errs, validateDestination(route.Destination))
+		errs = appendErrors(errs, ValidatePercent(route.Weight))
+	}
+	if http.Timeout != nil {
+		errs = appendErrors(errs, ValidateDuration(http.Timeout))
+	}
+
+	return
+}
+
+func validateCORSPolicy(policy *routingv2.CorsPolicy) (errs error) {
+	if policy == nil {
+		return
+	}
+
+	// TODO: additional validation for AllowOrigin?
+
+	for _, method := range policy.AllowMethods {
+		errs = appendErrors(errs, validateHTTPMethod(method))
+	}
+
+	for _, name := range policy.AllowHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
+	for _, name := range policy.ExposeHeaders {
+		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+	}
+
+	if policy.MaxAge != nil {
+		errs = appendErrors(errs, ValidateDuration(policy.MaxAge))
+		if policy.MaxAge.Nanos > 0 {
+			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
+		}
+	}
+
+	// TODO: additional validation for AllowCredentials?
+
+	return
+}
+
+func validateHTTPMethod(method string) error {
+	if !supportedMethods[method] {
+		return fmt.Errorf("%q is not a supported HTTP method", method)
+	}
+	return nil
+}
+
+func validateHTTPFaultInjection(fault *routingv2.HTTPFaultInjection) (errs error) {
+	if fault == nil {
+		return
+	}
+
+	if fault.Abort == nil && fault.Delay == nil {
+		errs = multierror.Append(errs, errors.New("HTTP fault injection must have an abort and/or a delay"))
+	}
+
+	errs = appendErrors(errs, validateHTTPFaultInjectionAbort(fault.Abort))
+	errs = appendErrors(errs, validateHTTPFaultInjectionDelay(fault.Delay))
+
+	return
+}
+
+func validateHTTPFaultInjectionAbort(abort *routingv2.HTTPFaultInjection_Abort) (errs error) {
+	if abort == nil {
+		return
+	}
+
+	errs = appendErrors(errs, ValidatePercent(abort.Percent))
+
+	switch abort.ErrorType.(type) {
+	case *routingv2.HTTPFaultInjection_Abort_GrpcStatus:
+		// TODO: gRPC status validation
+		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
+	case *routingv2.HTTPFaultInjection_Abort_Http2Error:
+		// TODO: HTTP2 error validation
+		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
+	case *routingv2.HTTPFaultInjection_Abort_HttpStatus:
+		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
+	}
+
+	return
+}
+
+func validateHTTPStatus(status int32) error {
+	if status < 0 || status > 600 {
+		return fmt.Errorf("HTTP status %d is not in range 0-600", status)
+	}
+	return nil
+}
+
+func validateHTTPFaultInjectionDelay(delay *routingv2.HTTPFaultInjection_Delay) (errs error) {
+	if delay == nil {
+		return
+	}
+
+	errs = appendErrors(errs, ValidatePercent(delay.Percent))
+	switch v := delay.HttpDelayType.(type) {
+	case *routingv2.HTTPFaultInjection_Delay_FixedDelay:
+		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
+	case *routingv2.HTTPFaultInjection_Delay_ExponentialDelay:
+		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
+		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
+	}
+	return
+}
+
+func validateDestination(destination *routingv2.Destination) (errs error) {
+	if destination == nil {
+		return
+	}
+
+	errs = appendErrors(errs, Labels(destination.Labels).Validate())
+	// TODO: Name
+	// TODO: Port
+
+	return
+}
+
+func validateHTTPRetry(retries *routingv2.HTTPRetry) (errs error) {
+	if retries == nil {
+		return
+	}
+
+	if retries.Attempts <= 0 {
+		errs = multierror.Append(errs, errors.New("attempts must be positive"))
+	}
+	if retries.PerTryTimeout != nil {
+		errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	}
+	return
+}
+
+func validateHTTPRedirect(redirect *routingv2.HTTPRedirect) error {
+	if redirect != nil && redirect.Uri == "" && redirect.Authority == "" {
+		return errors.New("redirect must specify URI, authority, or both")
+	}
+	return nil
+}
+
+func validateHTTPRewrite(rewrite *routingv2.HTTPRewrite) error {
+	if rewrite != nil && rewrite.Uri == "" && rewrite.Authority == "" {
+		return errors.New("rewrite must specify URI, authority, or both")
+	}
+	return nil
 }
 
 // wrapper around multierror.Append that enforces the invariant that if all input errors are nil, the output

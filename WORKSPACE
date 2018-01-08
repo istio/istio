@@ -1166,7 +1166,7 @@ http_file(
 
 go_repository(
     name = "com_github_golang_mock",
-    commit = "bd3c8e81be01eef76d4b503f5e687d2d1354d2d9",
+    commit = "13f360950a79f5864a972c786a10a50e44b69541",
     importpath = "github.com/golang/mock",
 )
 
@@ -1294,4 +1294,48 @@ go_repository(
     importpath = "github.com/square/certstrap",
     remote = "https://github.com/cf-routing/certstrap",
     vcs = "git",
+)
+
+go_repository(
+    name = "io_k8s_helm",
+    commit = "8478fb4fc723885b155c924d1c8c410b7a9444e6",
+    importpath = "k8s.io/helm",
+)
+
+go_repository(
+    name = "com_github_Masterminds_sprig",
+    commit = "b217b9c388de2cacde4354c536e520c52c055563",
+    importpath = "github.com/Masterminds/sprig",
+)
+
+go_repository(
+    name = "com_github_Masterminds_semver",
+    commit = "517734cc7d6470c0d07130e40fd40bdeb9bcd3fd",
+    importpath = "github.com/Masterminds/semver",
+)
+
+go_repository(
+    name = "com_github_aokoli_goutils",
+    commit = "3391d3790d23d03408670993e957e8f408993c34",
+    importpath = "github.com/aokoli/goutils",
+    remote = "https://github.com/Masterminds/goutils",
+    vcs = "git",
+)
+
+go_repository(
+    name = "com_github_gobwas_glob",
+    commit = "bea32b9cd2d6f55753d94a28e959b13f0244797a",
+    importpath = "github.com/gobwas/glob",
+)
+
+go_repository(
+    name = "com_github_BurntSushi_toml",
+    commit = "2ceedfee35ad3848e49308ab0c9a4f640cfb5fb2",
+    importpath = "github.com/BurntSushi/toml",
+)
+
+go_repository(
+    name = "com_github_huandu_xstrings",
+    commit = "37469d0c81a7910b49d64a0d308ded4823e90937",
+    importpath = "github.com/huandu/xstrings",
 )
