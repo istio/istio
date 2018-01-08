@@ -4,6 +4,6 @@
 		"repoName": "mixerclient",
 		"prodBranch": "master",
 		"file": "src/envoy/mixer/repositories.bzl",
-		"lastStableSHA": "d41aff8c5744427c8aa408c19a464d51fc7811e4"
+		"lastStableSHA": "3797710ac63bb9741ce2e2115be44f25e954daec"
 	}
 ]
