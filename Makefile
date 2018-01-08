@@ -23,6 +23,7 @@ VERSION ?= "0.5.0"
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ../../..; pwd)
+export GOPATH
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
@@ -207,6 +208,10 @@ node-agent: depend
 istio-ca: depend
 	bin/gobuild.sh ${GO_TOP}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
+.PHONY: servicegraph
+servicegraph: depend
+	bin/gobuild.sh ${GO_TOP}/bin/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
+
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
 
 #-----------------------------------------------------------------------------
@@ -359,13 +364,9 @@ docker.sidecar-initializer: pilot/docker/Dockerfile.sidecar_initializer ${ISTIO_
 docker.pilot: pilot/docker/Dockerfile.pilot ${ISTIO_BIN}/pilot-discovery
 	time (cd pilot/docker && docker build -t pilot:${TAG} -e ISTIO_BIN -f Dockerfile.pilot .)
 
-# relies on ubuntu_xenial_debug:sha, servicegraph, viz (js/viz)
-# docker.servicegraph         mixer/example/servicegraph/docker/Dockerfile
 docker.servicegraph: mixer/example/servicegraph/docker/Dockerfile ${ISTIO_BIN}/servicegraph
 	time (cd mixer/example/servicegraph/js && docker build -t servicegraph:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile .)
 
-# relies on servicegraph and viz (gs/viz)
-# docker.servicegraph_debug               mixer/example/servicegraph/docker/Dockerfile.debug
 docker.servicegraph-debug: mixer/example/servicegraph/docker/Dockerfile.debug ${ISTIO_BIN}/servicegraph
 	time (cd mixer/example/servicegraph/js && docker build -t servicegraph_debug:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile.debug .)
 
@@ -392,26 +393,33 @@ docker.istio-ca-test: security/docker/Dockerfile.istio-ca-test security/docker/i
 
 NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/app.js \
-                 security/istio_ca.crt \
-                 security/node_agent.crt \
-                 security/node_agent.key
+                 security/docker/istio_ca.crt \
+                 security/docker/node_agent.crt \
+                 security/docker/node_agent.key
 
 docker.node-agent-test: security/docker/Dockerfile.node-agent-test ${ISTIO_BIN}/node_agent ${NODE_AGENT_FILES}
 	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -e ISTIO_BIN -f Dockerfile.node-agent-test .)
 
-#DOCKER_IMAGES=proxy_debug proxy_init sidecar_initializer pilot mixer_debug istio-ca app eurekamirror istio-ca-test node-agent-test
-#docker.save: docker.prebuilt
-#	mkdir -p ${ISTIO_BIN}/docker
-#	time (docker save -o ${ISTIO_BIN}/docker/proxy_debug.tar ${HUB}/proxy_debug:${TAG} && gzip ${ISTIO_BIN}/docker/proxy_debug.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/proxy_init.tar ${HUB}/proxy_init:${TAG} && gzip ${ISTIO_BIN}/docker/proxy_init.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/sidecar_initializer.tar ${HUB}/sidecar_initializer:${TAG} && gzip ${ISTIO_BIN}/docker/sidecar_initializer.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/pilot.tar ${HUB}/pilot:${TAG} && gzip ${ISTIO_BIN}/docker/pilot.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/mixer_debug.tar ${HUB}/mixer_debug:${TAG} && gzip ${ISTIO_BIN}/docker/mixer_debug.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/istio-ca.tar ${HUB}/istio-ca:${TAG} && gzip ${ISTIO_BIN}/docker/istio-ca.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/app.tar ${HUB}/app:${TAG} && gzip ${ISTIO_BIN}/docker/app.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/eurekamirror.tar ${HUB}/eurekamirror:${TAG} && gzip ${ISTIO_BIN}/docker/eurekamirror.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/istio-ca-test.tar ${HUB}/istio-ca-test:${TAG} && gzip ${ISTIO_BIN}/docker/istio-ca-test.tar)
-#	time (docker save -o ${ISTIO_BIN}/docker/node-agent-test.tar ${HUB}/node-agent-test:${TAG} && gzip ${ISTIO_BIN}/docker/node-agent-test.tar)
+DOCKER_TARGETS=docker.proxy docker.proxy-debug docker.proxy-init docker.sidecar-initializer docker.pilot \
+               docker.servicegraph docker.servicegraph-debug docker.mixer docker.mixer-debug docker.istio-ca \
+               docker.app docker.eurekamirror docker.istio-ca-test docker.node-agent-test
+
+docker.save: $(DOCKER_TARGETS)
+	mkdir -p ${OUT}/docker
+	time (docker save -o ${OUT}/docker/proxy.tar           proxy:${TAG}           && gzip ${OUT}/docker/proxy.tar)
+	time (docker save -o ${OUT}/docker/proxy_debug.tar     proxy_debug:${TAG}     && gzip ${OUT}/docker/proxy_debug.tar)
+	time (docker save -o ${OUT}/docker/proxy_init.tar      proxy_init:${TAG}      && gzip ${OUT}/docker/proxy_init.tar)
+	time (docker save -o ${OUT}/docker/sidecar_initializer.tar sidecar_initializer:${TAG} && gzip ${OUT}/docker/sidecar_initializer.tar)
+	time (docker save -o ${OUT}/docker/pilot.tar           pilot:${TAG}           && gzip ${OUT}/docker/pilot.tar)
+	time (docker save -o ${OUT}/docker/servicegraph.tar       servicegraph:${TAG}       && gzip ${OUT}/docker/servicegraph.tar)
+	time (docker save -o ${OUT}/docker/servicegraph_debug.tar servicegraph_debug:${TAG} && gzip ${OUT}/docker/servicegraph_debug.tar)
+	time (docker save -o ${OUT}/docker/mixer.tar           mixer:${TAG}           && gzip ${OUT}/docker/mixer.tar)
+	time (docker save -o ${OUT}/docker/mixer_debug.tar     mixer_debug:${TAG}     && gzip ${OUT}/docker/mixer_debug.tar)
+	time (docker save -o ${OUT}/docker/istio-ca.tar        istio-ca:${TAG}        && gzip ${OUT}/docker/istio-ca.tar)
+	time (docker save -o ${OUT}/docker/app.tar             app:${TAG}             && gzip ${OUT}/docker/app.tar)
+	time (docker save -o ${OUT}/docker/eurekamirror.tar    eurekamirror:${TAG}    && gzip ${OUT}/docker/eurekamirror.tar)
+	time (docker save -o ${OUT}/docker/istio-ca-test.tar   istio-ca-test:${TAG}   && gzip ${OUT}/docker/istio-ca-test.tar)
+	time (docker save -o ${OUT}/docker/node-agent-test.tar node-agent-test:${TAG} && gzip ${OUT}/docker/node-agent-test.tar)
 
 push: checkvars clean.installgen installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
@@ -498,9 +506,23 @@ sidecar.deb: ${OUT}/istio-sidecar.deb
 
 ${ISTIO_BIN}/envoy: init
 
+${ISTIO_BIN}/pilot-discovery: pilot
+
 ${ISTIO_BIN}/pilot-agent: pilot-agent
 
+${ISTIO_BIN}/pilot-test-client: test-bins
+
 ${ISTIO_BIN}/node-agent: node_agent
+
+${ISTIO_BIN}/sidecar-initializer: sidecar-initializer
+
+${ISTIO_BIN}/servicegraph: servicegraph
+
+${ISTIO_BIN}/mixs: mixs
+
+${ISTIO_BIN}/istio_ca: istio-ca
+
+${ISTIO_BIN}/node_agent: node-agent
 
 ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
                   tools/deb/istio-iptables.sh \
@@ -508,7 +530,7 @@ ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
                   security/tools/deb/istio-auth-node-agent.service \
                   tools/deb/sidecar.env tools/deb/envoy.json
 
-${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node-agent ${ISTIO_SIDECAR_SRC}
+${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
 	mkdir -p ${OUT}
 	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
 	   --url http://istio.io  \

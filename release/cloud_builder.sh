@@ -94,19 +94,22 @@ mkdir -p "${OUTPUT_PATH}/istioctl"
 # make istioctl just outputs to pilot/cmd/istioctl
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
 # An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
-if [ "${BUILD_DOCKER}" == "true" ]; then
+#if [ "${BUILD_DOCKER}" == "true" ]; then
   # push-docker already adds docker/ to path
-  ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
+#  ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+#fi
 popd
 
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  pushd mixer
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-  popd
-  pushd security
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-  popd
+  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make docker.save
+#  mkdir -p ${OUTPUT_PATH}
+  cp ${GOPATH}/out/docker ${OUTPUT_PATH}
+#  pushd mixer
+#  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+#  popd
+#  pushd security
+#  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+#  popd
 fi
 
 # log where git thinks the build might be dirty
