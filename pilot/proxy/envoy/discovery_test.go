@@ -515,9 +515,6 @@ func TestRouteDiscoveryWebsocket(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, websocketConfig, t)
 
-		// TODO optimze
-		addConfig(registry, destinationRuleWorld, t)
-
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-websocket.json", t)
@@ -649,6 +646,7 @@ func TestListenerDiscoverySidecar(t *testing.T) {
 			_, registry, ds := commonSetup(t)
 
 			if testCase.name != "none" {
+				addConfig(registry, destinationRuleWorld, t) // TODO: v1alpha2 only
 				addConfig(registry, testCase.file, t)
 			}
 

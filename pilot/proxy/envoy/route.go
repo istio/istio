@@ -342,21 +342,25 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	} else {
 		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 		for _, dst := range http.Route {
-
-			config2 := store.DestinationRule(dst.Destination.Name, domain)
-			destRule := config2.Spec.(*routingv2.DestinationRule)
 			var labels model.Labels
-			var found bool
-			for _, subset := range destRule.Subsets {
-				if subset.Name == dst.Destination.Subset {
-					labels = model.Labels(subset.SourceLabels)
-					found = true
-					break
-				}
-			}
 
-			if !found {
-				log.Warn("Reference to nonexistant subset")
+			destinationRuleConfig := store.DestinationRule(dst.Destination.Name, domain)
+			if destinationRuleConfig != nil {
+				destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+				if len(dst.Destination.Subset) > 0 {
+					var found bool
+					for _, subset := range destinationRule.Subsets {
+						if subset.Name == dst.Destination.Subset {
+							labels = model.Labels(subset.Labels)
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						log.Warn("Reference to nonexistant subset")
+					}
+				}
 			}
 
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
