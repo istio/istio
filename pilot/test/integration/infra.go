@@ -110,7 +110,7 @@ func (infra *infra) setup() error {
 
 	if infra.Namespace == "" {
 		var err error
-		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "itest-app-"); err != nil {
+		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-app-"); err != nil {
 			return err
 		}
 		infra.namespaceCreated = true
@@ -122,7 +122,7 @@ func (infra *infra) setup() error {
 
 	if infra.IstioNamespace == "" {
 		var err error
-		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "itest-istio-"); err != nil {
+		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-"); err != nil {
 			return err
 		}
 		infra.istioNamespaceCreated = true
