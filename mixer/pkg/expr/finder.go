@@ -27,7 +27,7 @@ var EmptyFinder AttributeDescriptorFinder = finder{
 	attributes: make(map[string]*configpb.AttributeManifest_AttributeInfo, 0),
 }
 
-// NewFinder returns a new AttributeDescriptorFinder instances, based on the given attributes
+// NewFinder returns a new AttributeDescriptorFinder instance, based on the given attributes
 func NewFinder(attributes map[string]*configpb.AttributeManifest_AttributeInfo) AttributeDescriptorFinder {
 	return finder{
 		attributes: attributes,
@@ -41,8 +41,7 @@ type finder struct {
 
 var _ AttributeDescriptorFinder = finder{}
 
-// GetAttribute finds an attribute by Name.
-// This function is only called when a new Handler is instantiated.
+// GetAttribute finds an attribute by name. returns nil if not found.
 func (a finder) GetAttribute(name string) *configpb.AttributeManifest_AttributeInfo {
 	return a.attributes[name]
 }
