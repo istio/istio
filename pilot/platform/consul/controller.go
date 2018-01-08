@@ -15,10 +15,9 @@
 package consul
 
 import (
+	"fmt"
 	"time"
 
-	// TODO(nmittler): Remove this
-	_ "github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
 
 	"istio.io/istio/pilot/model"
@@ -27,58 +26,55 @@ import (
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
-	client     *api.Client
-	dataCenter string
-	monitor    Monitor
+	client         *api.Client
+	dataCenter     string
+	ticker         time.Ticker
+	controllerPath string
+	handler        *model.ControllerViewHandler
 }
 
 // NewController creates a new Consul controller
-func NewController(addr, datacenter string, interval time.Duration) (*Controller, error) {
+func NewController(addr, datacenter string, ticker time.Ticker) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
-
 	client, err := api.NewClient(conf)
+	if err != nil {
+		return nil, err
+	}
 	return &Controller{
-		monitor:    NewConsulMonitor(client, interval),
 		client:     client,
 		dataCenter: datacenter,
-	}, err
+		ticker:     ticker,
+	}, nil
 }
 
-// Services list declarations of all services in the system
-func (c *Controller) Services() ([]*model.Service, error) {
-	data, err := c.getServices()
-	if err != nil {
-		return nil, err
+// Handle implements model.Controller interface
+func (c *Controller) Handle(path string, handler *model.ControllerViewHandler) error {
+	if c.handler != nil {
+		err := fmt.Errorf("consul registry for datacenter '%s' already setup to handle mesh view at controller path '%s'",
+			c.dataCenter, c.controllerPath)
+		log.Error(err.Error())
+		return err
 	}
+	c.controllerPath = path
+	c.handler = handler
+	return nil
+}
 
-	services := make([]*model.Service, 0, len(data))
-	for name := range data {
-		endpoints, err := c.getCatalogService(name, nil)
-		if err != nil {
-			return nil, err
+// Run implements model.Controller interface
+func (c *Controller) Run(stop <-chan struct{}) {
+	log.Infof("Starting Consul registry controller for controller path '%s'", c.controllerPath)
+	for {
+		// Block until tick
+		<-c.ticker.C
+		c.doReconcile()
+		select {
+		case <-stop:
+			log.Infof("Stopping Consul registry controller for controller path '%s'", c.controllerPath)
+			return
+		default:
 		}
-		services = append(services, convertService(endpoints))
 	}
-
-	return services, nil
-}
-
-// GetService retrieves a service by host name if it exists
-func (c *Controller) GetService(hostname string) (*model.Service, error) {
-	// Get actual service by name
-	name, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-
-	endpoints, err := c.getCatalogService(name, nil)
-	if len(endpoints) == 0 || err != nil {
-		return nil, err
-	}
-
-	return convertService(endpoints), nil
 }
 
 func (c *Controller) getServices() (map[string][]string, error) {
@@ -94,112 +90,35 @@ func (c *Controller) getServices() (map[string][]string, error) {
 func (c *Controller) getCatalogService(name string, q *api.QueryOptions) ([]*api.CatalogService, error) {
 	endpoints, _, err := c.client.Catalog().Service(name, "", q)
 	if err != nil {
-		log.Warnf("Could not retrieve service catalogue from consul: %v", err)
 		return nil, err
 	}
 
 	return endpoints, nil
 }
 
-// ManagementPorts retries set of health check ports by instance IP.
-// This does not apply to Consul service registry, as Consul does not
-// manage the service instances. In future, when we integrate Nomad, we
-// might revisit this function.
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	return nil
-}
-
-// Instances retrieves instances for a service and its ports that match
-// any of the supplied labels. All instances match an empty tag list.
-func (c *Controller) Instances(hostname string, ports []string,
-	labels model.LabelsCollection) ([]*model.ServiceInstance, error) {
-	// Get actual service by name
-	name, err := parseHostname(hostname)
-	if err != nil {
-		log.Infof("parseHostname(%s) => error %v", hostname, err)
-		return nil, err
-	}
-
-	portMap := make(map[string]bool)
-	for _, port := range ports {
-		portMap[port] = true
-	}
-
-	endpoints, err := c.getCatalogService(name, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	instances := []*model.ServiceInstance{}
-	for _, endpoint := range endpoints {
-		instance := convertInstance(endpoint)
-		if labels.HasSubsetOf(instance.Labels) && portMatch(instance, portMap) {
-			instances = append(instances, instance)
-		}
-	}
-
-	return instances, nil
-}
-
-// returns true if an instance's port matches with any in the provided list
-func portMatch(instance *model.ServiceInstance, portMap map[string]bool) bool {
-	if len(portMap) == 0 {
-		return true
-	}
-
-	if portMap[instance.Endpoint.ServicePort.Name] {
-		return true
-	}
-
-	return false
-}
-
-// HostInstances lists service instances for a given set of IPv4 addresses.
-func (c *Controller) HostInstances(addrs map[string]bool) ([]*model.ServiceInstance, error) {
+func (c *Controller) doReconcile() {
 	data, err := c.getServices()
 	if err != nil {
-		return nil, err
+		log.Warnf("Consul registry controller '%d' for datacenter '%s' unable to fetch services. Mesh view likely to become stale: '%v'",
+			c.controllerPath, c.dataCenter, err.Error())
+		return
 	}
-	out := make([]*model.ServiceInstance, 0)
-	for svcName := range data {
-		endpoints, err := c.getCatalogService(svcName, nil)
+	consulView := model.ControllerView{
+		Path:             c.controllerPath,
+		Services:         []*model.Service{},
+		ServiceInstances: []*model.ServiceInstance{},
+	}
+	for name := range data {
+		endpoints, err := c.getCatalogService(name, nil)
 		if err != nil {
-			return nil, err
+			log.Warnf("Consul registry for datacenter '%s' removing service with name '%s' from Mesh view. Error fetching service details: '%v'",
+				c.dataCenter, name, err.Error())
+			continue
 		}
+		consulView.Services = append(consulView.Services, convertService(endpoints))
 		for _, endpoint := range endpoints {
-			if addrs[endpoint.ServiceAddress] {
-				out = append(out, convertInstance(endpoint))
-			}
+			consulView.ServiceInstances = append(consulView.ServiceInstances, convertInstance(endpoint))
 		}
 	}
-
-	return out, nil
-}
-
-// Run all controllers until a signal is received
-func (c *Controller) Run(stop <-chan struct{}) {
-	c.monitor.Start(stop)
-}
-
-// AppendServiceHandler implements a service catalog operation
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	c.monitor.AppendServiceHandler(func(instances []*api.CatalogService, event model.Event) error {
-		f(convertService(instances), event)
-		return nil
-	})
-	return nil
-}
-
-// AppendInstanceHandler implements a service catalog operation
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.monitor.AppendInstanceHandler(func(instance *api.CatalogService, event model.Event) error {
-		f(convertInstance(instance), event)
-		return nil
-	})
-	return nil
-}
-
-// GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
-func (c *Controller) GetIstioServiceAccounts(hostname string, ports []string) []string {
-	return nil
+	(*c.handler).Reconcile(&consulView)
 }

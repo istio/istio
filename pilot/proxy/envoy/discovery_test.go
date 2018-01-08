@@ -38,14 +38,11 @@ type mockController struct {
 	handlers int
 }
 
-func (ctl *mockController) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
+func (ctl *mockController) SetCacheEvictionHandler(model.CacheEvictionHandler) error {
 	ctl.handlers++
 	return nil
 }
-func (ctl *mockController) AppendInstanceHandler(_ func(*model.ServiceInstance, model.Event)) error {
-	ctl.handlers++
-	return nil
-}
+
 func (ctl *mockController) Run(_ <-chan struct{}) {}
 
 var mockDiscovery *mock.ServiceDiscovery

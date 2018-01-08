@@ -15,6 +15,7 @@
 package mock
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -153,6 +154,66 @@ type ServiceDiscovery struct {
 	GetServiceError    error
 	InstancesError     error
 	HostInstancesError error
+}
+
+// Adds, Updates or Deletes the service from this ServiceDiscovery
+func (sd *ServiceDiscovery) ModifyService(svc *model.Service, event model.Event) error {
+	_, found := sd.services[svc.Hostname]
+	switch {
+	case event == model.EventUpdate || event == model.EventDelete:
+		if !found {
+			return errors.New("Incorrect mock operation. Service '" + svc.Hostname +
+				"' not in Mock ServiceDiscovery. Cannot process Event '" + event.String() + "'")
+		}
+		if event == model.EventDelete {
+			delete(sd.services, svc.Hostname)
+		} else {
+			sd.services[svc.Hostname] = svc
+		}
+		break
+	case event == model.EventAdd:
+		if found {
+			return errors.New("Incorrect mock operation. Service '" + svc.Hostname +
+				"' already exists in Mock ServiceDiscovery. Cannot process Event '" + event.String() + "'")
+		}
+		sd.services[svc.Hostname] = svc
+		break
+	}
+	return nil
+}
+
+// Adds, Updates or Deletes the instance from this ServiceDiscovery
+func (sd *ServiceDiscovery) ModifyServiceInstance(inst *model.ServiceInstance, event model.Event) error {
+	foundIdx := -1
+	for idx, oldInst := range sd.WantHostInstances {
+		if inst.Endpoint.Address == oldInst.Endpoint.Address && inst.Endpoint.Port == oldInst.Endpoint.Port {
+			foundIdx = idx
+			break
+		}
+	}
+	switch {
+	case event == model.EventUpdate || event == model.EventDelete:
+		if foundIdx < 0 {
+			return errors.New("Incorrect mock operation. Service Instance '" + inst.Endpoint.Address +
+				":" + fmt.Sprintf("%d", inst.Endpoint.Port) +
+				"' not in Mock ServiceDiscovery. Cannot process Event '" + event.String() + "'")
+		}
+		if event == model.EventDelete {
+			sd.WantHostInstances = append(sd.WantHostInstances[:foundIdx], sd.WantHostInstances[foundIdx+1:]...)
+		} else {
+			sd.WantHostInstances[foundIdx] = inst
+		}
+		break
+	case event == model.EventAdd:
+		if foundIdx >= 0 {
+			return errors.New("Incorrect mock operation. Service Instance '" + inst.Endpoint.Address +
+				":" + fmt.Sprintf("%d", inst.Endpoint.Port) +
+				"' already exists in Mock ServiceDiscovery. Cannot process Event '" + event.String() + "'")
+		}
+		sd.WantHostInstances = append(sd.WantHostInstances, inst)
+		break
+	}
+	return nil
 }
 
 // ClearErrors clear errors used for mocking failures during model.ServiceDiscovery interface methods
