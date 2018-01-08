@@ -9,13 +9,11 @@ go_library(
         "conversion.go",
         "queue.go",
         "register.go",
+        "deregister.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//pilot/model:go_default_library",
-        "//pkg/log:go_default_library",
-
-        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
@@ -49,14 +47,14 @@ go_test(
         "conversion_test.go",
         "queue_test.go",
         "register_test.go",
+        "deregister_test.go",
     ],
     data = [":kubeconfig"] + glob(["testdata/*"]),
     library = ":go_default_library",
     deps = [
         "//pilot/model:go_default_library",
         "//pilot/test/util:go_default_library",
-        "//tests/k8s:go_default_library",
-        "//pkg/log:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@io_istio_api//mesh/v1alpha1:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
