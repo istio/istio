@@ -1,19 +1,14 @@
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-go_proto_library(
+go_library(
     name = "go_default_library",
-    imports = [
-        "external/com_github_google_protobuf/src",
-    ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    protos = [
-        "rbac.proto",
-    ],
-    verbose = 0,
-    deps = [
-        "@com_github_gogo_protobuf//proto:go_default_library",
-    ],
+    srcs = ["rbac.pb.go"],
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_golang_protobuf//proto:go_default_library"],
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = ["rbac.proto"],
     visibility = ["//visibility:public"],
 )

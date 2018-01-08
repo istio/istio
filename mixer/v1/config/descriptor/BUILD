@@ -1,4 +1,3 @@
-load("@org_pubref_rules_protobuf//gogo:rules.bzl", "gogoslick_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(

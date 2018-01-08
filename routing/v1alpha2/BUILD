@@ -1,20 +1,26 @@
-load("@org_pubref_rules_protobuf//go:rules.bzl", "go_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-go_proto_library(
+go_library(
     name = "go_default_library",
-    imports = [
-        "external/com_github_google_protobuf/src",
+    srcs = [
+        "destination_rule.pb.go",
+        "gateway.pb.go",
+        "route_rule.pb.go",
     ],
-    inputs = [
-        "@com_github_google_protobuf//:well_known_protos",
-    ],
-    protos = glob(["*.proto"]),
-    verbose = 0,
+    visibility = ["//visibility:public"],
     deps = [
-        "@com_github_golang_protobuf//ptypes/any:go_default_library",
-        "@com_github_golang_protobuf//ptypes/struct:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@com_github_golang_protobuf//ptypes/duration:go_default_library",
         "@com_github_golang_protobuf//ptypes/wrappers:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = [
+        "destination_rule.proto",
+        "gateway.proto",
+        "route_rule.proto",
     ],
     visibility = ["//visibility:public"],
 )

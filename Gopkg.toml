@@ -4,7 +4,8 @@
 # for detailed Gopkg.toml documentation.
 
 # Require gogoslick and gogoreplace for proto manipulation
-required = [ 
+required = [
+  "github.com/golang/protobuf/protoc-gen-go",
   "github.com/gogo/protobuf/protoc-gen-gogo",
   "github.com/gogo/protobuf/protoc-gen-gogoslick",
   "github.com/gogo/protobuf/protoc-min-version"
@@ -15,8 +16,8 @@ required = [
   version = "=0.5.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/golang/protobuf"
+  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[constraint]]
   branch = "master"
