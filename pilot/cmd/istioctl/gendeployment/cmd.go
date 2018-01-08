@@ -133,6 +133,9 @@ type installation struct {
 	PilotTag string
 	CaTag    string
 	ProxyTag string
+
+  HyperkubeHub string
+	HyperkubeTag string
 }
 
 func defaultInstall() *installation {
