@@ -51,7 +51,7 @@ go run ./cmd/generate_cert/main.go \
 IMAGES=()
 
 pushd docker
-  for image in istio-ca istio-ca-test node-agent-test; do
+  for image in istio-ca istio-ca-test node-agent node-agent-test; do
     local_image="${image}:${local_tag}"
     docker build -f "Dockerfile.${image}" -t "${image}" .
     IMAGES+=("${image}")
