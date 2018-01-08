@@ -235,6 +235,7 @@ func runTests(envs ...infra) {
 					tlog("Running test", test.String())
 					if err := test.run(); err != nil {
 						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
+						tlog("Failed", test.String() + " " + err.Error())
 					} else {
 						tlog("Success!", test.String())
 					}
@@ -277,12 +278,11 @@ func runTests(envs ...infra) {
 			}
 		}
 
-		// always remove infra even if the tests fail
-		tlog("Tearing down infrastructure", istio.Name)
-		istio.teardown()
 
 		if errs == nil {
 			tlog("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
+			tlog("Tearing down infrastructure", istio.Name)
+			istio.teardown()
 		} else {
 			tlogError("Failed tests!", errs.Error())
 			result = multierror.Append(result, multierror.Prefix(errs, istio.Name))
