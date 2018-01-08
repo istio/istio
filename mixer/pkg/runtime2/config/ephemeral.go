@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,9 +34,6 @@ type Ephemeral struct {
 	// next snapshot id
 	nextID int64
 
-	// whether the Attributes have changed since last snapshot
-	attributesChanged bool
-
 	// entries that are currently known.
 	entries map[store.Key]*store.Resource
 
@@ -56,7 +53,6 @@ func NewEphemeral(
 
 		nextID: 0,
 
-		attributesChanged: false,
 		entries:           make(map[store.Key]*store.Resource, 0),
 
 		cachedAttributes: nil,
@@ -74,7 +70,7 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 
 	for k := range state {
 		if k.Kind == AttributeManifestKind {
-			e.attributesChanged = true
+			e.cachedAttributes = nil
 			break
 		}
 	}
@@ -85,7 +81,7 @@ func (e *Ephemeral) SetState(state map[store.Key]*store.Resource) {
 func (e *Ephemeral) ApplyEvent(event *store.Event) {
 
 	if event.Kind == AttributeManifestKind {
-		e.attributesChanged = true
+		e.cachedAttributes = nil
 		log.Debug("Received attribute manifest change event.")
 	}
 
@@ -115,8 +111,6 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 
 	rules := e.processRuleConfigs(handlers, instances, counters)
 
-	e.attributesChanged = false
-
 	s := &Snapshot{
 		ID:         id,
 		Templates:  e.templates,
@@ -138,7 +132,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 }
 
 func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*config.AttributeManifest_AttributeInfo {
-	if !e.attributesChanged && e.cachedAttributes != nil {
+	if e.cachedAttributes != nil {
 		return e.cachedAttributes
 	}
 
@@ -186,12 +180,13 @@ func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*con
 }
 
 func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler {
-	handlers := make(map[string]*Handler)
+	handlers := make(map[string]*Handler, len(e.adapters))
 
 	for key, resource := range e.entries {
 		var info *adapter.Info
 		var found bool
 		if info, found = e.adapters[key.Kind]; !found {
+			// This config resource is not for an adapter (or at least not for one that Mixer is currently aware of).
 			continue
 		}
 
@@ -215,12 +210,13 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler
 }
 
 func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instance {
-	instances := make(map[string]*Instance)
+	instances := make(map[string]*Instance, len(e.templates))
 
 	for key, resource := range e.entries {
 		var info *template.Info
 		var found bool
 		if info, found = e.templates[key.Kind]; !found {
+			// This config resource is not for an instance (or at least not for one that Mixer is currently aware of).
 			continue
 		}
 
@@ -270,8 +266,7 @@ func (e *Ephemeral) processRuleConfigs(
 		// Once that issue is resolved, the following block should be removed.
 		rt := resourceType(resource.Metadata.Labels)
 		if cfg.Match != "" {
-			m, err := expr.ExtractEQMatches(cfg.Match)
-			if err != nil {
+			if m, err := expr.ExtractEQMatches(cfg.Match); err != nil {
 				log.Warnf("ConfigWarning: Unable to extract resource type from rule: name='%s'", ruleName)
 
 				// instead of skipping the rule, add it to the list. This ensures that the behavior will
@@ -300,7 +295,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 			// Keep track of unique instances, to avoid using the same instance multiple times within the same
 			// action
-			uniqueInstances := make(map[string]bool)
+			uniqueInstances := make(map[string]bool, len(a.Instances))
 
 			actionInstances := make([]*Instance, 0, len(a.Instances))
 			for _, instanceName := range a.Instances {
@@ -315,7 +310,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 				var instance *Instance
 				if instance, found = instances[instanceName]; !found {
-					log.Warnf("ConfigWarning instance not found: instance='%s', action='%s[%d]'",
+					log.Warnf("instance not found: instance='%s', action='%s[%d]'",
 						instanceName, ruleName, i)
 					counters.ruleConfigError.Inc()
 					continue
@@ -326,7 +321,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 			// If there are no valid instances found for this action, then elide the action.
 			if len(actionInstances) == 0 {
-				log.Warnf("ConfigWarning no valid instances found: action='%s[%d]'", ruleName, i)
+				log.Warnf("no valid instances found: action='%s[%d]'", ruleName, i)
 				counters.ruleConfigError.Inc()
 				continue
 			}
@@ -341,7 +336,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 		// If there are no valid actions found for this rule, then elide the rule.
 		if len(actions) == 0 {
-			log.Warnf("ConfigWarning no valid actions found in rule: %s", ruleName)
+			log.Warnf("no valid actions found in rule: %s", ruleName)
 			counters.ruleConfigError.Inc()
 			continue
 		}

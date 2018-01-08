@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,21 +15,21 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"sort"
 
 	"istio.io/istio/mixer/pkg/adapter"
+	"istio.io/istio/mixer/pkg/pool"
 	"istio.io/istio/mixer/pkg/template"
 )
 
 // String writes out contents of a snapshot in a stable way. Useful for quickly writing out contents in a string for
 // comparison testing.
 func (s *Snapshot) String() string {
-	var b bytes.Buffer
-	fmt.Fprintf(&b, "ID: %d", s.ID)
-	fmt.Fprintln(&b)
+	b := pool.GetBuffer()
+	fmt.Fprintf(b, "ID: %d", s.ID)
+	fmt.Fprintln(b)
 
 	names := make([]string, 0, 20)
 	for t := range s.Templates {
@@ -37,24 +37,26 @@ func (s *Snapshot) String() string {
 	}
 	sort.Strings(names)
 
-	fmt.Fprintln(&b, "Templates:")
-	writeTemplates(&b, s.Templates)
+	fmt.Fprintln(b, "Templates:")
+	writeTemplates(b, s.Templates)
 
-	fmt.Fprintln(&b, "Adapters:")
-	writeAdapters(&b, s.Adapters)
+	fmt.Fprintln(b, "Adapters:")
+	writeAdapters(b, s.Adapters)
 
-	fmt.Fprintln(&b, "Handlers:")
-	writeHandlers(&b, s.Handlers)
+	fmt.Fprintln(b, "Handlers:")
+	writeHandlers(b, s.Handlers)
 
-	fmt.Fprintln(&b, "Instances:")
-	writeInstances(&b, s.Instances)
+	fmt.Fprintln(b, "Instances:")
+	writeInstances(b, s.Instances)
 
-	fmt.Fprintln(&b, "Rules:")
-	writeRules(&b, s.Rules)
+	fmt.Fprintln(b, "Rules:")
+	writeRules(b, s.Rules)
 
-	fmt.Fprintf(&b, "%v", s.Attributes)
+	fmt.Fprintf(b, "%v", s.Attributes)
 
-	return b.String()
+	str := b.String()
+	pool.PutBuffer(b)
+	return str
 }
 
 func writeTemplates(w io.Writer, templates map[string]*template.Info) {
@@ -132,12 +134,10 @@ func writeInstances(w io.Writer, instances map[string]*Instance) {
 }
 
 func writeRules(w io.Writer, rules []*Rule) {
-	i := 0
 	names := make([]string, len(rules))
 	m := make(map[string]*Rule, len(rules))
-	for _, r := range rules {
+	for i, r := range rules {
 		names[i] = r.Name
-		i++
 		m[r.Name] = r
 	}
 	sort.Strings(names)
@@ -171,8 +171,8 @@ func writeActions(w io.Writer, actions []*Action) {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "    Instances:")
 
-		for _, i := range a.Instances {
-			fmt.Fprintf(w, "      Name: %s", i.Name)
+		for _, instance := range a.Instances {
+			fmt.Fprintf(w, "      Name: %s", instance.Name)
 			fmt.Fprintln(w)
 		}
 	}
