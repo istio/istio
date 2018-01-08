@@ -125,9 +125,7 @@ func (e *Ephemeral) BuildSnapshot() *Snapshot {
 	e.cachedAttributes = attributes
 
 	log.Infof("Built new config.Snapshot: id='%d'", id)
-	if log.DebugEnabled() {
-		log.Debugf("config.Snapshot contents:\n%s", s.String())
-	}
+	log.Debugf("config.Snapshot contents:\n%s", s)
 	return s
 }
 
@@ -148,9 +146,7 @@ func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*con
 		for an, at := range cfg.(*config.AttributeManifest).Attributes {
 			attrs[an] = at
 
-			if log.DebugEnabled() {
-				log.Debugf("Attribute '%s': '%s'.", an, at.ValueType.String())
-			}
+			log.Debugf("Attribute '%s': '%s'.", an, at.ValueType)
 		}
 	}
 
@@ -166,9 +162,7 @@ func (e *Ephemeral) processAttributeManifests(counters Counters) map[string]*con
 			for an, at := range v.Attributes {
 				attrs[an] = at
 
-				if log.DebugEnabled() {
-					log.Debugf("Attribute '%s': '%s'", an, at.ValueType.String())
-				}
+				log.Debugf("Attribute '%s': '%s'", an, at.ValueType)
 			}
 		}
 	}
@@ -192,9 +186,7 @@ func (e *Ephemeral) processHandlerConfigs(counters Counters) map[string]*Handler
 
 		adapterName := key.String()
 
-		if log.DebugEnabled() {
-			log.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec.String())
-		}
+		log.Debugf("Processing incoming handler config: name='%s'\n%s", adapterName, resource.Spec)
 
 		cfg := &Handler{
 			Name:    adapterName,
@@ -222,9 +214,7 @@ func (e *Ephemeral) processInstanceConfigs(counters Counters) map[string]*Instan
 
 		instanceName := key.String()
 
-		if log.DebugEnabled() {
-			log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec.String())
-		}
+		log.Debugf("Processing incoming instance config: name='%s'\n%s", instanceName, resource.Spec)
 
 		cfg := &Instance{
 			Name:     instanceName,
@@ -258,9 +248,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 		cfg := resource.Spec.(*config.Rule)
 
-		if log.DebugEnabled() {
-			log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg.String())
-		}
+		log.Debugf("Processing incoming rule: name='%s'\n%s", ruleName, cfg)
 
 		// TODO(Issue #2139): resourceType is used for backwards compatibility with labels: [istio-protocol: tcp]
 		// Once that issue is resolved, the following block should be removed.
