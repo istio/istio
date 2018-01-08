@@ -1,0 +1,8 @@
+name: world
+subsets:
+  - name: v0
+    sourceLabels:
+      version: v0
+  - name: v1
+    sourceLabels:
+      version: v1

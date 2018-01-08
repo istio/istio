@@ -27,6 +27,7 @@ import (
 
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -165,12 +166,12 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoutes translates a route rule to an Envoy route
-func buildHTTPRoutes(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
 	case *routingv2.RouteRule:
-		return buildHTTPRoutesV2(config, service, port, instances, domain)
+		return buildHTTPRoutesV2(store, config, service, port, instances, domain)
 	default:
 		panic("unsupported rule")
 	}
@@ -296,7 +297,7 @@ func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.P
 	return route
 }
 
-func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRoutesV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	instances []*model.ServiceInstance, domain string) []*HTTPRoute {
 
 	rule := config.Spec.(*routingv2.RouteRule)
@@ -304,12 +305,12 @@ func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.
 
 	for _, http := range rule.Http {
 		if len(http.Match) == 0 {
-			routes = append(routes, buildHTTPRouteV2(config, service, port, http, nil, domain))
+			routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, nil, domain))
 		}
 		for _, match := range http.Match {
 			for _, instance := range instances {
 				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
-					routes = append(routes, buildHTTPRouteV2(config, service, port, http, match, domain))
+					routes = append(routes, buildHTTPRouteV2(store, config, service, port, http, match, domain))
 					break
 				}
 			}
@@ -329,7 +330,7 @@ func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.
 	return routes
 }
 
-func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port,
+func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port,
 	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string) *HTTPRoute {
 
 	route := buildHTTPRouteMatchV2(match)
@@ -341,8 +342,25 @@ func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.P
 	} else {
 		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 		for _, dst := range http.Route {
+
+			config2 := store.DestinationRule(dst.Destination.Name, domain)
+			destRule := config2.Spec.(*routingv2.DestinationRule)
+			var labels model.Labels
+			var found bool
+			for _, subset := range destRule.Subsets {
+				if subset.Name == dst.Destination.Subset {
+					labels = model.Labels(subset.SourceLabels)
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				log.Warn("Reference to nonexistant subset")
+			}
+
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
-			cluster := buildOutboundCluster(fqdn, port, dst.Destination.Labels) // TODO: support Destination.Port
+			cluster := buildOutboundCluster(fqdn, port, labels) // TODO: support Destination.Port
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
 				&WeightedClusterEntry{
@@ -417,8 +435,9 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 
 func buildShadowCluster(domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
-		fqdn := model.ResolveFQDN(mirror.Name, domain)
-		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
+		//fqdn := model.ResolveFQDN(mirror.Name, domain)
+		// FIXME
+		//return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
 	}
 	return nil
 }

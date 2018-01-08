@@ -1079,6 +1079,14 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 }
 
 // ValidateDestinationPolicy checks proxy policies
+func ValidateDestinationRule(msg proto.Message) error {
+
+	// TODO
+
+	return nil
+}
+
+// ValidateDestinationPolicy checks proxy policies
 func ValidateDestinationPolicy(msg proto.Message) error {
 	policy, ok := msg.(*routing.DestinationPolicy)
 	if !ok {
@@ -1805,8 +1813,8 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	errs = appendErrors(errs, Labels(destination.Labels).Validate())
-	// TODO: Name
+	// TODO: Destination Name string
+	// TODO: Destination Subset string
 	// TODO: Port
 
 	return

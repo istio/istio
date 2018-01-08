@@ -399,6 +399,10 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 	for _, weightedConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightedConfig, t)
+
+		// TODO optimze
+		addConfig(registry, destinationRuleWorld, t)
+
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-weighted.json", t)
@@ -409,6 +413,9 @@ func TestRouteDiscoveryFault(t *testing.T) {
 	for _, faultConfig := range []fileConfig{faultRouteRule, faultRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, faultConfig, t)
+
+		// TODO optimze
+		addConfig(registry, destinationRuleWorld, t)
 
 		// fault rule is source based: we check that the rule only affect v0 and not v1
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -424,6 +431,9 @@ func TestRouteDiscoveryFault(t *testing.T) {
 func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, multiMatchFaultRouteRuleV2, t)
+
+	// TODO optimze
+	addConfig(registry, destinationRuleWorld, t)
 
 	// fault rule is source based: we check that the rule only affects v0 and not v1
 	url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -504,6 +514,9 @@ func TestRouteDiscoveryWebsocket(t *testing.T) {
 	for _, websocketConfig := range []fileConfig{websocketRouteRule, websocketRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, websocketConfig, t)
+
+		// TODO optimze
+		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)

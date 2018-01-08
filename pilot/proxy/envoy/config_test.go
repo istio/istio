@@ -228,6 +228,11 @@ const (
 )
 
 var (
+	destinationRuleWorld = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-world"},
+		file: "testdata/destination-world-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",

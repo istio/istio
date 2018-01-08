@@ -245,6 +245,8 @@ type IstioConfigStore interface {
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
+	DestinationRule(name, domain string) *Config
+
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs
 	// associated with destination service instances.
 	HTTPAPISpecByDestination(instance *ServiceInstance) []Config
@@ -344,6 +346,14 @@ var (
 		Validate:    ValidateDestinationPolicy,
 	}
 
+	// DestinationPolicy describes destination rules
+	DestinationRule = ProtoSchema{
+		Type:        "destination-rule",
+		Plural:      "destination-rules",
+		MessageName: "istio.routing.v1alpha2.DestinationRule",
+		Validate:    ValidateDestinationRule,
+	}
+
 	// HTTPAPISpec describes an HTTP API specification.
 	HTTPAPISpec = ProtoSchema{
 		Type:        "http-api-spec",
@@ -400,6 +410,7 @@ var (
 		Gateway,
 		EgressRule,
 		DestinationPolicy,
+		DestinationRule,
 		HTTPAPISpec,
 		HTTPAPISpecBinding,
 		QuotaSpec,
@@ -650,6 +661,24 @@ func (store *istioConfigStore) Policy(instances []*ServiceInstance, destination 
 	}
 
 	return &out
+}
+
+func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
+	configs, err := store.List(DestinationRule.Type, NamespaceAll)
+	if err != nil {
+		return nil
+	}
+
+	for _, config := range configs {
+		rule := config.Spec.(*routingv2.DestinationRule)
+
+		// TODO RouteRule name can be short name or FQDN and DestinationRule can be short name or FQDN
+		if ResolveFQDN(rule.Name, domain) == ResolveFQDN(name, domain) {
+			return &config
+		}
+	}
+
+	return nil
 }
 
 // `istio.mixer.v1.config.client.IstioService` and
