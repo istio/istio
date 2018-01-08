@@ -27,22 +27,6 @@ To activate an OPA adapter, operators need to configure the
 [opa adapter](https://github.com/istio/istio/blob/master/mixer/adapter/opa/config/config.proto).
 The OPA policies are passed to the adapter as the "policy" parameter (shown below).
 
-```protobuf
-message Params {
- // List of OPA policies
- repeated string policy = 1;
-
- // Query method to check, data.<package name>.<method name>
- string check_method = 2;
-
- // Close the client request when adapter has a issue.
- // If failClose is set to true and there is a runtime error,
- // instead of disabling the adapter, close the client request
-
- bool fail_close = 3;
-}
-```
-
 ## Example configuration
 
 ```yaml
@@ -69,10 +53,7 @@ spec:
  subject:
    user: source.uid | ""
  action:
-   namespace: target.namespace | "default"
-   service: target.service | ""
    method: request.method | ""
-   path: request.path | ""
 
 ---
 
