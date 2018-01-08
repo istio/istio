@@ -37,7 +37,7 @@ const (
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
-	return CreateNamespaceWithPrefix(cl, "istio-test")
+	return CreateNamespaceWithPrefix(cl, "istio-test-")
 }
 
 // CreateNamespace creates a fresh namespace with the given prefix

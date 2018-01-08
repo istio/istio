@@ -45,6 +45,9 @@ spec:
         - --logtostderr
         - -v
         - "2"
+        - --log_callers
+        - --log_output_level
+        - debug
       - name: istio-proxy
         image: {{.Hub}}/proxy_debug:{{.Tag}}
         imagePullPolicy: IfNotPresent

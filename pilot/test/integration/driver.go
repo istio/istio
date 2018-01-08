@@ -239,6 +239,7 @@ func runTests(envs ...infra) {
 					tlog("Running test", test.String())
 					if err := test.run(); err != nil {
 						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
+						tlog("Failed", test.String() + " " + err.Error())
 					} else {
 						tlog("Success!", test.String())
 					}
