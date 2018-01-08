@@ -28,6 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/probe"
 )
 
 const defaultDuration = time.Second / 2
@@ -60,6 +61,7 @@ type fsStore2 struct {
 	kinds         map[string]bool
 	checkDuration time.Duration
 	shas          map[Key][sha1.Size]byte
+	*probe.Probe
 }
 
 var _ Store2Backend = &fsStore2{}
@@ -147,6 +149,7 @@ func (s *fsStore2) readFiles() map[Key]*resource {
 	if err != nil {
 		log.Errorf("failure during filepath.Walk: %v", err)
 	}
+	s.SetAvailable(err)
 	return result
 }
 
@@ -189,6 +192,7 @@ func NewFsStore2(root string) Store2Backend {
 		kinds:         map[string]bool{},
 		checkDuration: defaultDuration,
 		shas:          map[Key][sha1.Size]byte{},
+		Probe:         probe.NewProbe(),
 	}
 }
 

@@ -88,6 +88,13 @@ type Args struct {
 
 	// The tracing options to use
 	TracingOptions *tracing.Options
+
+	// The path to the file which indicates the liveness of the server by its existence.
+	// This will be used for k8s liveness probe. If empty, it does nothing.
+	LivenessProbePath string
+
+	// The path to the file for readiness probe, similar to LivenessProbePath.
+	ReadinessProbePath string
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
