@@ -25,6 +25,16 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
+- [Git workflow](#git-workflow)
+  - [Fork the main repository](#fork-the-main-repository)
+  - [Clone your fork](#clone-your-fork)
+  - [Enable pre commit hook](#enable-pre-commit-hook)
+  - [Create a branch and make changes](#create-a-branch-and-make-changes)
+  - [Keeping your fork in sync](#keeping-your-fork-in-sync)
+  - [Committing changes to your fork](#committing-changes-to-your-fork)
+  - [Creating a pull request](#creating-a-pull-request)
+  - [Getting a code review](#getting-a-code-review)
+  - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
