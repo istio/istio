@@ -35,6 +35,7 @@ GOBIN=${GOBIN:-go}
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
+GOBUILDFLAGS=${GOBUILDFLAGS:-""}
 
 if [[ "${STATIC}" !=  "1" ]];then
     LDFLAGS=""
@@ -58,5 +59,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} -o ${OUT} \
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"

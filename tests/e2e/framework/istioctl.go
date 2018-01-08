@@ -23,8 +23,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
@@ -77,9 +79,9 @@ func NewIstioctl(yamlDir, namespace, istioNamespace, proxyHub, proxyTag string) 
 
 // Setup set up istioctl prerequest for tests, port forwarding
 func (i *Istioctl) Setup() error {
-	glog.Info("Setting up istioctl")
+	log.Info("Setting up istioctl")
 	if err := i.Install(); err != nil {
-		glog.Error("Failed to download istioctl")
+		log.Error("Failed to download istioctl")
 		return err
 	}
 	return nil
@@ -87,7 +89,7 @@ func (i *Istioctl) Setup() error {
 
 // Teardown clean up everything created by setup
 func (i *Istioctl) Teardown() error {
-	glog.Info("Cleaning up istioctl")
+	log.Info("Cleaning up istioctl")
 	return nil
 }
 
@@ -103,7 +105,7 @@ func (i *Istioctl) Install() error {
 		}
 		var usr, err = user.Current()
 		if err != nil {
-			glog.Error("Failed to get current user")
+			log.Error("Failed to get current user")
 			return err
 		}
 		homeDir := usr.HomeDir
@@ -119,12 +121,12 @@ func (i *Istioctl) Install() error {
 		}
 
 		if err = util.HTTPDownload(i.binaryPath, i.remotePath+"/istioctl-"+istioctlSuffix); err != nil {
-			glog.Error("Failed to download istioctl")
+			log.Error("Failed to download istioctl")
 			return err
 		}
 		err = os.Chmod(i.binaryPath, 0755) // #nosec
 		if err != nil {
-			glog.Error("Failed to add execute permission to istioctl")
+			log.Error("Failed to add execute permission to istioctl")
 			return err
 		}
 		i.binaryPath = fmt.Sprintf("%s -c %s/.kube/config", i.binaryPath, homeDir)
@@ -137,7 +139,7 @@ func (i *Istioctl) Install() error {
 func (i *Istioctl) run(format string, args ...interface{}) error {
 	format = i.binaryPath + " " + format
 	if _, err := util.Shell(format, args...); err != nil {
-		glog.Errorf("istioctl %s failed", args)
+		log.Errorf("istioctl %s failed", args)
 		return err
 	}
 	return nil

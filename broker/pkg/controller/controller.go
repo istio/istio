@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/broker/pkg/model/config"
 	"istio.io/istio/broker/pkg/model/osb"
+	"istio.io/istio/pkg/log"
 )
 
 // Controller data
@@ -38,9 +40,9 @@ func CreateController(config config.BrokerConfigStore) (*Controller, error) {
 
 // Catalog serves catalog request and generate response.
 func (c *Controller) Catalog(w http.ResponseWriter, _ *http.Request) {
-	glog.Infof("Fetching Service Broker Catalog...")
+	log.Infof("Fetching Service Broker Catalog...")
 	cat := c.catalog()
-	glog.V(2).Infof("Got catalog\n %#v", cat)
+	log.Infof("Got catalog\n %#v", cat)
 	writeResponse(w, http.StatusOK, cat)
 }
 
@@ -48,10 +50,10 @@ func (c *Controller) catalog() *osb.Catalog {
 	jc := new(osb.Catalog)
 	sc := c.ServiceClasses()
 	for k, s := range sc {
-		glog.V(2).Infof("loading service %q", k)
+		log.Infof("loading service %q", k)
 		js := osb.NewService(s)
 		for pk, p := range c.ServicePlansByService(k) {
-			glog.V(2).Infof("loading service plan %q", pk)
+			log.Infof("loading service plan %q", pk)
 			jp := osb.NewServicePlan(p)
 			js.AddPlan(jp)
 		}
@@ -64,14 +66,14 @@ func (c *Controller) catalog() *osb.Catalog {
 func writeResponse(w http.ResponseWriter, code int, object interface{}) {
 	data, err := json.Marshal(object)
 	if err != nil {
-		glog.Errorf("Marsal response data object error %s", err.Error())
+		log.Errorf("Marsal response data object error %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(code)
 	if _, err = fmt.Fprintf(w, string(data)); err != nil {
-		glog.Errorf("Write response data error %s", err.Error())
+		log.Errorf("Write response data error %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

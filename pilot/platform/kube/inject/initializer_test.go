@@ -231,11 +231,11 @@ func TestInitialize(t *testing.T) {
 			gotPatchBytes = patchBytes
 			gotPatched = true
 
-			gvk, _, err := injectScheme.ObjectKind(obj) // nolint: vetshadow
+			gvk, _, err := injectScheme.ObjectKinds(obj) // nolint: vetshadow
 			if err != nil {
 				t.Fatalf("%v: failed to determine GroupVersionKind of obj: %v", c.name, err)
 			}
-			gotGroupVersionKind = gvk
+			gotGroupVersionKind = gvk[0]
 			return nil
 		}
 

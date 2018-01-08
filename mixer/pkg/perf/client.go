@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/api/mixer/v1"
+	istio_mixer_v1 "istio.io/api/mixer/v1"
 )
 
 // client encapsulates a Mixer client, for the purposes of perf testing.

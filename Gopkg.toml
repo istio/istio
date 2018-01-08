@@ -42,28 +42,51 @@ required = [
   name = "google.golang.org/grpc"
   version = "^1.8.2" # match istio/api
 
-[[constraint]]
+
+# When necessary, override transitive contraints that might be pinned
+# to older versions (e.g. ingress-nginx pinned to 1.8).
+#
+# kubernetes has a quarterly release cycle. For now the k8s
+# dependencies below follow this convention, but that could possibly
+# change in the future as repos are further decoupled from
+# kubernetes/kubernetes proper.
+#
+# client-go release-6.0 corresponds to k8s release-1.9 branch. See
+# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# for details.
+[[override]]
   name = "k8s.io/client-go"
-  revision = "7c69e980210777a6292351ac6873de083526f08e"
+  branch = "release-6.0"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/apimachinery"
-  revision = "6134cb2da6d90597b0434e349f90f94fafc9ae51"
+  branch = "release-1.9"
 
-[[constraint]]
+[[override]]
   name = "k8s.io/api"
-  revision = "4d5cc6efc5e84aa19fb1bd3f911c16a6723c1bb7"
+  branch = "release-1.9"
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "c682349b0d1c12975d8e24a9799b66747255d7a5"
+  branch = "release-1.9"
 
 [[constraint]]
   name = "k8s.io/apiserver"
-  revision = "149fc2228647cea28b0670c240ec582e985e8eda"
+  branch = "release-1.9"
 
+# TODO(https://github.com/istio/istio/issues/2413). Keep
+# k8s.io/ingress-nginx pinned to an older version until istio ingress code
+# is refactored.
+#
+# istio.io/istio/pilot/adapter/config/ingress uses the following nginx
+# controller packages from an older version of k8s.io/ingress which
+# have since been made internal and are no longer available.
+#
+#     "k8s.io/ingress-nginx/core/pkg/ingress/status"
+#     "k8s.io/ingress-nginx/core/pkg/ingress/store"
+#     "k8s.io/ingress-nginx/core/pkg/ingress/annotations/class"
 [[constraint]]
-  name = "k8s.io/ingress"
+  name = "k8s.io/ingress-nginx"
   revision = "0c6f15e372c831de52fcc393932540bb3a6d51b5"
 
 [[constraint]]
@@ -72,7 +95,7 @@ required = [
 
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
-  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -86,7 +109,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "b08011c721e03edd61c721e4943607c97b7a9879"
+  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
 
 [[constraint]]
   name = "istio.io/fortio"
@@ -104,3 +127,7 @@ required = [
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
   version = "0.5.13"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"

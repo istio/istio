@@ -60,7 +60,8 @@ function sequential_exec() {
 function single_exec() {
     print_block "Running $1"
     # Bookinfo is very slow, waiting for cleanup and sync.
-    go test -timeout 20m ${TEST_ARGS:-} $1 -args ${ARGS[@]}
+    echo go test -timeout 20m ${TEST_ARGS:-} $1 -args ${ARGS[@]}
+    go test -test.v -timeout 20m ${TEST_ARGS:-} $1 -args ${ARGS[@]}
     #bazel ${BAZEL_STARTUP_ARGS} run ${BAZEL_RUN_ARGS} $1 -- ${ARGS[@]}
     process_result $? $1
 }

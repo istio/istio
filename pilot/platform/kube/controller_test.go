@@ -21,7 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/k8s"
 )
 
@@ -40,19 +42,6 @@ func makeClient(t *testing.T) kubernetes.Interface {
 	}
 
 	return cl
-}
-
-func eventually(f func() bool, t *testing.T) {
-	interval := 64 * time.Millisecond
-	for i := 0; i < 10; i++ {
-		if f() {
-			return
-		}
-		glog.Infof("Sleeping %v", interval)
-		time.Sleep(interval)
-		interval = 2 * interval
-	}
-	t.Errorf("Failed to satisfy function")
 }
 
 const (
@@ -83,12 +72,12 @@ func TestServices(t *testing.T) {
 
 	var sds model.ServiceDiscovery = ctl
 	makeService(testService, ns, cl, t)
-	eventually(func() bool {
+	util.Eventually(func() bool {
 		out, clientErr := sds.Services()
 		if clientErr != nil {
 			return false
 		}
-		glog.Info("Services: %#v", out)
+		log.Infof("Services: %#v", out)
 
 		for _, item := range out {
 			if item.Hostname == hostname &&
@@ -136,7 +125,7 @@ func makeService(n, ns string, cl kubernetes.Interface, t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	glog.Infof("Created service %s", n)
+	log.Infof("Created service %s", n)
 }
 
 func TestController_getPodAZ(t *testing.T) {

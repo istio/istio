@@ -26,13 +26,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 // Config generation main functions.
@@ -45,10 +48,10 @@ import (
 
 // WriteFile saves config to a file
 func (conf *Config) WriteFile(fname string) error {
-	if glog.V(2) {
-		glog.Infof("writing configuration to %s", fname)
+	if log.InfoEnabled() {
+		log.Infof("writing configuration to %s", fname)
 		if err := conf.Write(os.Stderr); err != nil {
-			glog.Error(err)
+			log.Errora(err)
 		}
 	}
 
@@ -174,7 +177,7 @@ func buildClusters(env proxy.Environment, node proxy.Node) (Clusters, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 	case proxy.Ingress:
 		instances, err = env.HostInstances(map[string]bool{node.IPAddress: true})
-		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, instances, env.ServiceDiscovery, env.IstioConfigStore)
+		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, node, instances, env.ServiceDiscovery, env.IstioConfigStore)
 		clusters = httpRouteConfigs.clusters().normalize()
 	}
 
@@ -236,7 +239,7 @@ func buildSidecarListenersClusters(
 			c := mgmtClusters[i]
 			l := listeners.GetByAddress(m.Address)
 			if l != nil {
-				glog.Warningf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
+				log.Warnf("Omitting listener for management address %s (%s) due to collision with service listener %s (%s)",
 					m.Name, m.Address, l.Name, l.Address)
 				continue
 			}
@@ -298,7 +301,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node proxy.Node, routeName strin
 		if err != nil {
 			return nil, err
 		}
-		httpConfigs, _ = buildIngressRoutes(mesh, instances, discovery, config)
+		httpConfigs, _ = buildIngressRoutes(mesh, node, instances, discovery, config)
 	case proxy.Sidecar, proxy.Router:
 		instances, err := discovery.HostInstances(map[string]bool{node.IPAddress: true})
 		if err != nil {
@@ -529,7 +532,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 }
 
 // buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
-func buildDestinationHTTPRoutes(service *model.Service,
+func buildDestinationHTTPRoutes(sidecar proxy.Node, service *model.Service,
 	servicePort *model.Port,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore) []*HTTPRoute {
@@ -540,12 +543,15 @@ func buildDestinationHTTPRoutes(service *model.Service,
 
 		// collect route rules
 		useDefaultRoute := true
-		rules := config.RouteRules(instances, service.Hostname)
+		rules := config.RouteRules(instances, service.Hostname, sidecar.Domain)
 		// sort for output uniqueness
+		// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+		// because v1alpha2 rules are unique per host.
 		model.SortRouteRules(rules)
+
 		for _, rule := range rules {
-			httpRoute := buildHTTPRoute(rule, service, servicePort)
-			routes = append(routes, httpRoute)
+			httpRoutes := buildHTTPRoutes(rule, service, servicePort, instances, sidecar.Domain)
+			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
 			// or specific route. User could also provide a single default route, in
@@ -554,8 +560,14 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			// "catchAll" flag indicating if the route that was built was a catch all route.
 			// When such a route is encountered, we stop building further routes for the
 			// destination and we will not add the default route after the for loop.
-			if httpRoute.CatchAll() {
-				useDefaultRoute = false
+			for _, httpRoute := range httpRoutes {
+				if httpRoute.CatchAll() {
+					useDefaultRoute = false
+					break
+				}
+			}
+
+			if !useDefaultRoute {
 				break
 			}
 		}
@@ -579,7 +591,7 @@ func buildDestinationHTTPRoutes(service *model.Service,
 		// handled by buildOutboundTCPListeners
 
 	default:
-		glog.V(4).Infof("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
+		log.Debugf("Unsupported outbound protocol %v for port %#v", protocol, servicePort)
 	}
 
 	return nil
@@ -596,7 +608,7 @@ func buildOutboundHTTPRoutes(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			routes := buildDestinationHTTPRoutes(service, servicePort, instances, config)
+			routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
 
 			if len(routes) > 0 {
 				host := buildVirtualHost(service, servicePort, suffix, routes)
@@ -652,7 +664,7 @@ func buildOutboundTCPListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 					// or if its for a Router (where there is one wildcard TCP listener per port)
 					// or if this is in environment where services don't get a dummy load balancer IP.
 					if wildcardListenerPorts[servicePort.Port] {
-						glog.V(4).Infof("Multiple definitions for port %d", servicePort.Port)
+						log.Debugf("Multiple definitions for port %d", servicePort.Port)
 						continue
 					}
 					wildcardListenerPorts[servicePort.Port] = true
@@ -743,21 +755,45 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 			// This setting needs to be enabled on Envoys at both sender and receiver end
 			if protocol == model.ProtocolHTTP {
 				// get all the route rules applicable to the instances
-				rules := config.RouteRulesByDestination(instances)
-				// sort for the output uniqueness
+				rules := config.RouteRulesByDestination(instances, sidecar.Domain)
+
+				// sort for output uniqueness
+				// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+				// because v1alpha2 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					rule := config.Spec.(*routing.RouteRule)
-					if route := buildInboundRoute(config, rule, cluster); route != nil {
-						// set server-side mixer filter config for inbound HTTP routes
-						// Note: websocket routes do not call the filter chain. Will be
-						// resolved in future.
-						if mesh.MixerAddress != "" {
-							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-								instance.Service.Hostname)
+					switch config.Spec.(type) {
+					case *routing.RouteRule:
+						rule := config.Spec.(*routing.RouteRule)
+						if route := buildInboundRoute(config, rule, cluster); route != nil {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerAddress != "" {
+								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
+
+							host.Routes = append(host.Routes, route)
+						}
+					case *routingv2.RouteRule:
+						rule := config.Spec.(*routingv2.RouteRule)
+
+						// if no routes are returned, it is a TCP RouteRule
+						routes := buildInboundRoutesV2(instances, config, rule, cluster)
+						for _, route := range routes {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerAddress != "" {
+								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
 						}
 
-						host.Routes = append(host.Routes, route)
+						host.Routes = append(host.Routes, routes...)
+					default:
+						panic("unsupported rule")
 					}
 				}
 			}
@@ -784,7 +820,7 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 			}
 
 		default:
-			glog.V(4).Infof("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
+			log.Debugf("Unsupported inbound protocol %v for port %#v", protocol, servicePort)
 		}
 
 		if listener != nil {
@@ -817,7 +853,7 @@ func truncateClusterName(name string) string {
 }
 
 func buildEgressVirtualHost(rule *routing.EgressRule,
-	mesh *meshconfig.MeshConfig, port *model.Port, instances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, sidecar proxy.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
 	destination := rule.Destination.Service
@@ -851,7 +887,7 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(&model.Service{Hostname: destination}, port, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
@@ -884,7 +920,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
 
 	if errs != nil {
-		glog.Warningf("Rejected rules: %v", errs)
+		log.Warnf("Rejected rules: %v", errs)
 	}
 
 	for _, rule := range egressRules {
@@ -898,7 +934,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule, mesh, modelPort, instances, config))
+				buildEgressVirtualHost(rule, mesh, node, modelPort, instances, config))
 		}
 	}
 
@@ -921,7 +957,7 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
 
 	if errs != nil {
-		glog.Warningf("Rejected rules: %v", errs)
+		log.Warnf("Rejected rules: %v", errs)
 	}
 
 	tcpRulesByPort := make(map[int][]*routing.EgressRule)
@@ -1013,7 +1049,7 @@ func buildMgmtPortListeners(mesh *meshconfig.MeshConfig, managementPorts model.P
 			clusters = append(clusters, cluster)
 			listeners = append(listeners, listener)
 		default:
-			glog.Warningf("Unsupported inbound protocol %v for management port %#v",
+			log.Warnf("Unsupported inbound protocol %v for management port %#v",
 				mPort.Protocol, mPort)
 		}
 	}

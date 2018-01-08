@@ -8,7 +8,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-export GOPATH=$(cd $ROOTDIR/../..; pwd)
+export GOPATH=$(cd $ROOTDIR/../../..; pwd)
 export PATH=$GOPATH/bin:$PATH
 
 if which goimports; then

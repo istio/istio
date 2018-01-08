@@ -1,8 +1,8 @@
-name: Istio
+name: istio
 version: 0.3.0
-description: Helm chart for complete Istio deployment
+description: Helm chart for complete istio deployment
 keywords:
-  - Istio
+  - istio
   - auth
   - initializer
   - mixer
