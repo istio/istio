@@ -275,6 +275,31 @@ security-coverage:
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 
+#-----------------------------------------------------------------------------
+# Target: go test -race
+#-----------------------------------------------------------------------------
+.PHONY: pilot-racetest
+pilot-racetest: pilot-agent
+	go test ${GOTEST_P} ${T} -race ./pilot/...
+
+.PHONY: mixer-racetest
+mixer-racetest: mixs
+	# Some tests use relative path "testdata", must be run from mixer dir
+	(cd mixer; go test ${T} -race ${GOTEST_PARALLEL} ./...)
+
+.PHONY: broker-racetest
+broker-racetest: depend
+	go test ${T} -race ./broker/...
+
+.PHONY: security-racetest
+security-racetest:
+	go test ${T} -race ./security/...
+
+common-racetest:
+	go test ${T} -race ./pkg/...
+
+# Run race tests
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
