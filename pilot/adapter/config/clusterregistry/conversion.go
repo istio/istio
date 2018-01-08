@@ -27,7 +27,6 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/util/yaml"
-	k8s_cr "k8s.io/cluster-registry/pkg/apis/clusterregistry/v1alpha1"
 )
 
 var (
@@ -47,8 +46,8 @@ const (
 
 // ClusterStore is a collection of clusters
 type ClusterStore struct {
-	clusters []*k8s_cr.Cluster
-	cfgStore *k8s_cr.Cluster
+	clusters []*Cluster
+	cfgStore *Cluster
 }
 
 // GetPilotKubeConfig returns this pilot's kubeconfig file name
@@ -64,17 +63,17 @@ func (cs *ClusterStore) GetPilotKubeConfig() string {
 }
 
 // GetClusterKubeConfig returns the kubeconfig file of a cluster
-func GetClusterKubeConfig(cluster *k8s_cr.Cluster) string {
+func GetClusterKubeConfig(cluster *Cluster) string {
 	return cluster.ObjectMeta.Annotations[ClusterAccessConfigFile]
 }
 
 // GetClusterName returns a cluster's name
-func GetClusterName(cluster *k8s_cr.Cluster) string {
+func GetClusterName(cluster *Cluster) string {
 	return cluster.ObjectMeta.Name
 }
 
 // GetPilotClusters return a list of clusters under this pilot
-func (cs *ClusterStore) GetPilotClusters() (clusters []*k8s_cr.Cluster) {
+func (cs *ClusterStore) GetPilotClusters() (clusters []*Cluster) {
 	if cs.cfgStore != nil {
 		pilotEndpoint := cs.cfgStore.ObjectMeta.Annotations[ClusterPilotEndpoint]
 		for _, cluster := range cs.clusters {
@@ -90,7 +89,7 @@ func (cs *ClusterStore) GetPilotClusters() (clusters []*k8s_cr.Cluster) {
 // ReadClusters reads multiple clusters from files in a directory
 func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 	cs = &ClusterStore{
-		clusters: []*k8s_cr.Cluster{},
+		clusters: []*Cluster{},
 		cfgStore: nil,
 	}
 	err = filepath.Walk(crPath, func(path string, info os.FileInfo, err error) error {
@@ -118,14 +117,14 @@ func ReadClusters(crPath string) (cs *ClusterStore, err error) {
 }
 
 //
-func parseClusters(inputs []byte) (clusters []*k8s_cr.Cluster, err error) {
+func parseClusters(inputs []byte) (clusters []*Cluster, err error) {
 	reader := bytes.NewReader([]byte(inputs))
-	var empty = k8s_cr.Cluster{}
+	var empty = Cluster{}
 
 	// We store configs as a YaML stream; there may be more than one decoder.
 	yamlDecoder := yaml.NewYAMLOrJSONDecoder(reader, 512*1024)
 	for {
-		obj := k8s_cr.Cluster{}
+		obj := Cluster{}
 		err = yamlDecoder.Decode(&obj)
 		if err == io.EOF {
 			err = nil
