@@ -78,6 +78,12 @@
   version = "2.2.1"
 
 [[projects]]
+  name = "github.com/aokoli/goutils"
+  packages = ["."]
+  revision = "3391d3790d23d03408670993e957e8f408993c34"
+  version = "v1.0.1"
+
+[[projects]]
   name = "github.com/apache/thrift"
   packages = ["lib/go/thrift"]
   revision = "b2a4d4ae21c789b689dd162deb819665567f481c"
@@ -240,6 +246,19 @@
   revision = "84f4bee7c0a6db40e3166044c7983c1c32125429"
 
 [[projects]]
+  name = "github.com/go-redis/redis"
+  packages = [
+    ".",
+    "internal",
+    "internal/consistenthash",
+    "internal/hashtag",
+    "internal/pool",
+    "internal/proto"
+  ]
+  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
+  version = "v6.8.0"
+
+[[projects]]
   name = "github.com/gobwas/glob"
   packages = [
     ".",
@@ -253,19 +272,6 @@
   ]
   revision = "bea32b9cd2d6f55753d94a28e959b13f0244797a"
   version = "v0.2.2"
-
-[[projects]]
-  name = "github.com/go-redis/redis"
-  packages = [
-    ".",
-    "internal",
-    "internal/consistenthash",
-    "internal/hashtag",
-    "internal/pool",
-    "internal/proto"
-  ]
-  revision = "73b70592cdaa9e6abdfcfbf97b4a90d80728c836"
-  version = "v6.8.0"
 
 [[projects]]
   name = "github.com/gogo/protobuf"
@@ -773,11 +779,6 @@
   packages = ["metrics"]
   revision = "c48167d9cae5887393dd5e61efd06a4a48b7fbb3"
   version = "v1.2.1"
-
-[[projects]]
-  name = "github.com/ugorji/go"
-  packages = ["codec"]
-  revision = "708a42d246822952f38190a8d8c4e6b16a0e600c"
 
 [[projects]]
   branch = "master"
@@ -1306,6 +1307,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6ec63a02ee0dd8e37daec7bf8724e6eab7ea1e61db17419ed1828a6e971e1369"
+  inputs-digest = "d21e37ab1b48cd3f057ec2688f0a150b6600affefa5f6f6cf9093fac954ea1b4"
   solver-name = "gps-cdcl"
   solver-version = 1
