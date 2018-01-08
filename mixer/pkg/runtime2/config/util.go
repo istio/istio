@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ package config
 // shortname.kind.namespace
 func isFQN(name string) bool {
 	c := 0
-	l := len(name)
-	for i := 0; i < l; i++ {
-		if name[i] == '.' {
+	for _, ch := range name {
+		if ch == '.' {
 			c++
 		}
 
