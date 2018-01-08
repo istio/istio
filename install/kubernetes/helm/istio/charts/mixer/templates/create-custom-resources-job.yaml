@@ -7,14 +7,14 @@ metadata:
     "helm.sh/hook-delete-policy": hook-succeeded
   labels:
     istio: mixer
-  name: mixer-create-custom-objects-job
+  name: mixer-create-custom-resources-job
   namespace: {{$istio_namespace}}
 spec:
   template:
     metadata:
       labels:
         istio: mixer
-      name: mixer-create-custom-objects-job
+      name: mixer-create-custom-resources-job
     spec:
       serviceAccountName: istio-mixer-service-account
       containers:
@@ -24,12 +24,12 @@ spec:
             - ./kubectl
             - apply
             - -f
-            - /tmp/mixer/custom-objects.yaml
+            - /tmp/mixer/custom-resources.yaml
           volumeMounts:
             - mountPath: "/tmp/mixer"
               name: tmp-configmap-mixer
       volumes:
         - name: tmp-configmap-mixer
           configMap:
-            name: mixer-custom-objects-configmap
+            name: mixer-custom-resources-configmap
       restartPolicy: Never # CRD might take some time till they are available to comsume

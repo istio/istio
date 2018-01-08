@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mixer-custom-objects-configmap
+  name: mixer-custom-resources-configmap
   namespace: {{$istio_namespace}}
   labels:
     istio: mixer
 data:
-  custom-objects.yaml: |-
+  custom-resources.yaml: |-
     {{- include "config.yaml.tpl" . | indent 4}}
