@@ -1,3 +1,4 @@
+ARG ISTIO_BIN=.
 FROM scratch
-ADD sidecar-initializer /usr/local/bin/
+ADD ${ISTIO_BIN}/sidecar-initializer /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/sidecar-initializer"]

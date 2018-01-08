@@ -50,6 +50,7 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
+DEP=${ISTIO_BIN}/dep
 
 hub = ""
 tag = ""
@@ -99,20 +100,20 @@ depend.ensure: init
 
 # Target to update the Gopkg.lock with latest versions.
 # Should be run when adding any new dependency and periodically.
-depend.update: ${GO_TOP}/bin/dep; $(info $(H) ensuring dependencies are up to date...)
-	${GO_TOP}/bin/dep ensure
-	${GO_TOP}/bin/dep ensure -update
+depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
+	${DEP} ensure
+	${DEP} ensure -update
 	cp Gopkg.lock vendor/Gopkg.lock
 
-${GO_TOP}/bin/dep:
+${DEP}:
 	go get -u github.com/golang/dep/cmd/dep
 
-Gopkg.lock: Gopkg.toml | ${GO_TOP}/bin/dep ; $(info $(H) generating) @
-	$(Q) ${GO_TOP}/bin/dep ensure -update
+Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
+	$(Q) ${DEP} ensure -update
 
 depend.status: Gopkg.lock
-	$(Q) ${GO_TOP}/bin/dep status > vendor/dep.txt
-	$(Q) ${GO_TOP}/bin/dep status -dot > vendor/dep.dot
+	$(Q) ${DEP} status > vendor/dep.txt
+	$(Q) ${DEP} status -dot > vendor/dep.dot
 
 # Requires 'graphviz' package. Run as user
 depend.view: depend.status
@@ -303,27 +304,114 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${GO_TOP}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
-	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
+# XXX needs to support empty HUB? will "localhost" be equivalent?
+# cp ${GO_TOP}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+# proxy_debug pulls in envoy-debug and 4 json files: envoy_pilot[_auth].json, envoy_mixer[_auth].json
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -e ISTIO_BIN -f Dockerfile.proxy_debug .)
+# proxy_init references iptables and prepare_proxy.sh
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
-	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
-	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${GO_TOP}/bin/mixs mixer/docker
-	cp docker/ca-certificates.tgz mixer/docker
-	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
-	cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
-	cp docker/ca-certificates.tgz security/docker/
-	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
+# sidecar_initializer references sidecar-initializer
+	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -e ISTIO_BIN -f Dockerfile.sidecar_initializer .)
+# pilot references only pilot-discovery
+	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -e ISTIO_BIN -f Dockerfile.pilot .)
+# cp ${GO_TOP}/bin/mixs mixer/docker
+# cp docker/ca-certificates.tgz $(ISTIO_BIN)
+# mixer_debug references ubuntu_xenial_debug:sha and ca-certificates.tgz
+	time (docker build -t ${HUB}/mixer_debug:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+# cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
+# cp docker/ca-certificates.tgz security/docker/
+# pulls in ca-certificates.tgz
+	time (docker build -t ${HUB}/istio-ca:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.istio-ca docker)
 	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
-	cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
-	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
-	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
-	# TODO: generate or checkin test CA and keys
-	## These are not used so far
+# cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
+# app pulls in certs/cert.{crt|key}
+	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -e ISTIO_BIN -f Dockerfile.app .)
+	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -e ISTIO_BIN -f Dockerfile.eurekamirror .)
+# TODO: generate or checkin test CA and keys
+# These are not used so far
 	security/bin/gen-keys.sh
-	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
-	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
+# istio-ca-test pulls in xenial (no sha) istio_ca.crt, istio_ca.key
+	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -e ISTIO_BIN -f Dockerfile.istio-ca-test .)
+# node-agent-test pulls in start_app.sh, app.js, istio_ca.crt, node_agent.crt, node_agent.key
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -e ISTIO_BIN -f Dockerfile.node-agent-test .)
 
+##################################################################################
+
+# XXX these need to support empty HUB? will "localhost" be equivalent?
+
+PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
+                 pilot/docker/envoy_pilot_auth.json \
+                 pilot/docker/envoy_mixer.json \
+                 pilot/docker/envoy_mixer_auth.json
+
+docker.proxy: pilot/docker/Dockerfile.proxy ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
+	time (cd pilot/docker && docker build -t proxy:${TAG} -e ISTIO_BIN -f Dockerfile.proxy .)
+
+docker.proxy-debug: pilot/docker/Dockerfile.proxy_debug ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
+	time (cd pilot/docker && docker build -t proxy_debug:${TAG} -e ISTIO_BIN -f Dockerfile.proxy_debug .)
+
+docker.proxy-init: pilot/docker/Dockerfile.proxy_init pilot/docker/prepare_proxy.sh
+	time (cd pilot/docker && docker build -t proxy_init:${TAG} -f Dockerfile.proxy_init .)
+
+docker.sidecar-initializer: pilot/docker/Dockerfile.sidecar_initializer ${ISTIO_BIN}/sidecar-initializer
+	time (cd pilot/docker && docker build -t sidecar_initializer:${TAG} -e ISTIO_BIN -f Dockerfile.sidecar_initializer .)
+
+docker.pilot: pilot/docker/Dockerfile.pilot ${ISTIO_BIN}/pilot-discovery
+	time (cd pilot/docker && docker build -t pilot:${TAG} -e ISTIO_BIN -f Dockerfile.pilot .)
+
+# relies on ubuntu_xenial_debug:sha, servicegraph, viz (js/viz)
+# docker.servicegraph         mixer/example/servicegraph/docker/Dockerfile
+docker.servicegraph: mixer/example/servicegraph/docker/Dockerfile ${ISTIO_BIN}/servicegraph
+	time (cd mixer/example/servicegraph/js && docker build -t servicegraph:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile .)
+
+# relies on servicegraph and viz (gs/viz)
+# docker.servicegraph_debug               mixer/example/servicegraph/docker/Dockerfile.debug
+docker.servicegraph-debug: mixer/example/servicegraph/docker/Dockerfile.debug ${ISTIO_BIN}/servicegraph
+	time (cd mixer/example/servicegraph/js && docker build -t servicegraph_debug:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile.debug .)
+
+docker.mixer: mixer/docker/Dockerfile docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
+	time (docker build -t mixer:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+
+docker.mixer-debug: mixer/docker/Dockerfile.debug docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
+	time (docker build -t mixer_debug:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+
+docker.istio-ca: security/docker/Dockerfile.istio-ca ${ISTIO_BIN}/istio_ca docker/ca-certificates.tgz
+	time (docker build -t istio-ca:${TAG} -e ISTIO_BIN -f security/docker/Dockerfile.istio-ca docker)
+
+docker.app: pilot/docker/Dockerfile.app ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-server pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+	time (cd pilot/docker && docker build -t app:${TAG} -e ISTIO_BIN -f Dockerfile.app .)
+
+docker.eurekamirror: pilot/docker/Dockerfile.eurekamirror ${ISTIO_BIN}/pilot-test-eurekamirror
+	time (cd pilot/docker && docker build -t eurekamirror:${TAG} -e ISTIO_BIN -f Dockerfile.eurekamirror .)
+
+security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
+	security/bin/gen-keys.sh
+
+docker.istio-ca-test: security/docker/Dockerfile.istio-ca-test security/docker/istio_ca.crt security/docker/istio_ca.key
+	time (cd security/docker && docker build -t istio-ca-test:${TAG} -e ISTIO_BIN -f Dockerfile.istio-ca-test .)
+
+NODE_AGENT_FILES=security/docker/start_app.sh \
+                 security/docker/app.js \
+                 security/istio_ca.crt \
+                 security/node_agent.crt \
+                 security/node_agent.key
+
+docker.node-agent-test: security/docker/Dockerfile.node-agent-test ${ISTIO_BIN}/node_agent ${NODE_AGENT_FILES}
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -e ISTIO_BIN -f Dockerfile.node-agent-test .)
+
+#DOCKER_IMAGES=proxy_debug proxy_init sidecar_initializer pilot mixer_debug istio-ca app eurekamirror istio-ca-test node-agent-test
+#docker.save: docker.prebuilt
+#	mkdir -p ${ISTIO_BIN}/docker
+#	time (docker save -o ${ISTIO_BIN}/docker/proxy_debug.tar ${HUB}/proxy_debug:${TAG} && gzip ${ISTIO_BIN}/docker/proxy_debug.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/proxy_init.tar ${HUB}/proxy_init:${TAG} && gzip ${ISTIO_BIN}/docker/proxy_init.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/sidecar_initializer.tar ${HUB}/sidecar_initializer:${TAG} && gzip ${ISTIO_BIN}/docker/sidecar_initializer.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/pilot.tar ${HUB}/pilot:${TAG} && gzip ${ISTIO_BIN}/docker/pilot.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/mixer_debug.tar ${HUB}/mixer_debug:${TAG} && gzip ${ISTIO_BIN}/docker/mixer_debug.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/istio-ca.tar ${HUB}/istio-ca:${TAG} && gzip ${ISTIO_BIN}/docker/istio-ca.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/app.tar ${HUB}/app:${TAG} && gzip ${ISTIO_BIN}/docker/app.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/eurekamirror.tar ${HUB}/eurekamirror:${TAG} && gzip ${ISTIO_BIN}/docker/eurekamirror.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/istio-ca-test.tar ${HUB}/istio-ca-test:${TAG} && gzip ${ISTIO_BIN}/docker/istio-ca-test.tar)
+#	time (docker save -o ${ISTIO_BIN}/docker/node-agent-test.tar ${HUB}/node-agent-test:${TAG} && gzip ${ISTIO_BIN}/docker/node-agent-test.tar)
 
 push: checkvars clean.installgen installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
@@ -402,14 +490,25 @@ docker.sidecar.deb:
 		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
 		sidecar.deb )
 
-
 # Create the 'sidecar' deb, including envoy and istio agents and configs.
 # This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb: ${OUT}/istio-sidecar.deb
 
-${OUT}/istio-sidecar.deb: pilot-agent node-agent
+${ISTIO_BIN}/envoy: init
+
+${ISTIO_BIN}/pilot-agent: pilot-agent
+
+${ISTIO_BIN}/node-agent: node_agent
+
+ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
+                  tools/deb/istio-iptables.sh \
+                  tools/deb/istio.service \
+                  security/tools/deb/istio-auth-node-agent.service \
+                  tools/deb/sidecar.env tools/deb/envoy.json
+
+${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node-agent ${ISTIO_SIDECAR_SRC}
 	mkdir -p ${OUT}
 	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
 	   --url http://istio.io  \
@@ -424,12 +523,11 @@ ${OUT}/istio-sidecar.deb: pilot-agent node-agent
 	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
 	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
 	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
-	   bin/envoy=/usr/local/bin/envoy \
-	   bin/pilot-agent=/usr/local/bin/pilot-agent \
-	   bin/node_agent=/usr/local/istio/bin/node_agent \
+	   ${ISTIO_BIN}/envoy=/usr/local/bin/envoy \
+	   ${ISTIO_BIN}/pilot-agent=/usr/local/bin/pilot-agent \
+	   ${ISTIO_BIN}/node_agent=/usr/local/istio/bin/node_agent \
 	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
 	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
-
 
 #-----------------------------------------------------------------------------
 # Target: e2e tests
