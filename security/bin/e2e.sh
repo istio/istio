@@ -11,7 +11,7 @@
 
 set -ex
 
-DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent-test"
+DOCKER_IMAGE="istio-ca,istio-ca-test,node-agent,node-agent-test"
 
 ARGS="--image $DOCKER_IMAGE"
 

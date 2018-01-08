@@ -312,6 +312,7 @@ docker.prebuilt:
 	cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
 	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
 	cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
