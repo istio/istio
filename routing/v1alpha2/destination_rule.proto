@@ -140,7 +140,7 @@ message Subset {
 
   // REQUIRED. Labels apply a filter over the endpoints of a service in the
   // service registry. See route rules for examples of usage.
-  map<string, string> source_labels = 2;
+  map<string, string> labels = 2;
 
   // Traffic policies that apply to this subset. Subsets inherit the
   // traffic policies specified at the DestinationRule level. Settings
