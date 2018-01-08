@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	defaultTag = "0.4.0"
+	defaultTag          = "0.4.0"
 	defaultHyperkubeTag = "v1.7.6_coreos.0"
 )
 
@@ -134,7 +134,7 @@ type installation struct {
 	CaTag    string
 	ProxyTag string
 
-  HyperkubeHub string
+	HyperkubeHub string
 	HyperkubeTag string
 }
 
