@@ -45,8 +45,5 @@
       "args": [ "./release/store_artifacts.sh", "-p", "$_GCS_PATH", "-q", "$_GCR_PATH", "-v", "$_VER_STRING", "-o", "/output", "-i", "$BUILD_ID" ]
     }
   ],
-  "options": {
-    "machineType": "N1_HIGHCPU_32"
-  },
   "timeout": "3600s",
 }
