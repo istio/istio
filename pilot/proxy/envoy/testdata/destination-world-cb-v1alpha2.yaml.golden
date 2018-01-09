@@ -10,11 +10,10 @@ subsets:
         tcp:
           maxConnections: 100
         http:
-          # TODO use unique values
-          http1MaxPendingRequests: 100
-          http2MaxRequests: 100
-          maxRequestsPerConnection: 100
-          maxRetries: 10
+          http1MaxPendingRequests: 50
+          http2MaxRequests: 200
+          maxRequestsPerConnection: 500
+          maxRetries: 5
       outlierDetection:
         http:
           consecutiveErrors: 10

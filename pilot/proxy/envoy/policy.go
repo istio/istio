@@ -162,7 +162,6 @@ func applyLoadBalancePolicy(cluster *Cluster, policy *routingv2.LoadBalancerSett
 
 func buildOutlierDetection(outlier *routingv2.OutlierDetection) *OutlierDetection {
 	if outlier != nil && outlier.Http != nil {
-		// explicitly set defaults
 		out := &OutlierDetection{
 			ConsecutiveErrors:  5,
 			IntervalMS:         10000, // 10s
