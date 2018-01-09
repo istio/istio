@@ -432,6 +432,8 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 
+docker.all: $(DOCKER_TARGETS)
+
 # for each docker.XXX target create a tar.docker.XXX target that says how
 # to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
