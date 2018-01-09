@@ -75,7 +75,7 @@ type infra struct { // nolint: aligncheck
 	Zipkin    bool
 	DebugPort int
 
-	SkipCleanup bool
+	SkipCleanup          bool
 	SkipCleanupOnFailure bool
 
 	// check proxy logs
