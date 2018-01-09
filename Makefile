@@ -332,7 +332,7 @@ docker.prebuilt:
 
 ##################################################################################
 
-# static files that are already at proper location
+# static files that are already at proper location for docker build
 
 PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
                  pilot/docker/envoy_pilot_auth.json \
@@ -345,24 +345,17 @@ NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/node_agent.crt \
                  security/docker/node_agent.key
 
-# copied/generated files
+# copied/generated files for docker build
 
-pilot/docker/pilot-agent: ${ISTIO_BIN}/pilot-agent
-	cp $< $(@D)
+.SECONDEXPANSION: #allow $@ to be used in dependency list
 
-pilot/docker/pilot-discovery: ${ISTIO_BIN}/pilot-discovery
-	cp $< $(@D)
+COPIED_FROM_ISTIO_BIN = pilot/docker/pilot-agent pilot/docker/pilot-discovery \
+	pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
+	pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
+	mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
+	security/docker/istio_ca security/docker/node_agent
 
-pilot/docker/pilot-test-client: ${ISTIO_BIN}/pilot-test-client
-	cp $< $(@D)
-
-pilot/docker/pilot-test-server: ${ISTIO_BIN}/pilot-test-server
-	cp $< $(@D)
-
-pilot/docker/sidecar-initializer: ${ISTIO_BIN}/sidecar-initializer
-	cp $< $(@D)
-
-pilot/docker/pilot-test-eurekamirror: ${ISTIO_BIN}/pilot-test-eurekamirror
+$(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
 	cp $< $(@D)
 
 mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
@@ -371,24 +364,8 @@ mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
 mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-certificates.tgz
 	cp $< $(@D)
 
-mixer/docker/mixs: ${ISTIO_BIN}/mixs
-	cp $< $(@D)
-
-mixer/example/servicegraph/docker/servicegraph: ${ISTIO_BIN}/servicegraph
-	cp $< $(@D)
-
 security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
-
-security/docker/istio_ca: ${ISTIO_BIN}/istio_ca
-	cp $< $(@D)
-
-security/docker/node_agent: ${ISTIO_BIN}/node_agent
-	cp $< $(@D)
-
-# docker build rules
-
-.SECONDEXPANSION: #allow $@ to be used in dependency list
 
 # pilot docker images
 
