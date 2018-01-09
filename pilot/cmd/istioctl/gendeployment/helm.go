@@ -20,7 +20,7 @@ import (
 )
 
 var valuesTemplate = template.Must(template.New("helm").Parse(
-	`Istio:
+	`istio:
    deploy_base_config: true
    initializer_enabled: {{ .Initializer }}
    mixer_enabled: {{ .Mixer }}
