@@ -545,9 +545,9 @@ ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BI
 	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
 	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
 	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
-	   ${ISTIO_BIN}/envoy=/usr/local/bin/envoy \
-	   ${ISTIO_BIN}/pilot-agent=/usr/local/bin/pilot-agent \
-	   ${ISTIO_BIN}/node_agent=/usr/local/istio/bin/node_agent \
+	   bin/envoy=/usr/local/bin/envoy \
+	   bin/pilot-agent=/usr/local/bin/pilot-agent \
+	   bin/node_agent=/usr/local/istio/bin/node_agent \
 	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
 	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
 
