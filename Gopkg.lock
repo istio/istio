@@ -108,8 +108,8 @@
     "private/protocol/xml/xmlutil",
     "service/sts"
   ]
-  revision = "ce8d7a13a9e7f883d91c39eb98d4f72021eb48e2"
-  version = "v1.12.56"
+  revision = "5177d71d80f123f6d82aaf762387e39b88c5ba23"
+  version = "v1.12.57"
 
 [[projects]]
   branch = "master"
@@ -379,7 +379,7 @@
     "openstack/utils",
     "pagination"
   ]
-  revision = "fe4853e064e386919340e25c447d0fed6cd8c6ea"
+  revision = "b2bf8a613b41baa2a8b56a6a8483321a84520dfa"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -412,7 +412,7 @@
   branch = "master"
   name = "github.com/grpc-ecosystem/go-grpc-middleware"
   packages = ["."]
-  revision = "967bee733a734780623ac3d7c8e9216e4372ea62"
+  revision = "d0c54e68681ec7999ac17864470f3bee6521ba2b"
 
 [[projects]]
   name = "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -755,8 +755,8 @@
 [[projects]]
   name = "github.com/uber/jaeger-lib"
   packages = ["metrics"]
-  revision = "c48167d9cae5887393dd5e61efd06a4a48b7fbb3"
-  version = "v1.2.1"
+  revision = "5519f3beabf28707fca8d3f47f9cff87dad48d96"
+  version = "v1.3.0"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -812,7 +812,7 @@
     "lex/httplex",
     "trace"
   ]
-  revision = "42fe2e1c20de1054d3d30f82cc9fb5b41e2e3767"
+  revision = "434ec0c7fe3742c984919a691b2018a6e9694425"
 
 [[projects]]
   branch = "master"
@@ -839,7 +839,7 @@
     "unix",
     "windows"
   ]
-  revision = "dd9ec17814d5b1de388ebe438ec013d57d8b3779"
+  revision = "d38bf781f16e180a1b2ad82697d2f81d7b7ecfac"
 
 [[projects]]
   branch = "master"
@@ -908,7 +908,7 @@
     "transport/grpc",
     "transport/http"
   ]
-  revision = "b1c0f9b3aa8fac163224fab909402d49c6dce50a"
+  revision = "e5c227fa33ebccc5a430d863efae400431fc0e85"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -976,8 +976,8 @@
     "tap",
     "transport"
   ]
-  revision = "f3955b8e9e244dd4dd4bc4f7b7a23a8445400a76"
-  version = "v1.9.0"
+  revision = "7cea4cc846bcf00cbb27595b07da5de875ef7de9"
+  version = "v1.9.1"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
@@ -1005,7 +1005,7 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "0e4404da71227dcc02fb1deee803d93e86d08f72"
+  revision = "d670f9405373e636a5a2765eea47fac0c9bc91a4"
 
 [[projects]]
   name = "istio.io/api"
@@ -1019,7 +1019,7 @@
     "routing/v1alpha1",
     "routing/v1alpha2"
   ]
-  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
+  revision = "0a387cd5a52df56f5272e6532eb9ef628b68ca09"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -1269,11 +1269,11 @@
     "pkg/common",
     "pkg/util/proto"
   ]
-  revision = "b16ebc07f5cad97831f961e4b5a9cc1caed33b7e"
+  revision = "a07b7bbb58e7fdc5144f8d7046331d29fc9ad3b3"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "850b4632ecf52363867f203deec0a0fef3dedb8f360076fd2e42b10de0d90c71"
+  inputs-digest = "600a13e126b7b0ae57768ed45768c73638b0d9e257d8ef54ebf6b90a59e27cdb"
   solver-name = "gps-cdcl"
   solver-version = 1
