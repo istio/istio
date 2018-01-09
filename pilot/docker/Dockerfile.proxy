@@ -1,6 +1,7 @@
 # Change this and ../../WORKSPACE at the same time
+ARG ISTIO_BIN=.
 FROM gcr.io/istio-testing/envoy:e8377eb33fc64f70501f5931e4c41dd8b19211f1
-ADD pilot-agent /usr/local/bin/pilot-agent
+ADD ${ISTIO_BIN}/pilot-agent /usr/local/bin/pilot-agent
 
 COPY envoy_pilot.json      /etc/istio/proxy/envoy_pilot.json
 COPY envoy_pilot_auth.json /etc/istio/proxy/envoy_pilot_auth.json

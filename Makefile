@@ -398,7 +398,7 @@ NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/node_agent.key
 
 docker.node-agent-test: security/docker/Dockerfile.node-agent-test ${ISTIO_BIN}/node_agent ${NODE_AGENT_FILES}
-	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.node-agent-test .)
+	time (cd security/docker && docker build -t node-agent-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.node-agent-test .)
 
 DOCKER_TARGETS=docker.proxy docker.proxy-debug docker.proxy-init docker.sidecar-initializer docker.pilot \
                docker.servicegraph docker.servicegraph-debug docker.mixer docker.mixer-debug docker.istio-ca \
@@ -530,9 +530,10 @@ ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
                   security/tools/deb/istio-auth-node-agent.service \
                   tools/deb/sidecar.env tools/deb/envoy.json
 
+# --iteration 1 adds a "-1" suffix to the version that didn't exist before
 ${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
 	mkdir -p ${OUT}
-	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
+	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
 	   --url http://istio.io  \
 	   --license Apache \
 	   --vendor istio.io \
