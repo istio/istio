@@ -316,16 +316,16 @@ docker.prebuilt:
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
 	cp ${GO_TOP}/bin/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
-	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug docker)
+	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
 	cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
-	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca docker)
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
 	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
 	cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
-# TODO: generate or checkin test CA and keys
-# These are not used so far
+	# TODO: generate or checkin test CA and keys
+	## These are not used so far
 	security/bin/gen-keys.sh
 	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
 	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
@@ -359,23 +359,23 @@ docker.pilot: pilot/docker/Dockerfile.pilot ${ISTIO_BIN}/pilot-discovery
 	time (cd pilot/docker && docker build -t pilot:${TAG} -f Dockerfile.pilot .)
 
 docker.servicegraph: mixer/example/servicegraph/docker/Dockerfile ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/js/viz
-	cp ${ISTIO_BIN}/servicegraph pilot/docker
+	cp ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/docker
 	cp mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
-	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph:${TAG} -f ../docker/Dockerfile .)
+	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph:${TAG} -f Dockerfile .)
 
 docker.servicegraph-debug: mixer/example/servicegraph/docker/Dockerfile.debug ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/js/viz
-	cp ${ISTIO_BIN}/servicegraph pilot/docker
-	cp mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
+	cp ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/docker
+	cp -r mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
 	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph_debug:${TAG} -f Dockerfile.debug .)
 
 docker.mixer: mixer/docker/Dockerfile docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	cp ${ISTIO_BIN}/mixs pilot/docker
-	cp docker/ca-certificates.tgz security/docker
-	time (cd mixer/docker && docker build -t mixer:${TAG} -f Dockerfile.debug .)
+	cp ${ISTIO_BIN}/mixs mixer/docker
+	cp docker/ca-certificates.tgz mixer/docker
+	time (cd mixer/docker && docker build -t mixer:${TAG} -f Dockerfile .)
 
 docker.mixer-debug: mixer/docker/Dockerfile.debug docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	cp ${ISTIO_BIN}/mixs pilot/docker
-	cp docker/ca-certificates.tgz security/docker
+	cp ${ISTIO_BIN}/mixs mixer/docker
+	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t mixer_debug:${TAG} -f Dockerfile.debug .)
 
 docker.istio-ca: security/docker/Dockerfile.istio-ca ${ISTIO_BIN}/istio_ca docker/ca-certificates.tgz
