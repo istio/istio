@@ -378,21 +378,21 @@ docker.sidecar_initializer: pilot/docker/sidecar-initializer
 
 PILOT_DOCKER=docker.app docker.eurekamirror docker.pilot docker.proxy docker.proxy_debug docker.proxy_init docker.sidecar_initializer
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
-	time (cd pilot/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
+	time (cd pilot/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
 # mixer/example docker images
 
 SERVICEGRAPH_DOCKER=docker.servicegraph docker.servicegraph_debug
 $(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 		mixer/example/servicegraph/docker/servicegraph mixer/example/servicegraph/docker/viz
-	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph$(findstring _debug,$@):${TAG} \
+	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph$(findstring _debug,$@) \
 		-f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
 # mixer docker images
 
 MIXER_DOCKER=docker.mixer docker.mixer_debug
 $(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) mixer/docker/ca-certificates.tgz mixer/docker/mixs
-	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@):${TAG} -f Dockerfile$(if $(findstring debug,$@),.debug) .)
+	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
 # security docker images
 
@@ -402,25 +402,25 @@ docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_FILES}
 
 SECURITY_DOCKER=docker.istio-ca docker.istio-ca-test docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
-	time (cd security/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
+	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
 DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 docker.save: $(DOCKER_TARGETS)
 	mkdir -p ${OUT}/docker
-	time (docker save -o ${OUT}/docker/proxy.tar           proxy:${TAG}           && gzip ${OUT}/docker/proxy.tar)
-	time (docker save -o ${OUT}/docker/proxy_debug.tar     proxy_debug:${TAG}     && gzip ${OUT}/docker/proxy_debug.tar)
-	time (docker save -o ${OUT}/docker/proxy_init.tar      proxy_init:${TAG}      && gzip ${OUT}/docker/proxy_init.tar)
-	time (docker save -o ${OUT}/docker/sidecar_initializer.tar sidecar_initializer:${TAG} && gzip ${OUT}/docker/sidecar_initializer.tar)
-	time (docker save -o ${OUT}/docker/pilot.tar           pilot:${TAG}           && gzip ${OUT}/docker/pilot.tar)
-	time (docker save -o ${OUT}/docker/servicegraph.tar       servicegraph:${TAG}       && gzip ${OUT}/docker/servicegraph.tar)
-	time (docker save -o ${OUT}/docker/servicegraph_debug.tar servicegraph_debug:${TAG} && gzip ${OUT}/docker/servicegraph_debug.tar)
-	time (docker save -o ${OUT}/docker/mixer.tar           mixer:${TAG}           && gzip ${OUT}/docker/mixer.tar)
-	time (docker save -o ${OUT}/docker/mixer_debug.tar     mixer_debug:${TAG}     && gzip ${OUT}/docker/mixer_debug.tar)
-	time (docker save -o ${OUT}/docker/istio-ca.tar        istio-ca:${TAG}        && gzip ${OUT}/docker/istio-ca.tar)
-	time (docker save -o ${OUT}/docker/app.tar             app:${TAG}             && gzip ${OUT}/docker/app.tar)
-	time (docker save -o ${OUT}/docker/eurekamirror.tar    eurekamirror:${TAG}    && gzip ${OUT}/docker/eurekamirror.tar)
-	time (docker save -o ${OUT}/docker/istio-ca-test.tar   istio-ca-test:${TAG}   && gzip ${OUT}/docker/istio-ca-test.tar)
-	time (docker save -o ${OUT}/docker/node-agent-test.tar node-agent-test:${TAG} && gzip ${OUT}/docker/node-agent-test.tar)
+	time (docker save -o ${OUT}/docker/proxy.tar               proxy               && gzip ${OUT}/docker/proxy.tar)
+	time (docker save -o ${OUT}/docker/proxy_debug.tar         proxy_debug         && gzip ${OUT}/docker/proxy_debug.tar)
+	time (docker save -o ${OUT}/docker/proxy_init.tar          proxy_init          && gzip ${OUT}/docker/proxy_init.tar)
+	time (docker save -o ${OUT}/docker/sidecar_initializer.tar sidecar_initializer && gzip ${OUT}/docker/sidecar_initializer.tar)
+	time (docker save -o ${OUT}/docker/pilot.tar               pilot               && gzip ${OUT}/docker/pilot.tar)
+	time (docker save -o ${OUT}/docker/servicegraph.tar        servicegraph        && gzip ${OUT}/docker/servicegraph.tar)
+	time (docker save -o ${OUT}/docker/servicegraph_debug.tar  servicegraph_debug  && gzip ${OUT}/docker/servicegraph_debug.tar)
+	time (docker save -o ${OUT}/docker/mixer.tar               mixer               && gzip ${OUT}/docker/mixer.tar)
+	time (docker save -o ${OUT}/docker/mixer_debug.tar         mixer_debug         && gzip ${OUT}/docker/mixer_debug.tar)
+	time (docker save -o ${OUT}/docker/istio-ca.tar            istio-ca            && gzip ${OUT}/docker/istio-ca.tar)
+	time (docker save -o ${OUT}/docker/app.tar                 app                 && gzip ${OUT}/docker/app.tar)
+	time (docker save -o ${OUT}/docker/eurekamirror.tar        eurekamirror        && gzip ${OUT}/docker/eurekamirror.tar)
+	time (docker save -o ${OUT}/docker/istio-ca-test.tar       istio-ca-test       && gzip ${OUT}/docker/istio-ca-test.tar)
+	time (docker save -o ${OUT}/docker/node-agent-test.tar     node-agent-test     && gzip ${OUT}/docker/node-agent-test.tar)
 
 push: checkvars clean.installgen installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
