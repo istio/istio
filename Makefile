@@ -51,7 +51,7 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
-DEP=${ISTIO_BIN}/dep
+DEP:=${ISTIO_BIN}/dep
 
 hub = ""
 tag = ""
@@ -133,6 +133,9 @@ pre-commit: fmt lint
 init:
 	@bin/init.sh
 
+# init.sh downloads envoy
+${ISTIO_BIN}/envoy: init
+
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
@@ -177,40 +180,58 @@ build: setup go-build
 # Params: OUT VERSION_PKG SRC
 
 .PHONY: pilot
-pilot: depend
-	bin/gobuild.sh ${GO_TOP}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
+pilot: ${ISTIO_BIN}/pilot-discovery
+
+${ISTIO_BIN}/pilot-discovery: depend
+	bin/gobuild.sh ${ISTIO_BIN}/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
 
 .PHONY: pilot-agent
-pilot-agent: depend
-	bin/gobuild.sh ${GO_TOP}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
+pilot-agent: ${ISTIO_BIN}/pilot-agent
+
+${ISTIO_BIN}/pilot-agent: depend
+	bin/gobuild.sh ${ISTIO_BIN}/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
 
 .PHONY: istioctl
-istioctl: depend
-	bin/gobuild.sh ${GO_TOP}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
+istioctl: ${ISTIO_BIN}/istioctl
+
+${ISTIO_BIN}/istioctl: depend
+	bin/gobuild.sh ${ISTIO_BIN}/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
 
 .PHONY: sidecar-initializer
-sidecar-initializer: depend
-	bin/gobuild.sh ${GO_TOP}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
+sidecar-initializer: ${ISTIO_BIN}/sidecar-initializer
+
+${ISTIO_BIN}/sidecar-initializer: depend
+	bin/gobuild.sh ${ISTIO_BIN}/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
 
 .PHONY: mixs
-mixs: depend
-	bin/gobuild.sh ${GO_TOP}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
+mixs: ${ISTIO_BIN}/mixs
+
+${ISTIO_BIN}/mixs: depend
+	bin/gobuild.sh ${ISTIO_BIN}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
-mixc: depend
-	bin/gobuild.sh ${GO_TOP}/bin/mixc istio.io/istio/mixer/pkg/version istio.io/istio/mixer/cmd/mixc
+mixc: ${ISTIO_BIN}/mixc
+
+${ISTIO_BIN}/mixc: depend
+	bin/gobuild.sh ${ISTIO_BIN}/mixc istio.io/istio/mixer/pkg/version istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
-node-agent: depend
-	bin/gobuild.sh ${GO_TOP}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
+node-agent: ${ISTIO_BIN}/node_agent
+
+${ISTIO_BIN}/node_agent: depend
+	bin/gobuild.sh ${ISTIO_BIN}/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
 
 .PHONY: istio-ca
-istio-ca: depend
-	bin/gobuild.sh ${GO_TOP}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
+istio-ca: ${ISTIO_BIN}/istio_ca
+
+${ISTIO_BIN}/istio_ca: depend
+	bin/gobuild.sh ${ISTIO_BIN}/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
 .PHONY: servicegraph
-servicegraph: depend
-	bin/gobuild.sh ${GO_TOP}/bin/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
+servicegraph: ${ISTIO_BIN}/servicegraph
+
+${ISTIO_BIN}/servicegraph: depend
+	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
 
@@ -224,11 +245,18 @@ GOTEST_PARALLEL ?= '-test.parallel=4'
 GOTEST_P ?= -p 1
 GOSTATIC = -ldflags '-extldflags "-static"'
 
-test-bins:
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-server istio.io/istio/pilot/test/server
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-client istio.io/istio/pilot/test/client
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/pilot-test-eurekamirror istio.io/istio/pilot/test/eurekamirror
-	go build -o ${GO_TOP}/bin/pilot-integration-test istio.io/istio/pilot/test/integration
+PILOT_TEST_BINS:=${ISTIO_BIN}/pilot-test-server ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-eurekamirror
+
+# add :depend
+$(PILOT_TEST_BINS)
+	# $$(@F)
+	echo CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/$(@F) istio.io/istio/$(@F:-=/)
+
+test-bins: $(PILOT_TEST_BINS)
+#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-server istio.io/istio/pilot/test/server
+#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-client istio.io/istio/pilot/test/client
+#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-eurekamirror istio.io/istio/pilot/test/eurekamirror
+#	go build -o ${ISTIO_BIN}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -363,41 +391,43 @@ COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
                        mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
                        security/docker/istio_ca security/docker/node_agent
 
-FILES_TO_CLEAN+=$(COPIED_FROM_ISTIO_BIN)
-
 $(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
 	cp $< $(@D)
 
-DIRS_TO_CLEAN+=mixer/example/servicegraph/docker/viz
+FILES_TO_CLEAN+=$(COPIED_FROM_ISTIO_BIN)
 
 # this rule is an exxeption since "viz" is a directory rather than a file
 mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
 	cp -r $< $(@D)
 
-FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
+DIRS_TO_CLEAN+=mixer/example/servicegraph/docker/viz
 
 mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-certificates.tgz
 	cp $< $(@D)
+
+FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
 
 # NOTE: this list is passed to rm -f during "make clean"
 GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key \
                       security/docker/node_agent.crt security/docker/node_agent.key
 
-FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
-
 $(GENERATED_CERT_FILES): security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
 
+FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
+
 # pilot docker images
 
-docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
+            pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
 docker.eurekamirror: pilot/docker/pilot-test-eurekamirror
 docker.pilot: pilot/docker/pilot-discovery
 docker.proxy docker.proxy_debug: pilot/docker/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_init: pilot/docker/prepare_proxy.sh
 docker.sidecar_initializer: pilot/docker/sidecar-initializer
 
-PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
+              docker.proxy_debug docker.proxy_init docker.sidecar_initializer
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
 	time (cd pilot/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
@@ -427,7 +457,8 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 
 DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 
-# for each docker.XXX target create a tar.docker.XXX target that says how to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
+# for each docker.XXX target create a tar.docker.XXX target that says how
+# to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
 $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
    time (mkdir -p ${OUT}/docker && \
@@ -524,25 +555,25 @@ docker.sidecar.deb:
 # TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb: ${OUT}/istio-sidecar.deb
 
-${ISTIO_BIN}/envoy: init
+#${ISTIO_BIN}/envoy: init
 
-${ISTIO_BIN}/pilot-discovery: pilot
+#${ISTIO_BIN}/pilot-discovery: pilot
 
-${ISTIO_BIN}/pilot-agent: pilot-agent
+#${ISTIO_BIN}/pilot-agent: pilot-agent
 
-${ISTIO_BIN}/pilot-test-client: test-bins
+#${ISTIO_BIN}/pilot-test-client: test-bins
 
-${ISTIO_BIN}/node-agent: node_agent
+#${ISTIO_BIN}/node-agent: node_agent
 
-${ISTIO_BIN}/sidecar-initializer: sidecar-initializer
+#${ISTIO_BIN}/sidecar-initializer: sidecar-initializer
 
-${ISTIO_BIN}/servicegraph: servicegraph
+#${ISTIO_BIN}/servicegraph: servicegraph
 
-${ISTIO_BIN}/mixs: mixs
+#${ISTIO_BIN}/mixs: mixs
 
-${ISTIO_BIN}/istio_ca: istio-ca
+#${ISTIO_BIN}/istio_ca: istio-ca
 
-${ISTIO_BIN}/node_agent: node-agent
+#${ISTIO_BIN}/node_agent: node-agent
 
 ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
                   tools/deb/istio-iptables.sh \
