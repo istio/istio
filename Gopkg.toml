@@ -45,7 +45,15 @@ required = [
 
 # When necessary, override transitive contraints that might be pinned
 # to older versions (e.g. ingress-nginx pinned to 1.8).
-
+#
+# kubernetes has a quarterly release cycle. For now the k8s
+# dependencies below follow this convention, but that could possibly
+# change in the future as repos are further decoupled from
+# kubernetes/kubernetes proper.
+#
+# client-go release-6.0 corresponds to k8s release-1.9 branch. See
+# https://github.com/kubernetes/client-go/tree/release-6.0#compatibility-matrix
+# for details.
 [[override]]
   name = "k8s.io/client-go"
   branch = "release-6.0"
@@ -66,8 +74,9 @@ required = [
   name = "k8s.io/apiserver"
   branch = "release-1.9"
 
-# Keep k8s.io/ingress-nginx pinned to an older version until istio
-# ingress code is refactored.
+# TODO(https://github.com/istio/istio/issues/2413). Keep
+# k8s.io/ingress-nginx pinned to an older version until istio ingress code
+# is refactored.
 #
 # istio.io/istio/pilot/adapter/config/ingress uses the following nginx
 # controller packages from an older version of k8s.io/ingress which
@@ -86,7 +95,7 @@ required = [
 
 [[constraint]]
   name = "code.cloudfoundry.org/copilot"
-  revision = "03646eb993243c330f30e3053523da4e8c0850ab"
+  revision = "b311fd6188b8f4f75cfe4c692692732e06b74fc3"
 
 [[override]]
   name = "github.com/ugorji/go"
@@ -100,7 +109,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "934c38563b4fc7827ac5f9120c085d3b9a56c1ad"
+  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
 
 [[constraint]]
   name = "istio.io/fortio"
@@ -118,3 +127,7 @@ required = [
 [[constraint]]
   name = "github.com/open-policy-agent/opa"
   version = "0.5.13"
+
+[[constraint]]
+  name = "github.com/onsi/gomega"
+  revision = "ba3724c94e4dd5d5690d37c190f1c54b2c1b4e64"

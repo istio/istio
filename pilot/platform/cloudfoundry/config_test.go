@@ -17,206 +17,258 @@ package cloudfoundry_test
 import (
 	"crypto/tls"
 	"io/ioutil"
-	"net"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
+	"testing"
 	"time"
 
 	"code.cloudfoundry.org/copilot/testhelpers"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/platform/cloudfoundry"
 )
 
-var _ = Describe("Config", func() {
-	var (
-		cfgPath string
-		config  *cloudfoundry.Config
-	)
-	BeforeEach(func() {
-		cfgFile, err := ioutil.TempFile("", "testConfig")
-		Expect(err).NotTo(HaveOccurred())
-		cfgPath = cfgFile.Name()
-		Expect(os.Remove(cfgPath)).To(Succeed())
+type testState struct {
+	// generated credentials for server and client
+	creds testhelpers.MTLSCredentials
 
-		config = &cloudfoundry.Config{
+	// path on disk to store the config.yaml
+	configFilePath string
+
+	// object under test
+	config *cloudfoundry.Config
+}
+
+func (s *testState) cleanup() {
+	s.creds.CleanupTempFiles()
+	os.RemoveAll(s.configFilePath)
+}
+
+func newTestState() *testState {
+	creds := testhelpers.GenerateMTLS()
+	clientTLSFiles := creds.CreateClientTLSFiles()
+	return &testState{
+		creds:          creds,
+		configFilePath: filepath.Join(creds.TempDir, "config.yaml"),
+		config: &cloudfoundry.Config{
 			Copilot: cloudfoundry.CopilotConfig{
-				ServerCACertPath: "server/ca/cert/path",
-				ClientCertPath:   "client/cert/path",
-				ClientKeyPath:    "client/key/path",
+				ServerCACertPath: clientTLSFiles.ServerCA,
+				ClientCertPath:   clientTLSFiles.ClientCert,
+				ClientKeyPath:    clientTLSFiles.ClientKey,
 				Address:          "https://copilot.dns.address:port",
 				PollInterval:     90 * time.Second,
 			},
-		}
-	})
+		},
+	}
+}
 
-	AfterEach(func() {
-		_ = os.Remove(cfgPath)
-	})
+func TestConfig_SaveAndLoad(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-	It("saves and loads a config via YAML", func() {
-		Expect(config.Save(cfgPath)).To(Succeed())
+	state := newTestState()
+	defer state.cleanup()
 
-		loadedConfig, err := cloudfoundry.LoadConfig(cfgPath)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(loadedConfig).To(Equal(config))
-	})
+	err := state.config.Save(state.configFilePath)
+	g.Expect(err).To(gomega.BeNil())
 
-	Context("when the file is not found", func() {
-		It("returns a meaningful error", func() {
-			_, err := cloudfoundry.LoadConfig(cfgPath)
-			Expect(err).To(MatchError(HavePrefix("reading config file: open")))
-		})
-	})
+	loadedConfig, err := cloudfoundry.LoadConfig(state.configFilePath)
+	g.Expect(err).To(gomega.BeNil())
 
-	Context("when the file is not valid YAML", func() {
-		BeforeEach(func() {
-			Expect(ioutil.WriteFile(cfgPath, []byte("nope"), 0600)).To(Succeed())
-		})
+	g.Expect(loadedConfig).To(gomega.Equal(state.config))
+}
 
-		It("returns a meaningful error", func() {
-			_, err := cloudfoundry.LoadConfig(cfgPath)
-			Expect(err).To(MatchError(HavePrefix("parsing config: yaml")))
-		})
-	})
+func TestConfig_Load_FileNotFound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-	DescribeTable("required fields",
-		func(fieldName string) {
+	state := newTestState()
+	defer state.cleanup()
+
+	_, err := cloudfoundry.LoadConfig(state.configFilePath)
+
+	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.HavePrefix("reading config file: open"))
+}
+
+func TestConfig_Load_BadYAML(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	state := newTestState()
+	defer state.cleanup()
+
+	err := ioutil.WriteFile(state.configFilePath, []byte("bad yaml"), 0600)
+	g.Expect(err).To(gomega.BeNil())
+
+	_, err = cloudfoundry.LoadConfig(state.configFilePath)
+	g.Expect(err.Error()).To(gomega.HavePrefix("parsing config: yaml"))
+}
+
+func TestConfig_Load_MissingRequiredFields(t *testing.T) {
+	requiredFieldNames := []string{
+		"ServerCACertPath",
+		"ClientCertPath",
+		"ClientKeyPath",
+		"Address",
+		"PollInterval",
+	}
+	for _, n := range requiredFieldNames {
+		// don't close over the iterator: https://golang.org/doc/faq#closures_and_goroutines
+		fieldName := n
+
+		t.Run("required field "+fieldName, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			state := newTestState()
+			defer state.cleanup()
+
 			// zero out the named field of the config struct
-			fieldValue := reflect.Indirect(reflect.ValueOf(&config.Copilot)).FieldByName(fieldName)
+			fieldValue := reflect.Indirect(reflect.ValueOf(&state.config.Copilot)).FieldByName(fieldName)
 			fieldValue.Set(reflect.Zero(fieldValue.Type()))
 
 			// save to the file
-			Expect(config.Save(cfgPath)).To(Succeed())
+			err := state.config.Save(state.configFilePath)
+			g.Expect(err).To(gomega.BeNil())
+
 			// attempt to load it
-			_, err := cloudfoundry.LoadConfig(cfgPath)
-			Expect(err).To(MatchError(HavePrefix("invalid config: Copilot." + fieldName)))
+			_, err = cloudfoundry.LoadConfig(state.configFilePath)
+			g.Expect(err).NotTo(gomega.BeNil())
+			g.Expect(err.Error()).To(gomega.HavePrefix("invalid config: Copilot." + fieldName))
+		})
+	}
+}
+
+func TestConfig_TLSClient_Connects(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	state := newTestState()
+	defer state.cleanup()
+
+	// launch a TLS server
+	serverListener, err := tls.Listen("tcp", "127.0.0.1:", state.creds.ServerTLSConfig())
+	g.Expect(err).To(gomega.BeNil())
+
+	msgs := make(chan string)
+	go func() {
+		for {
+			conn, err := serverListener.Accept()
+			if err != nil {
+				return
+			}
+			b := make([]byte, 6)
+			nBytesRead, _ := conn.Read(b)
+			msgs <- string(b[:nBytesRead])
+		}
+	}()
+	defer serverListener.Close()
+
+	// generate client TLS config from the object under test
+	clientTLSConfig, err := state.config.ClientTLSConfig()
+	g.Expect(err).To(gomega.BeNil())
+
+	clientTLSConfig.ServerName = "127.0.0.1" // a little hack to avoid name mismatch error
+
+	// can use this TLS config to connect to the TLS server
+	conn, err := tls.Dial("tcp", serverListener.Addr().String(), clientTLSConfig)
+	g.Expect(err).To(gomega.BeNil())
+	defer conn.Close()
+
+	// can write some bytes to the server
+	_, err = conn.Write([]byte("potato"))
+	g.Expect(err).To(gomega.BeNil())
+
+	receivedMsg := <-msgs
+	g.Expect(receivedMsg).To(gomega.Equal("potato"))
+}
+
+func TestConfig_TLSClient_HasSecureParameters(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	state := newTestState()
+	defer state.cleanup()
+
+	tlsConfig, err := state.config.ClientTLSConfig()
+	g.Expect(err).To(gomega.BeNil())
+
+	g.Expect(tlsConfig.MinVersion).To(gomega.Equal(uint16(tls.VersionTLS12)))
+	g.Expect(tlsConfig.PreferServerCipherSuites).To(gomega.BeTrue())
+	g.Expect(tlsConfig.CipherSuites).To(gomega.ConsistOf([]uint16{
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	}))
+	g.Expect(tlsConfig.CurvePreferences).To(gomega.Equal([]tls.CurveID{tls.CurveP384}))
+
+	rawSubjectData := string(tlsConfig.RootCAs.Subjects()[0])
+	if !strings.Contains(rawSubjectData, "serverCA") {
+		t.Errorf("expected to find substring %q in root CAs subject data")
+	}
+}
+
+func TestConfig_TLSClient_Errors(t *testing.T) {
+	// checking that we get useful errors when the config is broken in various ways
+	breakageTypes := map[string]func(path string){
+		"remove":       func(path string) { os.Remove(path) },
+		"writeBadData": func(path string) { ioutil.WriteFile(path, []byte("bad-data"), 0600) },
+	}
+
+	testCases := []struct {
+		field             string
+		breakage          string
+		expectedErrPrefix string
+	}{
+		{
+			"ServerCACertPath",
+			"remove",
+			"loading server CAs: open",
 		},
-		Entry("ServerCACertPath", "ServerCACertPath"),
-		Entry("ClientCertPath", "ClientCertPath"),
-		Entry("ClientKeyPath", "ClientKeyPath"),
-		Entry("Address", "Address"),
-		Entry("PollInterval", "PollInterval"),
-	)
+		{
+			"ServerCACertPath",
+			"writeBadData",
+			"loading server CAs: failed to find any PEM data",
+		},
+		{
+			"ClientCertPath",
+			"remove",
+			"loading client cert/key: open",
+		},
+		{
+			"ClientCertPath",
+			"writeBadData",
+			"loading client cert/key: tls: failed to find any PEM data",
+		},
+		{
+			"ClientKeyPath",
+			"remove",
+			"loading client cert/key: open",
+		},
+		{
+			"ClientKeyPath",
+			"writeBadData",
+			"loading client cert/key: tls: failed to find any PEM data",
+		},
+	}
 
-	Describe("building the client TLS config", func() {
-		var (
-			serverListener net.Listener
-			creds          testhelpers.MTLSCredentials
-		)
+	for _, tc := range testCases {
+		// don't close over the iterator: https://golang.org/doc/faq#closures_and_goroutines
+		testCase := tc
 
-		BeforeEach(func() {
-			creds = testhelpers.GenerateMTLS()
-			tlsFiles := creds.CreateClientTLSFiles()
+		t.Run(testCase.field+" "+testCase.breakage, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
 
-			config.Copilot.ServerCACertPath = tlsFiles.ServerCA
-			config.Copilot.ClientCertPath = tlsFiles.ClientCert
-			config.Copilot.ClientKeyPath = tlsFiles.ClientKey
+			state := newTestState()
+			defer state.cleanup()
 
+			// the named field of the config struct
+			fieldValue := reflect.Indirect(reflect.ValueOf(&state.config.Copilot)).FieldByName(testCase.field)
+			path := fieldValue.String()
+
+			// mess up the file
+			breakageTypes[testCase.breakage](path)
+
+			// attempt to construct the client config
+			_, err := state.config.ClientTLSConfig()
+
+			g.Expect(err).To(gomega.MatchError(gomega.HavePrefix(testCase.expectedErrPrefix)))
 		})
-
-		AfterEach(func() {
-			_ = os.Remove(config.Copilot.ServerCACertPath)
-			_ = os.Remove(config.Copilot.ClientCertPath)
-			_ = os.Remove(config.Copilot.ClientKeyPath)
-		})
-
-		Context("with a listening TLS server", func() {
-
-			BeforeEach(func() {
-				var err error
-				serverTLSConfig := creds.ServerTLSConfig()
-				serverListener, err = tls.Listen("tcp", "127.0.0.1:", serverTLSConfig)
-				Expect(err).ToNot(HaveOccurred())
-
-				go func() {
-					for {
-						conn, err := serverListener.Accept()
-						if err != nil {
-							return
-						}
-						b := make([]byte, 5)
-						_, _ = conn.Read(b)
-					}
-				}()
-			})
-			AfterEach(func() {
-				_ = serverListener.Close()
-			})
-
-			It("returns a valid and usable tls.Config", func() {
-				tlsConfig, err := config.ClientTLSConfig()
-				Expect(err).NotTo(HaveOccurred())
-				Expect(tlsConfig).NotTo(BeNil())
-
-				conn, err := net.DialTimeout("tcp", serverListener.Addr().String(), 1*time.Second)
-				Expect(err).NotTo(HaveOccurred())
-				defer func() {
-					_ = conn.Close()
-				}()
-				tlsConfig.ServerName = "127.0.0.1"
-				tlsConn := tls.Client(conn, tlsConfig)
-				_, err = tlsConn.Write([]byte("foo"))
-				Expect(err).NotTo(HaveOccurred())
-			})
-		})
-
-		It("sets secure values for configuration parameters", func() {
-			tlsConfig, err := config.ClientTLSConfig()
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(tlsConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
-			Expect(tlsConfig.PreferServerCipherSuites).To(BeTrue())
-			Expect(tlsConfig.CipherSuites).To(ConsistOf([]uint16{
-				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			}))
-			Expect(tlsConfig.CurvePreferences).To(ConsistOf([]tls.CurveID{
-				tls.CurveP384,
-			}))
-			Expect(tlsConfig.RootCAs).ToNot(BeNil())
-			Expect(tlsConfig.RootCAs.Subjects()).To(ConsistOf(ContainSubstring("serverCA")))
-		})
-
-		Context("when the server CA file does not exist", func() {
-			BeforeEach(func() {
-				Expect(os.Remove(config.Copilot.ServerCACertPath)).To(Succeed())
-			})
-			It("returns a meaningful error", func() {
-				_, err := config.ClientTLSConfig()
-				Expect(err).To(MatchError(HavePrefix("loading server CAs: open")))
-			})
-		})
-		Context("when the server CA PEM data is invalid", func() {
-			BeforeEach(func() {
-				Expect(ioutil.WriteFile(config.Copilot.ServerCACertPath, []byte("invalid pem"), 0600)).To(Succeed())
-			})
-			It("returns a meaningful error", func() {
-				_, err := config.ClientTLSConfig()
-				Expect(err).To(MatchError("parsing server CAs: invalid pem block"))
-			})
-		})
-
-		Context("when the client cert PEM data is invalid", func() {
-			BeforeEach(func() {
-				Expect(ioutil.WriteFile(config.Copilot.ClientCertPath, []byte("invalid pem"), 0600)).To(Succeed())
-			})
-			It("returns a meaningful error", func() {
-				_, err := config.ClientTLSConfig()
-				Expect(err).To(MatchError(HavePrefix("parsing client cert/key: tls: failed to find any PEM data")))
-			})
-		})
-
-		Context("when the client key PEM data is invalid", func() {
-			BeforeEach(func() {
-				Expect(ioutil.WriteFile(config.Copilot.ClientKeyPath, []byte("invalid pem"), 0600)).To(Succeed())
-			})
-			It("returns a meaningful error", func() {
-				_, err := config.ClientTLSConfig()
-				Expect(err).To(MatchError(HavePrefix("parsing client cert/key: tls: failed to find any PEM data")))
-			})
-		})
-	})
-})
+	}
+}

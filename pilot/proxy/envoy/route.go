@@ -26,6 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -89,6 +90,44 @@ func buildInboundRoute(config model.Config, rule *routing.RouteRule, cluster *Cl
 	return route
 }
 
+func buildInboundRoutesV2(instances []*model.ServiceInstance, config model.Config, rule *routingv2.RouteRule, cluster *Cluster) []*HTTPRoute {
+	routes := make([]*HTTPRoute, 0)
+	for _, http := range rule.Http {
+		if len(http.Match) == 0 {
+			routes = append(routes, buildInboundRouteV2(config, cluster, http, nil))
+		}
+		for _, match := range http.Match {
+			for _, instance := range instances {
+				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
+					routes = append(routes, buildInboundRouteV2(config, cluster, http, match))
+					break
+				}
+			}
+		}
+	}
+	return routes
+}
+
+func buildInboundRouteV2(config model.Config, cluster *Cluster, http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest) *HTTPRoute {
+	route := buildHTTPRouteMatchV2(match)
+
+	route.Cluster = cluster.Name
+	route.clusters = []*Cluster{cluster}
+	route.WebsocketUpgrade = http.WebsocketUpgrade
+	if http.Rewrite != nil && http.Rewrite.Uri != "" {
+		// overwrite the computed prefix with the rewritten prefix,
+		// for this is what we expect from remote envoys
+		route.Prefix = http.Rewrite.Uri
+		route.Path = ""
+	}
+
+	if !http.WebsocketUpgrade {
+		route.Decorator = buildDecorator(config)
+	}
+
+	return route
+}
+
 func buildInboundCluster(port int, protocol model.Protocol, timeout *duration.Duration) *Cluster {
 	cluster := &Cluster{
 		Name:             fmt.Sprintf("%s%d", InboundClusterPrefix, port),
@@ -125,8 +164,19 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 	return cluster
 }
 
-// buildHTTPRoute translates a route rule to an Envoy route
-func buildHTTPRoute(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
+// buildHTTPRoutes translates a route rule to an Envoy route
+func buildHTTPRoutes(config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+	switch config.Spec.(type) {
+	case *routing.RouteRule:
+		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}
+	case *routingv2.RouteRule:
+		return buildHTTPRoutesV2(config, service, port, instances, domain)
+	default:
+		panic("unsupported rule")
+	}
+}
+
+func buildHTTPRouteV1(config model.Config, service *model.Service, port *model.Port) *HTTPRoute {
 	rule := config.Spec.(*routing.RouteRule)
 	route := buildHTTPRouteMatch(rule.Match)
 
@@ -244,6 +294,171 @@ func buildHTTPRoute(config model.Config, service *model.Service, port *model.Por
 	route.Decorator = buildDecorator(config)
 
 	return route
+}
+
+func buildHTTPRoutesV2(config model.Config, service *model.Service, port *model.Port,
+	instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+
+	rule := config.Spec.(*routingv2.RouteRule)
+	routes := make([]*HTTPRoute, 0)
+
+	for _, http := range rule.Http {
+		if len(http.Match) == 0 {
+			routes = append(routes, buildHTTPRouteV2(config, service, port, http, nil, domain))
+		}
+		for _, match := range http.Match {
+			for _, instance := range instances {
+				if model.Labels(match.SourceLabels).SubsetOf(instance.Labels) {
+					routes = append(routes, buildHTTPRouteV2(config, service, port, http, match, domain))
+					break
+				}
+			}
+		}
+	}
+	if len(rule.Http) == 0 {
+		route := &HTTPRoute{
+			Prefix: "/",
+		}
+		// default route for the destination
+		cluster := buildOutboundCluster(service.Hostname, port, nil)
+		route.Cluster = cluster.Name
+		route.clusters = append(route.clusters, cluster)
+		routes = append(routes, route)
+	}
+
+	return routes
+}
+
+func buildHTTPRouteV2(config model.Config, service *model.Service, port *model.Port,
+	http *routingv2.HTTPRoute, match *routingv2.HTTPMatchRequest, domain string) *HTTPRoute {
+
+	route := buildHTTPRouteMatchV2(match)
+
+	if len(http.Route) == 0 { // build default cluster
+		cluster := buildOutboundCluster(service.Hostname, port, nil)
+		route.Cluster = cluster.Name
+		route.clusters = append(route.clusters, cluster)
+	} else {
+		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
+		for _, dst := range http.Route {
+			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+			cluster := buildOutboundCluster(fqdn, port, dst.Destination.Labels) // TODO: support Destination.Port
+			route.clusters = append(route.clusters, cluster)
+			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
+				&WeightedClusterEntry{
+					Name:   cluster.Name,
+					Weight: int(dst.Weight),
+				})
+		}
+
+		// rewrite to a single cluster if there is only weighted cluster
+		if len(route.WeightedClusters.Clusters) == 1 {
+			route.Cluster = route.WeightedClusters.Clusters[0].Name
+			route.WeightedClusters = nil
+		}
+	}
+
+	if http.Timeout != nil &&
+		protoDurationToMS(http.Timeout) > 0 {
+		route.TimeoutMS = protoDurationToMS(http.Timeout)
+	}
+
+	route.RetryPolicy = buildRetryPolicy(http.Retries)
+
+	applyRedirect(route, http.Redirect)
+	applyRewrite(route, http.Rewrite)
+
+	// Add the fault filters, one per cluster defined in weighted cluster or cluster
+	if http.Fault != nil {
+		route.faults = make([]*HTTPFilter, 0, len(route.clusters))
+		for _, cluster := range route.clusters {
+			if fault := buildHTTPFaultFilterV2(cluster.Name, http.Fault, route.Headers); fault != nil {
+				route.faults = append(route.faults, fault)
+			}
+		}
+	}
+
+	route.ShadowCluster = buildShadowCluster(domain, port, http.Mirror)
+	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
+	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
+	route.WebsocketUpgrade = http.WebsocketUpgrade
+	route.Decorator = buildDecorator(config)
+
+	return route
+}
+
+func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
+	if redirect != nil {
+		route.HostRedirect = redirect.Authority
+		route.PathRedirect = redirect.Uri
+		route.Cluster = ""
+	}
+}
+
+func buildRetryPolicy(retries *routingv2.HTTPRetry) (policy *RetryPolicy) {
+	if retries != nil && retries.Attempts > 0 {
+		policy = &RetryPolicy{
+			NumRetries: int(retries.GetAttempts()),
+			Policy:     "5xx,connect-failure,refused-stream",
+		}
+		if protoDurationToMS(retries.PerTryTimeout) > 0 {
+			policy.PerTryTimeoutMS = protoDurationToMS(retries.PerTryTimeout)
+		}
+	}
+	return
+}
+
+func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
+	if rewrite != nil {
+		route.HostRewrite = rewrite.Authority
+		route.PrefixRewrite = rewrite.Uri
+	}
+}
+
+func buildShadowCluster(domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
+	if mirror != nil {
+		fqdn := model.ResolveFQDN(mirror.Name, domain)
+		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
+	}
+	return nil
+}
+
+func buildHeadersToAdd(headers map[string]string) []AppendedHeader {
+	out := make([]AppendedHeader, 0, len(headers))
+	for name, val := range headers {
+		out = append(out, AppendedHeader{
+			Key:   name,
+			Value: val,
+		})
+	}
+	return out
+}
+
+func buildCORSPolicy(policy *routingv2.CorsPolicy) *CORSPolicy {
+	if policy == nil {
+		return nil
+	}
+
+	out := &CORSPolicy{
+		AllowOrigin: policy.AllowOrigin,
+		Enabled:     true,
+	}
+	if policy.AllowCredentials != nil {
+		out.AllowCredentials = policy.AllowCredentials.Value
+	}
+	if len(policy.AllowHeaders) > 0 {
+		out.AllowHeaders = strings.Join(policy.AllowHeaders, ",")
+	}
+	if len(policy.AllowMethods) > 0 {
+		out.AllowMethods = strings.Join(policy.AllowMethods, ",")
+	}
+	if len(policy.ExposeHeaders) > 0 {
+		out.ExposeHeaders = strings.Join(policy.ExposeHeaders, ",")
+	}
+	if policy.MaxAge != nil {
+		out.MaxAge = policy.MaxAge.String()
+	}
+	return out
 }
 
 func buildCluster(address, name string, timeout *duration.Duration) *Cluster {

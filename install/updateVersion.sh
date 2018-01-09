@@ -35,6 +35,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -x ... <hub>,<tag> for the mixer docker image
     -c ... <hub>,<tag> for the istio-ca docker image
     -a ... <hub>,<tag> Specifies same hub and tag for pilot, mixer, proxy, and istio-ca containers
+    -h ... <hub>,<tag> for the hyperkube docker image
     -r ... tag for proxy debian package
     -n ... <namespace> namespace in which to install Istio control plane components
     -A ... URL to download auth debian packages
@@ -47,7 +48,7 @@ EOF
 
 source "$SRC_VERSION_FILE" || error_exit "Could not source versions"
 
-while getopts :i:n:p:x:c:a:r:A:P:E:d: arg; do
+while getopts :i:n:p:x:c:a:h:r:A:P:E:d: arg; do
   case ${arg} in
     i) ISTIOCTL_URL="${OPTARG}";;
     n) ISTIO_NAMESPACE="${OPTARG}";;
@@ -55,6 +56,7 @@ while getopts :i:n:p:x:c:a:r:A:P:E:d: arg; do
     x) MIXER_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     c) CA_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     a) ALL_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
+    h) HYPERKUBE_HUB_TAG="${OPTARG}";; # Format: "<hub>,<tag>"
     r) PROXY_TAG="${OPTARG}";;
     A) AUTH_DEBIAN_URL="${OPTARG}";;
     P) PILOT_DEBIAN_URL="${OPTARG}";;
@@ -88,6 +90,11 @@ fi
 if [[ -n ${CA_HUB_TAG} ]]; then
     CA_HUB="$(echo ${CA_HUB_TAG}|cut -f1 -d,)"
     CA_TAG="$(echo ${CA_HUB_TAG}|cut -f2 -d,)"
+fi
+
+if [[ -n ${HYPERKUBE_HUB_TAG} ]]; then
+    HYPERKUBE_HUB="$(echo ${HYPERKUBE_HUB_TAG}|cut -f1 -d,)"
+    HYPERKUBE_TAG="$(echo ${HYPERKUBE_HUB_TAG}|cut -f2 -d,)"
 fi
 
 function error_exit() {
@@ -175,6 +182,8 @@ export PILOT_DEBIAN_URL="${PILOT_DEBIAN_URL}"
 export PROXY_DEBIAN_URL="${PROXY_DEBIAN_URL}"
 export FORTIO_HUB="${FORTIO_HUB}"
 export FORTIO_TAG="${FORTIO_TAG}"
+export HYPERKUBE_HUB="${HYPERKUBE_HUB}"
+export HYPERKUBE_TAG="${HYPERKUBE_TAG}"
 EOF
 }
 
@@ -193,6 +202,8 @@ function update_helm_version() {
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
   execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
   execute_sed "s|{MIXER_TAG}|${MIXER_TAG}|" values.yaml.tmpl
+  execute_sed "s|{HYPERKUBE_HUB}|${HYPERKUBE_HUB}|" values.yaml.tmpl
+  execute_sed "s|{HYPERKUBE_TAG}|${HYPERKUBE_TAG}|" values.yaml.tmpl
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $HELM_FILE
   echo "# TO UPDATE, modify files in install/kubernetes/templates/helm/istio and run install/updateVersion.sh" >> $HELM_FILE
