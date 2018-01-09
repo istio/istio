@@ -174,66 +174,44 @@ build: setup go-build
 # Target: go build
 #-----------------------------------------------------------------------------
 
-.PHONY: go-build
-
 # gobuild script uses custom linker flag to set the variables.
 # Params: OUT VERSION_PKG SRC
 
-.PHONY: pilot
-pilot: ${ISTIO_BIN}/pilot-discovery
+PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
+               ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
+$(PILOT_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pilot/tools/version ./pilot/cmd/$(@F)
 
-${ISTIO_BIN}/pilot-discovery: depend
-	bin/gobuild.sh ${ISTIO_BIN}/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
-
-.PHONY: pilot-agent
-pilot-agent: ${ISTIO_BIN}/pilot-agent
-
-${ISTIO_BIN}/pilot-agent: depend
-	bin/gobuild.sh ${ISTIO_BIN}/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
-
-.PHONY: istioctl
-istioctl: ${ISTIO_BIN}/istioctl
-
-${ISTIO_BIN}/istioctl: depend
-	bin/gobuild.sh ${ISTIO_BIN}/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
-
-.PHONY: sidecar-initializer
-sidecar-initializer: ${ISTIO_BIN}/sidecar-initializer
-
-${ISTIO_BIN}/sidecar-initializer: depend
-	bin/gobuild.sh ${ISTIO_BIN}/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
-
-.PHONY: mixs
-mixs: ${ISTIO_BIN}/mixs
-
-${ISTIO_BIN}/mixs: depend
-	bin/gobuild.sh ${ISTIO_BIN}/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
-
-.PHONY: mixc
-mixc: ${ISTIO_BIN}/mixc
-
-${ISTIO_BIN}/mixc: depend
-	bin/gobuild.sh ${ISTIO_BIN}/mixc istio.io/istio/mixer/pkg/version istio.io/istio/mixer/cmd/mixc
-
-.PHONY: node-agent
-node-agent: ${ISTIO_BIN}/node_agent
-
-${ISTIO_BIN}/node_agent: depend
-	bin/gobuild.sh ${ISTIO_BIN}/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
-
-.PHONY: istio-ca
-istio-ca: ${ISTIO_BIN}/istio_ca
-
-${ISTIO_BIN}/istio_ca: depend
-	bin/gobuild.sh ${ISTIO_BIN}/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
-
-.PHONY: servicegraph
-servicegraph: ${ISTIO_BIN}/servicegraph
+MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
+$(MIXER_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/mixer/pkg/version ./mixer/cmd/$(@F)
 
 ${ISTIO_BIN}/servicegraph: depend
 	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
 
-go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
+SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
+$(SECURITY_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/security/cmd/istio_ca/version ./security/cmd/$(@F)
+
+.PHONY: go-build
+go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+
+# The following are convenience aliases for most of the go targets
+# The first block is for aliases that are the same as the actual binary,
+# while the ones that follow need slight adjustments to their names.
+
+IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-initializer
+.PHONY: $(IDENTITY_ALIAS_LIST)
+$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_BIN}/$(ITEM)))
+
+.PHONY: istio-ca
+istio-ca: ${ISTIO_BIN}/istio_ca
+
+.PHONY: node-agent
+node-agent: ${ISTIO_BIN}/node_agent
+
+.PHONY: pilot
+pilot: ${ISTIO_BIN}/pilot-discovery
 
 #-----------------------------------------------------------------------------
 # Target: go test
