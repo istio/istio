@@ -175,35 +175,35 @@ build: setup go-build
 # Params: OUT VERSION_PKG SRC
 
 .PHONY: pilot
-pilot: depend
+pilot:
 	bin/gobuild.sh ${GO_TOP}/bin/pilot-discovery istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-discovery
 
 .PHONY: pilot-agent
-pilot-agent: depend
+pilot-agent:
 	bin/gobuild.sh ${GO_TOP}/bin/pilot-agent istio.io/istio/pilot/tools/version ./pilot/cmd/pilot-agent
 
 .PHONY: istioctl
-istioctl: depend
+istioctl:
 	bin/gobuild.sh ${GO_TOP}/bin/istioctl istio.io/istio/pilot/tools/version ./pilot/cmd/istioctl
 
 .PHONY: sidecar-initializer
-sidecar-initializer: depend
+sidecar-initializer:
 	bin/gobuild.sh ${GO_TOP}/bin/sidecar-initializer istio.io/istio/pilot/tools/version ./pilot/cmd/sidecar-initializer
 
 .PHONY: mixs
-mixs: depend
+mixs:
 	bin/gobuild.sh ${GO_TOP}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
-mixc: depend
+mixc:
 	bin/gobuild.sh ${GO_TOP}/bin/mixc istio.io/istio/mixer/pkg/version istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
-node-agent: depend
+node-agent:
 	bin/gobuild.sh ${GO_TOP}/bin/node_agent istio.io/istio/security/cmd/istio_ca/version ./security/cmd/node_agent
 
 .PHONY: istio-ca
-istio-ca: depend
+istio-ca:
 	bin/gobuild.sh ${GO_TOP}/bin/istio_ca istio.io/istio/security/cmd/istio_ca/version ./security/cmd/istio_ca
 
 go-build: pilot istioctl pilot-agent sidecar-initializer mixs mixc node-agent istio-ca
