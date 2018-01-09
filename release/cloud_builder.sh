@@ -92,10 +92,4 @@ if [ "${BUILD_DOCKER}" == "true" ]; then
 fi
 
 # log where git thinks the build might be dirty
-echo "status before clean"
-git status
-
-make clean
-
-echo "status after clean"
 git status
