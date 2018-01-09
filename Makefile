@@ -332,73 +332,12 @@ docker.prebuilt:
 
 ##################################################################################
 
-# XXX these need to support empty HUB? will "localhost" be equivalent?
+# static files that are already at proper location
 
 PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
                  pilot/docker/envoy_pilot_auth.json \
                  pilot/docker/envoy_mixer.json \
                  pilot/docker/envoy_mixer_auth.json
-
-docker.proxy: pilot/docker/Dockerfile.proxy ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
-	pwd
-	ls -ld pilot/docker/*
-	cp ${ISTIO_BIN}/pilot-agent pilot/docker
-	ls -ld pilot/docker/*
-	time (cd pilot/docker && docker build -t proxy:${TAG} -f Dockerfile.proxy .)
-
-docker.proxy-debug: pilot/docker/Dockerfile.proxy_debug ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
-	cp ${ISTIO_BIN}/pilot-agent pilot/docker	
-	time (cd pilot/docker && docker build -t proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
-
-docker.proxy-init: pilot/docker/Dockerfile.proxy_init pilot/docker/prepare_proxy.sh
-	time (cd pilot/docker && docker build -t proxy_init:${TAG} -f Dockerfile.proxy_init .)
-
-docker.sidecar-initializer: pilot/docker/Dockerfile.sidecar_initializer ${ISTIO_BIN}/sidecar-initializer
-	cp ${ISTIO_BIN}/sidecar-initializer pilot/docker
-	time (cd pilot/docker && docker build -t sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
-
-docker.pilot: pilot/docker/Dockerfile.pilot ${ISTIO_BIN}/pilot-discovery
-	cp ${ISTIO_BIN}/pilot-discovery pilot/docker
-	time (cd pilot/docker && docker build -t pilot:${TAG} -f Dockerfile.pilot .)
-
-docker.servicegraph: mixer/example/servicegraph/docker/Dockerfile ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/js/viz
-	cp ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/docker
-	cp mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
-	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph:${TAG} -f Dockerfile .)
-
-docker.servicegraph-debug: mixer/example/servicegraph/docker/Dockerfile.debug ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/js/viz
-	cp ${ISTIO_BIN}/servicegraph mixer/example/servicegraph/docker
-	cp -r mixer/example/servicegraph/js/viz mixer/example/servicegraph/docker
-	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph_debug:${TAG} -f Dockerfile.debug .)
-
-docker.mixer: mixer/docker/Dockerfile docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	cp ${ISTIO_BIN}/mixs mixer/docker
-	cp docker/ca-certificates.tgz mixer/docker
-	time (cd mixer/docker && docker build -t mixer:${TAG} -f Dockerfile .)
-
-docker.mixer-debug: mixer/docker/Dockerfile.debug docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	cp ${ISTIO_BIN}/mixs mixer/docker
-	cp docker/ca-certificates.tgz mixer/docker
-	time (cd mixer/docker && docker build -t mixer_debug:${TAG} -f Dockerfile.debug .)
-
-docker.istio-ca: security/docker/Dockerfile.istio-ca ${ISTIO_BIN}/istio_ca docker/ca-certificates.tgz
-	cp ${ISTIO_BIN}/istio_ca security/docker
-	cp docker/ca-certificates.tgz security/docker
-	time (cd security/docker && docker build -t istio-ca:${TAG} -f Dockerfile.istio-ca .)
-
-docker.app: pilot/docker/Dockerfile.app ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-server pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
-	cp ${ISTIO_BIN}/pilot-test-{client,server} pilot/docker
-	time (cd pilot/docker && docker build -t app:${TAG} -f Dockerfile.app .)
-
-docker.eurekamirror: pilot/docker/Dockerfile.eurekamirror ${ISTIO_BIN}/pilot-test-eurekamirror
-	cp ${ISTIO_BIN}/pilot-test-eurekamirror pilot/docker
-	time (cd pilot/docker && docker build -t eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
-
-security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
-	security/bin/gen-keys.sh
-
-docker.istio-ca-test: security/docker/Dockerfile.istio-ca-test security/docker/istio_ca.crt security/docker/istio_ca.key
-	time (cd security/docker && docker build -t istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
 
 NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/app.js \
@@ -406,14 +345,89 @@ NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/node_agent.crt \
                  security/docker/node_agent.key
 
-docker.node-agent-test: security/docker/Dockerfile.node-agent-test ${ISTIO_BIN}/node_agent ${NODE_AGENT_FILES}
-	cp ${ISTIO_BIN}/node_agent security/docker
-	time (cd security/docker && docker build -t node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
+# copied/generated files
 
-DOCKER_TARGETS=docker.proxy docker.proxy-debug docker.proxy-init docker.sidecar-initializer docker.pilot \
-               docker.servicegraph docker.servicegraph-debug docker.mixer docker.mixer-debug docker.istio-ca \
-               docker.app docker.eurekamirror docker.istio-ca-test docker.node-agent-test
+pilot/docker/pilot-agent: ${ISTIO_BIN}/pilot-agent
+	cp $< $(@D)
 
+pilot/docker/pilot-discovery: ${ISTIO_BIN}/pilot-discovery
+	cp $< $(@D)
+
+pilot/docker/pilot-test-client: ${ISTIO_BIN}/pilot-test-client
+	cp $< $(@D)
+
+pilot/docker/pilot-test-server: ${ISTIO_BIN}/pilot-test-server
+	cp $< $(@D)
+
+pilot/docker/sidecar-initializer: ${ISTIO_BIN}/sidecar-initializer
+	cp $< $(@D)
+
+pilot/docker/pilot-test-eurekamirror: ${ISTIO_BIN}/pilot-test-eurekamirror
+	cp $< $(@D)
+
+mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
+	cp -r $< $(@D)
+
+mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-certificates.tgz
+	cp $< $(@D)
+
+mixer/docker/mixs: ${ISTIO_BIN}/mixs
+	cp $< $(@D)
+
+mixer/example/servicegraph/docker/servicegraph: ${ISTIO_BIN}/servicegraph
+	cp $< $(@D)
+
+security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
+	security/bin/gen-keys.sh
+
+security/docker/istio_ca: ${ISTIO_BIN}/istio_ca
+	cp $< $(@D)
+
+security/docker/node_agent: ${ISTIO_BIN}/node_agent
+	cp $< $(@D)
+
+# docker build rules
+
+.SECONDEXPANSION: #allow $@ to be used in dependency list
+
+# pilot docker images
+
+docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+docker.eurekamirror: pilot/docker/pilot-test-eurekamirror
+docker.pilot: pilot/docker/pilot-discovery
+docker.proxy docker.proxy_debug: pilot/docker/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy_init: pilot/docker/prepare_proxy.sh
+docker.sidecar_initializer: pilot/docker/sidecar-initializer
+
+PILOT_DOCKER=docker.app docker.eurekamirror docker.pilot docker.proxy docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+$(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
+	time (cd pilot/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
+
+# mixer/example docker images
+
+SERVICEGRAPH_DOCKER=docker.servicegraph docker.servicegraph_debug
+$(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+		mixer/example/servicegraph/docker/servicegraph mixer/example/servicegraph/docker/viz
+	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph$(findstring _debug,$@):${TAG} \
+		-f Dockerfile$(if $(findstring debug,$@),.debug) .)
+
+# mixer docker images
+
+MIXER_DOCKER=docker.mixer docker.mixer_debug
+$(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) mixer/docker/ca-certificates.tgz mixer/docker/mixs
+	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@):${TAG} -f Dockerfile$(if $(findstring debug,$@),.debug) .)
+
+# security docker images
+
+docker.istio-ca: security/docker/istio_ca security/docker/ca-certificates.tgz
+docker.istio-ca-test: security/docker/istio_ca.crt security/docker/istio_ca.key
+docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_FILES}
+
+SECURITY_DOCKER=docker.istio-ca docker.istio-ca-test docker.node-agent-test
+$(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
+	time (cd pilot/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
+
+DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 docker.save: $(DOCKER_TARGETS)
 	mkdir -p ${OUT}/docker
 	time (docker save -o ${OUT}/docker/proxy.tar           proxy:${TAG}           && gzip ${OUT}/docker/proxy.tar)
