@@ -36,21 +36,6 @@ import (
 // Finder describes anything that can provide a view into the config's descriptors by name and type.
 type Finder interface {
 	expr.AttributeDescriptorFinder
-
-	// GetLog retrieves the log descriptor named `name`
-	GetLog(name string) *dpb.LogEntryDescriptor
-
-	// GetMetric retrieves the metric descriptor named `name`
-	GetMetric(name string) *dpb.MetricDescriptor
-
-	// GetMonitoredResource retrieves the monitored resource descriptor named `name`
-	GetMonitoredResource(name string) *dpb.MonitoredResourceDescriptor
-
-	// GetPrincipal retrieves the security principal descriptor named `name`
-	GetPrincipal(name string) *dpb.PrincipalDescriptor
-
-	// GetQuota retrieves the quota descriptor named `name`
-	GetQuota(name string) *dpb.QuotaDescriptor
 }
 
 type dname string
@@ -67,49 +52,11 @@ const (
 )
 
 type finder struct {
-	logs               map[string]*dpb.LogEntryDescriptor
-	metrics            map[string]*dpb.MetricDescriptor
-	monitoredResources map[string]*dpb.MonitoredResourceDescriptor
-	principals         map[string]*dpb.PrincipalDescriptor
-	quotas             map[string]*dpb.QuotaDescriptor
 	attributes         map[string]*pb.AttributeManifest_AttributeInfo
 }
 
 // typeMap maps descriptor types to example messages of those types.
 var typeMap = map[dname]proto.Message{
-	logs: &dpb.LogEntryDescriptor{
-		Name:        "accesslog.common",
-		DisplayName: "Apache Common Log Format",
-		LogTemplate: `{{or (.originIp) "-"}} - {{or (.sourceUser) "-"}}`,
-		Labels: map[string]dpb.ValueType{
-			"sourceUser": dpb.STRING,
-			"timestamp":  dpb.TIMESTAMP,
-			"originIp":   dpb.IP_ADDRESS,
-		},
-	},
-	metrics: &dpb.MetricDescriptor{
-		Kind:        dpb.COUNTER,
-		Value:       dpb.DURATION,
-		Description: "request latency by source, target, and service",
-		Labels: map[string]dpb.ValueType{
-			"source":        dpb.STRING,
-			"target":        dpb.STRING,
-			"service":       dpb.STRING,
-			"response_code": dpb.INT64,
-		},
-	},
-	// Add example for monitoredResources, principals descriptors.
-	monitoredResources: &dpb.MonitoredResourceDescriptor{},
-	principals:         &dpb.PrincipalDescriptor{},
-	quotas: &dpb.QuotaDescriptor{
-		Name:        "RateLimitByService",
-		DisplayName: "RateLimit",
-		Description: "RateLimit By Service",
-		Labels: map[string]dpb.ValueType{
-			"target": dpb.STRING,
-		},
-		RateLimit: true,
-	},
 	attributes: &pb.AttributeManifest_AttributeInfo{
 		ValueType:   dpb.STRING,
 		Description: "Intended destination of a request",
@@ -260,36 +207,11 @@ func processMap(name string, arr map[string]interface{}, value proto.Message) (r
 // NewFinder constructs a new Finder for the provided global config.
 func NewFinder(cfg *pb.GlobalConfig) Finder {
 	f := &finder{
-		logs:               make(map[string]*dpb.LogEntryDescriptor),
-		metrics:            make(map[string]*dpb.MetricDescriptor),
-		monitoredResources: make(map[string]*dpb.MonitoredResourceDescriptor),
-		principals:         make(map[string]*dpb.PrincipalDescriptor),
-		quotas:             make(map[string]*dpb.QuotaDescriptor),
 		attributes:         make(map[string]*pb.AttributeManifest_AttributeInfo),
 	}
 
 	if cfg == nil {
 		return f
-	}
-
-	for _, desc := range cfg.Logs {
-		f.logs[desc.Name] = desc
-	}
-
-	for _, desc := range cfg.Metrics {
-		f.metrics[desc.Name] = desc
-	}
-
-	for _, desc := range cfg.MonitoredResources {
-		f.monitoredResources[desc.Name] = desc
-	}
-
-	for _, desc := range cfg.Principals {
-		f.principals[desc.Name] = desc
-	}
-
-	for _, desc := range cfg.Quotas {
-		f.quotas[desc.Name] = desc
 	}
 
 	for _, manifest := range cfg.Manifests {
@@ -299,26 +221,6 @@ func NewFinder(cfg *pb.GlobalConfig) Finder {
 	}
 
 	return f
-}
-
-func (d *finder) GetLog(name string) *dpb.LogEntryDescriptor {
-	return d.logs[name]
-}
-
-func (d *finder) GetMetric(name string) *dpb.MetricDescriptor {
-	return d.metrics[name]
-}
-
-func (d *finder) GetMonitoredResource(name string) *dpb.MonitoredResourceDescriptor {
-	return d.monitoredResources[name]
-}
-
-func (d *finder) GetPrincipal(name string) *dpb.PrincipalDescriptor {
-	return d.principals[name]
-}
-
-func (d *finder) GetQuota(name string) *dpb.QuotaDescriptor {
-	return d.quotas[name]
 }
 
 func (d *finder) GetAttribute(name string) *pb.AttributeManifest_AttributeInfo {

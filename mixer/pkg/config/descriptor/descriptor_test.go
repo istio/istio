@@ -44,63 +44,6 @@ type (
 )
 
 var (
-	logDesc = dpb.LogEntryDescriptor{
-		Name:          "log",
-		PayloadFormat: dpb.TEXT,
-		LogTemplate:   "{{}}",
-		Labels:        make(map[string]dpb.ValueType),
-	}
-
-	getLog = func(k string) getter {
-		return func(f Finder) proto.Message {
-			return f.GetLog(k)
-		}
-	}
-
-	metricDesc = dpb.MetricDescriptor{
-		Name:   "metric",
-		Labels: make(map[string]dpb.ValueType),
-	}
-
-	getMetric = func(k string) getter {
-		return func(f Finder) proto.Message {
-			return f.GetMetric(k)
-		}
-	}
-
-	monitoredResourceDesc = dpb.MonitoredResourceDescriptor{
-		Name:   "mr",
-		Labels: make(map[string]dpb.ValueType),
-	}
-
-	getMR = func(k string) getter {
-		return func(f Finder) proto.Message {
-			return f.GetMonitoredResource(k)
-		}
-	}
-
-	principalDesc = dpb.PrincipalDescriptor{
-		Name:   "principal",
-		Labels: make(map[string]dpb.ValueType),
-	}
-
-	getPrincipal = func(k string) getter {
-		return func(f Finder) proto.Message {
-			return f.GetPrincipal(k)
-		}
-	}
-
-	quotaDesc = dpb.QuotaDescriptor{
-		Name:   "quota",
-		Labels: make(map[string]dpb.ValueType),
-	}
-
-	getQuota = func(k string) getter {
-		return func(f Finder) proto.Message {
-			return f.GetQuota(k)
-		}
-	}
-
 	attributeDesc = map[string]*pb.AttributeManifest_AttributeInfo{
 		"attr": {ValueType: dpb.BOOL},
 	}
@@ -111,46 +54,6 @@ var (
 		}
 	}
 )
-
-func TestGetLog(t *testing.T) {
-	execute(t, cases{
-		{"empty", &pb.GlobalConfig{Logs: []*dpb.LogEntryDescriptor{&logDesc}}, getLog("log"), &logDesc},
-		{"missing", &pb.GlobalConfig{Logs: []*dpb.LogEntryDescriptor{&logDesc}}, getLog("foo"), nil},
-		{"no logs", &pb.GlobalConfig{}, getLog("log"), nil},
-	})
-}
-
-func TestGetMetric(t *testing.T) {
-	execute(t, cases{
-		{"empty", &pb.GlobalConfig{Metrics: []*dpb.MetricDescriptor{&metricDesc}}, getMetric("metric"), &metricDesc},
-		{"missing", &pb.GlobalConfig{Metrics: []*dpb.MetricDescriptor{&metricDesc}}, getMetric("foo"), nil},
-		{"no metrics", &pb.GlobalConfig{}, getMetric("metric"), nil},
-	})
-}
-
-func TestGetMonitoredResource(t *testing.T) {
-	execute(t, cases{
-		{"empty", &pb.GlobalConfig{MonitoredResources: []*dpb.MonitoredResourceDescriptor{&monitoredResourceDesc}}, getMR("mr"), &monitoredResourceDesc},
-		{"missing", &pb.GlobalConfig{MonitoredResources: []*dpb.MonitoredResourceDescriptor{&monitoredResourceDesc}}, getMR("foo"), nil},
-		{"no MRs", &pb.GlobalConfig{}, getMR("mr"), nil},
-	})
-}
-
-func TestGetPrincipal(t *testing.T) {
-	execute(t, cases{
-		{"empty", &pb.GlobalConfig{Principals: []*dpb.PrincipalDescriptor{&principalDesc}}, getPrincipal("principal"), &principalDesc},
-		{"missing", &pb.GlobalConfig{Principals: []*dpb.PrincipalDescriptor{&principalDesc}}, getPrincipal("foo"), nil},
-		{"no principals", &pb.GlobalConfig{}, getPrincipal("principal"), nil},
-	})
-}
-
-func TestGetQuota(t *testing.T) {
-	execute(t, cases{
-		{"empty", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("quota"), &quotaDesc},
-		{"missing", &pb.GlobalConfig{Quotas: []*dpb.QuotaDescriptor{&quotaDesc}}, getQuota("foo"), nil},
-		{"no quotas", &pb.GlobalConfig{}, getQuota("quota"), nil},
-	})
-}
 
 func TestGetAttribute(t *testing.T) {
 	mkcfg := func(descs map[string]*pb.AttributeManifest_AttributeInfo) *pb.GlobalConfig {
