@@ -415,8 +415,10 @@ $(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(fin
 # mixer docker images
 
 MIXER_DOCKER:=docker.mixer docker.mixer_debug
-$(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) mixer/docker/ca-certificates.tgz mixer/docker/mixs
-	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
+$(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+		mixer/docker/ca-certificates.tgz mixer/docker/mixs
+	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@) \
+		-f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
 # security docker images
 
