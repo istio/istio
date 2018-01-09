@@ -585,30 +585,26 @@ func (store *istioConfigStore) routeRulesByDestination(instances []*ServiceInsta
 	return out
 }
 
+// This logic assumes there is at most one route rule for a given host.
+// If there is more than one the output may be non-deterministic.
 func (store *istioConfigStore) routeRulesByDestinationV2(instances []*ServiceInstance, domain string) []Config {
-	out := make([]Config, 0)
 	configs, err := store.List(V1alpha2RouteRule.Type, NamespaceAll)
 	if err != nil {
 		return nil
 	}
 
-	hosts := make(map[string]bool)
-	for _, instance := range instances {
-		hosts[instance.Service.Hostname] = true
-	}
-
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.RouteRule)
 		for _, host := range rule.Hosts {
-			fqdn := ResolveFQDN(host, domain)
-			if hosts[fqdn] {
-				out = append(out, config)
-				break
+			for _, instance := range instances {
+				if ResolveFQDN(host, domain) == instance.Service.Hostname {
+					return []Config{config}
+				}
 			}
 		}
 	}
 
-	return out
+	return nil
 }
 
 func (store *istioConfigStore) EgressRules() map[string]*routing.EgressRule {

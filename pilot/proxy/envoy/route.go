@@ -347,7 +347,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 			destinationRuleConfig := store.DestinationRule(dst.Destination.Name, domain)
 			if destinationRuleConfig != nil {
 				destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
-				if len(dst.Destination.Subset) > 0 {
+				if dst.Destination.Subset != "" {
 					var found bool
 					for _, subset := range destinationRule.Subsets {
 						if subset.Name == dst.Destination.Subset {
