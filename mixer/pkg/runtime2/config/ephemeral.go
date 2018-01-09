@@ -255,7 +255,7 @@ func (e *Ephemeral) processRuleConfigs(
 		rt := resourceType(resource.Metadata.Labels)
 		if cfg.Match != "" {
 			if m, err := expr.ExtractEQMatches(cfg.Match); err != nil {
-				log.Warnf("ConfigWarning: Unable to extract resource type from rule: name='%s'", ruleName)
+				log.Errorf("Unable to extract resource type from rule: name='%s'", ruleName)
 
 				// instead of skipping the rule, add it to the list. This ensures that the behavior will
 				// stay the same when this block is removed.
@@ -275,7 +275,7 @@ func (e *Ephemeral) processRuleConfigs(
 			var handler *Handler
 			handlerName := canonicalize(a.Handler, ruleKey.Namespace)
 			if handler, found = handlers[handlerName]; !found {
-				log.Warnf("handler not found: handler='%s', action='%s[%d]'",
+				log.Errorf("Handler not found: handler='%s', action='%s[%d]'",
 					handlerName, ruleName, i)
 				counters.ruleConfigError.Inc()
 				continue
@@ -289,7 +289,7 @@ func (e *Ephemeral) processRuleConfigs(
 			for _, instanceName := range a.Instances {
 				instanceName = canonicalize(instanceName, ruleKey.Namespace)
 				if _, found = uniqueInstances[instanceName]; found {
-					log.Warnf("action specified the same instance multiple times: action='%s[%d]', instance='%s',",
+					log.Errorf("Action specified the same instance multiple times: action='%s[%d]', instance='%s',",
 						ruleName, i, instanceName)
 					counters.ruleConfigError.Inc()
 					continue
@@ -298,7 +298,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 				var instance *Instance
 				if instance, found = instances[instanceName]; !found {
-					log.Warnf("instance not found: instance='%s', action='%s[%d]'",
+					log.Errorf("Instance not found: instance='%s', action='%s[%d]'",
 						instanceName, ruleName, i)
 					counters.ruleConfigError.Inc()
 					continue
@@ -309,7 +309,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 			// If there are no valid instances found for this action, then elide the action.
 			if len(actionInstances) == 0 {
-				log.Warnf("no valid instances found: action='%s[%d]'", ruleName, i)
+				log.Errorf("No valid instances found: action='%s[%d]'", ruleName, i)
 				counters.ruleConfigError.Inc()
 				continue
 			}
@@ -324,7 +324,7 @@ func (e *Ephemeral) processRuleConfigs(
 
 		// If there are no valid actions found for this rule, then elide the rule.
 		if len(actions) == 0 {
-			log.Warnf("no valid actions found in rule: %s", ruleName)
+			log.Errorf("No valid actions found in rule: %s", ruleName)
 			counters.ruleConfigError.Inc()
 			continue
 		}
