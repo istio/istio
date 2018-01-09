@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pkg/log"
@@ -176,7 +177,7 @@ func buildClusters(env proxy.Environment, node proxy.Node) (Clusters, error) {
 			services, env.ManagementPorts(node.IPAddress), node, env.IstioConfigStore)
 	case proxy.Ingress:
 		instances, err = env.HostInstances(map[string]bool{node.IPAddress: true})
-		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, instances, env.ServiceDiscovery, env.IstioConfigStore)
+		httpRouteConfigs, _ := buildIngressRoutes(env.Mesh, node, instances, env.ServiceDiscovery, env.IstioConfigStore)
 		clusters = httpRouteConfigs.clusters().normalize()
 	}
 
@@ -300,7 +301,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node proxy.Node, routeName strin
 		if err != nil {
 			return nil, err
 		}
-		httpConfigs, _ = buildIngressRoutes(mesh, instances, discovery, config)
+		httpConfigs, _ = buildIngressRoutes(mesh, node, instances, discovery, config)
 	case proxy.Sidecar, proxy.Router:
 		instances, err := discovery.HostInstances(map[string]bool{node.IPAddress: true})
 		if err != nil {
@@ -531,7 +532,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 }
 
 // buildDestinationHTTPRoutes creates HTTP route for a service and a port from rules
-func buildDestinationHTTPRoutes(service *model.Service,
+func buildDestinationHTTPRoutes(sidecar proxy.Node, service *model.Service,
 	servicePort *model.Port,
 	instances []*model.ServiceInstance,
 	config model.IstioConfigStore) []*HTTPRoute {
@@ -542,12 +543,15 @@ func buildDestinationHTTPRoutes(service *model.Service,
 
 		// collect route rules
 		useDefaultRoute := true
-		rules := config.RouteRules(instances, service.Hostname)
+		rules := config.RouteRules(instances, service.Hostname, sidecar.Domain)
 		// sort for output uniqueness
+		// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+		// because v1alpha2 rules are unique per host.
 		model.SortRouteRules(rules)
+
 		for _, rule := range rules {
-			httpRoute := buildHTTPRoute(rule, service, servicePort)
-			routes = append(routes, httpRoute)
+			httpRoutes := buildHTTPRoutes(rule, service, servicePort, instances, sidecar.Domain)
+			routes = append(routes, httpRoutes...)
 
 			// User can provide timeout/retry policies without any match condition,
 			// or specific route. User could also provide a single default route, in
@@ -556,8 +560,14 @@ func buildDestinationHTTPRoutes(service *model.Service,
 			// "catchAll" flag indicating if the route that was built was a catch all route.
 			// When such a route is encountered, we stop building further routes for the
 			// destination and we will not add the default route after the for loop.
-			if httpRoute.CatchAll() {
-				useDefaultRoute = false
+			for _, httpRoute := range httpRoutes {
+				if httpRoute.CatchAll() {
+					useDefaultRoute = false
+					break
+				}
+			}
+
+			if !useDefaultRoute {
 				break
 			}
 		}
@@ -598,7 +608,7 @@ func buildOutboundHTTPRoutes(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 	// map for each service port to define filters
 	for _, service := range services {
 		for _, servicePort := range service.Ports {
-			routes := buildDestinationHTTPRoutes(service, servicePort, instances, config)
+			routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
 
 			if len(routes) > 0 {
 				host := buildVirtualHost(service, servicePort, suffix, routes)
@@ -745,21 +755,45 @@ func buildInboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 			// This setting needs to be enabled on Envoys at both sender and receiver end
 			if protocol == model.ProtocolHTTP {
 				// get all the route rules applicable to the instances
-				rules := config.RouteRulesByDestination(instances)
-				// sort for the output uniqueness
+				rules := config.RouteRulesByDestination(instances, sidecar.Domain)
+
+				// sort for output uniqueness
+				// if v1alpha2 rules are returned, len(rules) <= 1 is guaranteed
+				// because v1alpha2 rules are unique per host.
 				model.SortRouteRules(rules)
 				for _, config := range rules {
-					rule := config.Spec.(*routing.RouteRule)
-					if route := buildInboundRoute(config, rule, cluster); route != nil {
-						// set server-side mixer filter config for inbound HTTP routes
-						// Note: websocket routes do not call the filter chain. Will be
-						// resolved in future.
-						if mesh.MixerAddress != "" {
-							route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
-								instance.Service.Hostname)
+					switch config.Spec.(type) {
+					case *routing.RouteRule:
+						rule := config.Spec.(*routing.RouteRule)
+						if route := buildInboundRoute(config, rule, cluster); route != nil {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerAddress != "" {
+								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
+
+							host.Routes = append(host.Routes, route)
+						}
+					case *routingv2.RouteRule:
+						rule := config.Spec.(*routingv2.RouteRule)
+
+						// if no routes are returned, it is a TCP RouteRule
+						routes := buildInboundRoutesV2(instances, config, rule, cluster)
+						for _, route := range routes {
+							// set server-side mixer filter config for inbound HTTP routes
+							// Note: websocket routes do not call the filter chain. Will be
+							// resolved in future.
+							if mesh.MixerAddress != "" {
+								route.OpaqueConfig = buildMixerOpaqueConfig(!mesh.DisablePolicyChecks, false,
+									instance.Service.Hostname)
+							}
 						}
 
-						host.Routes = append(host.Routes, route)
+						host.Routes = append(host.Routes, routes...)
+					default:
+						panic("unsupported rule")
 					}
 				}
 			}
@@ -819,7 +853,7 @@ func truncateClusterName(name string) string {
 }
 
 func buildEgressVirtualHost(rule *routing.EgressRule,
-	mesh *meshconfig.MeshConfig, port *model.Port, instances []*model.ServiceInstance,
+	mesh *meshconfig.MeshConfig, sidecar proxy.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
 	destination := rule.Destination.Service
@@ -853,7 +887,7 @@ func buildEgressVirtualHost(rule *routing.EgressRule,
 		port.Protocol = model.ProtocolHTTP
 	}
 
-	routes := buildDestinationHTTPRoutes(&model.Service{Hostname: destination}, port, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, &model.Service{Hostname: destination}, port, instances, config)
 	// reset the protocol to the original value
 	port.Protocol = protocolToHandle
 
@@ -900,7 +934,7 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule, mesh, modelPort, instances, config))
+				buildEgressVirtualHost(rule, mesh, node, modelPort, instances, config))
 		}
 	}
 

@@ -42,7 +42,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig,
 
 	// lack of SNI in Envoy implies that TLS secrets are attached to listeners
 	// therefore, we should first check that TLS endpoint is needed before shipping TLS listener
-	_, secret := buildIngressRoutes(mesh, instances, discovery, config)
+	_, secret := buildIngressRoutes(mesh, ingress, instances, discovery, config)
 	if secret != "" {
 		listener := buildHTTPListener(mesh, ingress, instances, nil, WildcardAddress, 443, "443", true, EgressTraceOperation, false, config)
 		listener.SSLContext = &SSLContext{
@@ -56,7 +56,7 @@ func buildIngressListeners(mesh *meshconfig.MeshConfig,
 	return listeners
 }
 
-func buildIngressRoutes(mesh *meshconfig.MeshConfig,
+func buildIngressRoutes(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 	instances []*model.ServiceInstance,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) (HTTPRouteConfigs, string) {
@@ -67,7 +67,7 @@ func buildIngressRoutes(mesh *meshconfig.MeshConfig,
 
 	rules, _ := config.List(model.IngressRule.Type, model.NamespaceAll)
 	for _, rule := range rules {
-		routes, tls, err := buildIngressRoute(mesh, instances, rule, discovery, config)
+		routes, tls, err := buildIngressRoute(mesh, sidecar, instances, rule, discovery, config)
 		if err != nil {
 			log.Warnf("Error constructing Envoy route from ingress rule: %v", err)
 			continue
@@ -139,7 +139,7 @@ func buildIngressVhostDomains(vhost string, port int) []string {
 }
 
 // buildIngressRoute translates an ingress rule to an Envoy route
-func buildIngressRoute(mesh *meshconfig.MeshConfig,
+func buildIngressRoute(mesh *meshconfig.MeshConfig, sidecar proxy.Node,
 	instances []*model.ServiceInstance, rule model.Config,
 	discovery model.ServiceDiscovery,
 	config model.IstioConfigStore) ([]*HTTPRoute, string, error) {
@@ -162,7 +162,7 @@ func buildIngressRoute(mesh *meshconfig.MeshConfig,
 	}
 
 	// unfold the rules for the destination port
-	routes := buildDestinationHTTPRoutes(service, servicePort, instances, config)
+	routes := buildDestinationHTTPRoutes(sidecar, service, servicePort, instances, config)
 
 	// filter by path, prefix from the ingress
 	ingressRoute := buildHTTPRouteMatch(ingress.Match)

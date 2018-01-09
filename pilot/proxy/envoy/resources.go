@@ -121,8 +121,10 @@ const (
 	// MaxClusterNameLength is the maximum cluster name length
 	MaxClusterNameLength = 189 // TODO: use MeshConfig.StatNameLength instead
 
-	// headerAuthority is authority header used by Envoy for HTTP/HTTP2
+	// headers with special meaning in Envoy
+	headerMethod    = ":method"
 	headerAuthority = ":authority"
+	headerScheme    = ":scheme"
 
 	router  = "router"
 	auto    = "auto"
@@ -256,6 +258,7 @@ type HTTPRoute struct {
 
 	Path   string `json:"path,omitempty"`
 	Prefix string `json:"prefix,omitempty"`
+	Regex  string `json:"regex,omitempty"`
 
 	PrefixRewrite string `json:"prefix_rewrite,omitempty"`
 	HostRewrite   string `json:"host_rewrite,omitempty"`

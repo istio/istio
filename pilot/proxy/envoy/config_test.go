@@ -233,9 +233,19 @@ var (
 		file: "testdata/cb-policy.yaml.golden",
 	}
 
+	cbRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "circuit-breaker"},
+		file: "testdata/cb-route-rule-v1alpha2.yaml.golden",
+	}
+
 	timeoutRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "timeout"},
 		file: "testdata/timeout-route-rule.yaml.golden",
+	}
+
+	timeoutRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "timeout"},
+		file: "testdata/timeout-route-rule-v1alpha2.yaml.golden",
 	}
 
 	weightedRouteRule = fileConfig{
@@ -243,9 +253,24 @@ var (
 		file: "testdata/weighted-route.yaml.golden",
 	}
 
+	weightedRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "weighted"},
+		file: "testdata/weighted-route-v1alpha2.yaml.golden",
+	}
+
 	faultRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "fault"},
 		file: "testdata/fault-route.yaml.golden",
+	}
+
+	faultRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "fault"},
+		file: "testdata/fault-route-v1alpha2.yaml.golden",
+	}
+
+	multiMatchFaultRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-fault"},
+		file: "testdata/multi-match-fault-v1alpha2.yaml.golden",
 	}
 
 	redirectRouteRule = fileConfig{
@@ -253,14 +278,34 @@ var (
 		file: "testdata/redirect-route.yaml.golden",
 	}
 
+	redirectRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "redirect"},
+		file: "testdata/redirect-route-v1alpha2.yaml.golden",
+	}
+
 	rewriteRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "rewrite"},
 		file: "testdata/rewrite-route.yaml.golden",
 	}
 
+	rewriteRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "rewrite"},
+		file: "testdata/rewrite-route-v1alpha2.yaml.golden",
+	}
+
+	multiMatchRewriteRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "multi-match-rewrite"},
+		file: "testdata/multi-match-rewrite-route-v1alpha2.yaml.golden",
+	}
+
 	websocketRouteRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "websocket"},
 		file: "testdata/websocket-route.yaml.golden",
+	}
+
+	websocketRouteRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "websocket"},
+		file: "testdata/websocket-route-v1alpha2.yaml.golden",
 	}
 
 	egressRule = fileConfig{
@@ -298,14 +343,29 @@ var (
 		file: "testdata/addheaders-route.yaml.golden",
 	}
 
+	addHeaderRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "append-headers"},
+		file: "testdata/addheaders-route-v1alpha2.yaml.golden",
+	}
+
 	corsPolicyRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "cors-policy"},
 		file: "testdata/corspolicy-route.yaml.golden",
 	}
 
+	corsPolicyRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "cors-policy"},
+		file: "testdata/corspolicy-route-v1alpha2.yaml.golden",
+	}
+
 	mirrorRule = fileConfig{
 		meta: model.ConfigMeta{Type: model.RouteRule.Type, Name: "mirror-requests"},
 		file: "testdata/mirror-route.yaml.golden",
+	}
+
+	mirrorRuleV2 = fileConfig{
+		meta: model.ConfigMeta{Type: model.V1alpha2RouteRule.Type, Name: "mirror-requests"},
+		file: "testdata/mirror-route-v1alpha2.yaml.golden",
 	}
 
 	// mixerclient service configuration

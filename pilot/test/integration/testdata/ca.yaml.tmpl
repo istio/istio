@@ -20,5 +20,5 @@ spec:
       serviceAccountName: istio-ca-service-account
       containers:
       - name: istio-ca-container
-        image: {{.CaImage}}
+        image: {{.Hub}}/istio-ca:{{.Tag}}
         imagePullPolicy: IfNotPresent
