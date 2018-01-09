@@ -312,33 +312,33 @@ docker.prebuilt:
 # XXX needs to support empty HUB? will "localhost" be equivalent?
 # cp ${GO_TOP}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
 # proxy_debug pulls in envoy-debug and 4 json files: envoy_pilot[_auth].json, envoy_mixer[_auth].json
-	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -e ISTIO_BIN -f Dockerfile.proxy_debug .)
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.proxy_debug .)
 # proxy_init references iptables and prepare_proxy.sh
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 # sidecar_initializer references sidecar-initializer
-	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -e ISTIO_BIN -f Dockerfile.sidecar_initializer .)
+	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.sidecar_initializer .)
 # pilot references only pilot-discovery
-	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -e ISTIO_BIN -f Dockerfile.pilot .)
+	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.pilot .)
 # cp ${GO_TOP}/bin/mixs mixer/docker
 # cp docker/ca-certificates.tgz $(ISTIO_BIN)
 # mixer_debug references ubuntu_xenial_debug:sha and ca-certificates.tgz
-	time (docker build -t ${HUB}/mixer_debug:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+	time (docker build -t ${HUB}/mixer_debug:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f mixer/docker/Dockerfile.debug docker)
 # cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
 # cp docker/ca-certificates.tgz security/docker/
 # pulls in ca-certificates.tgz
-	time (docker build -t ${HUB}/istio-ca:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.istio-ca docker)
+	time (docker build -t ${HUB}/istio-ca:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f mixer/docker/Dockerfile.istio-ca docker)
 	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
 # cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 # app pulls in certs/cert.{crt|key}
-	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -e ISTIO_BIN -f Dockerfile.app .)
-	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -e ISTIO_BIN -f Dockerfile.eurekamirror .)
+	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.app .)
+	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.eurekamirror .)
 # TODO: generate or checkin test CA and keys
 # These are not used so far
 	security/bin/gen-keys.sh
 # istio-ca-test pulls in xenial (no sha) istio_ca.crt, istio_ca.key
-	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -e ISTIO_BIN -f Dockerfile.istio-ca-test .)
+	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.istio-ca-test .)
 # node-agent-test pulls in start_app.sh, app.js, istio_ca.crt, node_agent.crt, node_agent.key
-	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -e ISTIO_BIN -f Dockerfile.node-agent-test .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.node-agent-test .)
 
 ##################################################################################
 
@@ -350,46 +350,46 @@ PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
                  pilot/docker/envoy_mixer_auth.json
 
 docker.proxy: pilot/docker/Dockerfile.proxy ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
-	time (cd pilot/docker && docker build -t proxy:${TAG} -e ISTIO_BIN -f Dockerfile.proxy .)
+	time (cd pilot/docker && docker build -t proxy:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.proxy .)
 
 docker.proxy-debug: pilot/docker/Dockerfile.proxy_debug ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
-	time (cd pilot/docker && docker build -t proxy_debug:${TAG} -e ISTIO_BIN -f Dockerfile.proxy_debug .)
+	time (cd pilot/docker && docker build -t proxy_debug:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.proxy_debug .)
 
 docker.proxy-init: pilot/docker/Dockerfile.proxy_init pilot/docker/prepare_proxy.sh
 	time (cd pilot/docker && docker build -t proxy_init:${TAG} -f Dockerfile.proxy_init .)
 
 docker.sidecar-initializer: pilot/docker/Dockerfile.sidecar_initializer ${ISTIO_BIN}/sidecar-initializer
-	time (cd pilot/docker && docker build -t sidecar_initializer:${TAG} -e ISTIO_BIN -f Dockerfile.sidecar_initializer .)
+	time (cd pilot/docker && docker build -t sidecar_initializer:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.sidecar_initializer .)
 
 docker.pilot: pilot/docker/Dockerfile.pilot ${ISTIO_BIN}/pilot-discovery
-	time (cd pilot/docker && docker build -t pilot:${TAG} -e ISTIO_BIN -f Dockerfile.pilot .)
+	time (cd pilot/docker && docker build -t pilot:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.pilot .)
 
 docker.servicegraph: mixer/example/servicegraph/docker/Dockerfile ${ISTIO_BIN}/servicegraph
-	time (cd mixer/example/servicegraph/js && docker build -t servicegraph:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile .)
+	time (cd mixer/example/servicegraph/js && docker build -t servicegraph:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f ../docker/Dockerfile .)
 
 docker.servicegraph-debug: mixer/example/servicegraph/docker/Dockerfile.debug ${ISTIO_BIN}/servicegraph
-	time (cd mixer/example/servicegraph/js && docker build -t servicegraph_debug:${TAG} -e ISTIO_BIN -f ../docker/Dockerfile.debug .)
+	time (cd mixer/example/servicegraph/js && docker build -t servicegraph_debug:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f ../docker/Dockerfile.debug .)
 
 docker.mixer: mixer/docker/Dockerfile docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	time (docker build -t mixer:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+	time (docker build -t mixer:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f mixer/docker/Dockerfile.debug docker)
 
 docker.mixer-debug: mixer/docker/Dockerfile.debug docker/ca-certificates.tgz ${ISTIO_BIN}/mixs
-	time (docker build -t mixer_debug:${TAG} -e ISTIO_BIN -f mixer/docker/Dockerfile.debug docker)
+	time (docker build -t mixer_debug:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f mixer/docker/Dockerfile.debug docker)
 
 docker.istio-ca: security/docker/Dockerfile.istio-ca ${ISTIO_BIN}/istio_ca docker/ca-certificates.tgz
-	time (docker build -t istio-ca:${TAG} -e ISTIO_BIN -f security/docker/Dockerfile.istio-ca docker)
+	time (docker build -t istio-ca:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f security/docker/Dockerfile.istio-ca docker)
 
 docker.app: pilot/docker/Dockerfile.app ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-server pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
-	time (cd pilot/docker && docker build -t app:${TAG} -e ISTIO_BIN -f Dockerfile.app .)
+	time (cd pilot/docker && docker build -t app:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.app .)
 
 docker.eurekamirror: pilot/docker/Dockerfile.eurekamirror ${ISTIO_BIN}/pilot-test-eurekamirror
-	time (cd pilot/docker && docker build -t eurekamirror:${TAG} -e ISTIO_BIN -f Dockerfile.eurekamirror .)
+	time (cd pilot/docker && docker build -t eurekamirror:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.eurekamirror .)
 
 security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
 
 docker.istio-ca-test: security/docker/Dockerfile.istio-ca-test security/docker/istio_ca.crt security/docker/istio_ca.key
-	time (cd security/docker && docker build -t istio-ca-test:${TAG} -e ISTIO_BIN -f Dockerfile.istio-ca-test .)
+	time (cd security/docker && docker build -t istio-ca-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.istio-ca-test .)
 
 NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/app.js \
@@ -398,7 +398,7 @@ NODE_AGENT_FILES=security/docker/start_app.sh \
                  security/docker/node_agent.key
 
 docker.node-agent-test: security/docker/Dockerfile.node-agent-test ${ISTIO_BIN}/node_agent ${NODE_AGENT_FILES}
-	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -e ISTIO_BIN -f Dockerfile.node-agent-test .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} --build-arg ISTIO_BIN=${ISTIO_BIN} -f Dockerfile.node-agent-test .)
 
 DOCKER_TARGETS=docker.proxy docker.proxy-debug docker.proxy-init docker.sidecar-initializer docker.pilot \
                docker.servicegraph docker.servicegraph-debug docker.mixer docker.mixer-debug docker.istio-ca \
