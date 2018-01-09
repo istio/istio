@@ -103,7 +103,8 @@ func init() {
 	flag.IntVar(&params.DebugPort, "debugport", 0, "Debugging port")
 
 	flag.BoolVar(&params.debugImagesAndMode, "debug", true, "Use debug images and mode (false for prod)")
-
+	flag.BoolVar(&params.SkipCleanup, "skip-cleanup", false, "Debug, skip clean up")
+	flag.BoolVar(&params.SkipCleanupOnFailure, "skip-cleanup-on-failure", false, "Debug, skip clean up on failure")
 }
 
 type test interface {
@@ -235,6 +236,7 @@ func runTests(envs ...infra) {
 					tlog("Running test", test.String())
 					if err := test.run(); err != nil {
 						errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("%v run %d", test, i)))
+						tlog("Failed", test.String()+" "+err.Error())
 					} else {
 						tlog("Success!", test.String())
 					}
@@ -277,15 +279,22 @@ func runTests(envs ...infra) {
 			}
 		}
 
-		// always remove infra even if the tests fail
-		tlog("Tearing down infrastructure", istio.Name)
-		istio.teardown()
+		cleanup := !istio.SkipCleanup
 
 		if errs == nil {
 			tlog("Passed all tests!", fmt.Sprintf("tests: %v, count: %d", tests, count))
 		} else {
 			tlogError("Failed tests!", errs.Error())
 			result = multierror.Append(result, multierror.Prefix(errs, istio.Name))
+			if istio.SkipCleanupOnFailure {
+				cleanup = false
+			}
+		}
+		if cleanup {
+			tlog("Tearing down infrastructure", istio.Name)
+			istio.teardown()
+		} else {
+			tlog("Skipping teardown", istio.Name)
 		}
 	}
 

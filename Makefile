@@ -196,7 +196,7 @@ mixs: depend
 
 .PHONY: mixc
 mixc: depend
-	CGO_ENABLED=0 go build ${GOSTATIC} -o ${GO_TOP}/bin/mixc istio.io/istio/mixer/cmd/mixc
+	bin/gobuild.sh ${GO_TOP}/bin/mixc istio.io/istio/mixer/pkg/version istio.io/istio/mixer/cmd/mixc
 
 .PHONY: node-agent
 node-agent: depend
