@@ -290,7 +290,12 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 .PHONY: clean
 .PHONY: clean.go
 
+DIRS_TO_CLEAN:=
+FILES_TO_CLEAN:=
+
 clean: clean.go clean.installgen
+	rm -rf $(DIRS_TO_CLEAN)
+	rm -f $(FILES_TO_CLEAN)
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
@@ -334,39 +339,53 @@ docker.prebuilt:
 
 # static files that are already at proper location for docker build
 
-PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
-                 pilot/docker/envoy_pilot_auth.json \
-                 pilot/docker/envoy_mixer.json \
-                 pilot/docker/envoy_mixer_auth.json
+PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
+                  pilot/docker/envoy_pilot_auth.json \
+                  pilot/docker/envoy_mixer.json \
+                  pilot/docker/envoy_mixer_auth.json
 
-NODE_AGENT_FILES=security/docker/start_app.sh \
-                 security/docker/app.js \
-                 security/docker/istio_ca.crt \
-                 security/docker/node_agent.crt \
-                 security/docker/node_agent.key
+NODE_AGENT_FILES:=security/docker/start_app.sh \
+                  security/docker/app.js \
+                  security/docker/istio_ca.crt \
+                  security/docker/node_agent.crt \
+                  security/docker/node_agent.key
 
 # copied/generated files for docker build
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
 # each of these files .../XXX is copied from ${ISTIO_BIN}/XXX
-COPIED_FROM_ISTIO_BIN = pilot/docker/pilot-agent pilot/docker/pilot-discovery \
-	pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
-	pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
-	mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
-	security/docker/istio_ca security/docker/node_agent
+# NOTE: each of these are passed to rm -f during "make clean".  Keep in mind
+# cases where you might change any of these to be a new or former source code path
+COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
+                       pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
+                       pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
+                       mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
+                       security/docker/istio_ca security/docker/node_agent
+
+FILES_TO_CLEAN+=$(COPIED_FROM_ISTIO_BIN)
 
 $(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
 	cp $< $(@D)
+
+DIRS_TO_CLEAN+=mixer/example/servicegraph/docker/viz
 
 # this rule is an exxeption since "viz" is a directory rather than a file
 mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
 	cp -r $< $(@D)
 
+FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
+
 mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-certificates.tgz
 	cp $< $(@D)
 
-security/docker/istio_ca.crt security/docker/istio_ca.key security/docker/node_agent.crt security/docker/node_agent.key: security/bin/gen-keys.sh
+# NOTE: this list is passed to rm -f during "make clean"
+GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key \
+                      security/docker/node_agent.crt security/docker/node_agent.key
+
+FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
+
+$(GENERATED_CERT_FILES): security/bin/gen-keys.sh
 	security/bin/gen-keys.sh
 
 # pilot docker images
@@ -378,13 +397,13 @@ docker.proxy docker.proxy_debug: pilot/docker/pilot-agent ${PROXY_JSON_FILES}
 docker.proxy_init: pilot/docker/prepare_proxy.sh
 docker.sidecar_initializer: pilot/docker/sidecar-initializer
 
-PILOT_DOCKER=docker.app docker.eurekamirror docker.pilot docker.proxy docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy docker.proxy_debug docker.proxy_init docker.sidecar_initializer
 $(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
 	time (cd pilot/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
 # mixer/example docker images
 
-SERVICEGRAPH_DOCKER=docker.servicegraph docker.servicegraph_debug
+SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
 $(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 		mixer/example/servicegraph/docker/servicegraph mixer/example/servicegraph/docker/viz
 	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph$(findstring _debug,$@) \
@@ -392,7 +411,7 @@ $(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(fin
 
 # mixer docker images
 
-MIXER_DOCKER=docker.mixer docker.mixer_debug
+MIXER_DOCKER:=docker.mixer docker.mixer_debug
 $(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) mixer/docker/ca-certificates.tgz mixer/docker/mixs
 	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@) -f Dockerfile$(if $(findstring debug,$@),.debug) .)
 
@@ -402,11 +421,11 @@ docker.istio-ca: security/docker/istio_ca security/docker/ca-certificates.tgz
 docker.istio-ca-test: security/docker/istio_ca.crt security/docker/istio_ca.key
 docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_FILES}
 
-SECURITY_DOCKER=docker.istio-ca docker.istio-ca-test docker.node-agent-test
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
-DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 
 # for each docker.XXX target create a tar.docker.XXX target that says how to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
 # note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
@@ -416,6 +435,7 @@ $(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
          gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
+DOCKER_TAR_TARGETS:=
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
 # this target saves a tar.gz of each docker image to ${OUT}/docker/
