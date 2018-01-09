@@ -142,9 +142,6 @@ func TestParseErrors(t *testing.T) {
 			"manifests[0].attributes[source].value_type": "WRONG_STRING"},
 			"manifests[0].attributes[source]: unknown value"},
 		{map[string]interface{}{
-			"quotas[0].unknown_attribute": "unknown_value"},
-			"quotas[0]: unknown field"},
-		{map[string]interface{}{
 			"manifests[0].unknown_attribute": "unknown_value"},
 			"manifests[0]: unknown field"},
 	} {
