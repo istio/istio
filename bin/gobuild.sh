@@ -31,7 +31,7 @@ fi
 
 GOOS=${GOOS:-linux}
 GOARCH=${GOARCH:-amd64}
-GOBIN=${GOBIN:-go}
+GOBINARY=${GOBINARY:-go}
 BUILDINFO=${BUILDINFO:-""}
 STATIC=${STATIC:-1}
 LDFLAGS="-extldflags -static"
@@ -59,5 +59,5 @@ while read line; do
 done < "${BUILDINFO}"
 
 # forgoing -i (incremental build) because it will be deprecated by tool chain. 
-time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBIN} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
+time GOOS=${GOOS} GOARCH=${GOARCH} ${GOBINARY} build ${V} ${GOBUILDFLAGS} -o ${OUT} \
 	-ldflags "${LDFLAGS} ${LD_VERSIONFLAGS}" "${BUILDPATH}"
