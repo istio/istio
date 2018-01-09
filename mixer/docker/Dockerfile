@@ -1,4 +1,4 @@
-FROM scratch
+FROM busybox
 
 # obtained from debian ca-certs deb using fetch_cacerts.sh
 ADD ca-certificates.tgz /
