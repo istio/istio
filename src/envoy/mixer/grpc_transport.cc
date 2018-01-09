@@ -102,6 +102,12 @@ void GrpcTransport<RequestType, ResponseType>::onFailure(
 }
 
 template <class RequestType, class ResponseType>
+void GrpcTransport<RequestType, ResponseType>::Cancel() {
+  ENVOY_LOG(debug, "Cancel gRPC request {}", descriptor().name());
+  delete this;
+}
+
+template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm,
                                                   const HeaderMap* headers) {
@@ -113,7 +119,7 @@ GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm,
             new Grpc::AsyncClientImpl<RequestType, ResponseType>(
                 cm, kMixerServerClusterName)),
         request, headers, response, on_done);
-    return [transport]() { transport->request_->cancel(); };
+    return [transport]() { transport->Cancel(); };
   };
 }
 

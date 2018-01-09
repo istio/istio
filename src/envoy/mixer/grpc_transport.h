@@ -58,6 +58,8 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
   void onFailure(Grpc::Status::GrpcStatus status, const std::string& message,
                  Tracing::Span& span) override;
 
+  void Cancel();
+
  private:
   static const google::protobuf::MethodDescriptor& descriptor();
 
