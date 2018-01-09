@@ -450,6 +450,9 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, mirrorConfig, t)
 
+		// TODO optimze
+		addConfig(registry, destinationRuleHello, t)
+
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-mirror.json", t)
@@ -555,6 +558,9 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 		addIngressRoutes(registry, t)
 		addConfig(registry, weightConfig, t)
 
+		// TODO optimze
+		addConfig(registry, destinationRuleWorld, t)
+
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)
 		compareResponse(response, "testdata/rds-ingress-weighted.json", t)
@@ -576,6 +582,9 @@ func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 	for _, weightConfig := range []fileConfig{weightedRouteRule, weightedRouteRuleV2} {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightConfig, t)
+
+		// TODO optimze
+		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)

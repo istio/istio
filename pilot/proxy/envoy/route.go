@@ -400,7 +400,7 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		}
 	}
 
-	route.ShadowCluster = buildShadowCluster(domain, port, http.Mirror)
+	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror)
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
@@ -437,11 +437,29 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 	}
 }
 
-func buildShadowCluster(domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
+func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
-		//fqdn := model.ResolveFQDN(mirror.Name, domain)
-		// FIXME
-		//return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, mirror.Labels).Name}
+		var labels model.Labels
+		destinationRuleConfig := store.DestinationRule(mirror.Name, domain)
+		if destinationRuleConfig != nil {
+			if len(mirror.Subset) > 0 {
+				destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+				var found bool
+				for _, subset := range destinationRule.Subsets {
+					if subset.Name == mirror.Subset {
+						labels = model.Labels(subset.Labels)
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					log.Warn("Reference to nonexistant subset")
+				}
+			}
+		}
+		fqdn := model.ResolveFQDN(mirror.Name, domain)
+		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, labels).Name}
 	}
 	return nil
 }

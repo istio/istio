@@ -233,6 +233,11 @@ var (
 		file: "testdata/destination-world-v1alpha2.yaml.golden",
 	}
 
+	destinationRuleHello = fileConfig{
+		meta: model.ConfigMeta{Type: model.DestinationRule.Type, Name: "destination-hello"},
+		file: "testdata/destination-hello-v1alpha2.yaml.golden",
+	}
+
 	cbPolicy = fileConfig{
 		meta: model.ConfigMeta{Type: model.DestinationPolicy.Type, Name: "circuit-breaker"},
 		file: "testdata/cb-policy.yaml.golden",
