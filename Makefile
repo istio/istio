@@ -340,7 +340,10 @@ PROXY_JSON_FILES=pilot/docker/envoy_pilot.json \
                  pilot/docker/envoy_mixer_auth.json
 
 docker.proxy: pilot/docker/Dockerfile.proxy ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
+	pwd
+	ls -ld pilot/docker/*
 	cp ${ISTIO_BIN}/pilot-agent pilot/docker
+	ls -ld pilot/docker/*
 	time (cd pilot/docker && docker build -t proxy:${TAG} -f Dockerfile.proxy .)
 
 docker.proxy-debug: pilot/docker/Dockerfile.proxy_debug ${ISTIO_BIN}/pilot-agent ${PROXY_JSON_FILES}
