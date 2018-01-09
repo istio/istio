@@ -342,28 +342,8 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	} else {
 		route.WeightedClusters = &WeightedCluster{Clusters: make([]*WeightedClusterEntry, 0, len(http.Route))}
 		for _, dst := range http.Route {
-			var labels model.Labels
-
-			destinationRuleConfig := store.DestinationRule(dst.Destination.Name, domain)
-			if destinationRuleConfig != nil {
-				destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
-				if dst.Destination.Subset != "" {
-					var found bool
-					for _, subset := range destinationRule.Subsets {
-						if subset.Name == dst.Destination.Subset {
-							labels = model.Labels(subset.Labels)
-							found = true
-							break
-						}
-					}
-
-					if !found {
-						log.Warn("Reference to nonexistant subset")
-					}
-				}
-			}
-
 			fqdn := model.ResolveFQDN(dst.Destination.Name, domain)
+			labels := fetchSubsetLabels(store, fqdn, dst.Destination.Subset, domain)
 			cluster := buildOutboundCluster(fqdn, port, labels) // TODO: support Destination.Port
 			route.clusters = append(route.clusters, cluster)
 			route.WeightedClusters.Clusters = append(route.WeightedClusters.Clusters,
@@ -400,13 +380,40 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 		}
 	}
 
-	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror)
+	route.ShadowCluster = buildShadowCluster(store, domain, port, http.Mirror) // FIXME: add any new cluster
 	route.HeadersToAdd = buildHeadersToAdd(http.AppendHeaders)
 	route.CORSPolicy = buildCORSPolicy(http.CorsPolicy)
 	route.WebsocketUpgrade = http.WebsocketUpgrade
 	route.Decorator = buildDecorator(config)
 
 	return route
+}
+
+// FIXME: the entire approach to getting labels from a subset needs to be reworked for performance
+func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
+	if subsetName == "" {
+		return
+	}
+
+	destinationRuleConfig := store.DestinationRule(name, domain)
+	if destinationRuleConfig != nil {
+		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+
+		var found bool
+		for _, subset := range destinationRule.Subsets {
+			if subset.Name == subsetName {
+				labels = model.Labels(subset.Labels)
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			log.Warnf("Reference to non-existent subset %q", subsetName)
+		}
+	}
+
+	return
 }
 
 func applyRedirect(route *HTTPRoute, redirect *routingv2.HTTPRedirect) {
@@ -439,26 +446,8 @@ func applyRewrite(route *HTTPRoute, rewrite *routingv2.HTTPRewrite) {
 
 func buildShadowCluster(store model.IstioConfigStore, domain string, port *model.Port, mirror *routingv2.Destination) *ShadowCluster {
 	if mirror != nil {
-		var labels model.Labels
-		destinationRuleConfig := store.DestinationRule(mirror.Name, domain)
-		if destinationRuleConfig != nil {
-			if len(mirror.Subset) > 0 {
-				destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
-				var found bool
-				for _, subset := range destinationRule.Subsets {
-					if subset.Name == mirror.Subset {
-						labels = model.Labels(subset.Labels)
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					log.Warn("Reference to nonexistant subset")
-				}
-			}
-		}
 		fqdn := model.ResolveFQDN(mirror.Name, domain)
+		labels := fetchSubsetLabels(store, fqdn, mirror.Subset, domain)
 		return &ShadowCluster{Cluster: buildOutboundCluster(fqdn, port, labels).Name}
 	}
 	return nil
