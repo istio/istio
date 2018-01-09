@@ -87,7 +87,7 @@ component-level APIs and common configuration formats for the Istio platform.
 for Mixer's API.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains
-extensions to the [Envoy proxy](https://github.com/lyft/envoy) (in the form of
+extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters), that allow the proxy to delegate policy enforcement
 decisions to Mixer.
 
