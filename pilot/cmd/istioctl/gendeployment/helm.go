@@ -40,7 +40,7 @@ global:
    proxy_debug: {{ .Debug }}
    pilot_hub: {{ .Hub }}
    pilot_tag: {{ .PilotTag }}
-   hyperkube_hub: {{ .HiperkubeHub }}
+   hyperkube_hub: {{ .HyperkubeHub }}
    hyperkube_tag: {{ .HyperkubeTag }}
 `))
 
