@@ -97,8 +97,8 @@ type (
 // Empty returns a new, empty configuration snapshot.
 func Empty() *Snapshot {
 	return &Snapshot{
-		ID:         -1,
-		Rules:      []*Rule{},
-		Counters:   newCounters(-1),
+		ID:       -1,
+		Rules:    []*Rule{},
+		Counters: newCounters(-1),
 	}
 }
