@@ -62,11 +62,14 @@ const (
 	// ClusterTypeOriginalDST name for clusters of type 'original_dst'
 	ClusterTypeOriginalDST = "original_dst"
 
-	// LbTypeRoundRobin is the name for roundrobin LB
+	// LbTypeRoundRobin is the name for round-robin LB
 	LbTypeRoundRobin = "round_robin"
 
 	// LbTypeLeastRequest is the name for least request LB
 	LbTypeLeastRequest = "least_request"
+
+	// LbTypeRingHash is the name for ring hash LB
+	LbTypeRingHash = "ring_hash"
 
 	// LbTypeRandom is the name for random LB
 	LbTypeRandom = "random"
@@ -139,6 +142,9 @@ var ListenersALPNProtocols = []string{"h2", "http/1.1"}
 
 // convertDuration converts to golang duration and logs errors
 func convertDuration(d *duration.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
 	dur, err := ptypes.Duration(d)
 	if err != nil {
 		log.Warnf("error converting duration %#v, using 0: %v", d, err)

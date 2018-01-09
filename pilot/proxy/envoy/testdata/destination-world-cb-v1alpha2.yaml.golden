@@ -1,0 +1,26 @@
+name: world
+subsets:
+  - name: v0
+    labels:
+      version: v0
+    trafficPolicy:
+      loadBalancer:
+        simple: RANDOM
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          # TODO use unique values
+          http1MaxPendingRequests: 100
+          http2MaxRequests: 100
+          maxRequestsPerConnection: 100
+          maxRetries: 10
+      outlierDetection:
+        http:
+          consecutiveErrors: 10
+          interval: 30s
+          baseEjectionTime: 15.5s
+          maxEjectionPercent: 100
+  - name: v1
+    labels:
+      version: v1

@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy},
-		//{cbRouteRuleV2}, // TODO: re-enable when circuit breakers are supported for v1alpha2
+		{cbRouteRuleV2}, // TODO: re-enable when circuit breakers are supported for v1alpha2
 	}
 
 	for _, configs := range tests {
@@ -232,6 +232,9 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 		// add egress rule and a circuit breaker for external service (*.google.com)
 		addConfig(registry, egressRule, t)
 		addConfig(registry, egressRuleCBPolicy, t)
+
+		// TODO optimze
+		addConfig(registry, destinationRuleWorldCB, t)
 
 		url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
 		response := makeDiscoveryRequest(ds, "GET", url, t)

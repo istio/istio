@@ -187,7 +187,7 @@ func buildClusters(env proxy.Environment, node proxy.Node) (Clusters, error) {
 
 	// apply custom policies for outbound clusters
 	for _, cluster := range clusters {
-		applyClusterPolicy(cluster, instances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts)
+		applyClusterPolicy(cluster, instances, env.IstioConfigStore, env.Mesh, env.ServiceAccounts, node.Domain)
 	}
 
 	// append Mixer service definition if necessary
