@@ -1,4 +1,3 @@
-ARG ISTIO_BIN=.
 FROM scratch
 
 WORKDIR /tmp/
