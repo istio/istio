@@ -1,7 +1,6 @@
-ARG ISTIO_BIN=.
 FROM ubuntu:xenial
 
-ADD ${ISTIO_BIN}/node_agent /usr/local/bin/node_agent
+ADD node_agent /usr/local/bin/node_agent
 
 COPY start_app.sh /usr/local/bin/start_app.sh
 COPY app.js /usr/local/bin/app.js
