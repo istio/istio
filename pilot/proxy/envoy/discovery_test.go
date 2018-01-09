@@ -220,7 +220,7 @@ func TestClusterDiscoveryError2(t *testing.T) {
 func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 	tests := [][]fileConfig{
 		{weightedRouteRule, cbPolicy},
-		{cbRouteRuleV2}, // TODO: re-enable when circuit breakers are supported for v1alpha2
+		{cbRouteRuleV2},
 	}
 
 	for _, configs := range tests {
@@ -233,7 +233,7 @@ func TestClusterDiscoveryCircuitBreaker(t *testing.T) {
 		addConfig(registry, egressRule, t)
 		addConfig(registry, egressRuleCBPolicy, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleWorldCB, t)
 
 		url := fmt.Sprintf("/v1/clusters/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -403,7 +403,7 @@ func TestRouteDiscoveryWeighted(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightedConfig, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -417,7 +417,7 @@ func TestRouteDiscoveryFault(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, faultConfig, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		// fault rule is source based: we check that the rule only affect v0 and not v1
@@ -435,7 +435,7 @@ func TestRouteDiscoveryMultiMatchFault(t *testing.T) {
 	_, registry, ds := commonSetup(t)
 	addConfig(registry, multiMatchFaultRouteRuleV2, t)
 
-	// TODO optimze
+	// TODO: v1alpha2 only
 	addConfig(registry, destinationRuleWorld, t)
 
 	// fault rule is source based: we check that the rule only affects v0 and not v1
@@ -453,7 +453,7 @@ func TestRouteDiscoveryMirror(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, mirrorConfig, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleHello, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.HelloProxyV0.ServiceNode())
@@ -561,7 +561,7 @@ func TestRouteDiscoveryIngressWeighted(t *testing.T) {
 		addIngressRoutes(registry, t)
 		addConfig(registry, weightConfig, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Ingress.ServiceNode())
@@ -586,7 +586,7 @@ func TestRouteDiscoveryRouterWeighted(t *testing.T) {
 		_, registry, ds := commonSetup(t)
 		addConfig(registry, weightConfig, t)
 
-		// TODO optimze
+		// TODO: v1alpha2 only
 		addConfig(registry, destinationRuleWorld, t)
 
 		url := fmt.Sprintf("/v1/routes/80/%s/%s", "istio-proxy", mock.Router.ServiceNode())

@@ -667,8 +667,6 @@ func (store *istioConfigStore) DestinationRule(name, domain string) *Config {
 
 	for _, config := range configs {
 		rule := config.Spec.(*routingv2.DestinationRule)
-
-		// TODO RouteRule name can be short name or FQDN and DestinationRule can be short name or FQDN
 		if ResolveFQDN(rule.Name, domain) == ResolveFQDN(name, domain) {
 			return &config
 		}
