@@ -278,6 +278,9 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 #-----------------------------------------------------------------------------
 # Target: go test -race
 #-----------------------------------------------------------------------------
+
+.PHONY: racetest
+
 .PHONY: pilot-racetest
 pilot-racetest: pilot-agent
 	go test ${GOTEST_P} ${T} -race ./pilot/...

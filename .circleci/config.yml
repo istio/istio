@@ -275,7 +275,7 @@ jobs:
       - store_test_results:
           path: /go/out/tests
 
-  test:
+  racetest:
     <<: *default
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
