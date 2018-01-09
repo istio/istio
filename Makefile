@@ -345,11 +345,11 @@ PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
                   pilot/docker/envoy_mixer.json \
                   pilot/docker/envoy_mixer_auth.json
 
-NODE_AGENT_FILES:=security/docker/start_app.sh \
-                  security/docker/app.js \
-                  security/docker/istio_ca.crt \
-                  security/docker/node_agent.crt \
-                  security/docker/node_agent.key
+NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
+                       security/docker/app.js \
+                       security/docker/istio_ca.crt \
+                       security/docker/node_agent.crt \
+                       security/docker/node_agent.key
 
 # copied/generated files for docker build
 
@@ -424,9 +424,10 @@ $(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
 
 docker.istio-ca: security/docker/istio_ca security/docker/ca-certificates.tgz
 docker.istio-ca-test: security/docker/istio_ca.crt security/docker/istio_ca.key
-docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_FILES}
+docker.node-agent:      security/docker/node_agent
+docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_TEST_FILES}
 
-SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent-test
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
