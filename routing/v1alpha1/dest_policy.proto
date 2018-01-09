@@ -182,7 +182,7 @@ message CircuitBreaker {
     // Maximum number of requests to a backend. Default 1024
     int32 http_max_requests = 3;
 
-    // Minimum time the circuit will be closed. format: 1h/1m/1s/1ms. MUST
+    // Minimum time the circuit will be open. format: 1h/1m/1s/1ms. MUST
     // BE >=1ms. Default is 30s.
     google.protobuf.Duration sleep_window = 4;
 

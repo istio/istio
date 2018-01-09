@@ -493,7 +493,7 @@ type CircuitBreaker_SimpleCircuitBreakerPolicy struct {
 	HttpMaxPendingRequests int32 `protobuf:"varint,2,opt,name=http_max_pending_requests,json=httpMaxPendingRequests" json:"http_max_pending_requests,omitempty"`
 	// Maximum number of requests to a backend. Default 1024
 	HttpMaxRequests int32 `protobuf:"varint,3,opt,name=http_max_requests,json=httpMaxRequests" json:"http_max_requests,omitempty"`
-	// Minimum time the circuit will be closed. format: 1h/1m/1s/1ms. MUST
+	// Minimum time the circuit will be open. format: 1h/1m/1s/1ms. MUST
 	// BE >=1ms. Default is 30s.
 	SleepWindow *google_protobuf1.Duration `protobuf:"bytes,4,opt,name=sleep_window,json=sleepWindow" json:"sleep_window,omitempty"`
 	// Number of 5XX errors before circuit is opened. Defaults to 5.
