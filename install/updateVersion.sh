@@ -202,6 +202,8 @@ function update_helm_version() {
   execute_sed "s|{PILOT_TAG}|${PILOT_TAG}|" values.yaml.tmpl
   execute_sed "s|{MIXER_HUB}|${MIXER_HUB}|" values.yaml.tmpl
   execute_sed "s|{MIXER_TAG}|${MIXER_TAG}|" values.yaml.tmpl
+  execute_sed "s|{HYPERKUBE_HUB}|${HYPERKUBE_HUB}|" values.yaml.tmpl
+  execute_sed "s|{HYPERKUBE_TAG}|${HYPERKUBE_TAG}|" values.yaml.tmpl
 
   echo "# GENERATED FILE. Use with Kubernetes 1.7+" > $HELM_FILE
   echo "# TO UPDATE, modify files in install/kubernetes/templates/helm/istio and run install/updateVersion.sh" >> $HELM_FILE
