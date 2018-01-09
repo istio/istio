@@ -20,6 +20,7 @@ package envoy
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	routing "istio.io/api/routing/v1alpha1"
+	routingv2 "istio.io/api/routing/v1alpha2"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
 )
@@ -64,6 +65,21 @@ func applyClusterPolicy(cluster *Cluster,
 	policyConfig := config.Policy(instances, cluster.hostname, cluster.tags)
 
 	if policyConfig == nil {
+
+		// FIXME
+		domain := ""
+		destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
+		if destinationRuleConfig != nil {
+			destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+
+			applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
+			for _, subset := range destinationRule.Subsets {
+				if cluster.tags.Equals(subset.Labels) {
+					applyTrafficPolicy(cluster, subset.TrafficPolicy)
+					break
+				}
+			}
+		}
 		return
 	}
 
@@ -119,4 +135,9 @@ func applyClusterPolicy(cluster *Cluster,
 			cluster.OutlierDetection.MaxEjectionPercent = int(cbconfig.HttpMaxEjectionPercent)
 		}
 	}
+}
+
+
+func applyTrafficPolicy(cluster *Cluster, policy *routingv2.TrafficPolicy) {
+
 }
