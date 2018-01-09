@@ -22,11 +22,6 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 )
 
-// EmptyFinder is a AttributeDescriptorFinder with no attributes
-var EmptyFinder AttributeDescriptorFinder = finder{
-	attributes: make(map[string]*configpb.AttributeManifest_AttributeInfo, 0),
-}
-
 // NewFinder returns a new AttributeDescriptorFinder instance, based on the given attributes
 func NewFinder(attributes map[string]*configpb.AttributeManifest_AttributeInfo) AttributeDescriptorFinder {
 	return finder{
