@@ -405,7 +405,16 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
 
 DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
-docker.save: $(DOCKER_TARGETS)
+
+# for each docker.foo target create a tar.docker.foo target that says how to make a tar.gz from the docker image
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); time (docker save -o ${OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
+
+# create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
+
+docker.save: $(DOCKER_TAR_TARGETS)
+
+docker.save2: $(DOCKER_TARGETS)
 	mkdir -p ${OUT}/docker
 	time (docker save -o ${OUT}/docker/proxy.tar               proxy               && gzip ${OUT}/docker/proxy.tar)
 	time (docker save -o ${OUT}/docker/proxy_debug.tar         proxy_debug         && gzip ${OUT}/docker/proxy_debug.tar)
