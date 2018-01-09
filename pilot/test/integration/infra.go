@@ -75,6 +75,9 @@ type infra struct { // nolint: aligncheck
 	Zipkin    bool
 	DebugPort int
 
+	SkipCleanup          bool
+	SkipCleanupOnFailure bool
+
 	// check proxy logs
 	checkLogs bool
 
@@ -109,7 +112,7 @@ func (infra *infra) setup() error {
 
 	if infra.Namespace == "" {
 		var err error
-		if infra.Namespace, err = util.CreateNamespace(client); err != nil {
+		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-app-"); err != nil {
 			return err
 		}
 		infra.namespaceCreated = true
@@ -121,7 +124,7 @@ func (infra *infra) setup() error {
 
 	if infra.IstioNamespace == "" {
 		var err error
-		if infra.IstioNamespace, err = util.CreateNamespace(client); err != nil {
+		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-"); err != nil {
 			return err
 		}
 		infra.istioNamespaceCreated = true
