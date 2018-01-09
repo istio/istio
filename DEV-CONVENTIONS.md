@@ -24,7 +24,7 @@ Others docs you should look at:
 
   - Comment your code.
 
-    - Follow the general guidance from [Go's commenting conventions](http://blog.golang.org/godoc-documenting-go-code)
+    - Follow the general guidance from [Go's commenting conventions](https://blog.golang.org/godoc-documenting-go-code)
     - If reviewers ask questions about why the code is the way it is, that's a sign that comments might be helpful.
 
   - Command-line flags should use dashes, not underscores
