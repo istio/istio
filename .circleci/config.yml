@@ -276,7 +276,7 @@ jobs:
           path: /go/out/tests
 
   racetest:
-    <<: *default
+    <<: *defaults
     environment:
       KUBECONFIG: /go/src/istio.io/istio/.circleci/config
     resource_class: xlarge
