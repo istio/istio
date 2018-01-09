@@ -349,6 +349,7 @@ NODE_AGENT_FILES=security/docker/start_app.sh \
 
 .SECONDEXPANSION: #allow $@ to be used in dependency list
 
+# each of these files .../XXX is copied from ${ISTIO_BIN}/XXX
 COPIED_FROM_ISTIO_BIN = pilot/docker/pilot-agent pilot/docker/pilot-discovery \
 	pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
 	pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
@@ -358,6 +359,7 @@ COPIED_FROM_ISTIO_BIN = pilot/docker/pilot-agent pilot/docker/pilot-discovery \
 $(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
 	cp $< $(@D)
 
+# this rule is an exxeption since "viz" is a directory rather than a file
 mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
 	cp -r $< $(@D)
 
@@ -406,30 +408,18 @@ $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
 
 DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 
-# for each docker.foo target create a tar.docker.foo target that says how to make a tar.gz from the docker image
-$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); time (docker save -o ${OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
+# for each docker.XXX target create a tar.docker.XXX target that says how to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
+# note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
+   time (mkdir -p ${OUT}/docker && \
+         docker save -o ${OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+         gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
 
 # create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
 $(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
 
+# this target saves a tar.gz of each docker image to ${OUT}/docker/
 docker.save: $(DOCKER_TAR_TARGETS)
-
-docker.save2: $(DOCKER_TARGETS)
-	mkdir -p ${OUT}/docker
-	time (docker save -o ${OUT}/docker/proxy.tar               proxy               && gzip ${OUT}/docker/proxy.tar)
-	time (docker save -o ${OUT}/docker/proxy_debug.tar         proxy_debug         && gzip ${OUT}/docker/proxy_debug.tar)
-	time (docker save -o ${OUT}/docker/proxy_init.tar          proxy_init          && gzip ${OUT}/docker/proxy_init.tar)
-	time (docker save -o ${OUT}/docker/sidecar_initializer.tar sidecar_initializer && gzip ${OUT}/docker/sidecar_initializer.tar)
-	time (docker save -o ${OUT}/docker/pilot.tar               pilot               && gzip ${OUT}/docker/pilot.tar)
-	time (docker save -o ${OUT}/docker/servicegraph.tar        servicegraph        && gzip ${OUT}/docker/servicegraph.tar)
-	time (docker save -o ${OUT}/docker/servicegraph_debug.tar  servicegraph_debug  && gzip ${OUT}/docker/servicegraph_debug.tar)
-	time (docker save -o ${OUT}/docker/mixer.tar               mixer               && gzip ${OUT}/docker/mixer.tar)
-	time (docker save -o ${OUT}/docker/mixer_debug.tar         mixer_debug         && gzip ${OUT}/docker/mixer_debug.tar)
-	time (docker save -o ${OUT}/docker/istio-ca.tar            istio-ca            && gzip ${OUT}/docker/istio-ca.tar)
-	time (docker save -o ${OUT}/docker/app.tar                 app                 && gzip ${OUT}/docker/app.tar)
-	time (docker save -o ${OUT}/docker/eurekamirror.tar        eurekamirror        && gzip ${OUT}/docker/eurekamirror.tar)
-	time (docker save -o ${OUT}/docker/istio-ca-test.tar       istio-ca-test       && gzip ${OUT}/docker/istio-ca-test.tar)
-	time (docker save -o ${OUT}/docker/node-agent-test.tar     node-agent-test     && gzip ${OUT}/docker/node-agent-test.tar)
 
 push: checkvars clean.installgen installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
