@@ -98,11 +98,6 @@ type (
 func Empty() *Snapshot {
 	return &Snapshot{
 		ID:         -1,
-		Templates:  make(map[string]*template.Info, 0),
-		Adapters:   make(map[string]*adapter.Info, 0),
-		Attributes: expr.EmptyFinder,
-		Handlers:   make(map[string]*Handler, 0),
-		Instances:  make(map[string]*Instance, 0),
 		Rules:      []*Rule{},
 		Counters:   newCounters(-1),
 	}

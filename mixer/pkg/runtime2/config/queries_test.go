@@ -54,9 +54,11 @@ func buildBaseConfig() *Snapshot {
 		t1.Name: t1,
 	}
 
+	s.Handlers = make(map[string]*Handler, 2)
 	s.Handlers[h1.Name] = h1
 	s.Handlers[h2.Name] = h2
 
+	s.Instances = make(map[string]*Instance, 3)
 	s.Instances[i1.Name] = i1
 	s.Instances[i2.Name] = i2
 	s.Instances[i3.Name] = i3
