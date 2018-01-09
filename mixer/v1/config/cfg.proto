@@ -190,13 +190,6 @@ message GlobalConfig {
   repeated Adapter adapters = 2;
   repeated AttributeManifest manifests = 3;
 
-  // TODO: remove these in https://github.com/istio/api/pull/45
-  repeated istio.mixer.v1.config.descriptor.LogEntryDescriptor logs = 4;
-  repeated istio.mixer.v1.config.descriptor.MetricDescriptor metrics = 5;
-  repeated istio.mixer.v1.config.descriptor.MonitoredResourceDescriptor monitored_resources = 6;
-  repeated istio.mixer.v1.config.descriptor.PrincipalDescriptor principals = 7;
-  repeated istio.mixer.v1.config.descriptor.QuotaDescriptor quotas = 8;
-
   // Under development, DO NOT USE
   // Optional. List of handlers that can be referenced from [actions][istio.mixer.v1.config.Action.handler]
   repeated Handler handlers = 9;
