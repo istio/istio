@@ -207,7 +207,7 @@ ${ISTIO_BIN}/sidecar-initializer: depend
 mixs: ${ISTIO_BIN}/mixs
 
 ${ISTIO_BIN}/mixs: depend
-	bin/gobuild.sh ${ISTIO_BIN}/bin/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
+	bin/gobuild.sh ${ISTIO_BIN}/mixs istio.io/istio/mixer/pkg/version ./mixer/cmd/mixs
 
 .PHONY: mixc
 mixc: ${ISTIO_BIN}/mixc
@@ -247,16 +247,11 @@ GOSTATIC = -ldflags '-extldflags "-static"'
 
 PILOT_TEST_BINS:=${ISTIO_BIN}/pilot-test-server ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-eurekamirror
 
-# add :depend
-$(PILOT_TEST_BINS)
-	# $$(@F)
-	echo CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/$(@F) istio.io/istio/$(@F:-=/)
+$(PILOT_TEST_BINS): depend
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/$(@F) istio.io/istio/$(subst -,/,$(@F))
 
 test-bins: $(PILOT_TEST_BINS)
-#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-server istio.io/istio/pilot/test/server
-#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-client istio.io/istio/pilot/test/client
-#	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/pilot-test-eurekamirror istio.io/istio/pilot/test/eurekamirror
-#	go build -o ${ISTIO_BIN}/pilot-integration-test istio.io/istio/pilot/test/integration
+	go build -o ${ISTIO_BIN}/pilot-integration-test istio.io/istio/pilot/test/integration
 
 localTestEnv: test-bins
 	bin/testEnvLocalK8S.sh ensure
@@ -342,19 +337,19 @@ docker:
 
 # Build docker images for pilot, mixer, ca using prebuilt binaries
 docker.prebuilt:
-	cp ${GO_TOP}/bin/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
 	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
 	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
 	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
-	cp ${GO_TOP}/bin/mixs mixer/docker
+	cp ${ISTIO_BIN}/mixs mixer/docker
 	cp docker/ca-certificates.tgz mixer/docker
 	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
-	cp ${GO_TOP}/bin/{istio_ca,node_agent} security/docker
+	cp ${ISTIO_BIN}/{istio_ca,node_agent} security/docker
 	cp docker/ca-certificates.tgz security/docker/
 	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
 	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
-	cp ${GO_TOP}/bin/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
+	cp ${ISTIO_BIN}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
 	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
 	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
 	# TODO: generate or checkin test CA and keys
@@ -554,26 +549,6 @@ docker.sidecar.deb:
 # the builder image.
 # TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb: ${OUT}/istio-sidecar.deb
-
-#${ISTIO_BIN}/envoy: init
-
-#${ISTIO_BIN}/pilot-discovery: pilot
-
-#${ISTIO_BIN}/pilot-agent: pilot-agent
-
-#${ISTIO_BIN}/pilot-test-client: test-bins
-
-#${ISTIO_BIN}/node-agent: node_agent
-
-#${ISTIO_BIN}/sidecar-initializer: sidecar-initializer
-
-#${ISTIO_BIN}/servicegraph: servicegraph
-
-#${ISTIO_BIN}/mixs: mixs
-
-#${ISTIO_BIN}/istio_ca: istio-ca
-
-#${ISTIO_BIN}/node_agent: node-agent
 
 ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
                   tools/deb/istio-iptables.sh \
