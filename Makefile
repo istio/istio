@@ -425,7 +425,7 @@ docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_FILES}
 
 SECURITY_DOCKER=docker.istio-ca docker.istio-ca-test docker.node-agent-test
 $(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
-	time (cd pilot/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
+	time (cd security/docker && docker build -t $(subst docker.,,$@):${TAG} -f Dockerfile$(suffix $@) .)
 
 DOCKER_TARGETS=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
 docker.save: $(DOCKER_TARGETS)
