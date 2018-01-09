@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	defaultTag = "0.4.0"
+	defaultTag          = "0.4.0"
+	defaultHyperkubeTag = "v1.7.6_coreos.0"
 )
 
 // Command returns the "gen-deploy" subcommand for istioctl.
@@ -92,6 +93,9 @@ func Command(istioNamespaceFlag *string) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&helmChartLocation, "helm-chart-dir", ".",
 		"The directory to find the helm charts used to render Istio deployments. -o yaml uses these to render the helm chart locally.")
 
+	cmd.PersistentFlags().StringVar(&install.HyperkubeHub, "hyperkube-hub", install.HyperkubeHub, "The container registry to pull Hyperkube images from")
+	cmd.PersistentFlags().StringVar(&install.HyperkubeTag, "hyperkube-tag", install.MixerTag, "The tag to use to pull the `Hyperkube` container")
+
 	_ = cmd.PersistentFlags().MarkHidden("hub")
 	_ = cmd.PersistentFlags().MarkHidden("mixer-tag")
 	_ = cmd.PersistentFlags().MarkHidden("pilot-tag")
@@ -129,6 +133,9 @@ type installation struct {
 	PilotTag string
 	CaTag    string
 	ProxyTag string
+
+	HyperkubeHub string
+	HyperkubeTag string
 }
 
 func defaultInstall() *installation {
@@ -148,6 +155,9 @@ func defaultInstall() *installation {
 		PilotTag: defaultTag,
 		CaTag:    defaultTag,
 		ProxyTag: defaultTag,
+
+		HyperkubeHub: "quay.io/coreos/hyperkube",
+		HyperkubeTag: defaultHyperkubeTag,
 	}
 }
 

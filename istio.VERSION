@@ -14,3 +14,5 @@ export PILOT_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/pilot/31
 export PROXY_DEBIAN_URL="https://storage.googleapis.com/istio-artifacts/proxy/2458e4e27bc588df858711b66de0970183e0cf66/artifacts/debs"
 export FORTIO_HUB="docker.io/istio"
 export FORTIO_TAG="0.4.2"
+export HYPERKUBE_HUB="quay.io/coreos/hyperkube"
+export HYPERKUBE_TAG="v1.7.6_coreos.0"
