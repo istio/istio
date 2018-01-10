@@ -244,7 +244,8 @@ broker-test: depend
 
 .PHONY: security-test
 security-test:
-	go test ${T} ./security/...
+	go test ${T} ./security/pkg/...
+	go test ${T} ./security/cmd/...
 
 common-test:
 	go test ${T} ./pkg/...
@@ -270,7 +271,8 @@ broker-coverage:
 
 .PHONY: security-coverage
 security-coverage:
-	bin/parallel-codecov.sh security
+	bin/parallel-codecov.sh security/pkg
+	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
