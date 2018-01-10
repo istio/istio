@@ -95,7 +95,7 @@ type fileController struct {
 }
 
 // NewFileController creates a new Controller implementation which creates a file
-// at the specified path only when the registered emitters are all avaialble.
+// at the specified path only when the registered emitters are all available.
 func NewFileController(path string) Controller {
 	name := filepath.Base(path)
 	return &fileController{
