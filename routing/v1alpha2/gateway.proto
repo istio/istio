@@ -49,8 +49,8 @@ package istio.routing.v1alpha2;
 //         - eu.bookinfo.com
 //         tls:
 //           mode: simple #enables HTTPS on this port
-//           serverCert: server.crt
-//           clientCABundle: client.ca-bundle
+//           serverCert: /etc/certs/servercert.pem
+//           privateKey: /etc/certs/privatekey.pem
 //       - port:
 //           number: 9080
 //           name: http-wildcard
@@ -176,7 +176,8 @@ message Gateway {
 //           protocol: HTTP
 //         tls:
 //           mode: simple
-//           serverCertificatet: server.crt
+//           serverCertificate: /etc/certs/server.pem
+//           privateKey: /etc/certs/privatekey.pem
 //
 message Server {
   // Port describes the properties of a specific port of a service.
@@ -212,39 +213,44 @@ message Server {
     // http connections, asking the clients to use HTTPS.
     bool https_redirect = 1;
 
-    // TLS modes enforced by the gateway
+    // TLS modes enforced by the proxy
     enum TLSmode {
-      // If set to "passthrough", the gateway will forward the connection to the
-      // upstream server as is.
+      // If set to "passthrough", the proxy will forward the connection
+      // to the upstream server selected based on the SNI string presented
+      // by the client.
       PASSTHROUGH = 0;
 
-      // If set to "simple", the gateway will secure connections with
-      // standard TLS semantics (server certs only).
+      // If set to "simple", the proxy will secure connections with
+      // standard TLS semantics.
       SIMPLE = 1;
 
-      // If set to "mutual", the gateway will use standard mTLS authentication.
+      // If set to "mutual", the proxy will secure connections to the
+      // upstream using mutual TLS by presenting client certificates for
+      // authentication.
       MUTUAL = 2;
     };
 
     // Optional: Indicates whether connections to this port should be
-    // secured using TLS.  The value of this field determines how TLS is
+    // secured using TLS. The value of this field determines how TLS is
     // enforced.  
     TLSmode mode = 2;
 
-    // REQUIRED if mode == SIMPLE/MUTUAL. The name of the file holding the
-    // server-side TLS certificate to use.  It is the responsibility of the
-    // underlying platform to mount the certificate as a file under
-    // /etc/istio/ingress-certs with the same name as the specified in this
-    // field.
+    // REQUIRED if mode is "simple" or "mutual". The path to the file
+    // holding the server-side TLS certificate to use.
     string server_certificate = 3;
 
-    // REQUIRED if mode == MUTUAL. To use mutual TLS for external clients,
-    // specify the name of the file holding the CA certificate to validate
-    // the client's certificate. It is the responsibility of the underlying
-    // platform to mount the certificate as a file under
-    // /etc/istio/ingress-certs with the same name as specified in this
-    // field.
-    string client_ca_bundle = 4;
+    // REQUIRED if mode is "simple" or "mutual". The path to the file
+    // holding the server's private key.
+    string private_key = 4;
+
+    // REQUIRED if mode is "mutual". The path to a file containing
+    // certificate authority certificates to use in verifying a presented
+    // client side certificate.
+    string ca_certificates = 5;
+
+    // A list of alternate names to verify the subject identity in the
+    // certificate presented by the client.
+    repeated string subject_alt_names = 6;
   }
 
   // Set of TLS related options that govern the server's behavior. Use
@@ -252,4 +258,3 @@ message Server {
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
 }
-
