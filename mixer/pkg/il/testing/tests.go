@@ -266,6 +266,19 @@ end`,
 			"a": int64(20),
 			"b": int64(10),
 		},
+		IL: `
+ fn eval() bool
+  resolve_i "x"
+  aeq_i 20
+  jz L0
+  resolve_i "y"
+  aeq_i 10
+  jmp L1
+L0:
+  apush_b false
+L1:
+  ret
+end`,
 		Err:    "lookup failed: 'x'",
 		AstErr: "unresolved attribute",
 		conf:   TestConfigs["Expr/Eval"],
@@ -673,32 +686,105 @@ end`,
 		IL: `
 fn eval() bool
   apush_b false
+  jz L0
   apush_b true
-  and
+  jmp L1
+L0:
+  apush_b false
+L1:
   ret
 end`,
 	},
 	{
-		E:    `true && false`,
+		E:     `true && false`,
+		Bench: true,
+		Type:  descriptor.BOOL,
+		R:     false,
+		IL: `
+fn eval() bool
+  apush_b true
+  jz L0
+  apush_b false
+  jmp L1
+L0:
+  apush_b false
+L1:
+  ret
+end`,
+	},
+	{
+		E:     `true && true`,
+		Bench: true,
+		Type:  descriptor.BOOL,
+		R:     true,
+		IL: `
+fn eval() bool
+  apush_b true
+  jz L0
+  apush_b true
+  jmp L1
+L0:
+  apush_b false
+L1:
+  ret
+end `,
+	},
+	{
+		E:     `false && false`,
+		Bench: true,
+		Type:  descriptor.BOOL,
+		R:     false,
+		IL: `
+fn eval() bool
+  apush_b false
+  jz L0
+  apush_b false
+  jmp L1
+L0:
+  apush_b false
+L1:
+  ret
+end`,
+	},
+	{
+		E:    `false && false && false`,
 		Type: descriptor.BOOL,
 		R:    false,
-		IL: `
- fn eval() bool
-  apush_b true
-  apush_b false
-  and
-  ret
-end`,
 	},
 	{
-		E:    `true && true`,
+		E:    `false && false && true`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `false && true && false`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `true && false && false`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `true && true && false`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `true && false && true`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `false && true && true`,
+		Type: descriptor.BOOL,
+		R:    false,
+	},
+	{
+		E:    `true && true && true`,
 		Type: descriptor.BOOL,
 		R:    true,
-	},
-	{
-		E:    `false && false`,
-		Type: descriptor.BOOL,
-		R:    false,
 	},
 	{
 		E:    "b1 && b2",
