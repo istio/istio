@@ -52,7 +52,7 @@ const (
 )
 
 type finder struct {
-	attributes         map[string]*pb.AttributeManifest_AttributeInfo
+	attributes map[string]*pb.AttributeManifest_AttributeInfo
 }
 
 // typeMap maps descriptor types to example messages of those types.
@@ -207,7 +207,7 @@ func processMap(name string, arr map[string]interface{}, value proto.Message) (r
 // NewFinder constructs a new Finder for the provided global config.
 func NewFinder(cfg *pb.GlobalConfig) Finder {
 	f := &finder{
-		attributes:         make(map[string]*pb.AttributeManifest_AttributeInfo),
+		attributes: make(map[string]*pb.AttributeManifest_AttributeInfo),
 	}
 
 	if cfg == nil {
