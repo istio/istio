@@ -245,6 +245,8 @@ type IstioConfigStore interface {
 	// the source instances.  The labels must match precisely in the policy.
 	Policy(source []*ServiceInstance, destination string, labels Labels) *Config
 
+	// DestinationRule returns a destination rule for a service name in a given domain.
+	// Name can be short name or FQDN
 	DestinationRule(name, domain string) *Config
 
 	// HTTPAPISpecByDestination selects Mixerclient HTTP API Specs

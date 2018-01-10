@@ -8,6 +8,7 @@ subsets:
         simple: RANDOM
       connectionPool:
         tcp:
+        # TODO add connect timeout
           maxConnections: 100
         http:
           http1MaxPendingRequests: 50
