@@ -17,8 +17,7 @@ package grpc
 import (
 	"fmt"
 
-	"github.com/golang/glog"
-
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/registry"
 )
 
@@ -77,7 +76,7 @@ func (authZ *registryAuthorizor) authorize(requestor *caller, requestedIDs []str
 		for _, requestedID := range requestedIDs {
 			err := authZ.reg.AddMapping(requestedID, requestedID)
 			if err != nil {
-				glog.Warningf("cannot add mapping %q -> %q to registry: %s", requestedID, requestedID, err.Error())
+				log.Warnf("cannot add mapping %q -> %q to registry: %s", requestedID, requestedID, err.Error())
 			}
 		}
 		return nil

@@ -25,9 +25,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/golang/glog"
-
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/registry"
 )
 
@@ -83,7 +82,7 @@ func (c *ServiceController) serviceAdded(obj interface{}) {
 	if ok {
 		err := c.reg.AddMapping(svcAcct, svcAcct)
 		if err != nil {
-			glog.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
+			log.Errorf("cannot add mapping %q -> %q to registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
 }
@@ -94,7 +93,7 @@ func (c *ServiceController) serviceDeleted(obj interface{}) {
 	if ok {
 		err := c.reg.DeleteMapping(svcAcct, svcAcct)
 		if err != nil {
-			glog.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
+			log.Errorf("cannot delete mapping %q to %q from registry: %s", svcAcct, svcAcct, err.Error())
 		}
 	}
 }

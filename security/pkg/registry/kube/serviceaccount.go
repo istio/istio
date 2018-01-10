@@ -26,8 +26,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/golang/glog"
-
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/registry"
 )
@@ -85,7 +84,7 @@ func (c *ServiceAccountController) serviceAccountAdded(obj interface{}) {
 	id := getSpiffeID(sa)
 	err := c.reg.AddMapping(id, id)
 	if err != nil {
-		glog.Errorf("cannot add mapping %q -> %q to registry: %s", id, id, err.Error())
+		log.Errorf("cannot add mapping %q -> %q to registry: %s", id, id, err.Error())
 	}
 }
 
@@ -94,7 +93,7 @@ func (c *ServiceAccountController) serviceAccountDeleted(obj interface{}) {
 	id := getSpiffeID(sa)
 	err := c.reg.DeleteMapping(id, id)
 	if err != nil {
-		glog.Errorf("cannot delete mapping %q to %q from registry: %s", id, id, err.Error())
+		log.Errorf("cannot delete mapping %q to %q from registry: %s", id, id, err.Error())
 	}
 
 }
