@@ -79,6 +79,7 @@ func TestConvertInstance(t *testing.T) {
 	tagVal1 := "v1"
 	tagKey2 := "zone"
 	tagVal2 := "prod"
+	dc := "dc1"
 	consulServiceInst := api.CatalogService{
 		Node:        "istio-node",
 		Address:     "172.19.0.5",
@@ -90,6 +91,7 @@ func TestConvertInstance(t *testing.T) {
 		},
 		ServiceAddress: ip,
 		ServicePort:    port,
+		Datacenter:     dc,
 		NodeMeta:       map[string]string{protocolTagName: protocol},
 	}
 
@@ -105,6 +107,10 @@ func TestConvertInstance(t *testing.T) {
 
 	if out.Endpoint.ServicePort.Port != port {
 		t.Errorf("convertInstance() => %v, want %v", out.Endpoint.ServicePort.Port, port)
+	}
+
+	if out.AvailabilityZone != dc {
+		t.Errorf("convertInstance() => %v, want %v", out.AvailabilityZone, dc)
 	}
 
 	if out.Endpoint.Address != ip {

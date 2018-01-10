@@ -27,21 +27,19 @@ import (
 
 // Controller communicates with Consul and monitors for changes
 type Controller struct {
-	client     *api.Client
-	dataCenter string
-	monitor    Monitor
+	client  *api.Client
+	monitor Monitor
 }
 
 // NewController creates a new Consul controller
-func NewController(addr, datacenter string, interval time.Duration) (*Controller, error) {
+func NewController(addr string, interval time.Duration) (*Controller, error) {
 	conf := api.DefaultConfig()
 	conf.Address = addr
 
 	client, err := api.NewClient(conf)
 	return &Controller{
-		monitor:    NewConsulMonitor(client, interval),
-		client:     client,
-		dataCenter: datacenter,
+		monitor: NewConsulMonitor(client, interval),
+		client:  client,
 	}, err
 }
 

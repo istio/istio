@@ -37,9 +37,14 @@ const (
 
 // CreateNamespace creates a fresh namespace
 func CreateNamespace(cl kubernetes.Interface) (string, error) {
+	return CreateNamespaceWithPrefix(cl, "istio-test-")
+}
+
+// CreateNamespaceWithPrefix creates a fresh namespace with the given prefix
+func CreateNamespaceWithPrefix(cl kubernetes.Interface, prefix string) (string, error) {
 	ns, err := cl.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: meta_v1.ObjectMeta{
-			GenerateName: "istio-test-",
+			GenerateName: prefix,
 		},
 	})
 	if err != nil {
