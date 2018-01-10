@@ -36,7 +36,7 @@ package istio.routing.v1alpha2;
 //       - port:
 //           number: 80
 //           name: http
-//         domains:
+//         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
 //         tls:
@@ -44,7 +44,7 @@ package istio.routing.v1alpha2;
 //       - port:
 //           number: 443
 //           name: https
-//         domains:
+//         hosts:
 //         - uk.bookinfo.com
 //         - eu.bookinfo.com
 //         tls:
@@ -54,7 +54,7 @@ package istio.routing.v1alpha2;
 //       - port:
 //           number: 9080
 //           name: http-wildcard
-//         # no domains implies wildcard match
+//         # no hosts implies wildcard match
 //       - port:
 //           number: 2379 #to expose internal service via external port 2379
 //           name: Mongo
@@ -62,7 +62,7 @@ package istio.routing.v1alpha2;
 //
 // The gateway specification above describes the L4-L6 properties of a load
 // balancer. Routing rules can then be bound to a gateway to control 
-// the forwarding of traffic arriving at a particular domain or gateway port.
+// the forwarding of traffic arriving at a particular host or gateway port.
 //
 // The following sample route rule splits traffic for
 // https://uk.bookinfo.com/reviews, https://eu.bookinfo.com/reviews,
@@ -197,16 +197,16 @@ message Server {
   // connections
   Port port = 1;
 
-  // A list of domains exposed by this gateway. While
+  // A list of hosts exposed by this gateway. While
   // typically applicable to HTTP services, it can also be used for TCP
   // services using TLS with SNI. Standard DNS wildcard prefix syntax
   // is permitted.
   //
-  // RouteRules that are bound to a gateway must having a matching domain
+  // RouteRules that are bound to a gateway must having a matching host
   // in their default destination. Specifically one of the route rule
-  // destination domains is a strict suffix of a gateway domain or
-  // a gateway domain is a suffix of one of the route rule domains.
-  repeated string domains = 2;
+  // destination hosts is a strict suffix of a gateway host or
+  // a gateway host is a suffix of one of the route rule hosts.
+  repeated string hosts = 2;
 
   message TLSOptions {
     // If set to true, the load balancer will send a 302 redirect for all
