@@ -94,6 +94,10 @@ MIXER_V1_PROTOS := $(ATTR_PROTO) $(CHECK_PROTO) $(REPORT_PROTO) $(SVC_PROTO)
 MIXER_V1_PB_GOS := $(MIXER_V1_PROTOS:.proto=.pb.go)
 
 MIXER_CONFIG := $(MIXER_V1)/config
+CFG_PROTO := $(MIXER_CONFIG)/cfg.proto
+MIXER_CONFIG_PROTOS := $(CFG_PROTO)
+MIXER_CONFIG_PB_GOS := $(MIXER_CONFIG_PROTOS:.proto=.pb.go)
+
 MIXER_CONFIG_CLIENT := $(MIXER_CONFIG)/client
 API_SPEC_PROTO := $(MIXER_CONFIG_CLIENT)/api_spec.proto
 AUTH_PROTO := $(MIXER_CONFIG_CLIENT)/auth.proto
@@ -116,6 +120,7 @@ MIXER_TEMPLATE_PB_GOS := $(MIXER_TEMPLATE_PROTOS:.proto=.pb.go)
 
 ## MIXER-PROTO SPECIFIC MAPPINGS
 MIXER_V1_PKG := istio.io/api/mixer/v1
+CONFIG_PKG := istio.io/api/mixer/v1/config
 CLIENT_PKG := istio.io/api/mixer/v1/config/client
 DESCRIPTOR_PKG := istio.io/api/mixer/v1/config/descriptor
 TEMPLATE_PKG := istio.io/api/mixer/v1/template
@@ -127,6 +132,7 @@ mixer_importmaps = \
 	$(SVC_PROTO)=$(MIXER_V1_PKG) \
 	$(API_SPEC_PROTO)=$(CLIENT_PKG) \
 	$(AUTH_PROTO)=$(CLIENT_PKG) \
+	$(CFG_PROTO)=$(CONFIG_PKG) \
 	$(CLIENT_CONFIG_PROTO)=$(CLIENT_PKG) \
 	$(QUOTA_PROTO)=$(CLIENT_PKG) \
 	$(CONFIG_SVC_PROTO)=$(CLIENT_PKG) \
@@ -262,16 +268,22 @@ $(ERR_PROTO): protoc-tmp/$(RPC_PATH)
 # mixer/...
 #####################
 
-generate-mixer-go: install-deps download-googleapis-protos protoc.version $(PROTOC_GEN_GOGOSLICK) $(PROTOC_GEN_GOGO) generate-mixer-v1-go generate-mixer-v1-config-go generate-mixer-v1-template-go
+generate-mixer-go: install-deps download-googleapis-protos protoc.version $(PROTOC_GEN_GOGOSLICK) $(PROTOC_GEN_GOGO) generate-mixer-v1-go generate-mixer-v1-config-go generate-mixer-v1-config-client-go generate-mixer-v1-template-go
 
 generate-mixer-v1-go: $(MIXER_V1_PB_GOS)
 
-generate-mixer-v1-config-go: $(MIXER_CONFIG_CLIENT_PB_GOS) $(MIXER_CONFIG_DESCRIPTOR_PB_GOS)
+generate-mixer-v1-config-go: mixer/v1/config/fixed_cfg.pb.go
+
+generate-mixer-v1-config-client-go: $(MIXER_CONFIG_CLIENT_PB_GOS) $(MIXER_CONFIG_DESCRIPTOR_PB_GOS)
 
 generate-mixer-v1-template-go: $(MIXER_TEMPLATE_PB_GOS)
 
 $(MIXER_V1_PB_GOS): $(MIXER_V1_PROTOS) | $(PROTOC_BIN)
 	## Generate mixer/v1/*.pb.go
+	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
+
+$(MIXER_CONFIG_PB_GOS) : $(MIXER_CONFIG_PROTOS) | $(PROTOC_BIN)
+	## Generate mixer/v1/config/*.pb.go
 	$(PROTOC) $(PROTO_PATH) $(MIXER_PLUGIN) $^
 
 $(MIXER_CONFIG_CLIENT_PB_GOS) : $(MIXER_CONFIG_CLIENT_PROTOS) | $(PROTOC_BIN)
