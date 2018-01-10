@@ -22,11 +22,12 @@ dag, copy_files = istio_common_dag.MakeCommonDag(
     'istio_monthly_release', schedule_interval='15 4 20 * *', monthly=True)
 
 monthly_release_template = """
-chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-
-/home/airflow/gcs/data/release/start_gcb_publish.sh \
+gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
+gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
+chmod +x *
+./start_gcb_publish.sh \
 -p "{{ settings.RELEASE_PROJECT_ID }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}" -s "{{ settings.GCS_FULL_STAGING_PATH }}" \
 -b "{{ settings.GCS_MONTHLY_RELEASE_PATH }}" -r "{{ settings.GCR_RELEASE_DEST }}" \
@@ -42,11 +43,12 @@ push_release_to_github = BashOperator(
     dag=dag)
 
 daily_release_tag_github_template = """
-chmod +x /home/airflow/gcs/data/release/*
 {% set m_commit = task_instance.xcom_pull(task_ids='get_git_commit') %}
 {% set settings = task_instance.xcom_pull(task_ids='generate_workflow_args') %}
-
-/home/airflow/gcs/data/release/start_gcb_tag.sh \
+gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.json .
+gsutil cp gs://{{ settings.GCS_RELEASE_TOOLS_PATH }}/data/release/*.sh .
+chmod +x *
+./start_gcb_tag.sh \
 -p "{{ settings.RELEASE_PROJECT_ID }}" \
 -h "{{ settings.GITHUB_ORG }}" -a "{{ settings.SVC_ACCT }}"  \
 -v "{{ settings.VERSION }}"   -e "istio_releaser_bot@example.com" \
