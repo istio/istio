@@ -241,7 +241,8 @@ jobs:
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F pilot
-      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/pkg
+      - run: cd /go/src/istio.io/istio; maxprocs=6 bin/parallel-codecov.sh security/cmd
       - run:
           command: |
             bash <(curl -s https://codecov.io/bash) -F security

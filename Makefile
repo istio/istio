@@ -244,7 +244,8 @@ broker-test: depend
 
 .PHONY: security-test
 security-test:
-	go test ${T} ./security/...
+	go test ${T} ./security/pkg/...
+	go test ${T} ./security/cmd/...
 
 common-test:
 	go test ${T} ./pkg/...
@@ -270,7 +271,8 @@ broker-coverage:
 
 .PHONY: security-coverage
 security-coverage:
-	bin/parallel-codecov.sh security
+	bin/parallel-codecov.sh security/pkg
+	bin/parallel-codecov.sh security/cmd
 
 # Run coverage tests
 coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
@@ -282,7 +284,7 @@ coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
 .PHONY: clean
 .PHONY: clean.go
 
-clean: clean.go
+clean: clean.go clean.installgen
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
@@ -323,7 +325,7 @@ docker.prebuilt:
 	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
 
 
-push: checkvars
+push: checkvars clean.installgen installgen
 	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
 
 artifacts: docker
@@ -335,7 +337,27 @@ pilot/platform/kube/config:
 kubelink:
 	ln -fs ~/.kube/config pilot/platform/kube/
 
-.PHONY: artifacts build checkvars clean docker test setup push kubelink
+installgen:
+	install/updateVersion.sh -a ${HUB},${TAG}
+
+clean.installgen:
+	rm -f install/consul/istio.yaml
+	rm -f install/eureka/istio.yaml
+	rm -f install/kubernetes/helm/istio/values.yaml
+	rm -f install/kubernetes/istio-auth.yaml
+	rm -f install/kubernetes/istio-ca-plugin-certs.yaml
+	rm -f install/kubernetes/istio-initializer.yaml
+	rm -f install/kubernetes/istio-one-namespace-auth.yaml
+	rm -f install/kubernetes/istio-one-namespace.yaml
+	rm -f install/kubernetes/istio.yaml
+	rm -f pilot/docker/pilot-test-client
+	rm -f pilot/docker/pilot-test-eurekamirror
+	rm -f pilot/docker/pilot-test-server
+	rm -f samples/bookinfo/consul/bookinfo.sidecars.yaml
+	rm -f samples/bookinfo/eureka/bookinfo.sidecars.yaml
+	rm -f security/docker/ca-certificates.tgz
+
+.PHONY: artifacts build checkvars clean docker test setup push kubelink installgen clean.installgen
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

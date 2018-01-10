@@ -18,7 +18,6 @@ data:
 {{if .Zipkin}}
       zipkinAddress:          zipkin.{{.IstioNamespace}}:9411
 {{end}}
-    egressProxyAddress:       istio-egress.{{.IstioNamespace}}:80
 {{if .Mixer}}
     mixerAddress:             istio-mixer.{{.IstioNamespace}}:15004
 {{end}}
