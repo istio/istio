@@ -1919,8 +1919,13 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		return
 	}
 
-	// TODO: Destination Name string
-	// TODO: Destination Subset string
+	// TODO: validate short name / FQDN
+	if destination.Name == "" {
+		errs = appendErrors(errs, fmt.Errorf("Route Rule destination should not be empty"))
+	}
+
+	// TODO: Destination Subset string? invalid characters?
+
 	// TODO: Port
 
 	return
