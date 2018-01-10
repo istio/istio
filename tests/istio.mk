@@ -1,5 +1,4 @@
 # Test-specific targets, included from top Makefile
-
 ifeq (${TEST_ENV},minikube)
 
 # In minikube env we don't need to push the images to dockerhub or gcr, it is all local,
@@ -47,26 +46,31 @@ E2E_ARGS += $(if ifeq($V,1),-alsologtostderr -test.v -v 2)
 E2E_ARGS += ${MINIKUBE_FLAGS}
 E2E_ARGS += --istioctl ${GOPATH}/bin/istioctl
 
-
+# A make target to generate all the YAML files
+generate_yaml:
+	./install/updateVersion.sh >/dev/null 2>&1
+	
 # Run the e2e tests. Targets correspond to the prow environments/tests
 # The tests take > 10 m
 # This uses the script (deprecated ?), still used by prow.
 # TODO: move prow to use 'make e2e' and remove old script
-e2e: istioctl
+e2e: istioctl generate_yaml
 	./tests/e2e.sh ${E2E_ARGS} --istioctl ${GOPATH}/bin/istioctl --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
 		--mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 # Simple e2e test using fortio, approx 2 min
-e2e_simple: istioctl
-	echo "=== E2E testing with ${TAG} and ${HUB}"
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+e2e_simple: istioctl generate_yaml
+	@echo "=== E2E testing with ${TAG} and ${HUB}"
+	go test  -timeout 20m -v ${TEST_ARGS:-} ./tests/e2e/tests/simple -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
              --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 
-e2e_mixer: istioctl
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args ${E2E_ARGS}
+e2e_mixer: istioctl generate_yaml
+	go test  -timeout 20m -v ${TEST_ARGS:-} ./tests/e2e/tests/mixer -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+                          --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
-e2e_bookinfo: istioctl
-	go test  -v ${TEST_ARGS:-} ./tests/e2e/tests/bookinfo -args ${E2E_ARGS}
+e2e_bookinfo: istioctl generate_yaml
+	go test -timeout 20m -v ${TEST_ARGS:-} ./tests/e2e/tests/bookinfo -args ${E2E_ARGS} --mixer_tag ${TAG} --pilot_tag ${TAG} --ca_tag ${TAG} \
+                         --mixer_hub ${HUB} --pilot_hub ${HUB} --ca_hub ${HUB}
 
 e2e_all: e2e_simple e2e_mixer e2e_bookinfo

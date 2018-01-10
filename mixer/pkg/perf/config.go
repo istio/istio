@@ -14,8 +14,8 @@
 
 package perf
 
-// TODO: We should ideally combine this file with pkg/server/Args. Unfortunately, pkg/serverArgs is not serializable.
 // Config is the Mixer server configuration to use during perf tests.
+// TODO: We should ideally combine this file with pkg/server/Args. Unfortunately, pkg/serverArgs is not serializable.
 type Config struct {
 	Global                  string `json:"global"`
 	Service                 string `json:"rpcServer"`

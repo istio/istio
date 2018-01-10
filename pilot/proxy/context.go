@@ -20,12 +20,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	multierror "github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 // Environment provides an aggregate environmental API for Pilot
@@ -200,7 +202,7 @@ func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 func ParsePort(addr string) int {
 	port, err := strconv.Atoi(addr[strings.Index(addr, ":")+1:])
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 
 	return port

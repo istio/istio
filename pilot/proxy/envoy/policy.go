@@ -99,7 +99,9 @@ func applyClusterPolicy(cluster *Cluster,
 		if cbconfig.HttpMaxPendingRequests > 0 {
 			cluster.CircuitBreaker.Default.MaxPendingRequests = int(cbconfig.HttpMaxPendingRequests)
 		}
-		//TODO: need to add max_retries as well. Currently it defaults to 3
+		if cbconfig.HttpMaxRetries > 0 {
+			cluster.CircuitBreaker.Default.MaxRetries = int(cbconfig.HttpMaxRetries)
+		}
 
 		cluster.OutlierDetection = &OutlierDetection{}
 

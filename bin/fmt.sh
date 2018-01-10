@@ -8,7 +8,7 @@ SCRIPTPATH=$( cd "$(dirname "$0")" ; pwd -P )
 ROOTDIR=$SCRIPTPATH/..
 cd $ROOTDIR
 
-export GOPATH=$(cd $ROOTDIR/../..; pwd)
+export GOPATH=$(cd $ROOTDIR/../../..; pwd)
 export PATH=$GOPATH/bin:$PATH
 
 if which goimports; then
@@ -19,8 +19,9 @@ else
 fi
 
 PKGS=${PKGS:-"."}
-
-GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)
+if [[ -z ${GO_FILES} ]];then
+  GO_FILES=$(find ${PKGS} -type f -name '*.go' ! -name '*.gen.go' ! -name '*.pb.go' ! -name '*mock*.go' | grep -v ./vendor)
+fi
 
 UX=$(uname)
 

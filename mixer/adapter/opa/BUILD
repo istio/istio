@@ -11,6 +11,8 @@ go_library(
         "//mixer/pkg/adapter:go_default_library",
         "//mixer/pkg/status:go_default_library",
         "//mixer/template/authorization:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_open_policy_agent_opa//ast:go_default_library",
         "@com_github_open_policy_agent_opa//rego:go_default_library",

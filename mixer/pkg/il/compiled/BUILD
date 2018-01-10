@@ -15,6 +15,7 @@ go_library(
         "//mixer/pkg/il/compiler:go_default_library",
         "//mixer/pkg/il/interpreter:go_default_library",
         "//mixer/pkg/il/runtime:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
 

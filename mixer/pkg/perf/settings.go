@@ -19,6 +19,7 @@ import (
 	"istio.io/istio/mixer/pkg/template"
 )
 
+// RunMode configures the run mode for the perf.
 type RunMode int
 
 const (

@@ -1,5 +1,16 @@
 FROM    circleci/golang:1.9
 
+# The base circleci image runs as user 'circleci'(3434), with sudo capabilities.
+# Based on Debian9. Go installed in /usr/local/go
+
+# Env:
+# GOLANG_VERSION
+# GPATH=/go
+
+# Workdir: /go
+
+# Also installed docker, docker-compose, dockerize, jq
+
 RUN     go get github.com/coreos/etcd/cmd/etcd
 
 ARG     K8S_VER=v1.7.4
@@ -10,6 +21,7 @@ RUN     mkdir -p /tmp/apiserver && \
         wget https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kube-apiserver && \
         chmod +x /tmp/apiserver/kube-apiserver
 
+# TODO: generate and checkin the test apiserver and istio-ca keys
 RUN     cd /tmp && \
         curl -L -O https://storage.googleapis.com/kubernetes-release/easy-rsa/easy-rsa.tar.gz && \
         tar xzf easy-rsa.tar.gz && \
@@ -23,9 +35,21 @@ RUN     cd /tmp && \
         cd /tmp && \
         rm -rf /tmp/easy-rsa-master/
 
-
 RUN     go get -u github.com/golang/dep/cmd/dep
 
 ADD     start-test-server.sh /tmp/apiserver/start-test-server.sh
 
-ENTRYPOINT ["/tmp/apiserver/start-test-server.sh"]
+# Tool used to convert 'go test' to junit, for integration with CI dashboard
+RUN     go get github.com/jstemmer/go-junit-report
+
+# Install fpm tool
+RUN  sudo apt-get -qqy install ruby ruby-dev rubygems build-essential && \
+     sudo gem install --no-ri --no-rdoc fpm
+
+# Include minikube and kubectl in the image
+RUN curl -Lo /tmp/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.7.4/bin/linux/amd64/kubectl && \
+    chmod +x /tmp/kubectl && sudo mv /tmp/kubectl /usr/local/bin/
+
+RUN curl -Lo /tmp/minikube https://storage.googleapis.com/minikube/releases/v0.22.3/minikube-linux-amd64 &&\
+    chmod +x /tmp/minikube && sudo mv /tmp/minikube /usr/local/bin/
+

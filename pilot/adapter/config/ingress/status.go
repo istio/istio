@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	betaext "k8s.io/api/extensions/v1beta1"
@@ -33,6 +34,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 const ingressElectionID = "istio-ingress-controller-leader"
@@ -81,7 +83,7 @@ func NewStatusSyncer(mesh *meshconfig.MeshConfig,
 	if mesh.IngressService != "" {
 		publishService = fmt.Sprintf("%v/%v", ingressNamespace, mesh.IngressService)
 	}
-	glog.V(2).Infof("ingress status syncer publishService %s", publishService)
+	log.Infof("ingress status syncer publishService %s", publishService)
 	ingressClass, defaultIngressClass := convertIngressControllerMode(mesh.IngressControllerMode, mesh.IngressClass)
 
 	customIngressStatus := func(*betaext.Ingress) []v1.LoadBalancerIngress {

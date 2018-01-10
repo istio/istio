@@ -21,11 +21,13 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/core/v1"
@@ -35,12 +37,15 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/util/homedir"
 
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/cmd"
+	"istio.io/istio/pilot/cmd/istioctl/gendeployment"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -62,6 +67,8 @@ var (
 
 	// output format (yaml or short)
 	outputFormat string
+
+	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
 		Use:               "istioctl",
@@ -94,6 +101,9 @@ and destination policies.
 			istioctl create -f example-routing.yaml
 			`,
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 			if len(args) != 0 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("create takes no arguments")
@@ -487,7 +497,7 @@ and destination policies.
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&platform, "platform", "p", kubePlatform,
 		"Istio host platform")
-	defaultKubeconfig := os.Getenv("HOME") + "/.kube/config"
+	defaultKubeconfig := path.Join(homedir.HomeDir(), ".kube/config")
 	if v := os.Getenv("KUBECONFIG"); v != "" {
 		defaultKubeconfig = v
 	}
@@ -514,6 +524,9 @@ func init() {
 	getCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "short",
 		"Output format. One of:yaml|short")
 
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
+
 	cmd.AddFlags(rootCmd)
 
 	rootCmd.AddCommand(postCmd)
@@ -522,11 +535,15 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(gendeployment.Command(&istioNamespace))
 }
 
 func main() {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
 	if platform != kubePlatform {
-		glog.Warningf("Platform '%s' not supported.", platform)
+		log.Warnf("Platform '%s' not supported.", platform)
 	}
 
 	if err := rootCmd.Execute(); err != nil {
@@ -565,7 +582,7 @@ func readInputs() ([]model.Config, []crd.IstioKind, error) {
 		}
 		defer func() {
 			if err = in.Close(); err != nil {
-				glog.Errorf("Error: close file from %s, %s", file, err)
+				log.Errorf("Error: close file from %s, %s", file, err)
 			}
 		}()
 		reader = in
@@ -599,17 +616,17 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 	for _, config := range configList {
 		schema, exists := descriptor.GetByType(config.Type)
 		if !exists {
-			glog.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
+			log.Errorf("Unknown kind %q for %v", crd.ResourceName(config.Type), config.Name)
 			continue
 		}
 		obj, err := crd.ConvertConfig(schema, config)
 		if err != nil {
-			glog.Errorf("Could not decode %v: %v", config.Name, err)
+			log.Errorf("Could not decode %v: %v", config.Name, err)
 			continue
 		}
 		bytes, err := yaml.Marshal(obj)
 		if err != nil {
-			glog.Errorf("Could not convert %v to YAML: %v", config, err)
+			log.Errorf("Could not convert %v to YAML: %v", config, err)
 			continue
 		}
 		fmt.Print(string(bytes))
@@ -620,6 +637,7 @@ func printYamlOutput(configClient *crd.Client, configList []model.Config) {
 func newClient() (*crd.Client, error) {
 	return crd.NewClient(kubeconfig, model.ConfigDescriptor{
 		model.RouteRule,
+		model.V1alpha2RouteRule,
 		model.Gateway,
 		model.EgressRule,
 		model.DestinationPolicy,
@@ -719,7 +737,7 @@ func getDefaultNamespace(kubeconfig string) string {
 	if context.Namespace == "" {
 		return v1.NamespaceDefault
 	}
-	return namespace
+	return context.Namespace
 }
 
 func handleNamespaces(objectNamespace string) (string, error) {

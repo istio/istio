@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -72,8 +73,13 @@ func TestRunReload(t *testing.T) {
 }
 
 func TestWatchCerts_Multiple(t *testing.T) {
+
+	lock := sync.Mutex{}
 	called := 0
+
 	callback := func() {
+		lock.Lock()
+		defer lock.Unlock()
 		called++
 	}
 
@@ -93,17 +99,22 @@ func TestWatchCerts_Multiple(t *testing.T) {
 	time.Sleep(maxDelay / 2)
 
 	// Expect no events to be delivered within maxDelay.
+	lock.Lock()
 	if called != 0 {
 		t.Fatalf("Called %d times, want 0", called)
 	}
+	lock.Unlock()
 
 	// wait for quiet period
 	time.Sleep(maxDelay)
 
 	// Expect exactly 1 event to be delivered.
+	lock.Lock()
+	defer lock.Unlock()
 	if called != 1 {
 		t.Fatalf("Called %d times, want 1", called)
 	}
+
 	cancel()
 }
 
@@ -229,24 +240,24 @@ func TestEnvoyRun(t *testing.T) {
 	config.ConfigPath = "tmp"
 
 	envoyConfig := buildConfig(config, nil)
-	proxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
+	envoyProxy := envoy{config: config, node: "my-node", extraArgs: []string{"--mode", "validate"}}
 	abortCh := make(chan error, 1)
 
-	if err = proxy.Run(nil, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(nil, 0, abortCh); err == nil {
 		t.Error("expected error on nil config")
 	}
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err != nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err != nil {
 		t.Error(err)
 	}
 
-	proxy.Cleanup(0)
+	envoyProxy.Cleanup(0)
 
 	badConfig := config
 	badConfig.ConfigPath = ""
-	proxy.config = badConfig
+	envoyProxy.config = badConfig
 
-	if err = proxy.Run(envoyConfig, 0, abortCh); err == nil {
+	if err = envoyProxy.Run(envoyConfig, 0, abortCh); err == nil {
 		t.Errorf("expected error on bad config path")
 	}
 }

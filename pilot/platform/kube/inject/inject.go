@@ -29,13 +29,15 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
-	v2alpha1 "k8s.io/api/batch/v2alpha1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/batch/v2alpha1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
@@ -44,6 +46,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/proxy"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 // per-sidecar policy and status (deployment, job, statefulset, pod, etc)
@@ -299,7 +302,7 @@ IncludeNamespaceSearch:
 
 	status, ok := annotations[istioSidecarAnnotationStatusKey]
 
-	glog.V(2).Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
+	log.Infof("Sidecar injection policy for %v/%v: namespacePolicy:%v useDefault:%v inject:%v status:%q required:%v",
 		obj.GetNamespace(), obj.GetName(), namespacePolicy, useDefault, inject, status, required)
 
 	if !required {
@@ -314,7 +317,7 @@ IncludeNamespaceSearch:
 func timeString(dur *duration.Duration) string {
 	out, err := ptypes.Duration(dur)
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 	return out.String()
 }
@@ -487,19 +490,16 @@ func injectIntoSpec(p *Params, spec *v1.PodSpec, metadata *metav1.ObjectMeta) {
 	spec.Containers = append(spec.Containers, sidecar)
 }
 
-func intoObject(c *Config, in interface{}) (interface{}, error) {
+func intoObject(c *Config, in runtime.Object) (interface{}, error) {
 	obj, err := meta.Accessor(in)
 	if err != nil {
 		return nil, err
 	}
 
-	out, err := injectScheme.DeepCopy(in)
-	if err != nil {
-		return nil, err
-	}
+	out := in.DeepCopyObject()
 
 	if !injectRequired(c.IncludeNamespaces, ignoredNamespaces, c.ExcludeNamespaces, c.Policy, obj) {
-		glog.V(2).Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
+		log.Infof("Skipping %s/%s due to policy check", obj.GetNamespace(), obj.GetName())
 		return out, nil
 	}
 

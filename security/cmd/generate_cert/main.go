@@ -22,10 +22,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/ca"
 )
 
@@ -47,19 +50,24 @@ var (
 	keySize        = flag.Int("key-size", 2048, "Size of the generated private key")
 )
 
+func fatalf(template string, args ...interface{}) {
+	log.Errorf(template, args)
+	os.Exit(-1)
+}
+
 func checkCmdLine() {
 	flag.Parse()
 
 	hasCert, hasPriv := len(*signerCertFile) != 0, len(*signerPrivFile) != 0
 	if *isSelfSigned {
 		if hasCert || hasPriv {
-			glog.Fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
+			fatalf("--self-signed is incompatible with --signer-cert or --signer-priv.")
 		}
 	} else {
 		if !hasCert && !hasPriv {
-			glog.Fatalf("Need --self-signed or --signer-cert and --signer-priv.")
+			fatalf("Need --self-signed or --signer-cert and --signer-priv.")
 		} else if !(hasCert && hasPriv) {
-			glog.Fatalf("Missing --signer-cert or --signer-priv.")
+			fatalf("Missing --signer-cert or --signer-priv.")
 		}
 	}
 }
@@ -67,12 +75,12 @@ func checkCmdLine() {
 func saveCreds(certPem []byte, privPem []byte) {
 	err := ioutil.WriteFile(*outCert, certPem, 0644)
 	if err != nil {
-		glog.Fatalf("Could not write output certificate: %s.", err)
+		fatalf("Could not write output certificate: %s.", err)
 	}
 
 	err = ioutil.WriteFile(*outPriv, privPem, 0600)
 	if err != nil {
-		glog.Fatalf("Could not write output private key: %s.", err)
+		fatalf("Could not write output private key: %s.", err)
 	}
 }
 
@@ -85,7 +93,8 @@ func main() {
 	if !*isSelfSigned {
 		signerCert, signerPriv, err = ca.LoadSignerCredsFromFiles(*signerCertFile, *signerPrivFile)
 		if err != nil {
-			glog.Fatal(err)
+			log.Errora(err)
+			os.Exit(-1)
 		}
 	}
 
@@ -114,7 +123,7 @@ func getNotBefore() time.Time {
 
 	t, err := time.Parse(timeLayout, *validFrom)
 	if err != nil {
-		glog.Fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
+		fatalf("Failed to parse the '-start-from' option as a time (error: %s)", err)
 	}
 
 	return t
