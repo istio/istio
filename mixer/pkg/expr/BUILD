@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "evaluator.go",
         "expr.go",
+        "finder.go",
         "func.go",
     ],
     visibility = ["//visibility:public"],
@@ -22,6 +23,7 @@ go_test(
     size = "small",
     srcs = [
         "expr_test.go",
+        "finter_test.go",
     ],
     library = ":go_default_library",
     deps = [
