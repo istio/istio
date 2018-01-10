@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package probe
 
 import (
-	"fmt"
 	"os"
 )
 
-func main() {
-	// This is a tool for k8s liveness/readiness probe; this commandline
-	// tool check the existence of a file path and fails if the file does
-	// not exist. See //pkg/probe for the part of creating such files.
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Target is unspecified.\n")
-		os.Exit(2)
-	}
-	target := os.Args[1]
-	if _, err := os.Stat(target); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to find the path %s: %v\n", target, err)
-		os.Exit(1)
-	}
+// PathExists checks if the specified path exists or not. This will be used
+// by the k8s probe client commandline tool.
+func PathExists(path string) error {
+	_, err := os.Stat(path)
+	return err
 }

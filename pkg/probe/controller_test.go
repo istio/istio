@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright 2018 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,6 @@ import (
 	"testing"
 )
 
-func pathExists(path string) bool {
-	if _, err := os.Stat(path); err != nil {
-		return false
-	}
-	return true
-}
-
 func TestFileController(t *testing.T) {
 	dir, err := ioutil.TempDir("", t.Name())
 	if err != nil {
@@ -37,7 +30,7 @@ func TestFileController(t *testing.T) {
 	defer os.RemoveAll(dir)
 	path := filepath.Join(dir, "foo")
 	fc := NewFileController(path)
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 
@@ -45,24 +38,24 @@ func TestFileController(t *testing.T) {
 	p1.RegisterProbe(fc, "p1")
 
 	p1.SetAvailable(nil)
-	if !pathExists(path) {
-		t.Errorf("Path %s should exist.", path)
+	if err = PathExists(path); err != nil {
+		t.Errorf("Path %s should exist: %v", path, err)
 	}
 
 	p2 := NewProbe()
 	p2.RegisterProbe(fc, "p2")
 
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 
 	p2.SetAvailable(nil)
-	if !pathExists(path) {
-		t.Errorf("Path %s should exist.", path)
+	if err = PathExists(path); err != nil {
+		t.Errorf("Path %s should exist: %v", path, err)
 	}
 
 	p1.SetAvailable(errors.New("dummy"))
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 }
@@ -80,13 +73,13 @@ func TestControllerRegisterTwice(t *testing.T) {
 	p1.RegisterProbe(fc, "p1")
 	p1.RegisterProbe(fc, "p1")
 
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 
 	p1.SetAvailable(nil)
-	if !pathExists(path) {
-		t.Errorf("Path %s should exist.", path)
+	if err = PathExists(path); err != nil {
+		t.Errorf("Path %s should exist: %v", path, err)
 	}
 }
 
@@ -102,28 +95,28 @@ func TestControllerAfterClose(t *testing.T) {
 	p1 := NewProbe()
 	p1.RegisterProbe(fc, "p1")
 
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 
 	p1.SetAvailable(nil)
-	if !pathExists(path) {
-		t.Errorf("Path %s should exist.", path)
+	if err = PathExists(path); err != nil {
+		t.Errorf("Path %s should exist: %v", path, err)
 	}
 
 	if err := fc.Close(); err != nil {
 		t.Errorf("failed to close: %v", err)
 	}
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 
 	p1.SetAvailable(errors.New("dummy"))
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 	p1.SetAvailable(nil)
-	if pathExists(path) {
+	if err = PathExists(path); err == nil {
 		t.Errorf("Path %s shouldn't exist.", path)
 	}
 }
