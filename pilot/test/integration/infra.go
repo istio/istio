@@ -32,7 +32,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pilot/platform"
 	"istio.io/istio/pilot/platform/kube/inject"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -53,7 +55,6 @@ type infra struct { // nolint: aligncheck
 
 	// docker tags
 	Hub, Tag string
-	CaImage  string
 
 	Namespace      string
 	IstioNamespace string
@@ -73,6 +74,9 @@ type infra struct { // nolint: aligncheck
 	Ingress   bool
 	Zipkin    bool
 	DebugPort int
+
+	SkipCleanup          bool
+	SkipCleanupOnFailure bool
 
 	// check proxy logs
 	checkLogs bool
@@ -108,7 +112,7 @@ func (infra *infra) setup() error {
 
 	if infra.Namespace == "" {
 		var err error
-		if infra.Namespace, err = util.CreateNamespace(client); err != nil {
+		if infra.Namespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-app-"); err != nil {
 			return err
 		}
 		infra.namespaceCreated = true
@@ -120,7 +124,7 @@ func (infra *infra) setup() error {
 
 	if infra.IstioNamespace == "" {
 		var err error
-		if infra.IstioNamespace, err = util.CreateNamespace(client); err != nil {
+		if infra.IstioNamespace, err = util.CreateNamespaceWithPrefix(client, "istio-test-"); err != nil {
 			return err
 		}
 		infra.istioNamespaceCreated = true
@@ -151,7 +155,7 @@ func (infra *infra) setup() error {
 		return err
 	}
 	debugMode := infra.debugImagesAndMode
-	glog.Infof("mesh %s", spew.Sdump(mesh))
+	log.Infof("mesh %s", spew.Sdump(mesh))
 
 	// Default to NamespaceAll to mirror kube-inject behavior. Only
 	// use a specific include namespace for the automatic injection.
@@ -327,15 +331,15 @@ func (infra *infra) deployApp(deployment, svcName string, port1, port2, port3, p
 
 func (infra *infra) teardown() {
 	if yaml, err := fill("rbac-beta.yaml.tmpl", infra); err != nil {
-		glog.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
+		log.Infof("RBAC template could could not be processed, please delete stale ClusterRoleBindings: %v",
 			err)
 	} else if err = infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
-		glog.Infof("RBAC config could could not be deleted: %v", err)
+		log.Infof("RBAC config could could not be deleted: %v", err)
 	}
 
 	if infra.UseAdmissionWebhook {
 		if err := infra.deleteAdmissionWebhookSecret(); err != nil {
-			glog.Infof("Could not delete admission webhook secret: %v", err)
+			log.Infof("Could not delete admission webhook secret: %v", err)
 		}
 	}
 
@@ -351,10 +355,10 @@ func (infra *infra) teardown() {
 	// InitializerConfiguration is not namespaced.
 	if infra.UseInitializer {
 		if yaml, err := fill("initializer-config.yaml.tmpl", infra); err != nil {
-			glog.Infof("Sidecar initializer configuration could not be processed, "+
+			log.Infof("Sidecar initializer configuration could not be processed, "+
 				"please delete stale InitializerConfiguration : %v", err)
 		} else if err := infra.kubeDelete(yaml, infra.IstioNamespace); err != nil {
-			glog.Infof("Sidecar initializer configuration could not be deleted: %v", err)
+			log.Infof("Sidecar initializer configuration could not be deleted: %v", err)
 		}
 	}
 }
@@ -389,7 +393,7 @@ var (
 func (infra *infra) clientRequest(app, url string, count int, extra string) response {
 	out := response{}
 	if len(infra.apps[app]) == 0 {
-		glog.Errorf("missing pod names for app %q", app)
+		log.Errorf("missing pod names for app %q", app)
 		return out
 	}
 
@@ -399,7 +403,7 @@ func (infra *infra) clientRequest(app, url string, count int, extra string) resp
 	request, err := util.Shell(cmd)
 
 	if err != nil {
-		glog.Errorf("client request error %v for %s in %s", err, url, app)
+		log.Errorf("client request error %v for %s in %s", err, url, app)
 		return out
 	}
 
@@ -456,7 +460,7 @@ func (infra *infra) applyConfig(inFile string, data map[string]string) error {
 	}
 
 	sleepTime := time.Second * 3
-	glog.Infof("Sleeping %v for the config to propagate", sleepTime)
+	log.Infof("Sleeping %v for the config to propagate", sleepTime)
 	time.Sleep(sleepTime)
 	return nil
 }
@@ -468,7 +472,7 @@ func (infra *infra) deleteAllConfigs() error {
 			return err
 		}
 		for _, config := range configs {
-			glog.Infof("Delete config %s", config.Key())
+			log.Infof("Delete config %s", config.Key())
 			if err = infra.config.Delete(desc.Type, config.Name, config.Namespace); err != nil {
 				return err
 			}

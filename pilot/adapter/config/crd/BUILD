@@ -13,6 +13,9 @@ go_library(
     deps = [
         "//pilot/model:go_default_library",
         "//pilot/platform/kube:go_default_library",
+        "//pkg/log:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",
         "@io_k8s_apiextensions_apiserver//pkg/apis/apiextensions/v1beta1:go_default_library",
@@ -33,14 +36,6 @@ go_library(
     ],
 )
 
-genrule(
-    name = "crd",
-    srcs = ["config.go"],
-    outs = ["types.go"],
-    cmd = "./$(location generate.sh) $(location config.go) > $@",
-    tools = ["generate.sh"],
-)
-
 go_test(
     name = "go_default_test",
     size = "small",
@@ -56,6 +51,7 @@ go_test(
         "//pilot/platform/kube:go_default_library",
         "//pilot/test/mock:go_default_library",
         "//pilot/test/util:go_default_library",
+        "//tests/k8s:go_default_library",
     ],
 )
 

@@ -23,15 +23,16 @@ import (
 	"text/tabwriter"
 	"time"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	otgrpc "github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/cmd/shared"
 	"istio.io/istio/mixer/pkg/attribute"
-	"istio.io/istio/mixer/pkg/tracing"
+	"istio.io/istio/pkg/tracing"
 )
 
 type clientState struct {
@@ -39,18 +40,19 @@ type clientState struct {
 	connection *grpc.ClientConn
 }
 
-func createAPIClient(port string, enableTracing bool) (*clientState, error) {
+func createAPIClient(port string, tracingOptions *tracing.Options) (*clientState, error) {
 	cs := clientState{}
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
-	if enableTracing {
-		t, _, err := tracing.NewTracer("mixer-client", tracing.WithLogger())
+
+	if tracingOptions.TracingEnabled() {
+		_, err := tracing.Configure("mixer-client", tracingOptions)
 		if err != nil {
 			return nil, fmt.Errorf("could not build tracer: %v", err)
 		}
-		ot.InitGlobalTracer(t)
-		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)))
+		ot.InitGlobalTracer(ot.GlobalTracer())
+		opts = append(opts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(ot.GlobalTracer())))
 	}
 
 	var err error
@@ -218,9 +220,13 @@ func parseAttributes(rootArgs *rootArgs) (*mixerpb.CompressedAttributes, error) 
 }
 
 func decodeError(err error) string {
-	result := grpc.Code(err).String()
+	st, ok := status.FromError(err)
+	if !ok {
+		return "unknown"
+	}
+	result := st.Code().String()
 
-	msg := grpc.ErrorDesc(err)
+	msg := st.Message()
 	if msg != "" {
 		result = result + " (" + msg + ")"
 	}

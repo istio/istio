@@ -27,9 +27,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/e2e/framework"
 	"istio.io/istio/tests/util"
 )
@@ -82,7 +84,7 @@ func getWithCookie(url string, cookies []http.Cookie) (*http.Response, error) {
 
 func closeResponseBody(r *http.Response) {
 	if err := r.Body.Close(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 	}
 }
 
@@ -94,14 +96,14 @@ func (t *testConfig) Setup() error {
 		dest := filepath.Join(t.rulesDir, rule)
 		ori, err := ioutil.ReadFile(src)
 		if err != nil {
-			glog.Errorf("Failed to read original rule file %s", src)
+			log.Errorf("Failed to read original rule file %s", src)
 			return err
 		}
 		content := string(ori)
 		content = strings.Replace(content, "jason", u2, -1)
 		err = ioutil.WriteFile(dest, []byte(content), 0600)
 		if err != nil {
-			glog.Errorf("Failed to write into new rule file %s", dest)
+			log.Errorf("Failed to write into new rule file %s", dest)
 			return err
 		}
 
@@ -127,16 +129,17 @@ func (t *testConfig) Teardown() error {
 
 func check(err error, msg string) {
 	if err != nil {
-		glog.Fatalf("%s. Error %s", msg, err)
+		log.Errorf("%s. Error %s", msg, err)
+		os.Exit(-1)
 	}
 }
 
 func inspect(err error, fMsg, sMsg string, t *testing.T) {
 	if err != nil {
-		glog.Errorf("%s. Error %s", fMsg, err)
+		log.Errorf("%s. Error %s", fMsg, err)
 		t.Error(err)
 	} else if sMsg != "" {
-		glog.Info(sMsg)
+		log.Info(sMsg)
 	}
 }
 
@@ -149,11 +152,11 @@ func setUpDefaultRouting() error {
 		time.Sleep(time.Duration(standby) * time.Second)
 		resp, err := http.Get(fmt.Sprintf("%s/productpage", tc.gateway))
 		if err != nil {
-			glog.Infof("Error talking to productpage: %s", err)
+			log.Infof("Error talking to productpage: %s", err)
 		} else {
-			glog.Infof("Get from page: %d", resp.StatusCode)
+			log.Infof("Get from page: %d", resp.StatusCode)
 			if resp.StatusCode == http.StatusOK {
-				glog.Info("Get response from product page!")
+				log.Info("Get response from product page!")
 				break
 			}
 			closeResponseBody(resp)
@@ -162,9 +165,9 @@ func setUpDefaultRouting() error {
 			return errors.New("unable to set default route")
 		}
 		standby += 5
-		glog.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
+		log.Errorf("Couldn't get to the bookinfo product page, trying again in %d second", standby)
 	}
-	glog.Info("Success! Default route got expected response")
+	log.Info("Success! Default route got expected response")
 	return nil
 }
 
@@ -194,7 +197,7 @@ func checkRoutingResponse(user, version, gateway, modelFile string) (int, error)
 	}
 
 	if err = util.CompareToFile(body, modelFile); err != nil {
-		glog.Errorf("Error: User %s in version %s didn't get expected response", user, version)
+		log.Errorf("Error: User %s in version %s didn't get expected response", user, version)
 		duration = -1
 	}
 	closeResponseBody(resp)
@@ -208,9 +211,9 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 	}
 
 	defer closeResponseBody(resp)
-	glog.Infof("Get from page: %d", resp.StatusCode)
+	log.Infof("Get from page: %d", resp.StatusCode)
 	if resp.StatusCode != http.StatusOK {
-		glog.Errorf("Get response from product page failed!")
+		log.Errorf("Get response from product page failed!")
 		return -1, fmt.Errorf("status code is %d", resp.StatusCode)
 	}
 
@@ -230,11 +233,11 @@ func checkHTTPResponse(user, gateway, expr string, count int) (int, error) {
 
 	ref := re.FindAll(body, -1)
 	if ref == nil {
-		glog.Infof("%v", string(body))
+		log.Infof("%v", string(body))
 		return -1, fmt.Errorf("could not find %v in response", expr)
 	}
 	if count > 0 && len(ref) < count {
-		glog.Infof("%v", string(body))
+		log.Infof("%v", string(body))
 		return -1, fmt.Errorf("could not find %v # of %v in response. found %v", count, expr, len(ref))
 	}
 	return 1, nil
@@ -248,7 +251,7 @@ func deleteRules(ruleKeys []string) error {
 			err = multierror.Append(err, e)
 		}
 	}
-	glog.Info("Waiting for rule to be cleaned up...")
+	log.Info("Waiting for rule to be cleaned up...")
 	time.Sleep(time.Duration(30) * time.Second)
 	return err
 }
@@ -257,11 +260,11 @@ func applyRules(ruleKeys []string) error {
 	for _, ruleKey := range ruleKeys {
 		rule := filepath.Join(tc.rulesDir, ruleKey)
 		if err := util.KubeApply(tc.Kube.Namespace, rule); err != nil {
-			//glog.Errorf("Kubectl apply %s failed", rule)
+			//log.Errorf("Kubectl apply %s failed", rule)
 			return err
 		}
 	}
-	glog.Info("Waiting for rules to propagate...")
+	log.Info("Waiting for rules to propagate...")
 	time.Sleep(time.Duration(30) * time.Second)
 	return nil
 }
@@ -302,9 +305,9 @@ func TestFaultDelay(t *testing.T) {
 		duration, err := checkRoutingResponse(
 			u2, "v1-timeout", tc.gateway,
 			testModel)
-		glog.Infof("Get response in %d second", duration)
+		log.Infof("Get response in %d second", duration)
 		if err == nil && duration >= minDuration && duration <= maxDuration {
-			glog.Info("Success! Fault delay as expected")
+			log.Info("Success! Fault delay as expected")
 			break
 		}
 
@@ -314,7 +317,7 @@ func TestFaultDelay(t *testing.T) {
 			break
 		}
 
-		glog.Infof("Unexpected response, retry in %ds", standby)
+		log.Infof("Unexpected response, retry in %ds", standby)
 		time.Sleep(time.Duration(standby) * time.Second)
 	}
 }
@@ -350,12 +353,12 @@ func TestVersionMigration(t *testing.T) {
 			resp, err := getWithCookie(fmt.Sprintf("%s/productpage", tc.gateway), cookies)
 			inspect(err, "Failed to record", "", t)
 			if resp.StatusCode != http.StatusOK {
-				glog.Errorf("unexpected response status %d", resp.StatusCode)
+				log.Errorf("unexpected response status %d", resp.StatusCode)
 				continue
 			}
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				glog.Error(err)
+				log.Errora(err)
 				continue
 			}
 			if err = util.CompareToFile(body, modelV1); err == nil {
@@ -368,7 +371,7 @@ func TestVersionMigration(t *testing.T) {
 		c1Percent := int((migrationRate + tolerance) * float64(totalShot))
 		c3Percent := int((migrationRate - tolerance) * float64(totalShot))
 		if (c1 <= c1Percent) && (c3 >= c3Percent) {
-			glog.Infof(
+			log.Infof(
 				"Success! Version migration acts as expected, "+
 					"old version hit %d, new version hit %d", c1, c3)
 			break
@@ -470,7 +473,7 @@ func TestVMExtendsIstio(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	check(framework.InitGlog(), "cannot setup glog")
+	check(framework.InitLogging(), "cannot setup logging")
 	check(setTestConfig(), "could not create TestConfig")
 	tc.Cleanup.RegisterCleanable(tc)
 	os.Exit(tc.RunTest(m))

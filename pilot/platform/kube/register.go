@@ -18,10 +18,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -120,7 +123,7 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 	getOpt := meta_v1.GetOptions{IncludeUninitialized: true}
 	_, err := client.Core().Services(namespace).Get(svcName, getOpt)
 	if err != nil {
-		glog.Warningf("Got '%v' looking up svc '%s' in namespace '%s', attempting to create it", err, svcName, namespace)
+		log.Warnf("Got '%v' looking up svc '%s' in namespace '%s', attempting to create it", err, svcName, namespace)
 		svc := v1.Service{}
 		svc.Name = svcName
 		for _, p := range portsList {
@@ -129,20 +132,20 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 		addLabelsAndAnnotations(&svc.ObjectMeta, labels, annotations)
 		_, err = client.CoreV1().Services(namespace).Create(&svc)
 		if err != nil {
-			glog.Error("Unable to create service: ", err)
+			log.Errora("Unable to create service: ", err)
 			return err
 		}
 	}
 	eps, err := client.CoreV1().Endpoints(namespace).Get(svcName, getOpt)
 	if err != nil {
-		glog.Warningf("Got '%v' looking up endpoints for '%s' in namespace '%s', attempting to create them",
+		log.Warnf("Got '%v' looking up endpoints for '%s' in namespace '%s', attempting to create them",
 			err, svcName, namespace)
 		endP := v1.Endpoints{}
 		endP.Name = svcName // same but does it need to be
 		addLabelsAndAnnotations(&endP.ObjectMeta, labels, annotations)
 		eps, err = client.CoreV1().Endpoints(namespace).Create(&endP)
 		if err != nil {
-			glog.Error("Unable to create endpoint: ", err)
+			log.Errora("Unable to create endpoint: ", err)
 			return err
 		}
 	}
@@ -152,18 +155,18 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 		portsMap[e.Port] = true
 	}
 
-	glog.V(2).Infof("Before: found endpoints %+v", eps)
+	log.Infof("Before: found endpoints %+v", eps)
 	matchingSubset := 0
 	for i, ss := range eps.Subsets {
-		glog.V(1).Infof("On ports %+v", ss.Ports)
+		log.Infof("On ports %+v", ss.Ports)
 		for _, ip := range ss.Addresses {
-			glog.V(1).Infof("Found %+v", ip)
+			log.Infof("Found %+v", ip)
 		}
 		if samePorts(ss.Ports, portsMap) {
 			matchingSubset++
-			glog.Infof("Found matching ports list in existing subset %v", ss.Ports)
+			log.Infof("Found matching ports list in existing subset %v", ss.Ports)
 			if matchingSubset != 1 {
-				glog.Errorf("Unexpected match in %d subsets", matchingSubset)
+				log.Errorf("Unexpected match in %d subsets", matchingSubset)
 			}
 			eps.Subsets[i].Addresses = append(ss.Addresses, v1.EndpointAddress{IP: ip})
 		}
@@ -177,20 +180,18 @@ func RegisterEndpoint(client kubernetes.Interface, namespace string, svcName str
 			newSubSet.Ports = append(newSubSet.Ports, v1.EndpointPort{Name: p.Name, Port: p.Port})
 		}
 		eps.Subsets = append(eps.Subsets, newSubSet)
-		glog.Infof("No pre existing exact matching ports list found, created new subset %v", newSubSet)
+		log.Infof("No pre existing exact matching ports list found, created new subset %v", newSubSet)
 	}
 	eps, err = client.CoreV1().Endpoints(namespace).Update(eps)
 	if err != nil {
-		glog.Error("Update failed with: ", err)
+		log.Errora("Update failed with: ", err)
 		return err
 	}
 	total := 0
 	for _, ss := range eps.Subsets {
 		total += len(ss.Ports) * len(ss.Addresses)
 	}
-	glog.Infof("Successfully updated %s, now with %d endpoints", eps.Name, total)
-	if glog.V(1) {
-		glog.Infof("Details: %v", eps)
-	}
+	log.Infof("Successfully updated %s, now with %d endpoints", eps.Name, total)
+	log.Infof("Details: %v", eps)
 	return nil
 }

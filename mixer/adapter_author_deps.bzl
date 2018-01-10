@@ -25,12 +25,6 @@ def mixer_adapter_repositories():
     )
 
     go_repository(
-        name = "com_github_golang_glog",
-        commit = "23def4e6c14b4da8ac2ed8007337bc5eb5007998",  # Jan 26, 2016 (no releases)
-        importpath = "github.com/golang/glog",
-    )
-
-    go_repository(
         name = "com_github_golang_protobuf",
         commit = "17ce1425424ab154092bbb43af630bd647f3bb0d",  # Nov 16, 2016 (match pubref dep)
         importpath = "github.com/golang/protobuf",
@@ -54,4 +48,10 @@ def mixer_adapter_repositories():
         build_file_name = "BUILD.bazel",
         commit = "f4b4367115ec2de254587813edaa901bc1c723a8",  # Mar 31, 2017 (no releases)
         importpath = "golang.org/x/text",
+    )
+
+    go_repository(
+        name = "io_istio_gogo_genproto",
+        commit = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd",  # Dec 14, 2017 (initial generation of status protos)
+        importpath = "istio.io/gogo-genproto",
     )

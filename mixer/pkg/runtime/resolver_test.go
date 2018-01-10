@@ -16,7 +16,6 @@ package runtime
 
 import (
 	"errors"
-	"flag"
 	"strings"
 	"testing"
 
@@ -232,5 +231,3 @@ func newRules(vr adptTmpl.TemplateVariety, frule []fakeRuleCfg) map[string][]*Ru
 	}
 	return rules
 }
-
-var _ = flag.Lookup("v").Value.Set("99")

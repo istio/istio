@@ -1,13 +1,29 @@
-# gazelle:exclude go_default_library_handler.gen.go
-# gazelle:exclude go_default_library_tmpl.pb.go
-
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-package(default_visibility = ["//visibility:public"])
-
-load("//mixer/tools/codegen:generate.bzl", "mixer_proto_library")
-
-mixer_proto_library(
+go_library(
     name = "go_default_library",
-    protos = ["CheckTesterTemplate.proto"],
+    srcs = [
+        "CheckTesterTemplate_handler.gen.go",
+        "CheckTesterTemplate_instance.pb.go",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//mixer/pkg/adapter:go_default_library",
+        "@com_github_gogo_protobuf//proto:go_default_library",
+        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
+        "@io_istio_api//mixer/v1/template:go_default_library",
+    ],
+)
+
+filegroup(
+    name = "go_default_library_protos",
+    srcs = ["CheckTesterTemplate.proto"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "descriptor_set",
+    srcs = ["CheckTesterTemplate_proto.descriptor_set"],
+    visibility = ["//visibility:public"],
 )

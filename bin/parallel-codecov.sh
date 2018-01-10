@@ -19,8 +19,6 @@ mkdir -p $COVERAGEDIR
 # coverage test needs to run one package per command.
 # This script runs nproc/2 in parallel.
 # Script fails if any one of the tests fail.
-# FIXME: Bootstrapgen test can only be run with bazel at this time,
-# It is excluded from the test packages.
 
 i=0
 # half the number of cpus seem to saturate

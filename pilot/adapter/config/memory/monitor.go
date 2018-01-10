@@ -15,9 +15,11 @@
 package memory
 
 import (
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -89,7 +91,7 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 
 func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
 	if _, exists := m.handlers[ce.config.Type]; !exists {
-		glog.Warningf("Config Type %s does not exist in config store", ce.config.Type)
+		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
 		return
 	}
 	m.applyHandlers(ce.config, ce.event)

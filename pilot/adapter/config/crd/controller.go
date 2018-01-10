@@ -20,7 +20,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +30,7 @@ import (
 
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 // controller is a collection of synchronized resource watchers.
@@ -47,7 +49,7 @@ type cacheHandler struct {
 // NewController creates a new Kubernetes controller for CRDs
 // Use "" for namespace to listen for all namespace changes
 func NewController(client *Client, options kube.ControllerOptions) model.ConfigStoreCache {
-	glog.V(2).Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
+	log.Infof("CRD controller watching namespaces %q", options.WatchedNamespace)
 
 	// Queue requires a time duration for a retry delay after a handler error
 	out := &controller{
@@ -94,7 +96,7 @@ func (c *controller) notify(obj interface{}, event model.Event) error {
 	}
 	_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 	if err != nil {
-		glog.V(2).Infof("Error retrieving key: %v", err)
+		log.Infof("Error retrieving key: %v", err)
 	}
 	return nil
 }
@@ -141,7 +143,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 		if ok {
 			config, err := ConvertObject(schema, item, c.client.domainSuffix)
 			if err != nil {
-				glog.Warningf("error translating object %#v", object)
+				log.Warnf("error translating object %#v", object)
 			} else {
 				f(*config, ev)
 			}
@@ -153,7 +155,7 @@ func (c *controller) RegisterEventHandler(typ string, f func(model.Config, model
 func (c *controller) HasSynced() bool {
 	for kind, ctl := range c.kinds {
 		if !ctl.informer.HasSynced() {
-			glog.V(2).Infof("controller %q is syncing...", kind)
+			log.Infof("controller %q is syncing...", kind)
 			return false
 		}
 	}
@@ -168,7 +170,7 @@ func (c *controller) Run(stop <-chan struct{}) {
 	}
 
 	<-stop
-	glog.V(2).Info("controller terminated")
+	log.Info("controller terminated")
 }
 
 func (c *controller) ConfigDescriptor() model.ConfigDescriptor {
@@ -187,13 +189,13 @@ func (c *controller) Get(typ, name, namespace string) (*model.Config, bool) {
 		return nil, false
 	}
 	if err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 		return nil, false
 	}
 
 	obj, ok := data.(IstioObject)
 	if !ok {
-		glog.Warning("Cannot convert to config from store")
+		log.Warn("Cannot convert to config from store")
 		return nil, false
 	}
 

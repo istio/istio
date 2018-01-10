@@ -18,10 +18,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pkg/log"
 )
 
 type ingress struct {
@@ -59,7 +61,7 @@ func (t *ingress) setup() error {
 
 func (t *ingress) run() error {
 	if !t.Ingress {
-		glog.Info("skipping test since ingress is missing")
+		log.Info("skipping test since ingress is missing")
 		return nil
 	}
 	if platform.ServiceRegistry(t.Registry) != platform.KubernetesRegistry {
@@ -105,7 +107,7 @@ func (t *ingress) run() error {
 				} else if len(resp.id) > 0 {
 					if !strings.Contains(resp.body, "X-Forwarded-For") &&
 						!strings.Contains(resp.body, "x-forwarded-for") {
-						glog.Warningf("Missing X-Forwarded-For in the body: %s", resp.body)
+						log.Warnf("Missing X-Forwarded-For in the body: %s", resp.body)
 						return errAgain
 					}
 
@@ -130,7 +132,7 @@ func (t *ingress) checkRouteRule() status {
 	url := fmt.Sprintf("http://%s.%s/c", ingressServiceName, t.IstioNamespace)
 	resp := t.clientRequest("t", url, 100, "")
 	count := counts(resp.version)
-	glog.V(2).Infof("counts: %v", count)
+	log.Infof("counts: %v", count)
 	if count["v1"] >= 95 {
 		return nil
 	}
@@ -155,7 +157,7 @@ func (t *ingress) checkIngressStatus() status {
 			if status.IP == "" && status.Hostname == "" {
 				return errAgain
 			}
-			glog.Infof("Ingress Status IP: %s", status.IP)
+			log.Infof("Ingress Status IP: %s", status.IP)
 		}
 	}
 	return nil
@@ -167,13 +169,13 @@ func (t *ingress) teardown() {
 	}
 	if err := client.Extensions().Ingresses(t.Namespace).
 		DeleteCollection(&metav1.DeleteOptions{}, metav1.ListOptions{}); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 	if err := client.CoreV1().Secrets(t.Namespace).
 		Delete(ingressSecretName, &metav1.DeleteOptions{}); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }

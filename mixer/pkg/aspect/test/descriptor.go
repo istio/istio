@@ -15,7 +15,6 @@
 package test
 
 import (
-	dpb "istio.io/api/mixer/v1/config/descriptor"
 	cfgpb "istio.io/istio/mixer/pkg/config/proto"
 )
 
@@ -28,51 +27,6 @@ type DescriptorFinder struct {
 // NewDescriptorFinder returns a DescriptorFinder that will return values from desc when queried.
 func NewDescriptorFinder(desc map[string]interface{}) *DescriptorFinder {
 	return &DescriptorFinder{desc}
-}
-
-// GetLog returns the LogEntryDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetLog(name string) *dpb.LogEntryDescriptor {
-	v, f := d.m[name]
-	if !f {
-		return nil
-	}
-	return v.(*dpb.LogEntryDescriptor)
-}
-
-// GetMetric returns the MetricDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetMetric(name string) *dpb.MetricDescriptor {
-	v, f := d.m[name]
-	if !f {
-		return nil
-	}
-	return v.(*dpb.MetricDescriptor)
-}
-
-// GetMonitoredResource returns the MonitoredResourceDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetMonitoredResource(name string) *dpb.MonitoredResourceDescriptor {
-	v, f := d.m[name]
-	if !f {
-		return nil
-	}
-	return v.(*dpb.MonitoredResourceDescriptor)
-}
-
-// GetPrincipal returns the PrincipalDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetPrincipal(name string) *dpb.PrincipalDescriptor {
-	v, f := d.m[name]
-	if !f {
-		return nil
-	}
-	return v.(*dpb.PrincipalDescriptor)
-}
-
-// GetQuota returns the QuotaDescriptor named 'name' or nil if it does not exist in the map.
-func (d *DescriptorFinder) GetQuota(name string) *dpb.QuotaDescriptor {
-	v, f := d.m[name]
-	if !f {
-		return nil
-	}
-	return v.(*dpb.QuotaDescriptor)
 }
 
 // GetAttribute returns the AttributeDescriptor named 'name' or nil if it does not exist in the map.

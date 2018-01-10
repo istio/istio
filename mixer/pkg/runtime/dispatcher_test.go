@@ -17,16 +17,15 @@ package runtime
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
-	google_rpc "github.com/googleapis/googleapis/google/rpc"
 
 	adptTmpl "istio.io/api/mixer/v1/template"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -331,12 +330,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName + "B",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName,
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -348,12 +347,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName,
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName + "B",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -365,12 +364,12 @@ func newFakeResolver(tname string, resolveErr error, emptyResult bool, fproc *fa
 					{
 						instanceName + "X",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 					{
 						instanceName + "Y",
 						tname,
-						&google_rpc.Status{},
+						&rpc.Status{},
 					},
 				},
 			},
@@ -425,5 +424,3 @@ func (f *fakeProc) ProcessGenAttrs(ctx context.Context, instName string, instCfg
 	f.called++
 	return f.mutableBagResult, f.err
 }
-
-var _ = flag.Lookup("v").Value.Set("99")

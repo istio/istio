@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "evaluator.go",
         "expr.go",
+        "finder.go",
         "func.go",
     ],
     visibility = ["//visibility:public"],
@@ -13,7 +14,7 @@ go_library(
         "//mixer/pkg/config/proto:go_default_library",
         "//mixer/pkg/pool:go_default_library",
         "//pkg/log:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )
 
@@ -22,10 +23,11 @@ go_test(
     size = "small",
     srcs = [
         "expr_test.go",
+        "finter_test.go",
     ],
     library = ":go_default_library",
     deps = [
         "//mixer/pkg/config/proto:go_default_library",
-        "@io_istio_api//mixer/v1/config/descriptor:descriptor",
+        "@io_istio_api//mixer/v1/config/descriptor:go_default_library",
     ],
 )

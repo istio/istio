@@ -22,12 +22,10 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
-	rpc "github.com/googleapis/googleapis/google/rpc"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/attribute"
@@ -447,6 +445,6 @@ func TestFailingPreproc(t *testing.T) {
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
 	o := log.NewOptions()
-	o.SetOutputLevel(zapcore.DebugLevel)
+	o.SetOutputLevel(log.DebugLevel)
 	_ = log.Configure(o)
 }

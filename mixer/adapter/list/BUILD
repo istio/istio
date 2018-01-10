@@ -14,9 +14,11 @@ go_library(
     deps = [
         "//mixer/adapter/list/config:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/status:go_default_library",
         "//mixer/template/listentry:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
     ],
 )
 
@@ -30,6 +32,6 @@ go_test(
         "//mixer/pkg/adapter/test:go_default_library",
         "//mixer/template/listentry:go_default_library",
         "@com_github_ghodss_yaml//:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//mixer/v1:go_default_library",
     ],
 )

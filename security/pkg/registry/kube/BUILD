@@ -11,6 +11,7 @@ go_library(
         "//pilot/platform/kube:go_default_library",
         "//security/pkg/pki/ca:go_default_library",
         "//security/pkg/registry:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
         "@io_k8s_api//core/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:go_default_library",
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",

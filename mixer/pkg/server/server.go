@@ -16,6 +16,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -23,6 +24,8 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -36,6 +39,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 // Server is an in-memory Mixer service.
@@ -46,8 +50,10 @@ type Server struct {
 	adapterGP *pool.GoroutinePool
 	listener  net.Listener
 	monitor   *monitor
-	tracer    *mixerTracer
+	tracer    io.Closer
 	configDir string
+
+	dispatcher mixerRuntime.Dispatcher
 }
 
 // replaceable set of functions for fault injection
@@ -58,14 +64,14 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
-	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
-	startMonitor func(port uint16) (*monitor, error)
-	listen       func(network string, address string) (net.Listener, error)
+	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
+	startMonitor  func(port uint16) (*monitor, error)
+	listen        func(network string, address string) (net.Listener, error)
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
 func New(a *Args) (*Server, error) {
-	return new(a, newPatchTable())
+	return newServer(a, newPatchTable())
 }
 
 func newPatchTable() *patchTable {
@@ -73,13 +79,13 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
 		newRuntime:     mixerRuntime.New,
-		startTracer:    startTracer,
+		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
 	}
 }
 
-func new(a *Args, p *patchTable) (*Server, error) {
+func newServer(a *Args, p *patchTable) (*Server, error) {
 	if err := a.validate(); err != nil {
 		return nil, err
 	}
@@ -114,14 +120,13 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	var interceptor grpc.UnaryServerInterceptor
-
-	if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
-	}
-	if interceptor != nil {
-		interceptors = append(interceptors, interceptor)
+	if a.TracingOptions.TracingEnabled() {
+		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
+		if err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to setup tracing")
+		}
+		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
 	}
 
 	// setup server prometheus monitoring (as final interceptor in chain)
@@ -164,8 +169,9 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
+	s.dispatcher = dispatcher
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
@@ -247,10 +253,19 @@ func (s *Server) Close() error {
 		_ = os.RemoveAll(s.configDir)
 	}
 
+	// final attempt to purge buffered logs
+	log.Sync()
+
 	return nil
 }
 
 // Addr returns the address of the server's API port, where gRPC requests can be sent.
 func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
+}
+
+// Dispatcher returns the dispatcher that was created during server creation. This should only
+// be used for testing purposes only.
+func (s *Server) Dispatcher() mixerRuntime.Dispatcher {
+	return s.dispatcher
 }

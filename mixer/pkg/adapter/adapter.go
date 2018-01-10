@@ -64,7 +64,7 @@ type (
 
 	// Logger defines where aspects should output their log state to.
 	//
-	// This log information is funneled to Mixer which augments it with
+	// This log is funneled to Mixer which augments it with
 	// desirable metadata and then routes it to the right place.
 	Logger interface {
 		// Used to determine if the supplied verbosity level is enabled.

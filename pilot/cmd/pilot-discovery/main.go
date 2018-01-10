@@ -19,16 +19,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/cmd/pilot-discovery/server"
+	"istio.io/istio/pkg/log"
 )
 
 var (
 	serverArgs server.PilotArgs
+
+	loggingOptions = log.NewOptions()
 
 	rootCmd = &cobra.Command{
 		Use:   "pilot",
@@ -40,6 +44,9 @@ var (
 		Use:   "discovery",
 		Short: "Start Istio proxy discovery service",
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := log.Configure(loggingOptions); err != nil {
+				return err
+			}
 
 			// Create the stop channel for all of the servers.
 			stop := make(chan struct{})
@@ -117,14 +124,21 @@ func init() {
 		"admission-registration-delay", 0*time.Second,
 		"Time to delay webhook registration after starting webhook server")
 
+	// Attach the Istio logging options to the command.
+	loggingOptions.AttachCobraFlags(rootCmd)
+
 	cmd.AddFlags(rootCmd)
+
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(cmd.VersionCmd)
 }
 
 func main() {
+	// Needed to avoid "logging before flag.Parse" error with glog.
+	cmd.SupressGlogWarnings()
+
 	if err := rootCmd.Execute(); err != nil {
-		glog.Error(err)
+		log.Errora(err)
 		os.Exit(-1)
 	}
 }

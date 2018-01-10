@@ -16,6 +16,7 @@ package ingress
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -126,6 +127,9 @@ var (
 						},
 					},
 				},
+				{
+					Host: "host3.com",
+				},
 			},
 		},
 	}
@@ -181,8 +185,14 @@ func TestIngressController(t *testing.T) {
 
 	// Append an ingress notification handler that just counts number of notifications
 	stop := make(chan struct{})
+
+	lock := sync.Mutex{}
 	notificationCount := 0
 	ctl.RegisterEventHandler(model.IngressRule.Type, func(config model.Config, ev model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		notificationCount++
 	})
 	go ctl.Run(stop)
@@ -198,6 +208,10 @@ func TestIngressController(t *testing.T) {
 	}
 
 	util.Eventually(func() bool {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		return notificationCount == expectedRuleCount
 	}, t)
 	if notificationCount != expectedRuleCount {

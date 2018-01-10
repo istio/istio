@@ -26,7 +26,7 @@
         "vetshadow"
     ],
     "severity": {
-        "aligncheck": "error",
+        "aligncheck": "warn",
         "deadcode": "error",
         "errcheck": "error",
         "gas": "error",
@@ -47,11 +47,16 @@
     },
     "exclude": [
         "vendor",
+	"../vendor",
         ".pb.go",
+	"mock_*",
+        "mixer/adapter/doc.go",
         "mixer/pkg/config/proto/combined.go",
         ".*.gen.go",
+	"mixer/template/doc.go",
+	"mixer/template/sample/doc.go",
+	"mixer/test/spyAdapter/template/doc.go",
         "should have a package comment",
-        ".*pkg/config/apiserver_test.go:.* method WriteHeaderAndJson should be WriteHeaderAndJSON",
         "genfiles"
     ]
 }
