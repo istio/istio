@@ -166,16 +166,16 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: circonuses.config.istio.io
+  name: deniers.config.istio.io
   labels:
-    package: circonus
+    package: denier
     istio: mixer-adapter
 spec:
   group: config.istio.io
   names:
-    kind: circonus
-    plural: circonuses
-    singular: circonus
+    kind: denier
+    plural: deniers
+    singular: denier
   scope: Namespaced
   version: v1alpha2
 ---
@@ -200,20 +200,20 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: deniers.config.istio.io
+  name: kuberneteses.config.istio.io
   labels:
-    package: denier
-    istio: mixer-adapter
+    package: adapter.template.kubernetes
+    istio: mixer-instance
 spec:
   group: config.istio.io
   names:
-    kind: denier
-    plural: deniers
-    singular: denier
+    kind: kubernetes
+    plural: kuberneteses
+    singular: kubernetes
   scope: Namespaced
   version: v1alpha2
----
 
+---
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
@@ -261,23 +261,6 @@ spec:
     kind: noop
     plural: noops
     singular: noop
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: opas.config.istio.io
-  labels:
-    package: opa
-    istio: mixer-adapter
-spec:
-  group: config.istio.io
-  names:
-    kind: opa
-    plural: opas
-    singular: opa
   scope: Namespaced
   version: v1alpha2
 ---
@@ -387,40 +370,6 @@ spec:
 kind: CustomResourceDefinition
 apiVersion: apiextensions.k8s.io/v1beta1
 metadata:
-  name: apikeies.config.istio.io
-  labels:
-    package: apikey
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: apikey
-    plural: apikeies
-    singular: apikey
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: authorizations.config.istio.io
-  labels:
-    package: authorization
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: authorization
-    plural: authorizations
-    singular: authorization
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
   name: checknothings.config.istio.io
   labels:
     package: checknothing
@@ -431,23 +380,6 @@ spec:
     kind: checknothing
     plural: checknothings
     singular: checknothing
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: kubernetesenvs.config.istio.io
-  labels:
-    package: adapter.template.kubernetesenv
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: kubernetesenv
-    plural: kubernetesenvs
-    singular: kubernetesenv
   scope: Namespaced
   version: v1alpha2
 ---
@@ -536,41 +468,6 @@ spec:
   scope: Namespaced
   version: v1alpha2
 ---
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: servicecontrolreports.config.istio.io
-  labels:
-    package: servicecontrolreport
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: servicecontrolreport
-    plural: servicecontrolreports
-    singular: servicecontrolreport
-  scope: Namespaced
-  version: v1alpha2
----
-
-kind: CustomResourceDefinition
-apiVersion: apiextensions.k8s.io/v1beta1
-metadata:
-  name: tracespans.config.istio.io
-  labels:
-    package: tracespan
-    istio: mixer-instance
-spec:
-  group: config.istio.io
-  names:
-    kind: tracespan
-    plural: tracespans
-    singular: tracespan
-  scope: Namespaced
-  version: v1alpha2
----
-
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
 metadata:
