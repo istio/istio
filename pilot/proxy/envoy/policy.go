@@ -219,6 +219,7 @@ func applyConnectionPool(cluster *Cluster, settings *routingv2.ConnectionPoolSet
 			cluster.MaxRequestsPerConnection = int(settings.Http.MaxRequestsPerConnection)
 		}
 
+		// FIXME: zero is a valid value if explicitly set, otherwise we want to use the default value of 3
 		if settings.Http.MaxRetries > 0 {
 			cluster.CircuitBreaker.Default.MaxRetries = int(settings.Http.MaxRetries)
 		}
