@@ -88,15 +88,17 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /usr/local/bin/probe
-            - /live
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/live
           initialDelaySeconds: 5
           periodSeconds: 5
         readinessProbe:
           exec:
             command:
-            - /usr/local/bin/probe
-            - /ready
+            - /usr/local/bin/mixs
+            - probe
+            - --probe-path=/ready
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy
