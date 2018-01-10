@@ -37,6 +37,11 @@ void AttributesBuilder::AddIpOrString(const std::string& name,
     return;
   }
 
+  if (value.empty()) {
+    AddBytes(name, value);
+    return;
+  }
+
   in_addr ipv4_bytes;
   if (inet_pton(AF_INET, value.c_str(), &ipv4_bytes) == 1) {
     AddBytes(name, std::string(reinterpret_cast<const char*>(&ipv4_bytes),
