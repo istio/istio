@@ -80,23 +80,23 @@ spec:
           - --configStore2URL=k8s://
           - --configDefaultNamespace={ISTIO_NAMESPACE}
           - --zipkinURL=http://zipkin:9411/api/v1/spans
-          - --livenessProbePath=/tmp/live
-          - --readinessProbePath=/tmp/ready
+          - --livenessProbePath=/live
+          - --readinessProbePath=/ready
           - --logtostderr
           - -v
           - "2"
         livenessProbe:
           exec:
             command:
-            - cat
-            - /tmp/live
+            - /usr/local/bin/probe
+            - /live
           initialDelaySeconds: 5
           periodSeconds: 5
         readinessProbe:
           exec:
             command:
-            - cat
-            - /tmp/ready
+            - /usr/local/bin/probe
+            - /ready
           initialDelaySeconds: 5
           periodSeconds: 5
       - name: istio-proxy

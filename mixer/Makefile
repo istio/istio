@@ -18,7 +18,7 @@ clean:
 	$(MAKE) clean -C example/servicegraph
 
 
-docker: docker/mixs docker/ca-certificates.tgz
+docker: docker/mixs docker/probe docker/ca-certificates.tgz
 	cd docker && docker build -t mixer -f Dockerfile .
 	cd docker && docker build -t mixer_debug -f Dockerfile.debug .
 	$(MAKE) docker -C example/servicegraph
@@ -29,3 +29,6 @@ docker/ca-certificates.tgz: ../docker/ca-certificates.tgz
 
 docker/mixs: check.prereqs
 	../bin/gobuild.sh $@ istio.io/istio/mixer/pkg/version ./cmd/mixs
+
+docker/probe:
+	go build -o $@ ../tools/probe
