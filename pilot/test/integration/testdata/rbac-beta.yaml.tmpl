@@ -98,21 +98,7 @@ roleRef:
   name: istio-pilot-{{.IstioNamespace}}
   apiGroup: rbac.authorization.k8s.io
 ---
-# Grant permissions to the Egress controller.
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1beta1
-metadata:
-  name: istio-egress-admin-role-binding-{{.IstioNamespace}}
-subjects:
-- kind: ServiceAccount
-  name: istio-egress-service-account
-  namespace: {{.IstioNamespace}}
-roleRef:
-  kind: ClusterRole
-  name: istio-pilot-{{.IstioNamespace}}
-  apiGroup: rbac.authorization.k8s.io
----
-# Gran permissions to the Sidecar initializer
+# Grant permissions to the Sidecar initializer
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
 metadata:
