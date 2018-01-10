@@ -104,7 +104,7 @@ func TestControllerAfterClose(t *testing.T) {
 		t.Errorf("Path %s should exist: %v", path, err)
 	}
 
-	if err := fc.Close(); err != nil {
+	if err = fc.Close(); err != nil {
 		t.Errorf("failed to close: %v", err)
 	}
 	if err = PathExists(path); err == nil {
