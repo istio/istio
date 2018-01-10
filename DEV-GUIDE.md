@@ -332,9 +332,9 @@ there is more than one directory in your `$GOPATH`.
 
 ```shell
 cd $ISTIO
-git clone https://github.com/$GITHUB_USER/istio.git
+git clone https://github.com/$GITHUB_USER/istio
 cd istio
-git remote add upstream 'https://github.com/istio/istio.git'
+git remote add upstream 'https://github.com/istio/istio'
 git config --global --add http.followRedirects 1
 ```
 
