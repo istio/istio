@@ -13,7 +13,7 @@ spec:
           regex: "^(.*?;)?(user=jason)(;.*)?$"
   route:
   - labels:
-      version: v1
+      version: v2
   httpFault:
     delay:
       percent: 100
