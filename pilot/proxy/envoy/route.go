@@ -391,7 +391,9 @@ func buildHTTPRouteV2(store model.IstioConfigStore, config model.Config, service
 	return route
 }
 
-// FIXME: the entire approach to getting labels from a subset needs to be reworked for performance
+// TODO: This logic is temporary until we fully switch from v1alpha1 to v1alpha2.
+// In v1alpha2, cluster names will be built using the subset name instead of labels.
+// This will allow us to remove this function, which is very inefficient.
 func fetchSubsetLabels(store model.IstioConfigStore, name, subsetName, domain string) (labels model.Labels) {
 	if subsetName == "" {
 		return
