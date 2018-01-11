@@ -84,7 +84,7 @@ spec:
           - -v
           - "2"
       - name: istio-proxy
-        image: {PROXY_HUB}/proxy_debug:{PROXY_TAG}
+        image: {PROXY_HUB}/proxy:{PROXY_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 15004

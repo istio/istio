@@ -20,28 +20,36 @@ import (
 )
 
 var valuesTemplate = template.Must(template.New("helm").Parse(
-	`istio:
-   deploy_base_config: true
-   initializer_enabled: {{ .Initializer }}
-   mixer_enabled: {{ .Mixer }}
-   pilot_enabled: {{ .Pilot }}
-   ingress:
-      use_nodeport: {{ gt .NodePort 0 }}
-      nodeport_port: {{ .NodePort }}
+	`global:
+  namespace: {{ .Namespace }}
+  initializer:
+    enabled: {{ .Initializer }}
+  proxy:
+    hub: {{ .Hub }}
+    tag: {{ .ProxyTag }}
+    debug: {{ .Debug }}
+   
+  pilot:
+    enabled: {{ .Pilot }}
+    hub: {{ .Hub }}
+    tag: {{ .PilotTag }}
+   
+  security:  
+    enabled: {{ .CA }}
+    hub: {{ .Hub }}
+    tag: {{ .CaTag }}
+   
+  mixer:
+    enabled: {{ .Mixer }}
+    hub: {{ .Hub }}
+    tag: {{ .MixerTag }}
 
-global:
-   auth_enabled: {{ .CA }}
-   namespace: {{ .Namespace }}
-   ca_hub: {{ .Hub }}
-   ca_tag: {{ .CaTag }}
-   ca_demo: false
-   proxy_hub: {{ .Hub }}
-   proxy_tag: {{ .ProxyTag }}
-   proxy_debug: {{ .Debug }}
-   pilot_hub: {{ .Hub }}
-   pilot_tag: {{ .PilotTag }}
-   hyperkube_hub: {{ .HyperkubeHub }}
-   hyperkube_tag: {{ .HyperkubeTag }}
+  ingress:
+    use_nodeport: {{ gt .NodePort 0 }}
+    nodeport_port: {{ .NodePort }}
+
+  hyperkube_hub: {{ .HyperkubeHub }}
+  hyperkube_tag: {{ .HyperkubeTag }}
 `))
 
 // fromModel returns a string representation of the values.yaml file for helm config
