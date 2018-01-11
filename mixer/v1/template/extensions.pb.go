@@ -9,6 +9,7 @@ It is generated from these files:
 	mixer/v1/template/standard_types.proto
 
 It has these top-level messages:
+	Value
 	IPAddress
 	Duration
 	TimeStamp
