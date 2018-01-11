@@ -109,7 +109,7 @@ required = [
 ### as we cache dep ensure.
 [[constraint]]
   name = "istio.io/api"
-  revision = "50cb9a38c07c3bc95feeece138dfc6a2c657f1cd"
+  revision = "1e8f8ca816bf80996b39c47ea8025058a5177bc3"
 
 [[constraint]]
   name = "istio.io/fortio"
