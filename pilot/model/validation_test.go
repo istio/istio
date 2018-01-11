@@ -2421,3 +2421,333 @@ func TestValidateHTTPRewrite(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDestinationRuleV2(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    proto.Message
+		valid bool
+	}{
+		{name: "simple destination rule", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+
+		{name: "missing destination name", in: &routingv2.DestinationRule{
+			Name: "",
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
+		{name: "missing subset name", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			Subsets: []*routingv2.Subset{
+				{Name: "", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
+		{name: "valid traffic policy, top level", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			TrafficPolicy: &routingv2.TrafficPolicy{
+				LoadBalancer: &routingv2.LoadBalancerSettings{
+					LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+						Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &routingv2.ConnectionPoolSettings{
+					Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+					Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+				},
+				OutlierDetection: &routingv2.OutlierDetection{
+					Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				},
+			},
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+
+		{name: "invalid traffic policy, top level", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			TrafficPolicy: &routingv2.TrafficPolicy{
+				LoadBalancer: &routingv2.LoadBalancerSettings{
+					LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+						Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &routingv2.ConnectionPoolSettings{},
+				OutlierDetection: &routingv2.OutlierDetection{
+					Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				},
+			},
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
+		{name: "valid traffic policy, subset level", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"},
+					TrafficPolicy: &routingv2.TrafficPolicy{
+						LoadBalancer: &routingv2.LoadBalancerSettings{
+							LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+								Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+							},
+						},
+						ConnectionPool: &routingv2.ConnectionPoolSettings{
+							Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+							Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+						},
+						OutlierDetection: &routingv2.OutlierDetection{
+							Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+						},
+					},
+				},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+
+		{name: "invalid traffic policy, subset level", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"},
+					TrafficPolicy: &routingv2.TrafficPolicy{
+						LoadBalancer: &routingv2.LoadBalancerSettings{
+							LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+								Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+							},
+						},
+						ConnectionPool: &routingv2.ConnectionPoolSettings{},
+						OutlierDetection: &routingv2.OutlierDetection{
+							Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+						},
+					},
+				},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: false},
+
+		{name: "valid traffic policy, both levels", in: &routingv2.DestinationRule{
+			Name: "reviews",
+			TrafficPolicy: &routingv2.TrafficPolicy{
+				LoadBalancer: &routingv2.LoadBalancerSettings{
+					LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+						Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &routingv2.ConnectionPoolSettings{
+					Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+					Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+				},
+				OutlierDetection: &routingv2.OutlierDetection{
+					Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+				},
+			},
+			Subsets: []*routingv2.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"},
+					TrafficPolicy: &routingv2.TrafficPolicy{
+						LoadBalancer: &routingv2.LoadBalancerSettings{
+							LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+								Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+							},
+						},
+						ConnectionPool: &routingv2.ConnectionPoolSettings{
+							Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+							Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+						},
+						OutlierDetection: &routingv2.OutlierDetection{
+							Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+						},
+					},
+				},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+		}, valid: true},
+	}
+	for _, c := range cases {
+		if got := ValidateDestinationRule(c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateTrafficPolicyV2(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    routingv2.TrafficPolicy
+		valid bool
+	}{
+		{name: "valid traffic policy", in: routingv2.TrafficPolicy{
+			LoadBalancer: &routingv2.LoadBalancerSettings{
+				LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+					Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+				},
+			},
+			ConnectionPool: &routingv2.ConnectionPoolSettings{
+				Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			},
+			OutlierDetection: &routingv2.OutlierDetection{
+				Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+			},
+		},
+			valid: true},
+
+		{name: "invalid traffic policy, bad connection pool", in: routingv2.TrafficPolicy{
+			LoadBalancer: &routingv2.LoadBalancerSettings{
+				LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+					Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+				},
+			},
+			ConnectionPool: &routingv2.ConnectionPoolSettings{},
+			OutlierDetection: &routingv2.OutlierDetection{
+				Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: 5},
+			},
+		},
+			valid: false},
+
+		{name: "invalid traffic policy, bad outlier detection", in: routingv2.TrafficPolicy{
+			LoadBalancer: &routingv2.LoadBalancerSettings{
+				LbPolicy: &routingv2.LoadBalancerSettings_Simple{
+					Simple: routingv2.LoadBalancerSettings_ROUND_ROBIN,
+				},
+			},
+			ConnectionPool: &routingv2.ConnectionPoolSettings{
+				Tcp:  &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+				Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: 11},
+			},
+			OutlierDetection: &routingv2.OutlierDetection{},
+		},
+			valid: false},
+	}
+	for _, c := range cases {
+		if got := validateTrafficPolicy(&c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateTrafficPolicy failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateConnectionPollV2(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    routingv2.ConnectionPoolSettings
+		valid bool
+	}{
+		{name: "valid connection pool, tcp and http", in: routingv2.ConnectionPoolSettings{
+			Tcp: &routingv2.ConnectionPoolSettings_TCPSettings{
+				MaxConnections: 7,
+				ConnectTimeout: &duration.Duration{Seconds: 2},
+			},
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, tcp only", in: routingv2.ConnectionPoolSettings{
+			Tcp: &routingv2.ConnectionPoolSettings_TCPSettings{
+				MaxConnections: 7,
+				ConnectTimeout: &duration.Duration{Seconds: 2},
+			},
+		},
+			valid: true},
+
+		{name: "valid connection pool, http only", in: routingv2.ConnectionPoolSettings{
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{
+				Http1MaxPendingRequests:  2,
+				Http2MaxRequests:         11,
+				MaxRequestsPerConnection: 5,
+				MaxRetries:               4,
+			},
+		},
+			valid: true},
+
+		{name: "invalid connection pool, empty", in: routingv2.ConnectionPoolSettings{}, valid: false},
+
+		{name: "invalid connection pool, bad max connections", in: routingv2.ConnectionPoolSettings{
+			Tcp: &routingv2.ConnectionPoolSettings_TCPSettings{MaxConnections: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad connect timeout", in: routingv2.ConnectionPoolSettings{
+			Tcp: &routingv2.ConnectionPoolSettings_TCPSettings{
+				ConnectTimeout: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			valid: false},
+
+		{name: "invalid connection pool, bad max pending requests", in: routingv2.ConnectionPoolSettings{
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http1MaxPendingRequests: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad max requests", in: routingv2.ConnectionPoolSettings{
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{Http2MaxRequests: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad max requests per connection", in: routingv2.ConnectionPoolSettings{
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{MaxRequestsPerConnection: -1}},
+			valid: false},
+
+		{name: "invalid connection pool, bad max retries", in: routingv2.ConnectionPoolSettings{
+			Http: &routingv2.ConnectionPoolSettings_HTTPSettings{MaxRetries: -1}},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := validateConnectionPool(&c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
+
+func TestValidateOutlierDectionV2(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    routingv2.OutlierDetection
+		valid bool
+	}{
+		{name: "valid outlier detection", in: routingv2.OutlierDetection{
+			Http: &routingv2.OutlierDetection_HTTPSettings{
+				ConsecutiveErrors:  5,
+				Interval:           &duration.Duration{Seconds: 2},
+				BaseEjectionTime:   &duration.Duration{Seconds: 2},
+				MaxEjectionPercent: 50,
+			},
+		}, valid: true},
+
+		{name: "invalid outlier detection, bad consecutive errors", in: routingv2.OutlierDetection{
+			Http: &routingv2.OutlierDetection_HTTPSettings{ConsecutiveErrors: -1}},
+			valid: false},
+
+		{name: "invalid outlier detection, bad interval", in: routingv2.OutlierDetection{
+			Http: &routingv2.OutlierDetection_HTTPSettings{Interval: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			valid: false},
+
+		{name: "invalid outlier detection, bad base ejection time", in: routingv2.OutlierDetection{
+			Http: &routingv2.OutlierDetection_HTTPSettings{BaseEjectionTime: &duration.Duration{Seconds: 2, Nanos: 5}}},
+			valid: false},
+
+		{name: "invalid outlier detection, bad max ejection percent", in: routingv2.OutlierDetection{
+			Http: &routingv2.OutlierDetection_HTTPSettings{MaxEjectionPercent: 105}},
+			valid: false},
+	}
+
+	for _, c := range cases {
+		if got := validateOutlierDetection(&c.in); (got == nil) != c.valid {
+			t.Errorf("ValidateConnectionSettings failed on %v: got valid=%v but wanted valid=%v: %v",
+				c.name, got == nil, c.valid, got)
+		}
+	}
+}
