@@ -23,7 +23,6 @@ import (
 
 var (
 	buildHost        string
-	buildGitBranch   string
 	buildGitRevision string
 	buildUser        string
 	buildAppVersion  string
@@ -37,10 +36,9 @@ var (
 			// nolint: errcheck,gas
 			printFunc(`Version: %v
 GitRevision: %v
-GitBranch: %v
 User: %v@%v
 Golang version: %v
-`, buildAppVersion, buildGitRevision, buildGitBranch, buildUser, buildHost, runtime.Version())
+`, buildAppVersion, buildGitRevision, buildUser, buildHost, runtime.Version())
 		},
 		Use:   "version",
 		Short: "Display version information",
