@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if h == nil {
+	if !h.IsValid() {
 		t.Fail()
 	}
 }
@@ -68,7 +68,7 @@ func TestCacheUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if h == nil {
+	if !h.IsValid() {
 		t.Fail()
 	}
 }
@@ -88,7 +88,7 @@ func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
 		t.Fatal()
 	}
 
-	if h == nil {
+	if !h.IsValid() {
 		t.Fatal()
 	}
 }
@@ -255,6 +255,28 @@ func TestFailedValidation(t *testing.T) {
 		NewBuilder: func() adapter.HandlerBuilder {
 			return &data.FakeHandlerBuilder{
 				ErrorAtValidate: true,
+			}
+		},
+	})
+
+	s := util.GetSnapshot(templates, attributes, data.ServiceConfig, globalCfg)
+
+	i1 := s.Instances[data.FqnI1]
+	h1 := s.Handlers[data.FqnH1]
+
+	f := newFactory(s)
+	_, err := f.build(h1, []*config.Instance{i1}, nil)
+	if err == nil {
+		t.Fatal()
+	}
+}
+
+func TestPanicAtValidation(t *testing.T) {
+	templates := data.BuildTemplates(nil)
+	attributes := data.BuildAdapters(&adapter.Info{
+		NewBuilder: func() adapter.HandlerBuilder {
+			return &data.FakeHandlerBuilder{
+				PanicAtValidate: true,
 			}
 		},
 	})

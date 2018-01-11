@@ -93,22 +93,29 @@ var _ adapter.Env = &FakeEnv{}
 type FakeHandlerBuilder struct {
 	PanicAtSetAdapterConfig       bool
 	ErrorAtBuild                  bool
+	PanicAtBuild                  bool
 	ErrorAtValidate               bool
+	PanicAtValidate               bool
 	HandlerErrorOnClose           bool
 	HandlerPanicOnClose           bool
 	Handler                       *FakeHandler
 	HandlerDoesNotSupportTemplate bool
+	PanicData                     interface{}
 }
 
 // SetAdapterConfig is an implementation of HandlerBuilder.SetAdapterConfig.
 func (f *FakeHandlerBuilder) SetAdapterConfig(adapter.Config) {
 	if f.PanicAtSetAdapterConfig {
-		panic("panic at set adapter config")
+		panic(f.PanicData)
 	}
 }
 
 // Validate is an implementation of HandlerBuilder.Validate.
 func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
+	if f.PanicAtValidate {
+		panic(f.PanicData)
+	}
+
 	if f.ErrorAtValidate {
 		errs := &adapter.ConfigErrors{}
 		errs.Append("field", fmt.Errorf("some validation error"))
@@ -119,6 +126,10 @@ func (f *FakeHandlerBuilder) Validate() *adapter.ConfigErrors {
 
 // Build is an implementation of HandlerBuilder.Build.
 func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handler, error) {
+	if f.PanicAtBuild {
+		panic(f.PanicData)
+	}
+
 	if f.ErrorAtBuild {
 		return nil, fmt.Errorf("this adapter is not available at the moment, please come back later")
 	}
@@ -127,6 +138,7 @@ func (f *FakeHandlerBuilder) Build(context.Context, adapter.Env) (adapter.Handle
 		ErrorOnHandlerClose:    f.HandlerErrorOnClose,
 		PanicOnHandlerClose:    f.HandlerPanicOnClose,
 		DoesNotSupportTemplate: f.HandlerDoesNotSupportTemplate,
+		PanicData:              f.PanicData,
 	}
 	return f.Handler, nil
 }
@@ -140,6 +152,7 @@ type FakeHandler struct {
 	ErrorOnHandlerClose    bool
 	PanicOnHandlerClose    bool
 	DoesNotSupportTemplate bool
+	PanicData              interface{}
 }
 
 // Close is an implementation of adapter.Handler.Close.
@@ -151,7 +164,7 @@ func (f *FakeHandler) Close() error {
 	}
 
 	if f.PanicOnHandlerClose {
-		panic("panic on close")
+		panic(f.PanicData)
 	}
 	return nil
 }

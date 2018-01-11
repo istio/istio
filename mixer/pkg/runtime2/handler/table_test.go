@@ -32,6 +32,20 @@ var globalCfg = data.JoinConfigs(data.HandlerH1, data.InstanceI1, data.RuleR1I1H
 var globalCfgI2 = data.JoinConfigs(data.HandlerH1, data.InstanceI1, data.InstanceI2, data.RuleR2I1I2)
 
 func TestNew_EmptyConfig(t *testing.T) {
+	s := config.Empty()
+
+	table := NewTable(Empty(), s, nil)
+	e, found := table.Get(data.FqnH1)
+	if found {
+		t.Fatal("found")
+	}
+
+	if e.Name != "" {
+		t.Fatal("non-empty handler")
+	}
+}
+
+func TestNew_EmptyOldTable(t *testing.T) {
 	adapters := data.BuildAdapters(nil)
 	templates := data.BuildTemplates(nil)
 
@@ -95,14 +109,14 @@ func TestNew_NoReuse_DifferentConfig(t *testing.T) {
 	}
 }
 
-func TestTable_GetHealthyHandler(t *testing.T) {
+func TestTable_Get(t *testing.T) {
 	table := &Table{
 		entries: make(map[string]Entry),
 	}
 
 	table.entries["h1"] = Entry{
 		Name:    "h1",
-		Handler: &data.FakeHandler{},
+		Handler: SafeHandler{&data.FakeHandler{}},
 	}
 
 	e, found := table.Get("h1")
@@ -115,7 +129,7 @@ func TestTable_GetHealthyHandler(t *testing.T) {
 	}
 }
 
-func TestTable_GetHealthyHandler_Empty(t *testing.T) {
+func TestTable_Get_Empty(t *testing.T) {
 	table := &Table{
 		entries: make(map[string]Entry),
 	}
@@ -144,6 +158,7 @@ func TestCleanup_Basic(t *testing.T) {
 	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
 
 	table := NewTable(Empty(), s, nil)
+
 	s = config.Empty()
 
 	table2 := NewTable(table, s, nil)
@@ -174,6 +189,18 @@ func TestCleanup_NoChange(t *testing.T) {
 	if f.Handler.CloseCalled {
 		t.Fail()
 	}
+}
+
+func TestCleanup_EmptyNewTable(t *testing.T) {
+	adapters := data.BuildAdapters(nil)
+	templates := data.BuildTemplates(nil)
+
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
+
+	table := NewTable(Empty(), s, nil)
+
+	// Use an empty table as current.
+	table.Cleanup(Empty())
 }
 
 func TestCleanup_WithStartupError(t *testing.T) {

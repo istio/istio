@@ -34,7 +34,7 @@ type Entry struct {
 	Name string
 
 	// Handler is the initialized Handler object.
-	Handler adapter.Handler
+	Handler SafeHandler
 
 	// Adapter that was used to create this Entry.
 	Adapter *adapter.Info
@@ -119,9 +119,16 @@ func (t *Table) Cleanup(current *Table) {
 
 	for _, entry := range toCleanup {
 		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
-		current.counters.closedHandlers.Inc()
+		// Do a nil check for counters here. Since we're using the counters of the new table, they are not
+		// guaranteed to exist (i.e. a default value, or the result of Empty()). This is not a problem
+		// for other counters as the other code-paths doesn't suffer from the same issue.
+		if current.counters.closedHandlers != nil {
+			current.counters.closedHandlers.Inc()
+		}
 		if err := entry.Handler.Close(); err != nil {
-			current.counters.closeFailure.Inc()
+			if current.counters.closeFailure != nil {
+				current.counters.closeFailure.Inc()
+			}
 			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
 		}
 	}
@@ -137,7 +144,9 @@ func (t *Table) Get(handlerName string) (Entry, bool) {
 	return e, true
 }
 
+var emptyTable = &Table{}
+
 // Empty returns an empty table instance.
 func Empty() *Table {
-	return &Table{}
+	return emptyTable
 }
