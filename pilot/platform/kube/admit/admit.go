@@ -25,20 +25,22 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
-	"k8s.io/api/admission/v1alpha1"
-	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
+
+	admissionv1beta1 "k8s.io/api/admission/v1beta1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/kubernetes"
-	admissionClient "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
+	clientadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/adapter/config/crd"
 	"istio.io/istio/pilot/model"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -200,7 +202,7 @@ func configureCerts(client kubernetes.Interface, options *ControllerOptions) (*t
 func (ac *AdmissionController) Run(stop <-chan struct{}) {
 	tlsConfig, caCert, err := configureCerts(ac.client, &ac.options)
 	if err != nil {
-		glog.Errorf("Could not configure admission webhook certs: %v", err)
+		log.Errorf("Could not configure admission webhook certs: %v", err)
 		return
 	}
 
@@ -210,31 +212,31 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 		TLSConfig: tlsConfig,
 	}
 
-	glog.Info("Found certificates for validation admission webhook")
+	log.Info("Found certificates for validation admission webhook")
 	if ac.options.RegistrationDelay != 0 {
-		glog.Info("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
+		log.Infof("Delaying admission webhook registration for %v", ac.options.RegistrationDelay)
 	}
 
 	select {
 	case <-time.After(ac.options.RegistrationDelay):
-		cl := ac.client.AdmissionregistrationV1alpha1().ExternalAdmissionHookConfigurations()
+		cl := ac.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 		if err := ac.register(cl, caCert); err != nil {
-			glog.Errorf("Failed to register admission webhook: %v", err)
+			log.Errorf("Failed to register admission webhook: %v", err)
 			return
 		}
 		defer func() {
 			if err := ac.unregister(cl); err != nil {
-				glog.Errorf("Failed to unregister admission webhook: %v", err)
+				log.Errorf("Failed to unregister admission webhook: %v", err)
 			}
 		}()
-		glog.Info("Finished validation admission webhook registration")
+		log.Info("Finished validation admission webhook registration")
 	case <-stop:
 		return
 	}
 
 	go func() {
 		if err := server.ListenAndServeTLS("", ""); err != nil {
-			glog.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
+			log.Errorf("ListenAndServeTLS for admission webhook returned error: %v", err)
 		}
 	}()
 	<-stop
@@ -242,38 +244,38 @@ func (ac *AdmissionController) Run(stop <-chan struct{}) {
 }
 
 // Unregister unregisters the external admission webhook
-func (ac *AdmissionController) unregister(client admissionClient.ExternalAdmissionHookConfigurationInterface) error {
+func (ac *AdmissionController) unregister(client clientadmissionregistrationv1beta1.ValidatingWebhookConfigurationInterface) error {
 	return client.Delete(ac.options.ExternalAdmissionWebhookName, nil)
 }
 
 // Register registers the external admission webhook for pilot
 // configuration types.
-func (ac *AdmissionController) register(client admissionClient.ExternalAdmissionHookConfigurationInterface, caCert []byte) error { // nolint: lll
+func (ac *AdmissionController) register(client clientadmissionregistrationv1beta1.ValidatingWebhookConfigurationInterface, caCert []byte) error { // nolint: lll
 	var resources []string
 	for _, schema := range ac.options.Descriptor {
 		resources = append(resources, crd.ResourceName(schema.Plural))
 	}
 
-	webhook := &admissionregistrationv1alpha1.ExternalAdmissionHookConfiguration{
+	webhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: ac.options.ExternalAdmissionWebhookName,
 		},
-		ExternalAdmissionHooks: []admissionregistrationv1alpha1.ExternalAdmissionHook{
+		Webhooks: []admissionregistrationv1beta1.Webhook{
 			{
 				Name: ac.options.ExternalAdmissionWebhookName,
-				Rules: []admissionregistrationv1alpha1.RuleWithOperations{{
-					Operations: []admissionregistrationv1alpha1.OperationType{
-						admissionregistrationv1alpha1.Create,
-						admissionregistrationv1alpha1.Update,
+				Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+					Operations: []admissionregistrationv1beta1.OperationType{
+						admissionregistrationv1beta1.Create,
+						admissionregistrationv1beta1.Update,
 					},
-					Rule: admissionregistrationv1alpha1.Rule{
+					Rule: admissionregistrationv1beta1.Rule{
 						APIGroups:   []string{model.IstioAPIGroup},
 						APIVersions: []string{model.IstioAPIVersion},
 						Resources:   resources,
 					},
 				}},
-				ClientConfig: admissionregistrationv1alpha1.AdmissionHookClientConfig{
-					Service: admissionregistrationv1alpha1.ServiceReference{
+				ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+					Service: &admissionregistrationv1beta1.ServiceReference{
 						Namespace: ac.options.ServiceNamespace,
 						Name:      ac.options.ServiceName,
 					},
@@ -285,7 +287,7 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 	if err := client.Delete(webhook.Name, nil); err != nil {
 		serr, ok := err.(*apierrors.StatusError)
 		if !ok || serr.ErrStatus.Code != http.StatusNotFound {
-			glog.Warningf("Could not delete previously created AdmissionRegistration: %v", err)
+			log.Warnf("Could not delete previously created AdmissionRegistration: %v", err)
 		}
 	}
 	_, err := client.Create(webhook) // Update?
@@ -295,7 +297,7 @@ func (ac *AdmissionController) register(client admissionClient.ExternalAdmission
 // ServeHTTP implements the external admission webhook for validating
 // pilot configuration.
 func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	glog.V(4).Infof("AdmissionController ServeHTTP request=%#v", r)
+	log.Debugf("AdmissionController ServeHTTP request=%#v", r)
 
 	var body []byte
 	if r.Body != nil {
@@ -311,21 +313,24 @@ func (ac *AdmissionController) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var review v1alpha1.AdmissionReview
+	var review admissionv1beta1.AdmissionReview
 	if err := json.Unmarshal(body, &review); err != nil {
 		http.Error(w, fmt.Sprintf("could not decode body: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	status := ac.admit(&review)
-	ar := v1alpha1.AdmissionReview{
-		Status: *status,
+	reviewResponse := ac.admit(review.Request)
+	response := admissionv1beta1.AdmissionReview{}
+
+	if reviewResponse != nil {
+		response.Response = reviewResponse
+		response.Response.UID = review.Request.UID
 	}
 
-	glog.V(2).Infof("AdmissionReview for %s: %v/%v status=%v",
-		review.Spec.Kind, review.Spec.Namespace, review.Spec.Name, status)
+	log.Infof("AdmissionReview for %s: %v/%v response=%v",
+		review.Request.Kind, review.Request.Namespace, review.Request.Name, reviewResponse)
 
-	resp, err := json.Marshal(ar)
+	resp, err := json.Marshal(response)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("could encode response: %v", err), http.StatusInternalServerError)
 		return
@@ -348,28 +353,28 @@ func watched(watchedNamespaces []string, namespace string) bool {
 	return false
 }
 
-func (ac *AdmissionController) admit(review *v1alpha1.AdmissionReview) *v1alpha1.AdmissionReviewStatus {
-	makeErrorStatus := func(reason string, args ...interface{}) *v1alpha1.AdmissionReviewStatus {
+func (ac *AdmissionController) admit(request *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+	makeErrorStatus := func(reason string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
 		result := apierrors.NewBadRequest(fmt.Sprintf(reason, args...)).Status()
-		return &v1alpha1.AdmissionReviewStatus{
+		return &admissionv1beta1.AdmissionResponse{
 			Result: &result,
 		}
 	}
 
-	switch review.Spec.Operation {
-	case admission.Create, admission.Update:
+	switch request.Operation {
+	case admissionv1beta1.Create, admissionv1beta1.Update:
 	default:
-		glog.Warningf("Unsupported webhook operation %v", review.Spec.Operation)
-		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
+		log.Warnf("Unsupported webhook operation %v", request.Operation)
+		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	var obj crd.IstioKind
-	if err := yaml.Unmarshal(review.Spec.Object.Raw, &obj); err != nil {
+	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
 		return makeErrorStatus("cannot decode configuration: %v", err)
 	}
 
 	if !watched(ac.options.ValidateNamespaces, obj.Namespace) {
-		return &v1alpha1.AdmissionReviewStatus{Allowed: true}
+		return &admissionv1beta1.AdmissionResponse{Allowed: true}
 	}
 
 	schema, exists := ac.options.Descriptor.GetByType(crd.CamelCaseToKabobCase(obj.Kind))
@@ -386,5 +391,5 @@ func (ac *AdmissionController) admit(review *v1alpha1.AdmissionReview) *v1alpha1
 		return makeErrorStatus("configuration is invalid: %v", err)
 	}
 
-	return &v1alpha1.AdmissionReviewStatus{Allowed: true}
+	return &admissionv1beta1.AdmissionResponse{Allowed: true}
 }

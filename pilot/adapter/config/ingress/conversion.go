@@ -19,7 +19,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -28,6 +29,7 @@ import (
 	routing "istio.io/api/routing/v1alpha1"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform/kube"
+	"istio.io/istio/pkg/log"
 )
 
 func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config {
@@ -35,9 +37,9 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 	tls := ""
 
 	if len(ingress.Spec.TLS) > 0 {
-		// due to lack of listener SNI in the proxy, we only support a single secret and ignore secret hosts
+		// TODO(istio/istio/issues/1424): implement SNI
 		if len(ingress.Spec.TLS) > 1 {
-			glog.Warningf("ingress %s requires several TLS secrets which is not supported by envoy!", ingress.Name)
+			log.Warnf("ingress %s requires several TLS secrets but Envoy can only serve one", ingress.Name)
 		}
 		secret := ingress.Spec.TLS[0]
 		tls = fmt.Sprintf("%s.%s", secret.SecretName, ingress.Namespace)
@@ -50,6 +52,10 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 	}
 
 	for i, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			log.Warnf("invalid ingress rule for host %q, no paths defined", rule.Host)
+			continue
+		}
 		for j, path := range rule.HTTP.Paths {
 			name := encodeIngressRuleName(ingress.Name, i+1, j+1)
 			ingressRule := createIngressRule(name, rule.Host, path.Path,
@@ -57,7 +63,6 @@ func convertIngress(ingress v1beta1.Ingress, domainSuffix string) []model.Config
 			out = append(out, ingressRule)
 		}
 	}
-
 	return out
 }
 
@@ -167,7 +172,7 @@ func shouldProcessIngress(mesh *meshconfig.MeshConfig, ingress *v1beta1.Ingress)
 	case meshconfig.MeshConfig_DEFAULT:
 		return !exists || class == mesh.IngressClass
 	default:
-		glog.Warningf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+		log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
 		return false
 	}
 }

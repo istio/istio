@@ -7,6 +7,7 @@ go_library(
         "framework.go",
         "istioctl.go",
         "kubernetes.go",
+        "rawVM.go",
         "testInfo.go",
     ],
     data = [
@@ -16,7 +17,10 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/log:go_default_library",
         "//tests/util:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_google_uuid//:go_default_library",
         "@com_github_hashicorp_go_multierror//:go_default_library",

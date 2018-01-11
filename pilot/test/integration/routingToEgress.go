@@ -19,10 +19,11 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/log"
 )
 
 type routingToEgress struct {
@@ -52,11 +53,23 @@ func (t *routingToEgress) run() error {
 				return t.verifyFaultInjectionByResponseCode("a", "http://httpbin.org", 418)
 			},
 		},
+		{
+			description:   "append http headers in traffic to httpbin.org",
+			configEgress:  "egress-rule-httpbin.yaml.tmpl",
+			configRouting: "rule-route-append-headers-httpbin.yaml.tmpl",
+			check: func() error {
+				return t.verifyRequestHeaders("a", "http://httpbin.org/headers",
+					map[string]string{
+						"istio-custom-header1": "user-defined-value1",
+						"istio-custom-header2": "user-defined-value2",
+					})
+			},
+		},
 	}
 
 	var errs error
 	for _, cs := range cases {
-		log("Checking routing rule to egress rule test", cs.description)
+		tlog("Checking routing rule to egress rule test", cs.description)
 		if err := t.applyConfig(cs.configEgress, nil); err != nil {
 			return err
 		}
@@ -65,24 +78,31 @@ func (t *routingToEgress) run() error {
 		}
 
 		if err := repeat(cs.check, 3, time.Second); err != nil {
-			glog.Infof("Failed the test with %v", err)
+			log.Infof("Failed the test with %v", err)
 			errs = multierror.Append(errs, multierror.Prefix(err, cs.description))
 		} else {
-			glog.Info("Success!")
+			log.Info("Success!")
+		}
+
+		if err := t.deleteConfig(cs.configRouting); err != nil {
+			return err
+		}
+		if err := t.deleteConfig(cs.configEgress); err != nil {
+			return err
 		}
 	}
 	return errs
 }
 
 func (t *routingToEgress) teardown() {
-	glog.Info("Cleaning up route rules to egress rules...")
+	log.Info("Cleaning up route rules to egress rules...")
 	if err := t.deleteAllConfigs(); err != nil {
-		glog.Warning(err)
+		log.Warna(err)
 	}
 }
 
 func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, respCode int) error {
-	glog.Infof("Making 1 request (%s) from %s...\n", url, src)
+	log.Infof("Making 1 request (%s) from %s...\n", url, src)
 
 	resp := t.clientRequest(src, url, 1, "")
 
@@ -92,9 +112,30 @@ func (t *routingToEgress) verifyFaultInjectionByResponseCode(src, url string, re
 	}
 
 	if strconv.Itoa(respCode) != statusCode {
-		return fmt.Errorf("fault injection verification failed: "+
-			"status code %s, "+
-			"expected status code %d", statusCode, respCode)
+		return fmt.Errorf("fault injection verification failed: status code %s, expected status code %d",
+			statusCode, respCode)
+	}
+	return nil
+}
+
+func (t *routingToEgress) verifyRequestHeaders(src, httpbinURL string, expectedHeaders map[string]string) error {
+	log.Infof("Making 1 request (%s) from %s...\n", httpbinURL, src)
+
+	resp := t.clientRequest(src, httpbinURL, 1, "")
+
+	containsAllExpectedHeaders := true
+
+	headerFormat := "\"%s\": \"%s\""
+	for name, value := range expectedHeaders {
+		headerContent := fmt.Sprintf(headerFormat, name, value)
+		if !strings.Contains(strings.ToLower(resp.body), strings.ToLower(headerContent)) {
+			containsAllExpectedHeaders = false
+		}
+	}
+
+	if !containsAllExpectedHeaders {
+		return fmt.Errorf("headers verification failed: headers: %s, expected headers: %s",
+			resp.body, expectedHeaders)
 	}
 	return nil
 }

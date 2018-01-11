@@ -17,9 +17,11 @@ package config
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
 	brokerconfig "istio.io/api/broker/v1/config"
+	"istio.io/istio/pkg/log"
 )
 
 // Store describes a set of platform agnostic APIs that must be supported
@@ -146,7 +148,7 @@ func (i brokerConfigStore) ServiceClasses() map[string]*brokerconfig.ServiceClas
 	out := make(map[string]*brokerconfig.ServiceClass)
 	rs, err := i.List(ServiceClass.Type, "")
 	if err != nil {
-		glog.V(2).Infof("ServiceClasses => %v", err)
+		log.Infof("ServiceClasses => %v", err)
 		return out
 	}
 	for _, r := range rs {
@@ -161,7 +163,7 @@ func (i brokerConfigStore) ServicePlans() map[string]*brokerconfig.ServicePlan {
 	out := make(map[string]*brokerconfig.ServicePlan)
 	rs, err := i.List(ServicePlan.Type, "")
 	if err != nil {
-		glog.V(2).Infof("ServicePlans => %v", err)
+		log.Infof("ServicePlans => %v", err)
 		return out
 	}
 	for _, r := range rs {

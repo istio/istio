@@ -22,10 +22,10 @@ import (
 	"sort"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	cpb "istio.io/istio/mixer/pkg/config/proto"
+	"istio.io/istio/pkg/log"
 )
 
 // handlerTable initializes and maintains handlers.
@@ -107,17 +107,13 @@ func (t *handlerTable) Initialize(oldTable map[string]*HandlerEntry) {
 			// handler by the old name (oh) has been removed from config.
 			// It should be closed during cleanup.
 			ohe.closeOnCleanup = true
-			if glog.V(3) {
-				glog.Infof("handler: %s will be removed", oh)
-			}
+			log.Debugf("handler: %s will be removed", oh)
 			continue
 		}
 
 		if he.sha != ohe.sha {
 			ohe.closeOnCleanup = true
-			if glog.V(3) {
-				glog.Infof("handler: %s will be replaced", oh)
-			}
+			log.Debugf("handler: %s will be replaced", oh)
 			continue
 		}
 		// shas match, reuse the handler.
@@ -156,17 +152,17 @@ func encode(w io.Writer, v interface{}) {
 		b = []byte(t)
 	case proto.Message:
 		if b, err = proto.Marshal(t); err != nil {
-			glog.Warningf("Failed to marshall %v into a proto: %v", t, err)
+			log.Warnf("Failed to marshall %v into a proto: %v", t, err)
 		}
 	}
 
 	if b == nil {
-		glog.Warningf("Falling back to fmt.Fprintf()", v)
+		log.Warnf("Falling back to fmt.Fprintf()", v)
 		b = []byte(fmt.Sprintf("%+v", v))
 	}
 
 	if _, err = w.Write(b); err != nil {
-		glog.Warningf("Failed to write %s to a buffer: %v", string(b), err)
+		log.Warnf("Failed to write %s to a buffer: %v", string(b), err)
 	}
 }
 

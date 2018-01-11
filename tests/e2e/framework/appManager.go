@@ -18,8 +18,10 @@ import (
 	"flag"
 	"path/filepath"
 
-	"github.com/golang/glog"
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tests/util"
 )
 
@@ -62,11 +64,11 @@ func (am *AppManager) generateAppYaml(a *App) error {
 	var err error
 	a.AppYaml, err = util.CreateTempfile(am.tmpDir, filepath.Base(a.AppYamlTemplate), yamlSuffix)
 	if err != nil {
-		glog.Errorf("Failed to generate yaml %s: %v", a.AppYamlTemplate, err)
+		log.Errorf("Failed to generate yaml %s: %v", a.AppYamlTemplate, err)
 		return err
 	}
 	if err := util.Fill(a.AppYaml, a.AppYamlTemplate, a.Template); err != nil {
-		glog.Errorf("Failed to generate yaml for template %s", a.AppYamlTemplate)
+		log.Errorf("Failed to generate yaml for template %s", a.AppYamlTemplate)
 		return err
 	}
 	return nil
@@ -81,16 +83,16 @@ func (am *AppManager) deploy(a *App) error {
 		var err error
 		finalYaml, err = util.CreateTempfile(am.tmpDir, kubeInjectPrefix, yamlSuffix)
 		if err != nil {
-			glog.Errorf("CreateTempfile failed %v", err)
+			log.Errorf("CreateTempfile failed %v", err)
 			return err
 		}
 		if err = am.istioctl.KubeInject(a.AppYaml, finalYaml); err != nil {
-			glog.Errorf("KubeInject failed %v", err)
+			log.Errorf("KubeInject failed %v", err)
 			return err
 		}
 	}
 	if err := util.KubeApply(am.namespace, finalYaml); err != nil {
-		glog.Errorf("Kubectl apply %s failed", finalYaml)
+		log.Errorf("Kubectl apply %s failed", finalYaml)
 		return err
 	}
 	return nil
@@ -98,11 +100,11 @@ func (am *AppManager) deploy(a *App) error {
 
 // Setup deploy apps
 func (am *AppManager) Setup() error {
-	glog.Info("Setting up apps")
+	log.Info("Setting up apps")
 	for _, a := range am.Apps {
-		glog.Infof("Setup %v", a)
+		log.Infof("Setup %v", a)
 		if err := am.deploy(a); err != nil {
-			glog.Errorf("error deploying %v: %v", a, err)
+			log.Errorf("error deploying %v: %v", a, err)
 			return err
 		}
 	}

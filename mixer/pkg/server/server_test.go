@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"strconv"
 	"testing"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/mixer/pkg/pool"
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/tracing"
 )
 
 const (
@@ -109,7 +111,6 @@ func createClient(addr net.Addr) (mixerpb.MixerClient, error) {
 func TestBasic(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
-	a.ConfigAPIPort = 0
 	a.MonitoringPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
@@ -117,6 +118,11 @@ func TestBasic(t *testing.T) {
 	s, err := New(a)
 	if err != nil {
 		t.Fatalf("Unable to create server: %v", err)
+	}
+
+	d := s.Dispatcher()
+	if d != s.dispatcher {
+		t.Fatalf("returned dispatcher is incorrect")
 	}
 
 	err = s.Close()
@@ -129,7 +135,6 @@ func TestClient(t *testing.T) {
 	a := NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigAPIPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
 
@@ -172,9 +177,9 @@ func TestErrors(t *testing.T) {
 	a = NewArgs()
 	a.APIPort = 0
 	a.MonitoringPort = 0
-	a.ConfigAPIPort = 0
 	a.GlobalConfig = globalCfg
 	a.ServiceConfig = serviceCfg
+	a.TracingOptions.LogTraceSpans = true
 
 	for i := 0; i < 20; i++ {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
@@ -196,8 +201,8 @@ func TestErrors(t *testing.T) {
 					return nil, errors.New("BAD")
 				}
 			case 3:
-				pt.startTracer = func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error) {
-					return nil, nil, errors.New("BAD")
+				pt.configTracing = func(_ string, _ *tracing.Options) (io.Closer, error) {
+					return nil, errors.New("BAD")
 				}
 			case 4:
 				pt.startMonitor = func(port uint16) (*monitor, error) {
@@ -207,15 +212,11 @@ func TestErrors(t *testing.T) {
 				pt.listen = func(network string, address string) (net.Listener, error) {
 					return nil, errors.New("BAD")
 				}
-			case 6:
-				pt.newStore = func(r *store.Registry, configURL string) (store.KeyValueStore, error) {
-					return nil, errors.New("BAD")
-				}
 			default:
 				return
 			}
 
-			s, err := new(a, pt)
+			s, err := newServer(a, pt)
 			if s != nil || err == nil {
 				t.Errorf("Got success, expecting error")
 			}

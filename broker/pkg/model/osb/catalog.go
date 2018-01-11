@@ -14,6 +14,7 @@
 
 package osb
 
+// TODO(nmittler): Is this still needed?
 import _ "github.com/golang/glog" // import glog flags
 
 // Catalog defines OSB catalog request data structure.

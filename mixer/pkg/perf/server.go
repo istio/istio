@@ -30,48 +30,12 @@ type server struct {
 	s *testEnv.Server
 }
 
-func (s *server) initialize(setup *Setup, env *Env) error {
-	serverDir, err := initializeServerDir(setup)
+func (s *server) initialize(setup *Setup, settings *Settings) error {
+
+	args, err := initializeArgs(settings, setup)
 	if err != nil {
 		return err
 	}
-
-	templates := env.templates
-	adapters := env.adapters
-
-	if setup.Config.Templates != nil && len(setup.Config.Templates) > 0 {
-		templates = make(map[string]template.Info)
-		for _, name := range setup.Config.Templates {
-			t, found := env.findTemplate(name)
-			if !found {
-				return fmt.Errorf("template not found: %s", name)
-			}
-			templates[t.Name] = t
-		}
-	}
-
-	if setup.Config.Adapters != nil && len(setup.Config.Adapters) > 0 {
-		adapters = make([]adapter.InfoFn, len(setup.Config.Adapters))
-		for i, name := range setup.Config.Adapters {
-			a, found := env.findAdapter(name)
-			if !found {
-				return fmt.Errorf("adapter not found: %s", name)
-			}
-			adapters[i] = a
-		}
-	}
-
-	var args = testEnv.NewArgs()
-	args.APIPort = 0
-	args.MonitoringPort = 0
-	args.ConfigAPIPort = 0
-	args.Templates = templates
-	args.Adapters = adapters
-	args.ConfigStoreURL = `fs://` + serverDir
-	args.ConfigStore2URL = `fs://` + serverDir
-	args.ConfigDefaultNamespace = "istio-system"
-	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
-	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
 
 	server, err := testEnv.New(args)
 	if err != nil {
@@ -83,6 +47,66 @@ func (s *server) initialize(setup *Setup, env *Env) error {
 	s.s.Run()
 
 	return nil
+}
+
+func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
+	serverDir, err := initializeServerDir(setup)
+	if err != nil {
+		return nil, err
+	}
+
+	templates := settings.Templates
+	adapters := settings.Adapters
+
+	if setup.Config.Templates != nil && len(setup.Config.Templates) > 0 {
+		templates = make(map[string]template.Info)
+		for _, name := range setup.Config.Templates {
+			t, found := settings.findTemplate(name)
+			if !found {
+				return nil, fmt.Errorf("template not found: %s", name)
+			}
+			templates[t.Name] = t
+		}
+	}
+
+	if setup.Config.Adapters != nil && len(setup.Config.Adapters) > 0 {
+		adapters = make([]adapter.InfoFn, len(setup.Config.Adapters))
+		for i, name := range setup.Config.Adapters {
+			a, found := settings.findAdapter(name)
+			if !found {
+				return nil, fmt.Errorf("adapter not found: %s", name)
+			}
+			adapters[i] = a
+		}
+	}
+
+	var args = testEnv.NewArgs()
+	args.APIPort = 0
+	args.MonitoringPort = 0
+	args.Templates = templates
+	args.Adapters = adapters
+	args.ConfigStore2URL = `fs://` + serverDir
+	args.ConfigDefaultNamespace = "istio-system"
+	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
+	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain
+	args.SingleThreaded = setup.Config.SingleThreaded
+
+	if setup.Config.EnableDebugLog {
+		// Override enableLog. This should skip the next if conditional
+		setup.Config.EnableLog = true
+
+		o := log.NewOptions()
+		o.SetOutputLevel(log.DebugLevel)
+		args.LoggingOptions = o
+	}
+
+	if !setup.Config.EnableLog {
+		o := log.NewOptions()
+		o.SetOutputLevel(log.NoneLevel)
+		args.LoggingOptions = o
+	}
+
+	return args, nil
 }
 
 func (s *server) shutdown() {

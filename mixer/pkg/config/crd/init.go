@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -33,6 +32,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"istio.io/istio/mixer/pkg/config/store"
+	"istio.io/istio/pkg/log"
 )
 
 // defaultDiscoveryBuilder builds the actual discovery client using the kubernetes config.
@@ -69,7 +69,7 @@ func NewStore(u *url.URL) (store.Store2Backend, error) {
 		if timeout, err := time.ParseDuration(retryTimeoutParam); err == nil {
 			retryTimeout = timeout
 		} else {
-			glog.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
+			log.Errorf("Failed to parse retry-timeout flag, using the default timeout %v: %v", crdRetryTimeout, err)
 		}
 	}
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)

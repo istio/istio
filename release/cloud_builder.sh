@@ -28,12 +28,6 @@ set -x
 # uses store_artifacts.sh to store the build on GCR/GCS.
 
 OUTPUT_PATH=""
-# The default for PROXY_PATH (which indicates where the proxy path is located
-# relative to the istio repo) is based on repo manifest that places istio at:
-# go/src/istio.io/istio
-# and proxy at:
-# src/proxy
-PROXY_PATH="../../../../src/proxy"
 TAG_NAME="0.0.0"
 BUILD_DEBIAN="true"
 BUILD_DOCKER="true"
@@ -43,108 +37,59 @@ function usage() {
     -b        opts out of building debian artifacts
     -c        opts out of building docker artifacts
     -o        path to store build artifacts
-    -p        path to proxy repo (relative to istio repo, defaults to ${PROXY_PATH} ) 
     -t <tag>  tag to use (optional, defaults to ${TAG_NAME} )"
   exit 1
 }
 
-while getopts bco:p:t: arg ; do
+while getopts bco:t: arg ; do
   case "${arg}" in
     b) BUILD_DEBIAN="false";;
     c) BUILD_DOCKER="false";;
     o) OUTPUT_PATH="${OPTARG}";;
-    p) PROXY_PATH="${PROXY_PATH}";;
     t) TAG_NAME="${OPTARG}";;
     *) usage;;
   esac
 done
 
 [[ -z "${OUTPUT_PATH}" ]] && usage
-[[ -z "${PROXY_PATH}" ]] && usage
 
 # switch to the root of the istio repo
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd $ROOT
 
-export GOPATH="$(cd "$ROOT/../../.." && pwd)":${ROOT}/vendor
+export GOPATH="$(cd "$ROOT/../../.." && pwd)"
 echo gopath is $GOPATH
-
-if [ ! -d "${PROXY_PATH}" ]; then
-  echo "proxy dir not detected at ${PROXY_PATH}"
-  usage
-fi
 
 export ISTIO_VERSION="${TAG_NAME}"
 
-# Proxy has some specific requirements for Bazel's
-# config (plus it's nicely places bazel in batch
-# mode) so this component gets built first.
+apt-get -qqy install ruby ruby-dev rubygems build-essential
+gem install --no-ri --no-rdoc fpm
 
-pushd "${PROXY_PATH}"
+VERBOSE=1 make setup
 
-# Use this file for Cloud Builder specific settings.
-# This file sets RAM sizes and also specifies batch
-# mode that should shutdown bazel after each call.
-echo 'Setting bazel.rc'
-cp tools/bazel.rc.cloudbuilder "${HOME}/.bazelrc"
+VERBOSE=1 make init
+
+# pull in outside dependencies
+VERBOSE=1 make depend
+
 if [ "${BUILD_DEBIAN}" == "true" ]; then
-  mkdir -p "${OUTPUT_PATH}/deb"
-  ./script/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
+  # OUT="${OUTPUT_PATH}/deb" is ignored so we'll have to do the copy
+  # and hope that the name of the file doesn't change.
+  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make sidecar.deb
+  mkdir -p ${OUTPUT_PATH}/deb
+  cp ${GOPATH}/out/istio-sidecar.deb ${OUTPUT_PATH}/deb
 fi
-popd
-
-# Pilot likes to check if the source tree is 'clean'
-# when it queries for version/source informatin.  Some
-# other components like littering the tree so it's better
-# to build pilot sooner than later.
-
-# Pilot build expects this file to exist.  The usual
-# approach of adding a symlink to the user's config file
-# doesn't help when the user doesn't have one.
-touch pilot/platform/kube/config
-
-# building //... results in dirtied files:
-# broker/pkg/model/config/mock_store.go
-# broker/pkg/platform/kube/crd/types.go
-# mixer/template/apikey/go_default_library_handler.gen.go
-# mixer/template/apikey/go_default_library_tmpl.pb.go
-# mixer/template/template.gen.go
-bazel build //pilot/...
-
-# bazel_to_go likes to run from dir with WORKSPACE file
-./bin/bazel_to_go.py
-# Remove doubly-vendorized k8s dependencies that confuse go
-rm -rf vendor/k8s.io/*/vendor
-
-# bazel_to_go.py dirties generated_files and lintconfig.json
-# it's easier to ask git to restore files than add
-# an option to bazel_to_go to not touch them
-git checkout generated_files
 
 pushd pilot
 mkdir -p "${OUTPUT_PATH}/istioctl"
+# make istioctl just outputs to pilot/cmd/istioctl
 ./bin/upload-istioctl -r -o "${OUTPUT_PATH}/istioctl"
-# An empty hub skips the tag and push steps.  -h "" provokes unset var error msg so using " "
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  # push-docker already adds docker/ to path
-  ./bin/push-docker -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
 popd
 
-pushd mixer
 if [ "${BUILD_DOCKER}" == "true" ]; then
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
+  VERBOSE=1 VERSION=$ISTIO_VERSION TAG=$ISTIO_VERSION make docker.save
+  cp -r ${GOPATH}/out/docker ${OUTPUT_PATH}
 fi
-popd
 
-pushd security
-if [ "${BUILD_DOCKER}" == "true" ]; then
-  ./bin/push-docker           -h " " -t "${TAG_NAME}" -b -o "${OUTPUT_PATH}"
-fi
-if [ "${BUILD_DEBIAN}" == "true" ]; then
-  ./bin/push-debian.sh -c opt -v "${TAG_NAME}" -o "${OUTPUT_PATH}/deb"
-fi
-popd
+# log where git thinks the build might be dirty
+git status

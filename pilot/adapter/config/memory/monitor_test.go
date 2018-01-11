@@ -15,6 +15,7 @@
 package memory_test
 
 import (
+	"sync"
 	"testing"
 
 	"istio.io/istio/pilot/adapter/config/memory"
@@ -31,7 +32,13 @@ func TestEventConsistency(t *testing.T) {
 
 	done := make(chan bool)
 
+	lock := sync.Mutex{}
+
 	controller.RegisterEventHandler(model.MockConfig.Type, func(config model.Config, event model.Event) {
+
+		lock.Lock()
+		defer lock.Unlock()
+
 		if event != testEvent {
 			t.Errorf("desired %v, but %v", testEvent, event)
 		}
@@ -50,7 +57,10 @@ func TestEventConsistency(t *testing.T) {
 		t.Error(err)
 		return
 	} else {
+
+		lock.Lock()
 		testConfig.ResourceVersion = rev
+		lock.Unlock()
 	}
 	<-done
 

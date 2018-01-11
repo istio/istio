@@ -10,11 +10,13 @@ go_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/log:go_default_library",
         "//security/pkg/credential:go_default_library",
         "//security/pkg/pki:go_default_library",
         "@com_github_aws_aws_sdk_go//aws/ec2metadata:go_default_library",
         "@com_github_aws_aws_sdk_go//aws/session:go_default_library",
         "@com_github_fullsailor_pkcs7//:go_default_library",
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_google_cloud_go//compute/metadata:go_default_library",
         "@org_golang_google_grpc//:go_default_library",

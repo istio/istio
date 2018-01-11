@@ -9,6 +9,9 @@ go_library(
         "//broker/pkg/controller:go_default_library",
         "//broker/pkg/model/config:go_default_library",
         "//broker/pkg/platform/kube/crd:go_default_library",
+        "//pkg/log:go_default_library",
+
+        # TODO(nmittler): Remove this
         "@com_github_golang_glog//:go_default_library",
         "@com_github_gorilla_mux//:go_default_library",
     ],

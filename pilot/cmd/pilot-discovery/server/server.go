@@ -20,8 +20,11 @@ import (
 	"os"
 	"time"
 
+	"code.cloudfoundry.org/copilot"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/golang/glog"
+
+	// TODO(nmittler): Remove this
+	_ "github.com/golang/glog"
 	durpb "github.com/golang/protobuf/ptypes/duration"
 	multierror "github.com/hashicorp/go-multierror"
 	"k8s.io/client-go/kubernetes"
@@ -36,6 +39,7 @@ import (
 	"istio.io/istio/pilot/cmd"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/platform"
+	"istio.io/istio/pilot/platform/cloudfoundry"
 	"istio.io/istio/pilot/platform/consul"
 	"istio.io/istio/pilot/platform/eureka"
 	"istio.io/istio/pilot/platform/kube"
@@ -44,6 +48,7 @@ import (
 	"istio.io/istio/pilot/proxy/envoy"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pilot/tools/version"
+	"istio.io/istio/pkg/log"
 )
 
 // ServiceRegistry is an expansion of the platform.ServiceRegistry enum that adds a mock registry.
@@ -58,11 +63,14 @@ const (
 	ConsulRegistry ServiceRegistry = "Consul"
 	// EurekaRegistry environment flag
 	EurekaRegistry ServiceRegistry = "Eureka"
+	// CloudFoundryRegistry environment flag
+	CloudFoundryRegistry ServiceRegistry = "CloudFoundry"
 )
 
 var (
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
+		model.V1alpha2RouteRule,
 		model.EgressRule,
 		model.DestinationPolicy,
 		model.HTTPAPISpec,
@@ -87,6 +95,7 @@ type MeshArgs struct {
 // purposes). Otherwise, a CRD client is created based on the configuration.
 type ConfigArgs struct {
 	KubeConfig        string
+	CFConfig          string
 	ControllerOptions kube.ControllerOptions
 	FileDir           string
 }
@@ -171,6 +180,9 @@ func NewServer(args PilotArgs) (*Server, error) {
 	s := &Server{}
 
 	// Apply the arguments to the configuration.
+	if err := s.initMonitor(&args); err != nil {
+		return nil, err
+	}
 	if err := s.initMesh(&args); err != nil {
 		return nil, err
 	}
@@ -213,6 +225,24 @@ func (s *Server) Start(stop chan struct{}) (net.Addr, error) {
 // startFunc defines a function that will be used to start one or more components of the Pilot discovery service.
 type startFunc func(stop chan struct{}) error
 
+// initMonitor initializes the configuration for the pilot monitoring server.
+func (s *Server) initMonitor(args *PilotArgs) error {
+	s.addStartFunc(func(stop chan struct{}) error {
+		monitor, err := startMonitor(args.DiscoveryOptions.MonitoringPort)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			<-stop
+			err := monitor.Close()
+			log.Debugf("Monitoring server terminated: %v", err)
+		}()
+		return nil
+	})
+	return nil
+}
+
 // initMesh creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMesh(args *PilotArgs) error {
 	// If a config file was specified, use it.
@@ -220,7 +250,7 @@ func (s *Server) initMesh(args *PilotArgs) error {
 	if args.Mesh.ConfigFile != "" {
 		fileMesh, err := cmd.ReadMeshConfig(args.Mesh.ConfigFile)
 		if err != nil {
-			glog.Warningf("failed to read mesh configuration, using default: %v", err)
+			log.Warnf("failed to read mesh configuration, using default: %v", err)
 		} else {
 			mesh = fileMesh
 		}
@@ -240,9 +270,9 @@ func (s *Server) initMesh(args *PilotArgs) error {
 		}
 	}
 
-	glog.V(2).Infof("mesh configuration %s", spew.Sdump(mesh))
-	glog.V(2).Infof("version %s", version.Line())
-	glog.V(2).Infof("flags %s", spew.Sdump(args))
+	log.Infof("mesh configuration %s", spew.Sdump(mesh))
+	log.Infof("version %s", version.Line())
+	log.Infof("flags %s", spew.Sdump(args))
 
 	s.mesh = mesh
 	return nil
@@ -338,7 +368,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			return multierror.Prefix(nil, r+" registry specified multiple times.")
 		}
 		registered[serviceRegistry] = true
-		glog.V(2).Infof("Adding %s registry adapter", serviceRegistry)
+		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case MockRegistry:
 			discovery1 := mock.NewDiscovery(
@@ -390,7 +420,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 
 				if ingressSyncer, errSyncer := ingress.NewStatusSyncer(s.mesh, s.kubeClient,
 					args.Namespace, args.Config.ControllerOptions); errSyncer != nil {
-					glog.Warningf("Disabled ingress status syncer due to %v", errSyncer)
+					log.Warnf("Disabled ingress status syncer due to %v", errSyncer)
 				} else {
 					s.addStartFunc(func(stop chan struct{}) error {
 						go ingressSyncer.Run(stop)
@@ -399,10 +429,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 				}
 			}
 		case ConsulRegistry:
-			glog.V(2).Infof("Consul url: %v", args.Service.Consul.ServerURL)
+			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
-				// TODO: Remove this hardcoding!
-				args.Service.Consul.ServerURL, "dc1", 2*time.Second)
+				args.Service.Consul.ServerURL, 2*time.Second)
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}
@@ -414,7 +443,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					Controller:       conctl,
 				})
 		case EurekaRegistry:
-			glog.V(2).Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
+			log.Infof("Eureka url: %v", args.Service.Eureka.ServerURL)
 			eurekaClient := eureka.NewClient(args.Service.Eureka.ServerURL)
 			serviceControllers.AddRegistry(
 				aggregate.Registry{
@@ -424,6 +453,30 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 					ServiceDiscovery: eureka.NewServiceDiscovery(eurekaClient),
 					ServiceAccounts:  eureka.NewServiceAccounts(),
 				})
+
+		case CloudFoundryRegistry:
+			cfConfig, err := cloudfoundry.LoadConfig(args.Config.CFConfig)
+			if err != nil {
+				return multierror.Prefix(err, "loading cloud foundry config")
+			}
+			tlsConfig, err := cfConfig.ClientTLSConfig()
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client tls config")
+			}
+			client, err := copilot.NewIstioClient(cfConfig.Copilot.Address, tlsConfig)
+			if err != nil {
+				return multierror.Prefix(err, "creating cloud foundry client")
+			}
+			serviceControllers.AddRegistry(aggregate.Registry{
+				Name: platform.ServiceRegistry(r),
+				Controller: &cloudfoundry.Controller{
+					Ticker: cloudfoundry.NewTicker(cfConfig.Copilot.PollInterval),
+					Client: client,
+				},
+				ServiceDiscovery: &cloudfoundry.ServiceDiscovery{Client: client},
+				ServiceAccounts:  cloudfoundry.NewServiceAccounts(),
+			})
+
 		default:
 			return multierror.Prefix(nil, "Service registry "+r+" is not supported.")
 		}

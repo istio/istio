@@ -23,6 +23,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 // Args contains the startup arguments to instantiate Mixer.
@@ -32,9 +33,6 @@ type Args struct {
 
 	// The adapters to use
 	Adapters []adapter.InfoFn
-
-	// The legacy adapters to use
-	LegacyAdapters []adapter.RegisterFn
 
 	// Maximum size of individual gRPC messages
 	MaxMessageSize uint
@@ -54,26 +52,11 @@ type Args struct {
 	// Port to use for Mixer's gRPC API
 	APIPort uint16
 
-	// Port to use for Mixer's Configuration API
-	ConfigAPIPort uint16
-
 	// Port to use for exposing mixer self-monitoring information
 	MonitoringPort uint16
 
 	// If true, each request to Mixer will be executed in a single go routine (useful for debugging)
 	SingleThreaded bool
-
-	// URL of zipkin collector (example: 'http://zipkin:9411/api/v1/spans'). This enables tracing for Mixer itself.
-	ZipkinURL string
-
-	// URL of jaeger HTTP collector (example: 'http://jaeger:14268/api/traces?format=jaeger.thrift'). This enables tracing for Mixer itself.
-	JaegerURL string
-
-	// Whether or not to log Mixer trace spans to stdio. This enables tracing for Mixer itself.
-	LogTraceSpans bool
-
-	// URL of the config store. May be fs:// for file system, or redis:// for redis url
-	ConfigStoreURL string
 
 	// URL of the config store. Use k8s://path_to_kubeconfig or fs:// for file system. If path_to_kubeconfig is empty, in-cluster kubeconfig is used.")
 	ConfigStore2URL string
@@ -91,12 +74,6 @@ type Args struct {
 	// For kubernetes services it is svc.cluster.local
 	ConfigIdentityAttributeDomain string
 
-	// Deprecated
-	ServiceConfigFile string
-
-	// Deprecated
-	GlobalConfigFile string
-
 	// Supplies a string to use for service configuration, overrides ConfigStoreURL
 	ServiceConfig string
 
@@ -108,6 +85,9 @@ type Args struct {
 
 	// The logging options to use
 	LoggingOptions *log.Options
+
+	// The tracing options to use
+	TracingOptions *tracing.Options
 }
 
 // NewArgs allocates an Args struct initialized with Mixer's default configuration.
@@ -115,7 +95,6 @@ func NewArgs() *Args {
 	return &Args{
 		APIPort:                       9091,
 		MonitoringPort:                9093,
-		ConfigAPIPort:                 9094,
 		MaxMessageSize:                1024 * 1024,
 		MaxConcurrentStreams:          1024,
 		APIWorkerPoolSize:             1024,
@@ -124,8 +103,8 @@ func NewArgs() *Args {
 		ConfigDefaultNamespace:        mixerRuntime.DefaultConfigNamespace,
 		ConfigIdentityAttribute:       "destination.service",
 		ConfigIdentityAttributeDomain: "svc.cluster.local",
-		ConfigFetchIntervalSec:        5,
 		LoggingOptions:                log.NewOptions(),
+		TracingOptions:                tracing.NewOptions(),
 	}
 }
 
@@ -155,18 +134,13 @@ func (a *Args) String() string {
 	b.WriteString(fmt.Sprint("AdapterWorkerPoolSize: ", a.AdapterWorkerPoolSize, "\n"))
 	b.WriteString(fmt.Sprint("ExpressionEvalCacheSize: ", a.ExpressionEvalCacheSize, "\n"))
 	b.WriteString(fmt.Sprint("APIPort: ", a.APIPort, "\n"))
-	b.WriteString(fmt.Sprint("ConfigAPIPort: ", a.ConfigAPIPort, "\n"))
 	b.WriteString(fmt.Sprint("MonitoringPort: ", a.MonitoringPort, "\n"))
 	b.WriteString(fmt.Sprint("SingleThreaded: ", a.SingleThreaded, "\n"))
-	b.WriteString(fmt.Sprint("ZipkinURL: ", a.ZipkinURL, "\n"))
-	b.WriteString(fmt.Sprint("JaegerURL: ", a.JaegerURL, "\n"))
-	b.WriteString(fmt.Sprint("LogTraceSpans: ", a.LogTraceSpans, "\n"))
-	b.WriteString(fmt.Sprint("ConfigStoreURL: ", a.ConfigStoreURL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigStore2URL: ", a.ConfigStore2URL, "\n"))
 	b.WriteString(fmt.Sprint("ConfigDefaultNamespace: ", a.ConfigDefaultNamespace, "\n"))
-	b.WriteString(fmt.Sprint("ConfigFetchIntervalSec: ", a.ConfigFetchIntervalSec, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttribute: ", a.ConfigIdentityAttribute, "\n"))
 	b.WriteString(fmt.Sprint("ConfigIdentityAttributeDomain: ", a.ConfigIdentityAttributeDomain, "\n"))
 	b.WriteString(fmt.Sprintf("LoggingOptions: %#v\n", *a.LoggingOptions))
+	b.WriteString(fmt.Sprintf("TracingOptions: %#v\n", *a.TracingOptions))
 	return b.String()
 }

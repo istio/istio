@@ -14,6 +14,15 @@
 
 // NOTE: TODO : Auto-generate this file for given templates
 
+// Codegen blocks
+
+// apa template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/apa/tmpl.proto
+
+// report template
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -t mixer/test/spyAdapter/template/report/reporttmpl.proto
+
+// Package spyAdapter is intended for Mixer testing *ONLY*.
 package spyAdapter
 
 import (

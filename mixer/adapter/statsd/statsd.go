@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate $GOPATH/src/istio.io/istio/bin/mixer_codegen.sh -f mixer/adapter/statsd/config/config.proto
+
+// Package statsd provides an adapter that implements the metrics template to
+// serialize generated metric values to a statsd backend.
 package statsd
 
 import (

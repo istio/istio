@@ -15,7 +15,6 @@
 package attribute
 
 import (
-	"flag"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -24,6 +23,7 @@ import (
 	"time"
 
 	mixerpb "istio.io/api/mixer/v1"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -392,9 +392,9 @@ func TestCopyBag(t *testing.T) {
 	refBag.Set("G6", int64(142))
 	refBag.Set("G7", 142.0)
 
-	copy := CopyBag(refBag)
+	copyBag := CopyBag(refBag)
 
-	if !compareBags(copy, refBag) {
+	if !compareBags(copyBag, refBag) {
 		t.Error("Bags don't match")
 	}
 }
@@ -740,5 +740,7 @@ func TestGlobalWordCount(t *testing.T) {
 
 func init() {
 	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	_ = flag.Lookup("v").Value.Set("99")
+	o := log.NewOptions()
+	o.SetOutputLevel(log.DebugLevel)
+	_ = log.Configure(o)
 }

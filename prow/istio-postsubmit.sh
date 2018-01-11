@@ -18,9 +18,9 @@ WD=$(dirname $0)
 WD=$(cd $WD; pwd)
 ROOT=$(dirname $WD)
 
-#######################################
-# Presubmit script triggered by Prow. #
-#######################################
+# Runs after a submit is merged to master:
+# - run the unit tests, in local environment
+# - push the docker images to gcr.io
 
 # Exit immediately for non zero status
 set -e
@@ -30,9 +30,11 @@ set -u
 set -x
 
 if [ "${CI:-}" == 'bootstrap' ]; then
+  export USER=Prow
+
   # Test harness will checkout code to directory $GOPATH/src/github.com/istio/istio
   # but we depend on being at path $GOPATH/src/istio.io/istio for imports
-  ln -sf ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
+  mv ${GOPATH}/src/github.com/istio ${GOPATH}/src/istio.io
   ROOT=${GOPATH}/src/istio.io/istio
   cd ${GOPATH}/src/istio.io/istio
 
@@ -52,10 +54,7 @@ cd $ROOT
 ${ROOT}/bin/init.sh
 
 echo 'Running Unit Tests'
-time bazel test --test_output=all //...
-
-# run linters in advisory mode
-SKIP_INIT=1 ${ROOT}/bin/linters.sh
+time make localTestEnv go-test
 
 HUB="gcr.io/istio-testing"
 TAG="${GIT_SHA}"

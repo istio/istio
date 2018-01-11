@@ -15,30 +15,61 @@
 #-----------------------------------------------------------------------------
 # Global Variables
 #-----------------------------------------------------------------------------
-TOP := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SHELL := /bin/bash
 
+# Current version, updated after a release.
+VERSION ?= "0.5.0"
+
+# If GOPATH is not set by the env, set it to a sane value
+GOPATH ?= $(shell cd ../../..; pwd)
+export GOPATH
+
+# If GOPATH is made up of several paths, use the first one for our targets in this Makefile
+GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
+
+export CGO_ENABLE=0
+
+# OUT is the directory where dist artifacts and temp files will be created.
+OUT=${GO_TOP}/out
+
 GO ?= go
+
+# Compile for linux/amd64 by default.
+export GOOS ?= linux
+export GOARCH ?= amd64
+
+# Optional file including user-specific settings (HUB, TAG, etc)
+-include .istiorc
+
 
 # @todo allow user to run for a single $PKG only?
 PACKAGES := $(shell $(GO) list ./...)
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
 GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 
-BAZEL_STARTUP_ARGS ?=
-BAZEL_BUILD_ARGS ?=
-BAZEL_TEST_ARGS ?=
+# Environment for tests, the directory containing istio and deps binaries.
+# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+export ISTIO_BIN=${GO_TOP}/bin
 
 hub = ""
 tag = ""
 
+HUB?=istio
 ifneq ($(strip $(HUB)),)
 	hub =-hub ${HUB}
 endif
 
+# If tag not explicitly set in users' .istiorc or command line, default to the git sha.
+TAG ?= $(shell git rev-parse --verify HEAD)
+export TAG
+export HUB
 ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
+
+# Discover if user has dep installed -- prefer that
+DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -48,52 +79,75 @@ V ?= $(or $(VERBOSE),0)
 Q = $(if $(filter 1,$V),,@)
 H = $(shell printf "\033[34;1m=>\033[0m")
 
-.DEFAULT_GOAL := build
+.PHONY: default
+default: depend build
 
 checkvars:
 	@if test -z "$(TAG)"; then echo "TAG missing"; exit 1; fi
 	@if test -z "$(HUB)"; then echo "HUB missing"; exit 1; fi
 
-verify.preconditions:
-	@if [ -d "vendor" ]; then echo "You have directory 'vendor' in the top-level directory, please remove it."\
-	" Otherwise it will confuse Bazel." ; exit 1; fi
-
-.PHONY: verify.preconditions
-
-setup: pilot/platform/kube/config verify.preconditions
-
+setup: pilot/platform/kube/config
 
 #-----------------------------------------------------------------------------
 # Target: depend
 #-----------------------------------------------------------------------------
-.PHONY: depend 
+.PHONY: depend depend.update
 .PHONY: depend.status depend.ensure depend.graph
 
-depend: depend.ensure
+# Pull depdendencies, based on the checked in Gopkg.lock file.
+# Developers must manually call dep.update if adding new deps or to pull recent
+# changes.
+depend: init
 
-Gopkg.lock: Gopkg.toml ; $(info $(H) generating) @
-	$(Q) dep ensure -update
+depend.ensure: init
 
-depend.status: Gopkg.lock ; $(info $(H) reporting dependencies status...)
-	$(Q) dep status
+# Target to update the Gopkg.lock with latest versions.
+# Should be run when adding any new dependency and periodically.
+depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
+	${DEP} ensure
+	${DEP} ensure -update
+	cp Gopkg.lock vendor/Gopkg.lock
 
-# @todo only run if there are changes (e.g., create a checksum file?) 
-depend.ensure: Gopkg.lock ; $(info $(H) ensuring dependencies are up to date...)
-	$(Q) dep ensure
+${DEP}:
+	unset GOOS && go get -u github.com/golang/dep/cmd/dep
 
-depend.graph: Gopkg.lock ; $(info $(H) visualizing dependency graph...)
-	$(Q) dep status -dot | dot -T png | display
+Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
+	$(Q) ${DEP} ensure -update
+	
+depend.status: Gopkg.lock
+	$(Q) ${DEP} status > vendor/dep.txt
+	$(Q) ${DEP} status -dot > vendor/dep.dot
+
+# Requires 'graphviz' package. Run as user
+depend.view: depend.status
+	cat vendor/dep.dot | dot -T png > vendor/dep.png
+	display vendor/dep.pkg
+
+lint:
+	SKIP_INIT=1 bin/linters.sh
+
+# Target run by the pre-commit script, to automate formatting and lint
+# If pre-commit script is not used, please run this manually.
+pre-commit: fmt lint
+
+# Downloads envoy, based on the SHA defined in the base pilot Dockerfile
+# Will also check vendor, based on Gopkg.lock
+init:
+	@bin/init.sh
+
+# init.sh downloads envoy
+${ISTIO_BIN}/envoy: init
 
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
 .PHONY: precommit format check
-.PHONY: fmt format.gofmt format.goimports format.bazel
+.PHONY: fmt format.gofmt format.goimports
 .PHONY: check.vet check.lint
 
 precommit: format check
 format: format.goimports
-fmt: format.gofmt format.goimports format.bazel # backward compatible with ./bin/fmt.sh
+fmt: format.gofmt format.goimports # backward compatible with ./bin/fmt.sh
 check: check.vet check.lint
 
 format.gofmt: ; $(info $(H) formatting files with go fmt...)
@@ -101,10 +155,6 @@ format.gofmt: ; $(info $(H) formatting files with go fmt...)
 
 format.goimports: ; $(info $(H) formatting files with goimports...)
 	$(Q) goimports -w -local istio.io $(GO_FILES)
-
-format.bazel: ; $(info $(H) formatting bazel files...)
-	$(eval BAZEL_FILES = $(shell git ls-files | grep -e 'BUILD' -e 'WORKSPACE' -e 'BUILD.bazel' -e '.*\.bazel' -e '.*\.bzl'))
-	$(Q) buildifier -mode=fix $(BAZEL_FILES)
 
 # @todo fail on vet errors? Currently uses `true` to avoid aborting on failure
 check.vet: ; $(info $(H) running go vet on packages...)
@@ -120,34 +170,318 @@ check.lint: ; $(info $(H) running golint on packages...)
 
 # @todo gometalinter targets?
 
-build: setup
-	bazel $(BAZEL_STARTUP_ARGS) build $(BAZEL_BUILD_ARGS) //...
+build: setup go-build
+
+#-----------------------------------------------------------------------------
+# Target: go build
+#-----------------------------------------------------------------------------
+
+# gobuild script uses custom linker flag to set the variables.
+# Params: OUT VERSION_PKG SRC
+
+PILOT_GO_BINS:=${ISTIO_BIN}/pilot-discovery ${ISTIO_BIN}/pilot-agent \
+               ${ISTIO_BIN}/istioctl ${ISTIO_BIN}/sidecar-initializer
+$(PILOT_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/pilot/tools/version ./pilot/cmd/$(@F)
+
+MIXER_GO_BINS:=${ISTIO_BIN}/mixs ${ISTIO_BIN}/mixc
+$(MIXER_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/mixer/pkg/version ./mixer/cmd/$(@F)
+
+${ISTIO_BIN}/servicegraph: depend
+	bin/gobuild.sh ${ISTIO_BIN}/servicegraph istio.io/istio/mixer/pkg/version ./mixer/example/servicegraph
+
+SECURITY_GO_BINS:=${ISTIO_BIN}/node_agent ${ISTIO_BIN}/istio_ca
+$(SECURITY_GO_BINS): depend
+	bin/gobuild.sh ${ISTIO_BIN}/$(@F) istio.io/istio/security/cmd/istio_ca/version ./security/cmd/$(@F)
+
+.PHONY: go-build
+go-build: $(PILOT_GO_BINS) $(MIXER_GO_BINS) $(SECURITY_GO_BINS)
+
+# The following are convenience aliases for most of the go targets
+# The first block is for aliases that are the same as the actual binary,
+# while the ones that follow need slight adjustments to their names.
+
+IDENTITY_ALIAS_LIST:=istioctl mixc mixs pilot-agent servicegraph sidecar-initializer
+.PHONY: $(IDENTITY_ALIAS_LIST)
+$(foreach ITEM,$(IDENTITY_ALIAS_LIST),$(eval $(ITEM): ${ISTIO_BIN}/$(ITEM)))
+
+.PHONY: istio-ca
+istio-ca: ${ISTIO_BIN}/istio_ca
+
+.PHONY: node-agent
+node-agent: ${ISTIO_BIN}/node_agent
+
+.PHONY: pilot
+pilot: ${ISTIO_BIN}/pilot-discovery
+
+#-----------------------------------------------------------------------------
+# Target: go test
+#-----------------------------------------------------------------------------
+
+.PHONY: go-test localTestEnv test-bins
+
+GOTEST_PARALLEL ?= '-test.parallel=4'
+GOTEST_P ?= -p 1
+GOSTATIC = -ldflags '-extldflags "-static"'
+
+PILOT_TEST_BINS:=${ISTIO_BIN}/pilot-test-server ${ISTIO_BIN}/pilot-test-client ${ISTIO_BIN}/pilot-test-eurekamirror
+
+$(PILOT_TEST_BINS): depend
+	CGO_ENABLED=0 go build ${GOSTATIC} -o ${ISTIO_BIN}/$(@F) istio.io/istio/$(subst -,/,$(@F))
+
+test-bins: $(PILOT_TEST_BINS)
+	go build -o ${ISTIO_BIN}/pilot-integration-test istio.io/istio/pilot/test/integration
+
+localTestEnv: test-bins
+	bin/testEnvLocalK8S.sh ensure
+
+# Temp. disable parallel test - flaky consul test.
+# https://github.com/istio/istio/issues/2318
+.PHONY: pilot-test
+pilot-test: pilot-agent
+	go test ${GOTEST_P} ${T} ./pilot/...
+
+.PHONY: mixer-test
+mixer-test: mixs
+	# Some tests use relative path "testdata", must be run from mixer dir
+	(cd mixer; go test ${T} ${GOTEST_PARALLEL} ./...)
+
+.PHONY: broker-test
+broker-test: depend
+	go test ${T} ./broker/...
+
+.PHONY: security-test
+security-test:
+	go test ${T} ./security/pkg/...
+	go test ${T} ./security/cmd/...
+
+common-test:
+	go test ${T} ./pkg/...
+
+# Run coverage tests
+go-test: pilot-test mixer-test security-test broker-test common-test
+
+#-----------------------------------------------------------------------------
+# Target: Code coverage ( go )
+#-----------------------------------------------------------------------------
+
+.PHONY: pilot-coverage
+pilot-coverage:
+	bin/parallel-codecov.sh pilot
+
+.PHONY: mixer-coverage
+mixer-coverage:
+	bin/parallel-codecov.sh mixer
+
+.PHONY: broker-coverage
+broker-coverage:
+	bin/parallel-codecov.sh broker
+
+.PHONY: security-coverage
+security-coverage:
+	bin/parallel-codecov.sh security/pkg
+	bin/parallel-codecov.sh security/cmd
+
+# Run coverage tests
+coverage: pilot-coverage mixer-coverage security-coverage broker-coverage
+
+#-----------------------------------------------------------------------------
+# Target: go test -race
+#-----------------------------------------------------------------------------
+
+.PHONY: racetest
+
+.PHONY: pilot-racetest
+pilot-racetest: pilot-agent
+	go test ${GOTEST_P} ${T} -race ./pilot/...
+
+.PHONY: mixer-racetest
+mixer-racetest: mixs
+	# Some tests use relative path "testdata", must be run from mixer dir
+	(cd mixer; go test ${T} -race ${GOTEST_PARALLEL} ./...)
+
+.PHONY: broker-racetest
+broker-racetest: depend
+	go test ${T} -race ./broker/...
+
+.PHONY: security-racetest
+security-racetest:
+	go test ${T} -race ./security/...
+
+common-racetest:
+	go test ${T} -race ./pkg/...
+
+# Run race tests
+racetest: pilot-racetest mixer-racetest security-racetest broker-racetest common-racetest
 
 #-----------------------------------------------------------------------------
 # Target: precommit
 #-----------------------------------------------------------------------------
 .PHONY: clean
-.PHONY: clean.bazel clean.go
+.PHONY: clean.go
 
-clean: clean.bazel
+DIRS_TO_CLEAN:=
+FILES_TO_CLEAN:=
 
-clean.bazel: ; $(info $(H) cleaning...)
-	$(Q) bazel clean
+clean: clean.go clean.installgen
+	rm -rf $(DIRS_TO_CLEAN)
+	rm -f $(FILES_TO_CLEAN)
 
 clean.go: ; $(info $(H) cleaning...)
 	$(eval GO_CLEAN_FLAGS := -i -r)
 	$(Q) $(GO) clean $(GO_CLEAN_FLAGS)
+	$(MAKE) clean -C mixer
+	$(MAKE) clean -C pilot
+	$(MAKE) clean -C security
 
-test: setup
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
+test: setup go-test
 
+# Build all prod and debug images
 docker:
-	$(TOP)/security/bin/push-docker ${hub} ${tag} -build-only
-	$(TOP)/pilot/bin/push-docker ${hub} ${tag} -build-only
-	$(TOP)/mixer/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/security/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/mixer/bin/push-docker ${hub} ${tag} -build-only
+	time $(ISTIO_GO)/pilot/bin/push-docker ${hub} ${tag} -build-only
 
-push: checkvars
-	$(TOP)/bin/push $(HUB) $(TAG)
+# Build docker images for pilot, mixer, ca using prebuilt binaries
+docker.prebuilt:
+	cp ${ISTIO_BIN}/{pilot-discovery,pilot-agent,sidecar-initializer} pilot/docker
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_debug:${TAG} -f Dockerfile.proxy_debug .)
+	time (cd pilot/docker && docker build -t ${HUB}/proxy_init:${TAG} -f Dockerfile.proxy_init .)
+	time (cd pilot/docker && docker build -t ${HUB}/sidecar_initializer:${TAG} -f Dockerfile.sidecar_initializer .)
+	time (cd pilot/docker && docker build -t ${HUB}/pilot:${TAG} -f Dockerfile.pilot .)
+	cp ${ISTIO_BIN}/mixs mixer/docker
+	cp docker/ca-certificates.tgz mixer/docker
+	time (cd mixer/docker && docker build -t ${HUB}/mixer_debug:${TAG} -f Dockerfile.debug .)
+	cp ${ISTIO_BIN}/{istio_ca,node_agent} security/docker
+	cp docker/ca-certificates.tgz security/docker/
+	time (cd security/docker && docker build -t ${HUB}/istio-ca:${TAG} -f Dockerfile.istio-ca .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent:${TAG} -f Dockerfile.node-agent .)
+	cp ${ISTIO_BIN}/{pilot-test-client,pilot-test-server,pilot-test-eurekamirror} pilot/docker
+	time (cd pilot/docker && docker build -t ${HUB}/app:${TAG} -f Dockerfile.app .)
+	time (cd pilot/docker && docker build -t ${HUB}/eurekamirror:${TAG} -f Dockerfile.eurekamirror .)
+	# TODO: generate or checkin test CA and keys
+	## These are not used so far
+	security/bin/gen-keys.sh
+	time (cd security/docker && docker build -t ${HUB}/istio-ca-test:${TAG} -f Dockerfile.istio-ca-test .)
+	time (cd security/docker && docker build -t ${HUB}/node-agent-test:${TAG} -f Dockerfile.node-agent-test .)
+
+##################################################################################
+
+# static files that are already at proper location for docker build
+
+PROXY_JSON_FILES:=pilot/docker/envoy_pilot.json \
+                  pilot/docker/envoy_pilot_auth.json \
+                  pilot/docker/envoy_mixer.json \
+                  pilot/docker/envoy_mixer_auth.json
+
+NODE_AGENT_TEST_FILES:=security/docker/start_app.sh \
+                       security/docker/app.js \
+                       security/docker/istio_ca.crt \
+                       security/docker/node_agent.crt \
+                       security/docker/node_agent.key
+
+# copied/generated files for docker build
+
+.SECONDEXPANSION: #allow $@ to be used in dependency list
+
+# each of these files .../XXX is copied from ${ISTIO_BIN}/XXX
+# NOTE: each of these are passed to rm -f during "make clean".  Keep in mind
+# cases where you might change any of these to be a new or former source code path
+COPIED_FROM_ISTIO_BIN:=pilot/docker/pilot-agent pilot/docker/pilot-discovery \
+                       pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
+                       pilot/docker/sidecar-initializer pilot/docker/pilot-test-eurekamirror \
+                       mixer/docker/mixs mixer/example/servicegraph/docker/servicegraph \
+                       security/docker/istio_ca security/docker/node_agent
+
+$(COPIED_FROM_ISTIO_BIN): ${ISTIO_BIN}/$$(@F)
+	cp $< $(@D)
+
+FILES_TO_CLEAN+=$(COPIED_FROM_ISTIO_BIN)
+
+# this rule is an exxeption since "viz" is a directory rather than a file
+mixer/example/servicegraph/docker/viz: mixer/example/servicegraph/js/viz
+	cp -r $< $(@D)
+
+DIRS_TO_CLEAN+=mixer/example/servicegraph/docker/viz
+
+mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz: docker/ca-certificates.tgz
+	cp $< $(@D)
+
+FILES_TO_CLEAN+=mixer/docker/ca-certificates.tgz security/docker/ca-certificates.tgz
+
+# NOTE: this list is passed to rm -f during "make clean"
+GENERATED_CERT_FILES:=security/docker/istio_ca.crt security/docker/istio_ca.key \
+                      security/docker/node_agent.crt security/docker/node_agent.key
+
+$(GENERATED_CERT_FILES): security/bin/gen-keys.sh
+	security/bin/gen-keys.sh
+
+FILES_TO_CLEAN+=$(GENERATED_CERT_FILES)
+
+# pilot docker images
+
+docker.app: pilot/docker/pilot-test-client pilot/docker/pilot-test-server \
+            pilot/docker/certs/cert.crt pilot/docker/certs/cert.key
+docker.eurekamirror: pilot/docker/pilot-test-eurekamirror
+docker.pilot: pilot/docker/pilot-discovery
+docker.proxy docker.proxy_debug: pilot/docker/pilot-agent ${PROXY_JSON_FILES}
+docker.proxy_init: pilot/docker/prepare_proxy.sh
+docker.sidecar_initializer: pilot/docker/sidecar-initializer
+
+PILOT_DOCKER:=docker.app docker.eurekamirror docker.pilot docker.proxy \
+              docker.proxy_debug docker.proxy_init docker.sidecar_initializer
+$(PILOT_DOCKER): pilot/docker/Dockerfile$$(suffix $$@)
+	time (cd pilot/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
+
+# mixer/example docker images
+
+SERVICEGRAPH_DOCKER:=docker.servicegraph docker.servicegraph_debug
+$(SERVICEGRAPH_DOCKER): mixer/example/servicegraph/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+		mixer/example/servicegraph/docker/servicegraph mixer/example/servicegraph/docker/viz
+	time (cd mixer/example/servicegraph/docker && docker build -t servicegraph$(findstring _debug,$@) \
+		-f Dockerfile$(if $(findstring debug,$@),.debug) .)
+
+# mixer docker images
+
+MIXER_DOCKER:=docker.mixer docker.mixer_debug
+$(MIXER_DOCKER): mixer/docker/Dockerfile$$(if $$(findstring debug,$$@),.debug) \
+		mixer/docker/ca-certificates.tgz mixer/docker/mixs
+	time (cd mixer/docker && docker build -t mixer$(findstring _debug,$@) \
+		-f Dockerfile$(if $(findstring debug,$@),.debug) .)
+
+# security docker images
+
+docker.istio-ca: security/docker/istio_ca security/docker/ca-certificates.tgz
+docker.istio-ca-test: security/docker/istio_ca.crt security/docker/istio_ca.key
+docker.node-agent:      security/docker/node_agent
+docker.node-agent-test: security/docker/node_agent ${NODE_AGENT_TEST_FILES}
+
+SECURITY_DOCKER:=docker.istio-ca docker.istio-ca-test docker.node-agent docker.node-agent-test
+$(SECURITY_DOCKER): security/docker/Dockerfile$$(suffix $$@)
+	time (cd security/docker && docker build -t $(subst docker.,,$@) -f Dockerfile$(suffix $@) .)
+
+DOCKER_TARGETS:=$(PILOT_DOCKER) $(SERVICEGRAPH_DOCKER) $(MIXER_DOCKER) $(SECURITY_DOCKER)
+
+docker.all: $(DOCKER_TARGETS)
+
+# for each docker.XXX target create a tar.docker.XXX target that says how
+# to make a $(OUT)/docker/XXX.tar.gz from the docker XXX image
+# note that $(subst docker.,,$(TGT)) strips off the "docker." prefix, leaving just the XXX
+$(foreach TGT,$(DOCKER_TARGETS),$(eval tar.$(TGT): $(TGT); \
+   time (mkdir -p ${OUT}/docker && \
+         docker save -o ${OUT}/docker/$(subst docker.,,$(TGT)).tar $(subst docker.,,$(TGT)) && \
+         gzip ${OUT}/docker/$(subst docker.,,$(TGT)).tar)))
+
+# create a DOCKER_TAR_TARGETS that's each of DOCKER_TARGETS with a tar. prefix
+DOCKER_TAR_TARGETS:=
+$(foreach TGT,$(DOCKER_TARGETS),$(eval DOCKER_TAR_TARGETS+=tar.$(TGT)))
+
+# this target saves a tar.gz of each docker image to ${OUT}/docker/
+docker.save: $(DOCKER_TAR_TARGETS)
+
+push: checkvars clean.installgen installgen
+	$(ISTIO_GO)/bin/push $(HUB) $(TAG)
 
 artifacts: docker
 	@echo 'To be added'
@@ -158,7 +492,27 @@ pilot/platform/kube/config:
 kubelink:
 	ln -fs ~/.kube/config pilot/platform/kube/
 
-.PHONY: artifacts build checkvars clean docker test setup push kubelink
+installgen:
+	install/updateVersion.sh -a ${HUB},${TAG}
+
+clean.installgen:
+	rm -f install/consul/istio.yaml
+	rm -f install/eureka/istio.yaml
+	rm -f install/kubernetes/helm/istio/values.yaml
+	rm -f install/kubernetes/istio-auth.yaml
+	rm -f install/kubernetes/istio-ca-plugin-certs.yaml
+	rm -f install/kubernetes/istio-initializer.yaml
+	rm -f install/kubernetes/istio-one-namespace-auth.yaml
+	rm -f install/kubernetes/istio-one-namespace.yaml
+	rm -f install/kubernetes/istio.yaml
+	rm -f pilot/docker/pilot-test-client
+	rm -f pilot/docker/pilot-test-eurekamirror
+	rm -f pilot/docker/pilot-test-server
+	rm -f samples/bookinfo/consul/bookinfo.sidecars.yaml
+	rm -f samples/bookinfo/eureka/bookinfo.sidecars.yaml
+	rm -f security/docker/ca-certificates.tgz
+
+.PHONY: artifacts build checkvars clean docker test setup push kubelink installgen clean.installgen
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools
@@ -175,3 +529,70 @@ show.goenv: ; $(info $(H) go environment...)
 # show makefile variables. Usage: make show.<variable-name>
 show.%: ; $(info $* $(H) $($*))
 	$(Q) true
+
+#-----------------------------------------------------------------------------
+# Target: artifacts and distribution
+#-----------------------------------------------------------------------------
+
+
+${OUT}/dist/Gopkg.lock:
+	mkdir -p ${OUT}/dist
+	cp Gopkg.lock ${OUT}/dist/
+
+# Binary/built artifacts of the distribution
+dist-bin: ${OUT}/dist/Gopkg.lock
+
+dist: dist-bin
+
+include .circleci/Makefile
+
+.PHONY: docker.sidecar.deb sidecar.deb ${OUT}/istio-sidecar.deb
+
+# Make the deb image using the CI/CD image and docker.
+docker.sidecar.deb:
+	(cd ${TOP}; docker run --rm -u $(shell id -u) -it \
+        -v ${GO_TOP}:${GO_TOP} \
+        -w ${PWD} \
+        -e USER=${USER} \
+		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
+		sidecar.deb )
+
+# Create the 'sidecar' deb, including envoy and istio agents and configs.
+# This target uses a locally installed 'fpm' - use 'docker.sidecar.deb' to use
+# the builder image.
+# TODO: consistent layout, possibly /opt/istio-VER/...
+sidecar.deb: ${OUT}/istio-sidecar.deb
+
+ISTIO_SIDECAR_SRC=tools/deb/istio-start.sh \
+                  tools/deb/istio-iptables.sh \
+                  tools/deb/istio.service \
+                  security/tools/deb/istio-auth-node-agent.service \
+                  tools/deb/sidecar.env tools/deb/envoy.json
+
+# --iteration 1 adds a "-1" suffix to the version that didn't exist before
+${OUT}/istio-sidecar.deb: ${ISTIO_BIN}/envoy ${ISTIO_BIN}/pilot-agent ${ISTIO_BIN}/node_agent ${ISTIO_SIDECAR_SRC}
+	mkdir -p ${OUT}
+	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} -C ${GO_TOP} -f \
+	   --url http://istio.io  \
+	   --license Apache \
+	   --vendor istio.io \
+	   --maintainer istio@istio.io \
+	   --after-install tools/deb/postinst.sh \
+	   --config-files /var/lib/istio/envoy/sidecar.env \
+	   --config-files /var/lib/istio/envoy/envoy.json \
+	   --description "Istio" \
+	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
+	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
+	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   bin/envoy=/usr/local/bin/envoy \
+	   bin/pilot-agent=/usr/local/bin/pilot-agent \
+	   bin/node_agent=/usr/local/istio/bin/node_agent \
+	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
+
+#-----------------------------------------------------------------------------
+# Target: e2e tests
+#-----------------------------------------------------------------------------
+include tests/istio.mk
+

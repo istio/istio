@@ -16,21 +16,21 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"path"
-	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	ot "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
-	"istio.io/istio/mixer/pkg/adapterManager"
 	"istio.io/istio/mixer/pkg/api"
-	"istio.io/istio/mixer/pkg/aspect"
 	"istio.io/istio/mixer/pkg/config"
 	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/mixer/pkg/expr"
@@ -39,6 +39,7 @@ import (
 	mixerRuntime "istio.io/istio/mixer/pkg/runtime"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/tracing"
 )
 
 // Server is an in-memory Mixer service.
@@ -49,8 +50,10 @@ type Server struct {
 	adapterGP *pool.GoroutinePool
 	listener  net.Listener
 	monitor   *monitor
-	tracer    *mixerTracer
+	tracer    io.Closer
 	configDir string
+
+	dispatcher mixerRuntime.Dispatcher
 }
 
 // replaceable set of functions for fault injection
@@ -61,15 +64,14 @@ type patchTable struct {
 		gp *pool.GoroutinePool, handlerPool *pool.GoroutinePool,
 		identityAttribute string, defaultConfigNamespace string, s store.Store2, adapterInfo map[string]*adapter.Info,
 		templateInfo map[string]template.Info) (mixerRuntime.Dispatcher, error)
-	startTracer  func(zipkinURL string, jaegerURL string, logTraceSpans bool) (*mixerTracer, grpc.UnaryServerInterceptor, error)
-	startMonitor func(port uint16) (*monitor, error)
-	listen       func(network string, address string) (net.Listener, error)
-	newStore     func(r *store.Registry, configURL string) (store.KeyValueStore, error)
+	configTracing func(serviceName string, options *tracing.Options) (io.Closer, error)
+	startMonitor  func(port uint16) (*monitor, error)
+	listen        func(network string, address string) (net.Listener, error)
 }
 
 // New instantiates a fully functional Mixer server, ready for traffic.
 func New(a *Args) (*Server, error) {
-	return new(a, newPatchTable())
+	return newServer(a, newPatchTable())
 }
 
 func newPatchTable() *patchTable {
@@ -77,14 +79,13 @@ func newPatchTable() *patchTable {
 		newILEvaluator: evaluator.NewILEvaluator,
 		newStore2:      func(r2 *store.Registry2, configURL string) (store.Store2, error) { return r2.NewStore2(configURL) },
 		newRuntime:     mixerRuntime.New,
-		startTracer:    startTracer,
+		configTracing:  tracing.Configure,
 		startMonitor:   startMonitor,
 		listen:         net.Listen,
-		newStore:       func(r *store.Registry, configURL string) (store.KeyValueStore, error) { return r.NewStore(configURL) },
 	}
 }
 
-func new(a *Args, p *patchTable) (*Server, error) {
+func newServer(a *Args, p *patchTable) (*Server, error) {
 	if err := a.validate(); err != nil {
 		return nil, err
 	}
@@ -93,20 +94,10 @@ func new(a *Args, p *patchTable) (*Server, error) {
 		return nil, err
 	}
 
-	// Old and new runtime maintain their own evaluators with
-	// configs and attribute vocabularies.
-	var ilEvalForLegacy *evaluator.IL
-	var evalForLegacy expr.Evaluator
 	eval, err := p.newILEvaluator(a.ExpressionEvalCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", a.ExpressionEvalCacheSize, err)
 	}
-
-	if ilEvalForLegacy, err = p.newILEvaluator(a.ExpressionEvalCacheSize); err != nil {
-		return nil, fmt.Errorf("failed to create IL expression evaluator with cache size %d: %v", a.ExpressionEvalCacheSize, err)
-	}
-
-	evalForLegacy = ilEvalForLegacy
 
 	apiPoolSize := a.APIWorkerPoolSize
 	adapterPoolSize := a.AdapterWorkerPoolSize
@@ -118,7 +109,8 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	s.adapterGP = pool.NewGoroutinePool(adapterPoolSize, a.SingleThreaded)
 	s.adapterGP.AddWorkers(adapterPoolSize)
 
-	adapterMap := config.InventoryMap(a.Adapters)
+	tmplRepo := template.NewRepository(a.Templates)
+	adapterMap := config.AdapterInfoMap(a.Adapters, tmplRepo.SupportsTemplate)
 
 	// construct the gRPC options
 
@@ -128,14 +120,13 @@ func new(a *Args, p *patchTable) (*Server, error) {
 
 	var interceptors []grpc.UnaryServerInterceptor
 
-	var interceptor grpc.UnaryServerInterceptor
-
-	if s.tracer, interceptor, err = p.startTracer(a.ZipkinURL, a.JaegerURL, a.LogTraceSpans); err != nil {
-		_ = s.Close()
-		return nil, fmt.Errorf("unable to setup ZipKin: %v", err)
-	}
-	if interceptor != nil {
-		interceptors = append(interceptors, interceptor)
+	if a.TracingOptions.TracingEnabled() {
+		s.tracer, err = p.configTracing("istio-mixer", a.TracingOptions)
+		if err != nil {
+			_ = s.Close()
+			return nil, fmt.Errorf("unable to setup tracing")
+		}
+		interceptors = append(interceptors, otgrpc.OpenTracingServerInterceptor(ot.GlobalTracer()))
 	}
 
 	// setup server prometheus monitoring (as final interceptor in chain)
@@ -154,7 +145,6 @@ func new(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStoreURL := a.ConfigStoreURL
 	configStore2URL := a.ConfigStore2URL
 	if configStore2URL == "" {
 		configStore2URL = "k8s://"
@@ -165,7 +155,6 @@ func new(a *Args, p *patchTable) (*Server, error) {
 			_ = s.Close()
 			return nil, fmt.Errorf("unable to serialize supplied configuration state: %v", err)
 		}
-		configStoreURL = "fs://" + s.configDir
 		configStore2URL = "fs://" + s.configDir
 	}
 
@@ -180,39 +169,14 @@ func new(a *Args, p *patchTable) (*Server, error) {
 	if dispatcher, err = p.newRuntime(eval, evaluator.NewTypeChecker(), eval, s.gp, s.adapterGP,
 		a.ConfigIdentityAttribute, a.ConfigDefaultNamespace, store2, adapterMap, a.Templates); err != nil {
 		_ = s.Close()
-		return nil, fmt.Errorf("unable to create runtime dispatcher: %v", err)
+		return nil, fmt.Errorf("unable to create runtime dispatcherForTesting: %v", err)
 	}
-
-	// Legacy Runtime
-	adapterMgr := adapterManager.NewManager(a.LegacyAdapters, aspect.Inventory(), evalForLegacy, s.gp, s.adapterGP)
-	repo := template.NewRepository(a.Templates)
-	cfgStore, err := configStore(configStoreURL, a.ServiceConfigFile, a.GlobalConfigFile, p)
-	if err != nil {
-		_ = s.Close()
-		return nil, err
-	}
-
-	configManager := config.NewManager(evalForLegacy, evaluator.NewTypeChecker(), adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder,
-		a.Adapters,
-		adapterMgr.SupportedKinds,
-		repo, cfgStore, time.Second*time.Duration(a.ConfigFetchIntervalSec),
-		a.ConfigIdentityAttribute,
-		a.ConfigIdentityAttributeDomain)
-
-	configAPIServer := config.NewAPI("v1", a.ConfigAPIPort, evaluator.NewTypeChecker(),
-		adapterMgr.AspectValidatorFinder, adapterMgr.BuilderValidatorFinder, a.Adapters,
-		adapterMgr.SupportedKinds, cfgStore, repo)
-
-	configManager.Register(adapterMgr)
-	configManager.Register(ilEvalForLegacy)
-	configManager.Start()
-
-	go configAPIServer.Run()
+	s.dispatcher = dispatcher
 
 	// get the grpc server wired up
 	grpc.EnableTracing = a.EnableGRPCTracing
 	s.server = grpc.NewServer(grpcOptions...)
-	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(adapterMgr, dispatcher, s.gp))
+	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(dispatcher, s.gp))
 
 	return s, nil
 }
@@ -289,6 +253,9 @@ func (s *Server) Close() error {
 		_ = os.RemoveAll(s.configDir)
 	}
 
+	// final attempt to purge buffered logs
+	log.Sync()
+
 	return nil
 }
 
@@ -297,26 +264,8 @@ func (s *Server) Addr() net.Addr {
 	return s.listener.Addr()
 }
 
-// configStore - given config this function returns a KeyValueStore
-// It provides a compatibility layer so one can continue using serviceConfigFile and globalConfigFile flags
-// until they are removed.
-func configStore(url, serviceConfigFile, globalConfigFile string, p *patchTable) (s store.KeyValueStore, err error) {
-	if url != "" {
-		registry := store.NewRegistry(config.StoreInventory()...)
-		if s, err = p.newStore(registry, url); err != nil {
-			return nil, fmt.Errorf("failed to get config store: %v", err)
-		}
-
-		return s, nil
-	}
-
-	if serviceConfigFile == "" || globalConfigFile == "" {
-		return nil, fmt.Errorf("missing legacy config store URL")
-	}
-
-	if s, err = config.NewCompatFSStore(globalConfigFile, serviceConfigFile); err != nil {
-		return nil, fmt.Errorf("failed to get config store: %v", err)
-	}
-
-	return s, nil
+// Dispatcher returns the dispatcher that was created during server creation. This should only
+// be used for testing purposes only.
+func (s *Server) Dispatcher() mixerRuntime.Dispatcher {
+	return s.dispatcher
 }

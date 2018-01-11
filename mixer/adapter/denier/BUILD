@@ -9,10 +9,12 @@ go_library(
     deps = [
         "//mixer/adapter/denier/config:go_default_library",
         "//mixer/pkg/adapter:go_default_library",
+        "//mixer/pkg/status:go_default_library",
         "//mixer/template/checknothing:go_default_library",
         "//mixer/template/listentry:go_default_library",
         "//mixer/template/quota:go_default_library",
-        "@com_github_googleapis_googleapis//:google/rpc",
+        "@io_istio_api//mixer/v1:go_default_library",
+        "@io_istio_gogo_genproto//googleapis/google/rpc:go_default_library",
     ],
 )
 

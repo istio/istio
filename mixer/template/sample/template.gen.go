@@ -2,7 +2,7 @@
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
+// You may obtain a copyAttrs of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/glog"
 
 	"istio.io/api/mixer/v1/config/descriptor"
 	adptTmpl "istio.io/api/mixer/v1/template"
@@ -32,7 +31,9 @@ import (
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/config/proto"
 	"istio.io/istio/mixer/pkg/expr"
+	"istio.io/istio/mixer/pkg/il/compiled"
 	"istio.io/istio/mixer/pkg/template"
+	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/mixer/template/sample/apa"
 
@@ -470,7 +471,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -478,7 +479,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -486,7 +487,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -494,7 +495,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -502,7 +503,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DimensionsFixedInt64ValueDType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -510,7 +511,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -518,7 +519,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -531,7 +532,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -539,7 +540,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"OptionalIP", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -547,7 +548,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Email", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -599,7 +600,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Str", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -607,7 +608,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"SelfRefRes1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -615,7 +616,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"ResRef2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -643,7 +644,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Str", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -651,7 +652,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -664,7 +665,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res3Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -692,7 +693,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -700,7 +701,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -708,7 +709,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -716,7 +717,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -724,7 +725,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DimensionsFixedInt64ValueDType", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -732,7 +733,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -740,7 +741,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -785,7 +786,7 @@ var (
 				abag := attrs
 				const fullOutName = "istio_mixer_adapter_sample_myapa.output."
 				if out == nil {
-					glog.Info(fmt.Sprintf("Preprocess adapter returned nil output for instance name '%s'", instName))
+					log.Debugf("Preprocess adapter returned nil output for instance name '%s'", instName)
 				} else {
 					abag = newWrapperAttrBag(
 						func(name string) (value interface{}, found bool) {
@@ -852,7 +853,6 @@ var (
 					case net.IP:
 						// conversion to []byte necessary based on current IP_ADDRESS handling within Mixer
 						// TODO: remove
-						glog.V(4).Info("converting net.IP to []byte")
 						if v4 := v.To4(); v4 != nil {
 							resultBag.Set(attrName, []byte(v4))
 							continue
@@ -864,6 +864,156 @@ var (
 				}
 				return resultBag, nil
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispathGenAttrs dispatches the instance to the attribute producing handler.
+			DispatchGenAttrs: func(ctx context.Context, handler adapter.Handler, inst interface{}, attrs attribute.Bag,
+				mapper template.OutputMapperFn) (*attribute.MutableBag, error) {
+
+				// Convert the instance from the generic interface{}, to their specialized type.
+				instance := inst.(*istio_mixer_adapter_sample_myapa.Instance)
+
+				// Invoke the handler.
+				out, err := handler.(istio_mixer_adapter_sample_myapa.Handler).GenerateMyApaAttributes(ctx, instance)
+				if err != nil {
+					return nil, err
+				}
+
+				// Construct a wrapper bag around the returned output message and pass it to the output mapper
+				// to map $out values back to the destination attributes in the ambient context.
+				const fullOutName = "istio_mixer_adapter_sample_myapa.output."
+				outBag := newWrapperAttrBag(
+					func(name string) (value interface{}, found bool) {
+						field := strings.TrimPrefix(name, fullOutName)
+						if len(field) != len(name) {
+							switch field {
+
+							case "int64Primitive":
+
+								return out.Int64Primitive, true
+
+							case "boolPrimitive":
+
+								return out.BoolPrimitive, true
+
+							case "doublePrimitive":
+
+								return out.DoublePrimitive, true
+
+							case "stringPrimitive":
+
+								return out.StringPrimitive, true
+
+							case "timeStamp":
+
+								return out.TimeStamp, true
+
+							case "duration":
+
+								return out.Duration, true
+
+							case "email":
+
+								return string(out.Email), true
+
+							case "out_ip":
+
+								return []uint8(out.OutIp), true
+
+							case "out_str_map":
+
+								return out.OutStrMap, true
+
+							default:
+								return nil, false
+							}
+						}
+						return attrs.Get(name)
+					},
+					func() []string { return attrs.Names() },
+					func() { attrs.Done() },
+					func() string { return attrs.DebugString() },
+				)
+
+				// Mapper will map back $out values in the outBag into ambient attribute names, and return
+				// a bag with these additional attributes.
+				return mapper(outBag)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_istio_mixer_adapter_sample_myapa_Template(expb, param.(*istio_mixer_adapter_sample_myapa.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
+
+			// CreateOutputExpressions creates a set of compiled expressions based on the supplied instance parameters.
+			//
+			// See template.CreateOutputExpressionsFn for more details.
+			CreateOutputExpressions: func(
+				instanceParam proto.Message,
+				finder expr.AttributeDescriptorFinder,
+				expb *compiled.ExpressionBuilder) (map[string]compiled.Expression, error) {
+				var err error
+				var expType istio_mixer_v1_config_descriptor.ValueType
+
+				// Convert the generic instanceParam to its specialized type.
+				param := instanceParam.(*istio_mixer_adapter_sample_myapa.InstanceParam)
+
+				// Create a mapping of expressions back to the attribute names.
+				expressions := make(map[string]compiled.Expression, len(param.AttributeBindings))
+
+				const fullOutName = "istio_mixer_adapter_sample_myapa.output."
+				for attrName, outExpr := range param.AttributeBindings {
+					attrInfo := finder.GetAttribute(attrName)
+					if attrInfo == nil {
+						log.Warnf("attribute not found when mapping outputs: attr='%s', expr='%s'", attrName, outExpr)
+						continue
+					}
+
+					ex := strings.Replace(outExpr, "$out.", fullOutName, -1)
+
+					if expressions[attrName], expType, err = expb.Compile(ex); err != nil {
+						return nil, err
+					}
+
+					if attrInfo.ValueType != expType {
+						log.Warnf("attribute type mismatch: attr='%s', attrType='%v', expr='%s', exprType='%v'", attrName, attrInfo.ValueType, outExpr, expType)
+						continue
+					}
+				}
+
+				return expressions, nil
 			},
 		},
 
@@ -1150,7 +1300,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"CheckExpression", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1158,7 +1308,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringMap", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1166,7 +1316,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1204,7 +1354,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1212,7 +1362,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1220,7 +1370,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1228,7 +1378,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1236,7 +1386,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1244,7 +1394,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1252,7 +1402,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1260,7 +1410,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1268,7 +1418,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1276,7 +1426,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1289,7 +1439,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1341,7 +1491,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1349,7 +1499,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1357,7 +1507,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1381,6 +1531,53 @@ var (
 				}
 				return handler.(istio_mixer_adapter_sample_check.Handler).HandleCheck(ctx, instance)
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchCheck dispatches the instance to the handler.
+			DispatchCheck: func(ctx context.Context, handler adapter.Handler, inst interface{}) (adapter.CheckResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*istio_mixer_adapter_sample_check.Instance)
+
+				// Invoke the handler.
+				return handler.(istio_mixer_adapter_sample_check.Handler).HandleCheck(ctx, instance)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_istio_mixer_adapter_sample_check_Template(expb, param.(*istio_mixer_adapter_sample_check.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -1667,7 +1864,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1675,7 +1872,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolMap", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1683,7 +1880,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1721,7 +1918,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1729,7 +1926,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1737,7 +1934,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1745,7 +1942,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1753,7 +1950,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1761,7 +1958,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1769,7 +1966,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1777,7 +1974,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1785,7 +1982,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1793,7 +1990,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1806,7 +2003,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1858,7 +2055,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1866,7 +2063,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1874,7 +2071,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -1897,6 +2094,53 @@ var (
 				}
 				return handler.(istio_mixer_adapter_sample_quota.Handler).HandleQuota(ctx, instance, args)
 
+			},
+
+			/* runtime2 bindings */
+
+			// DispatchQuota dispatches the instance to the handler.
+			DispatchQuota: func(ctx context.Context, handler adapter.Handler, inst interface{}, args adapter.QuotaArgs) (adapter.QuotaResult, error) {
+
+				// Convert the instance from the generic interface{}, to its specialized type.
+				instance := inst.(*istio_mixer_adapter_sample_quota.Instance)
+
+				// Invoke the handler.
+				return handler.(istio_mixer_adapter_sample_quota.Handler).HandleQuota(ctx, instance, args)
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_istio_mixer_adapter_sample_quota_Template(expb, param.(*istio_mixer_adapter_sample_quota.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
 			},
 		},
 
@@ -2309,7 +2553,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2317,7 +2561,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2325,7 +2569,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2333,7 +2577,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2341,7 +2585,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2349,7 +2593,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2357,7 +2601,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2365,7 +2609,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2373,7 +2617,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2381,7 +2625,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res1", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2433,7 +2677,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2441,7 +2685,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2449,7 +2693,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2457,7 +2701,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"BoolPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2465,7 +2709,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DoublePrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2473,7 +2717,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"StringPrimitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2481,7 +2725,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2489,7 +2733,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2497,7 +2741,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2505,7 +2749,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2518,7 +2762,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Res2Map", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2570,7 +2814,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Value", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2578,7 +2822,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Dimensions", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2586,7 +2830,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Int64Primitive", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2594,7 +2838,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"TimeStamp", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2602,7 +2846,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Duration", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2610,7 +2854,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"IpAddr", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2618,7 +2862,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"DnsName", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2626,7 +2870,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"EmailAddr", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2634,7 +2878,7 @@ var (
 
 					if err != nil {
 						msg := fmt.Sprintf("failed to evaluate field '%s' for instance '%s': %v", path+"Uri", instName, err)
-						glog.Error(msg)
+						log.Error(msg)
 						return nil, errors.New(msg)
 					}
 
@@ -2675,6 +2919,2458 @@ var (
 				}
 				return nil
 			},
+
+			/* runtime2 bindings */
+
+			// DispatchReport dispatches the instances to the handler.
+			DispatchReport: func(ctx context.Context, handler adapter.Handler, inst []interface{}) error {
+
+				// Convert the instances from the generic []interface{}, to their specialized type.
+				instances := make([]*istio_mixer_adapter_sample_report.Instance, len(inst))
+				for i, instance := range inst {
+					instances[i] = instance.(*istio_mixer_adapter_sample_report.Instance)
+				}
+
+				// Invoke the handler.
+				if err := handler.(istio_mixer_adapter_sample_report.Handler).HandleReport(ctx, instances); err != nil {
+					return fmt.Errorf("failed to report all values: %v", err)
+				}
+				return nil
+			},
+
+			// CreateInstanceBuilder creates a new template.InstanceBuilderFN based on the supplied instance parameters. It uses
+			// the expression builder to create a new instance of a builder struct for the instance type. Created
+			// InstanceBuilderFn closes over this struct. When InstanceBuilderFn is called it, in turn, calls into
+			// the builder with an attribute bag.
+			//
+			// See template.CreateInstanceBuilderFn for more details.
+			CreateInstanceBuilder: func(instanceName string, param proto.Message, expb *compiled.ExpressionBuilder) (template.InstanceBuilderFn, error) {
+
+				// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+				if param == nil {
+					return func(attr attribute.Bag) (interface{}, error) {
+						return nil, nil
+					}, nil
+				}
+
+				// Instantiate a new builder for the instance.
+				builder, errp := newBuilder_istio_mixer_adapter_sample_report_Template(expb, param.(*istio_mixer_adapter_sample_report.InstanceParam))
+				if !errp.IsNil() {
+					return nil, errp.AsCompilationError(instanceName)
+				}
+
+				return func(attr attribute.Bag) (interface{}, error) {
+					// Use the instantiated builder (that this fn closes over) to construct an instance.
+					e, errp := builder.build(attr)
+					if !errp.IsNil() {
+						err := errp.AsEvaluationError(instanceName)
+						log.Error(err.Error())
+						return nil, err
+					}
+
+					e.Name = instanceName
+					return e, nil
+				}, nil
+			},
 		},
 	}
 )
+
+// Builders for all known message types.
+
+// builder struct for constructing an instance of Template.
+type builder_istio_mixer_adapter_sample_myapa_Template struct {
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field dimensionsFixedInt64ValueDType: map[string]int64.
+
+	bldDimensionsFixedInt64ValueDType map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field res3_map: map[string]*Resource3.
+
+	bldRes3Map map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3
+
+	// builder for field optionalIP: net.IP.
+
+	bldOptionalIP compiled.Expression
+
+	// builder for field email: adapter.EmailAddress.
+
+	bldEmail compiled.Expression
+} // builder_istio_mixer_adapter_sample_myapa_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_myapa_Template(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_myapa_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldDimensionsFixedInt64ValueDType = make(map[string]compiled.Expression, len(param.DimensionsFixedInt64ValueDType))
+	for k, v := range param.DimensionsFixedInt64ValueDType {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+
+		b.bldDimensionsFixedInt64ValueDType[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	b.bldRes3Map = make(map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3, len(param.Res3Map))
+	for k, v := range param.Res3Map {
+		var vb *builder_istio_mixer_adapter_sample_myapa_Resource3
+		if vb, errp = newBuilder_istio_mixer_adapter_sample_myapa_Resource3(expb, v); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
+		}
+		b.bldRes3Map[k] = vb
+	}
+
+	b.bldOptionalIP, expType, err = expb.Compile(param.OptionalIP)
+	if err != nil {
+		return nil, template.NewErrorPath("OptionalIP", err)
+	}
+
+	b.bldEmail, expType, err = expb.Compile(param.Email)
+	if err != nil {
+		return nil, template.NewErrorPath("Email", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_myapa_Template) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_myapa.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_myapa.Instance{}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.DimensionsFixedInt64ValueDType = make(map[string]int64, len(b.bldDimensionsFixedInt64ValueDType))
+
+	for k, v := range b.bldDimensionsFixedInt64ValueDType {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+		r.DimensionsFixedInt64ValueDType[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	r.Res3Map = make(map[string]*istio_mixer_adapter_sample_myapa.Resource3, len(b.bldRes3Map))
+	for k, v := range b.bldRes3Map {
+		if r.Res3Map[k], errp = v.build(attrs); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
+		}
+	}
+
+	if vIface, err = b.bldOptionalIP.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("OptionalIP", err)
+	}
+
+	r.OptionalIP = net.IP(vIface.([]uint8))
+
+	if vIface, err = b.bldEmail.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Email", err)
+	}
+
+	r.Email = adapter.EmailAddress(vIface.(string))
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Resource1.
+type builder_istio_mixer_adapter_sample_myapa_Resource1 struct {
+
+	// builder for field str: string.
+
+	bldStr compiled.Expression
+
+	// builder for field self_ref_res1: *Resource1.
+
+	bldSelfRefRes1 *builder_istio_mixer_adapter_sample_myapa_Resource1
+
+	// builder for field resRef2: *Resource2.
+
+	bldResRef2 *builder_istio_mixer_adapter_sample_myapa_Resource2
+} // builder_istio_mixer_adapter_sample_myapa_Resource1
+
+// Instantiates and returns a new builder for Resource1, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_myapa_Resource1(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource1InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource1, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_myapa_Resource1{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldStr, expType, err = expb.Compile(param.Str)
+	if err != nil {
+		return nil, template.NewErrorPath("Str", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Str)
+		return nil, template.NewErrorPath("Str", err)
+	}
+
+	if b.bldSelfRefRes1, errp = newBuilder_istio_mixer_adapter_sample_myapa_Resource1(expb, param.SelfRefRes1); !errp.IsNil() {
+		return nil, errp.WithPrefix("SelfRefRes1")
+	}
+
+	if b.bldResRef2, errp = newBuilder_istio_mixer_adapter_sample_myapa_Resource2(expb, param.ResRef2); !errp.IsNil() {
+		return nil, errp.WithPrefix("ResRef2")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_myapa_Resource1) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_myapa.Resource1, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_myapa.Resource1{}
+
+	vString, err = b.bldStr.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Str", err)
+	}
+	r.Str = vString
+
+	if r.SelfRefRes1, errp = b.bldSelfRefRes1.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("SelfRefRes1")
+	}
+
+	if r.ResRef2, errp = b.bldResRef2.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("ResRef2")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Resource2.
+type builder_istio_mixer_adapter_sample_myapa_Resource2 struct {
+
+	// builder for field str: string.
+
+	bldStr compiled.Expression
+
+	// builder for field res3: *Resource3.
+
+	bldRes3 *builder_istio_mixer_adapter_sample_myapa_Resource3
+
+	// builder for field res3_map: map[string]*Resource3.
+
+	bldRes3Map map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3
+} // builder_istio_mixer_adapter_sample_myapa_Resource2
+
+// Instantiates and returns a new builder for Resource2, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_myapa_Resource2(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource2InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource2, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_myapa_Resource2{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldStr, expType, err = expb.Compile(param.Str)
+	if err != nil {
+		return nil, template.NewErrorPath("Str", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.Str)
+		return nil, template.NewErrorPath("Str", err)
+	}
+
+	if b.bldRes3, errp = newBuilder_istio_mixer_adapter_sample_myapa_Resource3(expb, param.Res3); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res3")
+	}
+
+	b.bldRes3Map = make(map[string]*builder_istio_mixer_adapter_sample_myapa_Resource3, len(param.Res3Map))
+	for k, v := range param.Res3Map {
+		var vb *builder_istio_mixer_adapter_sample_myapa_Resource3
+		if vb, errp = newBuilder_istio_mixer_adapter_sample_myapa_Resource3(expb, v); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
+		}
+		b.bldRes3Map[k] = vb
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_myapa_Resource2) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_myapa.Resource2, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_myapa.Resource2{}
+
+	vString, err = b.bldStr.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Str", err)
+	}
+	r.Str = vString
+
+	if r.Res3, errp = b.bldRes3.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res3")
+	}
+
+	r.Res3Map = make(map[string]*istio_mixer_adapter_sample_myapa.Resource3, len(b.bldRes3Map))
+	for k, v := range b.bldRes3Map {
+		if r.Res3Map[k], errp = v.build(attrs); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res3Map[" + k + "]")
+		}
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Resource3.
+type builder_istio_mixer_adapter_sample_myapa_Resource3 struct {
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field dimensionsFixedInt64ValueDType: map[string]int64.
+
+	bldDimensionsFixedInt64ValueDType map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+} // builder_istio_mixer_adapter_sample_myapa_Resource3
+
+// Instantiates and returns a new builder for Resource3, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_myapa_Resource3(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_myapa.Resource3InstanceParam) (*builder_istio_mixer_adapter_sample_myapa_Resource3, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_myapa_Resource3{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldDimensionsFixedInt64ValueDType = make(map[string]compiled.Expression, len(param.DimensionsFixedInt64ValueDType))
+	for k, v := range param.DimensionsFixedInt64ValueDType {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+
+		b.bldDimensionsFixedInt64ValueDType[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_myapa_Resource3) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_myapa.Resource3, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_myapa.Resource3{}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.DimensionsFixedInt64ValueDType = make(map[string]int64, len(b.bldDimensionsFixedInt64ValueDType))
+
+	for k, v := range b.bldDimensionsFixedInt64ValueDType {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("DimensionsFixedInt64ValueDType["+k+"]", err)
+		}
+		r.DimensionsFixedInt64ValueDType[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_istio_mixer_adapter_sample_check_Template struct {
+
+	// builder for field check_expression: string.
+
+	bldCheckExpression compiled.Expression
+
+	// builder for field stringMap: map[string]string.
+
+	bldStringMap map[string]compiled.Expression
+
+	// builder for field res1: *Res1.
+
+	bldRes1 *builder_istio_mixer_adapter_sample_check_Res1
+} // builder_istio_mixer_adapter_sample_check_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_check_Template(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.InstanceParam) (*builder_istio_mixer_adapter_sample_check_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_check_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldCheckExpression, expType, err = expb.Compile(param.CheckExpression)
+	if err != nil {
+		return nil, template.NewErrorPath("CheckExpression", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.CheckExpression)
+		return nil, template.NewErrorPath("CheckExpression", err)
+	}
+
+	b.bldStringMap = make(map[string]compiled.Expression, len(param.StringMap))
+	for k, v := range param.StringMap {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("StringMap["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.STRING {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, v)
+			return nil, template.NewErrorPath("StringMap["+k+"]", err)
+		}
+
+		b.bldStringMap[k] = exp
+	}
+
+	if b.bldRes1, errp = newBuilder_istio_mixer_adapter_sample_check_Res1(expb, param.Res1); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_check_Template) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_check.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_check.Instance{}
+
+	vString, err = b.bldCheckExpression.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("CheckExpression", err)
+	}
+	r.CheckExpression = vString
+
+	r.StringMap = make(map[string]string, len(b.bldStringMap))
+
+	for k, v := range b.bldStringMap {
+
+		vString, err = v.EvaluateString(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("StringMap["+k+"]", err)
+		}
+		r.StringMap[k] = vString
+
+	}
+
+	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res1.
+type builder_istio_mixer_adapter_sample_check_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field int64Map: map[string]int64.
+
+	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field res2: *Res2.
+
+	bldRes2 *builder_istio_mixer_adapter_sample_check_Res2
+
+	// builder for field res2_map: map[string]*Res2.
+
+	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_check_Res2
+} // builder_istio_mixer_adapter_sample_check_Res1
+
+// Instantiates and returns a new builder for Res1, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_check_Res1(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res1, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_check_Res1{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldInt64Map = make(map[string]compiled.Expression, len(param.Int64Map))
+	for k, v := range param.Int64Map {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		b.bldInt64Map[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	if b.bldRes2, errp = newBuilder_istio_mixer_adapter_sample_check_Res2(expb, param.Res2); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	b.bldRes2Map = make(map[string]*builder_istio_mixer_adapter_sample_check_Res2, len(param.Res2Map))
+	for k, v := range param.Res2Map {
+		var vb *builder_istio_mixer_adapter_sample_check_Res2
+		if vb, errp = newBuilder_istio_mixer_adapter_sample_check_Res2(expb, v); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+		b.bldRes2Map[k] = vb
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_check_Res1) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_check.Res1, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_check.Res1{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
+
+	for k, v := range b.bldInt64Map {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+		r.Int64Map[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_check.Res2, len(b.bldRes2Map))
+	for k, v := range b.bldRes2Map {
+		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res2.
+type builder_istio_mixer_adapter_sample_check_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+} // builder_istio_mixer_adapter_sample_check_Res2
+
+// Instantiates and returns a new builder for Res2, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_check_Res2(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_check.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_check_Res2, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_check_Res2{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_check_Res2) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_check.Res2, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_check.Res2{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_istio_mixer_adapter_sample_quota_Template struct {
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field boolMap: map[string]bool.
+
+	bldBoolMap map[string]compiled.Expression
+
+	// builder for field res1: *Res1.
+
+	bldRes1 *builder_istio_mixer_adapter_sample_quota_Res1
+} // builder_istio_mixer_adapter_sample_quota_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_quota_Template(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_quota_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldBoolMap = make(map[string]compiled.Expression, len(param.BoolMap))
+	for k, v := range param.BoolMap {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("BoolMap["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.BOOL {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, v)
+			return nil, template.NewErrorPath("BoolMap["+k+"]", err)
+		}
+
+		b.bldBoolMap[k] = exp
+	}
+
+	if b.bldRes1, errp = newBuilder_istio_mixer_adapter_sample_quota_Res1(expb, param.Res1); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_quota_Template) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_quota.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_quota.Instance{}
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	r.BoolMap = make(map[string]bool, len(b.bldBoolMap))
+
+	for k, v := range b.bldBoolMap {
+
+		vBool, err = v.EvaluateBoolean(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("BoolMap["+k+"]", err)
+		}
+		r.BoolMap[k] = vBool
+
+	}
+
+	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res1.
+type builder_istio_mixer_adapter_sample_quota_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field int64Map: map[string]int64.
+
+	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field res2: *Res2.
+
+	bldRes2 *builder_istio_mixer_adapter_sample_quota_Res2
+
+	// builder for field res2_map: map[string]*Res2.
+
+	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_quota_Res2
+} // builder_istio_mixer_adapter_sample_quota_Res1
+
+// Instantiates and returns a new builder for Res1, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_quota_Res1(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res1, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_quota_Res1{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldInt64Map = make(map[string]compiled.Expression, len(param.Int64Map))
+	for k, v := range param.Int64Map {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		b.bldInt64Map[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	if b.bldRes2, errp = newBuilder_istio_mixer_adapter_sample_quota_Res2(expb, param.Res2); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	b.bldRes2Map = make(map[string]*builder_istio_mixer_adapter_sample_quota_Res2, len(param.Res2Map))
+	for k, v := range param.Res2Map {
+		var vb *builder_istio_mixer_adapter_sample_quota_Res2
+		if vb, errp = newBuilder_istio_mixer_adapter_sample_quota_Res2(expb, v); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+		b.bldRes2Map[k] = vb
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_quota_Res1) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_quota.Res1, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_quota.Res1{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
+
+	for k, v := range b.bldInt64Map {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+		r.Int64Map[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_quota.Res2, len(b.bldRes2Map))
+	for k, v := range b.bldRes2Map {
+		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res2.
+type builder_istio_mixer_adapter_sample_quota_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+} // builder_istio_mixer_adapter_sample_quota_Res2
+
+// Instantiates and returns a new builder for Res2, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_quota_Res2(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_quota.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_quota_Res2, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_quota_Res2{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_quota_Res2) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_quota.Res2, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_quota.Res2{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Template.
+type builder_istio_mixer_adapter_sample_report_Template struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field int64Map: map[string]int64.
+
+	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field res1: *Res1.
+
+	bldRes1 *builder_istio_mixer_adapter_sample_report_Res1
+} // builder_istio_mixer_adapter_sample_report_Template
+
+// Instantiates and returns a new builder for Template, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_report_Template(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.InstanceParam) (*builder_istio_mixer_adapter_sample_report_Template, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_report_Template{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldInt64Map = make(map[string]compiled.Expression, len(param.Int64Map))
+	for k, v := range param.Int64Map {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		b.bldInt64Map[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	if b.bldRes1, errp = newBuilder_istio_mixer_adapter_sample_report_Res1(expb, param.Res1); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_report_Template) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_report.Instance, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_report.Instance{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
+
+	for k, v := range b.bldInt64Map {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+		r.Int64Map[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	if r.Res1, errp = b.bldRes1.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res1")
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res1.
+type builder_istio_mixer_adapter_sample_report_Res1 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field boolPrimitive: bool.
+
+	bldBoolPrimitive compiled.Expression
+
+	// builder for field doublePrimitive: float64.
+
+	bldDoublePrimitive compiled.Expression
+
+	// builder for field stringPrimitive: string.
+
+	bldStringPrimitive compiled.Expression
+
+	// builder for field int64Map: map[string]int64.
+
+	bldInt64Map map[string]compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field res2: *Res2.
+
+	bldRes2 *builder_istio_mixer_adapter_sample_report_Res2
+
+	// builder for field res2_map: map[string]*Res2.
+
+	bldRes2Map map[string]*builder_istio_mixer_adapter_sample_report_Res2
+} // builder_istio_mixer_adapter_sample_report_Res1
+
+// Instantiates and returns a new builder for Res1, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_report_Res1(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.Res1InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res1, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_report_Res1{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldBoolPrimitive, expType, err = expb.Compile(param.BoolPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.BOOL {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.BOOL, expType, param.BoolPrimitive)
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+
+	b.bldDoublePrimitive, expType, err = expb.Compile(param.DoublePrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.DOUBLE {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.DOUBLE, expType, param.DoublePrimitive)
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+
+	b.bldStringPrimitive, expType, err = expb.Compile(param.StringPrimitive)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.STRING {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.STRING, expType, param.StringPrimitive)
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+
+	b.bldInt64Map = make(map[string]compiled.Expression, len(param.Int64Map))
+	for k, v := range param.Int64Map {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		if expType != istio_mixer_v1_config_descriptor.INT64 {
+			err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, v)
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+
+		b.bldInt64Map[k] = exp
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	if b.bldRes2, errp = newBuilder_istio_mixer_adapter_sample_report_Res2(expb, param.Res2); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	b.bldRes2Map = make(map[string]*builder_istio_mixer_adapter_sample_report_Res2, len(param.Res2Map))
+	for k, v := range param.Res2Map {
+		var vb *builder_istio_mixer_adapter_sample_report_Res2
+		if vb, errp = newBuilder_istio_mixer_adapter_sample_report_Res2(expb, v); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+		b.bldRes2Map[k] = vb
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_report_Res1) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_report.Res1, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_report.Res1{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	vBool, err = b.bldBoolPrimitive.EvaluateBoolean(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("BoolPrimitive", err)
+	}
+	r.BoolPrimitive = vBool
+
+	vDouble, err = b.bldDoublePrimitive.EvaluateDouble(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("DoublePrimitive", err)
+	}
+	r.DoublePrimitive = vDouble
+
+	vString, err = b.bldStringPrimitive.EvaluateString(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("StringPrimitive", err)
+	}
+	r.StringPrimitive = vString
+
+	r.Int64Map = make(map[string]int64, len(b.bldInt64Map))
+
+	for k, v := range b.bldInt64Map {
+
+		vInt, err = v.EvaluateInteger(attrs)
+		if err != nil {
+			return nil, template.NewErrorPath("Int64Map["+k+"]", err)
+		}
+		r.Int64Map[k] = vInt
+
+	}
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	if r.Res2, errp = b.bldRes2.build(attrs); !errp.IsNil() {
+		return nil, errp.WithPrefix("Res2")
+	}
+
+	r.Res2Map = make(map[string]*istio_mixer_adapter_sample_report.Res2, len(b.bldRes2Map))
+	for k, v := range b.bldRes2Map {
+		if r.Res2Map[k], errp = v.build(attrs); !errp.IsNil() {
+			return nil, errp.WithPrefix("Res2Map[" + k + "]")
+		}
+	}
+
+	return r, template.ErrorPath{}
+}
+
+// builder struct for constructing an instance of Res2.
+type builder_istio_mixer_adapter_sample_report_Res2 struct {
+
+	// builder for field value: istio_mixer_v1_config_descriptor.ValueType.
+
+	bldValue compiled.Expression
+
+	// builder for field dimensions: map[string]istio_mixer_v1_config_descriptor.ValueType.
+
+	bldDimensions map[string]compiled.Expression
+
+	// builder for field int64Primitive: int64.
+
+	bldInt64Primitive compiled.Expression
+
+	// builder for field timeStamp: time.Time.
+
+	bldTimeStamp compiled.Expression
+
+	// builder for field duration: time.Duration.
+
+	bldDuration compiled.Expression
+
+	// builder for field ip_addr: net.IP.
+
+	bldIpAddr compiled.Expression
+
+	// builder for field dns_name: adapter.DNSName.
+
+	bldDnsName compiled.Expression
+
+	// builder for field email_addr: adapter.EmailAddress.
+
+	bldEmailAddr compiled.Expression
+
+	// builder for field uri: adapter.URI.
+
+	bldUri compiled.Expression
+} // builder_istio_mixer_adapter_sample_report_Res2
+
+// Instantiates and returns a new builder for Res2, based on the provided instance parameter.
+func newBuilder_istio_mixer_adapter_sample_report_Res2(
+	expb *compiled.ExpressionBuilder,
+	param *istio_mixer_adapter_sample_report.Res2InstanceParam) (*builder_istio_mixer_adapter_sample_report_Res2, template.ErrorPath) {
+
+	// If the parameter is nil. Simply return nil. The builder, then, will also return nil.
+	if param == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	b := &builder_istio_mixer_adapter_sample_report_Res2{}
+
+	var exp compiled.Expression
+	_ = exp
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var expType istio_mixer_v1_config_descriptor.ValueType
+	_ = expType
+
+	b.bldValue, expType, err = expb.Compile(param.Value)
+	if err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	b.bldDimensions = make(map[string]compiled.Expression, len(param.Dimensions))
+	for k, v := range param.Dimensions {
+		var exp compiled.Expression
+		if exp, expType, err = expb.Compile(v); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		b.bldDimensions[k] = exp
+	}
+
+	b.bldInt64Primitive, expType, err = expb.Compile(param.Int64Primitive)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	if expType != istio_mixer_v1_config_descriptor.INT64 {
+		err = fmt.Errorf("instance field type mismatch: expected='%v', actual='%v', expression='%s'", istio_mixer_v1_config_descriptor.INT64, expType, param.Int64Primitive)
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+
+	b.bldTimeStamp, expType, err = expb.Compile(param.TimeStamp)
+	if err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	b.bldDuration, expType, err = expb.Compile(param.Duration)
+	if err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	b.bldIpAddr, expType, err = expb.Compile(param.IpAddr)
+	if err != nil {
+		return nil, template.NewErrorPath("IpAddr", err)
+	}
+
+	b.bldDnsName, expType, err = expb.Compile(param.DnsName)
+	if err != nil {
+		return nil, template.NewErrorPath("DnsName", err)
+	}
+
+	b.bldEmailAddr, expType, err = expb.Compile(param.EmailAddr)
+	if err != nil {
+		return nil, template.NewErrorPath("EmailAddr", err)
+	}
+
+	b.bldUri, expType, err = expb.Compile(param.Uri)
+	if err != nil {
+		return nil, template.NewErrorPath("Uri", err)
+	}
+
+	return b, template.ErrorPath{}
+}
+
+// build and return the instance, given a set of attributes.
+func (b *builder_istio_mixer_adapter_sample_report_Res2) build(
+	attrs attribute.Bag) (*istio_mixer_adapter_sample_report.Res2, template.ErrorPath) {
+
+	if b == nil {
+		return nil, template.ErrorPath{}
+	}
+
+	var err error
+	_ = err
+	var errp template.ErrorPath
+	_ = errp
+	var vBool bool
+	_ = vBool
+	var vInt int64
+	_ = vInt
+	var vString string
+	_ = vString
+	var vDouble float64
+	_ = vDouble
+	var vIface interface{}
+	_ = vIface
+
+	r := &istio_mixer_adapter_sample_report.Res2{}
+
+	if vIface, err = b.bldValue.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Value", err)
+	}
+
+	r.Value = vIface
+
+	r.Dimensions = make(map[string]interface{}, len(b.bldDimensions))
+
+	for k, v := range b.bldDimensions {
+
+		if vIface, err = v.Evaluate(attrs); err != nil {
+			return nil, template.NewErrorPath("Dimensions["+k+"]", err)
+		}
+
+		r.Dimensions[k] = vIface
+
+	}
+
+	vInt, err = b.bldInt64Primitive.EvaluateInteger(attrs)
+	if err != nil {
+		return nil, template.NewErrorPath("Int64Primitive", err)
+	}
+	r.Int64Primitive = vInt
+
+	if vIface, err = b.bldTimeStamp.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("TimeStamp", err)
+	}
+
+	r.TimeStamp = vIface.(time.Time)
+
+	if vIface, err = b.bldDuration.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Duration", err)
+	}
+
+	r.Duration = vIface.(time.Duration)
+
+	if vIface, err = b.bldIpAddr.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("IpAddr", err)
+	}
+
+	r.IpAddr = net.IP(vIface.([]uint8))
+
+	if vIface, err = b.bldDnsName.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("DnsName", err)
+	}
+
+	r.DnsName = adapter.DNSName(vIface.(string))
+
+	if vIface, err = b.bldEmailAddr.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("EmailAddr", err)
+	}
+
+	r.EmailAddr = adapter.EmailAddress(vIface.(string))
+
+	if vIface, err = b.bldUri.Evaluate(attrs); err != nil {
+		return nil, template.NewErrorPath("Uri", err)
+	}
+
+	r.Uri = adapter.URI(vIface.(string))
+
+	return r, template.ErrorPath{}
+}

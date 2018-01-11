@@ -5,11 +5,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "config.go",
         "log.go",
         "options.go",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "@com_github_natefinch_lumberjack//:go_default_library",
         "@com_github_spf13_cobra//:go_default_library",
         "@org_golang_google_grpc//grpclog:go_default_library",
         "@org_uber_go_zap//:go_default_library",

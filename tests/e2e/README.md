@@ -54,19 +54,38 @@ gcloud container clusters get-credentials ${CLUSTER_NAME} --zone ${ZONE} --proje
 
 ## Step 3: Create Clusterrolebinding
 ```
-kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="myname@example.org"
+kubectl create clusterrolebinding myname-cluster-admin-binding    --clusterrole=cluster-admin    --user="<user_email>"
 ```
+* user_email should be the one you use to log in gcloud command. You can do `gcloud info` to find out current user info.
+
 
 ## Step 4: Export test script variables
 
-**Option 1:** Already committed changes to istio/istio master branch
-NOTE: SHA used for GIT_SHA is one that is already committed on istio/istio. You can pick any SHA you want.
+**Option 1:** Build your own images.
+
 ```
-export HUB="gcr.io/istio-testing"
-export GIT_SHA="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
+# Customize .istiorc with your HUB and optional TAG (example: HUB=costinm TAG=mybranch)
+
+# Build images on the local docker. 
+make docker
+
+# Push images to docker registry
+# If you use minikube and its docker environment, images will be  available in minikube for use, 
+# you can skip this step.
+make push
+
+# the hub/tag set in your .istiorc will be used by the test.
+
 ```
 
-**Option 2:** Testing local changes
+**Option 2:** Already committed changes to istio/istio master branch
+NOTE: SHA used as TAG is one that is already committed on istio/istio. You can pick any SHA you want.
+```
+export HUB="gcr.io/istio-testing"
+export TAG="d0142e1afe41c18917018e2fa85ab37254f7e0ca"
+```
+
+**Option 3:** Testing local changes
 
 If you want to test on uncommitted changes to master istio:
 * Create a PR with your change.
@@ -79,7 +98,7 @@ be a SHA which you need to copy and set it as a GIT_SHA. Example from a log: the
 * Then set the export variables again
 ```
 export HUB="gcr.io/istio-testing"
-export GIT_SHA="<sha copied from the logs of istio-presubmit.sh>"
+export TAG="<sha copied from the logs of istio-presubmit.sh>"
 ```
 
 ## Step 5: Run
@@ -87,12 +106,7 @@ export GIT_SHA="<sha copied from the logs of istio-presubmit.sh>"
 From the repo checkout root directory
 
 ```bash
-./tests/e2e.sh \
---mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}" \
---pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}" \
---ca_tag "${GIT_SHA}"  --ca_hub "${HUB}" \
---istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
---skip_cleanup
+make e2e E2E_ARGS="--skip_cleanup"
 ```
 
 Tests are driven by the [e2e.sh](../e2e.sh) script. Each test has its own directory and can be run independently as a
@@ -104,7 +118,6 @@ go_test target. The script has a number of options:
 * `--istioctl <local istioctl path>`: Use local istioctl binary. 
 * `--istioctl_url <remote istioctl url>`: If local path is not defined, download istioctl from a remote location. 
 * `--use_local_cluster`
-* `--parallel` - to run tests in parallel (alpha feature)
 * `--auth_enable` - if you want to include auth
 * `--cluster_wide` - if you want to run the cluster wide installation and tests
 * `--use_initializer` - if you want to do transparent sidecar injection
@@ -123,9 +136,9 @@ go_test target. The script has a number of options:
 
   ```bash
   ./tests/e2e.sh \
-  --mixer_tag "${GIT_SHA}"  --mixer_hub "${HUB}" \
-  --pilot_tag "${GIT_SHA}"  --pilot_hub "${HUB}" \
-  --ca_tag "${GIT_SHA}"  --ca_hub "${HUB}" \
+  --mixer_tag "${TAG}"  --mixer_hub "${HUB}" \
+  --pilot_tag "${TAG}"  --pilot_hub "${HUB}" \
+  --ca_tag "${TAG}"  --ca_hub "${HUB}" \
   --istioctl <path to local istioctl> \
   --skip_cleanup
   ```
@@ -133,10 +146,10 @@ go_test target. The script has a number of options:
 * Running single test file (bookinfo, mixer, simple) and also skip cleanup. Add `-s` flag (parsed by e2e.sh).
   ```bash
   ./tests/e2e.sh -s bookinfo \
-  --mixer_tag "${GIT_SHA}" --mixer_hub "${HUB}" \
-  --pilot_tag "${GIT_SHA}" --pilot_hub "${HUB}" \
-  --ca_tag "${GIT_SHA}" --ca_hub "${HUB}" \
-  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
+  --mixer_tag "${TAG}" --mixer_hub "${HUB}" \
+  --pilot_tag "${TAG}" --pilot_hub "${HUB}" \
+  --ca_tag "${TAG}" --ca_hub "${HUB}" \
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl" \
   --skip_cleanup
   ```
 
@@ -151,10 +164,10 @@ go_test target. The script has a number of options:
   ```bash
   ./bazel-bin/tests/e2e/tests/simple/go_default_test -alsologtostderr -test.v -v 2 \
   --test.run TestSimpleIngress \
-  --mixer_tag "${GIT_SHA}" --mixer_hub "${HUB}" \
-  --pilot_tag "${GIT_SHA}" --pilot_hub "${HUB}" \
-  --ca_tag "${GIT_SHA}"  --ca_hub "${HUB}"  \
-  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${GIT_SHA}/artifacts/istioctl" \
+  --mixer_tag "${TAG}" --mixer_hub "${HUB}" \
+  --pilot_tag "${TAG}" --pilot_hub "${HUB}" \
+  --ca_tag "${TAG}"  --ca_hub "${HUB}"  \
+  --istioctl_url "https://storage.googleapis.com/istio-artifacts/pilot/${TAG}/artifacts/istioctl" \
   --auth_enable --skip_cleanup 
   ```
 
