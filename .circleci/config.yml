@@ -308,7 +308,7 @@ jobs:
       - run:
           command: |
             cd /go/src/istio.io/istio
-            make init go-build test-bins
+            make depend go-build test-bins
       - persist_to_workspace:
           root: /go
           paths:
@@ -391,6 +391,7 @@ jobs:
             export PATH=/go/go/bin:$PATH
             export GOROOT=/go/go
             cd /go/src/istio.io/istio
+            make depend
             make go-build GOOS=darwin KUBECONFIG=/go/src/istio.io/istio/.circleci/config
             make go-build GOOS=linux GOARCH=arm KUBECONFIG=/go/src/istio.io/istio/.circleci/config
       - store_artifacts:
