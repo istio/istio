@@ -1924,7 +1924,7 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 		errs = appendErrors(errs, fmt.Errorf("route rule destination should not be empty"))
 	}
 
-	// TODO: Destination Subset string? invalid characters?
+	// TODO: Subset
 
 	// TODO: Port
 

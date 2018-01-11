@@ -66,19 +66,9 @@ func applyClusterPolicy(cluster *Cluster,
 	// apply destination policies
 	policyConfig := config.Policy(instances, cluster.hostname, cluster.tags)
 
+	// if no policy is configured, destination rule if one exists
 	if policyConfig == nil {
-		destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
-		if destinationRuleConfig != nil {
-			destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
-
-			applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
-			for _, subset := range destinationRule.Subsets {
-				if cluster.tags.Equals(subset.Labels) {
-					applyTrafficPolicy(cluster, subset.TrafficPolicy)
-					break
-				}
-			}
-		}
+		applyDestinationRule(config, cluster, domain)
 		return
 	}
 
@@ -244,4 +234,19 @@ func applyTrafficPolicy(cluster *Cluster, policy *routingv2.TrafficPolicy) {
 	applyLoadBalancePolicy(cluster, policy.LoadBalancer)
 	applyConnectionPool(cluster, policy.ConnectionPool)
 	cluster.OutlierDetection = buildOutlierDetection(policy.OutlierDetection)
+}
+
+func applyDestinationRule(config model.IstioConfigStore, cluster *Cluster, domain string) {
+	destinationRuleConfig := config.DestinationRule(cluster.hostname, domain)
+	if destinationRuleConfig != nil {
+		destinationRule := destinationRuleConfig.Spec.(*routingv2.DestinationRule)
+
+		applyTrafficPolicy(cluster, destinationRule.TrafficPolicy)
+		for _, subset := range destinationRule.Subsets {
+			if cluster.tags.Equals(subset.Labels) {
+				applyTrafficPolicy(cluster, subset.TrafficPolicy)
+				break
+			}
+		}
+	}
 }
