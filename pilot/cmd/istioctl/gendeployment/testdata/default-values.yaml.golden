@@ -23,7 +23,3 @@ global:
     nodeport_port: 0
   hyperkube_hub: quay.io/coreos/hyperkube
   hyperkube_tag: v1.7.6_coreos.0
-
-
-
-  

@@ -28,26 +28,21 @@ var valuesTemplate = template.Must(template.New("helm").Parse(
     hub: {{ .Hub }}
     tag: {{ .ProxyTag }}
     debug: {{ .Debug }}
-   
   pilot:
     enabled: {{ .Pilot }}
     hub: {{ .Hub }}
     tag: {{ .PilotTag }}
-   
   security:  
     enabled: {{ .CA }}
     hub: {{ .Hub }}
     tag: {{ .CaTag }}
-   
   mixer:
     enabled: {{ .Mixer }}
     hub: {{ .Hub }}
     tag: {{ .MixerTag }}
-
   ingress:
     use_nodeport: {{ gt .NodePort 0 }}
     nodeport_port: {{ .NodePort }}
-
   hyperkube_hub: {{ .HyperkubeHub }}
   hyperkube_tag: {{ .HyperkubeTag }}
 `))
