@@ -114,7 +114,6 @@ func (f *factory) build(
 			}
 
 			if supports := ti.HandlerSupportsTemplate(h); !supports {
-
 				if err = h.Close(); err != nil {
 					h = nil
 					// log this error, but return the one below. That is likely to be the more important one.

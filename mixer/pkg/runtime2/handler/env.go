@@ -46,8 +46,14 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 	// TODO (Issue #2503): This method creates a closure which causes allocations. We can ensure that we're
 	// not creating a closure by calling a method by name, instead of using an anonymous one.
 	e.gp.ScheduleWork(func(ifn interface{}) {
+		reachedEnd := false
+
 		defer func() {
-			if r := recover(); r != nil {
+			// Always decrement the worker count.
+			e.counters.workers.Dec()
+
+			if !reachedEnd {
+				r := recover()
 				_ = e.Logger().Errorf("Adapter worker failed: %v", r) // nolint: gas
 
 				// TODO (Issue #2503): Beyond logging, we want to do something proactive here.
@@ -55,12 +61,10 @@ func (e env) ScheduleWork(fn adapter.WorkFunc) {
 				//       adapter and record the failure so we can count how often
 				//       it happens, etc.
 			}
-
-			// Always decrement the worker count.
-			e.counters.workers.Dec()
 		}()
 
 		ifn.(adapter.WorkFunc)()
+		reachedEnd = true
 	}, fn)
 }
 
@@ -69,8 +73,14 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 	e.counters.daemons.Inc()
 
 	go func() {
+		reachedEnd := false
+
 		defer func() {
-			if r := recover(); r != nil {
+			// Always decrement the daemon count.
+			e.counters.daemons.Dec()
+
+			if !reachedEnd {
+				r := recover()
 				_ = e.Logger().Errorf("Adapter daemon failed: %v", r) // nolint: gas
 
 				// TODO (Issue #2503): Beyond logging, we want to do something proactive here.
@@ -78,11 +88,9 @@ func (e env) ScheduleDaemon(fn adapter.DaemonFunc) {
 				//       adapter and record the failure so we can count how often
 				//       it happens, etc.
 			}
-
-			// Always decrement the daemon count.
-			e.counters.daemons.Dec()
 		}()
 
 		fn()
+		reachedEnd = true
 	}()
 }
