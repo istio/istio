@@ -193,7 +193,7 @@ func applyConnectionPool(cluster *Cluster, settings *routingv2.ConnectionPoolSet
 	if settings == nil {
 		return
 	}
-	
+
 	// Envoy's circuit breaker is a combination of its circuit breaker (which is actually a bulk head) and
 	// outlier detection (which is per pod circuit breaker)
 	cluster.CircuitBreaker = &CircuitBreaker{

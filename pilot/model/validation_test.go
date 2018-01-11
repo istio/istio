@@ -2422,7 +2422,7 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	}
 }
 
-func TestValidateDestinationRuleV2(t *testing.T) {
+func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    proto.Message
@@ -2581,7 +2581,7 @@ func TestValidateDestinationRuleV2(t *testing.T) {
 	}
 }
 
-func TestValidateTrafficPolicyV2(t *testing.T) {
+func TestValidateTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    routingv2.TrafficPolicy
@@ -2638,7 +2638,7 @@ func TestValidateTrafficPolicyV2(t *testing.T) {
 	}
 }
 
-func TestValidateConnectionPollV2(t *testing.T) {
+func TestValidateConnectionPool(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    routingv2.ConnectionPoolSettings
@@ -2712,7 +2712,7 @@ func TestValidateConnectionPollV2(t *testing.T) {
 	}
 }
 
-func TestValidateOutlierDectionV2(t *testing.T) {
+func TestValidateOutlierDetection(t *testing.T) {
 	cases := []struct {
 		name  string
 		in    routingv2.OutlierDetection

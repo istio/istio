@@ -27,9 +27,9 @@ import (
 
 	routing "istio.io/api/routing/v1alpha1"
 	routingv2 "istio.io/api/routing/v1alpha2"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pilot/model"
 	"istio.io/istio/pilot/proxy"
+	"istio.io/istio/pkg/log"
 )
 
 const (

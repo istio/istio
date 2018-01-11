@@ -1078,7 +1078,7 @@ func ValidateEgressRulePort(port *routing.EgressRule_Port) error {
 	return nil
 }
 
-// ValidateDestinationPolicy checks proxy policies
+// ValidateDestinationRule checks proxy policies
 func ValidateDestinationRule(msg proto.Message) (errs error) {
 	rule, ok := msg.(*routingv2.DestinationRule)
 	if !ok {

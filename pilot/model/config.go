@@ -348,7 +348,7 @@ var (
 		Validate:    ValidateDestinationPolicy,
 	}
 
-	// DestinationPolicy describes destination rules
+	// DestinationRule describes destination rules
 	DestinationRule = ProtoSchema{
 		Type:        "destination-rule",
 		Plural:      "destination-rules",
