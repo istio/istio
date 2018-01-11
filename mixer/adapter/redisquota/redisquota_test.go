@@ -34,6 +34,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/golang/glog"
 	lua "github.com/yuin/gopher-lua"
+
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/adapter/test"
@@ -103,6 +104,7 @@ func NewLocalRedisServer(addr string) (*LocalRedisServer, error) {
 
 	runEvalFunc := func(c *server.Peer, script string, args []string) error {
 		L := lua.NewState()
+		defer L.Close()
 
 		// set global variable KEYS
 		keysTable := L.NewTable()
@@ -123,8 +125,6 @@ func NewLocalRedisServer(addr string) (*LocalRedisServer, error) {
 			L.RawSet(argvTable, lua.LNumber(i+1), lua.LString(args[i+2+keysLen]))
 		}
 		L.SetGlobal("ARGV", argvTable)
-
-		defer L.Close()
 
 		// Register call function to lua VM
 		redisFuncs := map[string]lua.LGFunction{

@@ -69,9 +69,6 @@ message Params {
   // Redis network address
   string redis_server_url = 2;
 
-  // Network for communicating with redis, i.e., "tcp"
-  string socket_type = 3;
-
   // Maximum number of idle connections to redis
-  int64 connection_pool_size = 4;
+  int64 connection_pool_size = 3;
 }

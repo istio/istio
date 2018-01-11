@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis"
+
 	"istio.io/istio/mixer/adapter/redisquota/config"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/status"

@@ -73,7 +73,6 @@ spec:
       maxAmount: 5
   # Redis connection pool
   redisServerUrl: __REDIS_SERVER_ADDRESS__
-  socketType: tcp
   connectionPoolSize: 10
 
 ---
