@@ -42,7 +42,7 @@ func TestBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !h.IsValid() {
+	if h == nil {
 		t.Fail()
 	}
 }
@@ -68,7 +68,7 @@ func TestCacheUse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !h.IsValid() {
+	if h == nil {
 		t.Fail()
 	}
 }
@@ -88,7 +88,7 @@ func TestAdapterSupportsAdditionalTemplates(t *testing.T) {
 		t.Fatal()
 	}
 
-	if !h.IsValid() {
+	if h == nil {
 		t.Fatal()
 	}
 }
@@ -147,6 +147,7 @@ func TestBuilderDoesNotSupportTemplate(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -167,6 +168,7 @@ func TestHandlerDoesNotSupportTemplate(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -194,6 +196,7 @@ func TestHandlerDoesNotSupportTemplate_ErrorDuringClose(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -221,6 +224,7 @@ func TestHandlerDoesNotSupportTemplate_PanicDuringClose(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -243,6 +247,7 @@ func TestPanicAtSetAdapterConfig(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -265,6 +270,7 @@ func TestFailedValidation(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()
@@ -287,6 +293,7 @@ func TestPanicAtValidation(t *testing.T) {
 	h1 := s.Handlers[data.FqnH1]
 
 	f := newFactory(s)
+
 	_, err := f.build(h1, []*config.Instance{i1}, nil)
 	if err == nil {
 		t.Fatal()

@@ -56,101 +56,111 @@ func newFactory(snapshot *config.Snapshot) *factory {
 func (f *factory) build(
 	handler *config.Handler,
 	instances []*config.Instance,
-	env adapter.Env) (SafeHandler, error) {
+	env adapter.Env) (h adapter.Handler, err error) {
 
-	inferredTypesByTemplates, err := f.inferTypes(instances)
-	if err != nil {
-		log.Error(err.Error())
-		return SafeHandler{}, err
-	}
-
-	// Adapter should always be present for a valid configuration (reference integrity should already be checked).
-	info := handler.Adapter
-
-	builder := info.NewBuilder()
-	if builder == nil {
-		return SafeHandler{}, errors.New("nil HandlerBuilder")
-	}
-
-	// validate if the builder supports all the necessary interfaces
-	for _, tmplName := range info.SupportedTemplates {
-
-		ti, found := f.snapshot.Templates[tmplName]
-		if !found {
-			// TODO (Issue #2512): This log is unnecessarily spammy. We should test for this during startup
-			// and log it once.
-			// One of the templates that is supported by the adapter was not found. We should log and simply
-			// move on.
-			log.Infof("Ignoring unrecognized template, supported by adapter: adapter='%s', template='%s'",
-				handler.Adapter.NewBuilder, tmplName)
-			continue
+	// Do not assign the error to err directly, as this would overwrite the err returned by the inner function.
+	panicErr := safeCall("factory.build", func() {
+		var inferredTypesByTemplates map[string]inferredTypesMap
+		if inferredTypesByTemplates, err = f.inferTypes(instances); err != nil {
+			return
 		}
 
-		if supports := ti.BuilderSupportsTemplate(builder); !supports {
-			// TODO (Issue #2512): This will cause spammy logging at the call site.
-			// We should test for this during startup and log it once.
-			return SafeHandler{}, fmt.Errorf("adapter does not actually support template: template='%s', interface='%s'", tmplName, ti.BldrInterfaceName)
-		}
-	}
+		// Adapter should always be present for a valid configuration (reference integrity should already be checked).
+		info := handler.Adapter
 
-	safeHandler, err := f.buildHandler(builder, inferredTypesByTemplates, handler.Params, env)
-	if err != nil {
-		return SafeHandler{}, fmt.Errorf("adapter instantiation error: %v", err)
-	}
-
-	// validate if the handlerConfig supports all the necessary interfaces
-	for _, tmplName := range info.SupportedTemplates {
-		// ti should be there for a valid configuration.
-		ti, found := f.snapshot.Templates[tmplName]
-		if !found {
-			// This is similar to the condition check in the previous loop. That already does logging, so
-			// simply skip.
-			continue
+		builder := info.NewBuilder()
+		if builder == nil {
+			err = errors.New("nil HandlerBuilder")
+			return
 		}
 
-		if supports := ti.HandlerSupportsTemplate(safeHandler.h); !supports {
-			if err = safeHandler.Close(); err != nil {
-				return SafeHandler{}, err
+		// validate if the builder supports all the necessary interfaces
+		for _, tmplName := range info.SupportedTemplates {
+
+			ti, found := f.snapshot.Templates[tmplName]
+			if !found {
+				// TODO (Issue #2512): This log is unnecessarily spammy. We should test for this during startup
+				// and log it once.
+				// One of the templates that is supported by the adapter was not found. We should log and simply
+				// move on.
+				log.Infof("Ignoring unrecognized template, supported by adapter: adapter='%s', template='%s'",
+					handler.Adapter.NewBuilder, tmplName)
+				continue
 			}
 
-			// adapter is bad since it does not support the necessary interface
-			return SafeHandler{}, fmt.Errorf("builder for adapter does not actually support template: template='%s', interface='%s'",
-				tmplName, ti.HndlrInterfaceName)
+			if supports := ti.BuilderSupportsTemplate(builder); !supports {
+				// TODO (Issue #2512): This will cause spammy logging at the call site.
+				// We should test for this during startup and log it once.
+				err = fmt.Errorf("adapter does not actually support template: template='%s', interface='%s'", tmplName, ti.BldrInterfaceName)
+				return
+			}
 		}
+
+		h, err = f.buildHandler(builder, inferredTypesByTemplates, handler.Params, env)
+		if err != nil {
+			h = nil
+			err = fmt.Errorf("adapter instantiation error: %v", err)
+			return
+		}
+
+		// validate if the handlerConfig supports all the necessary interfaces
+		for _, tmplName := range info.SupportedTemplates {
+			// ti should be there for a valid configuration.
+			ti, found := f.snapshot.Templates[tmplName]
+			if !found {
+				// This is similar to the condition check in the previous loop. That already does logging, so
+				// simply skip.
+				continue
+			}
+
+			if supports := ti.HandlerSupportsTemplate(h); !supports {
+
+				if err = h.Close(); err != nil {
+					h = nil
+					// log this error, but return the one below. That is likely to be the more important one.
+					log.Errorf("error during adapter close: '%v'", err)
+					return
+				}
+
+				h = nil
+				// adapter is bad since it does not support the necessary interface
+				err = fmt.Errorf("builder for adapter does not actually support template: template='%s', interface='%s'",
+					tmplName, ti.HndlrInterfaceName)
+				return
+			}
+		}
+	})
+
+	if panicErr != nil {
+		h = nil
+		err = panicErr
 	}
 
-	return safeHandler, err
+	return
 }
 
 func (f *factory) buildHandler(
-	b adapter.HandlerBuilder,
+	builder adapter.HandlerBuilder,
 	inferredTypes map[string]inferredTypesMap,
 	adapterConfig interface{},
-	env adapter.Env) (handler SafeHandler, err error) {
+	env adapter.Env) (handler adapter.Handler, err error) {
 	var ti *template.Info
 	var types inferredTypesMap
-
-	builder := safeHandlerBuilder{b}
 
 	for tmplName := range inferredTypes {
 		types = inferredTypes[tmplName]
 		// ti should be there for a valid configuration.
 		ti, _ = f.snapshot.Templates[tmplName]
 		if ti.SetType != nil { // for case like APA template that does not have SetType
-			ti.SetType(types, b)
+			ti.SetType(types, builder)
 		}
 	}
 
-	if err = builder.SetAdapterConfig(adapterConfig.(proto.Message)); err != nil {
-		// This is due to panic.
-		return SafeHandler{}, err
-	}
+	builder.SetAdapterConfig(adapterConfig.(proto.Message))
 
 	// validate and only construct if the validation passes.
 	var ce *adapter.ConfigErrors
-	if ce, err = builder.Validate(); err != nil {
-		return
-	} else if ce != nil {
+	if ce = builder.Validate(); ce != nil {
 		err = fmt.Errorf("builder validation failed: '%v'", ce)
 		return
 	}

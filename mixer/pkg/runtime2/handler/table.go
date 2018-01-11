@@ -34,7 +34,7 @@ type Entry struct {
 	Name string
 
 	// Handler is the initialized Handler object.
-	Handler SafeHandler
+	Handler adapter.Handler
 
 	// Adapter that was used to create this Entry.
 	Adapter *adapter.Info
@@ -125,7 +125,17 @@ func (t *Table) Cleanup(current *Table) {
 		if current.counters.closedHandlers != nil {
 			current.counters.closedHandlers.Inc()
 		}
-		if err := entry.Handler.Close(); err != nil {
+
+		var err error
+		panicErr := safeCall("handler.Close", func() {
+			err = entry.Handler.Close()
+		})
+
+		if panicErr != nil {
+			err = panicErr
+		}
+
+		if err != nil {
 			if current.counters.closeFailure != nil {
 				current.counters.closeFailure.Inc()
 			}

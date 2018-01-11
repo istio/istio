@@ -116,7 +116,7 @@ func TestTable_Get(t *testing.T) {
 
 	table.entries["h1"] = Entry{
 		Name:    "h1",
-		Handler: SafeHandler{&data.FakeHandler{}},
+		Handler: &data.FakeHandler{},
 	}
 
 	e, found := table.Get("h1")
@@ -251,7 +251,29 @@ func TestCleanup_CloseError(t *testing.T) {
 
 	table.Cleanup(table2)
 
-	// Close shouldn't be called.
+	if len(table2.entries) != 0 {
+		t.Fail()
+	}
+}
+
+func TestCleanup_ClosePanic(t *testing.T) {
+	f := &data.FakeHandlerBuilder{
+		HandlerPanicOnClose: true,
+	}
+
+	adapters := data.BuildAdapters(&adapter.Info{NewBuilder: func() adapter.HandlerBuilder {
+		return f
+	}})
+	templates := data.BuildTemplates(nil)
+
+	s := util.GetSnapshot(templates, adapters, data.ServiceConfig, globalCfg)
+	table := NewTable(Empty(), s, nil)
+
+	// use different config to force cleanup
+	table2 := NewTable(table, config.Empty(), nil)
+
+	table.Cleanup(table2)
+
 	if len(table2.entries) != 0 {
 		t.Fail()
 	}
