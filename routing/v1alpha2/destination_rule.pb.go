@@ -8,6 +8,7 @@ It is generated from these files:
 	routing/v1alpha2/destination_rule.proto
 	routing/v1alpha2/gateway.proto
 	routing/v1alpha2/route_rule.proto
+	routing/v1alpha2/foreign_services.proto
 
 It has these top-level messages:
 	DestinationRule
@@ -19,6 +20,7 @@ It has these top-level messages:
 	TLSSettings
 	Gateway
 	Server
+	Port
 	RouteRule
 	Destination
 	HTTPRoute
@@ -33,6 +35,8 @@ It has these top-level messages:
 	CorsPolicy
 	HTTPFaultInjection
 	PortSelector
+	ForeignServices
+	Service
 */
 package istio_routing_v1alpha2
 

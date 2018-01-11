@@ -180,19 +180,6 @@ message Gateway {
 //           privateKey: /etc/certs/privatekey.pem
 //
 message Server {
-  // Port describes the properties of a specific port of a service.
-  message Port {
-    // REQUIRED: A valid non-negative integer port number.
-    uint32 number = 1;
-
-    // The protocol exposed on the port.
-    // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.
-    string protocol = 2;
-
-    // Label assigned to the port.
-    string name = 3;
-  }
-
   // REQUIRED: The Port on which the proxy should listen for incoming
   // connections
   Port port = 1;
@@ -257,4 +244,17 @@ message Server {
   // these options to control if all http requests should be redirected to
   // https, and the TLS modes to use.
   TLSOptions tls = 3;
+}
+
+// Port describes the properties of a specific port of a service.
+message Port {
+  // REQUIRED: A valid non-negative integer port number.
+  uint32 number = 1;
+
+  // The protocol exposed on the port.
+  // MUST BE one of HTTP|HTTPS|GRPC|HTTP2|MONGO|TCP.
+  string protocol = 2;
+
+  // Label assigned to the port.
+  string name = 3;
 }
