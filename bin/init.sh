@@ -21,18 +21,24 @@ if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        exit 1
 fi
 
-which ${GO_TOP}/bin/dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
+DEP=$(which dep || echo "${GO_TOP}/bin/dep" )
+echo "using dep: ${DEP}"
+
+if [ ${DEP} == "${GO_TOP}/bin/dep" ]; then
+    unset GOOS && go get -u github.com/golang/dep/cmd/dep
+fi
+
 
 # Download dependencies
 if [ ! -d vendor/github.com ]; then
-    ${GO_TOP}/bin/dep ensure -vendor-only
+    ${DEP} ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
-    ${GO_TOP}/bin/dep ensure -vendor-only
+    ${DEP} ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${GO_TOP}/bin/dep ensure -vendor-only ; \
+            ( ${DEP} ensure -vendor-only ; \
               cp Gopkg.lock vendor/Gopkg.lock)
 fi
 

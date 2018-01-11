@@ -51,7 +51,6 @@ GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 # Environment for tests, the directory containing istio and deps binaries.
 # Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
 export ISTIO_BIN=${GO_TOP}/bin
-DEP:=${ISTIO_BIN}/dep
 
 hub = ""
 tag = ""
@@ -68,6 +67,9 @@ export HUB
 ifneq ($(strip $(TAG)),)
 	tag =-tag ${TAG}
 endif
+
+# Discover if user has dep installed -- prefer that
+DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -107,11 +109,11 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 	cp Gopkg.lock vendor/Gopkg.lock
 
 ${DEP}:
-	go get -u github.com/golang/dep/cmd/dep
+	unset GOOS && go get -u github.com/golang/dep/cmd/dep
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
-
+	
 depend.status: Gopkg.lock
 	$(Q) ${DEP} status > vendor/dep.txt
 	$(Q) ${DEP} status -dot > vendor/dep.dot
