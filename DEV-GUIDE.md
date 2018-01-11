@@ -318,11 +318,11 @@ passed both unit and integration tests. We only merge pull requests when
 
 We use CircleCI as one of the systems for continuous integration. Any PR
 will have to pass all CircleCI tests (in addition to Prow tests) before
-being ready to merge. When you fork Istio repository, you will
+being ready to merge. When you fork the Istio repository, you will
 automatically inherit the CircleCI testing environment as well, allowing
-you to fully reproduce our testing infrastructure. If you have
-already signed up for CircleCI, you can test your code changes in your fork
-against the full suite of tests that we run for every PR.
+you to fully reproduce our testing infrastructure. If you have already
+signed up for CircleCI, you can test your code changes in your fork against
+the full suite of tests that we run for every PR.
 
 Please refer to the
 [wiki](https://github.com/istio/istio/wiki/Working-with-CircleCI) for a 
