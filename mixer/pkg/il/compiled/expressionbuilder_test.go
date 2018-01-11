@@ -66,6 +66,11 @@ func TestCompiledExpressions(t *testing.T) {
 				return
 			}
 
+			if !test.CheckReferenced(bag) {
+				tt.Fatalf("Referenced attribute mismatch: '%s' != '%s'", bag.ReferencedList(), test.Referenced)
+				return
+			}
+
 			// Depending on the type, try testing specialized methods as well.
 			if test.CompileErr != "" {
 				return
