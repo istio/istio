@@ -6,20 +6,13 @@ so we can improve the doc.
 
 - [Prerequisites](#prerequisites)
   - [Setting up Go](#setting-up-go)
-  - [Setting up Docker](#setting-up-docker)
+  - [Dependency management](#setting-up-dep)
+  - [Setting up Kubernetes](#setting-up-kubernetes)
+    - [IBM Cloud Container Service](#ibm-cloud-container-service)
+    - [Google Kubernetes Engine](#google-kubernetes-engine)
+    - [Minikube](#minikube)
   - [Setting up environment variables](#setting-up-environment-variables)
   - [Setting up personal access token](#setting-up-a-personal-access-token)
-  - [Setting up a container registry](#setting-up-a-container-registry)
-- [Git workflow](#git-workflow)
-  - [Fork the main repository](#fork-the-main-repository)
-  - [Clone your fork](#clone-your-fork)
-  - [Enable pre commit hook](#enable-pre-commit-hook)
-  - [Create a branch and make changes](#create-a-branch-and-make-changes)
-  - [Keeping your fork in sync](#keeping-your-fork-in-sync)
-  - [Committing changes to your fork](#committing-changes-to-your-fork)
-  - [Creating a pull request](#creating-a-pull-request)
-  - [Getting a code review](#getting-a-code-review)
-  - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 - [Using the code base](#using-the-code-base)
   - [Building the code](#building-the-code)
   - [Building and pushing the containers](#building-and-pushing-the-containers)
@@ -32,7 +25,16 @@ so we can improve the doc.
   - [Running race detection tests](#running-race-detection-tests)
   - [Adding dependencies](#adding-dependencies)
   - [About testing](#about-testing)
-- [Local development scripts](#collection-of-scripts-and-notes-for-developing-istio)
+- [Git workflow](#git-workflow)
+  - [Fork the main repository](#fork-the-main-repository)
+  - [Clone your fork](#clone-your-fork)
+  - [Enable pre commit hook](#enable-pre-commit-hook)
+  - [Create a branch and make changes](#create-a-branch-and-make-changes)
+  - [Keeping your fork in sync](#keeping-your-fork-in-sync)
+  - [Committing changes to your fork](#committing-changes-to-your-fork)
+  - [Creating a pull request](#creating-a-pull-request)
+  - [Getting a code review](#getting-a-code-review)
+  - [When to retain commits and when to squash](#when-to-retain-commits-and-when-to-squash)
 
 This document is intended to be relative to the branch in which it is found.
 It is guaranteed that requirements will change over time for the development
@@ -45,24 +47,67 @@ need to setup before being able to build and run the code.
 
 ### Setting up Go
 
-Many Istio components are written in the [Go](http://golang.org) programming language.
+Many Istio components are written in the [Go](https://golang.org) programming language.
 To build, you'll need a Go development environment. If you haven't set up a Go development
 environment, please follow [these instructions](https://golang.org/doc/install)
 to install the Go tools.
 
 Istio currently builds with Go 1.9
 
-### Setting up Docker
+### Setting up dep
 
-To run some of Istio's examples and tests, you need to set up Docker server.
-Please follow [these instructions](https://docs.docker.com/engine/installation/)
-for how to do this for your platform.
+Istio uses [dep](https://github.com/golang/dep) as the dependency
+management tool for its Go codebase. Dep will be automatically installed as
+part of the build. However, if you wish to install `dep` yourself, use the
+following command:
 
-Ensure your UID is in the docker group to access the docker daemon as a non-root user:
-
-```shell
-sudo adduser $USER docker
+```bash
+go get -u github.com/golang/dep/cmd/dep
 ```
+
+### Setting up Kubernetes
+
+If you are working on Istio in a Kubernetes environment, we require
+Kubernetes version 1.7.3 or higher. Follow the steps outlined in the
+_prerequisites_ section in the
+[Istio Quick Start](https://istio.io/docs/setup/kubernetes/quick-start.html)
+to setup a Kubernetes cluster with Minikube, or launch a cluster in IBM
+Cloud Container Service, Google Kubernetes Engine or Openshift.
+
+#### Additional steps for GKE
+
+* Add `--no-enable-legacy-authorization` to the list of gcloud flags to fully
+enable RBAC in GKE.
+
+* Update your kubeconfig file with appropriate credentials to point kubectl
+to the cluster created in GKE.
+
+  ```
+  gcloud container clusters get-credentials NAME --zone=ZONE
+  ```
+
+* Make sure you are using static client certificates before fetching cluster
+credentials:
+
+  ```
+  gcloud config set container/use_client_certificate True
+  ```
+
+#### Additional notes for Minikube
+
+Minikube version >= v0.22.3 is required for proper certificate
+configuration for GenericAdmissionWebhook feature. Get the latest version
+from
+[minikube release page](https://github.com/kubernetes/minikube/releases)
+for your platform.
+
+```bash
+minikube start \
+    --extra-config=apiserver.Admission.PluginNames="Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,GenericAdmissionWebhook,ResourceQuota" \
+    --kubernetes-version=v1.7.5
+```
+
+To enable RBAC, add `--bootstrapper kubeadm --extra-config=apiserver.Authorization.Mode=RBAC` to `minikube start` command, in addition to the flags above.
 
 ### Setting up environment variables
 
@@ -89,6 +134,14 @@ export TAG=$USER
 # If your github username is not the same as your local user name (saved in the
 # shell variable $USER), then replace "$USER" below with your github username
 export GITHUB_USER=$USER
+
+# Specify which Kube config you'll use for testing. This depends on whether
+# you're using Minikube or your own Kubernetes cluster for local testing
+# For a GKE cluster:
+export KUBECONFIG=${HOME}/.kube/config
+# Alternatively, for Minikube:
+# export KUBECONFIG=${GOPATH}/src/istio.io/istio/.circleci/config
+
 ```
 
 Execute a one time operation to contain the Istio source trees.
@@ -113,10 +166,152 @@ you must setup a personal access token to enable push via HTTPS. Please follow
 for how to create a token.
 Alternatively you can [add your SSH keys](https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/).
 
-### Optional: Setting up a container registry
+## Using the code base
 
-Follow the
-[Google Container Registry Quickstart](https://cloud.google.com/container-registry/docs/quickstart).
+### Building the code
+
+To build Pilot, Mixer, and Istio CA for your host architecture, run
+
+```shell
+make
+```
+
+This build command figures out what it needs to do and does not need any
+input from you.
+
+*TIP*: To speed up consecutive builds of the project, run the following
+command instead:
+
+```shell
+GOBUILDFLAGS=-i make
+```
+
+`GOBUILDFLAGS=-i` causes our build system to build with `go build -i`, that
+results in significant improvements of the overall build time. Note that
+the use of `-i` flag causes Go to cache intermediate results in
+`$GOPATH/pkg/`. Depending on the situation, this behaviour may be
+undesirable as Golang may not erase out of date artifacts from the
+cache. In such a situation, erase the contents of `$GOPATH/pkg/` manually
+before rebuilding the code.
+
+### Building and pushing the containers
+
+Build the containers in your local docker cache:
+
+```shell
+make docker
+```
+
+Push the containers to your registry:
+
+```shell
+make push
+```
+
+### Building the Istio manifests
+
+Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
+to generate new manifests with mixer, pilot, and ca_cert custom built containers:
+
+```
+install/updateVersion.sh -a ${HUB},${TAG}
+```
+
+### Cleaning outputs
+
+You can delete any build artifacts with:
+
+```shell
+make clean
+```
+
+### Running tests
+
+You can run all the available tests with:
+
+```shell
+make test
+```
+
+*Note on Pilot unit tests:* For tests that require systems integration,
+such as invoking the Envoy proxy with a special configuration, we capture
+the desired output as golden artifacts and save the artifacts in the
+repository. Validation tests compare generated output against the desired
+output. For example,
+[Envoy configuration test data](pilot/proxy/envoy/testdata) contains
+auto-generated proxy configuration. If you make changes to the config
+generation, you also need to create or update the golden artifact in the
+same pull request. The test library can automatically refresh all golden
+artifacts if you pass a special environment variable:
+
+```bash
+env REFRESH_GOLDEN=true make pilot-test
+```
+
+### Getting coverage numbers
+
+You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
+
+```shell
+make coverage
+```
+
+### Auto-formatting source code
+
+You can automatically format the source code to follow our conventions by going to the
+top of the repo and entering:
+
+```shell
+make fmt
+```
+
+### Running the linters
+
+You can run all the linters we require on your local repo by going to the top of the repo and entering:
+
+```shell
+make lint
+# To run only on your local changes
+bin/linters.sh -s HEAD^
+```
+
+### Race detection tests
+
+You can run the test suite using the Go race detection tools using:
+
+```shell
+make racetest
+```
+
+### Adding dependencies
+
+It will occasionally be necessary to add a new external dependency to the
+system. If the dependent Go package does not have to be pinned to a
+specific version, run `dep ensure` to update the Gopkg.lock files and
+commit them along with your code. If the dependency has to be pinned to a
+specific version, run
+
+```bash
+dep ensure -add github.com/foo/bar
+```
+
+The command above adds a version constraint to Gopkg.toml and updates
+Gopkg.lock. Inspect Gopkg.toml to ensure that the package is pinned to the
+correct SHA. _Please pin to COMMIT SHAs instead of branches or tags._
+
+### About testing
+
+Before sending pull requests you should at least make sure your changes have
+passed both unit and integration tests. We only merge pull requests when
+**all** tests are passing.
+
+* Unit tests should be fully hermetic
+  - Only access resources in the test binary.
+* All packages and any significant files require unit tests.
+* Unit tests are written using the standard Go testing package.
+* The preferred method of testing multiple scenarios or input is
+  [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
+* Concurrent unit test runs must pass.
 
 ## Git workflow
 
@@ -137,9 +332,9 @@ there is more than one directory in your `$GOPATH`.
 
 ```shell
 cd $ISTIO
-git clone https://github.com/$GITHUB_USER/istio.git
+git clone https://github.com/$GITHUB_USER/istio
 cd istio
-git remote add upstream 'https://github.com/istio/istio.git'
+git remote add upstream 'https://github.com/istio/istio'
 git config --global --add http.followRedirects 1
 ```
 
@@ -231,112 +426,3 @@ feedback. Doing so results in an inability to see what has changed between
 revisions of the PR. Instead submit additional commits until the PR is
 suitable for merging. Once the PR is suitable for merging, the commits will
 be squashed to simplify the commit.
-
-## Using the code base
-
-### Building the code
-
-To build the core repo:
-
-```shell
-cd $ISTIO/istio
-
-make depend
-
-make build
-```
-
-This build command figures out what it needs to do and does not need any input from you.
-
-### Building and pushing the containers
-
-Build the containers in your local docker cache:
-
-```shell
-make docker
-```
-
-Push the containers to your registry:
-
-```shell
-make push
-```
-
-### Building the Istio manifests
-
-Use [updateVersion.sh](https://github.com/istio/istio/blob/master/install/updateVersion.sh)
-to generate new manifests with mixer, pilot, and ca_cert custom built containers:
-
-```
-cd $ISTIO/istio
-install/updateVersion.sh -a ${HUB},${TAG}
-```
-
-### Cleaning outputs
-
-You can delete any build artifacts with:
-
-```shell
-make clean
-```
-### Running tests
-
-You can run all the available tests with:
-
-```shell
-make test
-```
-### Getting coverage numbers
-
-You can get the current unit test coverage numbers on your local repo by going to the top of the repo and entering:
-
-```shell
-make cov
-```
-
-### Auto-formatting source code
-
-You can automatically format the source code to follow our conventions by going to the
-top of the repo and entering:
-
-```shell
-make fmt
-```
-
-### Running the linters
-
-You can run all the linters we require on your local repo by going to the top of the repo and entering:
-
-```shell
-make lint
-# To run only on your local changes
-bin/linters.sh -s HEAD^
-```
-
-### Race detection tests
-
-You can run the test suite using the Go race detection tools using:
-
-```shell
-make racetest
-```
-
-### Adding dependencies
-
-It will occasionally be necessary to add a new external dependency to the
-system. Istio uses Go's [Dep](github.com/golang/dep) tool. To add a new
-dependency, run the `dep ensure` command to update the Gopkg.lock files.
-
-### About testing
-
-Before sending pull requests you should at least make sure your changes have
-passed both unit and integration tests. We only merge pull requests when
-**all** tests are passing.
-
-* Unit tests should be fully hermetic
-  - Only access resources in the test binary.
-* All packages and any significant files require unit tests.
-* Unit tests are written using the standard Go testing package.
-* The preferred method of testing multiple scenarios or input is
-  [table driven testing](https://github.com/golang/go/wiki/TableDrivenTests)
-* Concurrent unit test runs must pass.

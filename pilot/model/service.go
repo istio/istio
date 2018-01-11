@@ -298,8 +298,8 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	if len(labels) == 0 {
 		return true
 	}
-	for _, tag := range labels {
-		if tag.SubsetOf(that) {
+	for _, label := range labels {
+		if label.SubsetOf(that) {
 			return true
 		}
 	}

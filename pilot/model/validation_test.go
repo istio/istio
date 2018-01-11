@@ -2192,3 +2192,232 @@ func TestValidateTlsOptions(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateHTTPHeaderName(t *testing.T) {
+	testCases := []struct {
+		name  string
+		valid bool
+	}{
+		{name: "header1", valid: true},
+		{name: "HEADER2", valid: false},
+	}
+
+	for _, tc := range testCases {
+		if got := ValidateHTTPHeaderName(tc.name); (got == nil) != tc.valid {
+			t.Errorf("ValidateHTTPHeaderName(%q) => got valid=%v, want valid=%v",
+				tc.name, got == nil, tc.valid)
+		}
+	}
+}
+
+func TestValidateCORSPolicy(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *routingv2.CorsPolicy
+		valid bool
+	}{
+		{name: "valid", in: &routingv2.CorsPolicy{
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &duration.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "bad method", in: &routingv2.CorsPolicy{
+			AllowMethods:  []string{"GET", "PUTT"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &duration.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad header", in: &routingv2.CorsPolicy{
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"HEADER3"},
+			MaxAge:        &duration.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "bad max age", in: &routingv2.CorsPolicy{
+			AllowMethods:  []string{"GET", "POST"},
+			AllowHeaders:  []string{"header1", "header2"},
+			ExposeHeaders: []string{"header3"},
+			MaxAge:        &duration.Duration{Seconds: 2, Nanos: 42},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateCORSPolicy(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPStatus(t *testing.T) {
+	testCases := []struct {
+		in    int32
+		valid bool
+	}{
+		{-100, false},
+		{0, true},
+		{200, true},
+		{600, true},
+		{601, false},
+	}
+
+	for _, tc := range testCases {
+		if got := validateHTTPStatus(tc.in); (got == nil) != tc.valid {
+			t.Errorf("validateHTTPStatus(%d) => got valid=%v, want valid=%v",
+				tc.in, got, tc.valid)
+		}
+	}
+}
+
+func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *routingv2.HTTPFaultInjection_Abort
+		valid bool
+	}{
+		{name: "nil", in: nil, valid: true},
+		{name: "valid", in: &routingv2.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: true},
+		{name: "valid default", in: &routingv2.HTTPFaultInjection_Abort{
+			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: true},
+		{name: "invalid percent", in: &routingv2.HTTPFaultInjection_Abort{
+			Percent: -1,
+			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 200,
+			},
+		}, valid: false},
+		{name: "invalid http status", in: &routingv2.HTTPFaultInjection_Abort{
+			Percent: 20,
+			ErrorType: &routingv2.HTTPFaultInjection_Abort_HttpStatus{
+				HttpStatus: 9000,
+			},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateHTTPFaultInjectionAbort(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPFaultInjectionDelay(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *routingv2.HTTPFaultInjection_Delay
+		valid bool
+	}{
+		{name: "nil", in: nil, valid: true},
+		{name: "valid fixed", in: &routingv2.HTTPFaultInjection_Delay{
+			Percent: 20,
+			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &duration.Duration{Seconds: 3},
+			},
+		}, valid: true},
+		{name: "valid default", in: &routingv2.HTTPFaultInjection_Delay{
+			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &duration.Duration{Seconds: 3},
+			},
+		}, valid: true},
+		{name: "invalid percent", in: &routingv2.HTTPFaultInjection_Delay{
+			Percent: 101,
+			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &duration.Duration{Seconds: 3},
+			},
+		}, valid: false},
+		{name: "invalid delay", in: &routingv2.HTTPFaultInjection_Delay{
+			Percent: 20,
+			HttpDelayType: &routingv2.HTTPFaultInjection_Delay_FixedDelay{
+				FixedDelay: &duration.Duration{Seconds: 3, Nanos: 42},
+			},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateHTTPFaultInjectionDelay(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRetry(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *routingv2.HTTPRetry
+		valid bool
+	}{
+		{name: "valid", in: &routingv2.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &duration.Duration{Seconds: 2},
+		}, valid: true},
+		{name: "valid default", in: &routingv2.HTTPRetry{
+			Attempts: 10,
+		}, valid: true},
+		{name: "bad attempts", in: &routingv2.HTTPRetry{
+			Attempts:      -1,
+			PerTryTimeout: &duration.Duration{Seconds: 2},
+		}, valid: false},
+		{name: "invalid timeout", in: &routingv2.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &duration.Duration{Seconds: 2, Nanos: 1},
+		}, valid: false},
+		{name: "timeout too small", in: &routingv2.HTTPRetry{
+			Attempts:      10,
+			PerTryTimeout: &duration.Duration{Nanos: 999},
+		}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateHTTPRetry(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateHTTPRewrite(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *routingv2.HTTPRewrite
+		valid bool
+	}{
+		{name: "uri and authority", in: &routingv2.HTTPRewrite{
+			Uri:       "/path/to/resource",
+			Authority: "foobar.org",
+		}, valid: true},
+		{name: "uri", in: &routingv2.HTTPRewrite{
+			Uri: "/path/to/resource",
+		}, valid: true},
+		{name: "authority", in: &routingv2.HTTPRewrite{
+			Authority: "foobar.org",
+		}, valid: true},
+		{name: "no uri or authority", in: &routingv2.HTTPRewrite{}, valid: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateHTTPRewrite(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}

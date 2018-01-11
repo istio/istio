@@ -10,29 +10,29 @@ set -o nounset
 set -o pipefail
 
 # Set GOPATH to match the expected layout
-TOP=$(cd $(dirname $0)/../../../..; pwd)
-OUT=${TOP}/out
+GO_TOP=$(cd $(dirname $0)/../../../..; pwd)
+OUT=${GO_TOP}/out
 
-export GOPATH=$TOP
+export GOPATH=${GOPATH:-$GO_TOP}
 
 # Ensure expected GOPATH setup
-if [ ${ROOT} != "${GOPATH-$HOME/go}/src/istio.io/istio" ]; then
+if [ ${ROOT} != "${GO_TOP:-$HOME/go}/src/istio.io/istio" ]; then
        echo "Istio not found in GOPATH/src/istio.io/"
        exit 1
 fi
 
-which dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
+which ${GO_TOP}/bin/dep >/dev/null || go get -u github.com/golang/dep/cmd/dep
 
 # Download dependencies
 if [ ! -d vendor/github.com ]; then
-    ${GOPATH}/bin/dep ensure -vendor-only
+    ${GO_TOP}/bin/dep ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 elif [ ! -f vendor/Gopkg.lock ]; then
-    ${GOPATH}/bin/dep ensure -vendor-only
+    ${GO_TOP}/bin/dep ensure -vendor-only
 	cp Gopkg.lock vendor/Gopkg.lock
 else
     diff Gopkg.lock vendor/Gopkg.lock > /dev/null || \
-            ( ${GOPATH}/bin/dep ensure -vendor-only ; \
+            ( ${GO_TOP}/bin/dep ensure -vendor-only ; \
               cp Gopkg.lock vendor/Gopkg.lock)
 fi
 
@@ -51,11 +51,11 @@ if [ ! -f vendor/envoy-$PROXYVERSION ] ; then
     popd
 fi
 
-if [ ! -f $GOPATH/bin/envoy ] ; then
-    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GOPATH/bin/envoy
+if [ ! -f $GO_TOP/bin/envoy ] ; then
+    cp $ISTIO_GO/vendor/envoy-$PROXYVERSION $GO_TOP/bin/envoy
 fi
 
 if [ ! -f ${ROOT}/pilot/proxy/envoy/envoy ] ; then
-    ln -sf $TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
+    ln -sf $GO_TOP/bin/envoy ${ROOT}/pilot/proxy/envoy
 fi
 

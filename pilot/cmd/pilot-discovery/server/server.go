@@ -70,6 +70,7 @@ const (
 var (
 	configDescriptor = model.ConfigDescriptor{
 		model.RouteRule,
+		model.V1alpha2RouteRule,
 		model.EgressRule,
 		model.DestinationPolicy,
 		model.HTTPAPISpec,
@@ -430,8 +431,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		case ConsulRegistry:
 			log.Infof("Consul url: %v", args.Service.Consul.ServerURL)
 			conctl, conerr := consul.NewController(
-				// TODO: Remove this hardcoding!
-				args.Service.Consul.ServerURL, "dc1", 2*time.Second)
+				args.Service.Consul.ServerURL, 2*time.Second)
 			if conerr != nil {
 				return fmt.Errorf("failed to create Consul controller: %v", conerr)
 			}

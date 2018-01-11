@@ -1,0 +1,7 @@
+hosts:
+  - world
+http:
+  - mirror:
+      name: hello
+      labels:
+        version: v1
