@@ -2,6 +2,18 @@
 
 This directory contains Istio end-to-end tests and associated test framework.
 
+The whole package of E2E tests are not automatically triggered in Before-Merge stage for every PR except a smoke-test (bookinfo test with auth enabled). After-Merge stage is the place to run all E2E tests.
+
+# Running E2E tests in PR stage
+
+E2E-suites can be manually triggered in PR stage with specific command:
+
+`/test e2e-suite-rbac-no_auth`
+
+`/test e2e-suite-rbac-auth`
+
+`/test e2e-cluster_wide-auth`
+
 # Running E2E tests on your own kubernets cluster
 
 NOTE: the e2e tests might not run on a Mac because istioctl-osx, needed for test execution, is only built for release
