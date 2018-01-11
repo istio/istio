@@ -166,7 +166,9 @@ func buildOutboundCluster(hostname string, port *model.Port, labels model.Labels
 }
 
 // buildHTTPRoutes translates a route rule to an Envoy route
-func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service, port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+func buildHTTPRoutes(store model.IstioConfigStore, config model.Config, service *model.Service,
+	port *model.Port, instances []*model.ServiceInstance, domain string) []*HTTPRoute {
+
 	switch config.Spec.(type) {
 	case *routing.RouteRule:
 		return []*HTTPRoute{buildHTTPRouteV1(config, service, port)}

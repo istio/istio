@@ -902,14 +902,14 @@ func ValidateGateway(msg proto.Message) (errs error) {
 }
 
 func validateServer(server *routingv2.Server) (errs error) {
-	if len(server.Domains) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one domain"))
+	if len(server.Hosts) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
-		for _, domain := range server.Domains {
+		for _, host := range server.Hosts {
 			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
 			// (including CIDR addresses). If it's neither, we report both errors.
-			if err := ValidateWildcardDomain(domain); err != nil {
-				if err2 := ValidateIPv4Subnet(domain); err2 != nil {
+			if err := ValidateWildcardDomain(host); err != nil {
+				if err2 := ValidateIPv4Subnet(host); err2 != nil {
 					errs = appendErrors(errs, err, err2)
 				}
 			}
@@ -946,7 +946,7 @@ func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
-		if tls.ClientCaBundle == "" {
+		if tls.CaCertificates == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
@@ -1921,7 +1921,7 @@ func validateDestination(destination *routingv2.Destination) (errs error) {
 
 	// TODO: validate short name / FQDN
 	if destination.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("Route Rule destination should not be empty"))
+		errs = appendErrors(errs, fmt.Errorf("route rule destination should not be empty"))
 	}
 
 	// TODO: Destination Subset string? invalid characters?
