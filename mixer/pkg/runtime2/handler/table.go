@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// Table contains a set of instantiated and configured of adapter handlers.
+// Table contains a set of instantiated and configured adapter handlers.
 type Table struct {
 	entries map[string]Entry
 
@@ -46,15 +46,16 @@ type Entry struct {
 // NewTable returns a new table, based on the given config snapshot. The table will re-use existing handlers as much as
 // possible from the old table.
 func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Table {
-	t := &Table{
-		entries:  make(map[string]Entry),
-		counters: newTableCounters(snapshot.ID),
-	}
-
 	var f *factory
 
 	// Find all handlers, as referenced by instances, and associate to handlers.
 	instancesByHandler := config.GetInstancesGroupedByHandlers(snapshot)
+
+	t := &Table{
+		entries:  make(map[string]Entry, len(instancesByHandler)),
+		counters: newTableCounters(snapshot.ID),
+	}
+
 	for handler, instances := range instancesByHandler {
 		sig := calculateSignature(handler, instances)
 
@@ -99,8 +100,10 @@ func NewTable(old *Table, snapshot *config.Snapshot, gp *pool.GoroutinePool) *Ta
 }
 
 // Cleanup the old table by selectively closing handlers that are not used in the given table.
-// The cleanup is called on the old table, based on a new config. To perf tableCounters on the current table
-// must be used.
+// The cleanup method is called on the "old" table, and the "current" table (that is based on the new config)
+// is passed as a parameter. The Cleanup method selectively closes all adapters that are not used by the current
+// table. This method will use perf counters on current will be used, instead of the perf counters on t.
+// This ensures that appropriate config id dimension is used when reporting metrics.
 func (t *Table) Cleanup(current *Table) {
 	var toCleanup []Entry
 
@@ -117,8 +120,7 @@ func (t *Table) Cleanup(current *Table) {
 	for _, entry := range toCleanup {
 		log.Debugf("Closing adapter %s/%v", entry.Name, entry.Handler)
 		current.counters.closedHandlers.Inc()
-		err := entry.Handler.Close()
-		if err != nil {
+		if err := entry.Handler.Close(); err != nil {
 			current.counters.closeFailure.Inc()
 			log.Warnf("Error closing adapter: %s/%v: '%v'", entry.Name, entry.Handler, err)
 		}

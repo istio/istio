@@ -163,7 +163,7 @@ func (f *factory) buildHandler(
 	// validate and only construct if the validation passes.
 	if ce := builder.Validate(); ce != nil {
 		handler = nil
-		err = fmt.Errorf("handler validation failed: '%v'", ce)
+		err = fmt.Errorf("builder validation failed: '%v'", ce)
 		return
 	}
 
@@ -195,9 +195,7 @@ func (f *factory) inferType(instance *config.Instance) (proto.Message, error) {
 	var err error
 	var found bool
 
-	inferredType, found = f.inferredTypesCache[instance.Name]
-
-	if found {
+	if inferredType, found = f.inferredTypesCache[instance.Name]; found {
 		return inferredType, nil
 	}
 
