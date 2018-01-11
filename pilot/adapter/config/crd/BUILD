@@ -36,14 +36,6 @@ go_library(
     ],
 )
 
-genrule(
-    name = "crd",
-    srcs = ["config.go"],
-    outs = ["types.go"],
-    cmd = "./$(location generate.sh) $(location config.go) > $@",
-    tools = ["generate.sh"],
-)
-
 go_test(
     name = "go_default_test",
     size = "small",

@@ -262,6 +262,15 @@ type ServiceAccounts interface {
 	GetIstioServiceAccounts(hostname string, ports []string) []string
 }
 
+// Copy makes a copy of t
+func (t Labels) Copy() Labels {
+	out := make(Labels, len(t))
+	for k, v := range t {
+		out[k] = v
+	}
+	return out
+}
+
 // SubsetOf is true if the tag has identical values for the keys
 func (t Labels) SubsetOf(that Labels) bool {
 	for k, v := range t {
@@ -289,8 +298,8 @@ func (labels LabelsCollection) HasSubsetOf(that Labels) bool {
 	if len(labels) == 0 {
 		return true
 	}
-	for _, tag := range labels {
-		if tag.SubsetOf(that) {
+	for _, label := range labels {
+		if label.SubsetOf(that) {
 			return true
 		}
 	}

@@ -1,0 +1,7 @@
+hosts:
+  - world
+http:
+  - timeout: 30s
+    retries:
+      attempts: 1
+      perTryTimeout: 5s

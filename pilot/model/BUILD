@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "controller.go",
+        "controller_view.go",
         "conversion.go",
         "egress_rules.go",
         "service.go",
@@ -36,6 +37,7 @@ go_test(
     size = "small",
     srcs = [
         "service_test.go",
+        "controller_view_test.go",
         "validation_test.go",
     ],
     library = ":go_default_library",
@@ -67,8 +69,10 @@ go_test(
         "//pilot/adapter/config/memory:go_default_library",
         "//pilot/test/mock:go_default_library",
         "@com_github_davecgh_go_spew//spew:go_default_library",
+        "@com_github_golang_protobuf//proto:go_default_library",
         "@io_istio_api//mixer/v1:go_default_library",
         "@io_istio_api//mixer/v1/config/client:go_default_library",
         "@io_istio_api//routing/v1alpha1:go_default_library",
+        "@io_istio_api//routing/v1alpha2:go_default_library",
     ],
 )

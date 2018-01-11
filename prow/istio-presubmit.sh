@@ -98,3 +98,6 @@ fi
 
 # upload images - needed by the subsequent tests
 time make push HUB="gcr.io/istio-testing" TAG="${GIT_SHA}"
+
+# run security e2e test
+${ROOT}/security/bin/e2e.sh --hub "gcr.io/istio-testing" --tag "${GIT_SHA}"
