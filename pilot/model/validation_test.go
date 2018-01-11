@@ -1941,24 +1941,24 @@ func TestValidateGateway(t *testing.T) {
 		{"happy domain",
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{{
-					Hosts: []string{"foo.bar.com"},
-					Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					Domains: []string{"foo.bar.com"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
 		{"happy ip",
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{{
-					Hosts: []string{"192.168.0.1"},
-					Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					Domains: []string{"192.168.0.1"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
 		{"happy cidr",
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{{
-					Hosts: []string{"192.168.0.0/16"},
-					Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+					Domains: []string{"192.168.0.0/16"},
+					Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 				}},
 			},
 			""},
@@ -1966,12 +1966,12 @@ func TestValidateGateway(t *testing.T) {
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{
 					{
-						Hosts: []string{"foo.bar.com"},
-						Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 					},
 					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &routingv2.Server_Port{Number: 18, Protocol: "redis"},
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 18, Protocol: "redis"},
 					}},
 			},
 			""},
@@ -1979,12 +1979,12 @@ func TestValidateGateway(t *testing.T) {
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{
 					{
-						Hosts: []string{"foo.bar.com"},
-						Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+						Domains: []string{"foo.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 					},
 					{
-						Hosts: []string{"192.168.0.0/16"},
-						Port:  &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+						Domains: []string{"192.168.0.0/16"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"port"},
@@ -1992,12 +1992,12 @@ func TestValidateGateway(t *testing.T) {
 			&routingv2.Gateway{
 				Servers: []*routingv2.Server{
 					{
-						Hosts: []string{"foo.*.bar.com"},
-						Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+						Domains: []string{"foo.*.bar.com"},
+						Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 					},
 					{
-						Hosts: []string{"192.168.0.0/33"},
-						Port:  &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
+						Domains: []string{"192.168.0.0/33"},
+						Port:    &routingv2.Server_Port{Number: 66000, Protocol: "redis"},
 					}},
 			},
 			"domain"},
@@ -2022,31 +2022,31 @@ func TestValidateServer(t *testing.T) {
 		in   *routingv2.Server
 		out  string
 	}{
-		{"empty", &routingv2.Server{}, "host"},
+		{"empty", &routingv2.Server{}, "domain"},
 		{"empty", &routingv2.Server{}, "port"},
 		{"happy",
 			&routingv2.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 			},
 			""},
 		{"invalid domain",
 			&routingv2.Server{
-				Hosts: []string{"foo.*.bar.com"},
-				Port:  &routingv2.Server_Port{Number: 7, Protocol: "http"},
+				Domains: []string{"foo.*.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 7, Protocol: "http"},
 			},
 			"domain"},
 		{"invalid port",
 			&routingv2.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &routingv2.Server_Port{Number: 66000, Protocol: "http"},
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 66000, Protocol: "http"},
 			},
 			"port"},
 		{"invalid tls options",
 			&routingv2.Server{
-				Hosts: []string{"foo.bar.com"},
-				Port:  &routingv2.Server_Port{Number: 1, Protocol: "http"},
-				Tls:   &routingv2.Server_TLSOptions{Mode: routingv2.Server_TLSOptions_SIMPLE},
+				Domains: []string{"foo.bar.com"},
+				Port:    &routingv2.Server_Port{Number: 1, Protocol: "http"},
+				Tls:     &routingv2.Server_TLSOptions{Mode: routingv2.Server_TLSOptions_SIMPLE},
 			},
 			"TLS"},
 	}
@@ -2138,7 +2138,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
-				CaCertificates:    "Commander William T. Riker"},
+				ClientCaBundle:    "Commander William T. Riker"},
 			""},
 		{"simple no server cert",
 			&routingv2.Server_TLSOptions{
@@ -2149,19 +2149,19 @@ func TestValidateTlsOptions(t *testing.T) {
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
-				CaCertificates:    "Commander William T. Riker"},
+				ClientCaBundle:    "Commander William T. Riker"},
 			""},
 		{"mutual no server cert",
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
-				CaCertificates:    "Commander William T. Riker"},
+				ClientCaBundle:    "Commander William T. Riker"},
 			"server certificate"},
 		{"mutual no client CA bundle",
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
-				CaCertificates:    ""},
+				ClientCaBundle:    ""},
 			"client CA bundle"},
 		// this pair asserts we get errors about both client and server certs missing when in mutual mode
 		// and both are absent, but requires less rewriting of the testing harness than merging the cases
@@ -2169,13 +2169,13 @@ func TestValidateTlsOptions(t *testing.T) {
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
-				CaCertificates:    ""},
+				ClientCaBundle:    ""},
 			"server certificate"},
 		{"mutual no certs",
 			&routingv2.Server_TLSOptions{
 				Mode:              routingv2.Server_TLSOptions_MUTUAL,
 				ServerCertificate: "",
-				CaCertificates:    ""},
+				ClientCaBundle:    ""},
 			"client CA bundle"},
 	}
 

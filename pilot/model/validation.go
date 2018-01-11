@@ -902,14 +902,14 @@ func ValidateGateway(msg proto.Message) (errs error) {
 }
 
 func validateServer(server *routingv2.Server) (errs error) {
-	if len(server.Hosts) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
+	if len(server.Domains) == 0 {
+		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one domain"))
 	} else {
-		for _, host := range server.Hosts {
+		for _, domain := range server.Domains {
 			// We check if its a valid wildcard domain first; if not then we check if its a valid IPv4 address
 			// (including CIDR addresses). If it's neither, we report both errors.
-			if err := ValidateWildcardDomain(host); err != nil {
-				if err2 := ValidateIPv4Subnet(host); err2 != nil {
+			if err := ValidateWildcardDomain(domain); err != nil {
+				if err2 := ValidateIPv4Subnet(domain); err2 != nil {
 					errs = appendErrors(errs, err, err2)
 				}
 			}
@@ -946,7 +946,7 @@ func validateTLSOptions(tls *routingv2.Server_TLSOptions) (errs error) {
 		if tls.ServerCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a server certificate"))
 		}
-		if tls.CaCertificates == "" {
+		if tls.ClientCaBundle == "" {
 			errs = appendErrors(errs, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
