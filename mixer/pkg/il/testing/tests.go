@@ -128,7 +128,7 @@ end`,
 		},
 		R:          true,
 		Referenced: []string{"a"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `a != 2`,
@@ -138,7 +138,7 @@ end`,
 		},
 		R:          false,
 		Referenced: []string{"a"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `a != 2`,
@@ -149,7 +149,7 @@ end`,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"a"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    "2 != a",
@@ -160,7 +160,7 @@ end`,
 		Err:        "lookup failed: 'a'",
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"a"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    "a ",
@@ -170,7 +170,7 @@ end`,
 		},
 		R:          int64(2),
 		Referenced: []string{"a"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 
 	// Compilation Error due to type mismatch
@@ -181,7 +181,7 @@ end`,
 		},
 		R:          false,
 		CompileErr: "EQ(true, $a) arg 2 ($a) typeError got INT64, expected BOOL",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 
 	// Compilation Error due to type mismatch
@@ -192,7 +192,7 @@ end`,
 		},
 		R:          false,
 		CompileErr: "EQ(3.14, $a) arg 2 ($a) typeError got INT64, expected DOUBLE",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 
 	{
@@ -202,7 +202,7 @@ end`,
 			"a": int64(2),
 		},
 		R:    int64(2),
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `request.user == "user1"`,
@@ -211,7 +211,7 @@ end`,
 			"request.user": "user1",
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `request.user2| request.user | "user1"`,
@@ -221,7 +221,7 @@ end`,
 		},
 		R:          "user2",
 		Referenced: []string{"request.user", "request.user2"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.user2| request.user3 | "user1"`,
@@ -231,7 +231,7 @@ end`,
 		},
 		R:          "user1",
 		Referenced: []string{"request.user2", "request.user3"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.size| 200`,
@@ -241,7 +241,7 @@ end`,
 		},
 		R:          int64(120),
 		Referenced: []string{"request.size"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.size| 200`,
@@ -250,7 +250,7 @@ end`,
 			"request.size": int64(0),
 		},
 		R:    int64(0),
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `request.size| 200`,
@@ -259,7 +259,7 @@ end`,
 			"request.size1": int64(0),
 		},
 		R:    int64(200),
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `(x == 20 && y == 10) || x == 30`,
@@ -269,7 +269,7 @@ end`,
 			"y": int64(10),
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `x == 20 && y == 10`,
@@ -293,7 +293,7 @@ L1:
 end`,
 		Err:    "lookup failed: 'x'",
 		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, "*.ns1.cluster") && service.user == "admin"`,
@@ -303,14 +303,14 @@ end`,
 			"service.user": "admin",
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
 		Type: descriptor.BOOL,
 		I:    map[string]interface{}{},
 		R:    false,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `( origin.name | "unknown" ) == "users"`,
@@ -319,7 +319,7 @@ end`,
 			"origin.name": "users",
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `request.header["user"] | "unknown"`,
@@ -330,14 +330,14 @@ end`,
 			},
 		},
 		R:    "unknown",
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `origin.name | "users"`,
 		Type: descriptor.STRING,
 		I:    map[string]interface{}{},
 		R:    "users",
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E: `(x/y) == 30`,
@@ -347,7 +347,7 @@ end`,
 		},
 		CompileErr: "unknown function: QUO",
 		AstErr:     "unknown function: QUO",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.header["X-FORWARDED-HOST"] == "aaa"`,
@@ -359,7 +359,7 @@ end`,
 		},
 		R:          false,
 		Referenced: []string{"request.header", "request.header[X-FORWARDED-HOST]"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.header["X-FORWARDED-HOST"] == "aaa"`,
@@ -372,7 +372,7 @@ end`,
 		Referenced: []string{"request.header"},
 		Err:        "lookup failed: 'request.header'",
 		AstErr:     "unresolved attribute",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.header[headername] == "aaa"`,
@@ -384,7 +384,7 @@ end`,
 		},
 		Err:    "lookup failed: 'headername'",
 		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E:    `request.header[headername] == "aaa"`,
@@ -396,7 +396,7 @@ end`,
 			"headername": "X-FORWARDED-HOST",
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, "*.ns1.cluster")`,
@@ -406,7 +406,7 @@ end`,
 		},
 		R:          true,
 		Referenced: []string{"service.name"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, "*.ns1.cluster")`,
@@ -415,7 +415,7 @@ end`,
 			"service.name": "svc1.ns2.cluster",
 		},
 		R:    false,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, "*.ns1.cluster")`,
@@ -425,7 +425,7 @@ end`,
 		},
 		Err:    "error converting value to string: '20'", // runtime error
 		AstErr: "input 'str' to 'match' func was not a string",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, servicename)`,
@@ -437,7 +437,7 @@ end`,
 		Err:        "lookup failed: 'service.name'",
 		AstErr:     "unresolved attribute",
 		Referenced: []string{"service.name"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `match(service.name, servicename)`,
@@ -447,7 +447,7 @@ end`,
 		},
 		Err:    "lookup failed: 'servicename'",
 		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E: `match(service.name, 1)`,
@@ -456,7 +456,7 @@ end`,
 		},
 		CompileErr: "match($service.name, 1) arg 2 (1) typeError got INT64, expected STRING",
 		AstErr:     "input 'pattern' to 'match' func was not a string",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:          `target.ip| ip("10.1.12.3")`,
@@ -464,7 +464,7 @@ end`,
 		I:          map[string]interface{}{},
 		R:          []uint8(net.ParseIP("10.1.12.3")),
 		Referenced: []string{"target.ip"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `target.ip| ip(2)`,
@@ -474,7 +474,7 @@ end`,
 		},
 		CompileErr: "ip(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'ip' func was not a string",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:      `target.ip| ip("10.1.12")`,
@@ -482,7 +482,7 @@ end`,
 		I:      map[string]interface{}{},
 		Err:    "could not convert 10.1.12 to IP_ADDRESS",
 		AstErr: "could not convert '10.1.12' to IP_ADDRESS",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E:          `request.time | timestamp("2015-01-02T15:04:35Z")`,
@@ -490,7 +490,7 @@ end`,
 		I:          map[string]interface{}{},
 		R:          t,
 		Referenced: []string{"request.time"},
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    `request.time | timestamp(2)`,
@@ -500,7 +500,7 @@ end`,
 		},
 		CompileErr: "timestamp(2) arg 1 (2) typeError got INT64, expected STRING",
 		AstErr:     "input to 'timestamp' func was not a string",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:      `request.time | timestamp("242233")`,
@@ -508,7 +508,7 @@ end`,
 		I:      map[string]interface{}{},
 		Err:    "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
 		AstErr: "could not convert '242233' to TIMESTAMP. expected format: '" + time.RFC3339 + "'",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 
 	// Tests from expr/eval_test.go TestCEXLEval
@@ -519,7 +519,7 @@ end`,
 		},
 		CompileErr: "unable to parse expression 'a = 2': 1:3: expected '==', found '='",
 		AstErr:     "unable to parse",
-		conf:       TestConfigs["Expr/Eval"],
+		conf:       exprEvalAttrs,
 	},
 	{
 		E:    "a == 2",
@@ -528,7 +528,7 @@ end`,
 			"a": int64(2),
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    "a == 3",
@@ -537,7 +537,7 @@ end`,
 			"a": int64(2),
 		},
 		R:    false,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:    "a == 2",
@@ -546,7 +546,7 @@ end`,
 			"a": int64(2),
 		},
 		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:      "a == 2",
@@ -554,14 +554,14 @@ end`,
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 	{
 		E:    `request.user | "user1"`,
 		Type: descriptor.STRING,
 		I:    map[string]interface{}{},
 		R:    "user1",
-		conf: TestConfigs["Expr/Eval"],
+		conf: exprEvalAttrs,
 	},
 	{
 		E:      "a == 2",
@@ -569,7 +569,7 @@ end`,
 		I:      map[string]interface{}{},
 		Err:    "lookup failed: 'a'",
 		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		conf:   exprEvalAttrs,
 	},
 
 	// Tests from compiler/compiler_test.go
@@ -2294,9 +2294,9 @@ type TestInfo struct {
 	// CompileErr contains the expected error message for a failed compilation.
 	CompileErr string
 
-	// Config field holds the GlobalConfig to use when compiling/evaluating the tests.
-	// If nil, then "Default" config will be used.
-	conf *pb.GlobalConfig
+	// Attribute manifest to use when compiling/evaluating the tests.
+	// If nil, then default attributes are used.
+	conf map[string]*pb.AttributeManifest_AttributeInfo
 
 	// Fns field holds any additional function metadata that needs to be involved in the test.
 	Fns []expr.FunctionMetadata
@@ -2321,11 +2321,11 @@ func (t *TestInfo) TestName() string {
 }
 
 // Conf returns the global config to use for the test.
-func (t *TestInfo) Conf() *pb.GlobalConfig {
+func (t *TestInfo) Conf() map[string]*pb.AttributeManifest_AttributeInfo {
 	if t.conf != nil {
 		return t.conf
 	}
-	return TestConfigs["Default"]
+	return defaultAttrs
 }
 
 // CheckEvaluationResult compares the given evaluation result and error against the one that is declared in test.
@@ -2365,139 +2365,125 @@ func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
 	return reflect.DeepEqual(actual, t.Referenced)
 }
 
-// TestConfigs uses a standard set of configs to use when executing tests.
-var TestConfigs = map[string]*pb.GlobalConfig{
-	"Expr/Eval": {
-		Manifests: []*pb.AttributeManifest{
-			{
-				Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-					"a": {
-						ValueType: descriptor.INT64,
-					},
-					"request.user": {
-						ValueType: descriptor.STRING,
-					},
-					"request.user2": {
-						ValueType: descriptor.STRING,
-					},
-					"request.user3": {
-						ValueType: descriptor.STRING,
-					},
-					"source.name": {
-						ValueType: descriptor.STRING,
-					},
-					"source.target": {
-						ValueType: descriptor.STRING,
-					},
-					"request.size": {
-						ValueType: descriptor.INT64,
-					},
-					"request.size1": {
-						ValueType: descriptor.INT64,
-					},
-					"x": {
-						ValueType: descriptor.INT64,
-					},
-					"y": {
-						ValueType: descriptor.INT64,
-					},
-					"service.name": {
-						ValueType: descriptor.STRING,
-					},
-					"service.user": {
-						ValueType: descriptor.STRING,
-					},
-					"origin.name": {
-						ValueType: descriptor.STRING,
-					},
-					"request.header": {
-						ValueType: descriptor.STRING_MAP,
-					},
-					"request.time": {
-						ValueType: descriptor.TIMESTAMP,
-					},
-					"headername": {
-						ValueType: descriptor.STRING,
-					},
-					"target.ip": {
-						ValueType: descriptor.IP_ADDRESS,
-					},
-					"servicename": {
-						ValueType: descriptor.STRING,
-					},
-				},
-			},
-		},
+var exprEvalAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+	"a": {
+		ValueType: descriptor.INT64,
 	},
-	"Default": {
-		Manifests: []*pb.AttributeManifest{
-			{
-				Attributes: map[string]*pb.AttributeManifest_AttributeInfo{
-					"ai": {
-						ValueType: descriptor.INT64,
-					},
-					"ab": {
-						ValueType: descriptor.BOOL,
-					},
-					"as": {
-						ValueType: descriptor.STRING,
-					},
-					"ad": {
-						ValueType: descriptor.DOUBLE,
-					},
-					"ar": {
-						ValueType: descriptor.STRING_MAP,
-					},
-					"adur": {
-						ValueType: descriptor.DURATION,
-					},
-					"at": {
-						ValueType: descriptor.TIMESTAMP,
-					},
-					"aip": {
-						ValueType: descriptor.IP_ADDRESS,
-					},
-					"bi": {
-						ValueType: descriptor.INT64,
-					},
-					"bb": {
-						ValueType: descriptor.BOOL,
-					},
-					"bs": {
-						ValueType: descriptor.STRING,
-					},
-					"bd": {
-						ValueType: descriptor.DOUBLE,
-					},
-					"br": {
-						ValueType: descriptor.STRING_MAP,
-					},
-					"bdur": {
-						ValueType: descriptor.DURATION,
-					},
-					"bt": {
-						ValueType: descriptor.TIMESTAMP,
-					},
-					"t1": {
-						ValueType: descriptor.TIMESTAMP,
-					},
-					"t2": {
-						ValueType: descriptor.TIMESTAMP,
-					},
-					"bip": {
-						ValueType: descriptor.IP_ADDRESS,
-					},
-					"b1": {
-						ValueType: descriptor.BOOL,
-					},
-					"b2": {
-						ValueType: descriptor.BOOL,
-					},
-					"sm": {
-						ValueType: descriptor.STRING_MAP,
-					},
-				},
-			},
-		},
+	"request.user": {
+		ValueType: descriptor.STRING,
+	},
+	"request.user2": {
+		ValueType: descriptor.STRING,
+	},
+	"request.user3": {
+		ValueType: descriptor.STRING,
+	},
+	"source.name": {
+		ValueType: descriptor.STRING,
+	},
+	"source.target": {
+		ValueType: descriptor.STRING,
+	},
+	"request.size": {
+		ValueType: descriptor.INT64,
+	},
+	"request.size1": {
+		ValueType: descriptor.INT64,
+	},
+	"x": {
+		ValueType: descriptor.INT64,
+	},
+	"y": {
+		ValueType: descriptor.INT64,
+	},
+	"service.name": {
+		ValueType: descriptor.STRING,
+	},
+	"service.user": {
+		ValueType: descriptor.STRING,
+	},
+	"origin.name": {
+		ValueType: descriptor.STRING,
+	},
+	"request.header": {
+		ValueType: descriptor.STRING_MAP,
+	},
+	"request.time": {
+		ValueType: descriptor.TIMESTAMP,
+	},
+	"headername": {
+		ValueType: descriptor.STRING,
+	},
+	"target.ip": {
+		ValueType: descriptor.IP_ADDRESS,
+	},
+	"servicename": {
+		ValueType: descriptor.STRING,
+	},
+}
+
+var defaultAttrs = map[string]*pb.AttributeManifest_AttributeInfo{
+	"ai": {
+		ValueType: descriptor.INT64,
+	},
+	"ab": {
+		ValueType: descriptor.BOOL,
+	},
+	"as": {
+		ValueType: descriptor.STRING,
+	},
+	"ad": {
+		ValueType: descriptor.DOUBLE,
+	},
+	"ar": {
+		ValueType: descriptor.STRING_MAP,
+	},
+	"adur": {
+		ValueType: descriptor.DURATION,
+	},
+	"at": {
+		ValueType: descriptor.TIMESTAMP,
+	},
+	"aip": {
+		ValueType: descriptor.IP_ADDRESS,
+	},
+	"bi": {
+		ValueType: descriptor.INT64,
+	},
+	"bb": {
+		ValueType: descriptor.BOOL,
+	},
+	"bs": {
+		ValueType: descriptor.STRING,
+	},
+	"bd": {
+		ValueType: descriptor.DOUBLE,
+	},
+	"br": {
+		ValueType: descriptor.STRING_MAP,
+	},
+	"bdur": {
+		ValueType: descriptor.DURATION,
+	},
+	"bt": {
+		ValueType: descriptor.TIMESTAMP,
+	},
+	"t1": {
+		ValueType: descriptor.TIMESTAMP,
+	},
+	"t2": {
+		ValueType: descriptor.TIMESTAMP,
+	},
+	"bip": {
+		ValueType: descriptor.IP_ADDRESS,
+	},
+	"b1": {
+		ValueType: descriptor.BOOL,
+	},
+	"b2": {
+		ValueType: descriptor.BOOL,
+	},
+	"sm": {
+		ValueType: descriptor.STRING_MAP,
 	},
 }
