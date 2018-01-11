@@ -69,6 +69,11 @@ func testWithILEvaluator(test ilt.TestInfo, t *testing.T) {
 		return
 	}
 
+	if !test.CheckReferenced(bag) {
+		t.Errorf("Referenced attribute mismatch: '%v' != '%v'", bag.ReferencedList(), test.Referenced)
+		return
+	}
+
 	// Depending on the type, try testing specialized methods as well.
 
 	switch test.R.(type) {
