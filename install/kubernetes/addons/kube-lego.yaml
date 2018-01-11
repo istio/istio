@@ -1,0 +1,156 @@
+# Experimental support for automatically getting Let's Encrypt certificates using ACME and kube-lego
+# This uses a fork of kube-lego, with additional istio ingress support.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+---
+# For istio we explicitly create the service (kube-lego can also programmatically create it).
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-lego
+  namespace: istio-system
+  labels:
+    app: kube-lego
+spec:
+  ports:
+  - name: http
+    port: 8080
+  selector:
+    app: kube-lego
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-lego
+  namespace: istio-system
+data: |
+  # modify this to specify your address
+  lego.email: "costin@google.com"
+  # use letsencrypt's production api (real certs)
+  lego.url: "https://acme-v01.api.letsencrypt.org/directory"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: kube-lego
+  name: kube-lego
+  namespace: istio-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  labels:
+    app: kube-lego
+  name: kube-lego
+  namespace: istio-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - delete
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - update
+  - create
+  - list
+  - patch
+  - delete
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - secrets
+  verbs:
+  - get
+  - create
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: kube-lego
+  name: kube-lego
+  namespace: istio-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-lego
+subjects:
+  - kind: ServiceAccount
+    name: kube-lego
+    namespace: istio-system
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kube-lego
+  namespace: istio-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kube-lego
+    spec:
+      serviceAccountName: kube-lego
+      containers:
+      - name: kube-lego
+        image: costinm/kube-lego:build2
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LEGO_EMAIL
+          valueFrom:
+            configMapKeyRef:
+              name: kube-lego
+              key: lego.email
+        - name: LEGO_URL
+          valueFrom:
+            configMapKeyRef:
+              name: kube-lego
+              key: lego.url
+        - name: LEGO_SUPPORTED_INGRESS_CLASS
+          value: istio
+        - name:   LEGO_SUPPORTED_INGRESS_PROVIDER
+          value: istio
+        - name:  LEGO_LOG_LEVEL
+          value: debug
+        - name: LEGO_DEFAULT_INGRESS_CLASS
+          value: istio
+        - name: LEGO_PORT
+          value: "8080"
+        - name: LEGO_SERVICE_NAME
+          value: kube-lego
+        - name: LEGO_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LEGO_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
