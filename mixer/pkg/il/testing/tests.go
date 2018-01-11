@@ -17,6 +17,7 @@ package ilt
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 
@@ -47,7 +48,8 @@ var TestData = []TestInfo{
 				"foo": "bar",
 			},
 		},
-		R: true,
+		R:          true,
+		Referenced: []string{"ai"},
 		IL: `
  fn eval() bool
   resolve_i "ai"
@@ -73,7 +75,8 @@ end`,
 				"foo": "bar",
 			},
 		},
-		R: true,
+		R:          true,
+		Referenced: []string{"ai", "ar", "ar[foo]"},
 		IL: `
  fn eval() bool
   resolve_i "ai"
@@ -99,7 +102,8 @@ end`,
 				"foo": "baz",
 			},
 		},
-		R: false,
+		R:          false,
+		Referenced: []string{"ai", "ar", "ar[foo]"},
 		IL: `
  fn eval() bool
   resolve_i "ai"
@@ -122,8 +126,9 @@ end`,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
-		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		R:          true,
+		Referenced: []string{"a"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `a != 2`,
@@ -131,8 +136,9 @@ end`,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
-		R:    false,
-		conf: TestConfigs["Expr/Eval"],
+		R:          false,
+		Referenced: []string{"a"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `a != 2`,
@@ -140,9 +146,10 @@ end`,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
-		Err:    "lookup failed: 'a'",
-		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		Err:        "lookup failed: 'a'",
+		AstErr:     "unresolved attribute",
+		Referenced: []string{"a"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    "2 != a",
@@ -150,9 +157,10 @@ end`,
 		I: map[string]interface{}{
 			"d": int64(2),
 		},
-		Err:    "lookup failed: 'a'",
-		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		Err:        "lookup failed: 'a'",
+		AstErr:     "unresolved attribute",
+		Referenced: []string{"a"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    "a ",
@@ -160,8 +168,9 @@ end`,
 		I: map[string]interface{}{
 			"a": int64(2),
 		},
-		R:    int64(2),
-		conf: TestConfigs["Expr/Eval"],
+		R:          int64(2),
+		Referenced: []string{"a"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 
 	// Compilation Error due to type mismatch
@@ -210,8 +219,9 @@ end`,
 		I: map[string]interface{}{
 			"request.user": "user2",
 		},
-		R:    "user2",
-		conf: TestConfigs["Expr/Eval"],
+		R:          "user2",
+		Referenced: []string{"request.user", "request.user2"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.user2| request.user3 | "user1"`,
@@ -219,8 +229,9 @@ end`,
 		I: map[string]interface{}{
 			"request.user": "user2",
 		},
-		R:    "user1",
-		conf: TestConfigs["Expr/Eval"],
+		R:          "user1",
+		Referenced: []string{"request.user2", "request.user3"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.size| 200`,
@@ -228,8 +239,9 @@ end`,
 		I: map[string]interface{}{
 			"request.size": int64(120),
 		},
-		R:    int64(120),
-		conf: TestConfigs["Expr/Eval"],
+		R:          int64(120),
+		Referenced: []string{"request.size"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.size| 200`,
@@ -345,8 +357,9 @@ end`,
 				"X-FORWARDED-HOST": "bbb",
 			},
 		},
-		R:    false,
-		conf: TestConfigs["Expr/Eval"],
+		R:          false,
+		Referenced: []string{"request.header", "request.header[X-FORWARDED-HOST]"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.header["X-FORWARDED-HOST"] == "aaa"`,
@@ -356,9 +369,10 @@ end`,
 				"X-FORWARDED-HOST": "bbb",
 			},
 		},
-		Err:    "lookup failed: 'request.header'",
-		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		Referenced: []string{"request.header"},
+		Err:        "lookup failed: 'request.header'",
+		AstErr:     "unresolved attribute",
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.header[headername] == "aaa"`,
@@ -390,8 +404,9 @@ end`,
 		I: map[string]interface{}{
 			"service.name": "svc1.ns1.cluster",
 		},
-		R:    true,
-		conf: TestConfigs["Expr/Eval"],
+		R:          true,
+		Referenced: []string{"service.name"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `match(service.name, "*.ns1.cluster")`,
@@ -419,9 +434,10 @@ end`,
 			"service.name1": "svc1.ns2.cluster",
 			"servicename":   "*.aaa",
 		},
-		Err:    "lookup failed: 'service.name'",
-		AstErr: "unresolved attribute",
-		conf:   TestConfigs["Expr/Eval"],
+		Err:        "lookup failed: 'service.name'",
+		AstErr:     "unresolved attribute",
+		Referenced: []string{"service.name"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `match(service.name, servicename)`,
@@ -443,11 +459,12 @@ end`,
 		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
-		E:    `target.ip| ip("10.1.12.3")`,
-		Type: descriptor.IP_ADDRESS,
-		I:    map[string]interface{}{},
-		R:    []uint8(net.ParseIP("10.1.12.3")),
-		conf: TestConfigs["Expr/Eval"],
+		E:          `target.ip| ip("10.1.12.3")`,
+		Type:       descriptor.IP_ADDRESS,
+		I:          map[string]interface{}{},
+		R:          []uint8(net.ParseIP("10.1.12.3")),
+		Referenced: []string{"target.ip"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `target.ip| ip(2)`,
@@ -468,11 +485,12 @@ end`,
 		conf:   TestConfigs["Expr/Eval"],
 	},
 	{
-		E:    `request.time | timestamp("2015-01-02T15:04:35Z")`,
-		Type: descriptor.TIMESTAMP,
-		I:    map[string]interface{}{},
-		R:    t,
-		conf: TestConfigs["Expr/Eval"],
+		E:          `request.time | timestamp("2015-01-02T15:04:35Z")`,
+		Type:       descriptor.TIMESTAMP,
+		I:          map[string]interface{}{},
+		R:          t,
+		Referenced: []string{"request.time"},
+		conf:       TestConfigs["Expr/Eval"],
 	},
 	{
 		E:    `request.time | timestamp(2)`,
@@ -791,9 +809,30 @@ end`,
 		Type: descriptor.BOOL,
 		I: map[string]interface{}{
 			"b1": false,
+			"b2": false,
+		},
+		R:          false,
+		Referenced: []string{"b1"},
+	},
+	{
+		E:    "b1 && b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": false,
 			"b2": true,
 		},
-		R: false,
+		R:          false,
+		Referenced: []string{"b1"},
+	},
+	{
+		E:    "b1 && b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": true,
+			"b2": false,
+		},
+		R:          false,
+		Referenced: []string{"b1", "b2"},
 	},
 	{
 		E:    "b1 && b2",
@@ -802,7 +841,48 @@ end`,
 			"b1": true,
 			"b2": true,
 		},
-		R: true,
+		R:          true,
+		Referenced: []string{"b1", "b2"},
+	},
+	{
+		E:    "b1 || b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": false,
+			"b2": false,
+		},
+		R:          false,
+		Referenced: []string{"b1", "b2"},
+	},
+	{
+		E:    "b1 || b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": false,
+			"b2": true,
+		},
+		R:          true,
+		Referenced: []string{"b1", "b2"},
+	},
+	{
+		E:    "b1 || b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": true,
+			"b2": false,
+		},
+		R:          true,
+		Referenced: []string{"b1"},
+	},
+	{
+		E:    "b1 || b2",
+		Type: descriptor.BOOL,
+		I: map[string]interface{}{
+			"b1": true,
+			"b2": true,
+		},
+		R:          true,
+		Referenced: []string{"b1"},
 	},
 	{
 		E:    "3 == 2",
@@ -997,7 +1077,8 @@ end`,
 				"b": "c",
 			},
 		},
-		R: "c",
+		R:          "c",
+		Referenced: []string{"ar", "ar[b]"},
 		IL: `
 fn eval() string
   resolve_f "ar"
@@ -1086,7 +1167,8 @@ end`,
 		I: map[string]interface{}{
 			"as": "a2",
 		},
-		R: "a2",
+		R:          "a2",
+		Referenced: []string{"as"},
 	},
 	{
 		E:    `as | bs | "user1"`,
@@ -1094,7 +1176,8 @@ end`,
 		I: map[string]interface{}{
 			"bs": "b2",
 		},
-		R: "b2",
+		R:          "b2",
+		Referenced: []string{"as", "bs"},
 	},
 	{
 		E:    `as | bs | "user1"`,
@@ -1103,7 +1186,8 @@ end`,
 			"as": "a2",
 			"bs": "b2",
 		},
-		R: "a2",
+		R:          "a2",
+		Referenced: []string{"as"},
 	},
 
 	{
@@ -1112,7 +1196,8 @@ end`,
 		I: map[string]interface{}{
 			"ab": false,
 		},
-		R: false,
+		R:          false,
+		Referenced: []string{"ab"},
 		IL: `
  fn eval() bool
   tresolve_b "ab"
@@ -1134,7 +1219,8 @@ end`,
 		I: map[string]interface{}{
 			"ab": false,
 		},
-		R: false,
+		R:          false,
+		Referenced: []string{"ab"},
 		IL: `
 fn eval() bool
   tresolve_b "ab"
@@ -1152,13 +1238,15 @@ end`,
 		I: map[string]interface{}{
 			"bb": false,
 		},
-		R: false,
+		R:          false,
+		Referenced: []string{"ab", "bb"},
 	},
 	{
-		E:    `ab | bb | true`,
-		Type: descriptor.BOOL,
-		I:    map[string]interface{}{},
-		R:    true,
+		E:          `ab | bb | true`,
+		Type:       descriptor.BOOL,
+		I:          map[string]interface{}{},
+		R:          true,
+		Referenced: []string{"ab", "bb"},
 	},
 
 	{
@@ -1167,7 +1255,8 @@ end`,
 		I: map[string]interface{}{
 			"ai": int64(10),
 		},
-		R: int64(10),
+		R:          int64(10),
+		Referenced: []string{"ai"},
 		IL: `
 fn eval() integer
   tresolve_i "ai"
@@ -1178,10 +1267,11 @@ L0:
 end`,
 	},
 	{
-		E:    `ai | 42`,
-		Type: descriptor.INT64,
-		I:    map[string]interface{}{},
-		R:    int64(42),
+		E:          `ai | 42`,
+		Type:       descriptor.INT64,
+		I:          map[string]interface{}{},
+		R:          int64(42),
+		Referenced: []string{"ai"},
 	},
 	{
 		E:    `ai | bi | 42`,
@@ -1189,7 +1279,8 @@ end`,
 		I: map[string]interface{}{
 			"ai": int64(10),
 		},
-		R: int64(10),
+		R:          int64(10),
+		Referenced: []string{"ai"},
 		IL: `
 fn eval() integer
   tresolve_i "ai"
@@ -1207,13 +1298,15 @@ end`,
 		I: map[string]interface{}{
 			"bi": int64(20),
 		},
-		R: int64(20),
+		R:          int64(20),
+		Referenced: []string{"ai", "bi"},
 	},
 	{
-		E:    `ai | bi | 42`,
-		Type: descriptor.INT64,
-		I:    map[string]interface{}{},
-		R:    int64(42),
+		E:          `ai | bi | 42`,
+		Type:       descriptor.INT64,
+		I:          map[string]interface{}{},
+		R:          int64(42),
+		Referenced: []string{"ai", "bi"},
 	},
 
 	{
@@ -1283,7 +1376,8 @@ end`,
 				"foo": "far",
 			},
 		},
-		R: "bar",
+		R:          "bar",
+		Referenced: []string{"ar", "ar[foo]"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1303,7 +1397,8 @@ end`,
 				"foo": "far",
 			},
 		},
-		R: "far",
+		R:          "far",
+		Referenced: []string{"ar", "br", "br[foo]"},
 	},
 
 	{
@@ -1414,7 +1509,8 @@ end`,
 		I: map[string]interface{}{
 			"sm": map[string]string{"foo": "bar"},
 		},
-		R: "bar",
+		R:          "bar",
+		Referenced: []string{"sm", "sm[foo]"},
 		IL: `
 fn eval() string
   resolve_f "sm"
@@ -1429,7 +1525,8 @@ end`,
 			"as": "foo",
 			"sm": map[string]string{"foo": "bar"},
 		},
-		R: "bar",
+		R:          "bar",
+		Referenced: []string{"as", "sm", "sm[foo]"},
 		IL: `
 fn eval() string
   resolve_f "sm"
@@ -1439,10 +1536,11 @@ fn eval() string
 end`,
 	},
 	{
-		E:    `ar["c"] | "foo"`,
-		Type: descriptor.STRING,
-		I:    map[string]interface{}{},
-		R:    "foo",
+		E:          `ar["c"] | "foo"`,
+		Type:       descriptor.STRING,
+		I:          map[string]interface{}{},
+		R:          "foo",
+		Referenced: []string{"ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1467,10 +1565,11 @@ end`,
 		R: "b",
 	},
 	{
-		E:    `ar[as] | "foo"`,
-		Type: descriptor.STRING,
-		I:    map[string]interface{}{},
-		R:    "foo",
+		E:          `ar[as] | "foo"`,
+		Type:       descriptor.STRING,
+		I:          map[string]interface{}{},
+		R:          "foo",
+		Referenced: []string{"ar"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1495,7 +1594,8 @@ end`,
 		I: map[string]interface{}{
 			"ar": map[string]string{"as": "bar"},
 		},
-		R: "foo",
+		R:          "foo",
+		Referenced: []string{"ar", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -1503,7 +1603,8 @@ end`,
 		I: map[string]interface{}{
 			"as": "bar",
 		},
-		R: "foo",
+		R:          "foo",
+		Referenced: []string{"ar"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -1512,7 +1613,8 @@ end`,
 			"ar": map[string]string{"as": "bar"},
 			"as": "!!!!",
 		},
-		R: "foo",
+		R:          "foo",
+		Referenced: []string{"ar", "ar[!!!!]", "as"},
 	},
 	{
 		E:    `ar[as] | "foo"`,
@@ -1521,7 +1623,8 @@ end`,
 			"ar": map[string]string{"asval": "bar"},
 			"as": "asval",
 		},
-		R: "bar",
+		R:          "bar",
+		Referenced: []string{"ar", "ar[asval]", "as"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -1532,7 +1635,8 @@ end`,
 				"c": "b",
 			},
 		},
-		R: "c",
+		R:          "c",
+		Referenced: []string{"ar", "ar[b]"},
 		IL: `
 fn eval() string
   tresolve_f "ar"
@@ -1562,7 +1666,8 @@ end`,
 		I: map[string]interface{}{
 			"ar": map[string]string{},
 		},
-		R: "null",
+		R:          "null",
+		Referenced: []string{"ar", "ar[b]", "ar[c]"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -1572,7 +1677,8 @@ end`,
 				"b": "c",
 			},
 		},
-		R: "c",
+		R:          "c",
+		Referenced: []string{"ar", "ar[b]"},
 	},
 	{
 		E:    `ar["b"] | ar["c"] | "null"`,
@@ -1582,7 +1688,8 @@ end`,
 				"c": "b",
 			},
 		},
-		R: "b",
+		R:          "b",
+		Referenced: []string{"ar", "ar[b]", "ar[c]"},
 	},
 	{
 		E:    `adur`,
@@ -2171,6 +2278,10 @@ type TestInfo struct {
 	// R contains the expected result of a successful evaluation.
 	R interface{}
 
+	// Referenced contains a list of attributes that should be referenced. If nil, attribute
+	// tracking checks will be skipped.
+	Referenced []string
+
 	// Type is the expected of the expression upon successful compilation.
 	Type descriptor.ValueType
 
@@ -2240,6 +2351,18 @@ func (t *TestInfo) CheckEvaluationResult(r interface{}, err error) error {
 	}
 
 	return nil
+}
+
+// CheckReferenced will check to see if the set of referenced attributes is expected. If t.Referenced is nil
+// then returns true.
+func (t *TestInfo) CheckReferenced(bag *FakeBag) bool {
+	if t.Referenced == nil {
+		return true
+	}
+
+	actual := bag.ReferencedList()
+
+	return reflect.DeepEqual(actual, t.Referenced)
 }
 
 // TestConfigs uses a standard set of configs to use when executing tests.
