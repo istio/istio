@@ -22,7 +22,7 @@ SHELL := /bin/bash
 VERSION ?= "0.5.0"
 
 # If GOPATH is not set by the env, set it to a sane value
-GOPATH ?= $(shell cd ../../..; pwd)
+GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 
 # If GOPATH is made up of several paths, use the first one for our targets in this Makefile
 GO_TOP := $(shell echo ${GOPATH} | cut -d ':' -f1)
@@ -399,6 +399,7 @@ docker.sidecar.deb:
         -v ${GO_TOP}:${GO_TOP} \
         -w ${PWD} \
         -e USER=${USER} \
+        -e GOPATH=${GOPATH} \
 		--entrypoint /usr/bin/make ${CI_HUB}/ci:${CI_VERSION} \
 		sidecar.deb )
 
@@ -409,8 +410,12 @@ docker.sidecar.deb:
 # TODO: consistent layout, possibly /opt/istio-VER/...
 sidecar.deb: ${OUT}/istio-sidecar.deb
 
+# Note: adding --deb-systemd ${GO_TOP}/src/istio.io/istio/tools/deb/istio.service will result in
+# a /etc/systemd/system/multi-user.target.wants/istio.service and auto-start. Currently not used
+# since we need configuration.
 ${OUT}/istio-sidecar.deb:
 	mkdir -p ${OUT}
+	rm -f ${OUT}/istio-sidecar.deb
 	fpm -s dir -t deb -n istio-sidecar -p ${OUT}/istio-sidecar.deb --version ${VERSION} --iteration 1 -C ${GO_TOP} -f \
 	   --url http://istio.io  \
 	   --license Apache \
@@ -421,13 +426,16 @@ ${OUT}/istio-sidecar.deb:
 	   --config-files /var/lib/istio/envoy/envoy.json \
 	   --description "Istio" \
 	   src/istio.io/istio/tools/deb/istio-start.sh=/usr/local/bin/istio-start.sh \
-	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables/sh \
+	   src/istio.io/istio/tools/deb/istio-iptables.sh=/usr/local/bin/istio-iptables.sh \
 	   src/istio.io/istio/tools/deb/istio.service=/lib/systemd/system/istio.service \
-	   src/istio.io/istio/security/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
+	   src/istio.io/istio/tools/deb/istio-auth-node-agent.service=/lib/systemd/system/istio-auth-node-agent.service \
 	   bin/envoy=/usr/local/bin/envoy \
 	   bin/pilot-agent=/usr/local/bin/pilot-agent \
-	   bin/node_agent=/usr/local/istio/bin/node_agent \
-	   src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
+	   bin/node_agent=/usr/local/bin/node_agent \
+	   bin/istioctl=/usr/local/bin/istioctl \
+	   bin/mixs=/usr/local/bin/mixs \
+	   bin/pilot-discovery=/usr/local/bin/pilot-discovery \
+       src/istio.io/istio/tools/deb/sidecar.env=/var/lib/istio/envoy/sidecar.env \
 	   src/istio.io/istio/tools/deb/envoy.json=/var/lib/istio/envoy/envoy.json
 
 
