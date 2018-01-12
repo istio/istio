@@ -291,7 +291,7 @@ jobs:
             mkdir -p /go/out/racetests
             go get github.com/jstemmer/go-junit-report
             free
-            trap "go-junit-report </go/out/tests/go-test-report.out > /go/out/tests/go-test-report.xml" EXIT
+            trap "go-junit-report </go/out/racetests/go-racetest-report.out > /go/out/racetests/go-racetest-report.xml" EXIT
             make localTestEnv
             make pilot-racetest mixer-racetest broker-racetest security-racetest T=-v | tee -a /go/out/racetests/go-racetest-report.out
       - store_test_results:
