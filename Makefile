@@ -44,7 +44,7 @@ export GOARCH ?= amd64
 
 
 # @todo allow user to run for a single $PKG only?
-PACKAGES := $(shell $(GO) list ./...)
+PACKAGES := $(shell GOPATH=$(GOPATH) $(GO) list ./...)
 GO_EXCLUDE := /vendor/|.pb.go|.gen.go
 GO_FILES := $(shell find . -name '*.go' | grep -v -E '$(GO_EXCLUDE)')
 
@@ -70,6 +70,7 @@ endif
 
 # Discover if user has dep installed -- prefer that
 DEP := $(shell which dep || echo "${ISTIO_BIN}/dep" )
+GOLINT := $(shell which golint || echo "${ISTIO_BIN}/golint" )
 
 # Set Google Storage bucket if not set
 GS_BUCKET ?= istio-artifacts
@@ -114,6 +115,9 @@ depend.update: ${DEP} ; $(info $(H) ensuring dependencies are up to date...)
 
 ${DEP}:
 	unset GOOS && go get -u github.com/golang/dep/cmd/dep
+
+${GOLINT}:
+	unset GOOS && go get -u github.com/golang/lint/golint
 
 Gopkg.lock: Gopkg.toml | ${DEP} ; $(info $(H) generating) @
 	$(Q) ${DEP} ensure -update
@@ -166,10 +170,10 @@ check.vet: ; $(info $(H) running go vet on packages...)
 
 # @todo fail on lint errors? Currently uses `true` to avoid aborting on failure
 # @todo remove _test and mock_ from ignore list and fix the errors?
-check.lint: ; $(info $(H) running golint on packages...)
+check.lint: | ${GOLINT} ; $(info $(H) running golint on packages...)
 	$(eval LINT_EXCLUDE := $(GO_EXCLUDE)|_test.go|mock_)
 	$(Q) for p in $(PACKAGES); do \
-		golint $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
+		${GOLINT} $$p | grep -v -E '$(LINT_EXCLUDE)' ; \
 	done || true;
 
 # @todo gometalinter targets?
