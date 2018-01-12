@@ -63,8 +63,8 @@
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","awstesting/unit","internal/shareddefaults","private/protocol","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/xml/xmlutil","service/sts"]
-  revision = "3c754f1d340244540350f0a00b940781bae9c905"
-  version = "v1.12.59"
+  revision = "726cba4d63d34a7055809986b7942c3eae6c4eb2"
+  version = "v1.12.60"
 
 [[projects]]
   branch = "master"
@@ -129,8 +129,8 @@
 [[projects]]
   name = "github.com/emicklei/go-restful"
   packages = [".","log"]
-  revision = "5741799b275a3c4a5a9623a993576d7545cf7b5c"
-  version = "v2.4.0"
+  revision = "2dd44038f0b95ae693b266c5f87593b5d2fdd78d"
+  version = "v2.5.0"
 
 [[projects]]
   name = "github.com/fluent/fluent-logger-golang"
@@ -262,7 +262,7 @@
   branch = "master"
   name = "github.com/gophercloud/gophercloud"
   packages = [".","openstack","openstack/identity/v2/tenants","openstack/identity/v2/tokens","openstack/identity/v3/tokens","openstack/utils","pagination"]
-  revision = "993bca9e3fac8efeaa6cfe74b0b7b00468d8fcf5"
+  revision = "57f1c660ea6fe700cde9d9c964c820ec985c731e"
 
 [[projects]]
   name = "github.com/gorilla/context"
@@ -375,8 +375,8 @@
 [[projects]]
   name = "github.com/imdario/mergo"
   packages = ["."]
-  revision = "7fe0c75c13abdee74b09fcacef5ea1c6bba6a874"
-  version = "0.2.4"
+  revision = "f1ac5984e69fed03e0574a92f70c59f132616ea2"
+  version = "0.3.0"
 
 [[projects]]
   name = "github.com/inconshreveable/mousetrap"
@@ -602,7 +602,7 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","context/ctxhttp","html","html/atom","html/charset","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
-  revision = "ab555f366c4508dbe0802550b1b20c46c5c18aa0"
+  revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
 [[projects]]
   branch = "master"
@@ -644,7 +644,7 @@
   branch = "master"
   name = "google.golang.org/api"
   packages = ["gensupport","googleapi","googleapi/internal/uritemplates","googleapi/transport","internal","iterator","option","servicecontrol/v1","storage/v1","support/bundler","transport","transport/grpc","transport/http"]
-  revision = "d2c53ea20b719a26e291430d99eaaf6c9a8eb68c"
+  revision = "37df4fabefb044819e927f44b8487d4cd926d06c"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -691,7 +691,7 @@
 [[projects]]
   name = "istio.io/api"
   packages = ["broker/v1/config","mesh/v1alpha1","mixer/v1","mixer/v1/config/client","mixer/v1/config/descriptor","mixer/v1/template","routing/v1alpha1","routing/v1alpha2"]
-  revision = "ba8e7cab9e80a538014df6aa8676b98d398b9779"
+  revision = "2b5fc2e4b673bfb16eba7adf23febe976dc012e4"
 
 [[projects]]
   name = "istio.io/fortio"
@@ -702,7 +702,7 @@
   branch = "master"
   name = "istio.io/gogo-genproto"
   packages = ["googleapis/google/rpc"]
-  revision = "09740ece0bc45a1cd0971a8b1f57c44b13ccd8dd"
+  revision = "d024273b661f9ab2d09f1035989571eee10e276b"
 
 [[projects]]
   branch = "release-1.9"
@@ -749,6 +749,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "83aa23f3220905091881412201d522ef42ad7142904f66cae8ffb17ebcb45632"
+  inputs-digest = "f45b31ce93a4005651570ae7d2f1f080a2b00ef8fb4dc6945077cdcfc59aa4d3"
   solver-name = "gps-cdcl"
   solver-version = 1
