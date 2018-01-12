@@ -277,6 +277,7 @@ func buildSidecarListenersClusters(
 		// only HTTP outbound clusters are needed
 		httpOutbound := buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpOutbound = buildEgressHTTPRoutes(mesh, node, instances, config, httpOutbound)
+		httpOutbound = buildForeignServiceHTTPRoutes(mesh, node, instances, config, httpOutbound)
 		clusters = append(clusters,
 			httpOutbound.clusters()...)
 		listeners = append(listeners,
@@ -313,6 +314,7 @@ func buildRDSRoute(mesh *meshconfig.MeshConfig, node proxy.Node, routeName strin
 		}
 		httpConfigs = buildOutboundHTTPRoutes(mesh, node, instances, services, config)
 		httpConfigs = buildEgressHTTPRoutes(mesh, node, instances, config, httpConfigs)
+		httpConfigs = buildForeignServiceHTTPRoutes(mesh, node, instances, config, httpConfigs)
 	default:
 		return nil, errors.New("unrecognized node type")
 	}
@@ -511,6 +513,7 @@ func buildOutboundListeners(mesh *meshconfig.MeshConfig, sidecar proxy.Node, ins
 	// note that outbound HTTP routes are supplied through RDS
 	httpOutbound := buildOutboundHTTPRoutes(mesh, sidecar, instances, services, config)
 	httpOutbound = buildEgressHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
+	httpOutbound = buildForeignServiceHTTPRoutes(mesh, sidecar, instances, config, httpOutbound)
 
 	for port, routeConfig := range httpOutbound {
 		operation := EgressTraceOperation
@@ -852,11 +855,10 @@ func truncateClusterName(name string) string {
 	return name
 }
 
-func buildEgressVirtualHost(rule *routing.EgressRule,
+func buildEgressVirtualHost(destination string,
 	mesh *meshconfig.MeshConfig, sidecar proxy.Node, port *model.Port, instances []*model.ServiceInstance,
 	config model.IstioConfigStore) *VirtualHost {
 	var externalTrafficCluster *Cluster
-	destination := rule.Destination.Service
 
 	protocolToHandle := port.Protocol
 	if protocolToHandle == model.ProtocolGRPC {
@@ -934,11 +936,44 @@ func buildEgressHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
 				Port: intPort, Protocol: protocol}
 			httpConfig := httpConfigs.EnsurePort(intPort)
 			httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
-				buildEgressVirtualHost(rule, mesh, node, modelPort, instances, config))
+				buildEgressVirtualHost(rule.Destination.Service, mesh, node, modelPort, instances, config))
 		}
 	}
 
 	return httpConfigs.normalize()
+}
+
+
+func buildForeignServiceHTTPRoutes(mesh *meshconfig.MeshConfig, node proxy.Node,
+	instances []*model.ServiceInstance, config model.IstioConfigStore,
+	httpConfigs HTTPRouteConfigs) HTTPRouteConfigs {
+
+	if node.Type == proxy.Router {
+		// No egress rule support for Routers. As semantics are not clear.
+		return httpConfigs
+	}
+
+	fsConfigs := config.ForeignServices()
+	for _, fsConfig := range fsConfigs {
+		fs := fsConfig.Spec.(*routingv2.ForeignService)
+		for _, port := range fs.Ports {
+			protocol := model.ConvertCaseInsensitiveStringToProtocol(port.Protocol)
+			if !model.IsEgressRulesSupportedHTTPProtocol(protocol) {
+				continue
+			}
+
+			intPort := int(port.Number)
+			modelPort := &model.Port{Name: fmt.Sprintf("external-%v-%d", protocol, intPort),
+				Port: intPort, Protocol: protocol}
+			httpConfig := httpConfigs.EnsurePort(intPort)
+			for _, host := range fs.Hosts {
+				httpConfig.VirtualHosts = append(httpConfig.VirtualHosts,
+					buildEgressVirtualHost(host, mesh, node, modelPort, instances, config))
+			}
+		}
+	}
+
+	return httpConfigs
 }
 
 // buildEgressTCPListeners builds a listener on 0.0.0.0 per each distinct port of all TCP egress
@@ -953,6 +988,9 @@ func buildEgressTCPListeners(mesh *meshconfig.MeshConfig, node proxy.Node,
 		// No egress rule support for Routers. As semantics are not clear.
 		return tcpListeners, tcpClusters
 	}
+
+	// TODO: add logic for foreign service
+	//fsConfigs := config.ForeignServices()
 
 	egressRules, errs := model.RejectConflictingEgressRules(config.EgressRules())
 
