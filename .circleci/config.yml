@@ -297,6 +297,22 @@ jobs:
       - store_test_results:
           path: /go/out/racetests
 
+  benchcheck:
+    <<: *defaults
+    environment:
+      KUBECONFIG: /go/src/istio.io/istio/.circleci/config
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dep-cache-{{ checksum "Gopkg.lock" }}
+      - run:
+          command: |
+            mkdir -p /go/out/benchcheck
+            make benchcheck | tee -a /go/out/benchcheck/go-benchcheck-report.out
+      - store_test_results:
+          path: /go/out/benchcheck
+
   build:
     <<: *defaults
     resource_class: xlarge
@@ -422,6 +438,9 @@ workflows:
       - e2e-pilot-noauth:
           requires:
             - test
+      - benchcheck:
+          requires:
+            - test
       # Compile for mac and arm
       - goxbuild:
           requires:
@@ -473,6 +492,9 @@ workflows:
       - e2e-pilot-noauth:
           requires:
             - build
+      - benchcheck:
+          requires:
+            - test
 
   all:
     jobs:
@@ -489,3 +511,6 @@ workflows:
       - e2e-pilot:
           requires:
             - build
+      - benchcheck:
+          requires:
+            - test
