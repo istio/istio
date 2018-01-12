@@ -63,13 +63,8 @@ git_repository(
 load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
 mixer_api_for_proxy_dependencies()
 
-ISTIO_SHA = "cdbdb153fb673cf444649c520ba7ed1b0dc99972"
-
 git_repository(
-    name = "io_istio_istio",
-    commit = ISTIO_SHA,
-    remote = "https://github.com/istio/istio",
+    name = "org_pubref_rules_protobuf",
+    commit = "563b674a2ce6650d459732932ea2bc98c9c9a9bf",  # Nov 28, 2017 (bazel 0.8.0 support)
+    remote = "https://github.com/pubref/rules_protobuf",
 )
-
-load("//src/envoy/mixer/integration_test:repositories.bzl", "mixer_test_repositories")
-mixer_test_repositories()
