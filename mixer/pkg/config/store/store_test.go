@@ -55,7 +55,7 @@ func registerTestStore(builders map[string]Builder) {
 	}
 }
 
-func TestStore2(t *testing.T) {
+func TestStore(t *testing.T) {
 	r := NewRegistry(registerTestStore)
 	u := "memstore://" + t.Name()
 	s, err := r.NewStore(u)
@@ -114,7 +114,7 @@ func TestStore2(t *testing.T) {
 	}
 }
 
-func TestStore2WatchMultiple(t *testing.T) {
+func TestStoreWatchMultiple(t *testing.T) {
 	r := NewRegistry(registerTestStore)
 	s, err := r.NewStore("memstore://" + t.Name())
 	if err != nil {
@@ -139,7 +139,7 @@ func TestStore2WatchMultiple(t *testing.T) {
 	}
 }
 
-func TestStore2Fail(t *testing.T) {
+func TestStoreFail(t *testing.T) {
 	r := NewRegistry(registerTestStore)
 	s, err := r.NewStore("test://" + t.Name())
 	if err != nil {
@@ -172,7 +172,7 @@ func TestStore2Fail(t *testing.T) {
 	}
 }
 
-func TestRegistry2(t *testing.T) {
+func TestRegistry(t *testing.T) {
 	r := NewRegistry(registerTestStore)
 	for _, c := range []struct {
 		u  string

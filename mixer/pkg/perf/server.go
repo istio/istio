@@ -85,7 +85,7 @@ func initializeArgs(settings *Settings, setup *Setup) (*testEnv.Args, error) {
 	args.MonitoringPort = 0
 	args.Templates = templates
 	args.Adapters = adapters
-	args.ConfigStore2URL = `fs://` + serverDir
+	args.ConfigStoreURL = `fs://` + serverDir
 	args.ConfigDefaultNamespace = "istio-system"
 	args.ConfigIdentityAttribute = setup.Config.IdentityAttribute
 	args.ConfigIdentityAttributeDomain = setup.Config.IdentityAttributeDomain

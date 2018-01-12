@@ -145,7 +145,7 @@ func newServer(a *Args, p *patchTable) (*Server, error) {
 		return nil, fmt.Errorf("unable to listen on socket: %v", err)
 	}
 
-	configStore2URL := a.ConfigStore2URL
+	configStore2URL := a.ConfigStoreURL
 	if configStore2URL == "" {
 		configStore2URL = "k8s://"
 	}
